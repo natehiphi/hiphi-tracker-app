@@ -8,10 +8,10 @@ const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
 
 const STAGES = [
-  ['introduced','Introduced'], ['first_lateral','First Lateral'],
-  ['first_crossover','First Crossover'], ['second_crossover','Second Crossover'],
-  ['conference','Conference'], ['governor','To Governor'],
-  ['enacted','Enacted'], ['vetoed','Vetoed'], ['dead','Dead'],
+  ['introduced','Introduced'], ['first_lateral','1st Lateral'], ['first_decking','1st Decking'],
+  ['first_crossover','Crossover'], ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'],
+  ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
+  ['enacted','Law'], ['vetoed','Vetoed'], ['dead','Dead'],
 ];
 const STAGE_LABEL = Object.fromEntries(STAGES);
 const POSITIONS = [['','—'],['support','Support'],['support_amend','Support w/ amendments'],
@@ -23,11 +23,11 @@ const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
 // ---------------- state ----------------
 const S = {
   supa: null, session: null, me: null,
-  advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [],
+  advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
   billCampaigns: {},         // bill_id -> [campaign_id]
   view: localStorage.getItem('view') || 'portfolio',
-  owner: 'me', q: '', pri: '', stageF: '',
+  owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
 };
 const $ = sel => document.querySelector(sel);
@@ -45,6 +45,11 @@ const daysAgo = d => d ? Math.floor((Date.now() - new Date(d)) / 864e5) : null;
 const effStage = b => b.stage_override || b.stage || 'introduced';
 const advocate = id => S.advocates.find(a => a.id === id);
 const owners = b => (S.assignments[b.id] || []).map(advocate).filter(Boolean);
+const capitolUrl = b => {
+  const m = (b.bill_number||'').match(/^([A-Z]+)(\d+)$/);
+  return m ? `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year||2026}`
+           : (b.state_url || '#');
+};
 const av = (a, cls='avatar') =>
   `<span class="${cls}" style="background:${a?.color || '#8FA1AD'}" title="${esc(a?.full_name||'')}">${esc(a?.initials || '?')}</span>`;
 
@@ -71,7 +76,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -79,8 +84,10 @@ const DB = {
       S.supa.from('bill_campaigns').select('bill_id,campaign_id'),
       S.supa.from('hearings').select('*').gte('scheduled_at', new Date(Date.now()-864e5).toISOString()),
       S.supa.from('bill_pulse').select('*'),
+      S.supa.from('activity_log').select('*').eq('source','team')
+        .order('occurred_at', { ascending: false }).limit(25),
     ]);
-    for (const r of [adv, bills, asg, camps, bc, hear, pulse])
+    for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data;
     S.hearings = hear.data;
@@ -89,6 +96,7 @@ const DB = {
     S.billCampaigns = {}; bc.data.forEach(r =>
       (S.billCampaigns[r.bill_id] ??= []).push(r.campaign_id));
     S.pulse = Object.fromEntries(pulse.data.map(p => [p.bill_id, p]));
+    S.feed = feed.data;
     S.me = S.advocates.find(a => a.id === myId) ||
            S.advocates.find(a => a.email === S.session?.user?.email) || null;
   },
@@ -153,15 +161,17 @@ function demoInit() {
   const mk = (id,num,t,stage,pos,pri,cmte,la,lad,own,camp) => {
     S.assignments[id]=[own]; S.billCampaigns[id]=[camp];
     return { id, bill_number:num, title:t, stage, position:pos, priority:pri, committee:cmte,
-      referrals:['HLT','FIN'], last_action:la, last_action_date:lad, session_year:2026,
+      referrals: id==='b1' ? ['HLT','CPC/JHA','FIN'] : ['HLT','FIN'], last_action:la, last_action_date:lad, session_year:2026,
       state_url:'https://www.capitol.hawaii.gov', tracked:true };
   };
   S.bills = [
-    mk('b1','HB1512','Relating to Health (flavored tobacco ban)','first_lateral','support',1,'FIN','Reported from HLT, referred to FIN','2026-02-10','KV','c1'),
+    Object.assign(mk('b1','HB1512','Relating to Health (flavored tobacco ban)','first_decking','support',1,'FIN','Reported from HLT, referred to FIN','2026-02-10','KV','c1'),
+      {description:'Beginning 1/1/2027, prohibits the sale of flavored tobacco products, including menthol cigarettes and flavored e-liquids.'}),
     mk('b2','HB1518','Relating to the Supplemental Nutrition Assistance Program','governor','support',2,'JDC','Received notice of passage','2026-05-08','KR','c2'),
-    mk('b3','SB2384','Relating to Health','first_crossover','support',1,'HLT','Transmitted to House','2026-03-05','KV','c1'),
+    mk('b3','SB2384','Relating to Health','second_lateral','support',1,'HLT','Hearing scheduled by HLT',new Date(Date.now()-2*864e5).toISOString().slice(0,10),'KV','c1'),
     mk('b4','HB1524','Relating to Pedestrians','enacted','monitor',3,'TRS','Act 041 signed by Governor','2026-05-20','NT','c3'),
-    mk('b5','SB1039','Relating to School Meals','dead','support',2,'WAM','Carried over / missed crossover','2026-03-05','KR','c2'),
+    Object.assign(mk('b5','SB1039','Relating to School Meals','dead','support',2,'WAM','Carried over / missed crossover','2026-03-05','KR','c2'),
+      {description:'Requires the department of education to provide free school meals to all public school students.'}),
     mk('b6','HB814','Relating to Cannabis','conference','monitor',3,'FIN','Conference committee appointed','2026-04-12','NT','c3'),
   ];
   const now = Date.now();
@@ -179,6 +189,7 @@ function demoInit() {
     { bill_id:'b1', type:'status_auto', title:'Reported from HLT (Stand. Com. Rep. No. 214), referred to FIN',
       details:'Official action — House', occurred_at:'2026-02-10T18:00:00Z', source:'auto' },
   ];
+  S.feed = DEMO_TL.filter(t => t.source === 'team');
   S.session = { user: { email: 'nate@hiphi.org' } };
 }
 
@@ -223,7 +234,7 @@ function chrome(inner) {
     <div class="top">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['add','+ Add bills']]
+        ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['add','+ Add bills']]
           .map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
       </div>
       <span class="fresh">2026 session · ${S.bills.length} tracked</span>
@@ -265,23 +276,80 @@ function pulseCell(b) {
 
 // ---------------- views ----------------
 function renderPortfolio(list) {
-  const mine = list, wk = Date.now()+7*864e5;
-  const hearingsWk = mine.filter(b => S.hearings.some(h => h.bill_id===b.id &&
-    new Date(h.scheduled_at) > new Date() && new Date(h.scheduled_at) < wk)).length;
-  const testi = mine.filter(b => (S.pulse[b.id]?.testimony_count||0) > 0).length;
-  const stale = mine.filter(b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d==null||d>7; }).length;
-  const who = S.owner==='me' ? (S.me?.full_name||'My') :
-    S.owner==='all' ? 'Team' : (advocate(S.owner)?.full_name||'');
-  return `
-    <div class="stats">
-      <div class="stat"><div class="v">${mine.length}</div><div class="l">${esc(who)} bills</div></div>
-      <div class="stat"><div class="v">${hearingsWk}</div><div class="l">Hearings next 7 days</div></div>
-      <div class="stat"><div class="v">${testi}</div><div class="l">Bills w/ testimony filed</div></div>
-      <div class="stat warn"><div class="v">${stale}</div><div class="l">No team update in 7+ days</div></div>
-    </div>
-    ${billTable(mine, ['bill','status','position','pulse'])}`;
-}
+  const ids = new Set(list.map(b => b.id));
+  const now = Date.now(), wk = now + 7*864e5, day = 864e5;
+  const bill = id => S.bills.find(b => b.id === id);
+  const who = S.owner==='me' ? (S.me?.full_name || 'My') :
+    S.owner==='all' ? 'Team' : (advocate(S.owner)?.full_name || '');
+  const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
+    .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  const due = hUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) - now < 48*3600e3);
+  const hearingsWk = hUp.filter(h => new Date(h.scheduled_at) < new Date(wk));
+  const staleDays = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 9999 : d; };
+  const stale = list.filter(b => (b.priority||3) <= 2 && staleDays(b) > 7)
+    .sort((a,b) => (a.priority||3)-(b.priority||3) || staleDays(b)-staleDays(a));
+  const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day)
+    .sort((a,b) => (b.last_action_date||'').localeCompare(a.last_action_date||''));
+  const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 8);
+  const hrsLeft = d => Math.max(0, Math.round((new Date(d) - now)/36e5));
 
+  const panel = (title, sub, rowsHtml, emptyMsg) => `
+    <div class="panel"><div class="ph"><span>${title}</span><span class="psub">${sub}</span></div>
+      ${rowsHtml || `<div class="pempty">${emptyMsg}</div>`}</div>`;
+
+  return `
+    <div class="dashhead">
+      <h1>${esc(who)}'s desk</h1>
+      <span class="sub">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'Pacific/Honolulu'})}
+        · ${list.length} bills in portfolio</span>
+    </div>
+    <div class="stats">
+      <div class="stat ${due.length?'warn':''}"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></div>
+      <div class="stat"><div class="v">${hearingsWk.length}</div><div class="l">Hearings next 7 days</div></div>
+      <div class="stat"><div class="v">${moved.length}</div><div class="l">Moved this week</div></div>
+      <div class="stat ${stale.length?'warn':''}"><div class="v">${stale.length}</div><div class="l">P1–P2 needing an update</div></div>
+    </div>
+    <div class="dash">
+      <div>
+        ${panel('⏱ Testimony window', 'deadlines inside 48 hours',
+          due.map(h => { const b = bill(h.bill_id); if (!b) return ''; return `
+          <div class="prow urgent" data-bill="${b.id}">
+            <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} — due in <b>${hrsLeft(h.testimony_deadline)}h</b>
+              <div class="psmall">Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}</div></div>
+            <button class="btn sm" data-logt="${b.id}">Log testimony</button>
+            <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
+          </div>`; }).join(''), 'No testimony deadlines in the next 48 hours.')}
+        ${panel('◷ Hearings this week', 'scheduled on these bills',
+          hearingsWk.map(h => { const b = bill(h.bill_id); if (!b) return ''; return `
+          <div class="prow" data-bill="${b.id}">
+            <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${fmtDT(h.scheduled_at)}
+              <div class="psmall">${esc(b.title||'')}</div></div></div>`; }).join(''),
+          'No hearings scheduled this week.')}
+        ${panel('⚑ Needs your attention', 'priority bills with no team update in 7+ days',
+          stale.slice(0,8).map(b => { const d = staleDays(b); return `
+          <div class="prow" data-bill="${b.id}">
+            <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="chipx c-gray">P${b.priority}</span>
+              ${esc((b.title||'').slice(0,60))}
+              <div class="psmall">${statusChip(b)} · last touch: ${d>500?'never':d+'d ago'}</div></div></div>`;
+          }).join('') + (stale.length>8?`<div class="pempty">…and ${stale.length-8} more — see Table view</div>`:''),
+          'All priority bills touched within the week. 🤙')}
+      </div>
+      <div>
+        ${panel('⇢ Moved in the last 7 days', 'official actions from the Capitol',
+          moved.slice(0,8).map(b => `
+          <div class="prow" data-bill="${b.id}">
+            <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="psmall" style="display:inline">${fmtDate(b.last_action_date)}</span>
+              <div class="psmall">${esc((b.last_action||'').slice(0,90))}</div></div></div>`).join(''),
+          'No official movement this week.')}
+        ${panel('✎ Latest team activity', 'across this portfolio',
+          feed.map(ev => { const b = bill(ev.bill_id), a = advocate(ev.advocate_id); return `
+          <div class="prow" data-bill="${ev.bill_id}">
+            ${av(a)}<div class="pmain"><b>${esc(ev.title)}</b>
+              <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`;
+          }).join(''), 'No team activity logged yet — open any bill to add the first entry.')}
+      </div>
+    </div>`;
+}
 
 function cell(b, c) {
   switch (c) {
@@ -319,12 +387,19 @@ function renderPipeline(list) {
   const cols = STAGES.filter(([v]) => !final.includes(v)).map(([v,l]) => [v,l,groups[v]]);
   cols.push(['final','Outcome', final.flatMap(v => groups[v])]);
   const MAX = 25;
+  const dlchips = v => (DEADLINES[v]||[]).map(([lab,d]) => {
+    const past = new Date(d) < new Date();
+    return `<span class="dlchip ${past?'past':''}">${lab} · ${new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
+  }).join('');
   return `<div class="board">${cols.map(([v,l,bs]) => `
     <div class="col"><div class="colh"><span class="nm">${l}</span><span class="n">${bs.length}</span></div>
+      <div class="dlrow">${dlchips(v)}</div>
       ${bs.slice(0,MAX).map(b => `
         <div class="card p${b.priority||3}" data-bill="${b.id}">
           <div class="r1"><span class="bno">${esc(b.bill_number)}</span>
-            ${v==='final' ? `<span class="chipx ${effStage(b)==='enacted'?'c-green':'c-gray'}" style="font-size:9.5px">${STAGE_LABEL[effStage(b)]}</span>`:''}
+            ${isTriple(b) ? '<span class="chipx c-navy" style="font-size:9px" title="Triple referral — races the Triple Filing deadline">3X</span>' : ''}
+            ${v==='final' ? `<span class="chipx ${effStage(b)==='enacted'?'c-green':'c-gray'}" style="font-size:9.5px">${STAGE_LABEL[effStage(b)]}</span>`
+              : (diedish(b) ? '<span class="chipx c-red" style="font-size:9px">DIED</span>' : '')}
             ${owners(b).slice(0,1).map(a=>av(a)).join('')}</div>
           <div class="tt">${esc(b.title||'')}</div>
           <div>${b.position ? `<span class="chipx c-gray pos-${b.position}" style="background:var(--chip)">${POSITIONS.find(p=>p[0]===b.position)?.[1]||''}</span>`:''}</div>
@@ -334,6 +409,123 @@ function renderPipeline(list) {
 }
 
 const renderTable = list => billTable(list, ['bill','coal','owner','status','position','pri','last','pulse']);
+
+
+// ---------------- Cards view (advocacy print) ----------------
+const SESSION_OVER = true;   // flip false when the 2027 session convenes
+// Official session calendar (LRB, 2026). One place to update each December.
+const DEADLINES = {
+  introduced:       [['Intro cutoff','2026-01-28']],
+  first_lateral:    [['Triple filing','2026-02-11'],['Lateral','2026-02-20']],
+  first_decking:    [['Decking','2026-03-06']],
+  first_crossover:  [['Crossover','2026-03-12']],
+  second_lateral:   [['Triple filing','2026-03-19'],['Lateral','2026-03-30']],
+  second_decking:   [['Decking','2026-04-10']],
+  second_crossover: [['Cross back','2026-04-16']],
+  conference:       [['Final decking','2026-04-29'],['Fiscal','2026-05-01']],
+  governor:         [['Sine die','2026-05-08']],
+};
+const isTriple = b => (b.referrals || []).length >= 3;   // 2026 adjourned sine die — drives died/stalled logic
+const RAIL = [['introduced','Intro'],['first_lateral','1st\nLat'],['first_decking','1st\nDeck'],
+  ['first_crossover','Cross'],['second_lateral','2nd\nLat'],['second_decking','2nd\nDeck'],
+  ['conference','Conf'],['governor','Gov'],['enacted','Law']];
+const RAIL_IDX = { introduced:0, first_lateral:1, first_decking:2, first_crossover:3,
+  second_lateral:4, second_decking:5, second_crossover:5, conference:6, governor:7,
+  enacted:8, vetoed:7, dead:null };
+const diedish = b => { const st = effStage(b);
+  if (st === 'dead' || st === 'vetoed') return true;
+  if (S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > new Date())) return false;
+  if (/deferred|failed to pass/i.test(b.last_action || '')) return true;
+  return SESSION_OVER && !['enacted','governor'].includes(st); };
+const tierOf = b => {
+  const p = b.position;
+  if ((p === 'support' || p === 'oppose') && b.priority === 1) return 0;   // strongly
+  if (p === 'support' || p === 'support_amend' || p === 'oppose' || p === 'neutral') return 1;
+  return 2;                                                                 // monitor / unset
+};
+const posLabel = b => {
+  const strong = b.priority === 1 ? 'STRONGLY ' : '';
+  return { support: strong + 'SUPPORT', support_amend: 'SUPPORT W/ AMENDMENTS',
+    oppose: strong + 'OPPOSE', neutral: 'COMMENT', monitor: 'MONITOR' }[b.position] || 'MONITOR';
+};
+const headClass = b => {
+  const p = b.position;
+  if (tierOf(b) === 0) return p === 'oppose' ? 'solid-r' : 'solid-g';
+  if (p === 'support' || p === 'support_amend') return 'hatch-g';
+  if (p === 'oppose') return 'hatch-r';
+  if (p === 'neutral') return 'hatch-t';
+  return 'plain';
+};
+function pvRail(b) {
+  const dead = diedish(b);
+  let idx = RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  return `<div class="pv-rail">${RAIL.map(([v,l], i) => `
+    <div class="pv-stop ${i < idx ? 'done' : ''} ${i === idx && !dead ? 'now' : (i === idx ? 'done' : '')}">
+      <span class="sq"></span><span class="sl">${l.replace('\n','<br>')}</span></div>`).join('')}</div>`;
+}
+function pvCard(b) {
+  const camps = (S.billCampaigns[b.id]||[]).map(c => S.campaigns.find(x=>x.id===c)?.name).filter(Boolean);
+  const filed = (S.pulse[b.id]?.testimony_count || 0) > 0;
+  return `<div class="pv-card ${diedish(b) ? 'dead' : ''}" data-bill="${b.id}">
+    <div class="pv-head ${headClass(b)}">${posLabel(b)}</div>
+    ${diedish(b) ? '<div class="pv-stamp">DIED / STALLED</div>' : ''}
+    <div class="pv-body">
+      <div class="pv-meta"><span class="pv-bno">${esc(b.bill_number)}</span>
+        ${b.priority ? `<span class="pv-tag ${b.priority===1?'hi':''}">${['','HIGH','MEDIUM','LOW'][b.priority]}</span>` : ''}
+        ${isTriple(b) ? '<span class="pv-tag">TRIPLE REFERRAL</span>' : ''}
+        ${camps.map(c => `<span class="pv-tag coal">${esc(c)}</span>`).join('')}</div>
+      <div class="pv-title">${esc(b.title||'')}</div>
+      ${b.description ? `<div class="pv-desc">${esc(b.description)}</div>` : ''}
+      <div class="pv-kv">
+        <span class="k">Latest</span><span>${esc(b.last_action||'—')} <span class="date">${fmtDate(b.last_action_date,{year:'2-digit'})}</span></span>
+        <span class="k">Committees</span><span>${esc((b.referrals||[]).join(', ') || b.committee || '—')}</span>
+        ${filed ? `<span class="k">Testimony</span><span><span class="pv-tag">FILED</span></span>` : ''}
+      </div>
+      ${pvRail(b)}
+    </div>
+    <div class="pv-foot"><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Official page ↗</a>
+      <span style="color:var(--ptealD)">Open in tracker ▸</span></div>
+  </div>`;
+}
+function renderCards(list) {
+  if (S.camp) list = list.filter(b => (S.billCampaigns[b.id]||[]).includes(S.camp));
+  const now = new Date(), soon = Date.now() + 7*864e5;
+  const hearingsUp = S.hearings.filter(h => list.some(b => b.id === h.bill_id) && new Date(h.scheduled_at) > now);
+  const stats = [
+    [list.length, 'Bills tracked'],
+    [hearingsUp.length, 'Hearings scheduled'],
+    [hearingsUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) < new Date(soon)).length, 'Deadline soon'],
+    [list.filter(b => effStage(b) === 'enacted').length, 'Enacted / adopted'],
+    [list.filter(diedish).length, 'Died / stalled'],
+  ];
+  const campCounts = {};
+  visibleBills().forEach(b => (S.billCampaigns[b.id]||[]).forEach(c => campCounts[c] = (campCounts[c]||0)+1));
+  const tiers = [['ACTIVE — STRONGLY SUPPORT · STRONGLY OPPOSE', b => !diedish(b) && tierOf(b)===0],
+    ['ACTIVE — SUPPORT · OPPOSE · COMMENT', b => !diedish(b) && tierOf(b)===1],
+    ['ACTIVE — MONITOR', b => !diedish(b) && tierOf(b)===2],
+    ['DIED / STALLED — STRONGLY SUPPORT · STRONGLY OPPOSE', b => diedish(b) && tierOf(b)===0],
+    ['DIED / STALLED — SUPPORT · OPPOSE · COMMENT', b => diedish(b) && tierOf(b)===1],
+    ['DIED / STALLED — MONITOR', b => diedish(b) && tierOf(b)===2]];
+  const tix = hearingsUp.slice(0,6).map(h => { const b = S.bills.find(x=>x.id===h.bill_id); if (!b) return '';
+    const hrs = h.testimony_deadline ? Math.max(0, Math.round((new Date(h.testimony_deadline)-Date.now())/36e5)) : null;
+    return `<div class="pv-tick"><div class="bn">${esc(b.bill_number)}</div>
+      <div class="when">${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</div>
+      ${hrs != null ? `<div class="due">TESTIMONY DUE IN ${hrs}H</div>` : ''}</div>`; }).join('');
+  return `<div class="pv">
+    ${hearingsUp.length ? `<div class="pv-testify"><div class="h"><span class="t">TESTIFY</span>
+      <span class="s">Upcoming hearings &amp; committee meetings</span></div>
+      <div class="pv-tix">${tix}</div></div>` : ''}
+    <div class="pv-stats">${stats.map(([v,l]) =>
+      `<div class="pv-stat"><div class="v pdisp">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
+    <div class="pv-tabs"><button class="pv-tab ${!S.camp?'on':''}" data-camp="">All coalitions<span class="n">${visibleBills().length}</span></button>
+      ${S.campaigns.filter(c => campCounts[c.id]).map(c =>
+        `<button class="pv-tab ${S.camp===c.id?'on':''}" data-camp="${c.id}">${esc(c.name)}<span class="n">${campCounts[c.id]}</span></button>`).join('')}</div>
+    ${tiers.map(([label, fn]) => { const bs = list.filter(fn); return bs.length ? `
+      <div class="pv-sechead">${label}</div>
+      <div class="pv-grid">${bs.map(pvCard).join('')}</div>` : ''; }).join('') ||
+      '<div class="empty">No bills match these filters.</div>'}
+  </div>`;
+}
 
 function renderAdd() {
   return `<div class="addbill">
@@ -378,7 +570,7 @@ function drawerHTML(b) {
         <span class="k">Committee</span><span>${esc(b.committee||'—')}</span>
         <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
         <span class="k">Last action</span><span>${esc(b.last_action||'—')} <span style="color:var(--muted)">(${fmtDate(b.last_action_date,{year:'2-digit'})})</span></span>
-        <span class="k">Source</span><span>${b.state_url?`<a href="${esc(b.state_url)}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a>`:'—'}</span>
+        <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
       </div>
       <div class="sec">HIPHI layer</div>
       <div class="teamgrid">
@@ -433,6 +625,7 @@ function render() {
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
     : S.view === 'pipeline' ? renderPipeline(list)
+    : S.view === 'cards' ? renderCards(list)
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
   $('#app').innerHTML = chrome(body) + (b ? drawerHTML(b) : '');
@@ -452,11 +645,13 @@ function wire() {
   $('#prif') && ($('#prif').onchange = e => { S.pri = e.target.value; render(); });
   $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; render(); });
   $('#csv') && ($('#csv').onclick = exportCSV);
+  document.querySelectorAll('[data-camp]').forEach(el =>
+    el.onclick = () => { S.camp = el.dataset.camp; render(); });
   document.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => {
     const k = th.dataset.sort; if (!k) return;
     S.sort = S.sort[0] === k ? [k, -S.sort[1]] : [k, 1]; render();
   });
-  document.querySelectorAll('tr[data-bill],.card[data-bill]').forEach(el =>
+  document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill]').forEach(el =>
     el.onclick = e => { if (e.target.closest('select')) return; openDrawer(el.dataset.bill); });
   const upd = (sel, fn) => document.querySelectorAll(sel).forEach(el => {
     el.onclick = e => e.stopPropagation();
@@ -465,6 +660,9 @@ function wire() {
   upd('[data-pos]', el => DB.updateBill(el.dataset.pos, { position: el.value || null }));
   upd('[data-pri]', el => DB.updateBill(el.dataset.pri, { priority: el.value ? +el.value : null }));
   upd('[data-own]', el => DB.setOwner(el.dataset.own, el.value || null));
+  document.querySelectorAll('[data-logt]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); S.logType = 'testimony'; openDrawer(el.dataset.logt);
+  });
   wireDrawer(); wireAdd();
 }
 function rerenderBody() {   // keep focus in search box while typing
