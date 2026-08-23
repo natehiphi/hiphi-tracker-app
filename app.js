@@ -6,6 +6,9 @@
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
+// January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
+// here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
+const SESSION_YEAR = 2026;
 
 const STAGES = [
   ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
@@ -23,7 +26,7 @@ const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
 
 // ---------------- state ----------------
 const S = {
-  tripleF: false,
+  tripleF: false, syncRuns: [],
   supa: null, session: null, me: null,
   advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
@@ -49,7 +52,7 @@ const advocate = id => S.advocates.find(a => a.id === id);
 const owners = b => (S.assignments[b.id] || []).map(advocate).filter(Boolean);
 const capitolUrl = b => {
   const m = (b.bill_number||'').match(/^([A-Z]+)(\d+)$/);
-  return m ? `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year||2026}`
+  return m ? `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year||SESSION_YEAR}`
            : (b.state_url || '#');
 };
 const av = (a, cls='avatar') =>
@@ -101,6 +104,12 @@ const DB = {
     S.feed = feed.data;
     S.me = S.advocates.find(a => a.id === myId) ||
            S.advocates.find(a => a.email === S.session?.user?.email) || null;
+    // Freshness indicator data - never let this block the app
+    try {
+      const sr = await S.supa.from('sync_runs').select('finished_at,ok')
+        .order('started_at', { ascending: false }).limit(10);
+      S.syncRuns = sr.data || [];
+    } catch { S.syncRuns = []; }
   },
   async timeline(billId) {
     if (DEMO) return DEMO_TL.filter(t => t.bill_id === billId);
@@ -234,6 +243,14 @@ function chrome(inner) {
       ${in48.slice(0,3).map(h => { const b = S.bills.find(x=>x.id===h.bill_id); return b ? `
         <span class="item"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · testimony due ${fmtDT(h.testimony_deadline)}</span>` : ''; }).join('')}
     </div>` : '';
+  const lastOk = (S.syncRuns || []).find(r => r.ok)?.finished_at;
+  const latestFailed = (S.syncRuns || [])[0]?.ok === false;
+  const hrs = lastOk ? Math.round((Date.now() - new Date(lastOk)) / 36e5) : null;
+  const stale = !DEMO && (latestFailed || hrs == null || hrs > 36);
+  const freshTxt = DEMO ? 'demo data'
+    : hrs == null ? 'no sync recorded'
+    : hrs < 1 ? 'data current'
+    : hrs < 48 ? `data ${hrs}h old` : `data ${Math.round(hrs / 24)}d old`;
   return `
     <div class="top">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
@@ -241,7 +258,7 @@ function chrome(inner) {
         ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['add','+ Add bills']]
           .map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
       </div>
-      <span class="fresh">2026 session · ${S.bills.length} tracked</span>
+      <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
       <span class="who">${av(S.me)}<button id="logout">sign out</button></span>
     </div>
     ${banner}
