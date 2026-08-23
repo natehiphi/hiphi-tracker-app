@@ -8,8 +8,9 @@ const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
 
 const STAGES = [
-  ['introduced','Introduced'], ['first_lateral','1st Lateral'], ['first_decking','1st Decking'],
-  ['first_crossover','Crossover'], ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'],
+  ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
+  ['first_decking','1st Decking'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
+  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'],
   ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
   ['enacted','Law'], ['vetoed','Vetoed'], ['dead','Dead'],
 ];
@@ -420,10 +421,12 @@ const SESSION_OVER = true;   // flip false when the 2027 session convenes
 // Official session calendar (LRB, 2026). One place to update each December.
 const DEADLINES = {
   introduced:       [['Intro cutoff','2026-01-28']],
-  first_lateral:    [['Triple filing','2026-02-11'],['Lateral','2026-02-20']],
+  first_triple:     [['Triple filing','2026-02-11']],
+  first_lateral:    [['Lateral','2026-02-20']],
   first_decking:    [['Decking','2026-03-06']],
   first_crossover:  [['Crossover','2026-03-12']],
-  second_lateral:   [['Triple filing','2026-03-19'],['Lateral','2026-03-30']],
+  second_triple:    [['Triple filing','2026-03-19']],
+  second_lateral:   [['Lateral','2026-03-30']],
   second_decking:   [['Decking','2026-04-10']],
   second_crossover: [['Cross back','2026-04-16']],
   conference:       [['Final decking','2026-04-29'],['Fiscal','2026-05-01']],
@@ -436,8 +439,8 @@ const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 const RAIL = [['introduced','Intro'],['first_lateral','1st\nLat'],['first_decking','1st\nDeck'],
   ['first_crossover','Cross'],['second_lateral','2nd\nLat'],['second_decking','2nd\nDeck'],
   ['conference','Conf'],['governor','Gov'],['enacted','Law']];
-const RAIL_IDX = { introduced:0, first_lateral:1, first_decking:2, first_crossover:3,
-  second_lateral:4, second_decking:5, second_crossover:5, conference:6, governor:7,
+const RAIL_IDX = { introduced:0, first_triple:1, first_lateral:1, first_decking:2, first_crossover:3,
+  second_triple:4, second_lateral:4, second_decking:5, second_crossover:5, conference:6, governor:7,
   enacted:8, vetoed:7, dead:null };
 const diedish = b => { const st = effStage(b);
   if (st === 'dead' || st === 'vetoed') return true;
