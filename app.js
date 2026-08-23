@@ -22,6 +22,7 @@ const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
 
 // ---------------- state ----------------
 const S = {
+  tripleF: false,
   supa: null, session: null, me: null,
   advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
@@ -161,7 +162,8 @@ function demoInit() {
   const mk = (id,num,t,stage,pos,pri,cmte,la,lad,own,camp) => {
     S.assignments[id]=[own]; S.billCampaigns[id]=[camp];
     return { id, bill_number:num, title:t, stage, position:pos, priority:pri, committee:cmte,
-      referrals: id==='b1' ? ['HLT','CPC/JHA','FIN'] : ['HLT','FIN'], last_action:la, last_action_date:lad, session_year:2026,
+      referrals: id==='b1' ? ['HLT','CPC/JHA','FIN'] : ['HLT','FIN'],
+      origin_stops: id==='b1' ? 3 : 2, second_stops: 0, last_action:la, last_action_date:lad, session_year:2026,
       state_url:'https://www.capitol.hawaii.gov', tracked:true };
   };
   S.bills = [
@@ -201,6 +203,7 @@ function visibleBills() {
     list = list.filter(b => (S.assignments[b.id]||[]).includes(S.owner));
   if (S.pri) list = list.filter(b => String(b.priority) === S.pri);
   if (S.stageF) list = list.filter(b => effStage(b) === S.stageF);
+  if (S.tripleF) list = list.filter(isTriple);
   if (S.q) {
     const q = S.q.toLowerCase(), qn = q.replace(/\s/g,'');
     list = list.filter(b => b.bill_number.toLowerCase().includes(qn) ||
@@ -249,8 +252,9 @@ function chrome(inner) {
         av(a, 'avatar ' + (S.owner===a.id?'on':'')).replace('class="','data-owner="'+a.id+'" class="')).join('')}</span>
       <select id="prif" style="width:auto"><option value="">Priority: all</option>
         ${[1,2,3].map(p=>`<option ${S.pri==p?'selected':''} value="${p}">P${p}</option>`).join('')}</select>
-      ${S.view!=='pipeline' ? `<select id="stagef" style="width:auto"><option value="">Stage: all</option>
-        ${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>` : ''}
+      <select id="stagef" style="width:auto"><option value="">Stage: all</option>
+        ${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>
+      <button class="fchip ${S.tripleF?'on':''}" id="triplef" title="Only bills with a triple referral (3+ committee stops in one chamber)">3X only</button>
       <span class="spacer"></span>
       ${S.view==='table' ? '<button class="fchip" id="csv">⬇ Export CSV</button>' : ''}
     </div>
@@ -425,7 +429,10 @@ const DEADLINES = {
   conference:       [['Final decking','2026-04-29'],['Fiscal','2026-05-01']],
   governor:         [['Sine die','2026-05-08']],
 };
-const isTriple = b => (b.referrals || []).length >= 3;   // 2026 adjourned sine die — drives died/stalled logic
+// True triple referral: 3+ stops within a SINGLE chamber (joint committees
+// count as one) — that is what races the Triple Filing deadline. Computed
+// by the sync per chamber; the combined referrals list is display-only.
+const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 const RAIL = [['introduced','Intro'],['first_lateral','1st\nLat'],['first_decking','1st\nDeck'],
   ['first_crossover','Cross'],['second_lateral','2nd\nLat'],['second_decking','2nd\nDeck'],
   ['conference','Conf'],['governor','Gov'],['enacted','Law']];
@@ -644,6 +651,7 @@ function wire() {
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
   $('#prif') && ($('#prif').onchange = e => { S.pri = e.target.value; render(); });
   $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; render(); });
+  $('#triplef') && ($('#triplef').onclick = () => { S.tripleF = !S.tripleF; render(); });
   $('#csv') && ($('#csv').onclick = exportCSV);
   document.querySelectorAll('[data-camp]').forEach(el =>
     el.onclick = () => { S.camp = el.dataset.camp; render(); });
