@@ -26,7 +26,7 @@ const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
 
 // ---------------- state ----------------
 const S = {
-  tripleF: false, syncRuns: [],
+  tripleF: false, syncRuns: [], selected: new Set(),
   supa: null, session: null, me: null,
   advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
@@ -54,6 +54,11 @@ const capitolUrl = b => {
   const m = (b.bill_number||'').match(/^([A-Z]+)(\d+)$/);
   return m ? `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year||SESSION_YEAR}`
            : (b.state_url || '#');
+};
+const sponsorText = b => {
+  const sp = b.sponsors || []; if (!sp.length) return '\u2014';
+  const names = sp.slice(0, 6).map((s, i) => i === 0 ? `<b>${esc(s.n)}</b>` : esc(s.n)).join(', ');
+  return names + (sp.length > 6 ? ` +${sp.length - 6} more` : '');
 };
 const av = (a, cls='avatar') =>
   `<span class="${cls}" style="background:${a?.color || '#8FA1AD'}" title="${esc(a?.full_name||'')}">${esc(a?.initials || '?')}</span>`;
@@ -140,6 +145,28 @@ const DB = {
       if (error) throw error;
     }
   },
+  async bulkUpdate(ids, patch) {
+    ids.forEach(id => { const b = S.bills.find(x => x.id === id); if (b) Object.assign(b, patch); });
+    if (DEMO) return;
+    const { error } = await S.supa.from('bills').update(patch).in('id', ids);
+    if (error) throw error;
+  },
+  async addToCampaign(ids, campaignId) {
+    ids.forEach(id => { const arr = (S.billCampaigns[id] ??= []);
+      if (!arr.includes(campaignId)) arr.push(campaignId); });
+    if (DEMO) return;
+    const rows = ids.map(id => ({ bill_id: id, campaign_id: campaignId }));
+    const { error } = await S.supa.from('bill_campaigns')
+      .upsert(rows, { onConflict: 'bill_id,campaign_id', ignoreDuplicates: true });
+    if (error) throw error;
+  },
+  async companionInfo(nums) {
+    if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number));
+    const { data, error } = await S.supa.from('bills')
+      .select('id,bill_number,stage,stage_override,tracked,session_year,state_url')
+      .in('bill_number', nums);
+    if (error) throw error; return data;
+  },
   async searchUntracked(q) {
     if (DEMO) return [];
     const safe = q.replace(/[%,()]/g, ' ').trim();
@@ -173,6 +200,9 @@ function demoInit() {
     S.assignments[id]=[own]; S.billCampaigns[id]=[camp];
     return { id, bill_number:num, title:t, stage, position:pos, priority:pri, committee:cmte,
       referrals: id==='b1' ? ['HLT','CPC/JHA','FIN'] : ['HLT','FIN'],
+      companions: id==='b1' ? ['SB2384'] : id==='b3' ? ['HB1512'] : [],
+      sponsors: id==='b1' ? [{n:'LOWEN',p:true},{n:'TAKAYAMA',p:true},{n:'AMATO',p:true}]
+              : id==='b3' ? [{n:'ELEFANTE',p:true},{n:'SAN BUENAVENTURA',p:true}] : [],
       origin_stops: id==='b1' ? 3 : 2, second_stops: 0, last_action:la, last_action_date:lad, session_year:2026,
       state_url:'https://www.capitol.hawaii.gov', tracked:true };
   };
@@ -375,6 +405,7 @@ function renderPortfolio(list) {
 
 function cell(b, c) {
   switch (c) {
+    case 'sel': return `<td class="selcell"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id)?'checked':''}></td>`;
     case 'bill': return `<td><div class="bno">${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</div>
       <div class="bti">${esc(b.title||'')}<div class="bsub">${esc(b.committee||'')}${b.referrals?.length?' · '+esc(b.referrals.join(', ')):''}</div></div></td>`;
     case 'status': return `<td>${statusChip(b)}</td>`;
@@ -392,12 +423,15 @@ function cell(b, c) {
   }
 }
 function billTable(list, cols) {
-  const heads = { bill:['bill_number','Bill / title'], status:['stage','Status'],
+  const heads = { sel:['',''], bill:['bill_number','Bill / title'], status:['stage','Status'],
     coal:['','Coalitions'], owner:['owner','Owner'], position:['position','Position'],
     pri:['priority','Pri'], last:['last_action_date','Last action'], pulse:['pulse','Team pulse'] };
   if (!list.length) return `<div class="empty">No bills match these filters.</div>`;
+  const allSel = list.length && list.every(b => S.selected.has(b.id));
   return `<div class="tablewrap"><table class="bills">
-    <thead><tr>${cols.map(c => `<th data-sort="${heads[c][0]}">${heads[c][1]}
+    <thead><tr>${cols.map(c => c === 'sel'
+      ? `<th class="selcell"><input type="checkbox" id="selall" ${allSel?'checked':''} title="Select all shown"></th>`
+      : `<th data-sort="${heads[c][0]}">${heads[c][1]}
       ${S.sort[0]===heads[c][0] ? (S.sort[1]>0?'▲':'▼') : ''}</th>`).join('')}</tr></thead>
     <tbody>${list.map(b => `<tr data-bill="${b.id}">${cols.map(c => cell(b, c)).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
@@ -430,7 +464,23 @@ function renderPipeline(list) {
     </div>`).join('')}</div>`;
 }
 
-const renderTable = list => billTable(list, ['bill','coal','owner','status','position','pri','last','pulse']);
+function renderTable(list) {
+  const n = S.selected.size;
+  const bar = n ? `<div class="bulkbar">
+    <b>${n} selected</b>
+    <select id="bk-pos"><option value="">Set position\u2026</option>
+      ${POSITIONS.slice(1).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+    <select id="bk-pri"><option value="">Set priority\u2026</option>
+      ${[1,2,3].map(p => `<option value="${p}">P${p}</option>`).join('')}</select>
+    <select id="bk-own"><option value="">Assign owner\u2026</option>
+      ${S.advocates.map(a => `<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}
+      <option value="__none">Unassign</option></select>
+    <select id="bk-camp"><option value="">Add to coalition\u2026</option>
+      ${S.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+    <button class="clear" id="bk-clear">Clear selection</button>
+  </div>` : '';
+  return bar + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
+}
 
 
 // ---------------- Cards view (advocacy print) ----------------
@@ -567,6 +617,24 @@ function renderAdd() {
 // ---------------- drawer ----------------
 async function openDrawer(billId) {
   S.drawerBill = billId; render();
+  const b = S.bills.find(x => x.id === billId);
+  if (b?.companions?.length) {
+    DB.companionInfo(b.companions).then(rows => {
+      const el = $('#compmount'); if (!el) return;
+      el.innerHTML = b.companions.map(num => {
+        const r = rows.find(x => x.bill_number === num);
+        if (!r) return esc(num);
+        const st = r.stage_override || r.stage || 'introduced';
+        const cls = st === 'enacted' ? 'c-green' : (st === 'dead' || st === 'vetoed') ? 'c-gray' : 'c-teal';
+        const inApp = S.bills.find(x => x.id === r.id);
+        const link = inApp ? `<a href="#" data-comp="${r.id}">${esc(num)}</a>`
+          : `<a href="${esc(capitolUrl(r))}" target="_blank" rel="noopener">${esc(num)} ↗</a>`;
+        return `<span class="comp">${link}<span class="chipx ${cls}">${STAGE_LABEL[st]||st}</span>${r.tracked ? '' : '<span class="chipx c-gray">not tracked</span>'}</span>`;
+      }).join('');
+      el.querySelectorAll('[data-comp]').forEach(a =>
+        a.onclick = ev => { ev.preventDefault(); openDrawer(a.dataset.comp); });
+    }).catch(() => {});
+  }
   try {
     const tl = await DB.timeline(billId);
     const el = $('#tlmount'); if (el) el.innerHTML = timelineHTML(tl);
@@ -596,6 +664,8 @@ function drawerHTML(b) {
         <span class="k">Stage</span><span>${STAGE_LABEL[effStage(b)]}${b.stage_override?' (manual override)':''}</span>
         <span class="k">Committee</span><span>${esc(b.committee||'—')}</span>
         <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
+        ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
+        ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
         <span class="k">Last action</span><span>${esc(b.last_action||'—')} <span style="color:var(--muted)">(${fmtDate(b.last_action_date,{year:'2-digit'})})</span></span>
         <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
       </div>
@@ -680,7 +750,27 @@ function wire() {
     S.sort = S.sort[0] === k ? [k, -S.sort[1]] : [k, 1]; render();
   });
   document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill]').forEach(el =>
-    el.onclick = e => { if (e.target.closest('select')) return; openDrawer(el.dataset.bill); });
+    el.onclick = e => { if (e.target.closest('select,input,a,button')) return; openDrawer(el.dataset.bill); });
+  $('#selall') && ($('#selall').onchange = e => {
+    const vis = visibleBills().map(b => b.id);
+    vis.forEach(id => e.target.checked ? S.selected.add(id) : S.selected.delete(id));
+    render();
+  });
+  document.querySelectorAll('[data-selb]').forEach(el => {
+    el.onclick = e => e.stopPropagation();
+    el.onchange = () => { el.checked ? S.selected.add(el.dataset.selb) : S.selected.delete(el.dataset.selb); render(); };
+  });
+  const bulkGo = async (fn, msg) => { try { await fn(); toast(msg); render(); } catch (e) { toast(e.message, true); } };
+  $('#bk-pos') && ($('#bk-pos').onchange = e => { const v = e.target.value; if (v)
+    bulkGo(() => DB.bulkUpdate([...S.selected], { position: v }), `Position set on ${S.selected.size} bills`); });
+  $('#bk-pri') && ($('#bk-pri').onchange = e => { const v = e.target.value; if (v)
+    bulkGo(() => DB.bulkUpdate([...S.selected], { priority: +v }), `Priority set on ${S.selected.size} bills`); });
+  $('#bk-own') && ($('#bk-own').onchange = e => { const v = e.target.value; if (v)
+    bulkGo(async () => { for (const id of S.selected) await DB.setOwner(id, v === '__none' ? null : v); },
+      v === '__none' ? `Unassigned ${S.selected.size} bills` : `Owner set on ${S.selected.size} bills`); });
+  $('#bk-camp') && ($('#bk-camp').onchange = e => { const v = e.target.value; if (v)
+    bulkGo(() => DB.addToCampaign([...S.selected], v), `Added ${S.selected.size} bills to coalition`); });
+  $('#bk-clear') && ($('#bk-clear').onclick = () => { S.selected.clear(); render(); });
   const upd = (sel, fn) => document.querySelectorAll(sel).forEach(el => {
     el.onclick = e => e.stopPropagation();
     el.onchange = e => fn(el, e).then(() => toast('Saved')).catch(err => toast(err.message, true));
