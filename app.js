@@ -26,7 +26,7 @@ const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
 
 // ---------------- state ----------------
 const S = {
-  tripleF: false, syncRuns: [], selected: new Set(),
+  tripleF: false, syncRuns: [], selected: new Set(), sinceVisit: 0, sinceEvents: [],
   supa: null, session: null, me: null,
   advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
@@ -55,6 +55,7 @@ const capitolUrl = b => {
   return m ? `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year||SESSION_YEAR}`
            : (b.state_url || '#');
 };
+const AMENDED_RE = /as amended|\b[HSC]D\s*\d/i;
 const sponsorText = b => {
   const sp = b.sponsors || []; if (!sp.length) return '\u2014';
   const names = sp.slice(0, 6).map((s, i) => i === 0 ? `<b>${esc(s.n)}</b>` : esc(s.n)).join(', ');
@@ -115,6 +116,14 @@ const DB = {
         .order('started_at', { ascending: false }).limit(10);
       S.syncRuns = sr.data || [];
     } catch { S.syncRuns = []; }
+    // Official actions found since this person's previous visit (non-fatal)
+    try {
+      const ev = await S.supa.from('activity_log')
+        .select('bill_id,title,occurred_at,created_at')
+        .eq('source', 'auto').gt('created_at', new Date(S.sinceVisit).toISOString())
+        .order('created_at', { ascending: false }).limit(200);
+      S.sinceEvents = ev.data || [];
+    } catch { S.sinceEvents = []; }
   },
   async timeline(billId) {
     if (DEMO) return DEMO_TL.filter(t => t.bill_id === billId);
@@ -219,7 +228,14 @@ function demoInit() {
   const now = Date.now();
   S.hearings = [{ id:'h1', bill_id:'b1', committee:'FIN',
     scheduled_at:new Date(now+30*3600e3).toISOString(), room:'Conference Room 308',
-    testimony_deadline:new Date(now+6*3600e3).toISOString(), status:'scheduled' }];
+    testimony_deadline:new Date(now+6*3600e3).toISOString(), status:'scheduled',
+    notice_posted_at:new Date(now-20*3600e3).toISOString() }];
+  S.sinceVisit = now - 2*864e5;   // demo: pretend the last visit was 2 days ago
+  S.sinceEvents = [
+    { bill_id:'b3', title:'Passed Second Reading as amended (SD 1) and referred to JDC.',
+      occurred_at:new Date(now-18*3600e3).toISOString() },
+    { bill_id:'b2', title:'Enrolled to Governor.', occurred_at:new Date(now-30*3600e3).toISOString() },
+  ];
   S.pulse = { b1:{last_team_touch:new Date(now-2*3600e3).toISOString(),testimony_count:2},
     b2:{last_team_touch:new Date(now-9*864e5).toISOString(),testimony_count:1},
     b3:{last_team_touch:new Date(now-864e5).toISOString(),testimony_count:0} };
@@ -344,6 +360,21 @@ function renderPortfolio(list) {
     .sort((a,b) => (b.last_action_date||'').localeCompare(a.last_action_date||''));
   const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 8);
   const hrsLeft = d => Math.max(0, Math.round((new Date(d) - now)/36e5));
+  // Dying-quietly radar: a filing deadline is close and no hearing is on the books
+  const radar = list.filter(b => !diedish(b))
+    .map(b => ({ b, dl: nextDeadline(b) }))
+    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= RADAR_DAYS &&
+      !S.hearings.some(h => h.bill_id === x.b.id && new Date(h.scheduled_at) > new Date()))
+    .sort((x,y) => x.dl.days - y.dl.days || (x.b.priority||3) - (y.b.priority||3));
+  // Since your last visit: hearing notices + official actions found since then
+  const sinceH = S.hearings.filter(h => ids.has(h.bill_id) && h.notice_posted_at &&
+    new Date(h.notice_posted_at).getTime() > S.sinceVisit && new Date(h.scheduled_at) > new Date());
+  const evByBill = {};
+  for (const ev of (S.sinceEvents||[])) if (ids.has(ev.bill_id))
+    (evByBill[ev.bill_id] ||= []).push(ev);
+  const sinceRows = Object.entries(evByBill).map(([bid, evs]) => ({ b: bill(bid), evs }))
+    .filter(x => x.b).sort((x,y) => (x.b.priority||3) - (y.b.priority||3));
+  const nSince = sinceH.length + sinceRows.length;
 
   const panel = (title, sub, rowsHtml, emptyMsg) => `
     <div class="panel"><div class="ph"><span>${title}</span><span class="psub">${sub}</span></div>
@@ -377,6 +408,28 @@ function renderPortfolio(list) {
             <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${fmtDT(h.scheduled_at)}
               <div class="psmall">${esc(b.title||'')}</div></div></div>`; }).join(''),
           'No hearings scheduled this week.')}
+        ${panel('📡 No hearing before the deadline', `${RADAR_DAYS}-day radar — unscheduled bills die quietly`,
+          radar.slice(0,8).map(({b, dl}) => `
+          <div class="prow ${dl.days<=5?'urgent':''}" data-bill="${b.id}">
+            <div class="pmain"><b>${esc(b.bill_number)}</b>${b.priority?` <span class="chipx c-gray">P${b.priority}</span>`:''}
+              waiting in <b>${esc(b.committee||'committee')}</b> — no hearing scheduled
+              <div class="psmall">${esc(dl.label)} deadline in <b>${dl.days}d</b> (${fmtDate(dl.date)}) · ${STAGE_LABEL[effStage(b)]} — consider calling the chair's office</div></div></div>`
+          ).join('') + (radar.length>8?`<div class="pempty">…and ${radar.length-8} more at risk</div>`:''),
+          SESSION_OVER ? 'Session is over — the radar activates when 2027 deadlines are loaded.'
+                       : `Nothing in this portfolio is inside ${RADAR_DAYS} days of a deadline without a hearing. 🤙`)}
+      </div>
+      <div>
+        ${panel('⚡ Since your last visit', S.sinceVisit ? 'changes found after ' + fmtDT(S.sinceVisit) : '',
+          sinceH.map(h => { const b = bill(h.bill_id); return b ? `
+          <div class="prow" data-bill="${b.id}">
+            <div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted
+              <div class="psmall">${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}</div></div></div>` : ''; }).join('') +
+          sinceRows.slice(0,10).map(({b, evs}) => `
+          <div class="prow" data-bill="${b.id}">
+            <div class="pmain">${AMENDED_RE.test(evs[0].title)?'✏️ ':''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0,80))}
+              <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length>1?` · +${evs.length-1} more action${evs.length>2?'s':''}`:''}</div></div></div>`).join('') +
+          (sinceRows.length>10?`<div class="pempty">…and ${sinceRows.length-10} more bills changed</div>`:''),
+          'Nothing new on these bills since your last visit.')}
         ${panel('⚑ Needs your attention', 'priority bills with no team update in 7+ days',
           stale.slice(0,8).map(b => { const d = staleDays(b); return `
           <div class="prow" data-bill="${b.id}">
@@ -385,14 +438,6 @@ function renderPortfolio(list) {
               <div class="psmall">${statusChip(b)} · last touch: ${d>500?'never':d+'d ago'}</div></div></div>`;
           }).join('') + (stale.length>8?`<div class="pempty">…and ${stale.length-8} more — see Table view</div>`:''),
           'All priority bills touched within the week. 🤙')}
-      </div>
-      <div>
-        ${panel('⇢ Moved in the last 7 days', 'official actions from the Capitol',
-          moved.slice(0,8).map(b => `
-          <div class="prow" data-bill="${b.id}">
-            <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="psmall" style="display:inline">${fmtDate(b.last_action_date)}</span>
-              <div class="psmall">${esc((b.last_action||'').slice(0,90))}</div></div></div>`).join(''),
-          'No official movement this week.')}
         ${panel('✎ Latest team activity', 'across this portfolio',
           feed.map(ev => { const b = bill(ev.bill_id), a = advocate(ev.advocate_id); return `
           <div class="prow" data-bill="${ev.bill_id}">
@@ -498,6 +543,21 @@ const DEADLINES = {
   second_crossover: [['Cross back','2026-04-16']],
   conference:       [['Final decking','2026-04-29'],['Fiscal','2026-05-01']],
   governor:         [['Sine die','2026-05-08']],
+};
+// Dying-quietly radar: committee stages where "no hearing scheduled" is the
+// death signal, and the deadline each stage races. Bills still at Introduced
+// race the lateral (or triple, if 3X) filing date.
+const RADAR_DAYS = 14;
+const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
+                      'second_triple','second_lateral','second_decking'];
+const nextDeadline = b => {
+  const st = effStage(b);
+  if (!RADAR_STAGES.includes(st)) return null;
+  const key = st === 'introduced' ? (isTriple(b) ? 'first_triple' : 'first_lateral') : st;
+  const fut = (DEADLINES[key] || []).filter(([, d]) => new Date(d + 'T23:59:59-10:00') > new Date());
+  if (!fut.length) return null;
+  const [label, date] = fut[0];
+  return { label, date, days: Math.ceil((new Date(date + 'T23:59:59-10:00') - Date.now()) / 864e5) };
 };
 // True triple referral: 3+ stops within a SINGLE chamber (joint committees
 // count as one) — that is what races the Triple Filing deadline. Computed
@@ -852,6 +912,21 @@ function exportCSV() {
 async function boot() {
   try {
     if (!S.session) return renderLogin();
+    // Visit-session boundary (per device): reloads within 30 min keep the
+    // same "since your last visit" baseline; first-ever visit starts at now.
+    if (!DEMO) {
+      const nowT = Date.now();
+      const last = +localStorage.getItem('lastVisit') || 0;
+      if (!last) {
+        localStorage.setItem('lastVisit', String(nowT));
+        localStorage.setItem('prevVisit', String(nowT));
+        S.sinceVisit = nowT;
+      } else if (nowT - last > 30 * 60e3) {
+        localStorage.setItem('prevVisit', String(last));
+        localStorage.setItem('lastVisit', String(nowT));
+        S.sinceVisit = last;
+      } else S.sinceVisit = +localStorage.getItem('prevVisit') || last;
+    }
     $('#app').innerHTML = '<div class="boot">Loading your bills…</div>';
     await DB.loadAll();
     if (!S.me) toast('Signed in, but no matching advocate record — ask your admin', true);
