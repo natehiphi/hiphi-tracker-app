@@ -224,3 +224,40 @@ a.btn{display:inline-block;text-align:center}
 .dlrow{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 8px}
 .dlchip{font-size:9.5px;font-weight:700;letter-spacing:.03em;border-radius:9px;padding:2px 7px;background:#F7ECD4;color:#9A6A0C}
 .dlchip.past{background:#E4E9EE;color:#8A94A6;text-decoration:line-through;text-decoration-thickness:1px}
+
+/* ---------- bulk triage ---------- */
+.bulkbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:8px 20px 0;background:var(--navy);color:#fff;border-radius:12px;padding:9px 14px;box-shadow:var(--shadow)}
+.bulkbar b{font-family:'Space Grotesk';font-size:13px;white-space:nowrap}
+.bulkbar select{width:auto;padding:5px 8px;font-size:12px;border-radius:7px;border-color:#33506B}
+.bulkbar .clear{color:#AFC3CF;font-size:12px;text-decoration:underline;margin-left:auto;white-space:nowrap}
+.selcell{width:34px;text-align:center}
+.selcell input{width:16px;height:16px;padding:0;border:none;accent-color:var(--teal);cursor:pointer;vertical-align:middle}
+.complist{display:flex;flex-direction:column;gap:5px}
+.comp{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+/* ---------- mobile (≤760px) ---------- */
+@media (max-width:760px){
+  .top{padding:8px 12px;gap:8px;row-gap:6px}
+  .viewtabs{order:3;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .viewtabs button{white-space:nowrap;padding:8px 12px}
+  .top .fresh{font-size:10px}
+  .filters{padding:10px 12px 4px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .filters input[type=search]{min-width:150px}
+  .fchip{white-space:nowrap}
+  .filters select{white-space:nowrap}
+  .stats{grid-template-columns:1fr 1fr;padding:10px 12px}
+  .dashhead{padding:14px 12px 2px}
+  .dash{padding:4px 12px 24px}
+  .alert{margin:10px 12px 0}
+  .tablewrap{margin:6px 12px 22px}
+  table.bills th,table.bills td{padding:8px 9px}
+  .bulkbar{margin:8px 12px 0}
+  .bulkbar .clear{margin-left:0}
+  .board{padding:12px 12px 22px;scroll-snap-type:x mandatory}
+  .col{min-width:84vw;max-width:84vw;scroll-snap-align:center}
+  .pv{padding:14px 12px 40px}
+  .pv-grid{grid-template-columns:1fr}
+  .pv-stat{padding-right:14px;margin-right:14px}
+  .pv-stat .v{font-size:24px}
+  .addbill{padding:0 12px 24px}
+}
