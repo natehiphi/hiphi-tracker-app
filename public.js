@@ -59,7 +59,19 @@ const posLabel = b => ({ support:'SUPPORT', support_amend:'SUPPORT W/ AMENDMENTS
   oppose:'OPPOSE', neutral:'COMMENT' }[b.position] || 'MONITOR');
 const ctaVerb = b => ({ support: 'Testify in SUPPORT', support_amend: 'Testify in support, with amendments',
   oppose: 'Testify in OPPOSITION', neutral: 'Submit comments' }[b.position] || 'Submit testimony');
-function actionItems(bills, hearings, now) {
+function icsStamp(d) { return new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); }
+function makeIcs(b, h) {
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI Bill Tracker', 'BEGIN:VEVENT',
+    'UID:' + b.bill_number + '-' + icsStamp(h.scheduled_at) + '@hiphi',
+    'DTSTAMP:' + icsStamp(Date.now()),
+    'DTSTART:' + icsStamp(h.scheduled_at),
+    'SUMMARY:' + b.bill_number + ' hearing - ' + (h.committee || ''),
+    h.room ? 'LOCATION:' + String(h.room).replace(/[\n,]/g, ' ') : '',
+    b.state_url ? 'DESCRIPTION:' + b.state_url : '',
+    'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:Testimony reminder', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+}
+function actionItems(bills, hearings, now, starred) {
   // One action per bill: a curated ask (already expiry-guarded by the view)
   // wins; otherwise an open testimony window. Sorted by soonest deadline.
   const items = [];
@@ -80,9 +92,10 @@ function actionItems(bills, hearings, now) {
     if (!ask && !autoOk && !gov) continue;
     const due = ask ? (b.public_action_until ? b.public_action_until + 'T23:59:59-10:00' : null)
                     : autoOk ? h.testimony_deadline : null;
-    items.push({ b, h, ask: ask || gov, due });
+    items.push({ b, h, ask: ask || gov, due, star: !!(starred && starred.has(b.bill_number)) });
   }
-  return items.sort((x, y) => String(x.due || '9999').localeCompare(String(y.due || '9999')));
+  return items.sort((x, y) => (y.star ? 1 : 0) - (x.star ? 1 : 0) ||
+    String(x.due || '9999').localeCompare(String(y.due || '9999')));
 }
 // ===PURE-END===
 
@@ -94,6 +107,15 @@ function pvRail(b) {
       <span class="sq"></span><span class="sl">${l}</span></div>`).join('')}</div>`;
 }
 
+const STARS_KEY = 'hiphi_mybills';
+function loadStars() {
+  try { return new Set(JSON.parse(localStorage.getItem(STARS_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function saveStars(s) {
+  try { localStorage.setItem(STARS_KEY, JSON.stringify([...s])); } catch (e) { /* private mode */ }
+}
+let STARS = loadStars();
 let BILLS = [], HEARINGS = [], CAMP = '';
 const hearingsFor = b => HEARINGS.filter(h => h.bill_number === b.bill_number &&
   new Date(h.scheduled_at) > new Date());
@@ -106,7 +128,10 @@ function card(b) {
     ${dead ? '<div class="pv-stamp">DID NOT ADVANCE</div>' : ''}
     <div class="pv-body">
       <div class="pv-meta"><span class="pv-bno">${esc(b.bill_number)}</span>
-        ${b.campaigns.map(c => `<span class="pv-tag coal">${esc(c.name)}</span>`).join('')}</div>
+        ${b.campaigns.map(c => `<span class="pv-tag coal">${esc(c.name)}</span>`).join('')}
+        <button data-star="${esc(b.bill_number)}" aria-label="Track this bill"
+          style="float:right;margin-left:auto;background:none;border:0;cursor:pointer;font-size:17px;line-height:1;padding:0 2px;color:${STARS.has(b.bill_number) ? '#C9A227' : '#B9C7CF'}"
+          title="${STARS.has(b.bill_number) ? 'Remove from my bills' : 'Add to my bills'}">${STARS.has(b.bill_number) ? '★' : '☆'}</button></div>
       <div class="pv-title">${esc(b.title || '')}</div>
       ${b.public_summary ? `<div class="pv-desc">${esc(b.public_summary)}</div>` : ''}
       <div class="pv-kv">
@@ -114,7 +139,8 @@ function card(b) {
           <span class="date">${fmtDate(b.last_action_date, { year: '2-digit' })}</span></span>
         ${h ? `<span class="k">Hearing</span><span>${esc(h.committee)} · ${fmtDT(h.scheduled_at)}
           · ${esc(h.room || 'room TBD')}${h.testimony_deadline ?
-          ` · <b>testimony due ${fmtDT(h.testimony_deadline)}</b>` : ''}</span>` : ''}
+          ` · <b>testimony due ${fmtDT(h.testimony_deadline)}</b>` : ''}
+          · <a download="${esc(b.bill_number)}-hearing.ics" href="data:text/calendar;charset=utf-8,${encodeURIComponent(makeIcs(b, h))}" style="font-size:11px">📅 Add to calendar</a></span>` : ''}
       </div>
       ${pvRail(b)}
     </div>
@@ -125,7 +151,8 @@ function card(b) {
 }
 
 function render() {
-  const list = CAMP ? BILLS.filter(b => b.campaigns.some(c => c.slug === CAMP)) : BILLS;
+  const list = CAMP === '__mine' ? BILLS.filter(b => STARS.has(b.bill_number))
+    : CAMP ? BILLS.filter(b => b.campaigns.some(c => c.slug === CAMP)) : BILLS;
   const upcoming = HEARINGS.filter(h => new Date(h.scheduled_at) > new Date())
     .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const enacted = list.filter(b => b.stage === 'enacted').length;
@@ -133,7 +160,7 @@ function render() {
   const campCounts = {};
   BILLS.forEach(b => b.campaigns.forEach(c => {
     campCounts[c.slug] = campCounts[c.slug] || { name: c.name, n: 0 }; campCounts[c.slug].n++; }));
-  const acts = actionItems(list, HEARINGS, new Date());
+  const acts = actionItems(list, HEARINGS, new Date(), STARS);
   const tix = acts.slice(0, 8).map(a => {
     const hrs = a.due ? (new Date(a.due) - Date.now()) / 36e5 : null;
     const due = hrs == null ? '' : hrs < 48
@@ -142,9 +169,10 @@ function render() {
     const what = a.ask ? esc(a.ask)
       : `${ctaVerb(a.b)} — ${esc(a.h.committee)} hearing ${fmtDT(a.h.scheduled_at)} · ${esc(a.h.room || 'room TBD')}`;
     return `<div class="pv-tick" style="min-width:230px;max-width:340px">
-      <div class="bn">${esc(a.b.bill_number)} · ${posLabel(a.b)}</div>
+      <div class="bn">${a.star ? '★ ' : ''}${esc(a.b.bill_number)} · ${posLabel(a.b)}</div>
       <div class="when">${what}</div>${due}
       ${a.b.state_url ? `<a href="${esc(a.b.state_url)}" target="_blank" rel="noopener" style="font-size:11px">Bill page ↗</a>` : ''}
+      ${a.h ? `<a download="${esc(a.b.bill_number)}-hearing.ics" href="data:text/calendar;charset=utf-8,${encodeURIComponent(makeIcs(a.b, a.h))}" style="font-size:11px;margin-left:8px">📅 Calendar</a>` : ''}
     </div>`; }).join('');
   const active = list.filter(b => !diedish(b, hearingsFor(b).length > 0));
   const done = list.filter(b => diedish(b, hearingsFor(b).length > 0))
@@ -168,9 +196,18 @@ function render() {
         <div class="pv-stat"><div class="v pdisp">${gone}</div><div class="l">Did not advance</div></div>
       </div>
       <div class="pv-tabs"><button class="pv-tab ${!CAMP ? 'on' : ''}" data-camp="">All<span class="n">${BILLS.length}</span></button>
+        <button class="pv-tab ${CAMP === '__mine' ? 'on' : ''}" data-camp="__mine">★ My bills<span class="n">${STARS.size}</span></button>
         ${Object.entries(campCounts).sort((a, b) => b[1].n - a[1].n).map(([slug, c]) =>
           `<button class="pv-tab ${CAMP === slug ? 'on' : ''}" data-camp="${esc(slug)}">${esc(c.name)}<span class="n">${c.n}</span></button>`).join('')}
       </div>
+      ${CAMP === '__mine' && !list.length ? `
+        <div style="text-align:center;padding:44px 16px;color:var(--muted)">
+          <div style="font-size:34px">☆</div>
+          <div style="max-width:430px;margin:10px auto 0;font-size:14px;line-height:1.5">
+            Tap the star on any bill to build your personal watchlist. It saves on
+            this device only — no account needed. Starred bills float to the top
+            of Take Action Now.</div>
+        </div>` : ''}
       ${SECTIONS.map(([label, fn]) => { const bs = active.filter(fn); return bs.length ? `
         <div class="pv-sechead">${label}</div>
         <div class="pv-grid">${bs.map(card).join('')}</div>` : ''; }).join('')}
@@ -183,6 +220,11 @@ function render() {
     </div>`;
   document.querySelectorAll('[data-camp]').forEach(el =>
     el.onclick = () => { CAMP = el.dataset.camp; render(); });
+  document.querySelectorAll('[data-star]').forEach(el =>
+    el.onclick = (e) => { e.stopPropagation();
+      const n = el.dataset.star;
+      STARS.has(n) ? STARS.delete(n) : STARS.add(n);
+      saveStars(STARS); render(); });
 }
 
 (async () => {
