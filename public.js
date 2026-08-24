@@ -69,10 +69,18 @@ function actionItems(bills, hearings, now) {
       .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] || null;
     const ask = b.public_action || null;
     const autoOk = h && h.testimony_deadline && new Date(h.testimony_deadline) > now;
-    if (!ask && !autoOk) continue;
+    // Governor's desk: sign/veto ask derived from position (support -> sign,
+    // oppose -> veto; monitor/comment -> no clear instruction, so no item).
+    const gov = !SESSION_OVER && b.stage === 'governor' &&
+      ['support', 'support_amend', 'oppose'].includes(b.position)
+      ? (b.position === 'oppose'
+        ? 'On the Governor\u2019s desk — urge the Governor to VETO this bill.'
+        : 'On the Governor\u2019s desk — urge the Governor to SIGN this bill.')
+      : null;
+    if (!ask && !autoOk && !gov) continue;
     const due = ask ? (b.public_action_until ? b.public_action_until + 'T23:59:59-10:00' : null)
-                    : h.testimony_deadline;
-    items.push({ b, h, ask, due });
+                    : autoOk ? h.testimony_deadline : null;
+    items.push({ b, h, ask: ask || gov, due });
   }
   return items.sort((x, y) => String(x.due || '9999').localeCompare(String(y.due || '9999')));
 }
