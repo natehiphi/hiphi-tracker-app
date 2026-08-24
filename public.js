@@ -57,6 +57,25 @@ const headClass = b => ({ support:'solid-g', oppose:'solid-r', support_amend:'ha
   neutral:'hatch-t' }[b.position] || 'plain');
 const posLabel = b => ({ support:'SUPPORT', support_amend:'SUPPORT W/ AMENDMENTS',
   oppose:'OPPOSE', neutral:'COMMENT' }[b.position] || 'MONITOR');
+const ctaVerb = b => ({ support: 'Testify in SUPPORT', support_amend: 'Testify in support, with amendments',
+  oppose: 'Testify in OPPOSITION', neutral: 'Submit comments' }[b.position] || 'Submit testimony');
+function actionItems(bills, hearings, now) {
+  // One action per bill: a curated ask (already expiry-guarded by the view)
+  // wins; otherwise an open testimony window. Sorted by soonest deadline.
+  const items = [];
+  for (const b of bills) {
+    const h = hearings.filter(x => x.bill_number === b.bill_number &&
+        new Date(x.scheduled_at) > now)
+      .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] || null;
+    const ask = b.public_action || null;
+    const autoOk = h && h.testimony_deadline && new Date(h.testimony_deadline) > now;
+    if (!ask && !autoOk) continue;
+    const due = ask ? (b.public_action_until ? b.public_action_until + 'T23:59:59-10:00' : null)
+                    : h.testimony_deadline;
+    items.push({ b, h, ask, due });
+  }
+  return items.sort((x, y) => String(x.due || '9999').localeCompare(String(y.due || '9999')));
+}
 // ===PURE-END===
 
 function pvRail(b) {
@@ -106,12 +125,19 @@ function render() {
   const campCounts = {};
   BILLS.forEach(b => b.campaigns.forEach(c => {
     campCounts[c.slug] = campCounts[c.slug] || { name: c.name, n: 0 }; campCounts[c.slug].n++; }));
-  const tix = upcoming.slice(0, 6).map(h => {
-    const hrs = h.testimony_deadline ?
-      Math.max(0, Math.round((new Date(h.testimony_deadline) - Date.now()) / 36e5)) : null;
-    return `<div class="pv-tick"><div class="bn">${esc(h.bill_number)}</div>
-      <div class="when">${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</div>
-      ${hrs != null ? `<div class="due">TESTIMONY DUE IN ${hrs}H</div>` : ''}</div>`; }).join('');
+  const acts = actionItems(list, HEARINGS, new Date());
+  const tix = acts.slice(0, 8).map(a => {
+    const hrs = a.due ? (new Date(a.due) - Date.now()) / 36e5 : null;
+    const due = hrs == null ? '' : hrs < 48
+      ? `<div class="due">DUE IN ${Math.max(0, Math.round(hrs))}H</div>`
+      : `<div class="due">BY ${fmtDate(a.due)}</div>`;
+    const what = a.ask ? esc(a.ask)
+      : `${ctaVerb(a.b)} — ${esc(a.h.committee)} hearing ${fmtDT(a.h.scheduled_at)} · ${esc(a.h.room || 'room TBD')}`;
+    return `<div class="pv-tick" style="min-width:230px;max-width:340px">
+      <div class="bn">${esc(a.b.bill_number)} · ${posLabel(a.b)}</div>
+      <div class="when">${what}</div>${due}
+      ${a.b.state_url ? `<a href="${esc(a.b.state_url)}" target="_blank" rel="noopener" style="font-size:11px">Bill page ↗</a>` : ''}
+    </div>`; }).join('');
   const active = list.filter(b => !diedish(b, hearingsFor(b).length > 0));
   const done = list.filter(b => diedish(b, hearingsFor(b).length > 0))
     .sort((a, b) => (a.position || 'z').localeCompare(b.position || 'z') ||
@@ -124,8 +150,8 @@ function render() {
         ' · adjourned sine die — final outcomes shown' : ''} · updated daily</span>
     </div>
     <div class="pv">
-      ${upcoming.length ? `<div class="pv-testify"><div class="h"><span class="t">TESTIFY</span>
-        <span class="s">Upcoming hearings on bills we follow — submit testimony before the deadline</span></div>
+      ${acts.length ? `<div class="pv-testify"><div class="h"><span class="t">TAKE ACTION NOW</span>
+        <span class="s">What you can do today on the bills we follow</span></div>
         <div class="pv-tix">${tix}</div></div>` : ''}
       <div class="pv-stats">
         <div class="pv-stat"><div class="v pdisp">${list.length}</div><div class="l">Bills followed</div></div>
