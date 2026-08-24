@@ -1,6 +1,6 @@
 // ============================================================
 // HIPHI Bill Tracker — staff app
-// Views: Portfolio · Pipeline · Table  (+ bill drawer, add bills)
+// Views: Portfolio · Pipeline · Table · Desk · Cards  (+ bill drawer, add bills)
 // Data: Supabase (RLS-protected). Demo mode: append ?demo=1
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
@@ -34,6 +34,7 @@ const S = {
   view: localStorage.getItem('view') || 'portfolio',
   owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
+  deskOut: false,
 };
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -637,7 +638,7 @@ function chrome(inner) {
     <div class="top">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['add','+ Add bills']]
+        ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['desk','Desk'],['cards','Cards'],['add','+ Add bills']]
           .map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
       </div>
       <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
@@ -846,24 +847,214 @@ function renderPipeline(list) {
     </div>`).join('')}</div>`;
 }
 
-function renderTable(list) {
+function bulkBar() {
   const n = S.selected.size;
-  const bar = n ? `<div class="bulkbar">
+  if (!n) return '';
+  return `<div class="bulkbar">
     <b>${n} selected</b>
-    <select id="bk-pos"><option value="">Set position\u2026</option>
+    <select id="bk-pos"><option value="">Set position…</option>
       ${POSITIONS.slice(1).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select>
-    <select id="bk-pri"><option value="">Set priority\u2026</option>
+    <select id="bk-pri"><option value="">Set priority…</option>
       ${[1,2,3].map(p => `<option value="${p}">P${p}</option>`).join('')}</select>
-    <select id="bk-own"><option value="">Assign owner\u2026</option>
+    <select id="bk-own"><option value="">Assign owner…</option>
       ${S.advocates.map(a => `<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}
       <option value="__none">Unassign</option></select>
-    <select id="bk-camp"><option value="">Add to coalition\u2026</option>
+    <select id="bk-camp"><option value="">Add to coalition…</option>
       ${S.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
     <button class="clear" id="bk-clear">Clear selection</button>
-  </div>` : '';
-  return bar + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
+  </div>`;
+}
+function renderTable(list) {
+  return bulkBar() + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
 }
 
+// ---------------- Desk view ----------------
+// Mini 9-square rail showing this bill's progress through key stages.
+// Squares: done=teal, current=gold (dead=red), future=light gray.
+const DK_RAIL_STAGES = ['introduced','first_lateral','first_decking','first_crossover',
+  'second_lateral','second_decking','second_crossover','governor','enacted'];
+const DK_RAIL_IDX = { introduced:0, first_triple:1, first_lateral:1, first_decking:2,
+  first_crossover:3, second_triple:4, second_lateral:4, second_decking:5,
+  second_crossover:6, conference:6, governor:7, enacted:8, vetoed:7, dead:null };
+function dkRail(b) {
+  const dead = diedish(b);
+  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  const sq = (i) => {
+    const cls = i < idx ? '#0E7C86' : (i === idx && !dead) ? '#C9A227' : (i === idx && dead) ? '#C2483B' : '#D7E0E4';
+    return `<span style="display:inline-block;width:7px;height:7px;border-radius:1px;background:${cls};margin:0 1px"></span>`;
+  };
+  return `<span style="white-space:nowrap">${DK_RAIL_STAGES.map((_,i) => sq(i)).join('')}</span>`;
+}
+// Stage groups for the distribution bar
+const DK_COMMITTEE = ['introduced','first_triple','first_lateral','first_decking',
+  'second_triple','second_lateral','second_decking'];
+const DK_CROSSED = ['first_crossover','second_crossover','conference'];
+function renderDesk(list) {
+  const now = Date.now();
+  const ids = new Set(list.map(b => b.id));
+  const who = S.owner==='me' ? (S.me?.full_name || 'My') :
+    S.owner==='all' ? 'Team' : (advocate(S.owner)?.full_name || '');
+  const bill = id => S.bills.find(b => b.id === id);
+
+  // Compute categories
+  const active = list.filter(b => !diedish(b));
+  const outcomes = list.filter(diedish);
+  const moved = list.filter(b => b.last_action_date && now - new Date(b.last_action_date) < 7*864e5);
+
+  const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
+    .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  const due48 = hUp.filter(h => h.testimony_deadline &&
+    new Date(h.testimony_deadline) - now < 48*3600e3);
+  const todayHearings = hUp.filter(h => {
+    const d = new Date(h.scheduled_at);
+    const hst = new Date(d.toLocaleString('en-US', { timeZone: 'Pacific/Honolulu' }));
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Pacific/Honolulu' }));
+    return hst.toDateString() === today.toDateString();
+  });
+  const radarMap = active.map(b => ({ b, dl: nextDeadline(b) }))
+    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= 5 &&
+      !S.hearings.some(h => h.bill_id === x.b.id && new Date(h.scheduled_at) > new Date()))
+    .sort((x,y) => x.dl.days - y.dl.days);
+
+  // NOW strip tiles — clock order, ≤6, urgency colour-coded
+  const nowTiles = [];
+  for (const h of due48.slice(0, 3)) {
+    const b = bill(h.bill_id); if (!b) continue;
+    const hrs = Math.max(0, Math.round((new Date(h.testimony_deadline) - now)/36e5));
+    nowTiles.push({ b, h, cls:'c-red', label:`DUE ${hrs}h`, logt:true });
+  }
+  for (const h of todayHearings) {
+    const b = bill(h.bill_id); if (!b || nowTiles.find(t=>t.b.id===b.id)) continue;
+    nowTiles.push({ b, h, cls:'c-gold', label:'TODAY' });
+  }
+  for (const {b, dl} of radarMap.slice(0, 5)) {
+    if (nowTiles.find(t=>t.b.id===b.id)) continue;
+    nowTiles.push({ b, h:null, cls:'c-purple', label:`${dl.days}d left` });
+  }
+
+  // Since-last-visit (capped at 6 hearings + 6 events)
+  const sinceH = S.hearings.filter(h => ids.has(h.bill_id) && h.notice_posted_at &&
+    new Date(h.notice_posted_at).getTime() > S.sinceVisit && new Date(h.scheduled_at) > new Date())
+    .slice(0, 6);
+  const evByBill = {};
+  for (const ev of (S.sinceEvents||[])) if (ids.has(ev.bill_id))
+    (evByBill[ev.bill_id] ||= []).push(ev);
+  const sinceRows = Object.entries(evByBill).map(([bid,evs]) => ({ b: bill(bid), evs }))
+    .filter(x => x.b).slice(0, 6);
+  const nNew = sinceH.length + sinceRows.length;
+
+  // Stage distribution bar
+  const dist = [
+    ['In committee', '#0E7C86', list.filter(b => !diedish(b) && DK_COMMITTEE.includes(effStage(b))).length],
+    ['Crossed',      '#5B7FBF', list.filter(b => !diedish(b) && DK_CROSSED.includes(effStage(b))).length],
+    ['Governor',     '#7E5BA6', list.filter(b => !diedish(b) && effStage(b)==='governor').length],
+    ['Law',          '#3E8E63', list.filter(b => effStage(b)==='enacted').length],
+    ['Died',         '#8FA1AD', list.filter(b => diedish(b)).length],
+  ].filter(([,,n]) => n > 0);
+  const total = dist.reduce((s,[,,n]) => s+n, 0) || 1;
+  const distBar = dist.map(([lbl,col,n]) =>
+    `<span title="${lbl}: ${n}" style="flex:${n};background:${col};height:8px;border-radius:2px;display:inline-block"></span>`).join('');
+  const distLegend = dist.map(([lbl,col,n]) =>
+    `<span style="font-size:10px;color:var(--muted);margin-right:10px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};margin-right:3px"></span>${lbl} ${n}</span>`).join('');
+
+  // Hearing-band rows
+  const prow = (b, extra='') => {
+    const p = S.pulse[b.id], d = daysAgo(p?.last_team_touch);
+    const dot = d==null ? 'd-n' : d<=3 ? 'd-g' : d<=7 ? 'd-a' : 'd-r';
+    const o = owners(b)[0];
+    return `<div class="prow" data-bill="${b.id}">
+      <input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id)?'checked':''} onclick="event.stopPropagation()">
+      <span class="bno" style="min-width:54px">${esc(b.bill_number)}</span>
+      ${b.priority?`<span class="chipx c-gray" style="font-size:9px;padding:1px 3px">P${b.priority}</span>`:''}
+      ${isTriple(b)?`<span class="chipx c-navy" style="font-size:9px;padding:1px 3px">3X</span>`:''}
+      <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:420px">${esc((b.title||'').slice(0,70))}</span>
+      ${dkRail(b)}
+      ${o ? av(o) : ''}
+      <span class="pulse" style="font-size:11px"><span class="dot ${dot}"></span>${d==null?'—':d===0?'today':d+'d'}</span>
+      ${extra}
+    </div>`;
+  };
+
+  // Urgency bands: hearings scheduled, then radar, then moved, then in-progress
+  const withHearing = hUp.map(h => bill(h.bill_id)).filter(Boolean).filter((b,i,a) => a.indexOf(b)===i);
+  const radarBills = radarMap.map(x => x.b).filter(b => !withHearing.find(x=>x.id===b.id));
+  const movedBills = moved.filter(b => !diedish(b) && !withHearing.find(x=>x.id===b.id) && !radarBills.find(x=>x.id===b.id));
+  const inProgress = active.filter(b => !withHearing.find(x=>x.id===b.id) && !radarBills.find(x=>x.id===b.id) && !movedBills.find(x=>x.id===b.id));
+
+  const band = (icon, title, sub, rows, urgent) => rows.length ? `
+    <div class="panel" style="margin-bottom:8px">
+      <div class="ph"><span>${icon} ${title}</span><span class="psub">${sub} · ${rows.length} bill${rows.length!==1?'s':''}</span></div>
+      ${rows.map(b => {
+        const h = S.hearings.find(hh => hh.bill_id===b.id && new Date(hh.scheduled_at)>new Date());
+        const urgLabel = h && h.testimony_deadline && new Date(h.testimony_deadline)-now<48*3600e3
+          ? `<b style="color:#C2483B;font-size:11px">testimony due ${fmtDT(h.testimony_deadline)}</b>` : '';
+        return prow(b, urgLabel);
+      }).join('')}
+    </div>` : '';
+
+  const outPanel = `
+    <div class="panel" style="margin-bottom:8px">
+      <div class="ph" id="dk-out" style="cursor:pointer"><span>${S.deskOut ? '▾' : '▸'} Outcomes — law · vetoed · stalled</span>
+        <span class="psub">${outcomes.length} bill${outcomes.length!==1?'s':''}</span></div>
+      ${S.deskOut ? outcomes.map(b => prow(b,
+        effStage(b)==='enacted' ? `<b style="color:#3E8E63;font-size:11px">LAW</b>` : '')).join('') : ''}
+    </div>`;
+
+  return `
+    <div class="dashhead">
+      <h1>${esc(who)}'s desk — one view</h1>
+      <span class="sub">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'Pacific/Honolulu'})}
+        · ${list.length} bills · ${nNew > 0 ? `<b style="color:#C9A227">${nNew} new since your last visit</b>` : 'no changes since last visit'}</span>
+    </div>
+
+    ${nowTiles.length ? `
+    <div style="margin:0 0 16px">
+      <div class="ph" style="margin-bottom:6px"><span>NOW</span>
+        <span class="psub">scroll for more · red=testimony due · gold=hearing today · purple=deadline ≤5d</span></div>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">
+        ${nowTiles.map(({b,h,cls,label,logt}) => `
+        <div class="dk-tile ${cls}" data-bill="${b.id}" style="min-width:170px;max-width:220px;flex-shrink:0;
+          background:var(--panel);border:2px solid ${cls==='c-red'?'#C2483B':cls==='c-gold'?'#C9A227':'#7E5BA6'};
+          border-radius:6px;padding:8px 10px;cursor:pointer">
+          <div style="font-size:10px;font-weight:700;color:${cls==='c-red'?'#C2483B':cls==='c-gold'?'#C9A227':'#7E5BA6'};margin-bottom:3px">${label}</div>
+          <div style="font-size:12px;font-weight:600">${esc(b.bill_number)}</div>
+          <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h?esc(h.committee):esc(b.committee||'')}</div>
+          <div style="margin-top:6px;display:flex;gap:4px">
+            ${logt ? `<button class="btn sm" data-logt="${b.id}" onclick="event.stopPropagation()" style="font-size:10px;padding:2px 6px">Log</button>` : ''}
+            <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;padding:2px 6px">Capitol ↗</a>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${(sinceH.length || sinceRows.length) ? `
+    <div class="panel" style="margin-bottom:8px">
+      <div class="ph"><span>⚡ Since your last visit</span>
+        <span class="psub">${nNew} change${nNew!==1?'s':''} · after ${S.sinceVisit ? fmtDT(S.sinceVisit) : 'your first visit'}</span></div>
+      ${sinceH.map(h => { const b = bill(h.bill_id); return b ? `
+        <div class="prow" data-bill="${b.id}">
+          <span style="font-size:12px">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted · ${fmtDT(h.scheduled_at)}</span>
+        </div>` : ''; }).join('')}
+      ${sinceRows.map(({b, evs}) => `
+        <div class="prow" data-bill="${b.id}">
+          <span style="font-size:12px">${AMENDED_RE.test(evs[0].title)?'✏️ ':''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0,70))}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div style="margin:0 0 14px">
+      <div style="display:flex;gap:3px;margin-bottom:4px">${distBar}</div>
+      <div>${distLegend}</div>
+    </div>
+
+    ${bulkBar()}
+
+    ${band('◷', 'Hearing scheduled', 'soonest first — urgent deadline bolded', withHearing, true)}
+    ${band('📡', 'Waiting — deadline near', `radar ≤5 days`, radarBills, false)}
+    ${band('⚡', 'Moved this week', 'official action in last 7 days', movedBills, false)}
+    ${band('☰', 'In progress', 'active, no recent movement', inProgress, false)}
+    ${outcomes.length ? outPanel : ''}
+  `;
+}
 
 // ---------------- Cards view (advocacy print) ----------------
 const SESSION_OVER = DEMO ? false : true;   // flip false when the 2027 session convenes
@@ -1126,7 +1317,7 @@ function renderLogin() {
   $('#app').innerHTML = `<div class="loginwrap"><div class="loginbox">
     <div class="logo"><span class="mark" style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#12A0AC,#0E7C86);display:inline-flex;align-items:center;justify-content:center">☀</span>
       HIPHI Bill Tracker</div>
-    <p>Hawai‘i Public Health Institute · staff sign in</p>
+    <p>Hawai'i Public Health Institute · staff sign in</p>
     <label>Email</label><input id="l-email" type="email" autocomplete="username">
     <label>Password</label><input id="l-pass" type="password" autocomplete="current-password">
     <button class="btn" id="l-go">Sign in</button>
@@ -1146,6 +1337,7 @@ function render() {
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
     : S.view === 'pipeline' ? renderPipeline(list)
+    : S.view === 'desk' ? renderDesk(list)
     : S.view === 'cards' ? renderCards(list)
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -1167,13 +1359,14 @@ function wire() {
   $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; render(); });
   $('#triplef') && ($('#triplef').onclick = () => { S.tripleF = !S.tripleF; render(); });
   $('#csv') && ($('#csv').onclick = exportCSV);
+  $('#dk-out') && ($('#dk-out').onclick = () => { S.deskOut = !S.deskOut; render(); });
   document.querySelectorAll('[data-camp]').forEach(el =>
     el.onclick = () => { S.camp = el.dataset.camp; render(); });
   document.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => {
     const k = th.dataset.sort; if (!k) return;
     S.sort = S.sort[0] === k ? [k, -S.sort[1]] : [k, 1]; render();
   });
-  document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill]').forEach(el =>
+  document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill],.prow[data-bill],.dk-tile[data-bill]').forEach(el =>
     el.onclick = e => { if (e.target.closest('select,input,a,button')) return; openDrawer(el.dataset.bill); });
   $('#selall') && ($('#selall').onchange = e => {
     const vis = visibleBills().map(b => b.id);
