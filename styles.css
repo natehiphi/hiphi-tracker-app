@@ -85,19 +85,40 @@ td select{padding:4px 6px;border-radius:7px;font-size:12px;width:auto}
 .card.p1{border-left-color:var(--red)}.card.p2{border-left-color:var(--gold)}.card.p3{border-left-color:#C2CBD8}
 .colmore{text-align:center;font-size:11.5px;color:var(--muted);font-weight:600;padding:5px}
 
-/* ---------- drawer ---------- */
-.scrim{position:fixed;inset:0;background:rgba(12,34,51,.42);z-index:60}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:#fff;z-index:70;box-shadow:-8px 0 30px rgba(12,34,51,.25);display:flex;flex-direction:column}
-.dhead{padding:16px 20px 12px;border-bottom:1px solid var(--line)}
-.dhead .close{float:right;font-size:20px;color:var(--muted);padding:2px 8px}
-.dhead h2{font-size:19px}
-.dhead .sub{font-size:12px;color:var(--muted);margin-top:3px}
-.dbody{flex:1;overflow-y:auto;padding:14px 20px 30px}
+/* ---------- bill detail pop-out ---------- */
+.scrim{position:fixed;inset:0;background:rgba(12,34,51,.55);z-index:60;backdrop-filter:blur(2px)}
+/* Bill detail: a near-fullscreen pop-out, not a side drawer. 95% of the
+   viewport on desktop (capped so it stays readable on very wide screens),
+   edge-to-edge on phones. Class name kept so app.js markup is unchanged. */
+.drawer{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(1240px,95vw);max-height:92vh;background:#fff;z-index:70;
+  border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(12,34,51,.34);
+  display:flex;flex-direction:column}
+.dhead{padding:18px 26px 14px;border-bottom:1px solid var(--line);background:#fff}
+.dhead .close{float:right;font-size:22px;line-height:1;color:var(--muted);padding:4px 10px;
+  border-radius:8px}
+.dhead .close:hover{background:var(--chip);color:var(--ink)}
+.dhead h2{font-size:26px;letter-spacing:-.01em}
+.dhead .sub{font-size:14px;color:var(--muted);margin-top:5px;max-width:70ch;line-height:1.4}
+/* Two readable columns of the space we just gained; the timeline runs full
+   width underneath. Blocks never split across the gutter. */
+.dbody{flex:1;overflow-y:auto;padding:18px 26px 34px;
+  column-count:2;column-gap:38px}
+.dbody > *{break-inside:avoid}
+.dbody .sec{break-after:avoid}
+.dbody .sec.full,.dbody #tlmount{column-span:all}
+.dbody .sec.full{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+@media (max-width:820px){
+  .drawer{top:0;left:0;transform:none;width:100%;height:100%;max-height:100%;border-radius:0}
+  .dhead{padding:14px 16px 11px}
+  .dhead h2{font-size:21px}
+  .dbody{padding:14px 16px 28px;column-count:1}
+}
 .sec{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA1AD;font-weight:700;margin:16px 0 8px}
 .sec:first-child{margin-top:2px}
-.kv{display:grid;grid-template-columns:110px 1fr;gap:5px 10px;font-size:12.5px}
+.kv{display:grid;grid-template-columns:118px 1fr;gap:7px 12px;font-size:13px;line-height:1.45}
 .kv .k{color:var(--muted)}
-.teamgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.teamgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .teamgrid label{font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:3px}
 .notes textarea{min-height:64px;resize:vertical}
 .btn{background:var(--teal);color:#fff;border-radius:9px;padding:9px 15px;font-weight:600;font-size:13px}
