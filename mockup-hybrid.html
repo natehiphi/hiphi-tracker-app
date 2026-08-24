@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DESIGN MOCKUP — One-page staff view</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .mocknote{background:#FFF4D6;border:1px dashed #C9A227;color:#6B5410;font-size:11.5px;
+    padding:6px 10px;border-radius:8px;margin:10px 0}
+  .dn{display:inline-block;font-size:10px;color:#8A7A2E;border:1px dashed #C9A227;
+    border-radius:5px;padding:1px 6px;margin-left:8px;vertical-align:middle}
+  .hy{max-width:900px;margin:0 auto;padding:0 14px 60px}
+  .distbar{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 2px}
+  .distbar span{display:block}
+  .distlbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:14px}
+  .band{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);
+    margin:18px 0 6px;text-transform:uppercase}
+  .brow{display:flex;align-items:center;gap:10px;background:var(--card,#fff);
+    border:1px solid var(--line,#E3E9ED);border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer}
+  .brow:hover{border-color:#9CC3C9}
+  .brow .bno{font-weight:700;font-size:13px;white-space:nowrap;min-width:64px}
+  .brow .ti{flex:1;font-size:12.5px;color:#2A3B45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mr{display:flex;gap:2px;align-items:center}
+  .mr i{width:6px;height:6px;border-radius:1.5px;background:#DCE5EA}
+  .mr i.d{background:#0E7C86}.mr i.n{background:#C9A227;box-shadow:0 0 0 2px #F5E7B8}
+  .mr.dead i.d,.mr.dead i.n{background:#B9B9B9;box-shadow:none}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .d-g{background:#3E8E63}.d-a{background:#C9A227}.d-r{background:#C2483B}.d-n{background:#C7D2D8}
+  .selc{width:15px;height:15px}
+  .fchiprow{display:flex;gap:8px;align-items:center;margin:12px 0 2px}
+  @media (max-width:640px){.brow .ti{font-size:12px}.mr{display:none}}
+</style>
+</head>
+<body>
+<div class="hy">
+
+  <div class="mocknote"><b>DESIGN MOCKUP — fake data, nothing is wired.</b> This sketches the
+    proposed single-page staff view that replaces the Portfolio / Pipeline / Table / Cards tabs.
+    Yellow tags explain what happened to each old view.</div>
+
+  <div class="top" style="position:static">
+    <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
+    <input type="search" placeholder="Search bills — or type a number to track something new…" style="flex:1;max-width:360px">
+    <span class="ownerchips">
+      <span class="avatar on" style="background:#0E7C86">NT</span>
+      <span class="avatar" style="background:#5B7FBF">KV</span>
+      <span class="avatar" style="background:#3E8E63">SY</span>
+      <span class="avatar" style="background:#7E5BA6">KR</span>
+    </span>
+    <span class="who"><button>sign out</button></span>
+  </div>
+  <div class="mocknote" style="margin-top:6px">No view tabs. Search is global and doubles as
+    "+ Add bills": an untracked number shows a one-tap Track result. Avatar chips still switch desks.</div>
+
+  <div class="pv-testify"><div class="h"><span class="t">NOW</span>
+    <span class="s">3 things need you — testimony, today's hearings, and deadline-critical bills, soonest first</span>
+    <span class="dn">was: Portfolio's top panels, merged</span></div>
+    <div class="pv-tix">
+      <div class="pv-tick" style="min-width:230px"><div class="bn">HB 2101 · SUPPORT</div>
+        <div class="when">Testimony — HHS hearing Wed 1:00 PM · CR 229</div>
+        <div class="due">DUE IN 21H</div><a style="font-size:11px">Log testimony ▸</a></div>
+      <div class="pv-tick" style="min-width:230px"><div class="bn">SB 2216 · OPPOSE</div>
+        <div class="when">Testimony — CPC hearing Wed 10:00 AM · CR 329</div>
+        <div class="due">DUE IN 18H</div><a style="font-size:11px">Log testimony ▸</a></div>
+      <div class="pv-tick" style="min-width:230px"><div class="bn">HB 2134 · P1</div>
+        <div class="when">📡 No hearing — Triple filing deadline Fri. Consider calling the HLT chair's office.</div>
+        <div class="due">2 DAYS LEFT</div><a style="font-size:11px">Post as public action ▸</a></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:10px"><div class="ph"><span>⚡ Since your last visit</span>
+    <span class="psub">Tue 7:40 AM</span><span class="dn">kept from Portfolio, compact</span></div>
+    <div class="prow"><div class="pmain"><b>HB2118</b> — The committee on HRE deferred the measure.
+      <div class="psmall">Yesterday · companion SB2218 still alive</div></div></div>
+    <div class="prow"><div class="pmain">📅 <b>SB2201</b> — HLT hearing posted
+      <div class="psmall">Thu 1:00 PM · CR 329</div></div></div>
+  </div>
+
+  <div style="margin-top:16px;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)">
+    ALL 64 BILLS <span class="dn">was: Pipeline's 14 columns → one bar + per-row rails</span></div>
+  <div class="distbar">
+    <span style="width:22%;background:#B9C7CF" title="Introduced/committee 14"></span>
+    <span style="width:34%;background:#12A0AC" title="In committee 22"></span>
+    <span style="width:28%;background:#5B7FBF" title="Crossed over 18"></span>
+    <span style="width:3%;background:#7E5BA6" title="Governor 2"></span>
+    <span style="width:6%;background:#3E8E63" title="Law 4"></span>
+    <span style="width:7%;background:#9AA5AB" title="Died 12"></span>
+  </div>
+  <div class="distlbl"><span>First chamber 36</span><span>Crossed 18</span><span>Gov 2 · Law 4 · Died 12</span></div>
+
+  <div class="fchiprow">
+    <button class="fchip">Filter ▾</button>
+    <span class="dn">priority / stage / 3X / coalition live here, collapsed by default</span>
+  </div>
+
+  <div class="band">◷ Hearing scheduled (3)</div>
+  <div class="brow"><input type="checkbox" class="selc"><span class="bno">HB2101</span>
+    <span class="ti">Relating to Health (flavored tobacco ban)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-red">◷ Wed 1:00 · HHS</span>
+    <span class="avatar" style="background:#5B7FBF">KV</span><span class="dot d-g"></span></div>
+  <div class="brow"><input type="checkbox" class="selc"><span class="bno">SB2216</span>
+    <span class="ti">Relating to Tobacco (statewide flavor standards; county rollback)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-red">◷ Wed 10:00 · CPC</span>
+    <span class="avatar" style="background:#0E7C86">NT</span><span class="dot d-g"></span></div>
+  <div class="brow"><input type="checkbox" class="selc"><span class="bno">SB2204</span>
+    <span class="ti">Relating to Transportation (safe routes to school funding)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-gold">◷ Fri 9:00 · TRN</span>
+    <span class="avatar" style="background:#3E8E63">SY</span><span class="dot d-a"></span></div>
+
+  <div class="band">📡 Waiting — deadline near (2) <span class="dn">radar bills live IN the list, not a separate panel</span></div>
+  <div class="brow"><input type="checkbox" class="selc"><span class="bno">HB2134</span>
+    <span class="ti">Relating to Health Insurance (permanent telehealth parity)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-red">no hearing · 2d to Triple</span>
+    <span class="avatar" style="background:#0E7C86">NT</span><span class="dot d-r"></span></div>
+  <div class="brow"><input type="checkbox" class="selc"><span class="bno">SB2232</span>
+    <span class="ti">Relating to Firearm Injury Prevention (safe storage)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-red">no hearing · 2d to Triple</span>
+    <span class="avatar" style="background:#0E7C86">NT</span><span class="dot d-a"></span></div>
+
+  <div class="band">⚡ Moving (2)</div>
+  <div class="brow"><input type="checkbox" class="selc" checked><span class="bno">SB2203</span>
+    <span class="ti">Relating to Human Services (SNAP outreach and enrollment)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-teal">2nd Decking</span>
+    <span class="avatar" style="background:#7E5BA6">KR</span><span class="dot d-g"></span></div>
+  <div class="brow"><input type="checkbox" class="selc" checked><span class="bno">SB2218</span>
+    <span class="ti">Relating to Schools (water bottle filling stations)</span>
+    <span class="mr"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-teal">2nd Lateral</span>
+    <span class="avatar" style="background:#7E5BA6">KR</span><span class="dot d-g"></span></div>
+
+  <div class="bulkbar" style="margin:8px 0"><b>2 selected</b>
+    <select><option>Set position…</option></select>
+    <select><option>Set priority…</option></select>
+    <select><option>Assign owner…</option></select>
+    <select><option>Add to coalition…</option></select>
+    <button class="clear">⬇ CSV</button><button class="clear">Clear</button>
+    <span class="dn">was: Table — the bulk bar only exists while rows are checked</span></div>
+
+  <div class="band" style="color:#9AA5AB">Outcomes (16) — collapsed by default <span class="dn">law + died; tap to expand</span></div>
+  <div class="brow" style="opacity:.55"><input type="checkbox" class="selc"><span class="bno">HB2118</span>
+    <span class="ti">Relating to Schools (water bottle filling stations)</span>
+    <span class="mr dead"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i></span>
+    <span class="chipx c-gray">DIED</span><span class="chipx c-green" style="font-size:9px">SB2218 ALIVE</span>
+    <span class="avatar" style="background:#7E5BA6">KR</span><span class="dot d-n"></span></div>
+
+  <div class="mocknote">Gone as destinations, kept as features: <b>Pipeline</b> → distribution bar +
+    per-row mini-rails · <b>Table</b> → checkboxes + on-demand bulk bar + CSV · <b>Cards</b> → the
+    public page now serves outsiders; a "Share ▸ public page" link replaces it · <b>+ Add bills</b> →
+    the search box. The drawer, team feed (bottom, not shown), and everything you tap today are unchanged.</div>
+
+</div>
+</body>
+</html>
