@@ -180,6 +180,18 @@ const DB = {
       .upsert(rows, { onConflict: 'bill_id,campaign_id', ignoreDuplicates: true });
     if (error) throw error;
   },
+  async toggleCampaign(billId, campaignId, on) {
+    const arr = (S.billCampaigns[billId] ??= []);
+    if (on) { if (!arr.includes(campaignId)) arr.push(campaignId); }
+    else S.billCampaigns[billId] = arr.filter(c => c !== campaignId);
+    if (DEMO) return;
+    const q = on
+      ? S.supa.from('bill_campaigns').upsert({ bill_id: billId, campaign_id: campaignId },
+          { onConflict: 'bill_id,campaign_id', ignoreDuplicates: true })
+      : S.supa.from('bill_campaigns').delete().eq('bill_id', billId).eq('campaign_id', campaignId);
+    const { error } = await q;
+    if (error) throw error;
+  },
   async companionInfo(nums) {
     if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number));
     const { data, error } = await S.supa.from('bills')
@@ -1338,7 +1350,15 @@ function drawerHTML(b) {
         <div><label>Stage override</label><select id="d-so"><option value="">Auto</option>
           ${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>
       </div>
-      <div class="notes" style="margin-top:9px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Internal notes (never public)</label>
+      <div style="margin-top:11px">
+        <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px">Coalitions</label>
+        <div class="typechips">${S.campaigns.length
+          ? S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
+              return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}"
+                title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '\u2713 ' : '+ '}${esc(c.name)}</button>`; }).join('')
+          : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet \u2014 an admin can add them.</span>'}</div>
+      </div>
+      <div class="notes" style="margin-top:11px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Internal notes (never public)</label>
         <textarea id="d-notes">${esc(b.internal_notes||'')}</textarea>
         <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save notes</button></div>
       <div class="sec">Log an update</div>
@@ -1459,6 +1479,14 @@ function wireDrawer() {
   $('#d-own').onchange = e => DB.setOwner(b.id, e.target.value || null)
     .then(() => { toast('Owner updated'); render(); }).catch(er => toast(er.message, true));
   $('#d-savenotes').onclick = () => save({ internal_notes: $('#d-notes').value || null }, 'Notes saved');
+  document.querySelectorAll('[data-campt]').forEach(el => el.onclick = async () => {
+    const id = el.dataset.campt, on = !el.classList.contains('on');
+    const nm = S.campaigns.find(c => c.id === id)?.name || 'coalition';
+    el.disabled = true;
+    try { await DB.toggleCampaign(b.id, id, on);
+      toast(on ? `Added to ${nm}` : `Removed from ${nm}`); render(); }
+    catch (e) { el.disabled = false; toast(e.message, true); }
+  });
   document.querySelectorAll('[data-lt]').forEach(el => el.onclick = () => {
     S.logType = el.dataset.lt;
     document.querySelectorAll('[data-lt]').forEach(x => x.classList.toggle('on', x === el));
