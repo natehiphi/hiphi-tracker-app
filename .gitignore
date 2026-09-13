@@ -1,0 +1,5 @@
+# Playwright screenshot output (../backend/tools/screenshot_desk.py)
+shot_*.png
+
+# macOS
+.DS_Store
