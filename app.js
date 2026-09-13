@@ -31,7 +31,11 @@ const S = {
   advocates: [], bills: [], hearings: [], pulse: {}, campaigns: [], feed: [],
   assignments: {},           // bill_id -> [advocate_id]
   billCampaigns: {},         // bill_id -> [campaign_id]
-  view: localStorage.getItem('view') || 'portfolio',
+  // Validated on read: a view name persisted by an older build (or by a
+  // build where that view still existed) must not leave someone staring
+  // at an empty page. Unknown names fall back.
+  view: (v => ['portfolio','pipeline','desk','table','cards','add'].includes(v)
+              ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   deskOut: false,
@@ -150,10 +154,16 @@ const DB = {
     if (error) throw error;
   },
   async updateBill(billId, patch) {
-    const b = S.bills.find(x => x.id === billId); Object.assign(b, patch);
+    // Optimistic: patch local state first so the UI feels instant, but keep
+    // a snapshot of just the touched keys so a rejected write can be undone.
+    // Without this a failed save leaves the screen showing a value the
+    // database never accepted.
+    const b = S.bills.find(x => x.id === billId);
+    const before = {};
+    if (b) { for (const k of Object.keys(patch)) before[k] = b[k]; Object.assign(b, patch); }
     if (DEMO) return;
     const { error } = await S.supa.from('bills').update(patch).eq('id', billId);
-    if (error) throw error;
+    if (error) { if (b) Object.assign(b, before); throw error; }
   },
   async setOwner(billId, advocateId) {
     S.assignments[billId] = advocateId ? [advocateId] : [];
@@ -166,10 +176,17 @@ const DB = {
     }
   },
   async bulkUpdate(ids, patch) {
-    ids.forEach(id => { const b = S.bills.find(x => x.id === id); if (b) Object.assign(b, patch); });
+    const before = new Map();
+    ids.forEach(id => { const b = S.bills.find(x => x.id === id); if (!b) return;
+      const snap = {}; for (const k of Object.keys(patch)) snap[k] = b[k];
+      before.set(id, snap); Object.assign(b, patch); });
     if (DEMO) return;
     const { error } = await S.supa.from('bills').update(patch).in('id', ids);
-    if (error) throw error;
+    if (error) {                                  // undo every row we touched
+      before.forEach((snap, id) => { const b = S.bills.find(x => x.id === id);
+        if (b) Object.assign(b, snap); });
+      throw error;
+    }
   },
   async addToCampaign(ids, campaignId) {
     ids.forEach(id => { const arr = (S.billCampaigns[id] ??= []);
@@ -862,6 +879,12 @@ function renderPipeline(list) {
 function bulkBar() {
   const n = S.selected.size;
   if (!n) return '';
+  // The selection survives filter changes, so a bulk action can reach bills
+  // that scrolled out of view three filters ago. Rather than silently
+  // dropping them (losing work) or silently writing them (the hazard), say
+  // so and offer one click to trim.
+  const vis = new Set(visibleBills().map(b => b.id));
+  const hidden = [...S.selected].filter(id => !vis.has(id)).length;
   return `<div class="bulkbar">
     <b>${n} selected</b>
     <select id="bk-pos"><option value="">Set position…</option>
@@ -874,7 +897,11 @@ function bulkBar() {
     <select id="bk-camp"><option value="">Add to coalition…</option>
       ${S.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
     <button class="clear" id="bk-clear">Clear selection</button>
-  </div>`;
+  </div>` + (hidden ? `<div class="bulkwarn">
+    <span><b>${hidden}</b> of these ${hidden === 1 ? 'is' : 'are'} hidden by the current
+    filters. Bulk actions will still apply to all ${n}.</span>
+    <button id="bk-trim">Limit to the ${n - hidden} shown</button>
+  </div>` : '');
 }
 function renderTable(list) {
   return bulkBar() + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
@@ -916,19 +943,24 @@ const dkOutcome = b => {
 const DK_CAP = 10;                   // rows per band before "+N more"
 
 // One row. Shared by every band in both season modes.
+// Grid, not flex: each cell gets a fixed track so rows line up as columns.
+// Under flex the title absorbed all slack, which pushed the rail and avatar
+// to the far edge on wide screens and left `extra` at a different horizontal
+// position in every band. Every cell is emitted even when empty — a missing
+// cell shifts everything after it out of alignment.
 function dkRow(b, extra = '') {
   const d = daysAgo(S.pulse[b.id]?.last_team_touch);
   const dot = d == null ? 'd-n' : d <= 3 ? 'd-g' : d <= 7 ? 'd-a' : 'd-r';
   const o = owners(b)[0];
-  return `<div class="prow" data-bill="${b.id}" style="align-items:center;gap:6px">
-    <input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id) ? 'checked' : ''} onclick="event.stopPropagation()">
-    <span class="bno" style="min-width:52px;flex:0 0 auto">${esc(b.bill_number)}</span>
-    ${b.priority ? `<span class="chipx c-gray" style="font-size:9px;padding:1px 3px;flex:0 0 auto">P${b.priority}</span>` : ''}
-    <span style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.title || '')}</span>
-    ${extra}
-    <span style="flex:0 0 auto">${dkRail(b)}</span>
-    ${o ? av(o) : ''}
-    <span class="pulse" style="flex:0 0 auto;font-size:11px" title="last team touch"><span class="dot ${dot}"></span></span>
+  return `<div class="prow dkrow" data-bill="${b.id}">
+    <span class="dksel"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id) ? 'checked' : ''} onclick="event.stopPropagation()"></span>
+    <span class="dkid"><span class="bno">${esc(b.bill_number)}</span>${
+      b.priority ? `<span class="chipx c-gray dkpri">P${b.priority}</span>` : ''}</span>
+    <span class="dkt">${esc(b.title || '')}</span>
+    <span class="dkx">${extra}</span>
+    <span class="dkrail">${dkRail(b)}</span>
+    <span class="dkav">${o ? av(o) : ''}</span>
+    <span class="pulse dkpulse" title="last team touch"><span class="dot ${dot}"></span></span>
   </div>`;
 }
 // A titled group of rows, capped, with an overflow line. Renders nothing when empty.
@@ -1320,6 +1352,32 @@ function timelineHTML(tl) {
       <div class="who">${team && a ? esc(a.full_name)+' · ' : ''}${esc(ev.details||'')}</div>
     </div>`; }).join('')}</div>`;
 }
+// What the public page is actually showing for this bill right now.
+// public_bills gates the action ask on public_action_until >= current_date,
+// so an ask with a past date (or no date) silently shows nothing. Staff had
+// no way to see that, because these fields had no interface at all.
+const hiToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+function pubStateCls(b) {
+  if (!b.tracked || !b.is_public) return 'pubstate off';
+  if (!b.public_summary) return 'pubstate warn';
+  if (b.public_action && (!b.public_action_until || b.public_action_until < hiToday()))
+    return 'pubstate warn';
+  return 'pubstate live';
+}
+function pubStateText(b) {
+  if (!b.tracked) return 'Not tracked, so it does not appear on the public page.';
+  if (!b.is_public) return 'Hidden from the public page.';
+  if (!b.public_summary)
+    return 'Live with no summary — visitors see the bill title and status only.';
+  if (b.public_action && !b.public_action_until)
+    return 'Action ask written but no expiry date, so it is NOT being shown. Set a date.';
+  if (b.public_action && b.public_action_until < hiToday())
+    return `Action ask expired ${fmtDate(b.public_action_until)} and is no longer shown.`;
+  if (b.public_action)
+    return `Summary live. Action ask runs through ${fmtDate(b.public_action_until)}.`;
+  return 'Summary live. No action ask set.';
+}
+
 function drawerHTML(b) {
   return `<div class="scrim" id="scrim"></div>
   <div class="drawer">
@@ -1357,6 +1415,25 @@ function drawerHTML(b) {
               return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}"
                 title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '\u2713 ' : '+ '}${esc(c.name)}</button>`; }).join('')
           : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet \u2014 an admin can add them.</span>'}</div>
+      </div>
+      <div class="sec">Public page <span class="tag t">everyone can see this</span></div>
+      <div class="pubgrid">
+        <div class="${pubStateCls(b)}">${pubStateText(b)}</div>
+        <label for="d-psum">Plain-language summary</label>
+        <textarea id="d-psum" maxlength="280"
+          placeholder="One sentence a neighbour would understand. No jargon, no bill numbers."
+          >${esc(b.public_summary || '')}</textarea>
+        <label for="d-pact">Take Action ask</label>
+        <textarea id="d-pact" maxlength="280"
+          placeholder="What should someone do today? Left blank, no ask appears."
+          >${esc(b.public_action || '')}</textarea>
+        <div class="pubrow">
+          <span><label for="d-puntil">Ask expires</label>
+            <input type="date" id="d-puntil" value="${esc(b.public_action_until || '')}"></span>
+          <label class="pubchk"><input type="checkbox" id="d-ispub" ${b.is_public ? 'checked' : ''}>
+            Show on public page</label>
+        </div>
+        <button class="btn sm" id="d-savepub">Save public copy</button>
       </div>
       <div class="notes" style="margin-top:11px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Internal notes (never public)</label>
         <textarea id="d-notes">${esc(b.internal_notes||'')}</textarea>
@@ -1451,6 +1528,11 @@ function wire() {
   $('#bk-camp') && ($('#bk-camp').onchange = e => { const v = e.target.value; if (v)
     bulkGo(() => DB.addToCampaign([...S.selected], v), `Added ${S.selected.size} bills to coalition`); });
   $('#bk-clear') && ($('#bk-clear').onclick = () => { S.selected.clear(); render(); });
+  $('#bk-trim') && ($('#bk-trim').onclick = () => {
+    const vis = new Set(visibleBills().map(b => b.id));
+    [...S.selected].forEach(id => vis.has(id) || S.selected.delete(id));
+    render();
+  });
   const upd = (sel, fn) => document.querySelectorAll(sel).forEach(el => {
     el.onclick = e => e.stopPropagation();
     el.onchange = e => fn(el, e).then(() => toast('Saved')).catch(err => toast(err.message, true));
@@ -1479,6 +1561,22 @@ function wireDrawer() {
   $('#d-own').onchange = e => DB.setOwner(b.id, e.target.value || null)
     .then(() => { toast('Owner updated'); render(); }).catch(er => toast(er.message, true));
   $('#d-savenotes').onclick = () => save({ internal_notes: $('#d-notes').value || null }, 'Notes saved');
+  $('#d-savepub').onclick = () => {
+    const action = $('#d-pact').value.trim(), until = $('#d-puntil').value;
+    // An ask without an expiry never renders — public_bills requires
+    // public_action_until >= current_date. Refuse rather than save something
+    // that looks published and isn't.
+    if (action && !until)
+      return toast('An action ask needs an expiry date, or it will never show', true);
+    if (action && until < hiToday())
+      return toast('That expiry date has passed — the ask would not be shown', true);
+    save({
+      public_summary: $('#d-psum').value.trim() || null,
+      public_action: action || null,
+      public_action_until: until || null,
+      is_public: $('#d-ispub').checked,
+    }, 'Public copy saved');
+  };
   document.querySelectorAll('[data-campt]').forEach(el => el.onclick = async () => {
     const id = el.dataset.campt, on = !el.classList.contains('on');
     const nm = S.campaigns.find(c => c.id === id)?.name || 'coalition';
