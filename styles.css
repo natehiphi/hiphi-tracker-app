@@ -148,6 +148,9 @@ td select{padding:4px 6px;border-radius:7px;font-size:12px;width:auto}
 .loginbox label{font-size:11.5px;font-weight:600;color:var(--muted);display:block;margin:10px 0 4px}
 .loginbox .btn{width:100%;margin-top:16px}
 .loginerr{color:var(--red);font-size:12.5px;margin-top:10px}
+.loginlink{color:var(--teal);font-size:12.5px;font-weight:600;display:block;width:100%;text-align:center;margin-top:12px;padding:4px}
+.loginlink:disabled{color:var(--muted);cursor:default}
+.loginnote{color:var(--muted);font-size:12px;line-height:1.45;margin-top:8px;text-align:center}
 
 /* ---------- misc ---------- */
 .addbill{padding:0 20px 30px;max-width:640px}

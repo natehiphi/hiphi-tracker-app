@@ -6,6 +6,17 @@
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
+// Auth email links (password recovery, magic link) come back with their payload
+// in the URL hash. supabase-js clears that hash the instant the client is
+// created, so read what we need synchronously, before DB.init() runs.
+const HASH_Q = new URLSearchParams(location.hash.slice(1));
+let RECOVERY = HASH_Q.get('type') === 'recovery';
+// A spent or expired link returns #error=...&error_description=... instead.
+// Surfacing it matters: without it the app showed a bare sign-in form, the link
+// looked like it had done nothing, and clicking again burned the next token too.
+const LINK_ERR = HASH_Q.get('error_description') || '';
+// Own origin + path, so the GitHub Pages subpath is picked up automatically.
+const APP_URL = location.origin + location.pathname;
 // January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
 // here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
 const SESSION_YEAR = 2026;
@@ -77,13 +88,27 @@ const DB = {
     S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data } = await S.supa.auth.getSession();
     S.session = data.session;
-    S.supa.auth.onAuthStateChange((_e, sess) => {
+    S.supa.auth.onAuthStateChange((e, sess) => {
       const had = !!S.session; S.session = sess;
+      // A recovery link creates a real session, so without this branch boot()
+      // would just load the app and never offer to set a new password.
+      if (e === 'PASSWORD_RECOVERY') { RECOVERY = true; renderRecovery(); return; }
       if (!!sess !== had) boot();
     });
   },
   async login(email, password) {
     const { error } = await S.supa.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  },
+  async sendRecovery(email) {
+    // redirectTo must also be on the Supabase redirect allowlist, and Site URL
+    // must point at this app - otherwise the link verifies, then bounces the
+    // browser to a dead address and spends the token for nothing.
+    const { error } = await S.supa.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+    if (error) throw error;
+  },
+  async setPassword(password) {
+    const { error } = await S.supa.auth.updateUser({ password });
     if (error) throw error;
   },
   logout() { DEMO ? location.reload() : S.supa.auth.signOut(); },
@@ -1462,6 +1487,8 @@ function renderLogin() {
     <label>Password</label><input id="l-pass" type="password" autocomplete="current-password">
     <button class="btn" id="l-go">Sign in</button>
     <div class="loginerr" id="l-err"></div>
+    <button class="loginlink" id="l-forgot">Forgot password?</button>
+    <div class="loginnote" id="l-note"></div>
   </div></div>`;
   const go = async () => {
     $('#l-err').textContent = '';
@@ -1470,6 +1497,59 @@ function renderLogin() {
   };
   $('#l-go').onclick = go;
   $('#l-pass').addEventListener('keydown', e => e.key === 'Enter' && go());
+  if (LINK_ERR) $('#l-err').textContent = LINK_ERR + ' - each link works only once. Request a new one.';
+  $('#l-forgot').onclick = async () => {
+    const email = $('#l-email').value.trim();
+    $('#l-err').textContent = '';
+    if (!email) { $('#l-err').textContent = 'Enter your email address first.'; return; }
+    const btn = $('#l-forgot');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    try {
+      await DB.sendRecovery(email);
+      // Reported the same way whether or not the address has an account, so this
+      // cannot be used to enumerate staff emails.
+      btn.textContent = 'Check your email';
+      $('#l-note').textContent = 'If ' + email + ' has an account, a reset link is on its way. '
+        + 'It works once - open it in this browser, and do not click it twice.';
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Forgot password?';
+      $('#l-err').textContent = err.message || 'Could not send the reset email.';
+    }
+  };
+}
+
+// Arrived from a reset link: the link already established a session, so the only
+// thing left is choosing a new password.
+function renderRecovery() {
+  $('#app').innerHTML = `<div class="loginwrap"><div class="loginbox">
+    <div class="logo"><span class="mark" style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#12A0AC,#0E7C86);display:inline-flex;align-items:center;justify-content:center">\u2600</span>
+      HIPHI Bill Tracker</div>
+    <p>Choose a new password</p>
+    <label>New password</label><input id="r-pass" type="password" autocomplete="new-password">
+    <label>Confirm password</label><input id="r-pass2" type="password" autocomplete="new-password">
+    <button class="btn" id="r-go">Save password</button>
+    <div class="loginerr" id="r-err"></div>
+  </div></div>`;
+  const go = async () => {
+    const a = $('#r-pass').value, b = $('#r-pass2').value;
+    $('#r-err').textContent = '';
+    if (a.length < 8) { $('#r-err').textContent = 'Use at least 8 characters.'; return; }
+    if (a !== b) { $('#r-err').textContent = 'Those two passwords do not match.'; return; }
+    const btn = $('#r-go');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    try {
+      await DB.setPassword(a);
+      RECOVERY = false;
+      history.replaceState(null, '', APP_URL);   // drop the recovery hash
+      toast('Password updated');
+      boot();
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Save password';
+      $('#r-err').textContent = err.message || 'Could not save the password.';
+    }
+  };
+  $('#r-go').onclick = go;
+  $('#r-pass2').addEventListener('keydown', e => e.key === 'Enter' && go());
 }
 
 // ---------------- render + events ----------------
@@ -1638,6 +1718,7 @@ function exportCSV() {
 async function boot() {
   try {
     if (!S.session) return renderLogin();
+    if (RECOVERY && !DEMO) return renderRecovery();
     // Visit-session boundary (per device): reloads within 30 min keep the
     // same "since your last visit" baseline; first-ever visit starts at now.
     if (!DEMO) {
