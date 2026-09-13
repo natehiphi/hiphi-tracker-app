@@ -49,6 +49,7 @@ const S = {
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
+  todos: {},   // bill_id -> [todo]
   deskOut: false,
 };
 const $ = sel => document.querySelector(sel);
@@ -117,7 +118,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -127,6 +128,7 @@ const DB = {
       S.supa.from('bill_pulse').select('*'),
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
+      S.supa.from('bill_todos').select('*').order('sort_order').order('created_at'),
     ]);
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
@@ -136,6 +138,11 @@ const DB = {
       (S.assignments[r.bill_id] ??= []).push(r.advocate_id));
     S.billCampaigns = {}; bc.data.forEach(r =>
       (S.billCampaigns[r.bill_id] ??= []).push(r.campaign_id));
+    // Additive feature: if migration 004 has not run on this database yet, the
+    // rest of the app must still load. Same treatment as sync_runs below.
+    S.todos = {};
+    if (todos.error) console.warn('bill_todos:', todos.error.message);
+    else todos.data.forEach(t => (S.todos[t.bill_id] ??= []).push(t));
     S.pulse = Object.fromEntries(pulse.data.map(p => [p.bill_id, p]));
     S.feed = feed.data;
     S.me = S.advocates.find(a => a.id === myId) ||
@@ -233,6 +240,38 @@ const DB = {
       : S.supa.from('bill_campaigns').delete().eq('bill_id', billId).eq('campaign_id', campaignId);
     const { error } = await q;
     if (error) throw error;
+  },
+  async addTodo(billId, title) {
+    const order = (S.todos[billId] || []).length;
+    if (DEMO) {
+      (S.todos[billId] ??= []).push({ id: crypto.randomUUID(), bill_id: billId, title,
+        done: false, due_date: null, assignee_id: S.me?.id || null, sort_order: order,
+        created_at: new Date().toISOString() });
+      return;
+    }
+    const { data, error } = await S.supa.from('bill_todos').insert({
+      bill_id: billId, title, sort_order: order,
+      assignee_id: S.me?.id || null, created_by: S.me?.id || null }).select().single();
+    if (error) throw error;
+    (S.todos[billId] ??= []).push(data);
+  },
+  async updateTodo(billId, id, patch) {
+    const t = (S.todos[billId] || []).find(x => x.id === id);
+    if (!t) return;
+    const prev = { ...t };
+    Object.assign(t, patch);
+    if (DEMO) return;
+    const { error } = await S.supa.from('bill_todos').update(patch).eq('id', id);
+    if (error) { Object.assign(t, prev); throw error; }
+  },
+  async deleteTodo(billId, id) {
+    const arr = S.todos[billId] || [];
+    const i = arr.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const [gone] = arr.splice(i, 1);
+    if (DEMO) return;
+    const { error } = await S.supa.from('bill_todos').delete().eq('id', id);
+    if (error) { arr.splice(i, 0, gone); throw error; }
   },
   async companionInfo(nums) {
     if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number));
@@ -635,6 +674,21 @@ function demoInit() {
   const sc = buildScenario(Date.now());
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
+  // Seed the To do section so the sandbox shows all three states: overdue,
+  // upcoming, and finished.
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  S.todos = {};
+  if (S.bills[0]) S.todos[S.bills[0].id] = [
+    { id: 'td1', bill_id: S.bills[0].id, title: 'Draft testimony for WAM hearing',
+      done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,
+      created_at: new Date().toISOString() },
+    { id: 'td2', bill_id: S.bills[0].id, title: 'Confirm coalition sign-ons',
+      done: false, due_date: day(4), assignee_id: S.advocates[1].id, sort_order: 1,
+      created_at: new Date().toISOString() },
+    { id: 'td3', bill_id: S.bills[0].id, title: 'Send one-pager to committee staff',
+      done: true, due_date: null, assignee_id: S.advocates[2].id, sort_order: 2,
+      created_at: new Date().toISOString() },
+  ];
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
   S.feed = sc.tl.filter(t => t.source === 'team');
   S.sinceVisit = Date.now() - 3*864e5;
@@ -1403,6 +1457,36 @@ function pubStateText(b) {
   return 'Summary live. No action ask set.';
 }
 
+// Open items first, then finished ones. Overdue is called out in red, since a
+// missed testimony deadline is the whole point of tracking these.
+function todosHTML(b) {
+  const list = (S.todos[b.id] || []).slice().sort((x, y) =>
+    (x.done - y.done) || (x.sort_order - y.sort_order) ||
+    String(x.created_at).localeCompare(String(y.created_at)));
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = list.map(t => {
+    const over = !t.done && t.due_date && t.due_date < today;
+    return `<div class="todorow" data-todo="${esc(t.id)}">
+      <input type="checkbox" class="tdchk" ${t.done ? 'checked' : ''} aria-label="Mark done">
+      <span class="tdtitle${t.done ? ' done' : ''}">${esc(t.title)}</span>
+      <span class="tdmeta">
+        <input type="date" class="tddue${over ? ' over' : ''}" value="${esc(t.due_date || '')}"
+          title="${over ? 'Overdue' : 'Due date'}" aria-label="Due date">
+        <select class="tdown" aria-label="Owner"><option value="">Anyone</option>
+          ${S.advocates.map(a => `<option value="${a.id}" ${t.assignee_id === a.id ? 'selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select>
+      </span>
+      <button class="tddel" title="Remove this task" aria-label="Remove task">\u2715</button>
+    </div>`;
+  }).join('');
+  const open = list.filter(t => !t.done).length;
+  return `<div class="sec">To do${open ? ` <span class="tag a">${open} open</span>` : ''}</div>
+    <div class="todos">${rows || '<div class="todoempty">Nothing yet.</div>'}
+      <div class="todoadd">
+        <input id="d-tdnew" placeholder="Add a task\u2026" maxlength="200">
+        <button class="btn sm" id="d-tdadd">Add</button>
+      </div></div>`;
+}
+
 function drawerHTML(b) {
   return `<div class="scrim" id="scrim"></div>
   <div class="drawer">
@@ -1463,6 +1547,7 @@ function drawerHTML(b) {
       <div class="notes" style="margin-top:11px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Internal notes (never public)</label>
         <textarea id="d-notes">${esc(b.internal_notes||'')}</textarea>
         <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save notes</button></div>
+      ${todosHTML(b)}
       <div class="sec">Log an update</div>
       <div class="logform">
         <div class="typechips">${LOG_TYPES.map(([v,l]) =>
@@ -1669,6 +1754,35 @@ function wireDrawer() {
     S.logType = el.dataset.lt;
     document.querySelectorAll('[data-lt]').forEach(x => x.classList.toggle('on', x === el));
   });
+  document.querySelectorAll('[data-todo]').forEach(row => {
+    const id = row.dataset.todo;
+    row.querySelector('.tdchk').onchange = async e => {
+      const el = e.target; el.disabled = true;
+      try { await DB.updateTodo(b.id, id, { done: el.checked }); render(); }
+      catch (err) { el.checked = !el.checked; el.disabled = false; toast(err.message, true); }
+    };
+    row.querySelector('.tddue').onchange = async e => {
+      try { await DB.updateTodo(b.id, id, { due_date: e.target.value || null }); render(); }
+      catch (err) { toast(err.message, true); }
+    };
+    row.querySelector('.tdown').onchange = async e => {
+      try { await DB.updateTodo(b.id, id, { assignee_id: e.target.value || null }); render(); }
+      catch (err) { toast(err.message, true); }
+    };
+    row.querySelector('.tddel').onclick = async () => {
+      try { await DB.deleteTodo(b.id, id); toast('Task removed'); render(); }
+      catch (err) { toast(err.message, true); }
+    };
+  });
+  const addTodo = async () => {
+    const inp = $('#d-tdnew'), title = inp.value.trim();
+    if (!title) return toast('Type the task first', true);
+    const btn = $('#d-tdadd'); btn.disabled = true;
+    try { await DB.addTodo(b.id, title); inp.value = ''; render(); }
+    catch (e) { btn.disabled = false; toast(e.message, true); }
+  };
+  $('#d-tdadd').onclick = addTodo;
+  $('#d-tdnew').addEventListener('keydown', e => e.key === 'Enter' && addTodo());
   $('#d-log').onclick = async () => {
     const title = $('#d-ltitle').value.trim();
     if (!title) return toast('Add a short summary first', true);
