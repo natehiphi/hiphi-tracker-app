@@ -1857,4 +1857,9 @@ async function boot() {
       <button class="btn" onclick="location.reload()">Retry</button></div>`;
   }
 }
+// Escape closes the bill drawer. Registered once here rather than in wireDrawer,
+// which re-runs on every render and would stack a listener each time.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && S.drawerBill) { S.drawerBill = null; render(); }
+});
 DB.init().then(boot);
