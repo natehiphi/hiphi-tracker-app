@@ -472,3 +472,9 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .pv-fold>summary{list-style:none;cursor:pointer}
 .pv-fold>summary::-webkit-details-marker{display:none}
 .pv-fold[open]>summary{margin-bottom:12px}
+/* ---------- portfolio ---------- */
+.stats.pf .stat{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.stats.pf .stat:hover{border-color:var(--teal)}
+.dash.one{grid-template-columns:1fr;max-width:980px}
+.tag.n{background:#FEF3C7;color:#B45309;margin-left:8px}
+@media (max-width:760px){ .stats.pf{display:none} }

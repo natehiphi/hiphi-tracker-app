@@ -888,108 +888,167 @@ function pulseCell(b) {
 }
 
 // ---------------- views ----------------
+// The home page. In session: what is waiting on you, this week's hearings
+// (each bill once), the dying-quietly radar, then folded/optional context.
+// With text in the search box it becomes a search across every bill in the
+// database, tracked or not, so anything can be added from here.
 function renderPortfolio(list) {
   const ids = new Set(list.map(b => b.id));
   const now = Date.now(), wk = now + 7*864e5, day = 864e5;
   const bill = id => S.bills.find(b => b.id === id);
+  const me = S.me || {};
   const who = S.owner==='me' ? (S.me?.full_name || 'My') :
     S.owner==='all' ? 'Team' : (advocate(S.owner)?.full_name || '');
+  const today = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'Pacific/Honolulu'});
+  const mobile = isMobile();
+  const panel = (id, title, sub, rowsHtml, emptyMsg) => `
+    <div class="panel" id="${id}"><div class="ph"><span>${title}</span><span class="psub">${sub}</span></div>
+      ${rowsHtml || `<div class="pempty">${emptyMsg}</div>`}</div>`;
+  const hrsLeft = d => Math.max(0, Math.round((new Date(d) - now)/36e5));
+  const head = (h1, sub) => `<div class="dashhead"><h1>${h1}</h1><span class="sub">${sub}</span></div>`;
+
+  // ---------- search mode: every bill, not just this lens ----------
+  const q = S.q.trim();
+  if (q.length >= 2) {
+    const ql = q.toLowerCase(), qn = ql.replace(/\s/g,'');
+    const hit = b => b.bill_number.toLowerCase().includes(qn) || (b.title||'').toLowerCase().includes(ql);
+    const tracked = S.bills.filter(hit).slice(0, 30);
+    const sa = S.searchAll || {};
+    const untracked = sa.q === q ? (sa.rows || []) : null;
+    const row = b => `<div class="prow" data-bill="${b.id}">
+        <div class="pmain"><b>${esc(b.bill_number)}</b> ${esc(b.title||'')}
+          <div class="psmall">${statusChip(b)}${owners(b)[0] ? ' · ' + esc(owners(b)[0].full_name) : ' · no owner'}${b.position ? ' · ' + esc(POSITIONS.find(p=>p[0]===b.position)?.[1]||'') : ''}</div></div>
+        <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span></div>`;
+    return head(`Search: “${esc(q)}”`, `${tracked.length} tracked match${tracked.length===1?'':'es'} · ${untracked ? untracked.length + ' not tracked yet' : 'looking through every bill…'}`) + `
+      <div class="dash one">
+        <div>
+          ${panel('pf-hits', '✓ Tracked', 'already on the tracker, any owner', tracked.map(row).join(''), 'No tracked bill matches.')}
+          ${panel('pf-untracked', '＋ Not tracked yet', 'every measure in the session · tap Track to add it',
+            DEMO ? `<div class="pempty">The sandbox holds only its 64 scripted bills; in the live app this lists every introduced measure that matches.</div>`
+            : q.length < 3 ? `<div class="pempty">Type at least 3 characters to search bills that are not tracked yet.</div>`
+            : untracked === null ? `<div class="pempty">Searching…</div>`
+            : untracked.map(r => `<div class="prow" data-track-row="${r.id}">
+                <div class="pmain"><b>${esc(r.bill_number)}</b> ${esc(r.title||'')}
+                  <div class="psmall">${esc(r.last_action||'')}${r.last_action_date ? ' · ' + fmtDate(r.last_action_date) : ''}</div></div>
+                <button class="btn sm" data-track="${r.id}">Track</button>
+                <a class="btn sm ghost" href="${esc(capitolUrl(r))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
+              </div>`).join(''),
+            'No untracked bill matches.')}
+        </div>
+      </div>`;
+  }
+
+  // ---------- waiting on you (whole team, ignores the lens) ----------
+  const isMine = b => (S.assignments[b.id]||[]).includes(me.id);
+  const hearingFor = d => S.hearings.find(h => h.id === d.hearing_id) ||
+    S.hearings.filter(h => h.bill_id === d.bill_id && h.committee === d.committee && new Date(h.scheduled_at) > new Date())
+      .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
+  const waiting = Object.values(S.drafts).flat().filter(d => d.status !== 'cancelled').map(d => {
+    const b = bill(d.bill_id); if (!b) return null;
+    const why = d.status === 'review' && me.is_admin ? 'Waiting for your approval'
+      : d.status === 'second_review' && me.is_reviewer ? 'Needs your approval (first testimony on this bill)'
+      : d.status === 'approved' && (isMine(b) || d.submitted_by === me.id || me.is_admin) ? 'Approved — file it at the Capitol'
+      : d.status === 'draft' && d.review_note && d.submitted_by === me.id ? 'Sent back: ' + d.review_note
+      : d.status === 'draft' && !d.submitted_at && isMine(b) ? 'Draft ready — write it, then submit for review'
+      : null;
+    if (!why) return null;
+    const h = hearingFor(d);
+    return { d, b, why, h, t: h?.testimony_deadline ? +new Date(h.testimony_deadline) : h ? +new Date(h.scheduled_at) : Infinity };
+  }).filter(Boolean).sort((x,y) => x.t - y.t);
+  const WAIT_CAP = 8;
+  const waitingHtml = waiting.slice(0, WAIT_CAP).map(({ d, b, why, h }) => `
+    <div class="prow ${h?.testimony_deadline && hrsLeft(h.testimony_deadline) < 48 ? 'urgent' : ''}" data-bill="${b.id}">
+      <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(d.committee)} — ${esc(why)}
+        <div class="psmall">${h ? `Hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · testimony due in <b>${hrsLeft(h.testimony_deadline)}h</b>` : ''}` : esc((b.title||'').slice(0, 70))}</div></div>
+      ${draftActionBtn(b, d.committee)}
+    </div>`).join('') + (waiting.length > WAIT_CAP ? `<div class="pempty">…and ${waiting.length - WAIT_CAP} more</div>` : '');
+
+  // ---------- this week: each bill once ----------
   const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
     .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const due = hUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) - now < 48*3600e3);
-  const hearingsWk = hUp.filter(h => new Date(h.scheduled_at) < new Date(wk));
-  const staleDays = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 9999 : d; };
-  const stale = list.filter(b => (b.priority||3) <= 2 && staleDays(b) > 7)
-    .sort((a,b) => (a.priority||3)-(b.priority||3) || staleDays(b)-staleDays(a));
-  const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day)
-    .sort((a,b) => (b.last_action_date||'').localeCompare(a.last_action_date||''));
-  const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 8);
-  const hrsLeft = d => Math.max(0, Math.round((new Date(d) - now)/36e5));
-  // Dying-quietly radar: a filing deadline is close and no hearing is on the books
+  const weekByBill = new Map();
+  for (const h of hUp) if (new Date(h.scheduled_at) < new Date(wk) && !weekByBill.has(h.bill_id)) weekByBill.set(h.bill_id, h);
+  const week = [...weekByBill.values()].sort((a,b) =>
+    (a.testimony_deadline || a.scheduled_at).localeCompare(b.testimony_deadline || b.scheduled_at));
+  const isNew = h => h.notice_posted_at && new Date(h.notice_posted_at).getTime() > S.sinceVisit;
+  const weekHtml = week.map(h => { const b = bill(h.bill_id); if (!b) return '';
+    const dueSoon = h.testimony_deadline && hrsLeft(h.testimony_deadline) < 48;
+    const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
+    return `
+    <div class="prow ${dueSoon && !past ? 'urgent' : ''}" data-bill="${b.id}">
+      <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}${isNew(h) ? '<span class="tag n">NEW</span>' : ''}
+        <div class="psmall">${esc((b.title||'').slice(0, 64))}${h.testimony_deadline ? ` · ${past ? 'testimony deadline passed' : `testimony due in <b${dueSoon ? ' style="color:var(--red)"' : ''}>${hrsLeft(h.testimony_deadline)}h</b>`}` : ''}</div></div>
+      ${draftActionBtn(b, h.committee)}
+      <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
+    </div>`; }).join('');
+
+  // ---------- radar (unchanged wording, Nate kept it) ----------
   const radar = list.filter(b => !diedish(b))
     .map(b => ({ b, dl: nextDeadline(b) }))
     .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= RADAR_DAYS &&
       !S.hearings.some(h => h.bill_id === x.b.id && new Date(h.scheduled_at) > new Date()))
     .sort((x,y) => x.dl.days - y.dl.days || (x.b.priority||3) - (y.b.priority||3));
-  // Since your last visit: hearing notices + official actions found since then
-  const sinceH = S.hearings.filter(h => ids.has(h.bill_id) && h.notice_posted_at &&
-    new Date(h.notice_posted_at).getTime() > S.sinceVisit && new Date(h.scheduled_at) > new Date());
+  const radarHtml = radar.slice(0,8).map(({b, dl}) => `
+    <div class="prow ${dl.days<=5?'urgent':''}" data-bill="${b.id}">
+      <div class="pmain"><b>${esc(b.bill_number)}</b>${b.priority?` <span class="chipx c-gray">P${b.priority}</span>`:''}
+        waiting in <b>${esc(b.committee||'committee')}</b> — no hearing scheduled
+        <div class="psmall">${esc(dl.label)} deadline in <b>${dl.days}d</b> (${fmtDate(dl.date)}) · ${STAGE_LABEL[effStage(b)]} — consider calling the chair's office</div></div></div>`
+    ).join('') + (radar.length>8?`<div class="pempty">…and ${radar.length-8} more at risk</div>`:'');
+
+  // ---------- changes since your last visit: official actions, folded ----------
   const evByBill = {};
-  for (const ev of (S.sinceEvents||[])) if (ids.has(ev.bill_id))
-    (evByBill[ev.bill_id] ||= []).push(ev);
+  for (const ev of (S.sinceEvents||[])) if (ids.has(ev.bill_id)) (evByBill[ev.bill_id] ||= []).push(ev);
   const sinceRows = Object.entries(evByBill).map(([bid, evs]) => ({ b: bill(bid), evs }))
     .filter(x => x.b).sort((x,y) => (x.b.priority||3) - (y.b.priority||3));
-  const nSince = sinceH.length + sinceRows.length;
+  const SINCE_CAP = 8;
+  const sinceHtml = sinceRows.length ? `
+    <details class="panel sincefold" id="pf-since" ${mobile ? '' : 'open'}>
+      <summary class="ph"><span>⚡ Changes since your last visit <span class="chipx c-gold">${sinceRows.length}</span></span>
+        <span class="psub">${S.sinceVisit ? 'after ' + fmtDT(S.sinceVisit) : ''}${mobile ? ' · tap' : ''}</span></summary>
+      ${sinceRows.slice(0, SINCE_CAP).map(({b, evs}) => `
+      <div class="prow" data-bill="${b.id}">
+        <div class="pmain">${AMENDED_RE.test(evs[0].title)?'✏️ ':''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0,80))}
+          <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length>1?` · +${evs.length-1} more action${evs.length>2?'s':''}`:''}</div></div></div>`).join('')}
+      ${sinceRows.length > SINCE_CAP ? `<div class="pempty">…and ${sinceRows.length - SINCE_CAP} more bills changed</div>` : ''}
+    </details>` : '';
 
-  const panel = (title, sub, rowsHtml, emptyMsg) => `
-    <div class="panel"><div class="ph"><span>${title}</span><span class="psub">${sub}</span></div>
-      ${rowsHtml || `<div class="pempty">${emptyMsg}</div>`}</div>`;
+  // ---------- needs a touch, team activity: only when there is something ----------
+  const staleDays = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 9999 : d; };
+  const stale = list.filter(b => (b.priority||3) <= 2 && staleDays(b) > 7)
+    .sort((a,b) => (a.priority||3)-(b.priority||3) || staleDays(b)-staleDays(a));
+  const staleHtml = stale.length ? panel('pf-stale', '⚑ Needs a touch', 'priority bills with no team update in 7+ days',
+    stale.slice(0,3).map(b => { const d = staleDays(b); return `
+      <div class="prow" data-bill="${b.id}">
+        <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="chipx c-gray">P${b.priority}</span> ${esc((b.title||'').slice(0,60))}
+          <div class="psmall">${statusChip(b)} · last touch: ${d>500?'never':d+'d ago'}</div></div></div>`; }).join('') +
+    (stale.length>3?`<div class="pempty">…and ${stale.length-3} more</div>`:'')) : '';
+  const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 3);
+  const feedHtml = feed.length ? panel('pf-feed', '✎ Latest team activity', 'across this portfolio',
+    feed.map(ev => { const b = bill(ev.bill_id), a = advocate(ev.advocate_id); return `
+      <div class="prow" data-bill="${ev.bill_id}">
+        ${av(a)}<div class="pmain"><b>${esc(ev.title)}</b>
+          <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`; }).join('')) : '';
+  const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day);
 
-  return `
-    <div class="dashhead">
-      <h1>${esc(who)}'s desk</h1>
-      <span class="sub">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'Pacific/Honolulu'})}
-        · ${list.length} bills in portfolio</span>
+  const right = sinceHtml + staleHtml + feedHtml;
+  return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} waiting on you</b>` : ''}`) + `
+    <div class="stats pf">
+      <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
+      <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings next 7 days</div></button>
+      <button class="stat" data-jump="pf-since"><div class="v">${moved.length}</div><div class="l">Moved this week</div></button>
+      <button class="stat ${stale.length?'warn':''}" data-jump="pf-stale"><div class="v">${stale.length}</div><div class="l">P1–P2 needing an update</div></button>
     </div>
-    <div class="stats">
-      <div class="stat ${due.length?'warn':''}"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></div>
-      <div class="stat"><div class="v">${hearingsWk.length}</div><div class="l">Hearings next 7 days</div></div>
-      <div class="stat"><div class="v">${moved.length}</div><div class="l">Moved this week</div></div>
-      <div class="stat ${stale.length?'warn':''}"><div class="v">${stale.length}</div><div class="l">P1–P2 needing an update</div></div>
-    </div>
-    <div class="dash">
+    <div class="dash${right ? '' : ' one'}">
       <div>
-        ${panel('⏱ Testimony window', 'deadlines inside 48 hours',
-          due.map(h => { const b = bill(h.bill_id); if (!b) return ''; return `
-          <div class="prow urgent" data-bill="${b.id}">
-            <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} — due in <b>${hrsLeft(h.testimony_deadline)}h</b>
-              <div class="psmall">Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}</div></div>
-            ${draftActionBtn(b, h.committee)}
-            <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
-          </div>`; }).join(''), 'No testimony deadlines in the next 48 hours.')}
-        ${panel('◷ Hearings this week', 'scheduled on these bills',
-          hearingsWk.map(h => { const b = bill(h.bill_id); if (!b) return ''; return `
-          <div class="prow" data-bill="${b.id}">
-            <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${fmtDT(h.scheduled_at)}
-              <div class="psmall">${esc(b.title||'')}</div></div></div>`; }).join(''),
-          'No hearings scheduled this week.')}
-        ${panel('📡 No hearing before the deadline', `${RADAR_DAYS}-day radar — unscheduled bills die quietly`,
-          radar.slice(0,8).map(({b, dl}) => `
-          <div class="prow ${dl.days<=5?'urgent':''}" data-bill="${b.id}">
-            <div class="pmain"><b>${esc(b.bill_number)}</b>${b.priority?` <span class="chipx c-gray">P${b.priority}</span>`:''}
-              waiting in <b>${esc(b.committee||'committee')}</b> — no hearing scheduled
-              <div class="psmall">${esc(dl.label)} deadline in <b>${dl.days}d</b> (${fmtDate(dl.date)}) · ${STAGE_LABEL[effStage(b)]} — consider calling the chair's office</div></div></div>`
-          ).join('') + (radar.length>8?`<div class="pempty">…and ${radar.length-8} more at risk</div>`:''),
-          SESSION_OVER ? 'Session is over — the radar activates when 2027 deadlines are loaded.'
+        ${waiting.length ? panel('pf-wait', '✋ Waiting on you', 'across the whole team, whatever the lens', waitingHtml, '') : ''}
+        ${panel('pf-week', '◷ This week', 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
+          SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.')}
+        ${panel('pf-radar', '📡 No hearing before the deadline', `${RADAR_DAYS}-day radar — unscheduled bills die quietly`, radarHtml,
+          SESSION_OVER ? 'Session is over — the radar activates when next year’s deadlines are loaded.'
                        : `Nothing in this portfolio is inside ${RADAR_DAYS} days of a deadline without a hearing. 🤙`)}
       </div>
-      <div>
-        ${panel('⚡ Since your last visit', S.sinceVisit ? 'changes found after ' + fmtDT(S.sinceVisit) : '',
-          sinceH.map(h => { const b = bill(h.bill_id); return b ? `
-          <div class="prow" data-bill="${b.id}">
-            <div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted
-              <div class="psmall">${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}</div></div></div>` : ''; }).join('') +
-          sinceRows.slice(0,10).map(({b, evs}) => `
-          <div class="prow" data-bill="${b.id}">
-            <div class="pmain">${AMENDED_RE.test(evs[0].title)?'✏️ ':''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0,80))}
-              <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length>1?` · +${evs.length-1} more action${evs.length>2?'s':''}`:''}</div></div></div>`).join('') +
-          (sinceRows.length>10?`<div class="pempty">…and ${sinceRows.length-10} more bills changed</div>`:''),
-          'Nothing new on these bills since your last visit.')}
-        ${panel('⚑ Needs your attention', 'priority bills with no team update in 7+ days',
-          stale.slice(0,8).map(b => { const d = staleDays(b); return `
-          <div class="prow" data-bill="${b.id}">
-            <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="chipx c-gray">P${b.priority}</span>
-              ${esc((b.title||'').slice(0,60))}
-              <div class="psmall">${statusChip(b)} · last touch: ${d>500?'never':d+'d ago'}</div></div></div>`;
-          }).join('') + (stale.length>8?`<div class="pempty">…and ${stale.length-8} more — see Table view</div>`:''),
-          'All priority bills touched within the week. 🤙')}
-        ${panel('✎ Latest team activity', 'across this portfolio',
-          feed.map(ev => { const b = bill(ev.bill_id), a = advocate(ev.advocate_id); return `
-          <div class="prow" data-bill="${ev.bill_id}">
-            ${av(a)}<div class="pmain"><b>${esc(ev.title)}</b>
-              <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`;
-          }).join(''), 'No team activity logged yet — open any bill to add the first entry.')}
-      </div>
+      ${right ? `<div>${right}</div>` : ''}
     </div>`;
 }
 
@@ -1947,6 +2006,30 @@ function wire() {
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () =>
+    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  // Portfolio search reaches every bill: the untracked half comes from the
+  // database, debounced, and the page re-renders when it lands.
+  if (S.view === 'portfolio') {
+    const q = S.q.trim();
+    if (q.length >= 3 && !DEMO && S.searchAll?.q !== q) {
+      S.searchAll = { q, rows: null };
+      clearTimeout(S.searchTimer);
+      S.searchTimer = setTimeout(async () => {
+        try {
+          const rows = await DB.searchUntracked(q);
+          if (S.q.trim() === q) { S.searchAll = { q, rows }; rerenderBody(); }
+        } catch (e) { toast(e.message, true); }
+      }, 350);
+    }
+    document.querySelectorAll('[data-track]').forEach(btn => btn.onclick = async e => {
+      e.stopPropagation();
+      const r = (S.searchAll?.rows || []).find(x => x.id === btn.dataset.track); if (!r) return;
+      btn.disabled = true;
+      try { await DB.track(r); toast(r.bill_number + ' is now tracked — set position and owner'); S.searchAll.rows = S.searchAll.rows.filter(x => x.id !== r.id); openDrawer(r.id); }
+      catch (err) { btn.disabled = false; toast(err.message, true); }
+    });
+  }
   $('#ftoggle') && ($('#ftoggle').onclick = () => { S.filtersOpen = !S.filtersOpen; render(); if (S.filtersOpen) $('#q')?.focus(); });
   document.querySelectorAll('[data-openbill]').forEach(el => el.onclick = e => {
     e.stopPropagation(); openDrawer(el.dataset.openbill);
