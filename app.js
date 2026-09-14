@@ -6,6 +6,7 @@
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
+const isMobile = () => matchMedia('(max-width:760px)').matches;
 // Auth email links (password recovery, magic link) come back with their payload
 // in the URL hash. supabase-js clears that hash the instant the client is
 // created, so read what we need synchronously, before DB.init() runs.
@@ -31,6 +32,7 @@ const STAGES = [
 const STAGE_LABEL = Object.fromEntries(STAGES);
 const POSITIONS = [['','—'],['support','Support'],['support_amend','Support w/ amendments'],
   ['oppose','Oppose'],['monitor','Monitor'],['neutral','Comments (neutral)']];
+const POS_CLS = { support: 'c-green', support_amend: 'c-green', oppose: 'c-red', monitor: 'c-gray', neutral: 'c-gold' };
 const LOG_TYPES = [['testimony','Testimony'],['coalition','Coalition'],['meeting','Meeting'],
   ['action_alert','Action alert'],['note','Note']];
 const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
@@ -803,6 +805,14 @@ function visibleBills() {
 }
 
 // ---------------- shared chrome ----------------
+// Desk is the home page. The older views stay available under "More"
+// (Table is desktop-only: it never worked at phone width).
+const MORE_VIEWS = [['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['cards','Cards']];
+function filterSummary() {
+  const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
+  return [who, S.q ? `“${S.q}”` : null, S.pri ? 'P' + S.pri : null,
+    S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null, S.tripleF ? '3X' : null].filter(Boolean).join(' · ');
+}
 function chrome(inner) {
   const upcoming = S.hearings
     .filter(h => new Date(h.scheduled_at) > new Date())
@@ -828,14 +838,22 @@ function chrome(inner) {
     <div class="top">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        ${[['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['desk','Desk'],['cards','Cards'],['add','+ Add bills']]
-          .map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
+        <button data-view="desk" class="${S.view==='desk'?'on':''}">Desk</button>
+        <button data-view="add" class="${S.view==='add'?'on':''}">+ Add bills</button>
+        <details class="more">
+          <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}">${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'} ▾</summary>
+          <div class="menu">
+            ${MORE_VIEWS.map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
+            <button id="logout2">Sign out</button>
+          </div>
+        </details>
       </div>
       <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
       <span class="who">${av(S.me)}<button id="logout">sign out</button></span>
     </div>
     ${banner}
-    <div class="filters">
+    <div class="ftoggle"><button class="fchip ${S.filtersOpen?'on':''}" id="ftoggle">${esc(filterSummary())} · filters ${S.filtersOpen?'▴':'▾'}</button></div>
+    <div class="filters${S.filtersOpen?' open':''}">
       <input type="search" id="q" placeholder="Search bill # or title…" value="${esc(S.q)}">
       <button class="fchip ${S.owner==='me'?'on':''}" data-owner="me">My bills</button>
       <button class="fchip ${S.owner==='all'?'on':''}" data-owner="all">All tracked</button>
@@ -926,7 +944,7 @@ function renderPortfolio(list) {
           <div class="prow urgent" data-bill="${b.id}">
             <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} — due in <b>${hrsLeft(h.testimony_deadline)}h</b>
               <div class="psmall">Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}</div></div>
-            <button class="btn sm" data-logt="${b.id}">Log testimony</button>
+            ${draftActionBtn(b, h.committee)}
             <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
           </div>`; }).join(''), 'No testimony deadlines in the next 48 hours.')}
         ${panel('◷ Hearings this week', 'scheduled on these bills',
@@ -1237,7 +1255,7 @@ function renderDesk(list) {
       <div style="font-weight:700;font-size:13px;margin-top:2px">${esc(it.b.bill_number)}</div>
       <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>
       <div style="margin-top:7px;display:flex;gap:5px">
-        ${it.k === 'due' ? `<button class="btn sm" data-logt="${it.b.id}">Log testimony</button>` : ''}
+        ${it.k === 'due' ? draftActionBtn(it.b, it.h.committee) : ''}
         <a class="btn sm ghost" href="${esc(capitolUrl(it.b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
       </div></div>`;
   };
@@ -1274,8 +1292,8 @@ function renderDesk(list) {
     <div style="display:flex;gap:8px;overflow-x:auto;padding:0 0 12px">${
       tiles.length ? tiles.map(tileHtml).join('')
         : `<div style="font-size:13px;color:var(--muted);padding:4px 2px">Nothing time-critical right now — no testimony deadlines, hearings today, or deadlines inside 5 days. 🤙</div>`}</div>
-    ${nNew ? `<div class="panel" style="margin-bottom:8px">
-      <div class="ph"><span>⚡ Since your last visit</span><span class="psub">after ${fmtDT(S.sinceVisit)}</span></div>
+    ${nNew ? `<details class="panel sincefold" style="margin-bottom:8px" ${isMobile() ? '' : 'open'}>
+      <summary class="ph"><span>⚡ Since your last visit <span class="chipx c-gold">${nNew}</span></span><span class="psub">after ${fmtDT(S.sinceVisit)}${isMobile() ? ' · tap' : ''}</span></summary>
       ${sinceH.map(h => { const b = bill(h.bill_id); return b ? `
         <div class="prow" data-bill="${b.id}"><div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted${
           (dr => dr ? ` <a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">\ud83d\udcc4 ${dr.status === 'filed' ? 'filed' : 'draft'} \u2197</a>` : '')(draftFor(b.id, h.committee))}
@@ -1283,7 +1301,7 @@ function renderDesk(list) {
       ${sinceRows.map(({ b, evs }) => `
         <div class="prow" data-bill="${b.id}"><div class="pmain">${AMENDED_RE.test(evs[0].title) ? '✏️ ' : ''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0, 78))}
           <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length > 1 ? ` · +${evs.length - 1} more` : ''}</div></div></div>`).join('')}
-    </div>` : ''}
+    </details>` : ''}
     ${distBlock}
     ${bulkBar()}
     ${dkBand('◷', 'Hearing scheduled', 'soonest first', hearBills, b => { const h = hFor(b);
@@ -1576,6 +1594,18 @@ function draftActions(d) {
     default: return [];
   }
 }
+// The one button on a due card is whatever the draft needs next. It opens
+// the bill, where the real buttons live - one workflow, not two.
+function draftActionBtn(b, committee) {
+  const d = draftFor(b.id, committee), me = S.me || {};
+  const [label, cls] = !d ? ['No draft yet', 'ghost']
+    : d.status === 'draft' ? ['Submit for review', '']
+    : d.status === 'review' ? (me.is_admin ? ['Approve', ''] : ['In review', 'ghost'])
+    : d.status === 'second_review' ? (me.is_reviewer ? ['Approve', ''] : ['Needs 2nd approval', 'ghost'])
+    : d.status === 'approved' ? ['Mark filed', '']
+    : d.status === 'filed' ? ['Filed ✓', 'ghost'] : ['Open draft', 'ghost'];
+  return `<button class="btn sm ${cls}" data-openbill="${b.id}">${label}</button>`;
+}
 // Status priority for the one chip a Desk row can afford.
 const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
 function draftChip(b) {
@@ -1624,6 +1654,7 @@ function draftsHTML(b) {
       <span class="draftc">${esc(d.committee)}</span>
       <a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open draft \u2197</a>
       ${d.filed_url ? `<a class="draftlink" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation \u2197</a>` : ''}
+      ${d.status === 'approved' ? `<a class="draftlink" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">File at Capitol \u2197</a>` : ''}
       <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
       <span class="draftwho">${esc(draftWho(d))}</span>
       ${d.status === 'draft' && d.review_note ? `<span class="draftnote">Changes requested: ${esc(d.review_note)}</span>` : ''}
@@ -1734,7 +1765,7 @@ function drawerHTML(b) {
   <div class="drawer">
     <div class="dhead">
       <button class="close" id="dclose">✕</button>
-      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</h2>
+      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.position ? `<span class="chipx poschip ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : ''}</h2>
       <div class="sub">${esc(b.title||'')}</div>
     </div>
     <div class="dbody">
@@ -1896,6 +1927,7 @@ function renderRecovery() {
 
 // ---------------- render + events ----------------
 function render() {
+  if (isMobile() && S.view === 'table') S.view = 'desk';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
     : S.view === 'pipeline' ? renderPipeline(list)
@@ -1914,6 +1946,11 @@ function wire() {
     if (S.view === 'add') $('#addq')?.focus();
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
+  $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  $('#ftoggle') && ($('#ftoggle').onclick = () => { S.filtersOpen = !S.filtersOpen; render(); if (S.filtersOpen) $('#q')?.focus(); });
+  document.querySelectorAll('[data-openbill]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); openDrawer(el.dataset.openbill);
+  });
   $('#q') && ($('#q').oninput = e => { S.q = e.target.value; rerenderBody(); });
   document.querySelectorAll('[data-owner]').forEach(el =>
     el.onclick = () => { S.owner = el.dataset.owner; render(); });

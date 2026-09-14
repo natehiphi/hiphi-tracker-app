@@ -153,6 +153,36 @@ function card(b) {
   </div>`;
 }
 
+// Cards stream in as the reader scrolls. 522 bills as one page was 164,000
+// pixels tall on a phone; now the first screen is light and the rest
+// arrives ahead of the scroll position, so the reader never hits the end.
+const CHUNK = 24, AHEAD = 1600;
+let PARTS = [], NEXT = 0, IO = null;
+function loadMore() {
+  let n = 0;
+  while (NEXT < PARTS.length && n < CHUNK) {
+    const p = PARTS[NEXT];
+    if (p.gated && !$('#pv-done')?.open) break;   // died bills wait for the fold to open
+    const g = document.getElementById(p.grid); if (!g) break;
+    g.insertAdjacentHTML('beforeend', p.html); NEXT++; n++;
+  }
+  const s = $('#pv-more');
+  // A short page (or a tall screen) can leave the sentinel in view after a
+  // chunk; keep filling until it drops below the lookahead or nothing is left.
+  if (s && n && NEXT < PARTS.length && s.getBoundingClientRect().top < innerHeight + AHEAD)
+    requestAnimationFrame(loadMore);
+}
+function startStream(parts) {
+  PARTS = parts; NEXT = 0;
+  if (IO) IO.disconnect();
+  loadMore();
+  const s = $('#pv-more');
+  if (!s || !('IntersectionObserver' in window)) { while (NEXT < PARTS.length) loadMore(); return; }
+  IO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) loadMore(); },
+    { rootMargin: `${AHEAD}px 0px` });
+  IO.observe(s);
+  $('#pv-done')?.addEventListener('toggle', loadMore);
+}
 function render() {
   const list = CAMP === '__mine' ? BILLS.filter(b => STARS.has(b.bill_number))
     : CAMP ? BILLS.filter(b => b.campaigns.some(c => c.slug === CAMP)) : BILLS;
@@ -198,8 +228,7 @@ function render() {
       <div class="pv-stats">
         <div class="pv-stat"><div class="v pdisp">${list.length}</div><div class="l">Bills followed</div></div>
         <div class="pv-stat"><div class="v pdisp">${upcoming.length}</div><div class="l">Hearings scheduled</div></div>
-        <div class="pv-stat"><div class="v pdisp">${enacted}</div><div class="l">Enacted</div></div>
-        <div class="pv-stat"><div class="v pdisp">${gone}</div><div class="l">Did not advance</div></div>
+        <div class="pv-stat"><div class="v pdisp">${enacted}</div><div class="l">Became law</div></div>
       </div>
       <div class="pv-tabs"><button class="pv-tab ${!CAMP ? 'on' : ''}" data-camp="">All<span class="n">${BILLS.length}</span></button>
         <button class="pv-tab ${CAMP === '__mine' ? 'on' : ''}" data-camp="__mine">★ My bills<span class="n">${STARS.size}</span></button>
@@ -214,23 +243,31 @@ function render() {
             this device only — no account needed. Starred bills float to the top
             of Take Action Now.</div>
         </div>` : ''}
-      ${SECTIONS.map(([label, fn]) => { const bs = active.filter(fn); return bs.length ? `
+      ${SECTIONS.map(([label, fn], i) => { const bs = active.filter(fn); return bs.length ? `
         <div class="pv-sechead">${label}</div>
-        <div class="pv-grid">${bs.map(card).join('')}</div>` : ''; }).join('')}
-      ${done.length ? `<div class="pv-sechead">DID NOT ADVANCE — ${SESSION_YEAR} SESSION</div>
-        <div class="pv-grid">${done.map(card).join('')}</div>` : ''}
+        <div class="pv-grid" id="pvg-${i}"></div>` : ''; }).join('')}
+      ${done.length ? `<details class="pv-fold" id="pv-done"><summary class="pv-sechead">Did not advance — ${done.length} bills · show</summary>
+        <div class="pv-grid" id="pvg-done"></div></details>` : ''}
+      <div id="pv-more" aria-hidden="true" style="height:1px"></div>
       <div style="text-align:center;color:var(--muted);font-size:12px;padding:26px 12px 40px">
         Maintained by the Hawai‘i Public Health Institute · Positions shown are HIPHI's.<br>
         Bill data from the Hawai‘i State Legislature (capitol.hawaii.gov), synced daily.
       </div>
     </div>`;
-  document.querySelectorAll('[data-camp]').forEach(el =>
-    el.onclick = () => { CAMP = el.dataset.camp; render(); });
-  document.querySelectorAll('[data-star]').forEach(el =>
-    el.onclick = (e) => { e.stopPropagation();
-      const n = el.dataset.star;
+  startStream([
+    ...SECTIONS.flatMap(([, fn], i) => active.filter(fn).map(b => ({ grid: `pvg-${i}`, html: card(b) }))),
+    ...done.map(b => ({ grid: 'pvg-done', html: card(b), gated: true })),
+  ]);
+  // One delegated listener: cards that stream in later need no re-wiring.
+  $('#app').onclick = e => {
+    const camp = e.target.closest('[data-camp]');
+    if (camp) { CAMP = camp.dataset.camp; render(); return; }
+    const star = e.target.closest('[data-star]');
+    if (star) { e.stopPropagation();
+      const n = star.dataset.star;
       STARS.has(n) ? STARS.delete(n) : STARS.add(n);
-      saveStars(STARS); render(); });
+      saveStars(STARS); render(); }
+  };
 }
 
 (async () => {

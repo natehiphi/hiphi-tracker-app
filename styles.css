@@ -435,3 +435,36 @@ a.btn{display:inline-block;text-align:center}
 .pubstate.live{background:#EEF7F0;color:#1F6B3A;border-color:#CFE6D6}
 .pubstate.warn{background:#FDF6E3;color:#7A5B08;border-color:#E8D9A8}
 .pubstate.off{background:#F5F5F6;color:#6A6F74;border-color:#E3E5E7}
+
+/* ---------- nav: Desk home, More menu; phone chrome ---------- */
+.viewtabs details.more{position:relative}
+.viewtabs details.more summary{list-style:none;cursor:pointer;color:#AFC3CF;font-weight:600;font-size:12.5px;padding:7px 14px;border-radius:8px;white-space:nowrap}
+.viewtabs details.more summary::-webkit-details-marker{display:none}
+.viewtabs details.more summary.on{background:#fff;color:var(--navy)}
+.viewtabs details.more .menu{position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;min-width:170px;z-index:60}
+.viewtabs details.more .menu button{color:var(--ink);text-align:left;padding:9px 12px;border-radius:7px;font-weight:600;font-size:13px;background:none}
+.viewtabs details.more .menu button:hover{background:var(--chip)}
+.viewtabs details.more .menu button.on{background:var(--teal-soft);color:var(--teal)}
+.viewtabs details.more .menu #logout2{border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-top:10px;color:var(--muted)}
+.ftoggle{display:none}
+details.sincefold>summary{list-style:none;cursor:pointer}
+details.sincefold>summary::-webkit-details-marker{display:none}
+.dhead .poschip{font-size:11px;vertical-align:middle;margin-left:10px;letter-spacing:0}
+@media (max-width:760px){
+  .alert{display:none}
+  .top .fresh{display:none}
+  .top .who button{display:none}
+  .logo{font-size:0;gap:0}
+  .logo .mark{font-size:13px}
+  .viewtabs{order:0;width:auto;flex:1;overflow:visible;justify-content:flex-end}
+  .viewtabs [data-view=table]{display:none}
+  .ftoggle{display:block;padding:10px 12px 0}
+  .ftoggle .fchip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .filters{display:none}
+  .filters.open{display:flex;flex-wrap:wrap;overflow:visible}
+  .filters.open input[type=search]{max-width:none;flex-basis:100%}
+  .dkrow .dksel input{width:20px;height:20px}
+}
+.pv-fold>summary{list-style:none;cursor:pointer}
+.pv-fold>summary::-webkit-details-marker{display:none}
+.pv-fold[open]>summary{margin-bottom:12px}
