@@ -1015,18 +1015,18 @@ function renderPortfolio(list) {
       <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
     </div>`; }).join('');
 
-  // ---------- radar (unchanged wording, Nate kept it) ----------
+  // ---------- bills nearing a deadline: needs a hearing inside 10 days or it dies ----------
   const radar = list.filter(b => !diedish(b))
     .map(b => ({ b, dl: nextDeadline(b) }))
-    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= RADAR_DAYS &&
+    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= PF_DEADLINE_DAYS &&
       !S.hearings.some(h => h.bill_id === x.b.id && new Date(h.scheduled_at) > new Date()))
     .sort((x,y) => x.dl.days - y.dl.days || (x.b.priority||3) - (y.b.priority||3));
-  const radarHtml = radar.slice(0,8).map(({b, dl}) => `
+  const radarHtml = radar.map(({b, dl}) => `
     <div class="prow ${dl.days<=5?'urgent':''}" data-bill="${b.id}">
       <div class="pmain"><b>${esc(b.bill_number)}</b>${b.priority?` <span class="chipx c-gray">P${b.priority}</span>`:''}
         waiting in <b>${esc(b.committee||'committee')}</b> — no hearing scheduled
         <div class="psmall">${esc(dl.label)} deadline in <b>${dl.days}d</b> (${fmtDate(dl.date)}) · ${STAGE_LABEL[effStage(b)]} — consider calling the chair's office</div></div></div>`
-    ).join('') + (radar.length>8?`<div class="pempty">…and ${radar.length-8} more at risk</div>`:'');
+    ).join('');
 
   // ---------- changes since your last visit: official actions, folded ----------
   const evByBill = {};
@@ -1046,15 +1046,6 @@ function renderPortfolio(list) {
     </details>` : '';
 
   // ---------- needs a touch, team activity: only when there is something ----------
-  const staleDays = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 9999 : d; };
-  const stale = list.filter(b => (b.priority||3) <= 2 && staleDays(b) > 7)
-    .sort((a,b) => (a.priority||3)-(b.priority||3) || staleDays(b)-staleDays(a));
-  const staleHtml = stale.length ? panel('pf-stale', '⚑ Needs a touch', 'priority bills with no team update in 7+ days',
-    stale.slice(0,3).map(b => { const d = staleDays(b); return `
-      <div class="prow" data-bill="${b.id}">
-        <div class="pmain"><b>${esc(b.bill_number)}</b> <span class="chipx c-gray">P${b.priority}</span> ${esc((b.title||'').slice(0,60))}
-          <div class="psmall">${statusChip(b)} · last touch: ${d>500?'never':d+'d ago'}</div></div></div>`; }).join('') +
-    (stale.length>3?`<div class="pempty">…and ${stale.length-3} more</div>`:'')) : '';
   const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 3);
   const feedHtml = feed.length ? panel('pf-feed', '✎ Latest team activity', 'across this portfolio',
     feed.map(ev => { const b = bill(ev.bill_id), a = advocate(ev.advocate_id); return `
@@ -1063,22 +1054,23 @@ function renderPortfolio(list) {
           <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`; }).join('')) : '';
   const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day);
 
-  const right = sinceHtml + staleHtml + feedHtml;
+  const radarPanel = panel('pf-radar', '⏳ Bills nearing a deadline',
+    `need a hearing in the next ${PF_DEADLINE_DAYS} days or they die`, radarHtml,
+    SESSION_OVER ? 'Session is over — this fills in when next year’s deadlines are loaded.'
+                 : `Nothing in this portfolio is inside ${PF_DEADLINE_DAYS} days of a deadline without a hearing. 🤙`);
+  const right = radarPanel + sinceHtml + feedHtml;
   return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} waiting on you</b>` : ''}`) + `
     <div class="stats pf">
       <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
       <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings next 7 days</div></button>
       <button class="stat" data-jump="pf-since"><div class="v">${moved.length}</div><div class="l">Moved this week</div></button>
-      <button class="stat ${stale.length?'warn':''}" data-jump="pf-stale"><div class="v">${stale.length}</div><div class="l">P1–P2 needing an update</div></button>
+      <button class="stat ${radar.length?'warn':''}" data-jump="pf-radar"><div class="v">${radar.length}</div><div class="l">Nearing a deadline (10d)</div></button>
     </div>
     <div class="dash${right ? '' : ' one'}">
       <div>
         ${waiting.length ? panel('pf-wait', '✋ Waiting on you', 'across the whole team, whatever the lens', waitingHtml, '') : ''}
         ${panel('pf-week', '◷ This week', 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
           SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.')}
-        ${panel('pf-radar', '📡 No hearing before the deadline', `${RADAR_DAYS}-day radar — unscheduled bills die quietly`, radarHtml,
-          SESSION_OVER ? 'Session is over — the radar activates when next year’s deadlines are loaded.'
-                       : `Nothing in this portfolio is inside ${RADAR_DAYS} days of a deadline without a hearing. 🤙`)}
       </div>
       ${right ? `<div>${right}</div>` : ''}
     </div>`;
@@ -1446,6 +1438,7 @@ const DEADLINES = DEMO ? {
 // Dying-quietly radar: committee stages where "no hearing scheduled" is the
 // death signal, and the deadline each stage races. Bills still at Introduced
 // race the lateral (or triple, if 3X) filing date.
+const PF_DEADLINE_DAYS = 10;   // home page: "needs a hearing in the next N days or it dies"
 const RADAR_DAYS = 14;
 const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
                       'second_triple','second_lateral','second_decking'];
