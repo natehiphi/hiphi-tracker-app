@@ -47,7 +47,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','pipeline','desk','table','cards','add'].includes(v)
+  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -123,7 +123,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -136,7 +136,9 @@ const DB = {
       S.supa.from('bill_todos').select('*').order('sort_order').order('created_at'),
       S.supa.from('testimony_drafts').select('*').order('created_at'),
       S.supa.from('committees').select('*'),
+      S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
     ]);
+    S.slackCfg = scfg?.data?.value || null;
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data;
@@ -324,6 +326,31 @@ const DB = {
       .or(`bill_number.ilike.%${safe.replace(/\s/g,'')}%,title.ilike.%${safe}%`)
       .limit(15);
     if (error) throw error; return data;
+  },
+  async saveMyPrefs({ slack_dm, prefs }) {
+    Object.assign(S.me, { slack_dm, prefs });
+    if (DEMO) return;
+    const { error } = await S.supa.from('advocates').update({ slack_dm, prefs }).eq('id', S.me.id);
+    if (error) throw error;
+  },
+  async saveSlackSettings(cfg, coalitionChannels) {
+    S.slackCfg = cfg;
+    for (const [id, ch] of coalitionChannels) { const c = S.campaigns.find(x => x.id === id); if (c) c.slack_channel = ch; }
+    if (DEMO) return;
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'slack', value: cfg, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    for (const [id, ch] of coalitionChannels) {
+      const { error: e2 } = await S.supa.from('campaigns').update({ slack_channel: ch }).eq('id', id);
+      if (e2) throw e2;
+    }
+  },
+  async slackTest() {
+    if (DEMO) return;
+    const { error } = await S.supa.rpc('slack_test');
+    if (error) throw error;
+    const tok = S.session?.access_token;
+    if (tok) await fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {});
   },
   async track(bill) {
     if (!DEMO) {
@@ -706,7 +733,12 @@ function demoInit() {
                  A('Saya','SY','#3E8E63','saya@hiphi.org'), A('Kris','KR','#7E5BA6','kris@hiphi.org'),
                  A('Jess','JS','#B45309','jessica@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
   S.me = S.advocates[0];
-  S.campaigns = [{id:'c1',name:'CTFH'},{id:'c2',name:'HEAL'},{id:'c3',name:'General HIPHI'}];
+  S.campaigns = [{id:'c1',name:'CTFH',slack_channel:'#ctfh'},{id:'c2',name:'HEAL',slack_channel:'#heal'},{id:'c3',name:'General HIPHI'}];
+  S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['support','support_amend','oppose','neutral'], workflow_dm: true, health_dm: true,
+    reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
+    daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
+    templates: { hearing_alert: '📅 *{{bill}}* · {{position}}{{priority}}{{owner}}\n{{title}}\n{{committee}} hearing · {{hearing}} · {{room}}\nWritten testimony due *{{deadline}}*\n<{{tracker}}|Open in tracker> · <{{pdf}}|Notice PDF>',
+      draft_thread: '📝 Draft ready{{owner_for}}: <{{draft}}|Google Doc> · <{{tracker}}|tracker>' } };
   const sc = buildScenario(Date.now());
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
   // Production bills carry an official description (521 of 522); the
@@ -807,7 +839,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards']];
+const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings']];
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
   return [who, S.q ? `“${S.q}”` : null, S.pri ? 'P' + S.pri : null,
@@ -1545,6 +1577,98 @@ function renderCards(list) {
   </div>`;
 }
 
+// ---------------- settings: your Slack messages, and (admins) the alert rules ----------------
+const WORKFLOW_KINDS = [['draft_created', 'A draft was created for one of my bills'],
+  ['review_requested', 'Someone submitted testimony for my approval'],
+  ['second_review_requested', 'A first-time testimony needs my second approval'],
+  ['approved', 'Testimony I submitted was approved'],
+  ['changes_requested', 'A reviewer asked me for changes'],
+  ['filed', 'Someone marked testimony filed']];
+const TEMPLATE_KINDS = [['hearing_alert', 'Hearing alert (per bill)'], ['hearing_rescheduled', 'Hearing moved'],
+  ['hearing_cancelled', 'Hearing cancelled'], ['draft_thread', 'Draft ready (thread reply)'],
+  ['reminder_morning', 'Reminder: morning of deadline'], ['reminder_before', 'Reminder: hours before'],
+  ['reminder_after', 'Reminder: deadline passed'], ['daily_head', 'Daily list heading'], ['daily_empty', 'Daily list, nothing due']];
+const TOKENS = '{{bill}} {{title}} {{position}} {{priority}} {{owner}} {{committee}} {{hearing}} {{room}} {{deadline}} {{deadline_time}} {{hours}} {{status}} {{draft}} {{tracker}} {{pdf}} {{days}} {{date}}';
+function renderSettings() {
+  const me = S.me || {}, prefs = me.prefs || {}, rem = prefs.reminders || {}, wf = prefs.workflow || {};
+  const cfg = S.slackCfg || {}, dflt = cfg.reminder_defaults || {}, daily = cfg.daily || {}, tpl = cfg.templates || {};
+  const v = (x, d) => x == null ? d : x;
+  const chk = (id, on, label, hint) => `<label class="row"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}${hint ? `<span class="tok"> · ${hint}</span>` : ''}</span></label>`;
+  const slackState = DEMO ? 'sandbox' : me.slack_user_id ? 'connected' : 'not matched yet - matched by email on the first message';
+  const mine = `
+    <section>
+      <h2>Your Slack messages</h2>
+      <p class="tok">Slack account: ${esc(slackState)}. Anything switched off here arrives by email instead when it is a workflow step, and not at all when it is a reminder.</p>
+      ${chk('st-dm', me.slack_dm !== false, 'Send me Slack direct messages')}
+      <h3>Testimony deadline reminders</h3>
+      <p class="tok">Only for bills I own, and only while the testimony is not marked filed.</p>
+      <label class="row"><input type="checkbox" id="st-mon" ${v(rem.morning_on, dflt.morning_on !== false) ? 'checked' : ''}><span>The morning of the deadline at</span>
+        <input type="time" id="st-mont" value="${esc(v(rem.morning, dflt.morning || '08:35'))}"></label>
+      <label class="row"><input type="checkbox" id="st-bef" ${v(rem.before_on, dflt.before_on !== false) ? 'checked' : ''}><span></span>
+        <input type="number" id="st-befh" min="0.5" max="48" step="0.5" value="${esc(v(rem.hours_before, dflt.hours_before || 1))}"><span>hour(s) before the deadline</span></label>
+      <label class="row"><input type="checkbox" id="st-aft" ${v(rem.after_on, dflt.after_on !== false) ? 'checked' : ''}><span>After the deadline has passed, at</span>
+        <input type="time" id="st-aftt" value="${esc(v(rem.after, dflt.after || '16:00'))}"></label>
+      <h3>Workflow messages</h3>
+      ${WORKFLOW_KINDS.map(([k, l]) => chk('st-wf-' + k, wf[k] !== false, l)).join('')}
+      <div class="btns"><button class="btn" id="st-save-me">Save my settings</button>
+        <button class="btn ghost" id="st-test">Send me a test DM</button></div>
+    </section>`;
+  const admin = !me.is_admin ? '' : `
+    <section>
+      <h2>Hearing alerts <span class="tag a">admin</span></h2>
+      <label class="row"><span style="min-width:140px">Main channel</span><input id="st-main" value="${esc(cfg.main_channel || '')}" placeholder="#hearing-alerts-2027"></label>
+      <p class="tok">Alert on bills with these positions:</p>
+      ${POSITIONS.filter(p => p[0]).map(([val, l]) => chk('st-pos-' + val, (cfg.positions || []).includes(val), l)).join('')}
+      <h3>Coalition channels</h3>
+      <p class="tok">Each bill also posts to its coalition's channel. Leave blank for main channel only. The app must be invited to private channels.</p>
+      ${S.campaigns.map(c => `<label class="row"><span style="min-width:140px">${esc(c.name)}</span><input data-coal="${c.id}" value="${esc(c.slack_channel || '')}" placeholder="#channel-name"></label>`).join('')}
+      <h3>Daily hearings list</h3>
+      <label class="row"><input type="checkbox" id="st-d-on" ${daily.enabled !== false ? 'checked' : ''}><span>Post every day at</span>
+        <input type="time" id="st-d-time" value="${esc(daily.time || '07:00')}"><span>looking</span>
+        <input type="number" id="st-d-days" min="1" max="30" value="${esc(daily.days_ahead || 7)}"><span>days ahead</span></label>
+      <label class="row"><span style="min-width:140px">To channel</span><input id="st-d-chan" value="${esc(daily.channel || '')}" placeholder="(main channel)"></label>
+      ${chk('st-d-empty', !!daily.post_when_empty, 'Post even when there are no hearings')}
+      <h3>Other</h3>
+      ${chk('st-wfdm', cfg.workflow_dm !== false, 'Workflow steps go to Slack DMs', 'off = everyone gets email')}
+      ${chk('st-health', cfg.health_dm !== false, 'Pipeline health alerts DM the admins')}
+      <h3>Message wording</h3>
+      <p class="tok">Tokens: ${esc(TOKENS)}. Slack formatting: *bold*, _italic_, &lt;url|label&gt;. A link whose token is empty disappears on its own.</p>
+      ${TEMPLATE_KINDS.map(([k, l]) => `<label class="col"><span>${l}</span><textarea data-tpl="${k}">${esc(tpl[k] || '')}</textarea></label>`).join('')}
+      <div class="btns"><button class="btn" id="st-save-admin">Save alert settings</button></div>
+    </section>`;
+  return `<div class="settings"><h1>Settings</h1>${mine}${admin}</div>`;
+}
+function wireSettings() {
+  if (!$('#st-save-me')) return;
+  $('#st-save-me').onclick = async () => {
+    const prefs = { ...(S.me.prefs || {}),
+      reminders: { morning_on: $('#st-mon').checked, morning: $('#st-mont').value || '08:35',
+        before_on: $('#st-bef').checked, hours_before: Number($('#st-befh').value) || 1,
+        after_on: $('#st-aft').checked, after: $('#st-aftt').value || '16:00' },
+      workflow: Object.fromEntries(WORKFLOW_KINDS.map(([k]) => [k, $('#st-wf-' + k).checked])) };
+    try { await DB.saveMyPrefs({ slack_dm: $('#st-dm').checked, prefs }); toast('Saved'); render(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#st-test').onclick = async () => {
+    try { await DB.slackTest(); toast('Test DM on its way'); } catch (e) { toast(e.message, true); }
+  };
+  const sa = $('#st-save-admin');
+  if (sa) sa.onclick = async () => {
+    const cfg = { ...(S.slackCfg || {}),
+      main_channel: $('#st-main').value.trim() || '#hearing-alerts-2027',
+      positions: POSITIONS.filter(p => p[0] && $('#st-pos-' + p[0]).checked).map(p => p[0]),
+      daily: { enabled: $('#st-d-on').checked, time: $('#st-d-time').value || '07:00',
+        days_ahead: Number($('#st-d-days').value) || 7, channel: $('#st-d-chan').value.trim() || null,
+        post_when_empty: $('#st-d-empty').checked },
+      workflow_dm: $('#st-wfdm').checked, health_dm: $('#st-health').checked,
+      templates: { ...((S.slackCfg || {}).templates || {}),
+        ...Object.fromEntries([...document.querySelectorAll('[data-tpl]')].map(t => [t.dataset.tpl, t.value])) } };
+    const chans = [...document.querySelectorAll('[data-coal]')].map(i => [i.dataset.coal, i.value.trim() || null]);
+    try { await DB.saveSlackSettings(cfg, chans); toast('Alert settings saved'); render(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
 function renderAdd() {
   return `<div class="addbill">
     <h2 style="margin:16px 0 4px">Add bills to the tracker</h2>
@@ -1992,6 +2116,7 @@ function render() {
     : S.view === 'pipeline' ? renderPipeline(list)
     : S.view === 'desk' ? renderDesk(list)
     : S.view === 'cards' ? renderCards(list)
+    : S.view === 'settings' ? renderSettings()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
   $('#app').innerHTML = chrome(body) + (b ? drawerHTML(b) : '');
@@ -2085,7 +2210,7 @@ function wire() {
   document.querySelectorAll('[data-logt]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.logType = 'testimony'; openDrawer(el.dataset.logt);
   });
-  wireDrawer(); wireAdd();
+  wireDrawer(); wireAdd(); wireSettings();
 }
 function rerenderBody() {   // keep focus in search box while typing
   const app = $('#app'), old = app.querySelector('.tablewrap, .board, .stats')?.parentNode;
