@@ -1636,7 +1636,8 @@ function drawerHTML(b) {
           <span class="lastact">${esc(b.last_action||'')} <span class="when">${b.last_action_date ? fmtDate(b.last_action_date,{year:'2-digit'}) : ''}</span></span></div>
         ${stageCalHTML(b)}
       </div>
-      ${text ? `<p class="desc">${esc(text)}</p>` : ''}
+      <div class="sec">Bill summary</div>
+      ${text ? `<p class="desc">${esc(text)}</p>` : '<p class="desc"><i>No summary yet.</i></p>'}
       <div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
       ${draftsHTML(b)}
       ${todosHTML(b)}
