@@ -144,6 +144,17 @@ td select{padding:4px 6px;border-radius:7px;font-size:12px;width:auto}
 .todorow .tddel:hover{color:var(--red);background:var(--red-soft)}
 .todoadd{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
 .todoempty{color:var(--muted);font-size:12.5px;padding:7px 0}
+
+/* ---------- testimony drafts ---------- */
+.drafts{margin-top:4px}
+.draftrow{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #EEF2F5;font-size:13px;flex-wrap:wrap}
+.draftrow .tag{margin-left:0}
+.draftrow.off{color:var(--muted)}
+.draftc{font-weight:600}
+.draftlink{color:var(--teal);font-weight:600;white-space:nowrap}
+.draftbtn{margin-left:auto;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:14px;background:var(--paper);border:1px solid var(--line);color:var(--muted)}
+.draftbtn:hover{color:var(--teal);border-color:var(--teal)}
+.pmain .draftlink{margin-left:6px;font-size:12px}
 @media (max-width:760px){
   .todorow{grid-template-columns:20px 1fr 24px;row-gap:7px}
   .todorow .tdmeta{grid-column:2/4;grid-row:2}

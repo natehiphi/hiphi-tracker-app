@@ -50,6 +50,7 @@ const S = {
   owner: 'me', q: '', pri: '', stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
+  drafts: {},  // bill_id -> [testimony draft]
   deskOut: false,
 };
 const $ = sel => document.querySelector(sel);
@@ -118,7 +119,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -129,6 +130,7 @@ const DB = {
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
       S.supa.from('bill_todos').select('*').order('sort_order').order('created_at'),
+      S.supa.from('testimony_drafts').select('*').order('created_at'),
     ]);
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
@@ -143,6 +145,11 @@ const DB = {
     S.todos = {};
     if (todos.error) console.warn('bill_todos:', todos.error.message);
     else todos.data.forEach(t => (S.todos[t.bill_id] ??= []).push(t));
+    // Testimony drafts are made by the backend job (migration 005); the app
+    // only links to them and lets staff mark one filed. Non-fatal as above.
+    S.drafts = {};
+    if (drafts.error) console.warn('testimony_drafts:', drafts.error.message);
+    else drafts.data.forEach(d => (S.drafts[d.bill_id] ??= []).push(d));
     S.pulse = Object.fromEntries(pulse.data.map(p => [p.bill_id, p]));
     S.feed = feed.data;
     S.me = S.advocates.find(a => a.id === myId) ||
@@ -263,6 +270,15 @@ const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('bill_todos').update(patch).eq('id', id);
     if (error) { Object.assign(t, prev); throw error; }
+  },
+  async markDraft(billId, id, status) {
+    const d = (S.drafts[billId] || []).find(x => x.id === id);
+    if (!d) return;
+    const prev = d.status;
+    d.status = status;
+    if (DEMO) return;
+    const { error } = await S.supa.from('testimony_drafts').update({ status }).eq('id', id);
+    if (error) { d.status = prev; throw error; }
   },
   async deleteTodo(billId, id) {
     const arr = S.todos[billId] || [];
@@ -673,6 +689,20 @@ function demoInit() {
   S.campaigns = [{id:'c1',name:'CTFH'},{id:'c2',name:'HEAL'},{id:'c3',name:'General HIPHI'}];
   const sc = buildScenario(Date.now());
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
+  // A testimony draft on the soonest upcoming hearing, so the drawer section
+  // and the Desk link have something to show in the sandbox.
+  // Seeded on the first bill (same one the To do seed uses) so the drawer
+  // always has a Testimony section to show; the committee is that bill's
+  // soonest hearing if it has one, so the Desk link appears too when that
+  // hearing is inside the 48-hour window.
+  S.drafts = {};
+  if (S.bills[0]) {
+    const b0 = S.bills[0];
+    const h0 = sc.hearings.filter(h => h.bill_id === b0.id)
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
+    S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
+      status: 'draft', doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
+  }
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Seed the To do section so the sandbox shows all three states: overdue,
   // upcoming, and finished.
@@ -1195,7 +1225,8 @@ function renderDesk(list) {
     ${nNew ? `<div class="panel" style="margin-bottom:8px">
       <div class="ph"><span>⚡ Since your last visit</span><span class="psub">after ${fmtDT(S.sinceVisit)}</span></div>
       ${sinceH.map(h => { const b = bill(h.bill_id); return b ? `
-        <div class="prow" data-bill="${b.id}"><div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted
+        <div class="prow" data-bill="${b.id}"><div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted${
+          (dr => dr ? ` <a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">\ud83d\udcc4 ${dr.status === 'submitted' ? 'filed' : 'draft'} \u2197</a>` : '')(draftFor(b.id, h.committee))}
           <div class="psmall">${fmtDT(h.scheduled_at)} · ${esc(h.room || 'room TBD')}</div></div></div>` : ''; }).join('')}
       ${sinceRows.map(({ b, evs }) => `
         <div class="prow" data-bill="${b.id}"><div class="pmain">${AMENDED_RE.test(evs[0].title) ? '✏️ ' : ''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0, 78))}
@@ -1457,6 +1488,24 @@ function pubStateText(b) {
   return 'Summary live. No action ask set.';
 }
 
+// One row per draft document, newest first. Only rendered when a draft
+// exists - most bills never have one, and the drawer is long enough.
+const DRAFT_LABEL = { draft: 'Draft', submitted: 'Filed', cancelled: 'Hearing cancelled' };
+function draftFor(billId, committee) {
+  return (S.drafts[billId] || []).find(d => d.committee === committee && d.status !== 'cancelled');
+}
+function draftsHTML(b) {
+  const list = (S.drafts[b.id] || []).slice().sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
+  if (!list.length) return '';
+  return `<div class="sec">Testimony <span class="tag a">from hearing notices</span></div>
+    <div class="drafts">${list.map(d => `<div class="draftrow${d.status === 'cancelled' ? ' off' : ''}" data-draft="${esc(d.id)}">
+      <span class="tag ${d.status === 'submitted' ? 't' : 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
+      <span class="draftc">${esc(d.committee)}</span>
+      <a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open draft \u2197</a>
+      ${d.status === 'cancelled' ? '' : `<button class="draftbtn" data-mark="${d.status === 'submitted' ? 'draft' : 'submitted'}">${d.status === 'submitted' ? 'Unmark filed' : 'Mark filed'}</button>`}
+    </div>`).join('')}</div>`;
+}
+
 // Open items first, then finished ones. Overdue is called out in red, since a
 // missed testimony deadline is the whole point of tracking these.
 function todosHTML(b) {
@@ -1506,6 +1555,7 @@ function drawerHTML(b) {
         <span class="k">Last action</span><span>${esc(b.last_action||'—')} <span style="color:var(--muted)">(${fmtDate(b.last_action_date,{year:'2-digit'})})</span></span>
         <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
       </div>
+      ${draftsHTML(b)}
       <div class="sec">HIPHI layer</div>
       <div class="teamgrid">
         <div><label>Position</label><select id="d-pos">
@@ -1753,6 +1803,15 @@ function wireDrawer() {
   document.querySelectorAll('[data-lt]').forEach(el => el.onclick = () => {
     S.logType = el.dataset.lt;
     document.querySelectorAll('[data-lt]').forEach(x => x.classList.toggle('on', x === el));
+  });
+  document.querySelectorAll('[data-draft]').forEach(row => {
+    const id = row.dataset.draft, btn = row.querySelector('.draftbtn');
+    if (!btn) return;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try { await DB.markDraft(b.id, id, btn.dataset.mark); toast(btn.dataset.mark === 'submitted' ? 'Marked filed' : 'Back to draft'); render(); }
+      catch (e) { btn.disabled = false; toast(e.message, true); }
+    };
   });
   document.querySelectorAll('[data-todo]').forEach(row => {
     const id = row.dataset.todo;
