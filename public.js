@@ -80,7 +80,10 @@ function actionItems(bills, hearings, now, starred) {
         new Date(x.scheduled_at) > now)
       .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] || null;
     const ask = b.public_action || null;
-    const autoOk = h && h.testimony_deadline && new Date(h.testimony_deadline) > now;
+    // Only bills we have a position on get an automatic testimony ask; the
+    // public should never be sent to testify on something we merely monitor.
+    const autoOk = h && h.testimony_deadline && new Date(h.testimony_deadline) > now &&
+      ['support', 'support_amend', 'oppose'].includes(b.position);
     // Governor's desk: sign/veto ask derived from position (support -> sign,
     // oppose -> veto; monitor/comment -> no clear instruction, so no item).
     const gov = !SESSION_OVER && b.stage === 'governor' &&
