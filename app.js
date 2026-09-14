@@ -1631,6 +1631,7 @@ function renderSettings() {
       <h3>Other</h3>
       ${chk('st-wfdm', cfg.workflow_dm !== false, 'Workflow steps go to Slack DMs', 'off = everyone gets email')}
       ${chk('st-health', cfg.health_dm !== false, 'Pipeline health alerts DM the admins')}
+      ${chk('st-quiet', cfg.quiet_dm !== false, 'DM the admins when a notice arrives that alerts nobody', 'no tracked bills, or none with a position')}
       <h3>Message wording</h3>
       <p class="tok">Tokens: ${esc(TOKENS)}. Slack formatting: *bold*, _italic_, &lt;url|label&gt;. A link whose token is empty disappears on its own.</p>
       ${TEMPLATE_KINDS.map(([k, l]) => `<label class="col"><span>${l}</span><textarea data-tpl="${k}">${esc(tpl[k] || '')}</textarea></label>`).join('')}
@@ -1660,7 +1661,7 @@ function wireSettings() {
       daily: { enabled: $('#st-d-on').checked, time: $('#st-d-time').value || '07:00',
         days_ahead: Number($('#st-d-days').value) || 7, channel: $('#st-d-chan').value.trim() || null,
         post_when_empty: $('#st-d-empty').checked },
-      workflow_dm: $('#st-wfdm').checked, health_dm: $('#st-health').checked,
+      workflow_dm: $('#st-wfdm').checked, health_dm: $('#st-health').checked, quiet_dm: $('#st-quiet').checked,
       templates: { ...((S.slackCfg || {}).templates || {}),
         ...Object.fromEntries([...document.querySelectorAll('[data-tpl]')].map(t => [t.dataset.tpl, t.value])) } };
     const chans = [...document.querySelectorAll('[data-coal]')].map(i => [i.dataset.coal, i.value.trim() || null]);
