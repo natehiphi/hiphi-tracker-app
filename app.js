@@ -703,6 +703,14 @@ function demoInit() {
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
       status: 'draft', doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
+  // And one on whichever bill has a testimony deadline inside 48 hours right
+  // now, so the Desk band shows its link too.
+  const soon = sc.hearings.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) > new Date()
+      && new Date(h.testimony_deadline) - Date.now() < 48 * 3600e3)
+    .sort((a, b) => new Date(a.testimony_deadline) - new Date(b.testimony_deadline))[0];
+  if (soon && !S.drafts[soon.bill_id]) S.drafts[soon.bill_id] = [{ id: 'dd2', bill_id: soon.bill_id,
+    committee: soon.committee, status: 'draft', doc_url: 'https://docs.google.com/document/d/demo2/edit',
+    created_at: new Date().toISOString() }];
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Seed the To do section so the sandbox shows all three states: overdue,
   // upcoming, and finished.
