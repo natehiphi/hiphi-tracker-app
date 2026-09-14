@@ -51,7 +51,7 @@ const S = {
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
   drafts: {},  // bill_id -> [testimony draft]
-  drawerOpen: { pub: false, notes: false },   // the two folded editors; survives re-render
+  drawerOpen: { pub: false, notes: false, details: false },   // folded sections; survive re-render
   deskOut: false,
 };
 const $ = sel => document.querySelector(sel);
@@ -1548,11 +1548,28 @@ function todosHTML(b) {
       </div></div>`;
 }
 
+// The stage calendar: the Desk rail's nine steps with their labels, plus
+// one plain sentence - cleared / now / next - so a phone reader does not
+// have to decode dots.
+function stageCalHTML(b) {
+  const dead = diedish(b);
+  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  const lab = s => STAGE_LABEL[s] || s;
+  const steps = DK_RAIL_STAGES.map((s, i) => {
+    const k = i < idx ? 'done' : i === idx ? (dead ? 'dead' : 'now') : 'todo';
+    return `<span class="stp ${k}" title="${esc(lab(s))}"><i></i><b>${esc(lab(s))}</b></span>`;
+  }).join('');
+  const cleared = DK_RAIL_STAGES.slice(0, idx).map(lab);
+  const next = DK_RAIL_STAGES[idx + 1];
+  const line = dead
+    ? `Stopped at ${lab(DK_RAIL_STAGES[idx])}.`
+    : `${cleared.length ? 'Cleared ' + cleared.slice(-2).join(', ') + ' · ' : ''}Now ${lab(DK_RAIL_STAGES[idx])}${next ? ' · Next ' + lab(next) : ''}`;
+  return `<div class="stagecal">${steps}</div><div class="stageline">${esc(line)}</div>`;
+}
+
 function drawerHTML(b) {
-  // Order is "what do I do about this bill" first: testimony, to do, the
-  // team's call on it, then the timeline. Reference (official status,
-  // coalitions) and the editors (public copy, notes) come after; the two
-  // editors fold away until tapped. No CSS columns: the body just scrolls.
+  // Top: where the bill stands and what the public sees. Middle: what we do
+  // about it. Bottom: reference and the editors, folded. Timeline last.
   const open = S.drawerOpen;
   const pubHead = pubStateText(b);
   const notesHead = (b.internal_notes || '').trim().split('\n')[0].slice(0, 70);
@@ -1564,6 +1581,13 @@ function drawerHTML(b) {
       <div class="sub">${esc(b.title||'')}</div>
     </div>
     <div class="dbody">
+      <div class="status">
+        <div class="stagenow">${STAGE_LABEL[effStage(b)]}${b.stage_override?' <span class="ovr">manual override</span>':''}
+          <span class="lastact">${esc(b.last_action||'')} <span class="when">${b.last_action_date ? fmtDate(b.last_action_date,{year:'2-digit'}) : ''}</span></span></div>
+        ${stageCalHTML(b)}
+      </div>
+      <div class="summary ${pubStateCls(b)}">${b.public_summary ? esc(b.public_summary) : '<i>No plain-language summary yet.</i>'}
+        <span class="pubnote">${esc(pubHead)}</span></div>
       ${draftsHTML(b)}
       ${todosHTML(b)}
       <div class="sec">HIPHI layer</div>
@@ -1577,33 +1601,24 @@ function drawerHTML(b) {
         <div><label>Stage override</label><select id="d-so"><option value="">Auto</option>
           ${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>
       </div>
-      <div class="sec">Timeline</div>
-      <div class="logform">
-        <div class="typechips">${LOG_TYPES.map(([v,l]) =>
-          `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
-        <input id="d-ltitle" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'Add to the timeline…'}">
-        <textarea id="d-ldetails" placeholder="Details (optional)"></textarea>
-        <button class="btn sm" id="d-log">Add to timeline</button>
-      </div>
-      <div id="tlmount" style="min-height:60px;color:var(--muted);font-size:12.5px">Loading…</div>
-      <div class="sec">Official status</div>
-      <div class="kv">
-        <span class="k">Stage</span><span>${STAGE_LABEL[effStage(b)]}${b.stage_override?' (manual override)':''}</span>
-        <span class="k">Committee</span><span>${esc(b.committee||'—')}</span>
-        <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
-        ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
-        ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
-        <span class="k">Last action</span><span>${esc(b.last_action||'—')} <span style="color:var(--muted)">(${fmtDate(b.last_action_date,{year:'2-digit'})})</span></span>
-        <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
-      </div>
       <div class="sec">Coalitions</div>
       <div class="typechips">${S.campaigns.length
         ? S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
             return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}"
               title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '✓ ' : '+ '}${esc(c.name)}</button>`; }).join('')
         : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>
+      <details class="dsec" ${open.details ? 'open' : ''} id="d-detsec">
+        <summary><span class="sec">Details</span><span class="dhint">${esc(b.committee||'—')} · ${esc((b.referrals||[]).join(', ')||'no referrals')}</span></summary>
+        <div class="kv">
+          <span class="k">Committee</span><span>${esc(b.committee||'—')}</span>
+          <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
+          ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
+          ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
+          <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
+        </div>
+      </details>
       <details class="dsec" id="d-pubsec" ${open.pub ? 'open' : ''}>
-        <summary><span class="sec">Public page</span><span class="dhint">${esc(pubHead)}</span></summary>
+        <summary><span class="sec">Public page</span><span class="dhint">edit summary and action ask</span></summary>
         <div class="pubgrid">
           <label for="d-psum">Plain-language summary</label>
           <textarea id="d-psum" maxlength="280"
@@ -1629,6 +1644,15 @@ function drawerHTML(b) {
           <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save notes</button>
         </div>
       </details>
+      <div class="sec">Timeline</div>
+      <div class="logform">
+        <div class="typechips">${LOG_TYPES.map(([v,l]) =>
+          `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
+        <input id="d-ltitle" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'Add to the timeline…'}">
+        <textarea id="d-ldetails" placeholder="Details (optional)"></textarea>
+        <button class="btn sm" id="d-log">Add to timeline</button>
+      </div>
+      <div id="tlmount" style="min-height:60px;color:var(--muted);font-size:12.5px">Loading…</div>
     </div>
   </div>`;
 }
@@ -1790,9 +1814,10 @@ function wireDrawer() {
   $('#scrim').onclick = $('#dclose').onclick = () => { S.drawerBill = null; render(); };
   // render() rebuilds the drawer after every save; remember which editors
   // were open so a save does not fold the section the user is working in.
-  const ps = $('#d-pubsec'), ns = $('#d-notesec');
+  const ps = $('#d-pubsec'), ns = $('#d-notesec'), ds = $('#d-detsec');
   if (ps) ps.ontoggle = () => { S.drawerOpen.pub = ps.open; };
   if (ns) ns.ontoggle = () => { S.drawerOpen.notes = ns.open; };
+  if (ds) ds.ontoggle = () => { S.drawerOpen.details = ds.open; };
   const save = (patch, msg) => DB.updateBill(b.id, patch)
     .then(() => { toast(msg || 'Saved'); render(); })
     .catch(e => toast(e.message, true));
