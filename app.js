@@ -1637,7 +1637,7 @@ function drawerHTML(b) {
         ${stageCalHTML(b)}
       </div>
       ${text ? `<p class="desc">${esc(text)}</p>` : ''}
-      <div class="pubnote ${pubStateCls(b)}">${esc(pubStateText(b))}</div>
+      <div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
       ${draftsHTML(b)}
       ${todosHTML(b)}
       <details class="dsec" id="d-teamsec" ${open.team ? 'open' : ''}>
