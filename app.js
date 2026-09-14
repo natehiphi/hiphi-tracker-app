@@ -1581,11 +1581,18 @@ function stageCalHTML(b) {
     return `<span class="stp ${k}" title="${esc(lab(s))}"><i></i><b>${esc(lab(s))}</b></span>`;
   }).join('');
   const cleared = DK_RAIL_STAGES.slice(0, idx).map(lab);
-  const next = DK_RAIL_STAGES[idx + 1];
   const line = dead
     ? `Stopped at ${lab(DK_RAIL_STAGES[idx])}.`
-    : `${cleared.length ? 'Cleared ' + cleared.slice(-2).join(', ') + ' · ' : ''}Now ${lab(DK_RAIL_STAGES[idx])}${next ? ' · Next ' + lab(next) : ''}`;
+    : `${cleared.length ? 'Cleared ' + cleared.slice(-2).join(', ') + ' · ' : ''}Now ${lab(DK_RAIL_STAGES[idx])}`;
   return `<div class="stagecal">${steps}</div><div class="stageline">${esc(line)}</div>`;
+}
+// The next stage after the current one, for the Next block when no hearing
+// is on the books.
+function nextStageLabel(b) {
+  if (diedish(b)) return null;
+  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  const s = DK_RAIL_STAGES[idx + 1];
+  return s ? (STAGE_LABEL[s] || s) : null;
 }
 
 // The next thing on this bill's calendar: its soonest scheduled hearing,
@@ -1595,7 +1602,12 @@ function nextHTML(b) {
   const now = Date.now();
   const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > now)
     .sort((x, y) => new Date(x.scheduled_at) - new Date(y.scheduled_at))[0];
-  if (!h) return `<div class="next none">No hearing scheduled.</div>`;
+  if (!h) {
+    const ns = nextStageLabel(b);
+    return `<div class="next"><div class="nextk">Next</div><div class="nextv">
+      <b>${ns ? esc(ns) : 'No further steps'}</b>${ns ? ' - no hearing scheduled yet' : ''}
+      </div></div>`;
+  }
   const c = S.committees[h.committee];
   const dr = draftFor(b.id, h.committee);
   const due = h.testimony_deadline ? fmtDT(h.testimony_deadline) : null;
@@ -1635,6 +1647,7 @@ function drawerHTML(b) {
         <div class="stagenow">${STAGE_LABEL[effStage(b)]}${b.stage_override?' <span class="ovr">manual override</span>':''}
           <span class="lastact">${esc(b.last_action||'')} <span class="when">${b.last_action_date ? fmtDate(b.last_action_date,{year:'2-digit'}) : ''}</span></span></div>
         ${stageCalHTML(b)}
+        ${nextHTML(b)}
       </div>
       <div class="sec">Bill summary</div>
       ${text ? `<p class="desc">${esc(text)}</p>` : '<p class="desc"><i>No summary yet.</i></p>'}
@@ -1699,7 +1712,6 @@ function drawerHTML(b) {
         </div>
       </details>
       <div class="sec">Timeline</div>
-      ${nextHTML(b)}
       <div class="logform">
         <div class="typechips">${LOG_TYPES.map(([v,l]) =>
           `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>

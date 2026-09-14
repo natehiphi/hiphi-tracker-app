@@ -121,8 +121,7 @@ td select{padding:4px 6px;border-radius:7px;font-size:12px;width:auto}
 .pubnote.warn{color:#7A5B08}
 .todoline{display:block;width:100%;text-align:left;margin-top:14px;padding:9px 0;font-size:13px;font-weight:600;color:var(--teal);border-top:1px solid var(--line)}
 .lbl{font-size:11px;font-weight:600;color:var(--muted);display:block;margin:10px 0 5px}
-.next{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:10px 12px;margin:2px 0 10px;border-radius:10px;background:var(--teal-soft);font-size:13px;line-height:1.45}
-.next.none{display:block;background:none;padding:2px 0 8px;color:var(--muted);font-size:12.5px}
+.next{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:10px 12px;margin:10px 0 2px;border-radius:10px;background:var(--teal-soft);font-size:13px;line-height:1.45}
 .nextk{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--teal);padding-top:2px}
 .nextv b{font-family:'Space Grotesk';font-size:14px}
 .nextv .code{font-size:11px;font-weight:600;color:var(--muted);margin-left:4px}
