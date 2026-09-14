@@ -279,14 +279,23 @@ const DB = {
     const { error } = await S.supa.from('bill_todos').update(patch).eq('id', id);
     if (error) { Object.assign(t, prev); throw error; }
   },
-  async markDraft(billId, id, status) {
-    const d = (S.drafts[billId] || []).find(x => x.id === id);
-    if (!d) return;
-    const prev = d.status;
-    d.status = status;
-    if (DEMO) return;
-    const { error } = await S.supa.from('testimony_drafts').update({ status }).eq('id', id);
-    if (error) { d.status = prev; throw error; }
+  // Testimony workflow. The database function checks who may do what
+  // (admin for first approval, Jess/Jaylen for the second, anyone to file)
+  // and queues the emails; the browser only asks for a transition and then
+  // nudges notify-send so those emails go out now rather than at the next
+  // 30-minute sweep.
+  async transition(billId, id, action, note, url) {
+    const arr = S.drafts[billId] || [];
+    const i = arr.findIndex(x => x.id === id);
+    if (i < 0) return;
+    if (DEMO) { demoTransition(arr[i], action, note, url); return; }
+    const { data, error } = await S.supa.rpc('testimony_transition',
+      { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });
+    if (error) throw error;
+    arr[i] = data;
+    const tok = S.session?.access_token;
+    if (tok) fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {});
   },
   async deleteTodo(billId, id) {
     const arr = S.todos[billId] || [];
@@ -690,9 +699,10 @@ function buildScenario(nowMs) {
 // ===SCENARIO-END===
 let DEMO_TL = [];
 function demoInit() {
-  const A = (n,i,c,e,adm) => ({ id:i, full_name:n, initials:i, color:c, email:e, is_admin:!!adm });
+  const A = (n,i,c,e,adm,rev) => ({ id:i, full_name:n, initials:i, color:c, email:e, is_admin:!!adm, is_reviewer:!!rev, is_active:true });
   S.advocates = [A('Nate','NT','#0E7C86','nate@hiphi.org',1), A('Kevin','KV','#5B7FBF','kevin@hiphi.org'),
-                 A('Saya','SY','#3E8E63','saya@hiphi.org'), A('Kris','KR','#7E5BA6','kris@hiphi.org')];
+                 A('Saya','SY','#3E8E63','saya@hiphi.org'), A('Kris','KR','#7E5BA6','kris@hiphi.org'),
+                 A('Jess','JS','#B45309','jess@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
   S.me = S.advocates[0];
   S.campaigns = [{id:'c1',name:'CTFH'},{id:'c2',name:'HEAL'},{id:'c3',name:'General HIPHI'}];
   const sc = buildScenario(Date.now());
@@ -719,19 +729,31 @@ function demoInit() {
     const b0 = S.bills[0];
     const h0 = sc.hearings.filter(h => h.bill_id === b0.id)
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
+    // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
-      status: 'draft', doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
+      status: 'review', submitted_by: 'KV', submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
+      doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
   // And one per hearing in the coming week, so whichever bills the Desk
   // "hearing posted" band shows under the current lens, a link is there.
   // (Demo hearings carry no testimony_deadline; scheduled_at is the key.)
-  let n = 2;
+  let n = 2, approvedSeeded = false;
   for (const h of sc.hearings.filter(h => new Date(h.scheduled_at) > new Date()
       && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
     if ((S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
+    // Cycle through the workflow states so every button shows up somewhere.
+    let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
+    // The Desk opens on "my bills", so make sure one of Nate's has the
+    // approved-not-filed state - that is the button training should practise.
+    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes('NT')) { st = 'approved'; approvedSeeded = true; }
+    const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
-      status: 'draft', doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: new Date().toISOString() });
+      status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
+      created_at: ago(30), submitted_by: st === 'draft' ? null : 'KR', submitted_at: st === 'draft' ? null : ago(20),
+      approved_by: ['approved', 'filed', 'second_review'].includes(st) ? 'NT' : null, approved_at: ago(10),
+      second_approved_by: st === 'filed' ? 'JS' : null, second_approved_at: ago(6),
+      filed_by: st === 'filed' ? 'KR' : null, filed_at: st === 'filed' ? ago(2) : null,
+      review_note: st === 'draft' ? 'Cite the 2024 BRFSS numbers in paragraph two.' : null });
   }
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Seed the To do section so the sandbox shows all three states: overdue,
@@ -1095,7 +1117,7 @@ function dkRow(b, extra = '') {
     <span class="dksel"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id) ? 'checked' : ''} onclick="event.stopPropagation()"></span>
     <span class="dkid"><span class="bno">${esc(b.bill_number)}</span>${
       b.priority ? `<span class="chipx c-gray dkpri">P${b.priority}</span>` : ''}</span>
-    <span class="dkt">${esc(b.title || '')}</span>
+    <span class="dkt">${esc(b.title || '')}${draftChip(b)}</span>
     <span class="dkx">${extra}</span>
     <span class="dkrail">${dkRail(b)}</span>
     <span class="dkav">${o ? av(o) : ''}</span>
@@ -1256,7 +1278,7 @@ function renderDesk(list) {
       <div class="ph"><span>⚡ Since your last visit</span><span class="psub">after ${fmtDT(S.sinceVisit)}</span></div>
       ${sinceH.map(h => { const b = bill(h.bill_id); return b ? `
         <div class="prow" data-bill="${b.id}"><div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted${
-          (dr => dr ? ` <a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">\ud83d\udcc4 ${dr.status === 'submitted' ? 'filed' : 'draft'} \u2197</a>` : '')(draftFor(b.id, h.committee))}
+          (dr => dr ? ` <a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">\ud83d\udcc4 ${dr.status === 'filed' ? 'filed' : 'draft'} \u2197</a>` : '')(draftFor(b.id, h.committee))}
           <div class="psmall">${fmtDT(h.scheduled_at)} · ${esc(h.room || 'room TBD')}</div></div></div>` : ''; }).join('')}
       ${sinceRows.map(({ b, evs }) => `
         <div class="prow" data-bill="${b.id}"><div class="pmain">${AMENDED_RE.test(evs[0].title) ? '✏️ ' : ''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0, 78))}
@@ -1520,20 +1542,93 @@ function pubStateText(b) {
 
 // One row per draft document, newest first. Only rendered when a draft
 // exists - most bills never have one, and the drawer is long enough.
-const DRAFT_LABEL = { draft: 'Draft', submitted: 'Filed', cancelled: 'Hearing cancelled' };
+const DRAFT_LABEL = { draft: 'Draft', review: 'In review', second_review: 'Needs 2nd approval',
+  approved: 'Approved', filed: 'Filed', cancelled: 'Hearing cancelled' };
+const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
+const dWhen = iso => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu',
+  weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+const nameOf = id => advocate(id)?.full_name || 'someone';
+const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
+  .map(a => a.full_name).join(sep) || 'an admin';
+// One line that says where the draft is and who it is waiting on.
+function draftWho(d) {
+  switch (d.status) {
+    case 'review': return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} \u00b7 waiting for ${listNames(a => a.is_admin, ' or ')}`;
+    case 'second_review': return `Approved by ${nameOf(d.approved_by)} \u00b7 first testimony on this bill, needs ${listNames(a => a.is_reviewer, ' or ')}`;
+    case 'approved': return `Approved by ${nameOf(d.second_approved_by || d.approved_by)} ${dWhen(d.second_approved_at || d.approved_at)} \u00b7 file it at the Capitol, then mark it filed`;
+    case 'filed': return `Filed by ${nameOf(d.filed_by)} ${dWhen(d.filed_at)}`;
+    case 'draft': return d.submitted_at ? 'Back to draft' : 'Write it in the Doc, then submit for review';
+    default: return '';
+  }
+}
+// Which buttons this user gets on this draft.
+function draftActions(d) {
+  const me = S.me || {};
+  const mine = d.submitted_by && d.submitted_by === me.id;
+  switch (d.status) {
+    case 'draft': return [['submit', 'Submit for review', 'pri']];
+    case 'review': return me.is_admin ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+      : mine ? [['withdraw', 'Withdraw']] : [];
+    case 'second_review': return me.is_reviewer ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+      : mine ? [['withdraw', 'Withdraw']] : [];
+    case 'approved': return [['filed', 'Mark filed', 'pri']];
+    case 'filed': return [['unfile', 'Unmark filed']];
+    default: return [];
+  }
+}
+// Status priority for the one chip a Desk row can afford.
+const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
+function draftChip(b) {
+  const d = (S.drafts[b.id] || []).filter(x => x.status !== 'cancelled')
+    .sort((x, y) => (DRAFT_RANK[y.status] || 0) - (DRAFT_RANK[x.status] || 0))[0];
+  if (!d) return '';
+  const label = d.status === 'filed' ? `Filed \u00b7 ${advocate(d.filed_by)?.initials || ''}`.trim()
+    : d.status === 'approved' ? 'Approved, not filed' : DRAFT_LABEL[d.status];
+  return `<span class="chipx dkdraft t-${DRAFT_TAG[d.status]}">${esc(label)}</span>`;
+}
+// Demo mode plays the same state machine locally so training can click through it.
+function demoTransition(d, action, note, url) {
+  const me = S.me, now = new Date().toISOString();
+  const bad = m => { throw new Error(m); };
+  if (action === 'submit') Object.assign(d, { status: 'review', submitted_by: me.id, submitted_at: now, review_note: null });
+  else if (action === 'approve' && d.status === 'review') {
+    if (!me.is_admin) bad('The first approval is by an admin');
+    const first = !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && ['approved', 'filed'].includes(x.status));
+    Object.assign(d, { status: first ? 'second_review' : 'approved', approved_by: me.id, approved_at: now, first_for_bill: first });
+  } else if (action === 'approve' && d.status === 'second_review') {
+    if (!me.is_reviewer) bad('The second approval is by a reviewer (Jess or Jaylen)');
+    Object.assign(d, { status: 'approved', second_approved_by: me.id, second_approved_at: now });
+  } else if (action === 'request_changes') Object.assign(d, { status: 'draft', review_note: note || null });
+  else if (action === 'withdraw') d.status = 'draft';
+  else if (action === 'file') Object.assign(d, { status: 'filed', filed_by: me.id, filed_at: now, filed_url: url || null });
+  else if (action === 'unfile') Object.assign(d, { status: 'approved', filed_by: null, filed_at: null, filed_url: null });
+  else bad('Unknown action');
+}
 function draftFor(billId, committee) {
   return (S.drafts[billId] || []).find(d => d.committee === committee && d.status !== 'cancelled');
 }
 function draftsHTML(b) {
   const list = (S.drafts[b.id] || []).slice().sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
   if (!list.length) return '';
+  const ui = S.draftUI || {};
   return `<div class="sec">Testimony <span class="tag a">from hearing notices</span></div>
-    <div class="drafts">${list.map(d => `<div class="draftrow${d.status === 'cancelled' ? ' off' : ''}" data-draft="${esc(d.id)}">
-      <span class="tag ${d.status === 'submitted' ? 't' : 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
+    <div class="drafts">${list.map(d => {
+      const acts = d.status === 'cancelled' ? [] : draftActions(d);
+      const form = ui.id === d.id ? (ui.mode === 'changes'
+        ? `<div class="draftform"><input class="dfnote" placeholder="What should change?" aria-label="What should change">
+             <button class="draftbtn pri" data-act="request_changes">Send</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`
+        : `<div class="draftform"><input class="dfurl" placeholder="Capitol confirmation link (optional)" aria-label="Confirmation link">
+             <button class="draftbtn pri" data-act="file">Filed</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`) : '';
+      return `<div class="draftrow${d.status === 'cancelled' ? ' off' : ''}" data-draft="${esc(d.id)}">
+      <span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
       <span class="draftc">${esc(d.committee)}</span>
       <a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open draft \u2197</a>
-      ${d.status === 'cancelled' ? '' : `<button class="draftbtn" data-mark="${d.status === 'submitted' ? 'draft' : 'submitted'}">${d.status === 'submitted' ? 'Unmark filed' : 'Mark filed'}</button>`}
-    </div>`).join('')}</div>`;
+      ${d.filed_url ? `<a class="draftlink" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation \u2197</a>` : ''}
+      <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
+      <span class="draftwho">${esc(draftWho(d))}</span>
+      ${d.status === 'draft' && d.review_note ? `<span class="draftnote">Changes requested: ${esc(d.review_note)}</span>` : ''}
+      ${form}
+    </div>`; }).join('')}</div>`;
 }
 
 // Open items first, then finished ones. Overdue is called out in red, since a
@@ -1618,7 +1713,7 @@ function nextHTML(b) {
       <div class="nextline">${fmtDT(h.scheduled_at)}${h.room ? ` · ${esc(h.room)}` : ''}</div>
       ${c && c.chair ? `<div class="nextline">Chair ${esc(c.chair)}${c.vice_chair ? ` · Vice Chair ${esc(c.vice_chair)}` : ''}</div>` : ''}
       ${due ? `<div class="nextline due">Testimony due ${due}</div>` : ''}
-      ${dr ? `<div class="nextline"><a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">${dr.status === 'submitted' ? 'Testimony filed' : 'Open testimony draft'} ↗</a></div>` : ''}
+      ${dr ? `<div class="nextline"><a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">${dr.status === 'filed' ? 'Testimony filed' : dr.status === 'approved' ? 'Testimony approved, file it' : dr.status === 'review' || dr.status === 'second_review' ? 'Testimony in review' : 'Open testimony draft'} ↗</a></div>` : ''}
     </div></div>`;
 }
 
@@ -1925,13 +2020,25 @@ function wireDrawer() {
     document.querySelectorAll('[data-lt]').forEach(x => x.classList.toggle('on', x === el));
   });
   document.querySelectorAll('[data-draft]').forEach(row => {
-    const id = row.dataset.draft, btn = row.querySelector('.draftbtn');
-    if (!btn) return;
-    btn.onclick = async () => {
+    const id = row.dataset.draft;
+    row.querySelectorAll('[data-act]').forEach(btn => btn.onclick = async () => {
+      const act = btn.dataset.act;
+      // Two actions want a word from the user first: an inline field, not a prompt().
+      if (act === 'changes' || act === 'filed') {
+        S.draftUI = { id, mode: act }; render();
+        document.querySelector(`[data-draft="${id}"] input`)?.focus(); return;
+      }
+      if (act === 'cancelui') { S.draftUI = null; render(); return; }
+      const note = row.querySelector('.dfnote')?.value, url = row.querySelector('.dfurl')?.value;
       btn.disabled = true;
-      try { await DB.markDraft(b.id, id, btn.dataset.mark); toast(btn.dataset.mark === 'submitted' ? 'Marked filed' : 'Back to draft'); render(); }
-      catch (e) { btn.disabled = false; toast(e.message, true); }
-    };
+      try {
+        await DB.transition(b.id, id, act, note, url);
+        S.draftUI = null;
+        toast({ submit: 'Sent for review', approve: 'Approved', request_changes: 'Sent back with your note',
+          withdraw: 'Back to draft', file: 'Marked filed', unfile: 'Unmarked' }[act] || 'Done');
+        if (act === 'file' && !DEMO) openDrawer(b.id); else render();
+      } catch (e) { btn.disabled = false; toast(e.message, true); }
+    });
   });
   document.querySelectorAll('[data-todo]').forEach(row => {
     const id = row.dataset.todo;
@@ -2033,6 +2140,10 @@ async function boot() {
     $('#app').innerHTML = '<div class="boot">Loading your bills…</div>';
     await DB.loadAll();
     if (!S.me) toast('Signed in, but no matching advocate record — ask your admin', true);
+    // Emails link straight to a bill: app/#bill=HB123
+    const want = (HASH_Q.get('bill') || '').replace(/\s+/g, '').toUpperCase();
+    const target = want && S.bills.find(x => (x.bill_number || '').replace(/\s+/g, '').toUpperCase() === want);
+    if (target) { S.drawerBill = target.id; history.replaceState(null, '', location.pathname + location.search); }
     render();
   } catch (e) {
     $('#app').innerHTML = `<div class="boot">Something went wrong: ${esc(e.message)}<br><br>

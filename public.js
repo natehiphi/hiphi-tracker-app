@@ -166,12 +166,15 @@ function render() {
     const due = hrs == null ? '' : hrs < 48
       ? `<div class="due">DUE IN ${Math.max(0, Math.round(hrs))}H</div>`
       : `<div class="due">BY ${fmtDate(a.due)}</div>`;
+    // No curated ask needed: position + hearing + deadline already say what
+    // to do. "Submit testimony in SUPPORT of HB 123 before Wed 3/4 9:00 AM".
     const what = a.ask ? esc(a.ask)
-      : `${ctaVerb(a.b)} — ${esc(a.h.committee)} hearing ${fmtDT(a.h.scheduled_at)} · ${esc(a.h.room || 'room TBD')}`;
+      : `${ctaVerb(a.b)} before <b>${fmtDT(a.due)}</b> — ${esc(a.h.committee)} hearing ${fmtDT(a.h.scheduled_at)} · ${esc(a.h.room || 'room TBD')}`;
+    const linkLabel = (!a.ask && a.h) ? 'Submit testimony ↗' : 'Bill page ↗';
     return `<div class="pv-tick" style="min-width:230px;max-width:340px">
       <div class="bn">${a.star ? '★ ' : ''}${esc(a.b.bill_number)} · ${posLabel(a.b)}</div>
       <div class="when">${what}</div>${due}
-      ${a.b.state_url ? `<a href="${esc(a.b.state_url)}" target="_blank" rel="noopener" style="font-size:11px">Bill page ↗</a>` : ''}
+      ${a.b.state_url ? `<a href="${esc(a.b.state_url)}" target="_blank" rel="noopener" style="font-size:11px">${linkLabel}</a>` : ''}
       ${a.h ? `<a download="${esc(a.b.bill_number)}-hearing.ics" href="data:text/calendar;charset=utf-8,${encodeURIComponent(makeIcs(a.b, a.h))}" style="font-size:11px;margin-left:8px">📅 Calendar</a>` : ''}
     </div>`; }).join('');
   const active = list.filter(b => !diedish(b, hearingsFor(b).length > 0));
