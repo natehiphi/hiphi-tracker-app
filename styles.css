@@ -478,3 +478,10 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .dash.one{grid-template-columns:1fr;max-width:980px}
 .tag.n{background:#FEF3C7;color:#B45309;margin-left:8px}
 @media (max-width:760px){ .stats.pf{display:none} }
+@media (max-width:760px){
+  /* Buttons under the text, not beside it: a 390px row cannot hold a title and two buttons side by side. */
+  .prow:not(.dkrow){flex-wrap:wrap}
+  .prow:not(.dkrow) .pmain{flex-basis:100%}
+  .prow:not(.dkrow) .btn{margin-top:2px}
+  .ph{flex-wrap:wrap;gap:2px 10px}
+}
