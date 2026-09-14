@@ -703,14 +703,17 @@ function demoInit() {
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
       status: 'draft', doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
-  // And one on the soonest upcoming demo hearing - the "hearing posted" band
-  // on Desk lists those - so the Desk link shows too. (Demo hearings carry
-  // no testimony_deadline, so scheduled_at is the key.)
-  const soon = sc.hearings.filter(h => new Date(h.scheduled_at) > new Date())
-    .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
-  if (soon && !S.drafts[soon.bill_id]) S.drafts[soon.bill_id] = [{ id: 'dd2', bill_id: soon.bill_id,
-    committee: soon.committee, status: 'draft', doc_url: 'https://docs.google.com/document/d/demo2/edit',
-    created_at: new Date().toISOString() }];
+  // And one per hearing in the coming week, so whichever bills the Desk
+  // "hearing posted" band shows under the current lens, a link is there.
+  // (Demo hearings carry no testimony_deadline; scheduled_at is the key.)
+  let n = 2;
+  for (const h of sc.hearings.filter(h => new Date(h.scheduled_at) > new Date()
+      && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
+    if ((S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
+    (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
+      status: 'draft', doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
+      created_at: new Date().toISOString() });
+  }
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Seed the To do section so the sandbox shows all three states: overdue,
   // upcoming, and finished.
