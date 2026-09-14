@@ -835,7 +835,7 @@ function chrome(inner) {
     : hrs < 1 ? 'data current'
     : hrs < 48 ? `data ${hrs}h old` : `data ${Math.round(hrs / 24)}d old`;
   return `
-    <div class="top">
+    <div class="top staff">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
         <button data-view="desk" class="${S.view==='desk'?'on':''}">Desk</button>

@@ -452,10 +452,14 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .dhead .poschip{font-size:11px;vertical-align:middle;margin-left:10px;letter-spacing:0}
 @media (max-width:760px){
   .alert{display:none}
-  .top .fresh{display:none}
-  .top .who button{display:none}
-  .logo{font-size:0;gap:0}
-  .logo .mark{font-size:13px}
+  .top.staff .fresh{display:none}
+  .top.staff .who button{display:none}
+  .top.staff .logo{font-size:0;gap:0}
+  .top.staff .logo .mark{font-size:13px}
+  .pv-stats{gap:0 0}
+  .pv-stat{padding:2px 10px 2px 0;margin-right:10px}
+  .pv-stat .v{font-size:22px}
+  .pv-stat .l{font-size:9px;letter-spacing:.08em}
   .viewtabs{order:0;width:auto;flex:1;overflow:visible;justify-content:flex-end}
   .viewtabs [data-view=table]{display:none}
   .ftoggle{display:block;padding:10px 12px 0}
