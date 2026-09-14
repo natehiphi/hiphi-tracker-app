@@ -704,7 +704,7 @@ function demoInit() {
   const A = (n,i,c,e,adm,rev) => ({ id:i, full_name:n, initials:i, color:c, email:e, is_admin:!!adm, is_reviewer:!!rev, is_active:true });
   S.advocates = [A('Nate','NT','#0E7C86','nate@hiphi.org',1), A('Kevin','KV','#5B7FBF','kevin@hiphi.org'),
                  A('Saya','SY','#3E8E63','saya@hiphi.org'), A('Kris','KR','#7E5BA6','kris@hiphi.org'),
-                 A('Jess','JS','#B45309','jess@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
+                 A('Jess','JS','#B45309','jessica@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
   S.me = S.advocates[0];
   S.campaigns = [{id:'c1',name:'CTFH'},{id:'c2',name:'HEAL'},{id:'c3',name:'General HIPHI'}];
   const sc = buildScenario(Date.now());
@@ -805,9 +805,9 @@ function visibleBills() {
 }
 
 // ---------------- shared chrome ----------------
-// Desk is the home page. The older views stay available under "More"
-// (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['portfolio','Portfolio'],['pipeline','Pipeline'],['table','Table'],['cards','Cards']];
+// Portfolio is the home page (Nate, 9/14). The other views stay available
+// under "More" (Table is desktop-only: it never worked at phone width).
+const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards']];
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
   return [who, S.q ? `“${S.q}”` : null, S.pri ? 'P' + S.pri : null,
@@ -838,7 +838,7 @@ function chrome(inner) {
     <div class="top staff">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        <button data-view="desk" class="${S.view==='desk'?'on':''}">Desk</button>
+        <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}">Portfolio</button>
         <button data-view="add" class="${S.view==='add'?'on':''}">+ Add bills</button>
         <details class="more">
           <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}">${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'} ▾</summary>
@@ -1927,7 +1927,7 @@ function renderRecovery() {
 
 // ---------------- render + events ----------------
 function render() {
-  if (isMobile() && S.view === 'table') S.view = 'desk';
+  if (isMobile() && S.view === 'table') S.view = 'portfolio';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
     : S.view === 'pipeline' ? renderPipeline(list)
