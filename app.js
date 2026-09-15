@@ -974,14 +974,16 @@ function currentDeadline() {
   const now = Date.now();
   return deadlineCalendar().find(d => new Date(d.date + 'T23:59:59-10:00') > now) || null;
 }
-// The deadline a given bill is measured against right now.
-function billDeadline(b, cur) {
-  if (!cur) return null;
-  if ((cur.phase === 'first_triple' || cur.phase === 'second_triple') && !isTriple(b)) {
-    const cal = deadlineCalendar();
-    return cal.find(d => d.date > cur.date && d.phase !== cur.phase) || cur;
-  }
-  return cur;
+// The deadline a given bill is racing right now: the date for the phase its
+// stage names (nextDeadline). A bill still in a committee phase whose date has
+// already passed is flagged as missed rather than hidden.
+function billDeadline(b) {
+  const dl = nextDeadline(b);
+  if (dl) return dl;
+  const st = effStage(b);
+  const key = st === 'introduced' ? (isTriple(b) ? 'first_triple' : 'first_lateral') : st;
+  const last = (DEADLINES[key] || []).slice(-1)[0];
+  return last ? { label: last[0], date: last[1], days: Math.ceil((new Date(last[1] + 'T23:59:59-10:00') - Date.now()) / 864e5), missed: true } : null;
 }
 function pfBoard(list) {
   const cur = currentDeadline();
@@ -992,16 +994,21 @@ function pfBoard(list) {
       new Date(h.scheduled_at) > now - 10 * 864e5)
     .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))
     .find(h => new Date(h.scheduled_at) > now || !b.last_action_date || b.last_action_date < h.scheduled_at.slice(0, 10));
+  // A: in a committee phase, no hearing on the books (racing its own next deadline,
+  //    or already past it). B: hearing scheduled or just held. C: nothing to race
+  //    right now - past the committees for this leg (floor, crossover, conference).
   const a = [], bcol = [], c = [];
   for (const b of alive) {
-    const dl = billDeadline(b, cur);
-    const cleared = STAGE_ORDER[effStage(b)] > STAGE_ORDER[dl.phase];
-    if (cleared) { c.push({ b, dl }); continue; }
     const h = hearingFor(b);
-    (h ? bcol : a).push({ b, dl, h });
+    const inCommittee = RADAR_STAGES.includes(effStage(b));
+    if (h) { bcol.push({ b, h, dl: billDeadline(b) }); continue; }
+    if (inCommittee) { a.push({ b, dl: billDeadline(b) || cur }); continue; }
+    c.push({ b, dl: cur });
   }
   const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
-  a.sort((x, y) => byPri(x, y) || days(x.dl.date) - days(y.dl.date) || x.b.bill_number.localeCompare(y.b.bill_number));
+  // Within a priority: closest approaching deadline first; already-missed ones last.
+  const race = x => x.dl.missed ? 9999 : days(x.dl.date);
+  a.sort((x, y) => byPri(x, y) || race(x) - race(y) || x.b.bill_number.localeCompare(y.b.bill_number));
   bcol.sort((x, y) => byPri(x, y) || x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   c.sort((x, y) => byPri(x, y) || (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
   const more = S.boardMore || {};
@@ -1016,21 +1023,23 @@ function pfBoard(list) {
   const pri = b => b.priority ? `<span class="pri">P${b.priority}</span>` : '';
   const html = `
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
-      <span class="sub">Current deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Bills re-sort when it passes.</span></div>
+      <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it is racing; bills re-sort as dates pass.</span></div>
     <div class="board3">
-      ${col('a', '📡', 'Needs a hearing', `before ${esc(cur.label)}`, a, ({ b, dl }) => `
+      ${col('a', '📡', 'Needs a hearing', 'in committee, nothing scheduled', a, ({ b, dl }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(b.committee || '—')}</span>${who(b)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${days(dl.date) <= 5 ? `<span class="hot">${days(dl.date)}d left</span>` : dl.phase !== cur.phase ? `races ${esc(dl.label)} ${fmtDate(dl.date)}` : `needs a hearing by ${fmtDate(dl.date)}`}</span>
-        </div>`, 'Every live bill has a hearing or has cleared this deadline. 🤙')}
+          <span class="l2">${dl.missed ? `<span class="hot">missed ${esc(dl.label)} ${fmtDate(dl.date)}</span>`
+            : days(dl.date) <= 5 ? `<span class="hot">${esc(dl.label)} in ${days(dl.date)}d</span>`
+            : `${esc(dl.label)} ${fmtDate(dl.date)} · ${days(dl.date)}d`}</span>
+        </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(h.committee)}</span>${who(b)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
           <span class="l2">${new Date(h.scheduled_at) > now ? fmtDT(h.scheduled_at) : 'held ' + fmtDate(h.scheduled_at)}${draftChip(b)}</span>
         </div>`, 'No hearings on the books for this deadline.')}
-      ${col('c', '✅', `Cleared ${esc(cur.label)}`, 'past this deadline’s phase', c, ({ b }) => `
+      ${col('c', '✅', 'Cleared committee', 'no hearing needed until the next stage', c, ({ b }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
           <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${STAGE_LABEL[effStage(b)]}</span>${who(b)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
@@ -1151,8 +1160,7 @@ function renderPortfolio(list) {
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
     return [dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' }), dt.getDate()]; };
   const weekHtml = week.length ? `<div class="calweek">` + days7.map((d, i) => {
-    const hs = week.filter(h => hstDay(h.scheduled_at) === d)
-      .sort((x, y) => ((bill(x.bill_id)?.priority || 9) - (bill(y.bill_id)?.priority || 9)) || x.scheduled_at.localeCompare(y.scheduled_at));
+    const hs = week.filter(h => hstDay(h.scheduled_at) === d).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     const [dow, dom] = railParts(d);
     return `<div class="calday${hs.length ? '' : ' nohear'}${i === 0 ? ' today' : ''}">
       <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${i === 0 ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
