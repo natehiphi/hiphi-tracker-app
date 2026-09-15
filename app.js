@@ -944,6 +944,88 @@ function pulseCell(b) {
 }
 
 // ---------------- views ----------------
+// ---------- the deadline board: three columns keyed to the session's current deadline ----------
+// A bill's stage names the phase it is racing (introduced / 1st triple /
+// 1st lateral / 1st decking ...). The session calendar (DEADLINES) has one
+// date per phase. The board picks the next deadline on the calendar and
+// sorts every live bill by where it stands against it: needs a hearing,
+// hearing on the books, or already past that phase. When the date passes the
+// board re-keys itself to the next deadline and the same bill can be back in
+// column A, waiting for its next hearing. Triple-filing deadlines only bind
+// 3-stop bills; everyone else is measured against the lateral that follows.
+const STAGE_ORDER = Object.fromEntries(STAGES.map(([v], i) => [v, i]));
+const BOARD_CAP = 15;
+function deadlineCalendar() {
+  return Object.entries(DEADLINES).flatMap(([phase, arr]) => arr.map(([label, date]) => ({ phase, label, date })))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+function currentDeadline() {
+  const now = Date.now();
+  return deadlineCalendar().find(d => new Date(d.date + 'T23:59:59-10:00') > now) || null;
+}
+// The deadline a given bill is measured against right now.
+function billDeadline(b, cur) {
+  if (!cur) return null;
+  if ((cur.phase === 'first_triple' || cur.phase === 'second_triple') && !isTriple(b)) {
+    const cal = deadlineCalendar();
+    return cal.find(d => d.date > cur.date && d.phase !== cur.phase) || cur;
+  }
+  return cur;
+}
+function pfBoard(list) {
+  const cur = currentDeadline();
+  if (SESSION_OVER || !cur) return { html: '', a: [], b: [], c: [] };
+  const now = Date.now();
+  const alive = list.filter(b => !diedish(b) && !['enacted', 'vetoed', 'dead', 'governor'].includes(effStage(b)));
+  const hearingFor = b => S.hearings.filter(h => h.bill_id === b.id && h.status !== 'cancelled' &&
+      new Date(h.scheduled_at) > now - 10 * 864e5)
+    .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))
+    .find(h => new Date(h.scheduled_at) > now || !b.last_action_date || b.last_action_date < h.scheduled_at.slice(0, 10));
+  const a = [], bcol = [], c = [];
+  for (const b of alive) {
+    const dl = billDeadline(b, cur);
+    const cleared = STAGE_ORDER[effStage(b)] > STAGE_ORDER[dl.phase];
+    if (cleared) { c.push({ b, dl }); continue; }
+    const h = hearingFor(b);
+    (h ? bcol : a).push({ b, dl, h });
+  }
+  const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
+  a.sort((x, y) => days(x.dl.date) - days(y.dl.date) || (x.b.priority || 3) - (y.b.priority || 3) || x.b.bill_number.localeCompare(y.b.bill_number));
+  bcol.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+  c.sort((x, y) => (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
+  const more = S.boardMore || {};
+  const col = (key, icon, title, sub, rows, rowFn, empty) => {
+    const shown = more[key] ? rows : rows.slice(0, BOARD_CAP);
+    return `<div class="panel bcol" id="pf-board-${key}"><div class="ph"><span>${icon} ${title} <span class="chipx c-gray">${rows.length}</span></span><span class="psub">${sub}</span></div>
+      ${rows.length ? shown.map(rowFn).join('') : `<div class="pempty">${empty}</div>`}
+      ${rows.length > BOARD_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more[key] ? 'Show fewer' : `…and ${rows.length - BOARD_CAP} more`}</button>` : ''}
+    </div>`;
+  };
+  const who = b => owners(b)[0] ? `<span class="chipx c-gray">${esc(owners(b)[0].initials)}</span>` : '';
+  const pri = b => b.priority ? `<span class="chipx c-gray">P${b.priority}</span>` : '';
+  const html = `
+    <div class="dashhead boardhead"><h1>Where every bill stands</h1>
+      <span class="sub">Current deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Bills re-sort when it passes.</span></div>
+    <div class="board3">
+      ${col('a', '📡', 'Needs a hearing', `before ${esc(cur.label)}`, a, ({ b, dl }) => `
+        <div class="prow ${days(dl.date) <= 5 ? 'urgent' : ''}" data-bill="${b.id}">
+          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} waiting in <b>${esc(b.committee || 'committee')}</b>
+            <div class="psmall">${esc((b.title || '').slice(0, 56))}${dl.phase !== cur.phase ? ` · races ${esc(dl.label)} ${fmtDate(dl.date)}` : ''}${days(dl.date) <= 5 ? ` · <b style="color:var(--red)">${days(dl.date)}d left</b>` : ''}</div></div>
+          ${who(b)}</div>`, 'Every live bill has a hearing or has cleared this deadline. 🤙')}
+      ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
+        <div class="prow" data-bill="${b.id}">
+          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} ${esc(h.committee)} · ${new Date(h.scheduled_at) > now ? fmtDT(h.scheduled_at) : 'held ' + fmtDate(h.scheduled_at)}${draftChip(b)}
+            <div class="psmall">${esc((b.title || '').slice(0, 56))}</div></div>
+          ${who(b)}</div>`, 'No hearings on the books for this deadline.')}
+      ${col('c', '✅', `Cleared ${esc(cur.label)}`, 'past this deadline’s phase', c, ({ b }) => `
+        <div class="prow" data-bill="${b.id}">
+          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} <span class="chipx c-teal">${STAGE_LABEL[effStage(b)]}</span>
+            <div class="psmall">${esc((b.last_action || b.title || '').slice(0, 70))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</div></div>
+          ${who(b)}</div>`, 'Nothing has cleared this deadline yet.')}
+    </div>`;
+  return { html, a, b: bcol, c };
+}
+
 // The home page. In session: what is waiting on you, this week's hearings
 // (each bill once), the dying-quietly radar, then folded/optional context.
 // With text in the search box it becomes a search across every bill in the
@@ -1039,18 +1121,7 @@ function renderPortfolio(list) {
       <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
     </div>`; }).join('');
 
-  // ---------- bills nearing a deadline: needs a hearing inside 10 days or it dies ----------
-  const radar = list.filter(b => !diedish(b))
-    .map(b => ({ b, dl: nextDeadline(b) }))
-    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= PF_DEADLINE_DAYS &&
-      !S.hearings.some(h => h.bill_id === x.b.id && new Date(h.scheduled_at) > new Date()))
-    .sort((x,y) => x.dl.days - y.dl.days || (x.b.priority||3) - (y.b.priority||3));
-  const radarHtml = radar.map(({b, dl}) => `
-    <div class="prow ${dl.days<=5?'urgent':''}" data-bill="${b.id}">
-      <div class="pmain"><b>${esc(b.bill_number)}</b>${b.priority?` <span class="chipx c-gray">P${b.priority}</span>`:''}
-        waiting in <b>${esc(b.committee||'committee')}</b> — no hearing scheduled
-        <div class="psmall">${esc(dl.label)} deadline in <b>${dl.days}d</b> (${fmtDate(dl.date)}) · ${STAGE_LABEL[effStage(b)]} — consider calling the chair's office</div></div></div>`
-    ).join('');
+  const board = pfBoard(list);
 
   // ---------- changes since your last visit: official actions, folded ----------
   const evByBill = {};
@@ -1078,17 +1149,13 @@ function renderPortfolio(list) {
           <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`; }).join('')) : '';
   const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day);
 
-  const radarPanel = panel('pf-radar', '⏳ Bills nearing a deadline',
-    `need a hearing in the next ${PF_DEADLINE_DAYS} days or they die`, radarHtml,
-    SESSION_OVER ? 'Session is over — this fills in when next year’s deadlines are loaded.'
-                 : `Nothing in this portfolio is inside ${PF_DEADLINE_DAYS} days of a deadline without a hearing. 🤙`);
-  const right = radarPanel + sinceHtml + feedHtml;
+  const right = sinceHtml + feedHtml;
   return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} waiting on you</b>` : ''}`) + `
     <div class="stats pf">
       <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
       <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings next 7 days</div></button>
       <button class="stat" data-jump="pf-since"><div class="v">${moved.length}</div><div class="l">Moved this week</div></button>
-      <button class="stat ${radar.length?'warn':''}" data-jump="pf-radar"><div class="v">${radar.length}</div><div class="l">Nearing a deadline (10d)</div></button>
+      <button class="stat ${board.a.length?'warn':''}" data-jump="pf-board-a"><div class="v">${board.a.length}</div><div class="l">Need a hearing</div></button>
     </div>
     <div class="dash${right ? '' : ' one'}">
       <div>
@@ -1097,7 +1164,8 @@ function renderPortfolio(list) {
           SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.')}
       </div>
       ${right ? `<div>${right}</div>` : ''}
-    </div>`;
+    </div>
+    ${board.html}`;
 }
 
 function cell(b, c) {
@@ -1462,7 +1530,6 @@ const DEADLINES = DEMO ? {
 // Dying-quietly radar: committee stages where "no hearing scheduled" is the
 // death signal, and the deadline each stage races. Bills still at Introduced
 // race the lateral (or triple, if 3X) filing date.
-const PF_DEADLINE_DAYS = 10;   // home page: "needs a hearing in the next N days or it dies"
 const RADAR_DAYS = 14;
 const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
                       'second_triple','second_lateral','second_decking'];
@@ -2200,6 +2267,10 @@ function wire() {
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
+    S.boardMore[k] = !S.boardMore[k]; render(); document.getElementById('pf-board-' + k)?.scrollIntoView({ block: 'start' });
+  });
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () =>
     document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   // Portfolio search reaches every bill: the untracked half comes from the
