@@ -192,6 +192,14 @@ const DB = {
         .order('created_at', { ascending: false }).limit(200);
       S.sinceEvents = ev.data || [];
     } catch { S.sinceEvents = []; }
+    // Everything that happened in the last 72 hours, every source (non-fatal)
+    try {
+      const rc = await S.supa.from('activity_log')
+        .select('bill_id,title,details,occurred_at,type,advocate_id,source')
+        .gt('occurred_at', new Date(Date.now() - 72 * 3600e3).toISOString())
+        .order('occurred_at', { ascending: false }).limit(300);
+      S.recentEvents = rc.data || [];
+    } catch { S.recentEvents = []; }
   },
   async timeline(billId) {
     if (DEMO) return DEMO_TL.filter(t => t.bill_id === billId);
@@ -833,6 +841,9 @@ function demoInit() {
   S.feed = sc.tl.filter(t => t.source === 'team');
   S.sinceVisit = Date.now() - 3*864e5;
   S.sinceEvents = sc.since;
+  // Sandbox: the scripted "since" events double as the last-72-hours feed.
+  S.recentEvents = [...sc.since.map(e => ({ ...e, source: 'auto', type: 'status_auto' })), ...DEMO_TL]
+    .filter(e => e.occurred_at).sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)));
   S.session = { user: { email: 'nate@hiphi.org' } };
 }
 
@@ -1110,35 +1121,40 @@ function renderPortfolio(list) {
   const week = [...weekByBill.values()].sort((a,b) =>
     (a.testimony_deadline || a.scheduled_at).localeCompare(b.testimony_deadline || b.scheduled_at));
   const isNew = h => h.notice_posted_at && new Date(h.notice_posted_at).getTime() > S.sinceVisit;
-  const weekHtml = week.map(h => { const b = bill(h.bill_id); if (!b) return '';
+  // Calendar layout: seven day blocks starting today, hearings under each.
+  const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  const dayLabel = iso => new Date(iso + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
+  const days7 = [...Array(7)].map((_, i) => hstDay(now + i * 864e5));
+  const weekRow = h => { const b = bill(h.bill_id); if (!b) return '';
     const dueSoon = h.testimony_deadline && hrsLeft(h.testimony_deadline) < 48;
     const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
     return `
-    <div class="prow ${dueSoon && !past ? 'urgent' : ''}" data-bill="${b.id}">
-      <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${fmtDT(h.scheduled_at)} · ${esc(h.room||'room TBD')}${isNew(h) ? '<span class="tag n">NEW</span>' : ''}
+    <div class="prow calrow ${dueSoon && !past ? 'urgent' : ''}" data-bill="${b.id}">
+      <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span>
+      <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${esc(h.room||'room TBD')}${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${draftChip(b)}
         <div class="psmall">${esc((b.title||'').slice(0, 64))}${h.testimony_deadline ? ` · ${past ? 'testimony deadline passed' : `testimony due in <b${dueSoon ? ' style="color:var(--red)"' : ''}>${hrsLeft(h.testimony_deadline)}h</b>`}` : ''}</div></div>
       ${draftActionBtn(b, h.committee)}
       <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
-    </div>`; }).join('');
+    </div>`; };
+  const weekHtml = week.length ? days7.map((d, i) => {
+    const hs = week.filter(h => hstDay(h.scheduled_at) === d);
+    return `<div class="calday${hs.length ? '' : ' empty'}"><div class="caldayhead">${i === 0 ? 'Today · ' : i === 1 ? 'Tomorrow · ' : ''}${dayLabel(d)}${hs.length ? ` <span class="chipx c-gray">${hs.length}</span>` : ''}</div>
+      ${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div>`; }).join('') : '';
+
+  // ---------- last 72 hours: everything that happened, newest first ----------
+  const recent = (S.recentEvents || []).filter(ev => ids.has(ev.bill_id) && bill(ev.bill_id));
+  const REC_CAP = 12, recMore = (S.boardMore || {}).recent;
+  const ago = iso => { const h = Math.round((now - new Date(iso)) / 36e5); return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
+  const recentHtml = recent.length ? `
+    <div class="panel" id="pf-recent"><div class="ph"><span>⚡ Last 72 hours <span class="chipx c-gold">${recent.length}</span></span><span class="psub">newest first</span></div>
+      ${(recMore ? recent : recent.slice(0, REC_CAP)).map(ev => { const b = bill(ev.bill_id), a = ev.advocate_id ? advocate(ev.advocate_id) : null; return `
+      <div class="prow" data-bill="${b.id}">
+        ${a ? av(a) : ''}<div class="pmain">${AMENDED_RE.test(ev.title || '') ? '✏️ ' : /hearing notice/i.test(ev.title || '') ? '📅 ' : ''}<b>${esc(b.bill_number)}</b> — ${esc((ev.title || '').slice(0, 90))}
+          <div class="psmall">${fmtDT(ev.occurred_at)} · ${ago(ev.occurred_at)}${a ? ' · ' + esc(a.full_name) : ''}</div></div></div>`; }).join('')}
+      ${recent.length > REC_CAP ? `<button class="pempty boardmore" data-boardmore="recent">${recMore ? 'Show fewer' : `…and ${recent.length - REC_CAP} more`}</button>` : ''}
+    </div>` : '';
 
   const board = pfBoard(list);
-
-  // ---------- changes since your last visit: official actions, folded ----------
-  const evByBill = {};
-  for (const ev of (S.sinceEvents||[])) if (ids.has(ev.bill_id)) (evByBill[ev.bill_id] ||= []).push(ev);
-  const sinceRows = Object.entries(evByBill).map(([bid, evs]) => ({ b: bill(bid), evs }))
-    .filter(x => x.b).sort((x,y) => (x.b.priority||3) - (y.b.priority||3));
-  const SINCE_CAP = 8;
-  const sinceHtml = sinceRows.length ? `
-    <details class="panel sincefold" id="pf-since" ${mobile ? '' : 'open'}>
-      <summary class="ph"><span>⚡ Changes since your last visit <span class="chipx c-gold">${sinceRows.length}</span></span>
-        <span class="psub">${S.sinceVisit ? 'after ' + fmtDT(S.sinceVisit) : ''}${mobile ? ' · tap' : ''}</span></summary>
-      ${sinceRows.slice(0, SINCE_CAP).map(({b, evs}) => `
-      <div class="prow" data-bill="${b.id}">
-        <div class="pmain">${AMENDED_RE.test(evs[0].title)?'✏️ ':''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0,80))}
-          <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length>1?` · +${evs.length-1} more action${evs.length>2?'s':''}`:''}</div></div></div>`).join('')}
-      ${sinceRows.length > SINCE_CAP ? `<div class="pempty">…and ${sinceRows.length - SINCE_CAP} more bills changed</div>` : ''}
-    </details>` : '';
 
   // ---------- needs a touch, team activity: only when there is something ----------
   const feed = (S.feed||[]).filter(ev => ids.has(ev.bill_id)).slice(0, 3);
@@ -1149,12 +1165,12 @@ function renderPortfolio(list) {
           <div class="psmall">${esc(b?.bill_number||'')} · ${a?esc(a.full_name):''} · ${fmtDT(ev.occurred_at)}</div></div></div>`; }).join('')) : '';
   const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day);
 
-  const right = sinceHtml + feedHtml;
+  const right = recentHtml + feedHtml;
   return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} waiting on you</b>` : ''}`) + `
     <div class="stats pf">
       <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
       <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings next 7 days</div></button>
-      <button class="stat" data-jump="pf-since"><div class="v">${moved.length}</div><div class="l">Moved this week</div></button>
+      <button class="stat" data-jump="pf-recent"><div class="v">${recent.length}</div><div class="l">Actions, last 72h</div></button>
       <button class="stat ${board.a.length?'warn':''}" data-jump="pf-board-a"><div class="v">${board.a.length}</div><div class="l">Need a hearing</div></button>
     </div>
     <div class="dash${right ? '' : ' one'}">
