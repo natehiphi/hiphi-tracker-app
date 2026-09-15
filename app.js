@@ -2313,6 +2313,12 @@ function wire() {
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  // P3 rows are shown at exactly twice their natural height (Nate, 9/15).
+  document.querySelectorAll('.p3').forEach(el => {
+    el.classList.remove('p3'); el.style.minHeight = '';
+    const h = el.getBoundingClientRect().height;
+    el.classList.add('p3'); el.style.minHeight = Math.round(h * 2) + 'px';
+  });
   document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
     S.boardMore[k] = !S.boardMore[k]; render(); document.getElementById('pf-board-' + k)?.scrollIntoView({ block: 'start' });
