@@ -676,3 +676,24 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .tltitle{display:block;font-size:12.5px;color:var(--ink);margin-top:2px;line-height:1.4}
 .tlrow{align-items:flex-start}
 .tlts{padding-top:2px}
+/* ---------- batch 1-10 ---------- */
+.calweek{grid-template-columns:repeat(var(--ndays,7),minmax(0,1fr))}
+.calwho{display:inline-flex;gap:6px;align-items:center}
+.calweek .caltime .calwho{margin-left:auto}
+.wrow .dkav{margin-left:auto}
+.sec-wait .done{color:var(--green)}
+.legend{display:inline-flex;gap:10px;align-items:center;margin-left:12px;font-size:11.5px;color:var(--muted)}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.legend .sw.s{background:var(--green)}.legend .sw.o{background:var(--red)}.legend .sw.n{background:var(--gold)}
+/* darker metadata grey (small text was failing contrast) */
+.psmall,.chip3 .l2,.tlts,.calrail .dow,.chip3 .cm,.tltitle,.psub{color:#5C6D7A}
+.calday.nohear .calrail .dom,.calnone{color:#8FA1AD}
+/* phone folds */
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 14px;margin:10px 12px 0;background:#fff;border:1px solid var(--line);border-radius:12px;font-family:'Space Grotesk';font-weight:600;font-size:14px}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:'▾';margin-left:auto;color:var(--muted)}
+details.fold[open]>summary{border-radius:12px 12px 0 0;border-bottom:none;margin-bottom:0}
+details.fold[open]>summary::after{content:'▴'}
+details.fold>.panel,details.fold>.calwrap,details.fold>.boardhead{margin-top:0}
+details.fold .boardhead{display:none}
+details.fold .board3{padding-top:0}
