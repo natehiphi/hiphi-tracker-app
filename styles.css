@@ -658,3 +658,17 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .chip3 .l1 b,.pmain > b,.tltext b{font-weight:600}
 .boardhead h1,.dashhead h1{font-weight:600}
 .stats.pf .stat .v{font-weight:600}
+/* P1 rows keep the wash and the larger type; no corner tab */
+.p3::after{content:none}
+.chip3.p3 .l1{padding-right:0}
+/* buttons, chips, and tags at medium weight, not bold */
+.btn{font-weight:500}
+.chipx{font-weight:500}
+.tag{font-weight:600}
+.dkdraft{font-weight:500}
+.draftbtn{font-weight:500}
+.fchip{font-weight:500}
+.psub{font-weight:400}
+.calrail .tod{font-weight:600}
+.bcol .ph .cnt{font-weight:500}
+.chip3 .pri{font-weight:500}
