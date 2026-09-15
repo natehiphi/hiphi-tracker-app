@@ -588,3 +588,37 @@ details.sincefold>summary::-webkit-details-marker{display:none}
   .tlts{flex-basis:100%}
   .board3 .chips{padding:6px}
 }
+/* ---------- summaries back, P3 emphasis, horizontal week ---------- */
+.pdesc{font-size:12.5px;color:var(--ink);line-height:1.4;margin:2px 0 1px}
+.chip3 .ldesc{font-size:12px;color:var(--ink);line-height:1.35;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tltitle{display:block;font-size:11.5px;color:#8FA1AD;margin-top:1px}
+/* P3 rows: double height */
+.wrow.p3,.calrow.p3{min-height:112px}
+.chip3.p3{min-height:116px;justify-content:center}
+.chip3.p3 .ldesc{-webkit-line-clamp:3}
+.tlrow.p3{min-height:56px;align-items:center}
+/* This week: full width, seven columns on desktop */
+.calwrap{padding:0 20px 8px}
+.calwrap .panel{margin:0}
+.calweek{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.calweek .calday{display:block;border-bottom:none;border-right:1px solid #EEF2F5;min-width:0}
+.calweek .calday:last-child{border-right:none}
+.calweek .calrail{flex-direction:row;justify-content:center;align-items:baseline;gap:6px;padding:8px 6px;border-right:none;border-bottom:1px solid #EEF2F5}
+.calweek .calrail .dom{font-size:18px}
+.calweek .calrail .cnt{font-size:10.5px;font-weight:700;color:var(--muted);background:#fff;border-radius:9px;padding:0 6px}
+.calweek .calrow{flex-direction:column;align-items:stretch;gap:4px;padding:8px 8px 8px 7px}
+.calweek .caltime{flex-basis:auto;display:flex;justify-content:space-between;align-items:center}
+.calweek .calbtns{display:flex;gap:4px;flex-wrap:wrap}
+.calweek .calbtns .btn{padding:4px 8px;font-size:11px}
+.calweek .calnone{padding:14px 8px;text-align:center}
+.calweek .pmain{font-size:12px}
+@media (max-width:900px){
+  .calwrap{padding:0 12px 8px}
+  .calweek{display:block}
+  .calweek .calday{display:flex;border-right:none;border-bottom:1px solid #EEF2F5}
+  .calweek .calrail{flex-direction:column;padding:10px 0 8px;border-right:1px solid #EEF2F5;border-bottom:none}
+  .calweek .calrow{flex-direction:row;align-items:center;flex-wrap:wrap;padding:10px 12px 10px 10px}
+  .calweek .caltime{flex-basis:100%}
+  .calweek .calbtns{flex-basis:100%}
+  .calweek .calnone{text-align:left}
+}
