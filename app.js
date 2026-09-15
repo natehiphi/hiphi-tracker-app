@@ -1002,13 +1002,11 @@ function pfBoard(list) {
     const h = hearingFor(b);
     const inCommittee = RADAR_STAGES.includes(effStage(b));
     if (h) { bcol.push({ b, h, dl: billDeadline(b) }); continue; }
-    if (inCommittee) { a.push({ b, dl: billDeadline(b) || cur }); continue; }
+    if (inCommittee) { const dl = billDeadline(b); if (dl && !dl.missed) a.push({ b, dl }); continue; }   // missed = off the board
     c.push({ b, dl: cur });
   }
   const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
-  // Within a priority: closest approaching deadline first; already-missed ones last.
-  const race = x => x.dl.missed ? 9999 : days(x.dl.date);
-  a.sort((x, y) => byPri(x, y) || race(x) - race(y) || x.b.bill_number.localeCompare(y.b.bill_number));
+  a.sort((x, y) => byPri(x, y) || days(x.dl.date) - days(y.dl.date) || x.b.bill_number.localeCompare(y.b.bill_number));
   bcol.sort((x, y) => byPri(x, y) || x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   c.sort((x, y) => byPri(x, y) || (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
   const more = S.boardMore || {};
@@ -1029,8 +1027,7 @@ function pfBoard(list) {
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(b.committee || '—')}</span>${who(b)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${dl.missed ? `<span class="hot">missed ${esc(dl.label)} ${fmtDate(dl.date)}</span>`
-            : days(dl.date) <= 5 ? `<span class="hot">${esc(dl.label)} in ${days(dl.date)}d</span>`
+          <span class="l2">${days(dl.date) <= 5 ? `<span class="hot">${esc(dl.label)} in ${days(dl.date)}d</span>`
             : `${esc(dl.label)} ${fmtDate(dl.date)} · ${days(dl.date)}d`}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
@@ -1121,8 +1118,8 @@ function renderPortfolio(list) {
     return { d, b, why, h, t: h?.testimony_deadline ? +new Date(h.testimony_deadline) : h ? +new Date(h.scheduled_at) : Infinity };
   }).filter(Boolean).sort((x,y) => byPri(x, y) || x.t - y.t);
   const WAIT_CAP = 8;
-  const verbOf = d => d.status === 'review' ? 'Approve' : d.status === 'second_review' ? 'Second approval'
-    : d.status === 'approved' ? 'File' : d.review_note ? 'Revise' : 'Write';
+  const verbOf = d => d.status === 'review' ? 'Approve testimony' : d.status === 'second_review' ? '2nd approval · testimony'
+    : d.status === 'approved' ? 'File testimony' : d.review_note ? 'Revise testimony' : 'Write testimony';
   const waitingHtml = waiting.slice(0, WAIT_CAP).map(({ d, b, why, h }) => { const soon = h?.testimony_deadline && hrsLeft(h.testimony_deadline) < 48; return `
     <div class="prow wrow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
       ${draftActionBtn(b, d.committee)}
@@ -1198,7 +1195,7 @@ function renderPortfolio(list) {
   const moved = list.filter(b => b.last_action_date && (now - new Date(b.last_action_date)) < 7*day);
 
   const right = recentHtml + feedHtml;
-  return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} waiting on you</b>` : ''}`) + `
+  return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} testimony step${waiting.length === 1 ? '' : 's'} waiting on you</b>` : ''}`) + `
     <div class="stats pf">
       <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
       <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings next 7 days</div></button>
@@ -1207,7 +1204,7 @@ function renderPortfolio(list) {
     </div>
     <div class="dash${right ? '' : ' one'}">
       <div>
-        ${waiting.length ? panel('pf-wait', '✋ Waiting on you', 'across the whole team, whatever the lens', waitingHtml, '').replace('class="panel"', 'class="panel sec-wait"') : ''}
+        ${waiting.length ? panel('pf-wait', '✋ Testimony waiting on you', 'across the whole team, whatever the lens', waitingHtml, '').replace('class="panel"', 'class="panel sec-wait"') : ''}
       </div>
       ${right ? `<div>${right}</div>` : ''}
     </div>
