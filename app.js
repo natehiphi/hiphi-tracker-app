@@ -1007,32 +1007,32 @@ function pfBoard(list) {
   const more = S.boardMore || {};
   const col = (key, icon, title, sub, rows, rowFn, empty) => {
     const shown = more[key] ? rows : rows.slice(0, BOARD_CAP);
-    return `<div class="panel bcol" id="pf-board-${key}"><div class="ph"><span>${icon} ${title} <span class="chipx c-gray">${rows.length}</span></span><span class="psub">${sub}</span></div>
-      ${rows.length ? shown.map(rowFn).join('') : `<div class="pempty">${empty}</div>`}
+    return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${icon} ${title} <span class="cnt">${rows.length}</span></span><span class="psub">${sub}</span></div>
+      ${rows.length ? `<div class="chips">${shown.map(rowFn).join('')}</div>` : `<div class="pempty">${empty}</div>`}
       ${rows.length > BOARD_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more[key] ? 'Show fewer' : `…and ${rows.length - BOARD_CAP} more`}</button>` : ''}
     </div>`;
   };
-  const who = b => owners(b)[0] ? `<span class="chipx c-gray">${esc(owners(b)[0].initials)}</span>` : '';
-  const pri = b => b.priority ? `<span class="chipx c-gray">P${b.priority}</span>` : '';
+  const who = b => owners(b)[0] ? av(owners(b)[0], 'avatar sm') : '';
+  const pri = b => b.priority ? `<span class="pri">P${b.priority}</span>` : '';
   const html = `
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
       <span class="sub">Current deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Bills re-sort when it passes.</span></div>
     <div class="board3">
       ${col('a', '📡', 'Needs a hearing', `before ${esc(cur.label)}`, a, ({ b, dl }) => `
-        <div class="prow ${days(dl.date) <= 5 ? 'urgent' : ''}" data-bill="${b.id}">
-          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} waiting in <b>${esc(b.committee || 'committee')}</b>
-            <div class="psmall">${esc((b.title || '').slice(0, 56))}${dl.phase !== cur.phase ? ` · races ${esc(dl.label)} ${fmtDate(dl.date)}` : ''}${days(dl.date) <= 5 ? ` · <b style="color:var(--red)">${days(dl.date)}d left</b>` : ''}</div></div>
-          ${who(b)}</div>`, 'Every live bill has a hearing or has cleared this deadline. 🤙')}
+        <div class="chip3 ${posCls(b)}" data-bill="${b.id}" title="${esc(b.title || '')}">
+          <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(b.committee || '—')}</span>${who(b)}</span>
+          <span class="l2">${days(dl.date) <= 5 ? `<span class="hot">${days(dl.date)}d left</span>` : dl.phase !== cur.phase ? `races ${esc(dl.label)} ${fmtDate(dl.date)}` : esc((b.title || '').slice(0, 40))}</span>
+        </div>`, 'Every live bill has a hearing or has cleared this deadline. 🤙')}
       ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
-        <div class="prow" data-bill="${b.id}">
-          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} ${esc(h.committee)} · ${new Date(h.scheduled_at) > now ? fmtDT(h.scheduled_at) : 'held ' + fmtDate(h.scheduled_at)}${draftChip(b)}
-            <div class="psmall">${esc((b.title || '').slice(0, 56))}</div></div>
-          ${who(b)}</div>`, 'No hearings on the books for this deadline.')}
+        <div class="chip3 ${posCls(b)}" data-bill="${b.id}" title="${esc(b.title || '')}">
+          <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(h.committee)}</span>${who(b)}</span>
+          <span class="l2">${new Date(h.scheduled_at) > now ? fmtDT(h.scheduled_at) : 'held ' + fmtDate(h.scheduled_at)}${draftChip(b)}</span>
+        </div>`, 'No hearings on the books for this deadline.')}
       ${col('c', '✅', `Cleared ${esc(cur.label)}`, 'past this deadline’s phase', c, ({ b }) => `
-        <div class="prow" data-bill="${b.id}">
-          <div class="pmain"><b>${esc(b.bill_number)}</b> ${pri(b)} <span class="chipx c-teal">${STAGE_LABEL[effStage(b)]}</span>
-            <div class="psmall">${esc((b.last_action || b.title || '').slice(0, 70))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</div></div>
-          ${who(b)}</div>`, 'Nothing has cleared this deadline yet.')}
+        <div class="chip3 ${posCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
+          <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${STAGE_LABEL[effStage(b)]}</span>${who(b)}</span>
+          <span class="l2">${esc((b.last_action || '').slice(0, 44))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</span>
+        </div>`, 'Nothing has cleared this deadline yet.')}
     </div>`;
   return { html, a, b: bcol, c };
 }
@@ -1105,12 +1105,14 @@ function renderPortfolio(list) {
     return { d, b, why, h, t: h?.testimony_deadline ? +new Date(h.testimony_deadline) : h ? +new Date(h.scheduled_at) : Infinity };
   }).filter(Boolean).sort((x,y) => x.t - y.t);
   const WAIT_CAP = 8;
-  const waitingHtml = waiting.slice(0, WAIT_CAP).map(({ d, b, why, h }) => `
-    <div class="prow ${h?.testimony_deadline && hrsLeft(h.testimony_deadline) < 48 ? 'urgent' : ''}" data-bill="${b.id}">
-      <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(d.committee)} — ${esc(why)}
-        <div class="psmall">${h ? `Hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · testimony due in <b>${hrsLeft(h.testimony_deadline)}h</b>` : ''}` : esc((b.title||'').slice(0, 70))}</div></div>
+  const verbOf = d => d.status === 'review' ? 'Approve' : d.status === 'second_review' ? 'Second approval'
+    : d.status === 'approved' ? 'File' : d.review_note ? 'Revise' : 'Write';
+  const waitingHtml = waiting.slice(0, WAIT_CAP).map(({ d, b, why, h }) => { const soon = h?.testimony_deadline && hrsLeft(h.testimony_deadline) < 48; return `
+    <div class="prow wrow ${posCls(b)}" data-bill="${b.id}">
       ${draftActionBtn(b, d.committee)}
-    </div>`).join('') + (waiting.length > WAIT_CAP ? `<div class="pempty">…and ${waiting.length - WAIT_CAP} more</div>` : '');
+      <div class="pmain"><b class="verb">${verbOf(d)}</b> ${esc(b.bill_number)} · ${esc(d.committee)}
+        <div class="psmall">${esc(why)}${h ? ` · hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · due in <b${soon ? ' class="hot"' : ''}>${hrsLeft(h.testimony_deadline)}h</b>` : ''}` : ''}</div></div>
+    </div>`; }).join('') + (waiting.length > WAIT_CAP ? `<div class="pempty">…and ${waiting.length - WAIT_CAP} more</div>` : '');
 
   // ---------- this week: each bill once ----------
   const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
@@ -1129,29 +1131,36 @@ function renderPortfolio(list) {
     const dueSoon = h.testimony_deadline && hrsLeft(h.testimony_deadline) < 48;
     const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
     return `
-    <div class="prow calrow ${dueSoon && !past ? 'urgent' : ''}" data-bill="${b.id}">
+    <div class="prow calrow ${posCls(b)}" data-bill="${b.id}">
       <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span>
       <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${esc(h.room||'room TBD')}${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${draftChip(b)}
-        <div class="psmall">${esc((b.title||'').slice(0, 64))}${h.testimony_deadline ? ` · ${past ? 'testimony deadline passed' : `testimony due in <b${dueSoon ? ' style="color:var(--red)"' : ''}>${hrsLeft(h.testimony_deadline)}h</b>`}` : ''}</div></div>
+        <div class="psmall">${esc((b.title||'').slice(0, 64))}${h.testimony_deadline ? ` · ${past ? 'testimony deadline passed' : `testimony due in <b${dueSoon ? ' class="hot"' : ''}>${hrsLeft(h.testimony_deadline)}h</b>`}` : ''}</div></div>
       ${draftActionBtn(b, h.committee)}
       <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
     </div>`; };
+  const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
+    return [dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' }), dt.getDate()]; };
   const weekHtml = week.length ? days7.map((d, i) => {
-    const hs = week.filter(h => hstDay(h.scheduled_at) === d);
-    return `<div class="calday${hs.length ? '' : ' nohear'}"><div class="caldayhead">${i === 0 ? 'Today · ' : i === 1 ? 'Tomorrow · ' : ''}${dayLabel(d)}${hs.length ? ` <span class="chipx c-gray">${hs.length}</span>` : ''}</div>
-      ${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div>`; }).join('') : '';
+    const hs = week.filter(h => hstDay(h.scheduled_at) === d); const [dow, dom] = railParts(d);
+    return `<div class="calday${hs.length ? '' : ' nohear'}${i === 0 ? ' today' : ''}">
+      <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${i === 0 ? '<span class="tod">today</span>' : ''}</div>
+      <div class="calbody">${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div></div>`; }).join('') : '';
 
   // ---------- last 72 hours: everything that happened, newest first ----------
   const recent = (S.recentEvents || []).filter(ev => ids.has(ev.bill_id) && bill(ev.bill_id) &&
     now - new Date(ev.occurred_at) < 72 * 3600e3);
   const REC_CAP = 12, recMore = (S.boardMore || {}).recent;
   const ago = iso => { const h = Math.round((now - new Date(iso)) / 36e5); return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
+  const evKind = ev => ev.advocate_id ? 'team' : /hearing notice|hearing/i.test(ev.title || '') ? 'notice'
+    : /third reading|final reading|passed|failed to pass|vetoed|signed|act \d+/i.test(ev.title || '') ? 'vote' : 'ref';
+  const tlStamp = iso => new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(', ', ' ');
   const recentHtml = recent.length ? `
-    <div class="panel" id="pf-recent"><div class="ph"><span>⚡ Last 72 hours <span class="chipx c-gold">${recent.length}</span></span><span class="psub">newest first</span></div>
-      ${(recMore ? recent : recent.slice(0, REC_CAP)).map(ev => { const b = bill(ev.bill_id), a = ev.advocate_id ? advocate(ev.advocate_id) : null; return `
-      <div class="prow" data-bill="${b.id}">
-        ${a ? av(a) : ''}<div class="pmain">${AMENDED_RE.test(ev.title || '') ? '✏️ ' : /hearing notice/i.test(ev.title || '') ? '📅 ' : ''}<b>${esc(b.bill_number)}</b> — ${esc((ev.title || '').slice(0, 90))}
-          <div class="psmall">${fmtDT(ev.occurred_at)} · ${ago(ev.occurred_at)}${a ? ' · ' + esc(a.full_name) : ''}</div></div></div>`; }).join('')}
+    <div class="panel sec-feed" id="pf-recent"><div class="ph"><span>⚡ Last 72 hours <span class="chipx c-gray">${recent.length}</span></span><span class="psub">newest first</span></div>
+      <div class="tl72">${(recMore ? recent : recent.slice(0, REC_CAP)).map(ev => { const b = bill(ev.bill_id), a = ev.advocate_id ? advocate(ev.advocate_id) : null; return `
+      <div class="tlrow ${evKind(ev)}" data-bill="${b.id}">
+        <span class="tldot"></span><span class="tlts">${tlStamp(ev.occurred_at)}</span>
+        <div class="tltext"><b>${esc(b.bill_number)}</b> ${esc((ev.title || '').slice(0, 90))}${a ? ` <span class="tlwho">${esc(a.full_name)}</span>` : ''}</div>
+      </div>`; }).join('')}</div>
       ${recent.length > REC_CAP ? `<button class="pempty boardmore" data-boardmore="recent">${recMore ? 'Show fewer' : `…and ${recent.length - REC_CAP} more`}</button>` : ''}
     </div>` : '';
 
@@ -1176,7 +1185,7 @@ function renderPortfolio(list) {
     </div>
     <div class="dash${right ? '' : ' one'}">
       <div>
-        ${waiting.length ? panel('pf-wait', '✋ Waiting on you', 'across the whole team, whatever the lens', waitingHtml, '') : ''}
+        ${waiting.length ? panel('pf-wait', '✋ Waiting on you', 'across the whole team, whatever the lens', waitingHtml, '').replace('class="panel"', 'class="panel sec-wait"') : ''}
         ${panel('pf-week', '◷ This week', 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
           SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.')}
       </div>
@@ -1942,6 +1951,9 @@ function draftActionBtn(b, committee) {
     : d.status === 'filed' ? ['Filed ✓', 'ghost'] : ['Open draft', 'ghost'];
   return `<button class="btn sm ${cls}" data-openbill="${b.id}">${label}</button>`;
 }
+// Left-edge stripe by position: the same bill looks the same in every section.
+const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose',
+  neutral: 'pos-neutral', monitor: 'pos-monitor' }[b.position] || 'pos-none');
 // Status priority for the one chip a Desk row can afford.
 const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
 function draftChip(b) {
@@ -2330,7 +2342,7 @@ function wire() {
     const k = th.dataset.sort; if (!k) return;
     S.sort = S.sort[0] === k ? [k, -S.sort[1]] : [k, 1]; render();
   });
-  document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill],.prow[data-bill],.dk-tile[data-bill]').forEach(el =>
+  document.querySelectorAll('tr[data-bill],.card[data-bill],.pv-card[data-bill],.prow[data-bill],.dk-tile[data-bill],.chip3[data-bill],.tlrow[data-bill]').forEach(el =>
     el.onclick = e => { if (e.target.closest('select,input,a,button')) return; openDrawer(el.dataset.bill); });
   $('#selall') && ($('#selall').onchange = e => {
     const vis = visibleBills().map(b => b.id);
