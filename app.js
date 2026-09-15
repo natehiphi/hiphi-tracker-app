@@ -1138,11 +1138,12 @@ function renderPortfolio(list) {
     </div>`; };
   const weekHtml = week.length ? days7.map((d, i) => {
     const hs = week.filter(h => hstDay(h.scheduled_at) === d);
-    return `<div class="calday${hs.length ? '' : ' empty'}"><div class="caldayhead">${i === 0 ? 'Today · ' : i === 1 ? 'Tomorrow · ' : ''}${dayLabel(d)}${hs.length ? ` <span class="chipx c-gray">${hs.length}</span>` : ''}</div>
+    return `<div class="calday${hs.length ? '' : ' nohear'}"><div class="caldayhead">${i === 0 ? 'Today · ' : i === 1 ? 'Tomorrow · ' : ''}${dayLabel(d)}${hs.length ? ` <span class="chipx c-gray">${hs.length}</span>` : ''}</div>
       ${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div>`; }).join('') : '';
 
   // ---------- last 72 hours: everything that happened, newest first ----------
-  const recent = (S.recentEvents || []).filter(ev => ids.has(ev.bill_id) && bill(ev.bill_id));
+  const recent = (S.recentEvents || []).filter(ev => ids.has(ev.bill_id) && bill(ev.bill_id) &&
+    now - new Date(ev.occurred_at) < 72 * 3600e3);
   const REC_CAP = 12, recMore = (S.boardMore || {}).recent;
   const ago = iso => { const h = Math.round((now - new Date(iso)) / 36e5); return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
   const recentHtml = recent.length ? `
