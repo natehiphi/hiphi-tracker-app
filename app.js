@@ -1001,9 +1001,9 @@ function pfBoard(list) {
     (h ? bcol : a).push({ b, dl, h });
   }
   const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
-  a.sort((x, y) => days(x.dl.date) - days(y.dl.date) || (x.b.priority || 3) - (y.b.priority || 3) || x.b.bill_number.localeCompare(y.b.bill_number));
-  bcol.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
-  c.sort((x, y) => (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
+  a.sort((x, y) => byPri(x, y) || days(x.dl.date) - days(y.dl.date) || x.b.bill_number.localeCompare(y.b.bill_number));
+  bcol.sort((x, y) => byPri(x, y) || x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+  c.sort((x, y) => byPri(x, y) || (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
   const more = S.boardMore || {};
   const col = (key, icon, title, sub, rows, rowFn, empty) => {
     const shown = more[key] ? rows : rows.slice(0, BOARD_CAP);
@@ -1110,7 +1110,7 @@ function renderPortfolio(list) {
     if (!why) return null;
     const h = hearingFor(d);
     return { d, b, why, h, t: h?.testimony_deadline ? +new Date(h.testimony_deadline) : h ? +new Date(h.scheduled_at) : Infinity };
-  }).filter(Boolean).sort((x,y) => x.t - y.t);
+  }).filter(Boolean).sort((x,y) => byPri(x, y) || x.t - y.t);
   const WAIT_CAP = 8;
   const verbOf = d => d.status === 'review' ? 'Approve' : d.status === 'second_review' ? 'Second approval'
     : d.status === 'approved' ? 'File' : d.review_note ? 'Revise' : 'Write';
@@ -1151,7 +1151,9 @@ function renderPortfolio(list) {
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
     return [dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' }), dt.getDate()]; };
   const weekHtml = week.length ? `<div class="calweek">` + days7.map((d, i) => {
-    const hs = week.filter(h => hstDay(h.scheduled_at) === d); const [dow, dom] = railParts(d);
+    const hs = week.filter(h => hstDay(h.scheduled_at) === d)
+      .sort((x, y) => ((bill(x.bill_id)?.priority || 9) - (bill(y.bill_id)?.priority || 9)) || x.scheduled_at.localeCompare(y.scheduled_at));
+    const [dow, dom] = railParts(d);
     return `<div class="calday${hs.length ? '' : ' nohear'}${i === 0 ? ' today' : ''}">
       <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${i === 0 ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
       <div class="calbody">${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div></div>`; }).join('') + `</div>` : '';
@@ -1967,7 +1969,9 @@ function draftActionBtn(b, committee) {
 // summary (public summary, else the official description, else the title).
 const blurb = (b, n = 90) => { const t = (b.public_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
-const priCls = b => b.priority === 3 ? ' p3' : '';
+const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; P1 rows are double height
+// Default order everywhere on the home page: priority first, then the closest deadline.
+const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
 // Left-edge stripe by position: the same bill looks the same in every section.
 const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose',
   neutral: 'pos-neutral', monitor: 'pos-monitor' }[b.position] || 'pos-none');
@@ -2313,7 +2317,7 @@ function wire() {
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
-  // P3 rows are shown at exactly twice their natural height (Nate, 9/15).
+  // P1 rows are shown at exactly twice their natural height (Nate, 9/15).
   document.querySelectorAll('.p3').forEach(el => {
     el.classList.remove('p3'); el.style.minHeight = '';
     const h = el.getBoundingClientRect().height;
