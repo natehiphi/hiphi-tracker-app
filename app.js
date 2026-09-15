@@ -129,7 +129,7 @@ const DB = {
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
       S.supa.from('campaigns').select('*').order('sort_order'),
       S.supa.from('bill_campaigns').select('bill_id,campaign_id'),
-      S.supa.from('hearings').select('*').gte('scheduled_at', new Date(Date.now()-864e5).toISOString()),
+      S.supa.from('hearings').select('*').gte('scheduled_at', new Date(Date.now()-60*864e5).toISOString()),
       S.supa.from('bill_pulse').select('*'),
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
@@ -1155,6 +1155,7 @@ function renderPortfolio(list) {
 
   // ---------- waiting on you (whole team, ignores the lens) ----------
   const isMine = b => (S.assignments[b.id]||[]).includes(me.id);
+  const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   const hearingFor = d => S.hearings.find(h => h.id === d.hearing_id) ||
     S.hearings.filter(h => h.bill_id === d.bill_id && h.committee === d.committee && new Date(h.scheduled_at) > new Date())
       .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
@@ -1186,18 +1187,24 @@ function renderPortfolio(list) {
   const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
     .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const due = hUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) - now < 48*3600e3);
+  // The calendar can page through weeks; the stats and "hearings this week" stay on the current one.
+  const wkOff = S.weekOffset || 0;
+  const mondayOf = t => { const d = new Date(hstDay(t) + 'T12:00:00-10:00'); const dow = (d.getUTCDay() + 6) % 7; return t - dow * 864e5; };
+  const wkStart = wkOff === 0 ? now : mondayOf(now + wkOff * 7 * 864e5), wkEnd = wkStart + 7 * 864e5;
+  const inWindow = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' &&
+      new Date(h.scheduled_at) >= new Date(hstDay(wkStart) + 'T00:00:00-10:00') && new Date(h.scheduled_at) < new Date(hstDay(wkEnd) + 'T00:00:00-10:00'))
+    .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const weekByBill = new Map();
-  for (const h of hUp) if (new Date(h.scheduled_at) < new Date(wk) && !weekByBill.has(h.bill_id)) weekByBill.set(h.bill_id, h);
+  for (const h of (wkOff === 0 ? hUp.filter(h => new Date(h.scheduled_at) < new Date(wk)) : inWindow)) if (!weekByBill.has(h.bill_id)) weekByBill.set(h.bill_id, h);
   const week = [...weekByBill.values()].sort((a,b) =>
     (a.testimony_deadline || a.scheduled_at).localeCompare(b.testimony_deadline || b.scheduled_at));
   const isNew = h => h.notice_posted_at && new Date(h.notice_posted_at).getTime() > S.sinceVisit;
-  // Calendar layout: seven day blocks starting today, hearings under each.
-  const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  // Calendar layout: seven day blocks starting today (or the paged week), hearings under each.
   const dayLabel = iso => new Date(iso + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
-  const all7 = [...Array(7)].map((_, i) => hstDay(now + i * 864e5));
+  const all7 = [...Array(7)].map((_, i) => hstDay(wkStart + i * 864e5));
   const isWeekend = d => [0, 6].includes(new Date(d + 'T12:00:00-10:00').getDay());
   // Weekdays always; a weekend day only when something is actually scheduled on it.
-  const days7 = all7.filter((d, i) => !isWeekend(d) || i === 0 || week.some(h => hstDay(h.scheduled_at) === d));
+  const days7 = all7.filter((d, i) => !isWeekend(d) || (i === 0 && wkOff === 0) || week.some(h => hstDay(h.scheduled_at) === d));
   const weekRow = h => { const b = bill(h.bill_id); if (!b) return '';
     const dueSoon = h.testimony_deadline && hrsLeft(h.testimony_deadline) < 48;
     const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
@@ -1213,11 +1220,12 @@ function renderPortfolio(list) {
   const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
     return [dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' }), dt.getDate()]; };
-  const weekHtml = week.length ? `<div class="calweek" style="--ndays:${days7.length}">` + days7.map((d, i) => {
+  const weekHtml = (week.length || wkOff !== 0) ? `<div class="calweek" style="--ndays:${days7.length}">` + days7.map((d, i) => {
     const hs = week.filter(h => hstDay(h.scheduled_at) === d).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     const [dow, dom] = railParts(d);
-    return `<div class="calday${hs.length ? '' : ' nohear'}${i === 0 ? ' today' : ''}">
-      <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${i === 0 ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
+    const isToday = d === hstDay(now);
+    return `<div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}">
+      <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
       <div class="calbody">${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div></div>`; }).join('') + `</div>` : '';
 
   // ---------- last 72 hours: everything that happened, newest first ----------
@@ -1252,12 +1260,15 @@ function renderPortfolio(list) {
     ? panel('pf-wait', '✋ Testimony waiting on you', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '';
   // Layout adapts: a short feed sits under the checklist instead of beside it.
-  const stacked = recent.length <= 3;
+  const stacked = false;
   const foldable = (id, title, count, inner, openByDefault) => !mobile ? inner : `
     <details class="fold" id="fold-${id}" ${(S.folds || {})[id] ?? openByDefault ? 'open' : ''}>
       <summary><span>${title}</span><span class="chipx c-gray">${count}</span></summary>${inner}</details>`;
   const legend = `<span class="legend"><i class="sw s"></i>support <i class="sw o"></i>oppose <i class="sw n"></i>comments</span>`;
-  const calPanel = panel('pf-week', '◷ This week', 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
+  const wkLabel = wkOff === 0 ? 'This week' : wkOff === 1 ? 'Next week' : wkOff === -1 ? 'Last week'
+    : 'Week of ' + new Date(hstDay(wkStart) + 'T12:00:00-10:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
+  const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
+  const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.');
   return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} testimony step${waiting.length === 1 ? '' : 's'} waiting on you</b>` : ''}`) + `
     <div class="stats pf">
@@ -1270,7 +1281,7 @@ function renderPortfolio(list) {
       <div>${waitPanel}${stacked ? foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true) : ''}</div>
       ${stacked ? '' : `<div>${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true)}</div>`}
     </div>
-    <div class="calwrap">${foldable('week', '◷ This week', week.length, calPanel, false)}</div>
+    <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${foldable('board', '🗂 Where every bill stands', board.a.length + board.b.length + board.c.length, board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false)}`;
 }
 
@@ -2386,6 +2397,10 @@ function wire() {
   });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v; render();
+    document.getElementById('pf-week')?.scrollIntoView({ block: 'start' });
+  });
   document.querySelectorAll('details.fold').forEach(d => d.ontoggle = () => { S.folds = S.folds || {}; S.folds[d.id.replace('fold-', '')] = d.open; });
   document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;

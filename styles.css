@@ -697,3 +697,21 @@ details.fold[open]>summary::after{content:'▴'}
 details.fold>.panel,details.fold>.calwrap,details.fold>.boardhead{margin-top:0}
 details.fold .boardhead{display:none}
 details.fold .board3{padding-top:0}
+/* week paging */
+.calnav{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}
+.calnav button{font-size:13px;line-height:1;padding:3px 9px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:500}
+.calnav button:hover{border-color:var(--teal);color:var(--teal)}
+/* phone folds: the fold summary is the title; hide the panel's own header inside it */
+details.fold > .panel > .ph, details.fold > .calwrap > .panel > .ph{display:none}
+details.fold > .calwrap{padding:0}
+details.fold > .calwrap > .panel{border-top-left-radius:0;border-top-right-radius:0}
+details.fold[open] > .panel{border-top-left-radius:0;border-top-right-radius:0;margin:0 12px}
+details.fold .calnav{margin-left:auto}
+/* phone checklist rows: no stretching */
+@media (max-width:760px){
+  .wrow{align-items:flex-start;padding:10px 12px 10px 10px;min-height:0}
+  .wrow .pmain{order:1;flex-basis:calc(100% - 40px)}
+  .wrow .dkav{order:2;margin-left:auto;flex-basis:auto}
+  .wrow .btn{order:3;margin-top:4px}
+  .wrow.p3{min-height:0}
+}
