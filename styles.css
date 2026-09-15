@@ -621,26 +621,23 @@ details.sincefold>summary::-webkit-details-marker{display:none}
   .calweek .calbtns{flex-basis:100%}
   .calweek .calnone{text-align:left}
 }
-/* ---------- P1: dark, larger type (the .p3 class name is historical; it marks P1) ---------- */
-.wrow.p3,.calrow.p3,.chip3.p3,.tlrow.p3{background:var(--navy);color:#fff;border-left-width:5px}
-.wrow.p3,.calrow.p3{border-bottom-color:#1B3A47}
-.chip3.p3{border-color:#1B3A47}
-.wrow.p3 .verb,.wrow.p3 .pmain,.calrow.p3 .pmain,.chip3.p3 .l1,.tlrow.p3 .tltext{color:#fff}
+/* ---------- P1: pale teal wash, gold priority tab, larger type (the .p3 class name is historical; it marks P1) ---------- */
+.wrow.p3,.calrow.p3,.chip3.p3,.tlrow.p3{background:#EAF5F6;position:relative;border-left-width:5px}
+.chip3.p3{border-color:#BFDCDF}
+.wrow.p3,.calrow.p3{border-bottom-color:#D5E8EA}
+.p3::after{content:'P1';position:absolute;top:0;right:0;background:var(--gold);color:#fff;font:700 10px/1 'Space Grotesk',sans-serif;letter-spacing:.06em;padding:4px 8px 4px 9px;border-radius:0 9px 0 9px}
+.chip3.p3::after{border-radius:0 8px 0 8px}
+.wrow.p3::after,.calrow.p3::after,.tlrow.p3::after{border-radius:0 0 0 9px}
+.p3 .pri{display:none}
 .wrow.p3 .verb{font-size:17px}
 .wrow.p3 .pmain{font-size:15px}
-.wrow.p3 .pdesc,.calrow.p3 .pdesc{font-size:14.5px;color:#fff;line-height:1.45}
-.wrow.p3 .psmall,.calrow.p3 .psmall,.chip3.p3 .l2,.tlrow.p3 .tlts,.tlrow.p3 .tltitle{color:#AFC3CF;font-size:12.5px}
-.calrow.p3 .caltime{color:#fff;font-size:14px}
-.calrow.p3 .pmain b,.wrow.p3 .pmain b,.chip3.p3 .l1 b,.tlrow.p3 .tltext b{font-size:15px;color:#fff}
-.chip3.p3 .l1{font-size:14px}
-.chip3.p3 .cm{color:#AFC3CF;font-size:13px}
-.chip3.p3 .pri{color:#F2C94C}
-.chip3.p3 .ldesc{font-size:14px;color:#fff;line-height:1.4}
+.wrow.p3 .pdesc,.calrow.p3 .pdesc{font-size:14.5px;line-height:1.45}
+.wrow.p3 .psmall,.calrow.p3 .psmall,.chip3.p3 .l2,.tlrow.p3 .tlts,.tlrow.p3 .tltitle{font-size:12.5px}
+.calrow.p3 .caltime{font-size:14px}
+.calrow.p3 .pmain b,.wrow.p3 .pmain b,.chip3.p3 .l1 b,.tlrow.p3 .tltext b{font-size:15px}
+.chip3.p3 .l1{font-size:14px;padding-right:34px}
+.chip3.p3 .cm{font-size:13px}
+.chip3.p3 .ldesc{font-size:14px;line-height:1.4}
 .chip3.p3:hover{border-color:var(--teal)}
-.p3 .hot{color:#FFB4AD}
-.p3 .btn.ghost{color:#fff;border-color:#AFC3CF;background:transparent}
-.p3 .btn.ghost:hover{border-color:#fff}
-.p3 .chipx.c-gray{background:#1B3A47;color:#AFC3CF}
-.p3 .chipx.c-teal{background:#12525A;color:#CFEFF1}
 .tlrow.p3{padding-left:18px;margin:2px 0;border-radius:8px}
 .tlrow.p3 .tldot{left:3px}
