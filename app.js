@@ -123,7 +123,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -137,8 +137,10 @@ const DB = {
       S.supa.from('testimony_drafts').select('*').order('created_at'),
       S.supa.from('committees').select('*'),
       S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
+      S.supa.from('app_settings').select('value').eq('key', 'calendar').maybeSingle(),
     ]);
     S.slackCfg = scfg?.data?.value || null;
+    S.calCfg = ccfg?.data?.value || null;
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data;
@@ -343,6 +345,28 @@ const DB = {
       const { error: e2 } = await S.supa.from('campaigns').update({ slack_channel: ch }).eq('id', id);
       if (e2) throw e2;
     }
+  },
+  async setSecret(key, value) {
+    if (DEMO) return 'saved';
+    const { data, error } = await S.supa.rpc('set_secret', { p_key: key, p_value: value });
+    if (error) throw error; return data;
+  },
+  async secretStatus() {
+    if (DEMO) return { slack_bot_token: 57 };
+    const { data, error } = await S.supa.rpc('secret_status');
+    if (error) throw error; return data || {};
+  },
+  async connectCalendar() {
+    if (DEMO) { toast('Sandbox: nothing to connect'); return; }
+    const { data, error } = await S.supa.rpc('calendar_connect_state');
+    if (error) throw error;
+    location.href = `${SUPABASE_URL}/functions/v1/google-connect?state=${encodeURIComponent(data)}`;
+  },
+  async saveCalendarSettings(cfg) {
+    S.calCfg = cfg;
+    if (DEMO) return;
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'calendar', value: cfg, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
   async slackTest() {
     if (DEMO) return;
@@ -1629,6 +1653,24 @@ function renderSettings() {
       <p class="tok">Tokens: ${esc(TOKENS)}. Slack formatting: *bold*, _italic_, &lt;url|label&gt;. A link whose token is empty disappears on its own.</p>
       ${TEMPLATE_KINDS.map(([k, l]) => `<label class="col"><span>${l}</span><textarea data-tpl="${k}">${esc(tpl[k] || '')}</textarea></label>`).join('')}
       <div class="btns"><button class="btn" id="st-save-admin">Save alert settings</button></div>
+    </section>
+    <section id="st-conn">
+      <h2>Connections <span class="tag a">admin</span></h2>
+      <p class="tok">Keys are saved write-only: once saved they show as set, never shown again. Leave a field blank to keep what is there; type <b>clear</b> to remove it.</p>
+      <h3>Google Calendar</h3>
+      <p class="tok" id="st-cal-status">Checking…</p>
+      <label class="row"><span style="min-width:140px">Client ID</span><input id="st-gid" placeholder="…apps.googleusercontent.com" autocomplete="off"></label>
+      <label class="row"><span style="min-width:140px">Client secret</span><input id="st-gsec" type="password" placeholder="GOCSPX-…" autocomplete="new-password"></label>
+      <p class="tok">The OAuth client must be a <b>Web application</b> with this authorised redirect URI:<br><code>${SUPABASE_URL}/functions/v1/google-connect</code></p>
+      ${chk('st-cal-on', (S.calCfg || {}).enabled !== false, 'Create calendar events for hearings')}
+      ${chk('st-cal-test', (S.calCfg || {}).include_test !== false, 'Include [TEST] hearings')}
+      <div class="btns"><button class="btn ghost" id="st-save-google">Save Google keys</button>
+        <button class="btn" id="st-connect-cal">Connect Google Calendar</button>
+        <button class="btn ghost" id="st-save-cal">Save calendar settings</button></div>
+      <h3>Slack</h3>
+      <p class="tok" id="st-slack-status"></p>
+      <label class="row"><span style="min-width:140px">Bot token</span><input id="st-slacktok" type="password" placeholder="xoxb-…" autocomplete="new-password"></label>
+      <div class="btns"><button class="btn ghost" id="st-save-slacktok">Save Slack token</button></div>
     </section>`;
   return `<div class="settings"><h1>Settings</h1>${mine}${admin}</div>`;
 }
@@ -1646,6 +1688,39 @@ function wireSettings() {
   $('#st-test').onclick = async () => {
     try { await DB.slackTest(); toast('Test DM on its way'); } catch (e) { toast(e.message, true); }
   };
+  const conn = $('#st-conn');
+  if (conn) {
+    const showStatus = async () => {
+      try {
+        const st = await DB.secretStatus();
+        const cal = S.calCfg || {};
+        $('#st-cal-status').innerHTML = st.google_calendar_refresh_token
+          ? `✅ Connected${cal.calendar_id ? ' · calendar "' + esc(cal.name || 'HIPHI Hearings') + '" is set' : ' · calendar not created yet, press Connect again'}`
+          : `Not connected. Keys: Client ID ${st.google_oauth_client_id ? 'set ✓' : 'missing'} · Client secret ${st.google_oauth_client_secret ? 'set ✓' : 'missing'}. Save both, then press Connect.`;
+        $('#st-slack-status').textContent = st.slack_bot_token ? '✅ Bot token set' : 'No bot token saved.';
+      } catch (e) { $('#st-cal-status').textContent = e.message; }
+    };
+    showStatus();
+    const saveKeys = async pairs => {
+      for (const [k, el] of pairs) {
+        const v = $(el).value.trim(); if (!v) continue;
+        await DB.setSecret(k, v.toLowerCase() === 'clear' ? '' : v); $(el).value = '';
+      }
+    };
+    $('#st-save-google').onclick = async () => {
+      try { await saveKeys([['google_oauth_client_id', '#st-gid'], ['google_oauth_client_secret', '#st-gsec']]); toast('Google keys saved'); showStatus(); }
+      catch (e) { toast(e.message, true); }
+    };
+    $('#st-save-slacktok').onclick = async () => {
+      try { await saveKeys([['slack_bot_token', '#st-slacktok']]); toast('Slack token saved'); showStatus(); }
+      catch (e) { toast(e.message, true); }
+    };
+    $('#st-connect-cal').onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e.message, true); } };
+    $('#st-save-cal').onclick = async () => {
+      try { await DB.saveCalendarSettings({ ...(S.calCfg || {}), enabled: $('#st-cal-on').checked, include_test: $('#st-cal-test').checked }); toast('Calendar settings saved'); }
+      catch (e) { toast(e.message, true); }
+    };
+  }
   const sa = $('#st-save-admin');
   if (sa) sa.onclick = async () => {
     const cfg = { ...(S.slackCfg || {}),
@@ -2379,6 +2454,12 @@ async function boot() {
     $('#app').innerHTML = '<div class="boot">Loading your bills…</div>';
     await DB.loadAll();
     if (!S.me) toast('Signed in, but no matching advocate record — ask your admin', true);
+    // Back from Google's consent screen: say how it went and open Settings.
+    const calMsg = HASH_Q.get('calendar');
+    if (calMsg) {
+      S.view = 'settings'; history.replaceState(null, '', location.pathname + location.search);
+      setTimeout(() => toast(calMsg.startsWith('error:') ? 'Google Calendar: ' + calMsg.slice(6) : 'Google Calendar ' + calMsg, calMsg.startsWith('error:')), 300);
+    }
     // Emails link straight to a bill: app/#bill=HB123
     const want = (HASH_Q.get('bill') || '').replace(/\s+/g, '').toUpperCase();
     const target = want && S.bills.find(x => (x.bill_number || '').replace(/\s+/g, '').toUpperCase() === want);

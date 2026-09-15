@@ -502,3 +502,4 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .settings label.row input:not([type]){flex:1;min-width:160px;padding:6px 9px}
 .settings .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 @media (max-width:760px){ .settings{padding:0 12px 24px} }
+.settings code{font-size:11px;background:var(--chip);padding:2px 5px;border-radius:5px;word-break:break-all}
