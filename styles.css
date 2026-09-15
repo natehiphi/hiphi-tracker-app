@@ -672,3 +672,7 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .calrail .tod{font-weight:600}
 .bcol .ph .cnt{font-weight:500}
 .chip3 .pri{font-weight:500}
+/* Last 72 hours: the bill's description is a real line, not a footnote */
+.tltitle{display:block;font-size:12.5px;color:var(--ink);margin-top:2px;line-height:1.4}
+.tlrow{align-items:flex-start}
+.tlts{padding-top:2px}

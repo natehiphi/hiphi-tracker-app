@@ -1178,7 +1178,7 @@ function renderPortfolio(list) {
       <div class="tl72">${(recMore ? recent : recent.slice(0, REC_CAP)).map(ev => { const b = bill(ev.bill_id), a = ev.advocate_id ? advocate(ev.advocate_id) : null; return `
       <div class="tlrow ${evKind(ev)}${priCls(b)}" data-bill="${b.id}">
         <span class="tldot"></span><span class="tlts">${tlStamp(ev.occurred_at)}</span>
-        <div class="tltext"><b>${esc(b.bill_number)}</b> ${esc((ev.title || '').slice(0, 90))}${a ? ` <span class="tlwho">${esc(a.full_name)}</span>` : ''}<span class="tltitle">${esc(blurb(b, 80))}</span></div>
+        <div class="tltext"><b>${esc(b.bill_number)}</b> ${esc((ev.title || '').slice(0, 90))}${a ? ` <span class="tlwho">${esc(a.full_name)}</span>` : ''}<span class="tltitle">${esc(blurb(b, 120))}</span></div>
       </div>`; }).join('')}</div>
       ${recent.length > REC_CAP ? `<button class="pempty boardmore" data-boardmore="recent">${recMore ? 'Show fewer' : `…and ${recent.length - REC_CAP} more`}</button>` : ''}
     </div>` : '';
