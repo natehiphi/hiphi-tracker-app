@@ -1,0 +1,31 @@
+/* Public tracker: the staff look, minus the internal layer */
+.top.pub .logo small{font-weight:500;color:#AFC3CF;margin-left:6px;font-size:12px}
+.top.pub .who{margin-left:auto;display:flex;gap:10px;align-items:center;color:#AFC3CF;font-size:12.5px}
+.top.pub .who button{color:#fff;background:#1B3A47;border-radius:8px;padding:6px 12px;font-weight:500}
+.pubwrap{padding:14px 20px 40px;max-width:1240px;margin:0 auto}
+.pubhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
+.pubhead h1{font-size:22px}
+.pubhead .sub{color:var(--muted);font-size:13px}
+.search{display:flex;gap:8px;margin:6px 0 14px}
+.search input{flex:1;max-width:520px}
+.results{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.results .row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #EEF2F5;font-size:13px}
+.results .row:last-child{border-bottom:none}
+.results .row .t{flex:1;min-width:0}
+.results .row .t small{display:block;color:var(--muted);font-size:11.5px}
+.watchbtn{border:1px solid var(--line);background:#fff;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.watchbtn.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.hint{background:var(--teal-soft);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;margin-bottom:14px}
+.hint b{font-weight:600}
+.signin{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;max-width:480px;margin:10px 0 16px}
+.signin input{margin:6px 0 8px}
+.signin .tok{font-size:11.5px;color:var(--muted);line-height:1.45}
+.stats.pub{grid-template-columns:repeat(3,1fr)}
+.pv-rail{margin:8px 0}
+.testify{background:var(--gold-soft);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0}
+.testify b{font-weight:600}
+.empty.pub{padding:30px 16px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.5}
+.settings.pub section{max-width:560px}
+.danger{color:var(--red)}
+.calrow .watchbtn{margin-left:auto}
+@media (max-width:760px){ .pubwrap{padding:10px 12px 30px} .stats.pub{grid-template-columns:1fr 1fr 1fr;padding:0} }

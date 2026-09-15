@@ -10,6 +10,8 @@ first** in any session that touches this repo.
 - `index.html` + `app.js` (~110KB, ~1670 lines) + `styles.css` — staff app.
   Views: Portfolio · Pipeline · Table · Desk · Cards · Add. Desk is being
   grown into the single consolidated page (see `../backend/docs/`).
+- `track.html` + `track.js` + `track.css` — public watch app (any bill,
+  magic-link accounts, email alerts). Reads only `public_*` views.
 - `public.html` + `public.js` — login-free public page. Reads only the
   `public_bills` / `public_hearings` views. **Out of scope until the staff
   consolidation lands.**
