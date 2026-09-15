@@ -641,3 +641,20 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .chip3.p3:hover{border-color:var(--teal)}
 .tlrow.p3{padding-left:18px;margin:2px 0;border-radius:8px}
 .tlrow.p3 .tldot{left:3px}
+/* ---------- less bold: only bill numbers, verbs, and live countdowns carry weight ---------- */
+.pdesc,.chip3 .ldesc,.tltitle{font-weight:400}
+.pmain{font-weight:400}
+.chip3 .cm{font-weight:400}
+.chip3 .l2{font-weight:400}
+.tlwho{font-weight:400}
+.tltext{font-weight:400}
+.caltime{font-weight:500}
+.calrail .dow{font-weight:500}
+.calrail .dom{font-weight:600}
+.psmall b{font-weight:500}
+.psmall b.hot,.hot{font-weight:700}
+.ph{font-weight:600}
+.wrow .verb{font-weight:600}
+.chip3 .l1 b,.pmain > b,.tltext b{font-weight:600}
+.boardhead h1,.dashhead h1{font-weight:600}
+.stats.pf .stat .v{font-weight:600}
