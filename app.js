@@ -6,6 +6,15 @@
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
+// Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
+// (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
+// clock starts there and runs forward for the length of the visit, so
+// countdowns tick but nothing new ever arrives.
+const DEMO_ASOF = '2026-03-16T09:00:00-10:00';
+if (DEMO) {
+  const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
+  window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
+}
 const isMobile = () => matchMedia('(max-width:760px)').matches;
 // Auth email links (password recovery, magic link) come back with their payload
 // in the URL hash. supabase-js clears that hash the instant the client is
@@ -89,7 +98,7 @@ const av = (a, cls='avatar') =>
 // ---------------- data layer ----------------
 const DB = {
   async init() {
-    if (DEMO) { demoInit(); return; }
+    if (DEMO) { await demoInit(); return; }
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
     S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data } = await S.supa.auth.getSession();
@@ -354,7 +363,7 @@ const DB = {
     if (error) throw error; return data;
   },
   async searchUntracked(q) {
-    if (DEMO) return [];
+    if (DEMO) { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return (S.snapshot?.index || []).filter(b => b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql)).slice(0, 40).map(b => ({ ...b, last_action: null, last_action_date: null })); }
     const safe = q.replace(/[%,()]/g, ' ').trim();
     const { data, error } = await S.supa.from('bills')
       .select('id,bill_number,title,last_action,last_action_date')
@@ -422,400 +431,39 @@ const DB = {
 };
 
 // ---------------- demo data: the mock training session ----------------
-// ===SCENARIO-START===
-// A scripted Aug 3 - Oct 30 legislative session. Every bill carries a dated
-// event timeline; buildScenario() derives the state visible "today" from the
-// real calendar, so the sandbox plays itself forward week by week: hearing
-// notices post, deadlines approach, bills pass and die on schedule.
-// Facilitator guide: TRAINING.md in the Bill-Tracker repo.
-// Event row: [date, stage, committee, action]. Hearing row:
-// [hearing ISO, committee, room, notice date, testimony-deadline ISO].
-const SCRIPT = [
-{id:'m0',num:'HB2100',title:'Relating to Emergency Appropriations (wildfire health response)',ch:'H',refs:['FIN'],st:[1,0],camp:'c3',own:'NT',pos:'support',pri:2,touch:12,tc:0,
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_decking','FIN','Referred to FIN, referral sheet 1'],
-     ['2026-08-06','first_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-08-07','first_crossover','','Passed Third Reading.'],
-     ['2026-08-10','second_crossover','','Passed Final Reading in Senate. Received notice of passage.'],
-     ['2026-08-12','governor','','Enrolled to Governor.'],
-     ['2026-08-19','enacted','','Act 201, 08/19/2026 (Gov. Msg. No. 1150).']],hr:[]},
-{id:'m1',num:'HB2101',title:'Relating to Health (flavored tobacco ban)',desc:'Prohibits the sale of flavored tobacco products, including menthol cigarettes and flavored e-liquids, beginning 7/1/2027.',ch:'H',refs:['HLT','CPC','FIN'],st:[3,2],camp:'c1',own:'KV',pos:'support',pri:1,touch:0,tc:1,comps:['SB2201'],
- spon:[{n:'LOWEN',p:true},{n:'TAKAYAMA',p:true},{n:'AMATO',p:true},{n:'PERRUSO',p:true}],
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_triple','HLT','Referred to HLT, CPC, FIN, referral sheet 2'],
-     ['2026-08-10','first_triple','HLT','Bill scheduled to be heard by HLT on 08-12-26 9:00AM in conference room 329.'],
-     ['2026-08-12','first_triple','HLT','The committee on HLT recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-08-14','first_lateral','CPC','Reported from HLT as amended in HD 1; referred to CPC.'],
-     ['2026-08-26','first_lateral','CPC','The committee on CPC recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-08-28','first_decking','FIN','Reported from CPC as amended in HD 2; referred to FIN.'],
-     ['2026-09-03','first_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-08','first_crossover','','Passed Third Reading (HD 2). Transmitted to Senate.'],
-     ['2026-09-11','second_lateral','HHS','Referred to HHS, WAM.'],
-     ['2026-09-16','second_lateral','HHS','The committee on HHS recommend that the measure be PASSED, WITH AMENDMENTS (SD 1).'],
-     ['2026-09-22','second_decking','WAM','Reported from HHS; referred to WAM.'],
-     ['2026-09-30','second_decking','WAM','The committee on WAM recommend that the measure be PASSED, WITH AMENDMENTS (SD 2).'],
-     ['2026-10-06','second_crossover','','Passed Third Reading in Senate (SD 2). Returned to House.'],
-     ['2026-10-09','conference','','House disagrees with Senate amendments.'],
-     ['2026-10-13','conference','','House and Senate conferees appointed.'],
-     ['2026-10-22','conference','','The Conference Committee recommends that the measure be PASSED, WITH AMENDMENTS (CD 1).'],
-     ['2026-10-27','governor','','Passed Final Reading (CD 1) in both chambers.'],
-     ['2026-10-28','governor','','Enrolled to Governor.']],
- hr:[['2026-08-26T14:00:00-10:00','CPC','Conference Room 329','2026-08-21','2026-08-25T14:00:00-10:00'],
-     ['2026-09-02T14:00:00-10:00','FIN','Conference Room 308','2026-08-30','2026-09-01T14:00:00-10:00'],
-     ['2026-09-16T13:00:00-10:00','HHS','Conference Room 229','2026-09-12','2026-09-15T13:00:00-10:00'],
-     ['2026-09-30T10:00:00-10:00','WAM','Conference Room 211','2026-09-26','2026-09-29T10:00:00-10:00']]},
-{id:'m2',num:'SB2201',title:'Relating to Health (flavored tobacco ban)',desc:'Senate companion to HB2101.',ch:'S',refs:['HHS','WAM'],st:[2,2],camp:'c1',own:'SY',pos:'support',pri:1,touch:1,tc:1,comps:['HB2101'],
- spon:[{n:'ELEFANTE',p:true},{n:'SAN BUENAVENTURA',p:true},{n:'KEOHOKALOLE',p:true}],
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','first_lateral','HHS','Referred to HHS, WAM.'],
-     ['2026-08-11','first_lateral','HHS','The committee on HHS recommend that the measure be PASSED, WITH AMENDMENTS (SD 1).'],
-     ['2026-08-18','first_decking','WAM','Reported from HHS (SD 1); referred to WAM.'],
-     ['2026-09-02','first_decking','WAM','The committee on WAM recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-08','first_crossover','','Passed Third Reading. Transmitted to House.'],
-     ['2026-09-11','second_lateral','HLT','Referred to HLT, FIN.'],
-     ['2026-09-17','second_lateral','HLT','The committee on HLT recommend that the measure be PASSED, WITH AMENDMENTS (HD 1).'],
-     ['2026-09-23','second_decking','FIN','Reported from HLT; referred to FIN.'],
-     ['2026-10-01','second_decking','FIN','The committee on FIN deferred the measure.']],
- hr:[['2026-08-31T10:00:00-10:00','WAM','Conference Room 211','2026-08-26','2026-08-30T10:00:00-10:00'],
-     ['2026-09-17T13:00:00-10:00','HLT','Conference Room 329','2026-09-13','2026-09-16T13:00:00-10:00']]},
-{id:'m3',num:'HB2102',title:'Relating to School Meals (universal free school meals)',ch:'H',refs:['HSG','WAL','FIN'],st:[3,0],camp:'c2',own:'KR',pos:'support',pri:1,touch:3,tc:1,
- spon:[{n:'MARTEN',p:true},{n:'KILA',p:true}],
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_triple','HSG','Referred to HSG, WAL, FIN, referral sheet 2'],
-     ['2026-08-10','first_triple','HSG','The committee on HSG recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-08-13','first_lateral','WAL','Reported from HSG as amended in HD 1; referred to WAL.']],hr:[]},
-{id:'m4',num:'HB2104',title:'Relating to Transportation (safe routes to school funding)',ch:'H',refs:['TRN','FIN'],st:[2,0],camp:'c3',own:'SY',pos:'support',pri:2,touch:2,tc:1,comps:['SB2204'],
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_lateral','TRN','Referred to TRN, FIN, referral sheet 2'],
-     ['2026-08-11','first_lateral','TRN','The committee on TRN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-08-13','first_decking','FIN','Reported from TRN; referred to FIN.'],
-     ['2026-08-17','first_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-08-20','dead','','Failed to pass Third Reading. Ayes, 24; Noes, 27.']],hr:[]},
-{id:'m5',num:'SB2204',title:'Relating to Transportation (safe routes to school funding)',desc:'Senate companion to HB2104.',ch:'S',refs:['TRS','WAM'],st:[2,2],camp:'c3',own:'SY',pos:'support',pri:2,touch:5,tc:0,comps:['HB2104'],
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','first_lateral','TRS','Referred to TRS, WAM.'],
-     ['2026-08-13','first_lateral','TRS','The committee on TRS recommend that the measure be PASSED, WITH AMENDMENTS (SD 1).'],
-     ['2026-08-19','first_decking','WAM','Reported from TRS (SD 1); referred to WAM.'],
-     ['2026-08-31','first_decking','WAM','The committee on WAM recommend that the measure be PASSED, WITH AMENDMENTS (SD 2).'],
-     ['2026-09-08','first_crossover','','Passed Third Reading (SD 2). Transmitted to House.'],
-     ['2026-09-11','second_lateral','TRN','Referred to TRN, FIN.'],
-     ['2026-09-18','second_lateral','TRN','The committee on TRN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-24','second_decking','FIN','Reported from TRN; referred to FIN.'],
-     ['2026-10-01','second_decking','FIN','The committee on FIN recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-10-07','second_crossover','','Passed Third Reading (HD 1). Returned to Senate.'],
-     ['2026-10-09','conference','','Senate disagrees with House amendments.'],
-     ['2026-10-14','conference','','House and Senate conferees appointed.'],
-     ['2026-10-21','conference','','The Conference Committee recommends that the measure be PASSED, WITH AMENDMENTS (CD 1).'],
-     ['2026-10-26','governor','','Passed Final Reading (CD 1) in both chambers.'],
-     ['2026-10-28','governor','','Enrolled to Governor.'],
-     ['2026-10-30','enacted','','Act 245, 10/30/2026.']],
- hr:[['2026-08-28T10:00:00-10:00','WAM','Conference Room 211','2026-08-23','2026-08-27T10:00:00-10:00'],
-     ['2026-09-18T09:00:00-10:00','TRN','Conference Room 016','2026-09-14','2026-09-17T09:00:00-10:00']]},
-{id:'m6',num:'HB2105',title:'Relating to Electronic Smoking Devices (retail enforcement)',ch:'H',refs:['HLT','JHA'],st:[2,0],camp:'c1',own:'KV',pos:'support',pri:2,touch:8,tc:0,
- ev:[['2026-08-04','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-06','first_lateral','HLT','Referred to HLT, JHA, referral sheet 3']],hr:[]},
-{id:'m7',num:'HB2107',title:'Relating to Counties (preemption of county tobacco regulation)',desc:'Preempts counties from adopting tobacco retail rules stricter than state law.',ch:'H',refs:['CPC','JHA'],st:[2,2],camp:'c1',own:'NT',pos:'oppose',pri:1,touch:1,tc:1,
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_lateral','CPC','Referred to CPC, JHA, referral sheet 2'],
-     ['2026-08-13','first_lateral','CPC','The committee on CPC recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-08-15','first_decking','JHA','Reported from CPC as amended in HD 1; referred to JHA.'],
-     ['2026-08-27','first_decking','JHA','The committee on JHA recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-09-03','first_crossover','','Passed Third Reading (HD 2). Transmitted to Senate.'],
-     ['2026-09-12','second_lateral','CPN','Referred to CPN, JDC.'],
-     ['2026-09-25','second_lateral','CPN','Bill scheduled to be heard by CPN on 10-01-26 9:30AM.'],
-     ['2026-10-01','second_lateral','CPN','The committee on CPN deferred the measure.']],
- hr:[['2026-08-27T10:00:00-10:00','JHA','Conference Room 325','2026-08-22','2026-08-26T10:00:00-10:00'],
-     ['2026-10-01T09:30:00-10:00','CPN','Conference Room 229','2026-09-27','2026-09-30T09:30:00-10:00']]},
-{id:'m8',num:'SB2203',title:'Relating to Human Services (SNAP outreach and enrollment)',ch:'S',refs:['HHS','JDC'],st:[2,2],camp:'c2',own:'KR',pos:'support',pri:2,touch:9,tc:0,
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','first_lateral','HHS','Referred to HHS, JDC.'],
-     ['2026-08-12','first_lateral','HHS','The committee on HHS recommend that the measure be PASSED, WITH AMENDMENTS (SD 1).'],
-     ['2026-08-17','first_decking','JDC','Reported from HHS (SD 1); referred to JDC.'],
-     ['2026-08-27','first_decking','JDC','The committee on JDC recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-09-08','first_crossover','','Passed Third Reading (SD 2). Transmitted to House.'],
-     ['2026-09-12','second_lateral','HSG','Referred to HSG, WAL.'],
-     ['2026-09-18','second_lateral','HSG','The committee on HSG recommend that the measure be PASSED, WITH AMENDMENTS (HD 1).'],
-     ['2026-09-24','second_decking','WAL','Reported from HSG; referred to WAL.']],
- hr:[['2026-08-27T10:00:00-10:00','JDC','Conference Room 016','2026-08-22','2026-08-26T10:00:00-10:00'],
-     ['2026-09-18T10:00:00-10:00','HSG','Conference Room 325','2026-09-14','2026-09-17T10:00:00-10:00']]},
-{id:'m9',num:'SB2208',title:'Relating to Health (mobile health outreach vans)',ch:'S',refs:['HHS/CPN','WAM'],st:[2,0],camp:'c2',own:'KR',pos:'monitor',pri:3,touch:null,tc:0,
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','first_lateral','HHS/CPN','Referred to HHS/CPN, WAM.'],
-     ['2026-08-14','first_lateral','HHS/CPN','The committees on HHS/CPN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-08-19','first_decking','WAM','Reported from HHS/CPN; referred to WAM.']],hr:[]},
-{id:'m10',num:'SB2210',title:'Relating to Hospitals (emergency department staffing)',ch:'S',refs:['HHS'],st:[1,2],camp:'c3',own:'NT',pos:'support',pri:2,touch:4,tc:0,
- ev:[['2026-08-04','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-06','first_decking','HHS','Referred to HHS. Public notice requirement waived.'],
-     ['2026-08-12','first_decking','HHS','The committee on HHS recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-08-18','first_crossover','','Passed Third Reading. Ayes, 25. Transmitted to House.'],
-     ['2026-08-20','first_crossover','','Referred to HLT, FIN.'],
-     ['2026-09-16','second_lateral','HLT','The committee on HLT recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-23','second_decking','FIN','Reported from HLT; referred to FIN.'],
-     ['2026-10-02','second_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-10-08','second_crossover','','Passed Third Reading. Received notice of passage on Final Reading.'],
-     ['2026-10-12','governor','','Enrolled to Governor.'],
-     ['2026-10-20','enacted','','Act 230, 10/20/2026.']],
- hr:[['2026-09-16T09:00:00-10:00','HLT','Conference Room 329','2026-09-11','2026-09-15T09:00:00-10:00']]},
-{id:'m11',num:'HB2112',title:'Relating to Health Care (rural clinic loan repayment program)',ch:'H',refs:['HLT','FIN'],st:[2,2],camp:'c2',own:'SY',pos:'support_amend',pri:2,touch:6,tc:0,
- spon:[{n:'COCHRAN',p:true},{n:'PERRUSO',p:true}],
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','first_lateral','HLT','Referred to HLT, FIN, referral sheet 2'],
-     ['2026-08-18','first_lateral','HLT','The committee on HLT recommend that the measure be PASSED, WITH AMENDMENTS.'],
-     ['2026-08-20','first_decking','FIN','Reported from HLT as amended in HD 1; referred to FIN.'],
-     ['2026-09-02','first_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-09','first_crossover','','Passed Third Reading (HD 1). Transmitted to Senate.'],
-     ['2026-09-15','second_lateral','HHS','Referred to HHS, WAM. The committee on HHS recommend PASSED (SD 1).'],
-     ['2026-09-25','second_decking','WAM','Reported from HHS; referred to WAM.'],
-     ['2026-10-02','second_decking','WAM','The committee on WAM recommend that the measure be PASSED, WITH AMENDMENTS (SD 2).'],
-     ['2026-10-07','second_crossover','','Passed Third Reading in Senate (SD 2). Returned to House.'],
-     ['2026-10-10','conference','','House disagrees with Senate amendments.'],
-     ['2026-10-15','conference','','House and Senate conferees appointed.'],
-     ['2026-10-22','conference','','The Conference Committee recommends that the measure be PASSED, WITH AMENDMENTS (CD 1).'],
-     ['2026-10-27','governor','','Passed Final Reading (CD 1) in both chambers.'],
-     ['2026-10-29','vetoed','','Vetoed. Returned from the Governor without approval.']],
- hr:[['2026-09-01T14:00:00-10:00','FIN','Conference Room 308','2026-08-28','2026-08-31T14:00:00-10:00'],
-     ['2026-09-15T09:00:00-10:00','HHS','Conference Room 016','2026-09-11','2026-09-14T09:00:00-10:00']]},
-{id:'m12',num:'HB2113',title:'Relating to Health (sugary drink warning labels)',ch:'H',refs:['CPC'],st:[1,0],camp:'c1',own:'KV',pos:'neutral',pri:3,touch:10,tc:0,
- ev:[['2026-08-04','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-06','first_decking','CPC','Referred to CPC, referral sheet 3'],
-     ['2026-08-19','first_decking','CPC','The committee on CPC recommend that the measure be deferred until 08-28-26.'],
-     ['2026-08-28','first_decking','CPC','The committee on CPC deferred the measure.']],
- hr:[['2026-08-28T14:00:00-10:00','CPC','Conference Room 329','2026-08-19','2026-08-27T14:00:00-10:00']]},
-{id:'m13',num:'HB2115',title:'Relating to Health Data (interoperability standards)',ch:'H',refs:['JHA','FIN'],st:[2,0],camp:'c3',own:'NT',pos:'monitor',pri:3,touch:null,tc:0,
- ev:[['2026-08-10','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-12','introduced','JHA','Referred to JHA, FIN, referral sheet 6']],hr:[]},
-{id:'m14',num:'HB2118',title:'Relating to Schools (water bottle filling stations)',ch:'H',refs:['EDN','FIN'],st:[2,2],camp:'c2',own:'KR',pos:'support',pri:1,touch:2,tc:1,comps:['SB2218'],
- ev:[['2026-08-03','introduced','','Introduced and Pass First Reading.'],
-     ['2026-08-05','introduced','EDN','Referred to EDN, FIN, referral sheet 2'],
-     ['2026-08-12','first_decking','FIN','The committee on EDN recommend that the measure be PASSED, WITH AMENDMENTS (HD 1). Referred to FIN.'],
-     ['2026-09-01','first_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-09','first_crossover','','Passed Third Reading (HD 1). Transmitted to Senate.'],
-     ['2026-09-11','second_lateral','HRE','Referred to HRE, WAM.'],
-     ['2026-09-15','second_lateral','HRE','The committee on HRE deferred the measure.']],
- hr:[['2026-09-15T13:00:00-10:00','HRE','Conference Room 229','2026-09-11','2026-09-14T13:00:00-10:00']]},
-{id:'m15',num:'SB2218',title:'Relating to Schools (water bottle filling stations)',desc:'Senate companion to HB2118.',ch:'S',refs:['HRE','WAM'],st:[2,2],camp:'c2',own:'KR',pos:'support',pri:1,touch:4,tc:0,comps:['HB2118'],
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','introduced','HRE','Referred to HRE, WAM.'],
-     ['2026-08-14','first_decking','WAM','The committee on HRE recommend that the measure be PASSED, WITH AMENDMENTS (SD 1). Referred to WAM.'],
-     ['2026-08-31','first_decking','WAM','The committee on WAM recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-09','first_crossover','','Passed Third Reading (SD 1). Transmitted to House.'],
-     ['2026-09-12','second_lateral','EDN','Referred to EDN, FIN.'],
-     ['2026-09-18','second_decking','FIN','The committee on EDN recommend that the measure be PASSED, WITH AMENDMENTS (HD 1). Referred to FIN.'],
-     ['2026-10-01','second_decking','FIN','The committee on FIN recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-10-07','second_crossover','','Passed Third Reading (HD 1). Returned to Senate.'],
-     ['2026-10-08','second_crossover','','Senate agrees with House amendments.'],
-     ['2026-10-12','governor','','Enrolled to Governor.'],
-     ['2026-10-26','enacted','','Act 238, 10/26/2026.']],
- hr:[['2026-09-17T14:00:00-10:00','EDN','Conference Room 329','2026-09-14','2026-09-16T14:00:00-10:00']]},
-{id:'m16',num:'SB2216',title:'Relating to Tobacco (statewide flavor standards; county rollback)',desc:'Sets weaker statewide flavor rules and rolls back stricter county ordinances.',ch:'S',refs:['CPN','WAM'],st:[2,2],camp:'c1',own:'NT',pos:'oppose',pri:1,touch:2,tc:1,
- ev:[['2026-08-03','introduced','','Introduced and passed First Reading.'],
-     ['2026-08-05','introduced','CPN','Referred to CPN, WAM.'],
-     ['2026-08-13','first_decking','WAM','The committee on CPN recommend that the measure be PASSED, WITH AMENDMENTS (SD 1). Referred to WAM.'],
-     ['2026-09-01','first_decking','WAM','The committee on WAM recommend that the measure be PASSED, UNAMENDED.'],
-     ['2026-09-09','first_crossover','','Passed Third Reading (SD 1). Transmitted to House.'],
-     ['2026-09-11','second_lateral','CPC','Referred to CPC, JHA.'],
-     ['2026-09-17','second_lateral','CPC','The committee on CPC recommend that the measure be PASSED, WITH AMENDMENTS (HD 1).'],
-     ['2026-10-06','second_lateral','JHA','The committee on JHA deferred the measure.']],
- hr:[['2026-09-16T10:00:00-10:00','CPC','Conference Room 329','2026-09-12','2026-09-15T10:00:00-10:00']]},
-];
-// 47 ensemble bills, generated from compact archetype rows:
-// [num, title, camp, own, pos, pri, type, c1, c2, d]
-//   q1=first-chamber stall-out  dfloor=died at crossover  enact=fast-track Act
-//   xw=crossed & waiting (radar)  xw3=crossed, triple-referred (red radar,
-//   races the 2nd Triple filing Sep 18)  xh=hearing during Sep 15-18
-//   xdef=deferred to death during Sep 15-18   d staggers dates/rooms.
-const ENS = [
-['HB2120','Relating to Sunscreen (reef-safe standards)','c3','SY','monitor',3,'q1','HLT','FIN',0],
-['HB2121','Relating to Tobacco Taxes (e-liquid parity)','c1','KV','support',2,'q1','FIN','',1],
-['HB2122','Relating to Physical Education (elementary minimums)','c2','SY','monitor',3,'q1','EDN','FIN',2],
-['HB2123','Relating to Menu Labeling (chain restaurants)','c2','KR','monitor',3,'q1','CPC','FIN',3],
-['HB2124','Relating to Smoke-Free Parks','c1','KV','support',3,'q1','HLT','JHA',4],
-['HB2125','Relating to Farm to School (procurement targets)','c2','KR','support',2,'q1','AGR','FIN',5],
-['HB2126','Relating to Health Equity (data disaggregation)','c3','NT','monitor',3,'q1','HLT','FIN',6],
-['HB2143','Relating to Bicycles (safe passing education)','c3','SY','monitor',3,'q1','TRN','',2],
-['SB2220','Relating to Sugar-Sweetened Beverages (excise)','c1','KV','support',2,'q1','WAM','',7],
-['SB2221','Relating to Active Transportation (complete streets audits)','c3','SY','monitor',3,'q1','TRS','WAM',8],
-['SB2222','Relating to Vaping (school possession diversion)','c1','KV','monitor',3,'q1','EDU','JDC',9],
-['SB2223','Relating to Food Safety (cottage foods)','c2','SY','monitor',3,'q1','CPN','WAM',0],
-['SB2224','Relating to Kupuna Health (fall prevention)','c2','NT','monitor',3,'q1','HHS','WAM',1],
-['SB2242','Relating to Health Literacy (plain language standards)','c3','NT','monitor',3,'q1','HHS','',3],
-['HB2127','Relating to Alcohol (outlet density)','c3','NT','support',2,'dfloor','CPC','FIN',2],
-['HB2128','Relating to Housing and Health (mold standards)','c3','SY','monitor',3,'dfloor','HSG','FIN',3],
-['HB2129','Relating to Emergency Medical Services (rural units)','c3','NT','monitor',3,'dfloor','HLT','FIN',6],
-['SB2225','Relating to Pesticides (school buffer zones)','c2','KR','support',2,'dfloor','AEN','WAM',4],
-['SB2226','Relating to Tobacco (retail license caps)','c1','KV','support',2,'dfloor','CPN','WAM',5],
-['SB2227','Relating to Oral Health (school sealant program)','c2','KR','support',3,'dfloor','HHS','WAM',7],
-['HB2130','Relating to Clean Water (cesspool conversion aid)','c3','SY','support',2,'xw','HLT','FIN',0],
-['HB2131','Relating to Tobacco (online sales verification)','c1','KV','support',2,'xw','CPC','FIN',1],
-['HB2132','Relating to Maternal Health (doula coverage)','c2','KR','support',1,'xw','HLT','FIN',2],
-['HB2133','Relating to Parks (shade structure fund)','c3','SY','monitor',3,'xw','TRN','FIN',3],
-['SB2228','Relating to Nutrition (produce prescription pilot)','c2','KR','support',2,'xw','HHS','WAM',4],
-['SB2229','Relating to Tobacco Cessation (quitline funding)','c1','KV','support',2,'xw','HHS','WAM',5],
-['SB2230','Relating to Traffic Safety (speed cameras)','c3','NT','support',2,'xw','TRS','WAM',6],
-['SB2231','Relating to Behavioral Health (school counselors)','c2','KR','support',2,'xw','EDU','WAM',7],
-['HB2134','Relating to Health Insurance (permanent telehealth parity)','c3','NT','support',1,'xw3','HLT','FIN',8],
-['HB2135','Relating to Cannabis (youth prevention fund)','c1','KV','support',2,'xw3','JHA','FIN',9],
-['SB2232','Relating to Firearm Injury Prevention (safe storage)','c3','NT','support',1,'xw3','JDC','WAM',0],
-['SB2233','Relating to Climate and Health (heat plans for schools)','c2','KR','support',2,'xw3','EDU','WAM',1],
-['HB2136','Relating to School Gardens (grant program)','c2','KR','support',2,'xh','EDN','FIN',0],
-['HB2137','Relating to Lead (school water testing)','c3','SY','support',1,'xh','HLT','FIN',1],
-['HB2138','Relating to Aging (age-friendly communities)','c2','KR','monitor',3,'xh','HSG','FIN',2],
-['HB2139','Relating to Sun Safety (free sunscreen in parks)','c3','SY','support',3,'xh','CPC','FIN',3],
-['SB2234','Relating to Youth Vaping (flavored liquid penalties)','c1','KV','support',1,'xh','CPN','WAM',0],
-['SB2235','Relating to Food Banks (tax credit)','c2','KR','support',2,'xh','HHS','WAM',1],
-['SB2236','Relating to Pedestrian Safety (crosswalk fund)','c3','NT','support',2,'xh','TRS','WAM',2],
-['SB2237','Relating to Rural Health (mobile dental)','c2','KR','support',2,'xh','HHS','WAM',3],
-['HB2140','Relating to Sugary Drinks (vending limits in state buildings)','c1','KV','support',2,'xdef','CPC','FIN',0],
-['SB2238','Relating to Alcohol (happy hour advertising)','c3','NT','monitor',3,'xdef','CPN','WAM',1],
-['HB2141','Relating to Tobacco 21 Enforcement (compliance checks)','c1','KV','support',2,'xdef','HLT','JHA',2],
-['SB2239','Relating to School Health Aides','c2','KR','support',2,'xdef','EDU','WAM',3],
-['HB2142','Relating to Emergency Appropriations (vector control)','c3','NT','support',3,'enact','FIN','',4],
-['SB2240','Relating to Hospitals (disaster staffing compact)','c3','NT','support',2,'enact','HHS','',5],
-['SB2241','Relating to Public Health Emergencies (lab capacity)','c2','KR','support',2,'enact','HHS','',6],
-];
-const ENS_H2 = [['HLT','FIN'],['CPC','FIN'],['JHA','FIN'],['HSG','WAL']];
-const ENS_S2 = [['HHS','WAM'],['CPN','WAM'],['JDC','WAM'],['HRE','WAM']];
-const ENS_H3 = [['HLT','CPC','FIN'],['EDN','JHA','FIN']];
-const ENS_S3 = [['HHS','CPN','WAM'],['EDU','JDC','WAM']];
-const ENS_ROOMS = ['Conference Room 308','Conference Room 329','Conference Room 229',
-  'Conference Room 325','Conference Room 211','Conference Room 016'];
-function expandEns(r) {
-  const [num, title, camp, own, pos, pri, type, c1, c2, d] = r;
-  const ch = num[0] === 'H' ? 'H' : 'S';
-  const refs = c2 ? [c1, c2] : [c1];
-  const a1 = ch === 'H' ? 'HD 1' : 'SD 1', a2 = ch === 'H' ? 'SD 1' : 'HD 1';
-  const other = ch === 'H' ? 'Senate' : 'House';
-  const dd = (m, day) => `2026-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-  const firstRead = ch === 'H' ? 'Introduced and Pass First Reading.' : 'Introduced and passed First Reading.';
-  const ev = [[dd(8, 3 + (d % 5)), 'introduced', '', firstRead],
-    [dd(8, 5 + (d % 5)), 'introduced', c1, `Referred to ${refs.join(', ')}, referral sheet ${1 + (d % 6)}`]];
-  const hr = [];
-  let st = [refs.length, 0];
-  const pass1 = () => ev.push([dd(8, 11 + (d % 5)), c2 ? 'first_decking' : 'first_decking', c2 || c1,
-    `The committee on ${c1} recommend that the measure be PASSED, ${d % 2 ? `WITH AMENDMENTS (${a1}).` : 'UNAMENDED.'}${c2 ? ` Referred to ${c2}.` : ''}`]);
-  const crossRun = () => {
-    pass1();
-    if (c2) ev.push([dd(9, 1 + (d % 3)), 'first_decking', c2,
-      `The committee on ${c2} recommend that the measure be PASSED, UNAMENDED.`]);
-    ev.push([dd(9, 8 + (d % 2)), 'first_crossover', '',
-      `Passed Third Reading${d % 2 ? ` (${a1})` : ''}. Transmitted to ${other}.`]);
-    const r2 = type === 'xw3' ? (ch === 'H' ? ENS_S3 : ENS_H3)[d % 2] : (ch === 'H' ? ENS_S2 : ENS_H2)[d % 4];
-    ev.push([dd(9, 11 + (d % 2)), type === 'xw3' ? 'second_triple' : 'second_lateral', r2[0],
-      `Referred to ${r2.join(', ')}.`]);
-    st = [refs.length, r2.length];
-    return r2;
-  };
-  if (type === 'q1') {
-    if (c2 && d % 3) pass1();
-  } else if (type === 'dfloor') {
-    pass1();
-    if (d % 2) ev.push([dd(9, 2 + (d % 3)), 'first_decking', c2 || c1,
-      `The committee on ${c2 || c1} deferred the measure.`]);
-    else {
-      if (c2) ev.push([dd(9, 1 + (d % 3)), 'first_decking', c2,
-        `The committee on ${c2} recommend that the measure be PASSED, UNAMENDED.`]);
-      ev.push([dd(9, 9 + (d % 2)), 'dead', '', 'Failed to pass Third Reading. Ayes, 23; Noes, 28.']);
-    }
-  } else if (type === 'enact') {
-    ev.push([dd(8, 9 + (d % 3)), 'first_decking', c1,
-      `The committee on ${c1} recommend that the measure be PASSED, UNAMENDED. Public notice requirement waived.`]);
-    ev.push([dd(8, 13 + (d % 3)), 'first_crossover', '', 'Passed Third Reading.']);
-    ev.push([dd(8, 18 + (d % 3)), 'second_crossover', '', `Passed Final Reading in ${other}. Received notice of passage.`]);
-    ev.push([dd(8, 22 + (d % 3)), 'governor', '', 'Enrolled to Governor.']);
-    ev.push([dd(d % 2 ? 9 : 8, d % 2 ? 1 + (d % 4) : 27 + (d % 3)), 'enacted', '',
-      `Act ${210 + d}, ${d % 2 ? '09/0' + (1 + (d % 4)) : '08/' + (27 + (d % 3))}/2026.`]);
-  } else {   // xw, xw3, xh, xdef
-    const r2 = crossRun();
-    if (type === 'xh' || type === 'xdef') {
-      const hDay = 15 + (d % 4), HH = [9, 10, 13, 14][d % 4];
-      const iso = h => `2026-09-${h}T${String(HH).padStart(2,'0')}:00:00-10:00`;
-      hr.push([iso(hDay), r2[0], ENS_ROOMS[d % 6], dd(9, hDay - 3), iso(hDay - 1)]);
-      if (type === 'xdef')
-        ev.push([dd(9, hDay), 'second_lateral', r2[0], `The committee on ${r2[0]} deferred the measure.`]);
-      else
-        ev.push([dd(9, hDay + 1), 'second_decking', r2[1],
-          `The committee on ${r2[0]} recommend that the measure be PASSED, ${d % 2 ? `WITH AMENDMENTS (${a2}).` : 'UNAMENDED.'} Referred to ${r2[1]}.`]);
-    }
-  }
-  const touch = pos === 'monitor' ? (d % 2 ? null : 12 + (d % 9)) : (d * 3) % 15;
-  const tc = pos !== 'monitor' && d % 3 === 0 ? 1 : 0;
-  return { id: 'e' + num, num, title, ch, refs, st, camp, own, pos, pri, touch, tc, ev, hr };
+// ===SANDBOX=== the real session as it stood at DEMO_ASOF, from demo/snapshot.json.
+// Bills, positions, owners, coalitions, committees, schedules and deadlines are
+// real; stage, version, hearings and deadline deaths were recomputed for that
+// day. Team activity (drafts, to-dos, follows) is seeded below so every button
+// has something to press. Rebuild: node tools/build_snapshot.js in Bill-Tracker.
+function snapshotScenario(snap) {
+  const nowMs = Date.now();
+  const bills = snap.bills.map(b => ({ ...b, internal_notes: null }));
+  const tl = snap.activity.map(a => ({ bill_id: a.bill_id, type: a.type || 'status_auto', title: a.title, details: a.details, occurred_at: a.occurred_at, source: 'auto' }))
+    .sort((x, y) => y.occurred_at.localeCompare(x.occurred_at));
+  const since = tl.filter(a => new Date(a.occurred_at) > nowMs - 3 * 864e5).map(a => ({ bill_id: a.bill_id, title: a.title, occurred_at: a.occurred_at }));
+  const assignments = {}; for (const r of snap.assignments) (assignments[r.bill_id] ??= []).push(r.advocate_id);
+  const billCampaigns = {}; for (const r of snap.billCampaigns) (billCampaigns[r.bill_id] ??= []).push(r.campaign_id);
+  const compStage = {}; for (const b of bills) compStage[b.bill_number] = b.stage;
+  return { bills, hearings: snap.hearings, tl, since, pulse: {}, assignments, billCampaigns, compStage };
 }
-const TEAM_TL = [
-  ['m1','KV','testimony','Testimony submitted — Support (written + oral)','HLT hearing, 42 co-signers on org letter','2026-08-12T10:00:00-10:00'],
-  ['m2','SY','coalition','CTFH coalition call — companion strategy','Agreed SB2201 is backup vehicle if House side stalls','2026-08-21T14:00:00-10:00'],
-  ['m7','NT','action_alert','Action alert sent — OPPOSE HB2107','1,200 recipients; asks calls to JHA members before hearing','2026-08-21T09:00:00-10:00'],
-  ['m4','SY','note','Post-mortem: floor vote lost 24-27','Pivoting effort to SB2204 (companion). Talking to TRS chair.','2026-08-20T16:00:00-10:00'],
-];
-function buildScenario(nowMs) {
-  const T = d => new Date(d.length > 10 ? d : d + 'T08:00:00-10:00').getTime();
-  const bills = [], hearings = [], tl = [], since = [], pulse = {},
-        assignments = {}, billCampaigns = {}, compStage = {};
-  let hid = 0;
-  for (const s of SCRIPT.concat(ENS.map(expandEns))) {
-    const past = s.ev.filter(e => T(e[0]) <= nowMs);
-    if (!past.length) continue;
-    const cur = past[past.length - 1];
-    bills.push({ id: s.id, bill_number: s.num, title: s.title, description: s.desc || null,
-      stage: cur[1], committee: cur[2] || null, last_action: cur[3], last_action_date: cur[0],
-      referrals: s.refs, origin_stops: s.st[0], second_stops: s.st[1],
-      companions: s.comps || [], sponsors: s.spon || [], position: s.pos, priority: s.pri,
-      session_year: 2026, state_url: 'https://www.capitol.hawaii.gov', tracked: true });
-    compStage[s.num] = cur[1];
-    assignments[s.id] = [s.own]; billCampaigns[s.id] = [s.camp];
-    if (s.touch != null) pulse[s.id] = {
-      last_team_touch: new Date(nowMs - s.touch * 864e5).toISOString(), testimony_count: s.tc };
-    for (const h of s.hr) if (T(h[3]) <= nowMs && new Date(h[0]).getTime() >= nowMs - 7 * 864e5)
-      hearings.push({ id: 'mh' + (hid++), bill_id: s.id, committee: h[1],
-        scheduled_at: h[0], room: h[2], testimony_deadline: h[4], status: 'scheduled',
-        notice_posted_at: h[3] + 'T16:00:00-10:00' });
-    for (const e of past) {
-      tl.push({ bill_id: s.id, type: 'status_auto', title: e[3],
-        details: 'Official action - ' + (s.ch === 'S' ? 'Senate' : 'House'),
-        occurred_at: e[0] + 'T08:00:00-10:00', source: 'auto' });
-      if (T(e[0]) > nowMs - 3 * 864e5)
-        since.push({ bill_id: s.id, title: e[3], occurred_at: e[0] + 'T08:00:00-10:00' });
-    }
-  }
-  for (const [bid, adv, type, title, details, at] of TEAM_TL)
-    if (new Date(at).getTime() <= nowMs)
-      tl.push({ bill_id: bid, advocate_id: adv, type, title, details, occurred_at: at, source: 'team' });
-  tl.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
-  return { bills, hearings, tl, since, pulse, assignments, billCampaigns, compStage };
-}
-// ===SCENARIO-END===
 let DEMO_TL = [];
-function demoInit() {
-  const A = (n,i,c,e,adm,rev) => ({ id:i, full_name:n, initials:i, color:c, email:e, is_admin:!!adm, is_reviewer:!!rev, is_active:true });
-  S.advocates = [A('Nate','NT','#0E7C86','nate@hiphi.org',1), A('Kevin','KV','#5B7FBF','kevin@hiphi.org'),
-                 A('Saya','SY','#3E8E63','saya@hiphi.org'), A('Kris','KR','#7E5BA6','kris@hiphi.org'),
-                 A('Jess','JS','#B45309','jessica@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
-  S.me = S.advocates[0];
-  S.campaigns = [{id:'c1',name:'CTFH',slack_channel:'#ctfh'},{id:'c2',name:'HEAL',slack_channel:'#heal'},{id:'c3',name:'General HIPHI'}];
-  S.slots = [['HLT',3,'08:30:00'],['HLT',5,'08:30:00'],['HHS',1,'13:00:00'],['HHS',3,'13:00:00'],['HHS',5,'13:00:00'],['JHA',1,'14:00:00'],['JHA',2,'14:00:00'],['JHA',3,'14:00:00'],['JHA',4,'14:00:00'],['JHA',5,'14:00:00'],['CPN',1,'08:30:00'],['CPN',2,'08:30:00'],['CPN',3,'08:30:00'],['CPN',4,'08:30:00'],['CPN',5,'08:30:00'],['WAM',1,'08:30:00'],['WAM',3,'08:30:00'],['WAM',5,'08:30:00'],['EDN',2,'14:00:00'],['EDN',4,'14:00:00'],['HSG',3,'08:30:00'],['HSG',5,'08:30:00'],['JDC',1,'08:30:00'],['JDC',3,'08:30:00'],['JDC',5,'08:30:00']]
-    .map(([code, weekday, start_time]) => ({ code, weekday, start_time, end_time: start_time, room: '329' }));
+async function demoInit() {
+  const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
+  S.snapshot = snap;
+  S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
+  S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
+  const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
+  S.campaigns = snap.campaigns;
+  S.slots = snap.slots;
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['support','support_amend','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
     templates: { hearing_alert: '📅 *{{bill}}* · {{position}}{{priority}}{{owner}}\n{{title}}\n{{committee}} hearing · {{hearing}} · {{room}}\nWritten testimony due *{{deadline}}*\n<{{tracker}}|Open in tracker> · <{{pdf}}|Notice PDF>',
       draft_thread: '📝 Draft ready{{owner_for}}: <{{draft}}|Google Doc> · <{{tracker}}|tracker>' } };
-  const sc = buildScenario(Date.now());
+  const sc = snapshotScenario(snap);
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
-  // Production bills carry an official description (521 of 522); the
-  // scripted scenario does not, so give each one a sentence to render.
-  for (const b of S.bills) b.description ||= `Establishes requirements and appropriates funds ${b.title.replace(/^Relating to /i, 'relating to ')}. (sandbox description)`;
-  // Committee names and chairs for the sandbox's common codes (illustrative).
-  S.committees = {
-    HLT: { code: 'HLT', name: 'Health', chair: 'Rep. Demo Chair', vice_chair: 'Rep. Demo Vice' },
-    HHS: { code: 'HHS', name: 'Human Services', chair: 'Rep. Sample Chair', chamber: 'H' },
-    JHA: { code: 'JHA', name: 'Judiciary & Hawaiian Affairs', chair: 'Rep. Sample Chair', chamber: 'H' },
-    CPN: { code: 'CPN', name: 'Commerce & Consumer Protection', chair: 'Sen. Sample Chair', chamber: 'S' },
-    WAM: { code: 'WAM', name: 'Ways & Means', chair: 'Sen. Sample Chair', chamber: 'S' },
-    CPC: { code: 'CPC', name: 'Consumer Protection & Commerce', chair: 'Rep. Demo Chair' },
-    FIN: { code: 'FIN', name: 'Finance', chair: 'Rep. Demo Chair', vice_chair: 'Rep. Demo Vice' },
-    JDC: { code: 'JDC', name: 'Judiciary', chair: 'Sen. Demo Chair' },
-    WAM: { code: 'WAM', name: 'Ways and Means', chair: 'Sen. Demo Chair' },
-  };
+  S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   // A testimony draft on the soonest upcoming hearing, so the drawer section
   // and the Desk link have something to show in the sandbox.
   // Seeded on the first bill (same one the To do seed uses) so the drawer
@@ -823,13 +471,14 @@ function demoInit() {
   // soonest hearing if it has one, so the Desk link appears too when that
   // hearing is inside the 48-hour window.
   S.drafts = {};
-  if (S.bills[0]) {
-    const b0 = S.bills[0];
+  const anchor = S.bills.find(b => b.priority === 1 && b.stage !== 'dead' && (sc.assignments[b.id] || []).includes(S.me.id) && sc.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now())) || S.bills.find(b => b.stage !== 'dead') || S.bills[0];
+  if (anchor) {
+    const b0 = anchor;
     const h0 = sc.hearings.filter(h => h.bill_id === b0.id)
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
-      status: 'review', submitted_by: 'KV', submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
+      status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
       doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
   // And one per hearing in the coming week, so whichever bills the Desk
@@ -843,32 +492,22 @@ function demoInit() {
     let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
     // The Desk opens on "my bills", so make sure one of Nate's has the
     // approved-not-filed state - that is the button training should practise.
-    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes('NT')) { st = 'approved'; approvedSeeded = true; }
+    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(S.me.id)) { st = 'approved'; approvedSeeded = true; }
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: ago(30), submitted_by: st === 'draft' ? null : 'KR', submitted_at: st === 'draft' ? null : ago(20),
-      approved_by: ['approved', 'filed', 'second_review'].includes(st) ? 'NT' : null, approved_at: ago(10),
-      second_approved_by: st === 'filed' ? 'JS' : null, second_approved_at: ago(6),
-      filed_by: st === 'filed' ? 'KR' : null, filed_at: st === 'filed' ? ago(2) : null,
+      created_at: ago(30), submitted_by: st === 'draft' ? null : byIni.KR, submitted_at: st === 'draft' ? null : ago(20),
+      approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
+      second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(6),
+      filed_by: st === 'filed' ? byIni.KR : null, filed_at: st === 'filed' ? ago(2) : null,
+      version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
       review_note: st === 'draft' ? 'Cite the 2024 BRFSS numbers in paragraph two.' : null });
   }
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
-  // Sandbox versions of the 9/15 additions: the version the bill is on (from
-  // the scripted activity text, same regex the sync uses), what each past
-  // hearing produced, one follow and one attendance so the panels show.
-  S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = {};
+  // Versions and outcomes are in the snapshot; one follow and one attendance
+  // are seeded so those panels have something to show.
+  S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
   const nowMs = Date.now();
-  S.bills.forEach(b => {
-    const rows = sc.tl.filter(a => a.bill_id === b.id && new Date(a.occurred_at) <= nowMs).sort((x, y) => x.occurred_at.localeCompare(y.occurred_at));
-    for (const a of rows) { const m = /\(((?:HD|SD|CD)\s?\d+)\)/.exec(a.title || ''); if (m) b.current_version = m[1].replace(/\s/, ''); }
-  });
-  S.hearings.filter(h => new Date(h.scheduled_at) <= nowMs && h.status !== 'cancelled').forEach(h => {
-    const a = sc.tl.filter(x => x.bill_id === h.bill_id).sort((x, y) => x.occurred_at.localeCompare(y.occurred_at)).find(x => new Date(x.occurred_at) >= new Date(h.scheduled_at) - 2 * 3600e3 && /recommend|deferred|recommitted|reported from/i.test(x.title || ''));
-    if (!a) return;
-    const t = a.title;
-    S.outcomes[h.id] = { hearing_id: h.id, bill_id: h.bill_id, report: t, outcome: /deferred/i.test(t) ? 'deferred' : /recommitted/i.test(t) ? 'recommitted' : /with amendments/i.test(t) ? 'passed_amended' : 'passed' };
-  });
   const upcoming = S.hearings.filter(h => new Date(h.scheduled_at) > nowMs && h.status !== 'cancelled').sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   if (upcoming[0] && S.advocates[1]) S.attend[upcoming[0].id] = [S.advocates[1].id];
   const unowned = S.bills.find(b => b.tracked && b.position && b.position !== 'monitor' && !(S.assignments[b.id] || []).length);
@@ -877,14 +516,14 @@ function demoInit() {
   // upcoming, and finished.
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   S.todos = {};
-  if (S.bills[0]) S.todos[S.bills[0].id] = [
-    { id: 'td1', bill_id: S.bills[0].id, title: 'Draft testimony for WAM hearing',
+  if (anchor) S.todos[anchor.id] = [
+    { id: 'td1', bill_id: anchor.id, title: 'Draft testimony for the next hearing',
       done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,
       created_at: new Date().toISOString() },
-    { id: 'td2', bill_id: S.bills[0].id, title: 'Confirm coalition sign-ons',
+    { id: 'td2', bill_id: anchor.id, title: 'Confirm coalition sign-ons',
       done: false, due_date: day(4), assignee_id: S.advocates[1].id, sort_order: 1,
       created_at: new Date().toISOString() },
-    { id: 'td3', bill_id: S.bills[0].id, title: 'Send one-pager to committee staff',
+    { id: 'td3', bill_id: anchor.id, title: 'Send one-pager to committee staff',
       done: true, due_date: null, assignee_id: S.advocates[2].id, sort_order: 2,
       created_at: new Date().toISOString() },
   ];
@@ -1215,8 +854,7 @@ function renderPortfolio(list) {
         <div>
           ${panel('pf-hits', '✓ Tracked', 'already on the tracker, any owner', tracked.map(row).join(''), 'No tracked bill matches.')}
           ${panel('pf-untracked', '＋ Not tracked yet', 'every measure in the session · tap Track to add it',
-            DEMO ? `<div class="pempty">The sandbox holds only its 64 scripted bills; in the live app this lists every introduced measure that matches.</div>`
-            : q.length < 3 ? `<div class="pempty">Type at least 3 characters to search bills that are not tracked yet.</div>`
+            q.length < 3 ? `<div class="pempty">Type at least 3 characters to search bills that are not tracked yet.</div>`
             : untracked === null ? `<div class="pempty">Searching…</div>`
             : untracked.map(r => `<div class="prow" data-track-row="${r.id}">
                 <div class="pmain"><b>${esc(r.bill_number)}</b> ${esc(r.title||'')}
@@ -1722,20 +1360,8 @@ function renderDesk(list) {
 // ---------------- Cards view (advocacy print) ----------------
 const SESSION_OVER = DEMO ? false : true;   // flip false when the 2027 session convenes
 // Official session calendar (LRB, 2026). One place to update each December.
-// Demo mode runs the mock training session (Aug 3 - Oct 30) instead.
-const DEADLINES = DEMO ? {
-  introduced:       [['Intro cutoff','2026-08-14']],
-  first_triple:     [['Triple filing','2026-08-21']],
-  first_lateral:    [['Lateral','2026-08-28']],
-  first_decking:    [['Decking','2026-09-04']],
-  first_crossover:  [['Crossover','2026-09-10']],
-  second_triple:    [['Triple filing','2026-09-18']],
-  second_lateral:   [['Lateral','2026-09-25']],
-  second_decking:   [['Decking','2026-10-02']],
-  second_crossover: [['Cross back','2026-10-08']],
-  conference:       [['Final decking','2026-10-23'],['Fiscal','2026-10-26']],
-  governor:         [['Sine die','2026-10-30']],
-} : {
+// The sandbox uses the same calendar, frozen at DEMO_ASOF.
+const DEADLINES = {
   introduced:       [['Intro cutoff','2026-01-28']],
   first_triple:     [['Triple filing','2026-02-11']],
   first_lateral:    [['Lateral','2026-02-20']],
@@ -2593,7 +2219,7 @@ function wire() {
   // database, debounced, and the page re-renders when it lands.
   if (S.view === 'portfolio') {
     const q = S.q.trim();
-    if (q.length >= 3 && !DEMO && S.searchAll?.q !== q) {
+    if (q.length >= 3 && S.searchAll?.q !== q) {
       S.searchAll = { q, rows: null };
       clearTimeout(S.searchTimer);
       S.searchTimer = setTimeout(async () => {

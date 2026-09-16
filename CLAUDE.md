@@ -16,9 +16,13 @@ first** in any session that touches this repo.
   `public_bills` / `public_hearings` views. **Out of scope until the staff
   consolidation lands.**
 - `mockup-hybrid.html` — static design mock, reference only.
-- `?demo=1` — training sandbox: a scripted Aug 3–Oct 30 session that plays
-  forward against the real clock. Use it for all UI work while the live
-  session is dark (until January 2027).
+- `?demo=1` — training sandbox on both `index.html` and `track.html`: the
+  real 2026 session frozen at Monday March 16, 2026, 9:00 HST, loaded from
+  `demo/snapshot.json` (built by `Bill-Tracker/tools/build_snapshot.js`).
+  Real bills, owners, coalitions and schedules; stage, hearings and deadline
+  deaths as they stood that day; drafts, to-dos, follows and attendance are
+  seeded in `demoInit()`. Use it for all UI work while the live session is
+  dark (until January 2027).
 
 Lines 6–7 of `app.js` and the top of `public.js` hold the real Supabase
 project ref and publishable key. The scrubbed export that circulated has
