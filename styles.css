@@ -810,3 +810,8 @@ details.fold .calnav{margin-left:auto}
   .drawer.v2 .dbody{padding:10px 14px 60px}
   .drawer.v2 .dhead .close{position:absolute;top:8px;right:8px}
 }
+@media (max-width:760px){
+  .drawer.v2 .dhead .sub{padding-right:130px}
+  .draftrow.nx .draftwho{flex-basis:100%}
+  .draftrow.nx .draftacts{margin-left:0}
+}
