@@ -904,3 +904,13 @@ details.fold .calnav{margin-left:auto}
 .chip3 .lstop{display:block;font-size:11px;color:#7F98A3;margin:1px 0 2px}
 .chip3 .lstop:empty{display:none}
 .stopn{font-weight:600}
+
+/* ---------- 9/16: referral path, one line per chamber ---------- */
+.refline{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:1px 0 3px}
+.refch{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#7F98A3;min-width:52px}
+.refstop{font-size:12.5px;padding:1px 7px;border-radius:6px;background:#F1F5F7;color:var(--ink)}
+.refstop.past{color:var(--teal);background:#E6F3F4;text-decoration:line-through;text-decoration-color:#9CC8CC}
+.refstop.here{background:#FDF6E3;color:#7A5B08;font-weight:700;border:1px solid #E9D8A6}
+.refstop.muted{color:var(--muted);font-style:italic;background:transparent}
+.refarrow{color:#B9C6CF;font-size:11px}
+.refstop.dead{background:#FDE8E8;color:var(--red);font-weight:700;border:1px solid #F5C2C2}

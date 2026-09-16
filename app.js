@@ -1401,6 +1401,25 @@ const DEADLINES = {
 const RADAR_DAYS = 14;
 const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
                       'second_triple','second_lateral','second_decking'];
+// The referral path, one line per chamber, with the current stop marked.
+// bills.referrals holds both chambers' committees in order; origin_stops
+// says how many belong to the chamber the bill started in.
+function referralPath(b) {
+  const refs = b.referrals || []; if (!refs.length) return '—';
+  const n = Math.min(b.origin_stops || refs.length, refs.length);
+  const st = stopOf(b), origin = b.chamber || (b.bill_number?.startsWith('S') ? 'S' : 'H'), otherCh = origin === 'H' ? 'S' : 'H';
+  // A dead bill stopped at the stop its death stage names: triple = first, decking = last, lateral = in between.
+  const ds = st.phase === 'dead' ? (b.died_at_stage || '') : '';
+  const deadLeg = /^first|^introduced/.test(ds) ? 'first' : /^second/.test(ds) ? 'second' : null;
+  const deadIdx = list => /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : 1;
+  const line = (ch, list, leg) => list.length ? `<span class="refline"><span class="refch">${CHAMBER_NAME[ch]}</span>${list.map((c, i) => {
+      if (ds) { const di = deadLeg === leg ? deadIdx(list) : -1; const cls = deadLeg === leg ? (i === di ? 'dead' : i < di ? 'past' : '') : (leg === 'first' && deadLeg === 'second' ? 'past' : ''); return `<span class="refstop ${cls}">${esc(c)}</span>`; }
+      const here = st.leg === leg && st.phase === 'committee' && st.stop === i + 1;
+      const past = st.leg !== leg ? (leg === 'first') : (st.phase !== 'committee' || st.stop > i + 1);
+      return `<span class="refstop ${here ? 'here' : past ? 'past' : ''}">${esc(c)}</span>`; }).join('<span class="refarrow">→</span>')}</span>` : '';
+  const second = refs.slice(n);
+  return line(origin, refs.slice(0, n), 'first') + (second.length ? line(otherCh, second, 'second') : (st.leg === 'second' && st.phase === 'committee' ? `<span class="refline"><span class="refch">${CHAMBER_NAME[otherCh]}</span><span class="refstop muted">awaiting referral</span></span>` : ''));
+}
 // Where the bill stands (stops.js): leg, committee, position, deadline, hearing, board column.
 function stopOf(b) {
   return billStop(b, { stage: effStage(b), hearings: S.hearings.filter(h => h.bill_id === b.id), outcomes: S.outcomes || {},
@@ -1747,10 +1766,17 @@ async function openDrawer(billId) {
     const el = $('#tlmount'); if (el) el.innerHTML = timelineHTML(tl);
   } catch (e) { toast('Could not load timeline: ' + e.message, true); }
 }
-function timelineHTML(tl) {
+function timelineHTML(tlIn) {
+  let tl = tlIn;
   if (!tl.length) return `<div style="color:var(--muted);font-size:12.5px">No activity yet.</div>`;
-  const all = S.drawerOpen?.tlAll, shown = all ? tl : tl.slice(0, 5);
-  return (tl.length > 5 && !all ? `<div class="tlcap">Latest 5 of ${tl.length} · <button class="morelink" id="d-tlmore">show all</button></div>` : '') +
+  // The whole history, newest first (the Timeline tab is the last one, so it
+  // gets the room). Sandbox: nothing after the frozen date exists.
+  // "Hearing notice posted - X" rows are the sync's own bookkeeping, dated when
+  // the hearing was imported; the official "has scheduled a public hearing"
+  // action already tells the story, so they stay out of the timeline.
+  const shown = tl.filter(ev => !(ev.type === 'hearing_auto' && /^Hearing notice posted/.test(ev.title || '')));
+  tl = shown;
+  return `<div class="tlcap">${tl.length} action${tl.length === 1 ? '' : 's'} · newest first${DEMO ? ` · sandbox is frozen at ${fmtDate(DEMO_ASOF, { year: 'numeric' })}, later actions are not here` : ''}</div>` +
     `<div class="tl">${shown.map(ev => {
     const team = ev.source === 'team', a = advocate(ev.advocate_id);
     return `<div class="ev ${team?'team':''}">
@@ -2110,8 +2136,8 @@ function drawerHTML(b) {
         </div>` : `<button class="morelink" id="d-logopen">+ Add a note or log an action</button>`}
         <div id="tlmount" style="min-height:40px;color:var(--muted);font-size:12.5px">Loading…</div>`)}
       ${pane('details', `<div class="kv">
-          <span class="k">Committee</span><span>${esc(b.committee||'—')}${chairOf(b.committee)}</span>
-          <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
+          <span class="k">Committee</span><span>${(st => st.committee ? `${esc(st.committee)}${chairOf(st.committee)} · ${CHAMBER_NAME[st.chamber]}${st.stops ? `, stop ${st.stop} of ${st.stops}` : ''}` : st.phase === 'committee' ? `awaiting referral in the ${CHAMBER_NAME[st.chamber]}` : esc(st.says))(stopOf(b))}</span>
+          <span class="k">Referrals</span><span>${referralPath(b)}</span>
           ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
           ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
           ${b.public_summary && b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}

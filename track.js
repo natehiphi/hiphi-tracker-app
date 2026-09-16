@@ -211,6 +211,23 @@ function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
     deadlineFor: key => { const d = S.deadlines.filter(x => x.key === key).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
 }
+// The referral path, one line per chamber, current stop marked (same as the staff app).
+function referralPath(b) {
+  const refs = b.referrals || []; if (!refs.length) return esc(b.committee || '—');
+  const n = Math.min(b.origin_stops || refs.length, refs.length);
+  const st = stopOf(b), origin = b.chamber || (b.bill_number?.startsWith('S') ? 'S' : 'H'), otherCh = origin === 'H' ? 'S' : 'H';
+  // A dead bill stopped at the stop its death stage names: triple = first, decking = last, lateral = in between.
+  const ds = st.phase === 'dead' ? (b.died_at_stage || '') : '';
+  const deadLeg = /^first|^introduced/.test(ds) ? 'first' : /^second/.test(ds) ? 'second' : null;
+  const deadIdx = list => /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : 1;
+  const line = (ch, list, leg) => list.length ? `<span class="refline"><span class="refch">${CHAMBER_NAME[ch]}</span>${list.map((c, i) => {
+      if (ds) { const di = deadLeg === leg ? deadIdx(list) : -1; const cls = deadLeg === leg ? (i === di ? 'dead' : i < di ? 'past' : '') : (leg === 'first' && deadLeg === 'second' ? 'past' : ''); return `<span class="refstop ${cls}">${esc(c)}</span>`; }
+      const here = st.leg === leg && st.phase === 'committee' && st.stop === i + 1;
+      const past = st.leg !== leg ? (leg === 'first') : (st.phase !== 'committee' || st.stop > i + 1);
+      return `<span class="refstop ${here ? 'here' : past ? 'past' : ''}">${esc(c)}</span>`; }).join('<span class="refarrow">→</span>')}</span>` : '';
+  const second = refs.slice(n);
+  return line(origin, refs.slice(0, n), 'first') + (second.length ? line(otherCh, second, 'second') : (st.leg === 'second' && st.phase === 'committee' ? `<span class="refline"><span class="refch">${CHAMBER_NAME[otherCh]}</span><span class="refstop muted">awaiting referral</span></span>` : ''));
+}
 function nextDeadline(b) { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; }
 const alive = b => !['dead', 'vetoed', 'enacted', 'governor'].includes(b.stage || '') && !/deferred|failed to pass/i.test(b.last_action || '');
 const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose', neutral: 'pos-neutral' }[b.hiphi_position] || 'pos-none');
@@ -393,7 +410,7 @@ function panelFor(b) {
       ${b.sandbox_untracked ? '<p class="desc"><i>Sandbox: this bill is not on HIPHI’s list, so its history and hearings are not loaded here. In the live app every bill is complete.</i></p>' : ''}
       <div class="sec">Summary</div><p class="desc">${esc(b.hiphi_summary || b.description || 'No summary available yet.')}</p>
       <div class="sec">Details</div>
-      <div class="kv"><span class="k">Committees</span><span>${esc((b.referrals || []).join(', ') || b.committee || '—')}</span></div>
+      <div class="kv"><span class="k">Committees</span><span>${referralPath(b)}</span></div>
       ${b.sponsors?.length ? `<div class="kv"><span class="k">Sponsors</span><span>${esc(b.sponsors.slice(0, 8).map(x => typeof x === 'string' ? x : x.n || x.name || '').filter(Boolean).join(', '))}</span></div>` : ''}
       ${b.companions?.length ? `<div class="kv"><span class="k">Companion</span><span>${esc(b.companions.join(', '))}</span></div>` : ''}
       ${b.current_version ? `<div class="kv"><span class="k">Version</span><span>${esc(b.current_version)} — the bill has been amended ${b.current_version.replace(/\D/g, '')} time${b.current_version.replace(/\D/g, '') === '1' ? '' : 's'} in the ${/^H/.test(b.current_version) ? 'House' : /^S/.test(b.current_version) ? 'Senate' : 'conference committee'}</span></div>` : ''}
