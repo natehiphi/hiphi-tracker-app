@@ -743,3 +743,34 @@ details.fold .calnav{margin-left:auto}
   .calweek .calbody{flex:1;min-width:0;width:auto}
   .calweek .calrow{padding:10px 10px 10px 8px}
 }
+/* ---------- control row: search in the top bar, one lens pill, one filter pill ---------- */
+.top .topq{width:220px;max-width:26vw;padding:6px 10px;font-size:12.5px;border-radius:9px;background:#1B3A47;border:1px solid #2A4C5B;color:#fff;margin-left:6px}
+.top .topq::placeholder{color:#8FA9B8}
+.top .topq:focus{outline:none;border-color:var(--teal);background:#0F2B38}
+.controls{display:flex;gap:8px;align-items:center;padding:12px 20px 0;flex-wrap:wrap}
+.controls .rowq{display:none}
+.pillmenu{position:relative}
+.pillmenu>summary{list-style:none;cursor:pointer;display:inline-block}
+.pillmenu>summary::-webkit-details-marker{display:none}
+.pillmenu .menu{position:absolute;top:calc(100% + 6px);left:0;z-index:55;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:210px;display:flex;flex-direction:column;gap:2px}
+.pillmenu .menu button{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;border-radius:8px;font-size:13px;color:var(--ink);background:none;width:100%}
+.pillmenu .menu button:hover{background:var(--chip)}
+.pillmenu .menu button.on{background:var(--teal-soft);color:var(--teal)}
+.pillmenu .menu label{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:13px;cursor:pointer;border-radius:8px}
+.pillmenu .menu label:hover{background:var(--chip)}
+.pillmenu .menu input[type=checkbox]{width:15px;height:15px;margin:0}
+.pillmenu .menu .mh{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8FA1AD;padding:8px 10px 2px;font-weight:600}
+.pillmenu .menu select{margin:4px 10px 6px;width:auto;padding:5px 8px}
+.pillmenu .menu .clear{color:var(--red);border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-top:9px}
+.avatar.sm.all{background:var(--navy);font-size:11px}
+.filtnote{color:var(--gold);font-weight:600}
+.dashhead .sub a{color:var(--teal);cursor:pointer;font-weight:500}
+.dashhead .sub a.hot{color:var(--red);font-weight:600}
+.dashhead .sub a:hover{text-decoration:underline}
+@media (max-width:760px){
+  .top .topq{display:none}
+  .controls{padding:10px 12px 0;flex-wrap:nowrap}
+  .controls .rowq{display:block;flex:1;min-width:0;padding:7px 10px;font-size:13px}
+  .pillmenu>summary{white-space:nowrap}
+  .pillmenu .menu{right:0;left:auto}
+}

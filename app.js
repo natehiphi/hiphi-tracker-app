@@ -49,7 +49,7 @@ const S = {
   // at an empty page. Unknown names fall back.
   view: (v => ['portfolio','pipeline','desk','table','cards','add','settings'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
-  owner: 'me', q: '', pri: '', stageF: '', camp: '',
+  owner: 'me', q: '', pri: '', pris: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
   drafts: {},  // bill_id -> [testimony draft]
@@ -857,7 +857,7 @@ function visibleBills() {
   if (S.owner === 'me' && S.me) list = list.filter(b => (S.assignments[b.id]||[]).includes(S.me.id));
   else if (S.owner && S.owner !== 'all' && S.owner !== 'me')
     list = list.filter(b => (S.assignments[b.id]||[]).includes(S.owner));
-  if (S.pri) list = list.filter(b => String(b.priority) === S.pri);
+  if (S.pris.size) list = list.filter(b => S.pris.has(b.priority));
   if (S.stageF) list = list.filter(b => effStage(b) === S.stageF);
   if (S.tripleF) list = list.filter(isTriple);
   if (S.q) {
@@ -879,9 +879,13 @@ function visibleBills() {
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
 const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings']];
+const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
+const filterCount = () => S.pris.size + (S.tripleF ? 1 : 0) + (S.stageF ? 1 : 0);
+const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null, S.tripleF ? 'triple-referred' : null,
+  S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null].filter(Boolean).join(' · ');
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
-  return [who, S.q ? `“${S.q}”` : null, S.pri ? 'P' + S.pri : null,
+  return [who, S.q ? `“${S.q}”` : null, S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
     S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null, S.tripleF ? '3X' : null].filter(Boolean).join(' · ');
 }
 function chrome(inner) {
@@ -919,22 +923,27 @@ function chrome(inner) {
           </div>
         </details>
       </div>
+      <input type="search" class="qbox topq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
       <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
       <span class="who">${av(S.me)}<button id="logout">sign out</button></span>
     </div>
-    <div class="ftoggle"><button class="fchip ${S.filtersOpen?'on':''}" id="ftoggle">${esc(filterSummary())} · filters ${S.filtersOpen?'▴':'▾'}</button></div>
-    <div class="filters${S.filtersOpen?' open':''}">
-      <input type="search" id="q" placeholder="Search bill # or title…" value="${esc(S.q)}">
-      <button class="fchip ${S.owner==='me'?'on':''}" data-owner="me">My bills</button>
-      <button class="fchip ${S.owner==='all'?'on':''}" data-owner="all">All tracked</button>
-      <span class="ownerchips">${S.advocates.map(a =>
-        av(a, 'avatar ' + (S.owner===a.id?'on':'')).replace('class="','data-owner="'+a.id+'" class="')).join('')}</span>
-      <select id="prif" style="width:auto"><option value="">Priority: all</option>
-        ${[1,2,3].map(p=>`<option ${S.pri==p?'selected':''} value="${p}">P${p}</option>`).join('')}</select>
-      <select id="stagef" style="width:auto"><option value="">Stage: all</option>
-        ${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>
-      <button class="fchip ${S.tripleF?'on':''}" id="triplef" title="Only bills with a triple referral (3+ committee stops in one chamber)">3X only</button>
-      <span class="spacer"></span>
+    <div class="controls">
+      <input type="search" class="qbox rowq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
+      <details class="pillmenu lens"><summary class="fchip on">Viewing: ${esc(lensName())} ▾</summary>
+        <div class="menu">
+          <button data-owner="me" class="${S.owner==='me'?'on':''}">${S.me ? av(S.me, 'avatar sm') : ''}<span>My bills</span></button>
+          <button data-owner="all" class="${S.owner==='all'?'on':''}"><span class="avatar sm all">☀</span><span>Everyone</span></button>
+          ${S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id).map(a => `<button data-owner="${a.id}" class="${S.owner===a.id?'on':''}">${av(a, 'avatar sm')}<span>${esc(a.full_name)}</span></button>`).join('')}
+        </div></details>
+      <details class="pillmenu filt"><summary class="fchip ${filterCount() ? 'on' : ''}">${filterCount() ? 'Filter: ' + esc(filterLabel()) : 'Filter'} ▾</summary>
+        <div class="menu">
+          <div class="mh">Priority</div>
+          ${[1,2,3].map(p => `<label><input type="checkbox" data-prif="${p}" ${S.pris.has(p)?'checked':''}> P${p}${p===1?' · highest':p===3?' · lowest':''}</label>`).join('')}
+          <div class="mh">Referral</div>
+          <label><input type="checkbox" id="triplef" ${S.tripleF?'checked':''}> Triple-referred only</label>
+          ${S.view==='table' ? `<div class="mh">Stage</div><select id="stagef"><option value="">Any stage</option>${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>` : ''}
+          ${filterCount() ? '<button class="clear" id="clearf">Clear filters</button>' : ''}
+        </div></details>
       ${S.view==='table' ? '<button class="fchip" id="csv">⬇ Export CSV</button>' : ''}
     </div>
     ${inner}`;
@@ -1270,13 +1279,19 @@ function renderPortfolio(list) {
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
   const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.');
-  return head(`${esc(who)}'s Portfolio`, `${today} · ${list.length} bill${list.length===1?'':'s'}${waiting.length ? ` · <b style="color:var(--red)">${waiting.length} testimony step${waiting.length === 1 ? '' : 's'} waiting on you</b>` : ''}`) + `
-    <div class="stats pf">
-      <button class="stat ${due.length?'warn':''}" data-jump="pf-week"><div class="v">${due.length}</div><div class="l">Testimony due (48h)</div></button>
-      <button class="stat" data-jump="pf-week"><div class="v">${week.length}</div><div class="l">Hearings this week</div></button>
-      <button class="stat" data-jump="pf-recent"><div class="v">${recent.length}</div><div class="l">Actions, last 72h</div></button>
-      <button class="stat ${board.a.length?'warn':''}" data-jump="pf-board-a"><div class="v">${board.a.length}</div><div class="l">Need a hearing</div></button>
-    </div>
+  const cur = currentDeadline();
+  const dlDays = cur ? Math.ceil((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5) : null;
+  const strip = [
+    `${list.length} bill${list.length===1?'':'s'}`,
+    waiting.length ? `<a data-jump="pf-wait" class="hot">${waiting.length} testimony step${waiting.length === 1 ? '' : 's'} waiting</a>` : null,
+    due.length ? `<a data-jump="pf-week">${due.length} due in 48h</a>` : null,
+    `<a data-jump="pf-week">${week.length} hearing${week.length===1?'':'s'} this week</a>`,
+    board.a.length ? `<a data-jump="pf-board-a">${board.a.length} need a hearing</a>` : null,
+    recent.length ? `<a data-jump="pf-recent">${recent.length} action${recent.length===1?'':'s'} in 72h</a>` : null,
+    cur ? `next deadline <b>${esc(cur.label)}</b> in ${dlDays}d` : null,
+    filterCount() ? `<span class="filtnote">showing ${esc(filterLabel())} only</span>` : null,
+  ].filter(Boolean).join(' · ');
+  return head(`${esc(who)}'s Portfolio`, `${today} · ${strip}`) + `
     <div class="dash${stacked ? ' one' : ''}">
       <div>${waitPanel}${stacked ? foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true) : ''}</div>
       ${stacked ? '' : `<div>${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true)}</div>`}
@@ -2398,13 +2413,13 @@ function wire() {
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
-    e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v; render();
-    document.getElementById('pf-week')?.scrollIntoView({ block: 'start' });
+    e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
+    rerenderKeep(isMobile() ? '#fold-week' : null, isMobile() ? 'fold-week' : 'pf-week');
   });
   document.querySelectorAll('details.fold').forEach(d => d.ontoggle = () => { S.folds = S.folds || {}; S.folds[d.id.replace('fold-', '')] = d.open; });
   document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
-    S.boardMore[k] = !S.boardMore[k]; render(); document.getElementById('pf-board-' + k)?.scrollIntoView({ block: 'start' });
+    S.boardMore[k] = !S.boardMore[k]; rerenderKeep(isMobile() ? '#fold-board' : null, 'pf-board-' + k);
   });
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () =>
     document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -2434,12 +2449,15 @@ function wire() {
   document.querySelectorAll('[data-openbill]').forEach(el => el.onclick = e => {
     e.stopPropagation(); openDrawer(el.dataset.openbill);
   });
-  $('#q') && ($('#q').oninput = e => { S.q = e.target.value; rerenderBody(); });
+  document.querySelectorAll('.qbox').forEach(el => el.oninput = e => { S.q = e.target.value; S.qFocus = el.classList.contains('topq') ? 'topq' : 'rowq'; rerenderBody(); });
   document.querySelectorAll('[data-owner]').forEach(el =>
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
-  $('#prif') && ($('#prif').onchange = e => { S.pri = e.target.value; render(); });
-  $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; render(); });
-  $('#triplef') && ($('#triplef').onclick = () => { S.tripleF = !S.tripleF; render(); });
+  document.querySelectorAll('[data-prif]').forEach(el => el.onchange = () => { const p = Number(el.dataset.prif); el.checked ? S.pris.add(p) : S.pris.delete(p); rerenderKeep('.pillmenu.filt'); });
+  $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; rerenderKeep('.pillmenu.filt'); });
+  $('#triplef') && ($('#triplef').onchange = () => { S.tripleF = $('#triplef').checked; rerenderKeep('.pillmenu.filt'); });
+  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.tripleF = false; S.stageF = ''; render(); });
+  document.querySelectorAll('.pillmenu').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.pillmenu').forEach(o => { if (o !== d) o.open = false; }); }));
+  document.addEventListener('click', e => { if (!e.target.closest('.pillmenu')) document.querySelectorAll('.pillmenu[open]').forEach(d => d.open = false); }, { once: true });
   $('#csv') && ($('#csv').onclick = exportCSV);
   $('#dk-out') && ($('#dk-out').onclick = () => { S.deskOut = !S.deskOut; render(); });
   document.querySelectorAll('[data-camp]').forEach(el =>
@@ -2487,9 +2505,29 @@ function wire() {
   });
   wireDrawer(); wireAdd(); wireSettings();
 }
-function rerenderBody() {   // keep focus in search box while typing
-  const app = $('#app'), old = app.querySelector('.tablewrap, .board, .stats')?.parentNode;
-  render(); const q = $('#q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+function rerenderBody() {   // keep focus in the search box being typed in
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+  const q = document.querySelector('.qbox.' + (S.qFocus || 'topq')) || document.querySelector('.qbox');
+  if (q && q.checkVisibility()) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+}
+// Re-render without the page jumping: keep the scroll position, and reopen a
+// menu the user was inside (the filter menu stays open between checkbox taps).
+function rerenderKeep(openSel, anchorId) {
+  // Anchor: keep the named element at the same place on screen, even though
+  // the content above or inside it changes height (week paging, show more).
+  const a = anchorId && document.getElementById(anchorId);
+  const before = a ? a.getBoundingClientRect().top : null;
+  const y = window.scrollY;
+  render();
+  if (openSel) { const d = document.querySelector(openSel); if (d) d.open = true; }
+  const b = anchorId && document.getElementById(anchorId);
+  if (a && b) {
+    window.scrollBy(0, b.getBoundingClientRect().top - before);
+    // Near the bottom of a page that just got shorter, the browser cannot
+    // scroll far enough; add room below so the anchor stays put.
+    const off = b.getBoundingClientRect().top - before;
+    if (Math.abs(off) > 2) { $('#app').style.paddingBottom = (parseFloat($('#app').style.paddingBottom) || 0) + off + 'px'; window.scrollBy(0, off); }
+  } else window.scrollTo(0, y);
 }
 function wireDrawer() {
   const b = S.bills.find(x => x.id === S.drawerBill); if (!b) return;
