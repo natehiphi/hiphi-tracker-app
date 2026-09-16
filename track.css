@@ -29,3 +29,31 @@
 .danger{color:var(--red)}
 .calrow .watchbtn{margin-left:auto}
 @media (max-width:760px){ .pubwrap{padding:10px 12px 30px} .stats.pub{grid-template-columns:1fr 1fr 1fr;padding:0} }
+
+/* 9/15: staff-style layout, calendar links, coalition browse, plain-language panel */
+.pubwrap .dash{padding:0 0 14px;grid-template-columns:1.15fr 1fr}
+.pubwrap .browse{margin:-4px 0 12px}
+.pubwrap .browse .fchip .cnt{font-size:10px;opacity:.7;margin-left:3px}
+.pubwrap .results .row.prow{cursor:pointer}
+.callinks{display:inline-flex;align-items:center;gap:6px}
+.callinks .gcal{font-size:11.5px;color:var(--muted);text-decoration:underline dotted;text-underline-offset:2px}
+.calbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.hchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.hchips .watchbtn{padding:3px 10px}
+.drawer .plain{font-size:13px;line-height:1.5;color:var(--ink);margin:8px 0 0}
+.testify summary{cursor:pointer;list-style:none;display:flex;gap:6px;align-items:baseline}
+.testify summary::-webkit-details-marker{display:none}
+.testify summary::before{content:"▸";color:var(--muted);font-size:11px}
+.testify[open] summary::before{content:"▾"}
+.testify ol{margin:8px 0 0;padding-left:20px}
+.testify li{margin:4px 0}
+.panel.dead summary.ph{cursor:pointer;list-style:none}
+.panel.dead summary.ph::-webkit-details-marker{display:none}
+.panel.dead .prow{opacity:.8}
+.pubhead .sub a{color:var(--teal);cursor:pointer}
+.pubhead .sub a.hot{color:var(--red)}
+.pubhead .sub{font-size:13px;line-height:1.6}
+.help.pub section{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.help.pub h2{margin:0 0 8px}
+.help.pub code{font-size:12px;background:#f3f5f7;padding:1px 5px;border-radius:4px}
+@media (max-width:760px){ .pubwrap .dash{grid-template-columns:1fr} .callinks .gcal{display:none} }

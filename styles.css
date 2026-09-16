@@ -854,4 +854,4 @@ details.fold .calnav{margin-left:auto}
 .help .krow>b{flex:0 0 150px;font-weight:600}
 .help .krow>kbd{flex:0 0 auto;min-width:150px;text-align:left}
 .help section{margin-bottom:6px}
-@media (max-width:640px){.help .krow{flex-wrap:wrap}.help .krow>b,.help .krow>kbd{flex-basis:100%;min-width:0}}
+@media (max-width:640px){.help .krow{flex-wrap:wrap}.help .krow>b{flex-basis:100%}.help .krow>kbd{min-width:0;flex-basis:auto}}
