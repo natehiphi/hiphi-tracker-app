@@ -135,7 +135,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -157,7 +157,11 @@ const DB = {
       S.supa.from('bill_follows').select('advocate_id,bill_id'),
       S.supa.from('hearing_attendance').select('hearing_id,advocate_id'),
       S.supa.from('hearing_outcomes').select('*').gte('scheduled_at', new Date(Date.now() - 14 * 864e5).toISOString()),
+      S.supa.from('bill_messages').select('*').is('deleted_at', null).gte('created_at', new Date(Date.now() - 90 * 864e5).toISOString()).order('created_at'),
+      S.supa.from('bill_message_reads').select('*'),
     ]);
+    S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
+    S.chatSeen = Object.fromEntries((reads?.data || []).map(r => [r.bill_id, r.seen_at]));
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
     S.emailCfg = ecfg?.data?.value || { enabled: true };
@@ -475,6 +479,21 @@ const DB = {
     const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
     if (!j.ok) throw new Error(j.error || 'could not start'); return j;
   },
+  // ---- bill chat (migration 025) ----
+  async sendMessage(billId, body) {
+    const m = { id: 'm' + Date.now(), bill_id: billId, advocate_id: S.me?.id, body, created_at: new Date().toISOString() };
+    if (!DEMO) { const { data, error } = await S.supa.from('bill_messages').insert({ bill_id: billId, advocate_id: S.me.id, body }).select().single(); if (error) throw error; Object.assign(m, data); }
+    (S.messages[billId] ??= []).push(m); S.chatSeen[billId] = new Date().toISOString(); return m;
+  },
+  async deleteMessage(m) {
+    if (!DEMO) { const { error } = await S.supa.from('bill_messages').update({ deleted_at: new Date().toISOString() }).eq('id', m.id); if (error) throw error; }
+    S.messages[m.bill_id] = (S.messages[m.bill_id] || []).filter(x => x.id !== m.id);
+  },
+  async markChatSeen(billId) {
+    S.chatSeen[billId] = new Date().toISOString();
+    if (DEMO) return;
+    await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
+  },
   async saveSyncSettings(cfg) {
     S.syncCfg = cfg;
     if (DEMO) return;
@@ -590,9 +609,19 @@ async function demoInit() {
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
   S.demoTriaged = new Set();
+  S.messages = {}; S.chatSeen = {};
+  if (anchor) { const kv = byIni.KV || S.advocates[1]?.id, ago = h => new Date(Date.now() - h * 36e5).toISOString();
+    S.messages[anchor.id] = [
+      { id: 'dm1', bill_id: anchor.id, advocate_id: kv, body: 'Chair’s office says they want the amended language before the hearing — can we get the CTFH letter attached to the draft?', created_at: ago(26) },
+      { id: 'dm2', bill_id: anchor.id, advocate_id: S.me.id, body: 'Yes. @Kevin add it to the Doc and I’ll approve tonight.', created_at: ago(25) },
+      { id: 'dm3', bill_id: anchor.id, advocate_id: kv, body: 'Done. Also SB2201 has the same section, worth a look.', created_at: ago(2) } ]; }
   const nowMs = Date.now();
   const upcoming = S.hearings.filter(h => new Date(h.scheduled_at) > nowMs && h.status !== 'cancelled').sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   if (upcoming[0] && S.advocates[1]) S.attend[upcoming[0].id] = [S.advocates[1].id];
+  // ...and a short thread on this week's first hearing, so the unread chip shows on the home page.
+  const vis = upcoming.find(h => { const b = S.bills.find(x => x.id === h.bill_id); return b && b.position && b.position !== 'monitor'; });
+  if (vis && !S.messages[vis.bill_id]) { const kv = byIni.KV || S.advocates[1]?.id;
+    S.messages[vis.bill_id] = [{ id: 'dm4', bill_id: vis.bill_id, advocate_id: kv, body: 'Heads up: the chair asked for testimony to lead with the fiscal note. Who is attending?', created_at: new Date(nowMs - 5 * 36e5).toISOString() }]; }
   const unowned = S.bills.find(b => b.tracked && b.position && b.position !== 'monitor' && !(S.assignments[b.id] || []).length);
   if (unowned && S.me) { S.followersBy[unowned.id] = [S.me.id]; S.follows.add(unowned.id); }
   // Seed the To do section so the sandbox shows all three states: overdue,
@@ -1645,7 +1674,7 @@ function renderCards(list) {
 }
 
 // ---------------- settings: your Slack messages, and (admins) the alert rules ----------------
-const WORKFLOW_KINDS = [['draft_created', 'A draft was created for one of my bills'],
+const WORKFLOW_KINDS = [['chat', 'Someone wrote in the chat on a bill I own, follow or took part in'], ['draft_created', 'A draft was created for one of my bills'],
   ['review_requested', 'Someone submitted testimony for my approval'],
   ['second_review_requested', 'A first-time testimony needs my second approval'],
   ['approved', 'Testimony I submitted was approved'],
@@ -2130,7 +2159,10 @@ const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', opp
   neutral: 'pos-neutral', monitor: 'pos-monitor' }[b.position] || 'pos-none');
 // Status priority for the one chip a Desk row can afford.
 const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
-function draftChip(b) {
+const unreadCount = b => (S.messages?.[b.id] || []).filter(m => m.advocate_id !== S.me?.id && (!S.chatSeen?.[b.id] || m.created_at > S.chatSeen[b.id])).length;
+const chatChip = b => { const n = unreadCount(b); return n ? `<span class="chipx c-gold chatchip" title="${n} new message${n === 1 ? '' : 's'} in the chat">💬 ${n}</span>` : ''; };
+function draftChip(b) { return draftChipBase(b) + chatChip(b); }
+function draftChipBase(b) {
   const d = (S.drafts[b.id] || []).filter(x => x.status !== 'cancelled')
     .sort((x, y) => (DRAFT_RANK[y.status] || 0) - (DRAFT_RANK[x.status] || 0))[0];
   if (!d) return '';
@@ -2186,6 +2218,28 @@ function draftsHTML(b) {
 
 // Open items first, then finished ones. Overdue is called out in red, since a
 // missed testimony deadline is the whole point of tracking these.
+// ---------------- chat: the team talking inside the bill ----------------
+function chatHTML(b) {
+  const list = (S.messages[b.id] || []).slice().sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+  const unread = unreadCount(b);
+  const open = S.drawerOpen.chat || list.length;
+  if (!open) return `<button class="todoline" id="d-chatopen">💬 Message the team about this bill</button>`;
+  const when = iso => { const d = new Date(iso), ms = Date.now() - d; return ms < 36e5 ? `${Math.max(1, Math.round(ms / 6e4))}m ago` : ms < 864e5 ? fmtDT(iso).replace(/^.*?, /, '') : fmtDT(iso); };
+  const shown = S.drawerOpen.chatAll ? list : list.slice(-12);
+  const linkBills = t => esc(t).replace(/\b([HS]B ?\d{1,4})\b/g, (m, n) => `<a data-jumpbill="${n.replace(/\s/g, '')}">${m}</a>`);
+  const row = m => { const a = advocate(m.advocate_id), mine = m.advocate_id === S.me?.id, fresh = !mine && (!S.chatSeen[b.id] || m.created_at > S.chatSeen[b.id]); return `
+    <div class="msg ${mine ? 'mine' : ''} ${fresh ? 'fresh' : ''}" data-msg="${esc(m.id)}">
+      ${a ? av(a, 'avatar sm') : '<span class="avatar sm">?</span>'}
+      <div class="msgb"><div class="msgh"><b>${esc(a?.full_name || 'Someone')}</b><span class="msgt">${when(m.created_at)}</span>${mine || S.me?.is_admin ? `<button class="msgdel" data-msgdel="${esc(m.id)}" title="Delete">✕</button>` : ''}</div>
+        <div class="msgtext">${linkBills(m.body).replace(/\n/g, '<br>')}</div></div>
+    </div>`; };
+  return `<div class="sec">Chat${unread ? ` <span class="tag t">${unread} new</span>` : ''}${list.length ? ` <span class="tok">· owners, followers and anyone @mentioned get a Slack DM</span>` : ''}</div>
+    <div class="chat" id="d-chat">
+      ${list.length > shown.length ? `<button class="morelink" id="d-chatall">earlier messages (${list.length - shown.length})</button>` : ''}
+      ${shown.map(row).join('') || '<div class="msgempty">No messages yet. Say something — the owners get a DM.</div>'}
+      <div class="chatadd"><textarea id="d-chatnew" rows="1" placeholder="Message the team… (@Kevin to mention, Enter to send)" maxlength="4000"></textarea><button class="btn sm" id="d-chatsend">Send</button></div>
+    </div>`;
+}
 function todosHTML(b) {
   const list = (S.todos[b.id] || []).slice().sort((x, y) =>
     (x.done - y.done) || (x.sort_order - y.sort_order) ||
@@ -2369,6 +2423,7 @@ function drawerHTML(b) {
       <div class="sec">Summary</div>
       ${summary}
       ${todosHTML(b)}
+      ${chatHTML(b)}
       <div class="dtabs">${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}${tab('timeline', 'Timeline')}</div>
       ${pane('timeline', `
         ${open.log ? `<div class="logform">
@@ -2639,6 +2694,18 @@ function rerenderKeep(openSel, anchorId) {
   } else window.scrollTo(0, y);
 }
 function wireDrawer() {
+  // ---- chat ----
+  const chatBill = S.drawerBill;
+  $('#d-chatopen') && ($('#d-chatopen').onclick = () => keep(() => { S.drawerOpen.chat = true; }) || setTimeout(() => $('#d-chatnew')?.focus(), 50));
+  $('#d-chatall') && ($('#d-chatall').onclick = () => keep(() => { S.drawerOpen.chatAll = true; }));
+  if ($('#d-chat') && chatBill && unreadCount({ id: chatBill })) DB.markChatSeen(chatBill).catch(() => {});
+  const sendChat = async () => { const ta = $('#d-chatnew'); const body = (ta?.value || '').trim(); if (!body || !chatBill) return;
+    ta.disabled = true; try { await DB.sendMessage(chatBill, body); keep(() => { S.drawerOpen.chat = true; }); setTimeout(() => { const el = $('#d-chat'); if (el) el.scrollTop = el.scrollHeight; $('#d-chatnew')?.focus(); }, 30); }
+    catch (e) { toast(e.message, true); ta.disabled = false; } };
+  $('#d-chatsend') && ($('#d-chatsend').onclick = sendChat);
+  $('#d-chatnew') && ($('#d-chatnew').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+  document.querySelectorAll('[data-msgdel]').forEach(el => el.onclick = async () => { const m = (S.messages[chatBill] || []).find(x => String(x.id) === el.dataset.msgdel); if (!m) return; try { await DB.deleteMessage(m); keep(() => {}); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-jumpbill]').forEach(el => el.onclick = () => { const b = S.bills.find(x => x.bill_number === el.dataset.jumpbill); if (b) openDrawer(b.id); });
   const b = S.bills.find(x => x.id === S.drawerBill); if (!b) return;
   $('#scrim').onclick = $('#dclose').onclick = () => { S.drawerBill = null; render(); };
   // render() rebuilds the drawer after every save; remember which editors
