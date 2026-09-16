@@ -240,24 +240,23 @@ function home() {
   const hUp = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const wk = now + 7 * 864e5;
   const mondayOf = t => { const d = new Date(hstDay(t) + 'T12:00:00-10:00'); return t - ((d.getUTCDay() + 6) % 7) * 864e5; };
-  const off = S.weekOffset, wkStart = off === 0 ? now : mondayOf(now + off * 7 * 864e5), wkEnd = wkStart + 7 * 864e5;
-  const week = (off === 0 ? hUp.filter(h => new Date(h.scheduled_at) < wk)
-    : S.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) >= new Date(hstDay(wkStart) + 'T00:00:00-10:00') && new Date(h.scheduled_at) < new Date(hstDay(wkEnd) + 'T00:00:00-10:00')))
+  const off = S.weekOffset, wkStart = mondayOf(now + off * 7 * 864e5), wkEnd = wkStart + 7 * 864e5;   // always a Mon–Sun week, so paging never skips a day
+  const week = S.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) >= new Date(hstDay(wkStart) + 'T00:00:00-10:00') && new Date(h.scheduled_at) < new Date(hstDay(wkEnd) + 'T00:00:00-10:00'))
     .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const all7 = [...Array(7)].map((_, i) => hstDay(wkStart + i * 864e5));
   const isWeekend = d => [0, 6].includes(new Date(d + 'T12:00:00-10:00').getDay());
-  const days = all7.filter((d, i) => !isWeekend(d) || (i === 0 && off === 0) || week.some(h => hstDay(h.scheduled_at) === d));
+  const days = all7.filter(d => !isWeekend(d) || week.some(h => hstDay(h.scheduled_at) === d));
   const wkLabel = off === 0 ? 'This week' : off === 1 ? 'Next week' : off === -1 ? 'Last week' : 'Week of ' + fmtDate(hstDay(wkStart) + 'T12:00:00-10:00', { month: 'short' });
   const calRow = h => { const b = bill(h.bill_id); if (!b) return ''; const dueSoon = h.testimony_deadline && (new Date(h.testimony_deadline) - now) < 48 * 3600e3 && new Date(h.testimony_deadline) > now; const past = new Date(h.scheduled_at) < now; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}">
       <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: HST })}</span>
-      <div class="pmain"><b>${esc(billNum(b))}</b> · ${esc(h.committee)} · ${esc(clean(h.room))} ${past ? outcomeChip(h) : ''}
+      <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span>${past ? `<div class="tagline">${outcomeChip(h)}</div>` : ''}
         <div class="pdesc">${esc(blurb(b, 96))}</div>
         <div class="psmall">${h.testimony_deadline && !past ? (inWhen(h.testimony_deadline) === 'passed' ? 'testimony deadline passed' : `written testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
       <div class="calbtns">${b.state_url && alive(b) && !past ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Submit testimony ↗</a>` : ''}${!past ? calLinks(b, h) : ''}</div>
     </div>`; };
-  const calHtml = `<div class="calweek" style="--ndays:${days.length}">${days.map(d => { const hs = week.filter(h => hstDay(h.scheduled_at) === d); const dt = new Date(d + 'T12:00:00-10:00'); const isToday = d === hstDay(now); return `
-    <div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}"><div class="calrail"><span class="dow">${dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: HST })}</span><span class="dom">${dt.getDate()}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
+  const calHtml = `<div class="calweek" style="--ndays:${days.length}">${days.map(d => { const hs = week.filter(h => hstDay(h.scheduled_at) === d); const dt = new Date(d + 'T12:00:00-10:00'); const isToday = d === hstDay(now), isPast = d < hstDay(now); return `
+    <div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}${isPast ? ' past' : ''}"><div class="calrail"><span class="dow">${dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: HST })}</span><span class="dom">${dt.getDate()}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
       <div class="calbody">${hs.length ? hs.map(calRow).join('') : '<div class="calnone">no hearings</div>'}</div></div>`; }).join('')}</div>`;
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week (p)">‹</button>${off ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week (n)">›</button></span>`;
 

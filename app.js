@@ -1276,12 +1276,14 @@ function renderPortfolio(list) {
   // The calendar can page through weeks; the stats and "hearings this week" stay on the current one.
   const wkOff = S.weekOffset || 0;
   const mondayOf = t => { const d = new Date(hstDay(t) + 'T12:00:00-10:00'); const dow = (d.getUTCDay() + 6) % 7; return t - dow * 864e5; };
-  const wkStart = wkOff === 0 ? now : mondayOf(now + wkOff * 7 * 864e5), wkEnd = wkStart + 7 * 864e5;
+  // Every page is a calendar week (Mon–Sun), including the current one; earlier
+  // days of this week stay visible, dimmed, so paging back and forward never skips a day.
+  const wkStart = mondayOf(now + wkOff * 7 * 864e5), wkEnd = wkStart + 7 * 864e5;
   const inWindow = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' &&
       new Date(h.scheduled_at) >= new Date(hstDay(wkStart) + 'T00:00:00-10:00') && new Date(h.scheduled_at) < new Date(hstDay(wkEnd) + 'T00:00:00-10:00'))
     .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const weekByBill = new Map();
-  for (const h of (wkOff === 0 ? hUp.filter(h => new Date(h.scheduled_at) < new Date(wk)) : inWindow)) if (!weekByBill.has(h.bill_id)) weekByBill.set(h.bill_id, h);
+  for (const h of inWindow) if (!weekByBill.has(h.bill_id)) weekByBill.set(h.bill_id, h);
   const week = [...weekByBill.values()].sort((a,b) =>
     (a.testimony_deadline || a.scheduled_at).localeCompare(b.testimony_deadline || b.scheduled_at));
   const isNew = h => h.notice_posted_at && new Date(h.notice_posted_at).getTime() > S.sinceVisit;
@@ -1290,14 +1292,14 @@ function renderPortfolio(list) {
   const all7 = [...Array(7)].map((_, i) => hstDay(wkStart + i * 864e5));
   const isWeekend = d => [0, 6].includes(new Date(d + 'T12:00:00-10:00').getDay());
   // Weekdays always; a weekend day only when something is actually scheduled on it.
-  const days7 = all7.filter((d, i) => !isWeekend(d) || (i === 0 && wkOff === 0) || week.some(h => hstDay(h.scheduled_at) === d));
+  const days7 = all7.filter(d => !isWeekend(d) || week.some(h => hstDay(h.scheduled_at) === d));
   const weekRow = h => { const b = bill(h.bill_id); if (!b) return '';
     const dueSoon = h.testimony_deadline && hrsLeft(h.testimony_deadline) < 48;
     const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
     return `
     <div class="prow calrow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
       <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}<span class="calwho">${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</span></span>
-      <div class="pmain"><b>${esc(billNum(b))}</b> · ${esc(h.committee)} · ${esc(clean(h.room))}${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}
+      <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span><div class="tagline">${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}</div>
         <div class="pdesc">${esc(blurb(b, 96))}</div>
         <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
       <div class="calbtns">${draftActionBtn(b, h.committee)}
@@ -1309,8 +1311,8 @@ function renderPortfolio(list) {
   const weekHtml = (week.length || wkOff !== 0) ? `<div class="calweek" style="--ndays:${days7.length}">` + days7.map((d, i) => {
     const hs = week.filter(h => hstDay(h.scheduled_at) === d).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     const [dow, dom] = railParts(d);
-    const isToday = d === hstDay(now);
-    return `<div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}">
+    const isToday = d === hstDay(now), isPast = d < hstDay(now);
+    return `<div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}${isPast ? ' past' : ''}">
       <div class="calrail"><span class="dow">${dow}</span><span class="dom">${dom}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
       <div class="calbody">${hs.length ? hs.map(weekRow).join('') : '<div class="calnone">no hearings</div>'}</div></div>`; }).join('') + `</div>` : '';
 

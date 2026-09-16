@@ -631,10 +631,9 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .p3 .pri{display:none}
 .wrow.p3 .verb{font-size:17px}
 .wrow.p3 .pmain{font-size:15px}
-.wrow.p3 .pdesc,.calrow.p3 .pdesc{font-size:14.5px;line-height:1.45}
-.wrow.p3 .psmall,.calrow.p3 .psmall,.chip3.p3 .l2,.tlrow.p3 .tlts,.tlrow.p3 .tltitle{font-size:12.5px}
-.calrow.p3 .caltime{font-size:14px}
-.calrow.p3 .pmain b,.wrow.p3 .pmain b,.chip3.p3 .l1 b,.tlrow.p3 .tltext b{font-size:15px}
+.wrow.p3 .pdesc{font-size:14.5px;line-height:1.45}
+.wrow.p3 .psmall,.chip3.p3 .l2,.tlrow.p3 .tlts,.tlrow.p3 .tltitle{font-size:12.5px}
+.wrow.p3 .pmain b,.chip3.p3 .l1 b,.tlrow.p3 .tltext b{font-size:15px}
 .chip3.p3 .l1{font-size:14px;padding-right:34px}
 .chip3.p3 .cm{font-size:13px}
 .chip3.p3 .ldesc{font-size:14px;line-height:1.4}
@@ -855,3 +854,30 @@ details.fold .calnav{margin-left:auto}
 .help .krow>kbd{flex:0 0 auto;min-width:150px;text-align:left}
 .help section{margin-bottom:6px}
 @media (max-width:640px){.help .krow{flex-wrap:wrap}.help .krow>b{flex-basis:100%}.help .krow>kbd{min-width:0;flex-basis:auto}}
+
+/* ---------- 9/16: calendar cards, one per hearing, with breathing room ---------- */
+.calweek .calbody{padding:4px 0 2px}
+.calweek .calrow{margin:5px 6px;border:1px solid #E3EAEE;border-radius:9px;background:#fff;box-shadow:0 1px 2px rgba(20,40,50,.05);border-bottom:1px solid #E3EAEE;padding:8px 9px 9px 8px}
+.calweek .calrow.pos-support,.calweek .calrow.pos-oppose,.calweek .calrow.pos-neutral{border-left-width:4px}
+.calweek .calrow.p3{border-color:#BFDCDF;border-left-width:5px}
+.calweek .calrow.p3{padding:12px 9px 13px 8px}
+.calweek .caltime{font-size:12px;color:var(--muted);font-weight:600}
+.calweek .pmain{font-size:12.5px}
+.calweek .pmain b{font-size:13px}
+.calweek .pmain .cm{color:var(--muted);font-weight:500;font-size:11.5px;margin-left:2px}
+.calweek .tagline{display:flex;flex-wrap:wrap;gap:3px 4px;margin:3px 0 1px;min-height:0}
+.calweek .tagline:empty{display:none}
+.calweek .tagline .tag,.calweek .tagline .chipx{margin-left:0}
+.calweek .pdesc{font-size:12px;line-height:1.35;margin:3px 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.calweek .psmall{font-size:11px}
+.calweek .calbtns{margin-top:5px}
+.calweek .calbtns .btn{padding:3px 8px;font-size:10.5px}
+.calweek .calday.past .calrail{opacity:.55}
+.calweek .calday.past .calrow{opacity:.72}
+.calweek .calday.past .calrow:hover{opacity:1}
+.calweek .calnone{color:#B9C6CF;font-size:12px}
+@media (max-width:760px){
+  .calweek .calrow{margin:6px 8px 6px 6px;padding:9px 10px 10px 9px}
+  .calweek .calrow.p3{padding:12px 10px 13px 9px}
+  .calweek .pdesc{-webkit-line-clamp:3}
+}
