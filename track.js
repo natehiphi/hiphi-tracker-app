@@ -27,7 +27,7 @@ const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
 const toast = (m, err) => { const el = document.createElement('div'); el.className = 'toastmsg' + (err ? ' err' : ''); el.textContent = m; $('#toast').appendChild(el); setTimeout(() => el.remove(), 3600); };
 const blurb = (b, n = 110) => { const t = (b.hiphi_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
 const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed'; const h = Math.round(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.ceil(ms / 864e5)}d`; };
-const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '');
+const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
 const STAGE_LABEL = { introduced: 'Introduced', first_triple: '1st Triple', first_lateral: '1st Lateral', first_decking: '1st Decking',
   first_crossover: 'Crossed over', second_triple: '2nd Triple', second_lateral: '2nd Lateral', second_decking: '2nd Decking',
   second_crossover: 'Passed both', conference: 'Conference', governor: 'Governor', enacted: 'Law', vetoed: 'Vetoed', dead: 'Dead' };
