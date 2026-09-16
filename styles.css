@@ -897,3 +897,10 @@ details.fold .calnav{margin-left:auto}
 .panel.dead .prow{opacity:.85}
 .panel.dead .prow .pri{font-size:10px;color:var(--muted);margin:0 4px}
 @media (max-width:480px){ .next.v3 .nextgrid{grid-template-columns:1fr;gap:2px} .next.v3 .nl{margin-top:6px} .next.v3 .nr:first-child .nl{margin-top:0} }
+
+/* ---------- 9/16: board explainer and the chamber/stop line on chips ---------- */
+.boardhow{margin:-6px 20px 10px;font-size:12.5px;color:var(--muted);line-height:1.5;max-width:900px}
+.pubwrap .boardhow{margin:-6px 0 10px}
+.chip3 .lstop{display:block;font-size:11px;color:#7F98A3;margin:1px 0 2px}
+.chip3 .lstop:empty{display:none}
+.stopn{font-weight:600}

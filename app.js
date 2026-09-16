@@ -5,6 +5,7 @@
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME } from './stops.js';
 const DEMO = new URLSearchParams(location.search).has('demo');
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
@@ -74,7 +75,9 @@ const toast = (msg, err) => {
   d.className = 'toastmsg' + (err ? ' err' : ''); d.textContent = msg;
   $('#toast').append(d); setTimeout(() => d.remove(), 3600);
 };
-const fmtDate = (d, opts) => d ? new Date(d).toLocaleString('en-US',
+// A date-only value (2026-03-16) is a Hawaiʻi calendar day, not UTC midnight.
+const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);
+const fmtDate = (d, opts) => d ? asDate(d).toLocaleString('en-US',
   { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric', ...opts }) : '—';
 const fmtDT = d => fmtDate(d, { hour: 'numeric', minute: '2-digit' });
 const daysAgo = d => d ? Math.floor((Date.now() - new Date(d)) / 864e5) : null;
@@ -690,12 +693,7 @@ function currentDeadline() {
 // stage names (nextDeadline). A bill still in a committee phase whose date has
 // already passed is flagged as missed rather than hidden.
 function billDeadline(b) {
-  const dl = nextDeadline(b);
-  if (dl) return dl;
-  const st = effStage(b);
-  const key = st === 'introduced' ? (isTriple(b) ? 'first_triple' : 'first_lateral') : st;
-  const last = (DEADLINES[key] || []).slice(-1)[0];
-  return last ? { label: last[0], date: last[1], days: Math.ceil((new Date(last[1] + 'T23:59:59-10:00') - Date.now()) / 864e5), missed: true } : null;
+  return stopOf(b).deadline;
 }
 // Last regular meeting slot of a committee on or before a date (from the
 // Capitol's published schedules, committee_slots), and the 48-hour notice
@@ -725,59 +723,59 @@ function pfBoard(list) {
   const cur = currentDeadline();
   if (SESSION_OVER || !cur) return { html: '', a: [], b: [], c: [] };
   const now = Date.now();
-  const alive = list.filter(b => b.position !== 'monitor' && !diedish(b) && !['enacted', 'vetoed', 'dead', 'governor'].includes(effStage(b)));
-  const hearingFor = b => S.hearings.filter(h => h.bill_id === b.id && h.status !== 'cancelled' &&
-      new Date(h.scheduled_at) > now - 10 * 864e5)
-    .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))
-    .find(h => new Date(h.scheduled_at) > now || !b.last_action_date || b.last_action_date < h.scheduled_at.slice(0, 10));
-  // A: in a committee phase, no hearing on the books (racing its own next deadline,
-  //    or already past it). B: hearing scheduled or just held. C: nothing to race
-  //    right now - past the committees for this leg (floor, crossover, conference).
-  const a = [], bcol = [], c = [];
-  for (const b of alive) {
-    const h = hearingFor(b);
-    const inCommittee = RADAR_STAGES.includes(effStage(b));
-    if (h) { bcol.push({ b, h, dl: billDeadline(b) }); continue; }
-    if (inCommittee) { const dl = billDeadline(b); if (dl && !dl.missed) a.push({ b, dl }); continue; }   // missed = off the board
-    c.push({ b, dl: cur });
+  // Each live bill is placed by where it stands (stops.js): needs a hearing,
+  // hearing scheduled or held, or through committee. Monitor bills, dead
+  // bills and bills that missed their deadline stay off the board.
+  const cols = { a: [], b: [], c: [] };
+  for (const b of list) {
+    if (b.position === 'monitor' || diedish(b)) continue;
+    const st = stopOf(b);
+    if (!st.column) continue;
+    cols[st.column].push({ b, st, h: st.hearing, dl: st.deadline });
   }
+  const { a, b: bcol, c } = cols;
   const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
-  a.sort((x, y) => byPri(x, y) || days(x.dl.date) - days(y.dl.date) || x.b.bill_number.localeCompare(y.b.bill_number));
+  a.sort((x, y) => byPri(x, y) || (x.dl ? days(x.dl.date) : 999) - (y.dl ? days(y.dl.date) : 999) || x.b.bill_number.localeCompare(y.b.bill_number));
   bcol.sort((x, y) => byPri(x, y) || x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   c.sort((x, y) => byPri(x, y) || (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
   const more = S.boardMore || {};
-  const col = (key, icon, title, sub, rows, rowFn, empty) => {
-    const shown = more[key] ? rows : rows.slice(0, BOARD_CAP);
-    return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${icon} ${title} <span class="cnt">${rows.length}</span></span><span class="psub">${sub}</span></div>
+  const col = (key, rows, rowFn, empty) => {
+    const C = COLUMNS[key], shown = more[key] ? rows : rows.slice(0, BOARD_CAP);
+    return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${C.icon} ${C.title} <span class="cnt">${rows.length}</span></span><span class="psub">${C.sub}</span></div>
       ${rows.length ? `<div class="chips">${shown.map(rowFn).join('')}</div>` : `<div class="pempty">${empty}</div>`}
       ${rows.length > BOARD_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more[key] ? 'Show fewer' : `…and ${rows.length - BOARD_CAP} more`}</button>` : ''}
     </div>`;
   };
   const who = b => owners(b)[0] ? av(owners(b)[0], 'avatar sm') : '';
   const pri = b => b.priority ? `<span class="pri">P${b.priority}</span>` : '';
+  const stopn = st => st.stops ? `<span class="stopn">${CHAMBER_NAME[st.chamber]} · stop ${st.stop} of ${st.stops}</span>` : `<span class="stopn">${CHAMBER_NAME[st.chamber]}</span>`;
+  const phaseLabel = st => st.phase === 'conference' ? 'Conference' : `${CHAMBER_NAME[st.chamber]} floor`;
   const html = `
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
       <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it is racing; bills re-sort as dates pass.</span></div>
+    <p class="boardhow">${BOARD_EXPLAINER}</p>
     <div class="board3">
-      ${col('a', '📡', 'Needs a hearing', 'in committee, nothing scheduled', a, ({ b, dl }) => `
+      ${col('a', a, ({ b, st, dl }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
-          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${esc(b.committee || '—')}${chairOf(b.committee)}</span>${who(b)}</span>
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral'}</span>${who(b)}</span>
+          <span class="lstop">${stopn(st)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${days(dl.date) <= 5 ? `<span class="hot">${esc(dl.label)} in ${days(dl.date)}d</span>`
-            : `${esc(dl.label)} in ${days(dl.date)}d (${fmtDate(dl.date)})`}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(lastSlotBefore(b.committee, dl.date, S.slots))}</span>
+          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d (${fmtDate(dl.date)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
-      ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
+      ${col('b', bcol, ({ b, st, h }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
-          <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${esc(h.committee)}</span>${who(b)}</span>
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${esc(h.committee)}</span>${who(b)}</span>
+          <span class="lstop">${stopn(st)}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${new Date(h.scheduled_at) > now ? fmtDT(h.scheduled_at) : 'held ' + fmtDate(h.scheduled_at)}${draftChip(b)}</span>
-        </div>`, 'No hearings on the books for this deadline.')}
-      ${col('c', '✅', 'Cleared committee', 'no hearing needed until the next stage', c, ({ b }) => `
+          <span class="l2">${st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)} · waiting for the report` : fmtDT(h.scheduled_at)}${draftChip(b)}</span>
+        </div>`, 'No hearings on the books.')}
+      ${col('c', c, ({ b, st }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
-          <span class="l1"><b>${esc(b.bill_number)}</b>${pri(b)}<span class="cm">${STAGE_LABEL[effStage(b)]}</span>${who(b)}</span>
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${phaseLabel(st)}</span>${who(b)}</span>
+          <span class="lstop">${st.stops ? `through ${st.stops} ${CHAMBER_NAME[st.chamber]} committee${st.stops === 1 ? '' : 's'}` : ''}${st.deadline && !st.deadline.missed ? ` · ${esc(st.deadline.label)} ${fmtDate(st.deadline.date)}` : ''}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
           <span class="l2">${esc((b.last_action || '').slice(0, 60))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</span>
-        </div>`, 'Nothing has cleared this deadline yet.')}
+        </div>`, 'Nothing is through committee yet.')}
     </div>`;
   return { html, a, b: bcol, c };
 }
@@ -1403,15 +1401,13 @@ const DEADLINES = {
 const RADAR_DAYS = 14;
 const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
                       'second_triple','second_lateral','second_decking'];
-const nextDeadline = b => {
-  const st = effStage(b);
-  if (!RADAR_STAGES.includes(st)) return null;
-  const key = st === 'introduced' ? (isTriple(b) ? 'first_triple' : 'first_lateral') : st;
-  const fut = (DEADLINES[key] || []).filter(([, d]) => new Date(d + 'T23:59:59-10:00') > new Date());
-  if (!fut.length) return null;
-  const [label, date] = fut[0];
-  return { label, date, days: Math.ceil((new Date(date + 'T23:59:59-10:00') - Date.now()) / 864e5) };
-};
+// Where the bill stands (stops.js): leg, committee, position, deadline, hearing, board column.
+function stopOf(b) {
+  return billStop(b, { stage: effStage(b), hearings: S.hearings.filter(h => h.bill_id === b.id), outcomes: S.outcomes || {},
+    deadlineFor: key => { const last = (DEADLINES[key] || []).slice(-1)[0]; return last ? { label: last[0], date: last[1] } : null; } });
+}
+// The committee deadline a bill still has to make (null once it is through committee or has missed it).
+const nextDeadline = b => { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; };
 // True triple referral: 3+ stops within a SINGLE chamber (joint committees
 // count as one) — that is what races the Triple Filing deadline. Computed
 // by the sync per chamber; the combined referrals list is display-only.
@@ -2074,10 +2070,10 @@ function drawerHTML(b) {
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
       </div>`; }).join('');
   } else {
-    const ns = nextStageLabel(b); const dl = nextDeadline(b);
-    const sl = dl ? lastSlotBefore(b.committee, dl.date, S.slots) : null;
-    nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${ns ? esc(ns) : 'No further steps'}</b>${ns ? ' — no hearing scheduled yet' : ''}
-      ${dl ? `<div class="nextline">Needs a hearing in <b>${esc(b.committee || 'committee')}</b>${chairOf(b.committee)} before <b>${esc(dl.label)}</b> ${fmtDate(dl.date)} · ${dl.days}d</div>` : ''}
+    const stp = stopOf(b); const dl = stp.deadline && !stp.deadline.missed ? stp.deadline : null;
+    const sl = dl && stp.phase === 'committee' && stp.committee ? lastSlotBefore(stp.committee, dl.date, S.slots) : null;
+    nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${esc(stp.says)}</b>
+      ${stp.phase === 'committee' && stp.committee ? `<div class="nextline">${CHAMBER_NAME[stp.chamber]} · <b>${esc(stp.committee)}</b>${chairOf(stp.committee)}${stp.stops ? ` · stop ${stp.stop} of ${stp.stops}` : ''}${dl ? ` · hearing needed before <b>${esc(dl.label)}</b> ${fmtDate(dl.date)} (${dl.days}d)` : ''}</div>` : ''}
       ${sl ? `<div class="nextline ${now > sl.noticeBy ? 'hot' : ''}">${now > sl.noticeBy ? 'Notice window for the last regular slot has closed — call the chair' : `Last regular slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`}</div>` : ''}
     </div></div>`;
   }

@@ -6,6 +6,7 @@
 // Layout mirrors the staff home: summary line, Last 72 hours + Recent
 // hearings, This week calendar, the three-column board, then the watchlist.
 // ============================================================
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME } from './stops.js';
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -21,7 +22,8 @@ if (DEMO) {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const HST = 'Pacific/Honolulu';
-const fmtDate = (d, o) => d ? new Date(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
+const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
+const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
 const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
 const toast = (m, err) => { const el = document.createElement('div'); el.className = 'toastmsg' + (err ? ' err' : ''); el.textContent = m; $('#toast').appendChild(el); setTimeout(() => el.remove(), 3600); };
@@ -205,13 +207,11 @@ const bill = id => S.bills.find(b => b.id === id);
 const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || S.extra[id] || null;
 const hearingsOf = b => [...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
-function nextDeadline(b) {
-  if (!COMMITTEE_STAGES.includes(b.stage || 'introduced')) return null;
-  const key = (b.stage || 'introduced') === 'introduced' ? (isTriple(b) ? 'first_triple' : 'first_lateral') : b.stage;
-  const fut = S.deadlines.filter(d => d.key === key && new Date(d.deadline_date + 'T23:59:59-10:00') > Date.now());
-  if (!fut.length) return null;
-  const d = fut[0]; return { label: d.label, date: d.deadline_date, days: Math.ceil((new Date(d.deadline_date + 'T23:59:59-10:00') - Date.now()) / 864e5) };
+function stopOf(b) {
+  return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
+    deadlineFor: key => { const d = S.deadlines.filter(x => x.key === key).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
 }
+function nextDeadline(b) { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; }
 const alive = b => !['dead', 'vetoed', 'enacted', 'governor'].includes(b.stage || '') && !/deferred|failed to pass/i.test(b.last_action || '');
 const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose', neutral: 'pos-neutral' }[b.hiphi_position] || 'pos-none');
 const watchBtn = b => `<button class="watchbtn ${S.watch.has(b.id) ? 'on' : ''}" data-watch="${b.id}">${S.watch.has(b.id) ? '★ Watching' : '☆ Watch'}</button>`;
@@ -326,23 +326,22 @@ function home() {
 
   // board
   const cur = S.deadlines.find(d => new Date(d.deadline_date + 'T23:59:59-10:00') > now) || null;
-  const a = [], bcol = [], c = [];
-  for (const b of S.bills.filter(alive)) {
-    const h = hUp.find(x => x.bill_id === b.id);
-    if (h) { bcol.push({ b, h }); continue; }
-    if (COMMITTEE_STAGES.includes(b.stage || 'introduced')) { const dl = nextDeadline(b); if (dl) a.push({ b, dl }); continue; }
-    c.push({ b });
-  }
-  a.sort((x, y) => x.dl.days - y.dl.days); bcol.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
-  const chip = (b, cls, l2) => `<div class="chip3 ${posCls(b)}" data-open="${b.id}"><span class="l1"><b>${esc(billNum(b))}</b><span class="cm">${cls}</span></span><span class="ldesc">${esc(blurb(b, 120))}</span><span class="l2">${l2}</span></div>`;
-  const col = (key, icon, title, sub, rows, empty) => `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${icon} ${title} <span class="cnt">${rows.length}</span></span><span class="psub">${sub}</span></div>${rows.length ? `<div class="chips">${rows.join('')}</div>` : `<div class="pempty">${empty}</div>`}</div>`;
+  const cols = { a: [], b: [], c: [] };
+  for (const b of S.bills.filter(alive)) { const st = stopOf(b); if (st.column) cols[st.column].push({ b, st, h: st.hearing, dl: st.deadline }); }
+  const { a, b: bcol, c } = cols;
+  a.sort((x, y) => (x.dl ? x.dl.days : 999) - (y.dl ? y.dl.days : 999)); bcol.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+  const stopn = st => `<span class="stopn">${CHAMBER_NAME[st.chamber]}${st.stops ? ` · stop ${st.stop} of ${st.stops}` : ''}</span>`;
+  const phaseLabel = st => st.phase === 'conference' ? 'Conference' : `${CHAMBER_NAME[st.chamber]} floor`;
+  const chip = (b, cls, stop, l2) => `<div class="chip3 ${posCls(b)}" data-open="${b.id}"><span class="l1"><b>${esc(billNum(b))}</b><span class="cm">${cls}</span></span><span class="lstop">${stop}</span><span class="ldesc">${esc(blurb(b, 120))}</span><span class="l2">${l2}</span></div>`;
+  const col = (key, rows, empty) => { const C = COLUMNS[key]; return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${C.icon} ${C.title} <span class="cnt">${rows.length}</span></span><span class="psub">${C.sub}</span></div>${rows.length ? `<div class="chips">${rows.join('')}</div>` : `<div class="pempty">${empty}</div>`}</div>`; };
   const dlDays = cur ? Math.ceil((new Date(cur.deadline_date + 'T23:59:59-10:00') - now) / 864e5) : null;
   const board = cur ? `
     <div class="dashhead boardhead"><h1>Where your bills stand</h1><span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.deadline_date + 'T12:00:00-10:00')} · <b>${dlDays}d</b> away. A bill still in committee needs a hearing before its deadline or it dies.</span></div>
+    <p class="boardhow">${BOARD_EXPLAINER}</p>
     <div class="board3">
-      ${col('a', '📡', 'Needs a hearing', 'in committee, nothing scheduled', a.map(({ b, dl }) => { const sl = lastSlotBefore(b.committee, dl.date, S.slots); return chip(b, esc(b.committee || '—') + chairOf(b.committee), (dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d (${fmtDate(dl.date + 'T12:00:00-10:00')})`) + (sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — only the chair can still schedule it</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')); }), 'Every bill you watch has a hearing or has cleared committee.')}
-      ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol.map(({ b, h }) => chip(b, esc(h.committee), fmtDT(h.scheduled_at) + (h.testimony_deadline && new Date(h.testimony_deadline) > now ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''))), 'No hearings on the books.')}
-      ${col('c', '✅', 'Cleared committee', 'floor votes, conference, governor', c.map(({ b }) => chip(b, STAGE_LABEL[b.stage] || '', esc((b.last_action || '').slice(0, 60)))), 'Nothing has cleared committee yet.')}
+      ${col('a', a.map(({ b, st, dl }) => { const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null; return chip(b, st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral', stopn(st), (dl ? (dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d (${fmtDate(dl.date + 'T12:00:00-10:00')})`) : 'no deadline on the calendar') + (sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — only the chair can still schedule it</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')); }), 'Every bill you watch has a hearing or is through committee.')}
+      ${col('b', bcol.map(({ b, st, h }) => chip(b, esc(h.committee), stopn(st), st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)} · waiting for the report` : fmtDT(h.scheduled_at) + (h.testimony_deadline && new Date(h.testimony_deadline) > now ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''))), 'No hearings on the books.')}
+      ${col('c', c.map(({ b, st }) => chip(b, phaseLabel(st), `${st.stops ? `through ${st.stops} ${CHAMBER_NAME[st.chamber]} committee${st.stops === 1 ? '' : 's'}` : ''}${st.deadline && !st.deadline.missed ? ` · ${esc(st.deadline.label)} ${fmtDate(st.deadline.date + 'T12:00:00-10:00')}` : ''}`, esc((b.last_action || '').slice(0, 60)))), 'Nothing is through committee yet.')}
     </div>` : '';
 
   // feed + recent hearings (top dash, like the staff page)
@@ -389,7 +388,7 @@ function panelFor(b) {
       <div class="hchips">${b.hiphi_position ? `<span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}${(b.coalitions || []).map(c => `<span class="chipx c-gray">${esc(c)}</span>`).join('')}<span class="chipx c-gray">${b.watchers || 0} watching</span>${watchBtn(b)}<button class="chipx tool" data-copylink="${b.id}" title="Copy a link to this bill (c)">🔗 Copy link</button></div></div>
     <div class="dbody">
       <div class="status"><div class="stagenow">${STAGE_LABEL[b.stage] || 'Introduced'}<span class="lastact">${esc(b.last_action || '')} <span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span></span></div>${rail(b)}
-        <p class="plain">${esc(alive(b) ? (STAGE_PLAIN[b.stage || 'introduced'] || '') + '.' : whyDead(b))}${dl ? ` It must be heard by <b>${esc(dl.label)}</b>, ${fmtDate(dl.date + 'T12:00:00-10:00')} (${dl.days}d).` : ''}</p></div>
+        <p class="plain">${esc(alive(b) ? stopOf(b).says : whyDead(b))}</p></div>
       ${b.hiphi_action ? `<div class="next"><span class="nk">ASK</span><div>${esc(b.hiphi_action)}</div></div>` : ''}
       ${b.sandbox_untracked ? '<p class="desc"><i>Sandbox: this bill is not on HIPHI’s list, so its history and hearings are not loaded here. In the live app every bill is complete.</i></p>' : ''}
       <div class="sec">Summary</div><p class="desc">${esc(b.hiphi_summary || b.description || 'No summary available yet.')}</p>
