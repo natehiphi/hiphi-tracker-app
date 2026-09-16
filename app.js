@@ -49,7 +49,7 @@ const S = {
   // at an empty page. Unknown names fall back.
   view: (v => ['portfolio','pipeline','desk','table','cards','add','settings'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
-  owner: 'me', q: '', pri: '', pris: new Set(), stageF: '', camp: '',
+  owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
   drafts: {},  // bill_id -> [testimony draft]
@@ -858,6 +858,7 @@ function visibleBills() {
   else if (S.owner && S.owner !== 'all' && S.owner !== 'me')
     list = list.filter(b => (S.assignments[b.id]||[]).includes(S.owner));
   if (S.pris.size) list = list.filter(b => S.pris.has(b.priority));
+  if (S.camps.size) list = list.filter(b => (S.billCampaigns[b.id] || []).some(c => S.camps.has(c)));
   if (S.stageF) list = list.filter(b => effStage(b) === S.stageF);
   if (S.tripleF) list = list.filter(isTriple);
   if (S.q) {
@@ -880,8 +881,10 @@ function visibleBills() {
 // under "More" (Table is desktop-only: it never worked at phone width).
 const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
-const filterCount = () => S.pris.size + (S.tripleF ? 1 : 0) + (S.stageF ? 1 : 0);
-const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null, S.tripleF ? 'triple-referred' : null,
+const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.stageF ? 1 : 0);
+const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
+  S.camps.size ? [...S.camps].map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean).join(', ') : null,
+  S.tripleF ? 'triple-referred' : null,
   S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null].filter(Boolean).join(' · ');
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
@@ -939,6 +942,8 @@ function chrome(inner) {
         <div class="menu">
           <div class="mh">Priority</div>
           ${[1,2,3].map(p => `<label><input type="checkbox" data-prif="${p}" ${S.pris.has(p)?'checked':''}> P${p}${p===1?' · highest':p===3?' · lowest':''}</label>`).join('')}
+          <div class="mh">Coalition</div>
+          ${S.campaigns.map(c => `<label><input type="checkbox" data-campf="${c.id}" ${S.camps.has(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}
           <div class="mh">Referral</div>
           <label><input type="checkbox" id="triplef" ${S.tripleF?'checked':''}> Triple-referred only</label>
           ${S.view==='table' ? `<div class="mh">Stage</div><select id="stagef"><option value="">Any stage</option>${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>` : ''}
@@ -2455,7 +2460,8 @@ function wire() {
   document.querySelectorAll('[data-prif]').forEach(el => el.onchange = () => { const p = Number(el.dataset.prif); el.checked ? S.pris.add(p) : S.pris.delete(p); rerenderKeep('.pillmenu.filt'); });
   $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; rerenderKeep('.pillmenu.filt'); });
   $('#triplef') && ($('#triplef').onchange = () => { S.tripleF = $('#triplef').checked; rerenderKeep('.pillmenu.filt'); });
-  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.tripleF = false; S.stageF = ''; render(); });
+  document.querySelectorAll('[data-campf]').forEach(el => el.onchange = () => { const id = el.dataset.campf; el.checked ? S.camps.add(id) : S.camps.delete(id); rerenderKeep('.pillmenu.filt'); });
+  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.stageF = ''; render(); });
   document.querySelectorAll('.pillmenu').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.pillmenu').forEach(o => { if (o !== d) o.open = false; }); }));
   document.addEventListener('click', e => { if (!e.target.closest('.pillmenu')) document.querySelectorAll('.pillmenu[open]').forEach(d => d.open = false); }, { once: true });
   $('#csv') && ($('#csv').onclick = exportCSV);
