@@ -123,7 +123,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, slots] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -138,9 +138,11 @@ const DB = {
       S.supa.from('committees').select('*'),
       S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
       S.supa.from('app_settings').select('value').eq('key', 'calendar').maybeSingle(),
+      S.supa.from('committee_slots').select('*'),
     ]);
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
+    S.slots = slots?.data || [];
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data;
@@ -766,6 +768,8 @@ function demoInit() {
                  A('Jess','JS','#B45309','jessica@hiphi.org',0,1), A('Jaylen','JN','#BE185D','jaylen@hiphi.org',0,1)];
   S.me = S.advocates[0];
   S.campaigns = [{id:'c1',name:'CTFH',slack_channel:'#ctfh'},{id:'c2',name:'HEAL',slack_channel:'#heal'},{id:'c3',name:'General HIPHI'}];
+  S.slots = [['HLT',3,'08:30:00'],['HLT',5,'08:30:00'],['HHS',1,'13:00:00'],['HHS',3,'13:00:00'],['HHS',5,'13:00:00'],['JHA',1,'14:00:00'],['JHA',2,'14:00:00'],['JHA',3,'14:00:00'],['JHA',4,'14:00:00'],['JHA',5,'14:00:00'],['CPN',1,'08:30:00'],['CPN',2,'08:30:00'],['CPN',3,'08:30:00'],['CPN',4,'08:30:00'],['CPN',5,'08:30:00'],['WAM',1,'08:30:00'],['WAM',3,'08:30:00'],['WAM',5,'08:30:00'],['EDN',2,'14:00:00'],['EDN',4,'14:00:00'],['HSG',3,'08:30:00'],['HSG',5,'08:30:00'],['JDC',1,'08:30:00'],['JDC',3,'08:30:00'],['JDC',5,'08:30:00']]
+    .map(([code, weekday, start_time]) => ({ code, weekday, start_time, end_time: start_time, room: '329' }));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['support','support_amend','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -1002,6 +1006,23 @@ function billDeadline(b) {
   const last = (DEADLINES[key] || []).slice(-1)[0];
   return last ? { label: last[0], date: last[1], days: Math.ceil((new Date(last[1] + 'T23:59:59-10:00') - Date.now()) / 864e5), missed: true } : null;
 }
+// Last regular meeting slot of a committee on or before a date (from the
+// Capitol's published schedules, committee_slots), and the 48-hour notice
+// cutoff for it. Joint committees use the first code. Null without a schedule.
+function lastSlotBefore(code, dateStr, slots) {
+  const c = String(code || '').split('/')[0];
+  const mine = (slots || []).filter(s => s.code === c);
+  if (!mine.length || !dateStr) return null;
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(dateStr + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - i);
+    const day = d.toISOString().slice(0, 10);
+    const dow = new Date(day + 'T12:00:00-10:00').getUTCDay();
+    const s = mine.filter(x => x.weekday === dow).sort((a, b) => b.start_time.localeCompare(a.start_time))[0];
+    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: new Date(at - 48 * 3600e3), room: s.room }; }
+  }
+  return null;
+}
+
 // "waiting in HHS · Chair Rep. Takayama": the person to call when a bill is stuck.
 function chairOf(code) {
   const c = S.committees?.[String(code || '').split('/')[0]];
@@ -1053,6 +1074,7 @@ function pfBoard(list) {
           <span class="ldesc">${esc(blurb(b, 120))}</span>
           <span class="l2">${days(dl.date) <= 5 ? `<span class="hot">${esc(dl.label)} in ${days(dl.date)}d</span>`
             : `${esc(dl.label)} in ${days(dl.date)}d (${fmtDate(dl.date)})`}</span>
+          ${(sl => sl ? `<span class="l3 ${now > sl.noticeBy ? 'hot' : ''}">${now > sl.noticeBy ? 'Notice window for the last regular slot has closed — call the chair' : `last regular slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`}</span>` : '')(lastSlotBefore(b.committee, dl.date, S.slots))}
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol, ({ b, h }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">

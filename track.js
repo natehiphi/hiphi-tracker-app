@@ -62,7 +62,8 @@ async function loadBills() {
     ]);
     S.bills = b.data || []; S.hearings = h.data || []; S.activity = a.data || [];
   }
-  const [d, c] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*')]);
+  const [d, c, sl] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'), S.supa.from('public_committee_slots').select('*')]);
+  S.slots = sl.data || [];
   S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries((c.data || []).map(x => [x.code, x]));
 }
@@ -98,6 +99,23 @@ function nextDeadline(b) {
 const alive = b => !['dead', 'vetoed', 'enacted', 'governor'].includes(b.stage || '') && !/deferred|failed to pass/i.test(b.last_action || '');
 const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose', neutral: 'pos-neutral' }[b.hiphi_position] || 'pos-none');
 const watchBtn = (b, small) => `<button class="watchbtn ${S.watch.has(b.id) ? 'on' : ''}" data-watch="${b.id}">${S.watch.has(b.id) ? '★ Watching' : '☆ Watch'}</button>`;
+// Last regular meeting slot of a committee on or before a date (from the
+// Capitol's published schedules, committee_slots), and the 48-hour notice
+// cutoff for it. Joint committees use the first code. Null without a schedule.
+function lastSlotBefore(code, dateStr, slots) {
+  const c = String(code || '').split('/')[0];
+  const mine = (slots || []).filter(s => s.code === c);
+  if (!mine.length || !dateStr) return null;
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(dateStr + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - i);
+    const day = d.toISOString().slice(0, 10);
+    const dow = new Date(day + 'T12:00:00-10:00').getUTCDay();
+    const s = mine.filter(x => x.weekday === dow).sort((a, b) => b.start_time.localeCompare(a.start_time))[0];
+    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: new Date(at - 48 * 3600e3), room: s.room }; }
+  }
+  return null;
+}
+
 const chairOf = code => { const c = S.committees[String(code || '').split('/')[0]]; if (!c?.chair) return '';
   const last = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
   return ` · Chair ${c.chamber === 'S' ? 'Sen.' : 'Rep.'} ${esc(last)}`; };
@@ -167,7 +185,7 @@ function home() {
   const board = cur ? `
     <div class="dashhead boardhead"><h1>Where your bills stand</h1><span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.deadline_date + 'T12:00:00-10:00')}. A bill still in committee needs a hearing before its deadline or it dies.</span></div>
     <div class="board3">
-      ${col('a', '📡', 'Needs a hearing', 'in committee, nothing scheduled', a.map(({ b, dl }) => chip(b, esc(b.committee || '—') + chairOf(b.committee), dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d`)), 'Every bill you watch has a hearing or has cleared committee.')}
+      ${col('a', '📡', 'Needs a hearing', 'in committee, nothing scheduled', a.map(({ b, dl }) => { const sl = lastSlotBefore(b.committee, dl.date, S.slots); return chip(b, esc(b.committee || '—') + chairOf(b.committee), (dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d`) + (sl ? `<br>${now > sl.noticeBy ? '<span class="hot">last regular slot has passed</span>' : `last regular slot ${fmtDT(sl.at)}`}` : '')); }), 'Every bill you watch has a hearing or has cleared committee.')}
       ${col('b', '◷', 'Hearing scheduled', 'or held, awaiting the committee', bcol.map(({ b, h }) => chip(b, esc(h.committee), fmtDT(h.scheduled_at))), 'No hearings on the books.')}
       ${col('c', '✅', 'Cleared committee', 'floor votes, conference, governor', c.map(({ b }) => chip(b, STAGE_LABEL[b.stage] || '', esc((b.last_action || '').slice(0, 60)))), 'Nothing has cleared committee yet.')}
     </div>` : '';
