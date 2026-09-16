@@ -914,3 +914,46 @@ details.fold .calnav{margin-left:auto}
 .refstop.muted{color:var(--muted);font-style:italic;background:transparent}
 .refarrow{color:#B9C6CF;font-size:11px}
 .refstop.dead{background:#FDE8E8;color:var(--red);font-weight:700;border:1px solid #F5C2C2}
+
+/* ---------- 9/16: opening weeks — triage, readiness, coalitions, banner ---------- */
+.triage{padding:4px 20px 30px}
+.triage .dashhead{padding-left:0;padding-right:0}
+.tchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 12px}
+.tchips .fchip .cnt{font-size:10px;opacity:.7;margin-left:3px}
+.tlist{display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.trow.kfocus{outline:2px solid var(--teal);outline-offset:-2px}
+.tmain{flex:1;min-width:0}
+.tl1{font-size:14px}
+.tl1 b{color:var(--teal)}
+.tdesc{font-size:12.5px;color:var(--ink);line-height:1.45;margin:3px 0 4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tsig{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.tsig .tterms{font-style:italic}
+.tlook{background:#FDF6E3;color:#7A5B08;padding:1px 8px;border-radius:8px}
+.triage mark{background:#FFF1B8;padding:0 1px;border-radius:2px}
+.tacts{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:160px}
+.tacts .btn{white-space:nowrap}
+.tsel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted)}
+.openbanner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 20px 12px;padding:10px 14px;border-radius:12px;background:#FDF6E3;border:1px solid #E9D8A6;font-size:13px}
+.ready{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.rsum{font-weight:600;font-size:13px;margin-bottom:6px}
+.rsum.bad{color:var(--red)}.rsum.ok{color:var(--green)}
+.rrow{display:flex;gap:10px;align-items:flex-start;padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:13px;background:#fff}
+.rrow.bad.block{border-color:#F5C2C2;background:#FFF7F7}
+.rrow.bad.warn{border-color:#E9D8A6;background:#FFFBEE}
+.rrow.manual{background:#F7FAFB}
+.rstat{flex:0 0 22px;text-align:center}
+.rlab{flex:1;min-width:0}
+.rdet{display:block;font-size:12px;color:var(--muted)}
+.rfix{display:block;font-size:12px;color:#7A5B08;margin-top:2px}
+.coaltab{display:flex;flex-direction:column;gap:6px}
+.coalrow{display:grid;grid-template-columns:130px 150px 170px 1fr;gap:8px;align-items:center}
+.coalrow input,.coalrow select{width:100%}
+@media (max-width:760px){
+  .triage{padding:4px 12px 30px}
+  .trow{flex-direction:column}
+  .tacts{flex-direction:row;flex-wrap:wrap;min-width:0}
+  .openbanner{margin:0 12px 12px;flex-direction:column;align-items:flex-start}
+  .coalrow{grid-template-columns:1fr 1fr}
+  .coalrow input[data-ckw]{grid-column:1 / -1}
+}

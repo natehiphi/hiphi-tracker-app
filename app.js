@@ -30,7 +30,7 @@ const LINK_ERR = HASH_Q.get('error_description') || '';
 const APP_URL = location.origin + location.pathname;
 // January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
 // here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
-const SESSION_YEAR = 2026;
+let SESSION_YEAR = 2026;   // overwritten from session_deadlines at load (applySessionDeadlines)
 
 const STAGES = [
   ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help'].includes(v)
+  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -135,7 +135,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, slots, fol, att, outc] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -151,6 +151,8 @@ const DB = {
       S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
       S.supa.from('app_settings').select('value').eq('key', 'calendar').maybeSingle(),
       S.supa.from('app_settings').select('value').eq('key', 'email').maybeSingle(),
+      S.supa.from('app_settings').select('value').eq('key', 'sync').maybeSingle(),
+      S.supa.from('session_deadlines').select('*'),
       S.supa.from('committee_slots').select('*'),
       S.supa.from('bill_follows').select('advocate_id,bill_id'),
       S.supa.from('hearing_attendance').select('hearing_id,advocate_id'),
@@ -159,6 +161,8 @@ const DB = {
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
     S.emailCfg = ecfg?.data?.value || { enabled: true };
+    S.syncCfg = sycfg?.data?.value || {};
+    applySessionDeadlines(dls?.data || []);
     S.slots = slots?.data || [];
     S.followersBy = {}; (fol?.data || []).forEach(r => (S.followersBy[r.bill_id] ??= []).push(r.advocate_id));
     S.attend = {}; (att?.data || []).forEach(r => (S.attend[r.hearing_id] ??= []).push(r.advocate_id));
@@ -410,6 +414,72 @@ const DB = {
     if (error) throw error;
     location.href = `${SUPABASE_URL}/functions/v1/google-connect?state=${encodeURIComponent(data)}`;
   },
+  // ---- opening weeks (migration 021) ----
+  async readiness() {
+    if (DEMO) return DEMO_READINESS;
+    const { data, error } = await S.supa.rpc('readiness'); if (error) throw error; return data;
+  },
+  async saveReadinessManual(key, done, note) {
+    const cur = { ...(S.readinessManual || {}) }; cur[key] = { done, note: note || '', by: S.me?.initials || null, at: new Date().toISOString() };
+    S.readinessManual = cur;
+    if (DEMO) return;
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'readiness', value: cur, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  },
+  async triageQueue(campaignId, matchedOnly) {
+    if (DEMO) return demoTriageQueue(campaignId, matchedOnly).slice(0, 400);
+    const { data, error } = await S.supa.rpc('triage_queue', { p_campaign: campaignId || null, p_matched_only: !!matchedOnly, p_limit: 400 });
+    if (error) throw error; return data;
+  },
+  async triageCounts() {
+    if (DEMO) { const q = demoTriageQueue(null, false); return { year: SESSION_YEAR, introduced: S.bills.length + (S.snapshot?.index || []).length, tracked: S.bills.length, undecided: q.length, suggested: q.filter(r => r.matches).length }; }
+    const { data, error } = await S.supa.rpc('triage_counts'); if (error) throw error; return data;
+  },
+  async triageTrack(row, campaignId) {
+    const camp = S.campaigns.find(c => c.id === campaignId);
+    if (DEMO) {
+      const b = { ...row, tracked: true, is_public: true, position: 'monitor', priority: 2, stage: 'introduced', referrals: [], sponsors: [], companions: row.companions || [], session_year: SESSION_YEAR, state_url: 'https://www.capitol.hawaii.gov', last_action: 'Introduced and Pass First Reading.', last_action_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) };
+      S.bills.push(b); S.bills.sort((a, b2) => a.bill_number.localeCompare(b2.bill_number));
+      if (camp) { S.billCampaigns[b.id] = [camp.id]; if (camp.owner_id) S.assignments[b.id] = [camp.owner_id]; }
+      S.demoTriaged.add(row.id); return b;
+    }
+    const { error } = await S.supa.rpc('triage_track', { p_bill: row.id, p_campaign: campaignId || null }); if (error) throw error;
+    const { data } = await S.supa.from('bills').select('*').eq('id', row.id).single();
+    if (data) { S.bills = S.bills.filter(x => x.id !== data.id).concat(data).sort((a, b2) => a.bill_number.localeCompare(b2.bill_number)); }
+    if (camp) { S.billCampaigns[row.id] = [camp.id]; if (camp.owner_id && !(S.assignments[row.id] || []).length) S.assignments[row.id] = [camp.owner_id]; }
+    return data;
+  },
+  async triageSkip(row) {
+    if (DEMO) { S.demoTriaged.add(row.id); return; }
+    const { error } = await S.supa.rpc('triage_skip', { p_bill: row.id }); if (error) throw error;
+  },
+  async triageUndo(row) {
+    if (DEMO) { S.demoTriaged.delete(row.id); S.bills = S.bills.filter(b => b.id !== row.id); return; }
+    const { error } = await S.supa.rpc('triage_undo', { p_bill: row.id }); if (error) throw error;
+    if (row.tracked) { await S.supa.from('bills').update({ tracked: false }).eq('id', row.id); S.bills = S.bills.filter(b => b.id !== row.id); }
+  },
+  async saveCampaign(id, patch) {
+    const c = S.campaigns.find(x => x.id === id); if (c) Object.assign(c, patch);
+    if (DEMO) return;
+    const { error } = await S.supa.from('campaigns').update(patch).eq('id', id); if (error) throw error;
+  },
+  async importTracker(rows, apply) {
+    if (DEMO) throw new Error('The sandbox does not import; use the live app.');
+    const { data, error } = await S.supa.rpc('import_tracker', { p_rows: rows, p_apply: !!apply }); if (error) throw error; return data;
+  },
+  // Start a GitHub workflow from Settings (admin-dispatch Edge Function).
+  async dispatch(event, payload) {
+    if (DEMO) throw new Error('The sandbox cannot start workflows.');
+    const { data } = await S.supa.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-dispatch`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ event, payload }) });
+    const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
+    if (!j.ok) throw new Error(j.error || 'could not start'); return j;
+  },
+  async saveSyncSettings(cfg) {
+    S.syncCfg = cfg;
+    if (DEMO) return;
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'sync', value: cfg, updated_at: new Date().toISOString() }); if (error) throw error;
+  },
   async saveEmailSettings(cfg) {
     S.emailCfg = cfg;
     if (DEMO) return;
@@ -467,6 +537,7 @@ async function demoInit() {
   const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
   S.campaigns = snap.campaigns;
   S.slots = snap.slots;
+  applySessionDeadlines(snap.deadlines);
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['support','support_amend','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -518,6 +589,7 @@ async function demoInit() {
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
+  S.demoTriaged = new Set();
   const nowMs = Date.now();
   const upcoming = S.hearings.filter(h => new Date(h.scheduled_at) > nowMs && h.status !== 'cancelled').sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   if (upcoming[0] && S.advocates[1]) S.attend[upcoming[0].id] = [S.advocates[1].id];
@@ -576,7 +648,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings'],['help','Help']];
+const MORE_VIEWS = [['triage','Triage'],['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.stageF ? 1 : 0);
 const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
@@ -1024,7 +1096,10 @@ function renderPortfolio(list) {
     cur ? `next deadline <b>${esc(cur.label)}</b> in ${dlDays}d` : null,
     filterCount() ? `<span class="filtnote">showing ${esc(filterLabel())} only</span>` : null,
   ].filter(Boolean).join(' · ');
-  return head(`${esc(who)}'s Portfolio`, `${today} · ${strip}`) + `
+  const openWeeks = (() => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(); return now > cut - 18 * 864e5 && now < cut + 3 * 864e5; })();
+  if (openWeeks && !S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true; DB.triageCounts().then(c => { S.triageCounts = c; rerenderKeep(); }).catch(() => {}); }
+  const banner = openWeeks ? `<div class="openbanner"><span><b>Opening weeks.</b> ${S.triageCounts ? `${S.triageCounts.introduced} bills introduced · <b>${S.triageCounts.undecided}</b> waiting for a decision · ${S.triageCounts.suggested} suggested · ${S.triageCounts.tracked} tracked` : 'Every new bill needs one decision: track it or skip it.'}</span><button class="btn sm" data-view="triage">Open Triage</button></div>` : '';
+  return head(`${esc(who)}'s Portfolio`, `${today} · ${strip}`) + banner + `
     <div class="dash${stacked ? ' one' : ''}">
       <div>${waitPanel}${stacked ? foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true) : ''}</div>
       ${stacked ? '' : `<div>${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true)}${recentHearingsHtml}</div>`}
@@ -1379,10 +1454,10 @@ function renderDesk(list) {
 }
 
 // ---------------- Cards view (advocacy print) ----------------
-const SESSION_OVER = DEMO ? false : true;   // flip false when the 2027 session convenes
+let SESSION_OVER = DEMO ? false : true;   // set from the calendar at load: over once sine die has passed
 // Official session calendar (LRB, 2026). One place to update each December.
 // The sandbox uses the same calendar, frozen at DEMO_ASOF.
-const DEADLINES = {
+let DEADLINES = {   // fallback only; the real calendar comes from session_deadlines
   introduced:       [['Intro cutoff','2026-01-28']],
   first_triple:     [['Triple filing','2026-02-11']],
   first_lateral:    [['Lateral','2026-02-20']],
@@ -1395,6 +1470,20 @@ const DEADLINES = {
   conference:       [['Final decking','2026-04-29'],['Fiscal','2026-05-01']],
   governor:         [['Sine die','2026-05-08']],
 };
+// The calendar lives in session_deadlines (one row per deadline; JANUARY.md).
+// Maps the table's keys onto the phase buckets the app uses. Session year =
+// the latest year in the table; the session is over once sine die has passed.
+function applySessionDeadlines(rows) {
+  if (!rows || !rows.length) return;
+  const yr = Math.max(...rows.map(r => r.session_year));
+  const mine = rows.filter(r => r.session_year === yr).sort((a, b) => a.deadline_date.localeCompare(b.deadline_date));
+  const bucket = { intro_cutoff: 'introduced', final_decking: 'conference', fiscal: 'conference', sine_die: 'governor' };
+  const dl = {};
+  for (const r of mine) { const k = bucket[r.key] || r.key; (dl[k] ??= []).push([r.label, String(r.deadline_date).slice(0, 10)]); }
+  if (Object.keys(dl).length >= 8) { DEADLINES = dl; SESSION_YEAR = yr; }
+  const sine = mine.find(r => r.key === 'sine_die');
+  SESSION_OVER = DEMO ? false : !!sine && Date.now() > new Date(sine.deadline_date + 'T23:59:59-10:00').getTime() + 864e5;
+}
 // Dying-quietly radar: committee stages where "no hearing scheduled" is the
 // death signal, and the deadline each stage races. Bills still at Introduced
 // race the lateral (or triple, if 3X) filing date.
@@ -1615,6 +1704,31 @@ function renderSettings() {
       ${TEMPLATE_KINDS.map(([k, l]) => `<label class="col"><span>${l}</span><textarea data-tpl="${k}">${esc(tpl[k] || '')}</textarea></label>`).join('')}
       <div class="btns"><button class="btn" id="st-save-admin">Save alert settings</button></div>
     </section>
+    <section id="st-ready">
+      <h2>Session readiness <span class="tag a">admin</span></h2>
+      <p class="tok">Everything that has to be true before session opens (SESSION_START.md). Automatic rows re-check each time this page opens; tick the manual ones yourself. <button class="btn sm ghost" id="st-recheck">Re-check</button></p>
+      <div id="readymount" class="ready"><div class="pempty">Checking…</div></div>
+      <h3>Import the session</h3>
+      <p class="tok">When Open States publishes the new session, paste the CSV export link from <a href="https://open.pluralpolicy.com/data/session-csv" target="_blank" rel="noopener">open.pluralpolicy.com/data/session-csv ↗</a> (Hawaii, the new year). It loads every introduced measure with full histories; safe to re-run.</p>
+      <label class="row"><span style="min-width:200px">Session year</span><input type="number" id="st-bulk-year" style="width:110px" value="${SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR}"></label>
+      <label class="row"><span style="min-width:200px">CSV export URL</span><input id="st-bulk-url" placeholder="https://data.openstates.org/csv/latest/HI_${SESSION_YEAR + 1}_csv_….zip"><button class="btn sm" id="st-bulk-run">Import</button></label>
+      <p class="tok" id="st-bulk-status"></p>
+      <label class="row" style="margin-top:10px"><span style="min-width:200px">Hourly sync (opening weeks) until</span><input type="date" id="st-burst" value="${esc((S.syncCfg || {}).burst_until || '')}"><button class="btn sm" id="st-save-burst">Save</button><span class="tok">blank = four times a day</span></label>
+    </section>
+    <section id="st-coal">
+      <h2>Coalitions <span class="tag a">admin</span></h2>
+      <p class="tok">The owner gets every bill tracked under the coalition. Keywords feed the Triage suggestions: comma-separated, matched anywhere in the title or description (a fragment like <i>fluorid</i> catches fluoride and fluoridation).</p>
+      <div class="coaltab">${S.campaigns.map(c => `<div class="coalrow" data-coal="${c.id}"><b>${esc(c.name)}</b>
+        <select data-cowner><option value="">no owner</option>${S.advocates.filter(a => a.is_active).map(a => `<option value="${a.id}" ${c.owner_id === a.id ? 'selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select>
+        <input data-cchan value="${esc(c.slack_channel || '')}" placeholder="#slack-channel">
+        <input data-ckw value="${esc((c.keywords || []).join(', '))}" placeholder="keywords, comma-separated"></div>`).join('')}</div>
+      <div class="btns"><button class="btn" id="st-save-coal">Save coalitions</button></div>
+    </section>
+    <section id="st-import">
+      <h2>Import the tracked list <span class="tag a">admin</span></h2>
+      <p class="tok">Upload the <b>All Tracked Bills</b> CSV export from the team spreadsheet (columns: Bill Number, Coalition, Coalition Position). The bills in the file become the tracked list and anything else is untracked; Strongly Support / Strongly Oppose become P1, everything else P2; the owner follows the coalition. You see a summary before anything changes.</p>
+      <input type="file" id="st-csv" accept=".csv,text/csv"><div id="st-import-preview"></div>
+    </section>
     <section id="st-conn">
       <h2>Connections <span class="tag a">admin</span></h2>
       <p class="tok">Keys are saved write-only: once saved they show as set, never shown again. Leave a field blank to keep what is there; type <b>clear</b> to remove it.</p>
@@ -1681,6 +1795,37 @@ function wireSettings() {
       catch (e) { toast(e.message, true); }
     };
     $('#st-connect-cal').onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e.message, true); } };
+    // Session readiness
+    const mountReadiness = async () => { const el = $('#readymount'); if (!el) return;
+      try { const rows = await DB.readiness(); const bad = rows.filter(r => r.level === 'block' && r.ok === false).length, warn = rows.filter(r => r.level === 'warn' && r.ok === false).length, todo = rows.filter(r => r.level === 'manual' && !r.ok).length;
+        el.innerHTML = `<div class="rsum ${bad ? 'bad' : 'ok'}">${bad ? `${bad} blocking issue${bad === 1 ? '' : 's'}` : 'Nothing blocking'}${warn ? ` · ${warn} warning${warn === 1 ? '' : 's'}` : ''}${todo ? ` · ${todo} manual item${todo === 1 ? '' : 's'} to tick` : ''}</div>` +
+          rows.map(r => `<div class="rrow ${r.level} ${r.ok === true ? 'ok' : r.ok === false ? 'bad' : ''}"><span class="rstat">${r.level === 'manual' ? `<input type="checkbox" data-rman="${r.key}" ${r.ok ? 'checked' : ''}>` : r.ok === true ? '✅' : r.ok === false ? (r.level === 'block' ? '❌' : '⚠️') : 'ℹ️'}</span><span class="rlab">${esc(r.label)}${r.detail ? `<span class="rdet">${esc(r.detail)}</span>` : ''}${r.ok === false && r.fix ? `<span class="rfix">${esc(r.fix)}</span>` : ''}</span></div>`).join('');
+        el.querySelectorAll('[data-rman]').forEach(cb => cb.onchange = async () => { try { await DB.saveReadinessManual(cb.dataset.rman, cb.checked); toast(cb.checked ? 'Ticked' : 'Unticked'); mountReadiness(); } catch (e) { toast(e.message, true); } });
+      } catch (e) { el.innerHTML = `<div class="pempty">Could not check: ${esc(e.message)}</div>`; } };
+    if ($('#readymount')) mountReadiness();
+    $('#st-recheck') && ($('#st-recheck').onclick = () => { $('#readymount').innerHTML = '<div class="pempty">Checking…</div>'; mountReadiness(); });
+    $('#st-bulk-run') && ($('#st-bulk-run').onclick = async () => { const url = $('#st-bulk-url').value.trim(), session = $('#st-bulk-year').value.trim();
+      if (!/^https:\/\/data\.openstates\.org\/.+\.zip$/.test(url)) { toast('That does not look like an Open States CSV export link', true); return; }
+      $('#st-bulk-run').disabled = true; $('#st-bulk-status').textContent = 'Starting…';
+      try { await DB.dispatch('bulk-import', { url, session }); $('#st-bulk-status').innerHTML = `Import started for ${esc(session)}. It takes 10–30 minutes; the readiness row "${esc(session)} bills imported" turns green when it lands (re-check).`; toast('Import started'); }
+      catch (e) { $('#st-bulk-status').textContent = e.message; toast(e.message, true); $('#st-bulk-run').disabled = false; } });
+    $('#st-save-burst') && ($('#st-save-burst').onclick = async () => { const until = $('#st-burst').value || null;
+      try { await DB.saveSyncSettings({ ...(S.syncCfg || {}), burst_until: until }); toast(until ? `Hourly sync until ${until}` : 'Back to four syncs a day'); } catch (e) { toast(e.message, true); } });
+    // Coalitions
+    $('#st-save-coal') && ($('#st-save-coal').onclick = async () => {
+      try { for (const row of document.querySelectorAll('.coalrow')) {
+          const keywords = row.querySelector('[data-ckw]').value.split(',').map(x => x.trim()).filter(Boolean);
+          await DB.saveCampaign(row.dataset.coal, { owner_id: row.querySelector('[data-cowner]').value || null, slack_channel: row.querySelector('[data-cchan]').value.trim() || null, keywords }); }
+        toast('Coalitions saved'); if (S.triage) S.triage.rows = null; } catch (e) { toast(e.message, true); } });
+    // Import the tracked list from the spreadsheet export
+    $('#st-csv') && ($('#st-csv').onchange = async () => { const f = $('#st-csv').files[0]; if (!f) return; const out = $('#st-import-preview');
+      const rows = parseTrackerCsv(await f.text()); if (!rows.length) { out.innerHTML = '<p class="tok">No bill rows found. The header row must contain Bill Number, Coalition and Coalition Position.</p>'; return; }
+      out.innerHTML = '<p class="tok">Checking…</p>';
+      try { const r = await DB.importTracker(rows, false);
+        const sum = r => `<b>${r.in_file}</b> bills in the file · ${r.in_db} found · <b>${r.newly_tracked}</b> newly tracked · ${r.owner_changes} owner changes · ${r.p1} P1, ${r.p2} P2${r.untrack.length ? ` · <b class="hot">${r.untrack.length} untracked</b> (${r.untrack.slice(0, 12).join(', ')}${r.untrack.length > 12 ? '…' : ''})` : ''}${r.missing.length ? ` · not in the database: ${r.missing.join(', ')}` : ''}${r.unknown_coalitions.length ? ` · <b class="hot">unknown coalitions: ${r.unknown_coalitions.join(', ')}</b> (add them under Coalitions first)` : ''}`;
+        out.innerHTML = `<p class="tok">${sum(r)}</p><div class="btns"><button class="btn" id="st-import-apply" ${r.unknown_coalitions.length ? 'disabled' : ''}>Apply to the tracker</button></div>`;
+        $('#st-import-apply').onclick = async () => { $('#st-import-apply').disabled = true; try { const a = await DB.importTracker(rows, true); out.innerHTML = `<p class="tok">Done. ${sum(a)}</p>`; toast('Tracked list updated — reloading'); setTimeout(() => location.reload(), 1200); } catch (e) { toast(e.message, true); $('#st-import-apply').disabled = false; } };
+      } catch (e) { out.innerHTML = `<p class="tok hot">${esc(e.message)}</p>`; } });
     $('#st-save-email') && ($('#st-save-email').onclick = async () => {
       const on = $('#st-email-on').checked;
       try { await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
@@ -1712,7 +1857,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / d / t / c / s', 'Go to Portfolio, Desk, Table, Cards, Settings'], ['?', 'This help page'],
+  ['g then p / d / t / c / s / i', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake)'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -1730,6 +1875,104 @@ function renderHelp() {
     <section><h2>Where things live</h2><p>Drafts: Google Drive, Testimony / year / coalition / bill. Alerts: Slack #hearing-alerts-2027 and coalition channels; DMs for your own steps. Calendar: the HIPHI Hearings Google Calendar. Settings: your DM and reminder preferences under More → Settings. Questions: Nate.</p></section>
   </div>`;
 }
+// The spreadsheet export: a banner line, then a header with Bill Number /
+// Coalition / Coalition Position; quoted fields with embedded newlines.
+function parseTrackerCsv(text) {
+  const rows = []; let row = [], field = '', q = false; text = text.replace(/^\uFEFF/, '');
+  for (let i = 0; i < text.length; i++) { const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; } else field += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; }
+    else field += ch; }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  const hi = rows.findIndex(r => r.includes('Bill Number')); if (hi < 0) return [];
+  const h = rows[hi], ix = n => h.indexOf(n);
+  return rows.slice(hi + 1).map(r => ({ num: (r[ix('Bill Number')] || '').replace(/\s+/g, '').toUpperCase(), coalition: (r[ix('Coalition')] || '').trim(), position: (r[ix('Coalition Position')] || '').trim() }))
+    .filter(r => /^(HB|SB)\d+$/.test(r.num));
+}
+// ---------------- Triage: every introduced bill gets one decision ----------------
+// Sandbox: keyword rules against the untracked index (titles + descriptions).
+function demoTriageQueue(campaignId, matchedOnly) {
+  const idx = (S.snapshot?.index || []).filter(b => !/^GM/.test(b.bill_number) && !S.demoTriaged?.has(b.id) && !S.bills.some(x => x.id === b.id));
+  const rules = S.campaigns.filter(c => (c.keywords || []).length);
+  const rows = idx.map(b => { const txt = ((b.title || '') + ' ' + (b.description || '')).toLowerCase();
+    const matches = rules.map(c => ({ campaign_id: c.id, name: c.name, terms: c.keywords.filter(k => txt.includes(k.toLowerCase())) })).filter(m => m.terms.length);
+    return { id: b.id, bill_number: b.bill_number, chamber: b.chamber, title: b.title, description: b.description || null, introduced_at: null, companions: [], matches: matches.length ? matches : null, lookalike: null }; });
+  return rows.filter(r => (!campaignId || (r.matches || []).some(m => m.campaign_id === campaignId)) && (!matchedOnly || r.matches))
+    .sort((a, b) => (b.matches ? 1 : 0) - (a.matches ? 1 : 0) || a.bill_number.localeCompare(b.bill_number));
+}
+const DEMO_READINESS = [
+  { key: 'deadlines', level: 'block', label: '2026 session calendar loaded', ok: true, detail: '12 deadlines for 2026', fix: '' },
+  { key: 'slots', level: 'block', label: 'Committee hearing schedules loaded', ok: true, detail: '91 meeting slots', fix: '' },
+  { key: 'committees', level: 'block', label: 'Committees and chairs current', ok: true, detail: '33 committees with a chair', fix: '' },
+  { key: 'advocates_auth', level: 'block', label: 'Every team member can sign in', ok: false, detail: '2 without an account: LR, RK', fix: 'Supabase → Authentication → Users → Add user (hiphi.org email).' },
+  { key: 'slack', level: 'block', label: 'Slack connected', ok: true, detail: '#hearing-alerts-2027', fix: '' },
+  { key: 'sync', level: 'block', label: 'Bill sync healthy', ok: true, detail: 'last run 6:10 AM ok', fix: '' },
+  { key: 'email', level: 'info', label: 'Email', ok: null, detail: 'paused — nothing is sent', fix: '' },
+  { key: 'template', level: 'manual', label: 'Testimony template Doc has every token', ok: false, detail: '', fix: 'Open the template; tokens are listed under Settings → Slack.' },
+  { key: 'rehearsal', level: 'manual', label: 'Full rehearsal done', ok: false, detail: '', fix: 'One afternoon the week of January 4 with a [TEST] hearing.' },
+];
+async function loadTriage() {
+  S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
+  try {
+    const [rows, counts] = await Promise.all([DB.triageQueue(S.triage.camp, S.triage.matchedOnly), DB.triageCounts()]);
+    S.triage.rows = rows; S.triage.counts = counts; S.triage.focus = Math.min(S.triage.focus, Math.max(0, rows.length - 1));
+  } catch (e) { S.triage.rows = []; toast('Could not load the triage queue: ' + e.message, true); }
+  if (S.view === 'triage') rerenderKeep();
+}
+function bestCampaign(r) {
+  if (r.lookalike?.coalition) { const c = S.campaigns.find(x => x.name === r.lookalike.coalition); if (c) return c; }
+  if (r.matches?.length) { const c = S.campaigns.find(x => x.id === r.matches[0].campaign_id); if (c) return c; }
+  return S.campaigns.find(c => c.name === 'General HIPHI') || S.campaigns[0];
+}
+function renderTriage() {
+  const t = S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
+  if (t.rows === null) loadTriage();
+  const c = t.counts || {};
+  const chips = `<div class="tchips">
+      <button class="fchip ${!t.camp ? 'on' : ''}" data-tcamp="">All coalitions</button>
+      ${S.campaigns.filter(x => (x.keywords || []).length).map(x => `<button class="fchip ${t.camp === x.id ? 'on' : ''}" data-tcamp="${x.id}">${esc(x.name)}${x.owner_id && advocate(x.owner_id) ? ` <span class="cnt">${esc(advocate(x.owner_id).initials)}</span>` : ''}</button>`).join('')}
+      <label class="row" style="margin-left:auto"><input type="checkbox" id="t-matched" ${t.matchedOnly ? 'checked' : ''}><span>suggestions only</span></label></div>`;
+  const hi = (text, terms) => { let out = esc(text || ''); for (const k of terms) { const re = new RegExp('(' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'); out = out.replace(re, '<mark>$1</mark>'); } return out; };
+  const row = (r, i) => { const best = bestCampaign(r); const terms = (r.matches || []).flatMap(m => m.terms); return `
+    <div class="trow ${i === t.focus ? 'kfocus' : ''}" data-tid="${r.id}" data-ti="${i}">
+      <div class="tmain">
+        <div class="tl1"><b>${esc(r.bill_number)}</b> <span class="ttitle">${hi(titleCaseHI(r.title), terms)}</span>${(r.companions || []).length ? ` <span class="chipx c-gray" title="companion">${esc(r.companions.join(', '))}</span>` : ''}</div>
+        ${r.description ? `<div class="tdesc">${hi(r.description, terms)}</div>` : ''}
+        <div class="tsig">${(r.matches || []).map(m => `<span class="chipx c-navy">${esc(m.name)}</span> <span class="tterms">${m.terms.map(esc).join(', ')}</span>`).join(' · ')}
+          ${r.lookalike ? `<span class="tlook">Looks like <b>${esc(r.lookalike.bill_number)}</b> (${r.lookalike.session_year})${r.lookalike.coalition ? ' · ' + esc(r.lookalike.coalition) : ''}${r.lookalike.position ? ' · ' + esc(POSITIONS.find(p => p[0] === r.lookalike.position)?.[1] || r.lookalike.position) : ''}${r.lookalike.priority ? ' · P' + r.lookalike.priority : ''}</span>` : ''}
+          ${!r.matches && !r.lookalike ? '<span class="muted">no keyword matched</span>' : ''}</div>
+      </div>
+      <div class="tacts">
+        <button class="btn sm" data-ttrack="${r.id}" data-tcampid="${best.id}">Track as ${esc(best.name)}</button>
+        <select class="tsel" data-tsel="${r.id}" title="Track as another coalition"><option value="">other…</option>${S.campaigns.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        <button class="btn sm ghost" data-tskip="${r.id}">Skip</button>
+        <a class="btn sm ghost" href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${esc(r.bill_number.replace(/\d+/, ''))}&billnumber=${esc(r.bill_number.replace(/\D+/, ''))}&year=${SESSION_YEAR}" target="_blank" rel="noopener">Capitol ↗</a>
+      </div>
+    </div>`; };
+  const rows = t.rows === null ? '<div class="pempty">Loading the queue…</div>'
+    : t.rows.length ? t.rows.map(row).join('') : `<div class="pempty">Nothing waiting${t.matchedOnly ? ' among the suggestions — untick "suggestions only" to see every undecided bill' : ''}. 🤙</div>`;
+  return `<div class="triage">
+    <div class="dashhead"><h1>Triage</h1><span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
+    <p class="boardhow">Each row is a bill nobody has decided on. <b>Track</b> puts it on the tracker under that coalition with the coalition’s owner, Monitor, P2 — change any of that on the bill page later. <b>Skip</b> hides it for good (undo is one click). Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>t</kbd> track, <kbd>s</kbd> skip, <kbd>u</kbd> undo.</p>
+    ${chips}
+    <div class="tlist">${rows}</div>
+  </div>`;
+}
+function wireTriage() {
+  const t = S.triage; if (!t) return;
+  document.querySelectorAll('[data-tcamp]').forEach(el => el.onclick = () => { t.camp = el.dataset.tcamp || null; t.rows = null; t.focus = 0; render(); });
+  $('#t-matched') && ($('#t-matched').onchange = () => { t.matchedOnly = $('#t-matched').checked; t.rows = null; render(); });
+  const act = async (id, fn) => { const r = (t.rows || []).find(x => x.id === id); if (!r) return;
+    try { await fn(r); t.rows = t.rows.filter(x => x.id !== id); t.focus = Math.min(t.focus, Math.max(0, t.rows.length - 1)); if (t.counts) { t.counts.undecided--; } rerenderKeep(); }
+    catch (e) { toast(e.message, true); } };
+  document.querySelectorAll('[data-ttrack]').forEach(el => el.onclick = () => act(el.dataset.ttrack, async r => { await DB.triageTrack(r, el.dataset.tcampid); t.last = { ...r, tracked: true }; if (t.counts) t.counts.tracked++; toast(`${r.bill_number} tracked as ${S.campaigns.find(c => c.id === el.dataset.tcampid)?.name || ''}`); }));
+  document.querySelectorAll('[data-tsel]').forEach(el => el.onchange = () => { if (!el.value) return; act(el.dataset.tsel, async r => { await DB.triageTrack(r, el.value); t.last = { ...r, tracked: true }; if (t.counts) t.counts.tracked++; toast(`${r.bill_number} tracked as ${S.campaigns.find(c => c.id === el.value)?.name || ''}`); }); });
+  document.querySelectorAll('[data-tskip]').forEach(el => el.onclick = () => act(el.dataset.tskip, async r => { await DB.triageSkip(r); t.last = { ...r, tracked: false }; }));
+  document.querySelectorAll('[data-tundo]').forEach(el => el.onclick = async () => { const r = t.last; if (!r) return; try { await DB.triageUndo(r); t.last = null; t.rows = null; render(); toast(`${r.bill_number} is back in the queue`); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('.trow').forEach(el => el.onclick = e => { if (e.target.closest('button, select, a')) return; t.focus = Number(el.dataset.ti); document.querySelectorAll('.trow').forEach(x => x.classList.toggle('kfocus', x === el)); });
+}
+const titleCaseHI = t => String(t || '').replace(/^RELATING TO /i, 'Relating to ').replace(/\b([A-Z]{2,})\b/g, w => w.charAt(0) + w.slice(1).toLowerCase()).replace(/\bHawaii\b/g, 'Hawaiʻi');
 function renderAdd() {
   return `<div class="addbill">
     <h2 style="margin:16px 0 4px">Add bills to the tracker</h2>
@@ -2257,6 +2500,7 @@ function render() {
     : S.view === 'desk' ? renderDesk(list)
     : S.view === 'cards' ? renderCards(list)
     : S.view === 'settings' ? renderSettings()
+    : S.view === 'triage' ? renderTriage()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -2267,6 +2511,7 @@ function render() {
     .catch(()=>{});
 }
 function wire() {
+  if (S.view === 'triage') wireTriage();
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null; render();
     if (S.view === 'add') $('#addq')?.focus();
@@ -2613,7 +2858,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
@@ -2625,6 +2870,15 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (k === 'n' || k === 'p') { const el = document.querySelector(`[data-week="${k === 'n' ? 1 : -1}"]`); if (el && el.checkVisibility()) el.click(); return; }
+  if (S.view === 'triage' && S.triage?.rows?.length) {
+    const t = S.triage, rows = [...document.querySelectorAll('.trow')];
+    if (k === 'j' || k === 'k') { e.preventDefault(); t.focus = Math.max(0, Math.min(rows.length - 1, t.focus + (k === 'j' ? 1 : -1))); rows.forEach((r, i) => r.classList.toggle('kfocus', i === t.focus)); rows[t.focus]?.scrollIntoView({ block: 'nearest' }); return; }
+    const cur = rows[t.focus]; if (!cur) return;
+    if (k === 't') { cur.querySelector('[data-ttrack]')?.click(); return; }
+    if (k === 's') { cur.querySelector('[data-tskip]')?.click(); return; }
+    if (k === 'u') { document.querySelector('[data-tundo]')?.click(); return; }
+    if (/^[1-9]$/.test(k)) { const sel = cur.querySelector('[data-tsel]'); const opt = sel?.options[Number(k)]; if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change')); } return; }
+  }
   if (k === 'j' || k === 'k') {
     e.preventDefault(); const rows = kRows(); if (!rows.length) return;
     let i = rows.findIndex(r => r.classList.contains('kfocus'));
