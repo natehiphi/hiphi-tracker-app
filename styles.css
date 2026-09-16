@@ -733,3 +733,13 @@ details.fold .calnav{margin-left:auto}
   .calweek .calbtns{flex-basis:100%;gap:6px}
   .calweek .calnone{padding:10px 12px;text-align:left}
 }
+/* phone calendar: keep the day rail on the left (Nate), narrow, full-width panel */
+@media (max-width:900px){
+  .calweek .calday{display:flex}
+  .calweek .calrail{flex:0 0 44px;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;padding:10px 0 8px;border-right:1px solid #EEF2F5;border-bottom:none}
+  .calweek .calrail .dom{font-size:17px}
+  .calweek .calrail .dow{font-size:10px}
+  .calweek .calrail .cnt{margin-left:0;margin-top:3px}
+  .calweek .calbody{flex:1;min-width:0;width:auto}
+  .calweek .calrow{padding:10px 10px 10px 8px}
+}
