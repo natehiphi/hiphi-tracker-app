@@ -24,6 +24,8 @@ const RAIL = [['introduced', 'Intro'], ['first_lateral', '1st Lat'], ['first_dec
 const RAIL_IDX = { introduced: 0, first_triple: 1, first_lateral: 1, first_decking: 2, first_crossover: 3, second_triple: 4, second_lateral: 4,
   second_decking: 5, second_crossover: 5, conference: 6, governor: 7, enacted: 8, vetoed: 7, dead: null };
 const COMMITTEE_STAGES = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'second_triple', 'second_lateral', 'second_decking'];
+const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of','on','or','the','to','via','with','nor','per','from']);
+const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
 const POS = { support: 'Supports', support_amend: 'Supports with amendments', oppose: 'Opposes', neutral: 'Comments', monitor: 'Monitoring' };
 
 const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
@@ -137,7 +139,7 @@ function searchBox() {
   return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(b => `
       <div class="row" data-open="${b.id}"><span class="bno">${esc(b.bill_number)}</span>
-        <span class="t">${esc(b.title || '')}<small>${esc(blurb(b, 120))}${b.hiphi_follows ? ' · HIPHI follows this bill' : ''}${b.watchers ? ` · ${b.watchers} watching` : ''}</small></span>
+        <span class="t">${esc(titleCase(b.title))}<small>${esc(blurb(b, 120))}${b.hiphi_follows ? ' · HIPHI follows this bill' : ''}${b.watchers ? ` · ${b.watchers} watching` : ''}</small></span>
         ${watchBtn(b)}</div>`).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}`;
 }
 function home() {
@@ -163,7 +165,7 @@ function home() {
       <div class="pmain"><b>${esc(b.bill_number)}</b> · ${esc(h.committee)} · ${esc((h.room || 'room TBD').replace(/\s*via videoconference/i, ''))}
         <div class="pdesc">${esc(blurb(b, 96))}</div>
         <div class="psmall">${h.testimony_deadline ? (inWhen(h.testimony_deadline) === 'passed' ? 'testimony deadline passed' : `written testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
-      ${b.state_url ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Submit testimony ↗</a>` : ''}
+      ${b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Submit testimony ↗</a>` : ''}
     </div>`; };
   const calHtml = `<div class="calweek" style="--ndays:${days.length}">${days.map(d => { const hs = week.filter(h => hstDay(h.scheduled_at) === d); const dt = new Date(d + 'T12:00:00-10:00'); const isToday = d === hstDay(now); return `
     <div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}"><div class="calrail"><span class="dow">${dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: HST })}</span><span class="dom">${dt.getDate()}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
@@ -210,18 +212,19 @@ function home() {
 function panelFor(b) {
   const hs = S.hearings.filter(h => h.bill_id === b.id).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   return `<div class="scrim" id="scrim"></div><div class="drawer"><div class="dhead"><button class="close" id="dclose">✕</button>
-      <h2>${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}</h2><div class="sub">${esc(b.title || '')}</div></div>
+      <h2>${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}</h2><div class="sub">${esc(titleCase(b.title))}</div></div>
     <div class="dbody">
       <div class="status"><div class="stagenow">${STAGE_LABEL[b.stage] || 'Introduced'}<span class="lastact">${esc(b.last_action || '')} <span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span></span></div>${rail(b)}</div>
       ${b.hiphi_position ? `<div class="next"><span class="nk">HIPHI</span><div><b>${POS[b.hiphi_position] || ''}</b>${b.hiphi_action ? '<br>' + esc(b.hiphi_action) : ''}</div></div>` : ''}
       <div class="sec">Summary</div><p class="desc">${esc(b.hiphi_summary || b.description || 'No summary available yet.')}</p>
       <div class="sec">Hearings</div>
+      ${!alive(b) ? `<p class="desc"><i>This bill did not advance${b.stage === 'dead' ? ' — it missed a legislative deadline' : ''}. Hearings listed below are historical.</i></p>` : ''}
       ${hs.length ? hs.map(h => `<div class="prow"><div class="pmain"><b>${esc(h.committee)}</b> · ${fmtDT(h.scheduled_at)} · ${esc((h.room || 'room TBD').replace(/\s*via videoconference/i, ''))}${h.status !== 'scheduled' ? ` · ${esc(h.status)}` : ''}
         <div class="psmall">${h.testimony_deadline ? 'written testimony due ' + fmtDT(h.testimony_deadline) : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div></div></div>`).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
-      <div class="testify"><b>How to testify.</b> Written testimony is due 24 hours before the hearing. Open the bill on the Capitol site, press "Submit Testimony", sign in with a free capitol.hawaii.gov account, choose the hearing, and upload or type your testimony. Say who you are, which bill, whether you support or oppose, and why in a few sentences.</div>
+      ${alive(b) ? `<div class="testify"><b>How to testify.</b> Written testimony is due 24 hours before the hearing. Open the bill on the Capitol site, press "Submit Testimony", sign in with a free capitol.hawaii.gov account, choose the hearing, and upload or type your testimony. Say who you are, which bill, whether you support or oppose, and why in a few sentences.</div>` : ''}
       <div class="sec">Details</div>
       <div class="kv"><span class="k">Committees</span><span>${esc((b.referrals || []).join(', ') || b.committee || '—')}</span></div>
-      ${b.sponsors?.length ? `<div class="kv"><span class="k">Sponsors</span><span>${esc(b.sponsors.slice(0, 8).join(', '))}</span></div>` : ''}
+      ${b.sponsors?.length ? `<div class="kv"><span class="k">Sponsors</span><span>${esc(b.sponsors.slice(0, 8).map(x => typeof x === 'string' ? x : x.n || x.name || '').filter(Boolean).join(', '))}</span></div>` : ''}
       ${b.companions?.length ? `<div class="kv"><span class="k">Companion</span><span>${esc(b.companions.join(', '))}</span></div>` : ''}
       <div class="kv"><span class="k">Watching</span><span>${b.watchers || 0} ${b.watchers === 1 ? 'person' : 'people'}</span></div>
       <p style="margin-top:12px">${b.state_url ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Capitol bill page ↗</a>` : ''} ${watchBtn(b)}</p>
