@@ -2002,7 +2002,9 @@ async function openDrawer(billId) {
 }
 function timelineHTML(tl) {
   if (!tl.length) return `<div style="color:var(--muted);font-size:12.5px">No activity yet.</div>`;
-  return `<div class="tl">${tl.map(ev => {
+  const all = S.drawerOpen?.tlAll, shown = all ? tl : tl.slice(0, 5);
+  return (tl.length > 5 && !all ? `<div class="tlcap">Latest 5 of ${tl.length} · <button class="morelink" id="d-tlmore">show all</button></div>` : '') +
+    `<div class="tl">${shown.map(ev => {
     const team = ev.source === 'team', a = advocate(ev.advocate_id);
     return `<div class="ev ${team?'team':''}">
       <div class="when">${fmtDT(ev.occurred_at)}</div>
@@ -2240,103 +2242,134 @@ function nextHTML(b) {
 }
 
 function drawerHTML(b) {
-  // Top: where the bill stands and what it does. Then testimony and to-dos.
-  // Team settings, details and the editors fold away. Timeline last, led by
-  // what comes next.
+  // Four blocks and a tab row. Header: the one-second facts. Next: the
+  // hearing, the deadline, and the testimony step with its button. Summary.
+  // Tasks. Then Timeline · Details · Team · Public · Notes as tabs.
   if (S.drawerOpen.bill !== b.id)
-    S.drawerOpen = { bill: b.id, pub: false, notes: false, details: false, team: false, todo: false };
+    S.drawerOpen = { bill: b.id, tab: 'timeline', more: false, log: false, tlAll: false, todo: false };
   const open = S.drawerOpen;
-  const notesHead = (b.internal_notes || '').trim().split('\n')[0].slice(0, 70);
+  const now = Date.now();
   const owner = owners(b)[0];
   const coalitions = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean);
-  const teamHint = [POSITIONS.find(p => p[0] === (b.position || ''))?.[1] || '—',
-    b.priority ? 'P' + b.priority : null, owner ? owner.full_name : null, ...coalitions].filter(Boolean).join(' · ');
+  const notesHead = (b.internal_notes || '').trim().split('\n')[0].slice(0, 70);
   const text = b.public_summary || b.description || '';
+  const dead = diedish(b), st = effStage(b);
+  const chips = [
+    b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="chipx c-gray">no position</span>',
+    b.priority ? `<span class="chipx c-gray">P${b.priority}</span>` : '',
+    owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
+    ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
+    `<span class="chipx ${dead ? 'c-gray' : st === 'enacted' ? 'c-green' : 'c-teal'}">${STAGE_LABEL[st]}${b.stage_override ? ' · override' : ''}</span>`,
+  ].filter(Boolean).join('');
+
+  // ---- Next: hearings ahead, each with its testimony row ----
+  const ups = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > now)
+    .sort((x, y) => new Date(x.scheduled_at) - new Date(y.scheduled_at));
+  const draftRow = d => {
+    const acts = d.status === 'cancelled' ? [] : draftActions(d);
+    const ui = S.draftUI || {};
+    const form = ui.id === d.id ? (ui.mode === 'changes'
+      ? `<div class="draftform"><input class="dfnote" placeholder="What should change?" aria-label="What should change"><button class="draftbtn pri" data-act="request_changes">Send</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`
+      : `<div class="draftform"><input class="dfurl" placeholder="Capitol confirmation link (optional)" aria-label="Confirmation link"><button class="draftbtn pri" data-act="file">Filed</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`) : '';
+    return `<div class="draftrow nx" data-draft="${esc(d.id)}">
+      <span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
+      <span class="draftwho">${esc(draftWho(d))}</span>
+      <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
+      <span class="dlinks"><a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>
+        ${d.status === 'approved' ? `<a class="draftlink" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">File at Capitol ↗</a>` : ''}
+        ${d.filed_url ? `<a class="draftlink" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation ↗</a>` : ''}</span>
+      ${d.status === 'draft' && d.review_note ? `<span class="draftnote">Changes requested: ${esc(d.review_note)}</span>` : ''}
+      ${form}
+    </div>`; };
+  const seen = new Set();
+  let nextHtml = '';
+  if (dead) {
+    nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${b.died_deadline ? `Died — missed ${esc(b.died_deadline)}${b.died_at_stage ? ' at ' + (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : ''}` : st === 'vetoed' ? 'Vetoed' : 'Died'}</b>
+      <div class="nextline">${esc(b.last_action || '')} ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span>` : ''}</div></div></div>`;
+  } else if (st === 'enacted' || st === 'governor') {
+    nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${st === 'enacted' ? 'Signed into law' : 'With the Governor'}</b>
+      <div class="nextline">${esc(b.last_action || '')} ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span>` : ''}</div></div></div>`;
+  } else if (ups.length) {
+    nextHtml = ups.map(h => { const c = S.committees[h.committee]; const dr = draftFor(b.id, h.committee); if (dr) seen.add(dr.id);
+      const dueSoon = h.testimony_deadline && new Date(h.testimony_deadline) - now < 48 * 3600e3 && new Date(h.testimony_deadline) > now;
+      return `<div class="next"><div class="nextk">Next</div><div class="nextv">
+        <b>${esc(c ? c.name : h.committee)}</b>${c ? ` <span class="code">${esc(h.committee)}</span>` : ''} hearing · ${fmtDT(h.scheduled_at)}${h.room ? ` · ${esc(h.room.replace(/\s*via videoconference/i, ''))}` : ''}
+        <div class="nextline">${c && c.chair ? `Chair ${esc(c.chair)}${c.vice_chair ? ` · Vice Chair ${esc(c.vice_chair)}` : ''}` : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div>
+        ${h.testimony_deadline ? `<div class="nextline due">Written testimony due ${fmtDT(h.testimony_deadline)}${inWhen(h.testimony_deadline) === 'passed' ? ' · passed' : ` · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
+        ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
+      </div></div>`; }).join('');
+  } else {
+    const ns = nextStageLabel(b); const dl = nextDeadline(b);
+    const sl = dl ? lastSlotBefore(b.committee, dl.date, S.slots) : null;
+    nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${ns ? esc(ns) : 'No further steps'}</b>${ns ? ' — no hearing scheduled yet' : ''}
+      ${dl ? `<div class="nextline">Needs a hearing in <b>${esc(b.committee || 'committee')}</b>${chairOf(b.committee)} before <b>${esc(dl.label)}</b> ${fmtDate(dl.date)} · ${dl.days}d</div>` : ''}
+      ${sl ? `<div class="nextline ${now > sl.noticeBy ? 'hot' : ''}">${now > sl.noticeBy ? 'Notice window for the last regular slot has closed — call the chair' : `Last regular slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`}</div>` : ''}
+    </div></div>`;
+  }
+  const otherDrafts = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && d.status !== 'cancelled');
+  const primary = (() => { const d = ups.map(h => draftFor(b.id, h.committee)).find(Boolean); if (!d) return null; const a = draftActions(d)[0]; return a ? { id: d.id, act: a[0], label: a[1] } : null; })();
+  const summary = text ? `<p class="desc${open.more ? '' : ' clamp'}" id="d-desc">${esc(text)}</p>${text.length > 220 ? `<button class="morelink" id="d-more">${open.more ? 'less' : 'more'}</button>` : ''}` : '<p class="desc"><i>No summary yet.</i></p>';
+  const tab = (k, l) => `<button class="dtab ${open.tab === k ? 'on' : ''}" data-dtab="${k}">${l}</button>`;
+  const pane = (k, inner) => `<div class="dpane" data-pane="${k}" ${open.tab === k ? '' : 'hidden'}>${inner}</div>`;
   return `<div class="scrim" id="scrim"></div>
-  <div class="drawer">
+  <div class="drawer v2">
     <div class="dhead">
       <button class="close" id="dclose">✕</button>
-      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.position ? `<span class="chipx poschip ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : ''}</h2>
+      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</h2>
       <div class="sub">${esc(b.title||'')}</div>
+      <div class="dchips">${chips}</div>
+      ${primary ? `<button class="btn sm dprimary" data-primary="${esc(primary.id)}" data-primaryact="${primary.act}">${primary.label}</button>` : ''}
     </div>
     <div class="dbody">
-      <div class="status">
-        <div class="stagenow">${STAGE_LABEL[effStage(b)]}${b.stage_override?' <span class="ovr">manual override</span>':''}
-          <span class="lastact">${esc(b.last_action||'')} <span class="when">${b.last_action_date ? fmtDate(b.last_action_date,{year:'2-digit'}) : ''}</span></span></div>
-        ${stageCalHTML(b)}
-        ${nextHTML(b)}
-      </div>
-      <div class="sec">Bill summary</div>
-      ${text ? `<p class="desc">${esc(text)}</p>` : '<p class="desc"><i>No summary yet.</i></p>'}
-      <div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
-      ${draftsHTML(b)}
+      ${stageCalHTML(b)}
+      ${nextHtml}
+      ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
+      <div class="sec">Summary</div>
+      ${summary}
       ${todosHTML(b)}
-      <details class="dsec" id="d-teamsec" ${open.team ? 'open' : ''}>
-        <summary><span class="sec">Team settings</span><span class="dhint">${esc(teamHint)}</span></summary>
-        <div class="teamgrid">
-          <div><label>Position</label><select id="d-pos">
-            ${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
-          <div><label>Priority</label><select id="d-pri"><option value="">—</option>
-            ${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
-          <div><label>Owner</label><select id="d-own"><option value="">—</option>
-            ${S.advocates.map(a=>`<option value="${a.id}" ${(S.assignments[b.id]||[])[0]===a.id?'selected':''}>${esc(a.full_name)}</option>`).join('')}</select></div>
-          <div><label>Stage override</label><select id="d-so"><option value="">Auto</option>
-            ${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>
-        </div>
-        <label class="lbl">Coalitions</label>
-        <div class="typechips">${S.campaigns.length
-          ? S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
-              return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}"
-                title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '✓ ' : '+ '}${esc(c.name)}</button>`; }).join('')
-          : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>
-      </details>
-      <details class="dsec" ${open.details ? 'open' : ''} id="d-detsec">
-        <summary><span class="sec">Details</span><span class="dhint">${esc(b.committee||'—')} · ${esc((b.referrals||[]).join(', ')||'no referrals')}</span></summary>
-        <div class="kv">
-          <span class="k">Committee</span><span>${esc(b.committee||'—')}</span>
+      <div class="dtabs">${tab('timeline', 'Timeline')}${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}</div>
+      ${pane('timeline', `
+        ${open.log ? `<div class="logform">
+          <div class="typechips">${LOG_TYPES.map(([v,l]) => `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
+          <input id="d-ltitle" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'What happened?'}">
+          <textarea id="d-ldetails" placeholder="Details (optional)"></textarea>
+          <button class="btn sm" id="d-log">Add to timeline</button> <button class="draftbtn" id="d-logclose">Cancel</button>
+        </div>` : `<button class="morelink" id="d-logopen">+ Add a note or log an action</button>`}
+        <div id="tlmount" style="min-height:40px;color:var(--muted);font-size:12.5px">Loading…</div>`)}
+      ${pane('details', `<div class="kv">
+          <span class="k">Committee</span><span>${esc(b.committee||'—')}${chairOf(b.committee)}</span>
           <span class="k">Referrals</span><span>${esc((b.referrals||[]).join(', ')||'—')}</span>
           ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
           ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
           ${b.public_summary && b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}
+          <span class="k">Last action</span><span>${esc(b.last_action||'—')} ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date,{year:'2-digit'})}</span>` : ''}</span>
           <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
+        </div>`)}
+      ${pane('team', `<div class="teamgrid">
+          <div><label>Position</label><select id="d-pos">${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
+          <div><label>Priority</label><select id="d-pri"><option value="">—</option>${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
+          <div><label>Owner</label><select id="d-own"><option value="">—</option>${S.advocates.map(a=>`<option value="${a.id}" ${(S.assignments[b.id]||[])[0]===a.id?'selected':''}>${esc(a.full_name)}</option>`).join('')}</select></div>
+          <div><label>Stage override</label><select id="d-so"><option value="">Auto</option>${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>
         </div>
-      </details>
-      <details class="dsec" id="d-pubsec" ${open.pub ? 'open' : ''}>
-        <summary><span class="sec">Public page</span><span class="dhint">edit summary and action ask</span></summary>
+        <label class="lbl">Coalitions</label>
+        <div class="typechips">${S.campaigns.length
+          ? S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
+              return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '✓ ' : '+ '}${esc(c.name)}</button>`; }).join('')
+          : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>`)}
+      ${pane('public', `<div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
         <div class="pubgrid">
           <label for="d-psum">Plain-language summary</label>
-          <textarea id="d-psum" maxlength="280"
-            placeholder="One sentence a neighbour would understand. No jargon, no bill numbers."
-            >${esc(b.public_summary || '')}</textarea>
+          <textarea id="d-psum" maxlength="280" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(b.public_summary || '')}</textarea>
           <label for="d-pact">Take Action ask</label>
-          <textarea id="d-pact" maxlength="280"
-            placeholder="What should someone do today? Left blank, no ask appears."
-            >${esc(b.public_action || '')}</textarea>
+          <textarea id="d-pact" maxlength="280" placeholder="What should someone do today? Left blank, the hearing itself is the ask.">${esc(b.public_action || '')}</textarea>
           <div class="pubrow">
-            <span><label for="d-puntil">Ask expires</label>
-              <input type="date" id="d-puntil" value="${esc(b.public_action_until || '')}"></span>
-            <label class="pubchk"><input type="checkbox" id="d-ispub" ${b.is_public ? 'checked' : ''}>
-              Show on public page</label>
+            <span><label for="d-puntil">Ask expires</label><input type="date" id="d-puntil" value="${esc(b.public_action_until || '')}"></span>
+            <label class="pubchk"><input type="checkbox" id="d-ispub" ${b.is_public ? 'checked' : ''}> Show on public page</label>
           </div>
           <button class="btn sm" id="d-savepub">Save public copy</button>
-        </div>
-      </details>
-      <details class="dsec" id="d-notesec" ${open.notes ? 'open' : ''}>
-        <summary><span class="sec">Internal notes</span><span class="dhint">${notesHead ? esc(notesHead) : 'never public'}</span></summary>
-        <div class="notes">
-          <textarea id="d-notes">${esc(b.internal_notes||'')}</textarea>
-          <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save notes</button>
-        </div>
-      </details>
-      <div class="sec">Timeline</div>
-      <div class="logform">
-        <div class="typechips">${LOG_TYPES.map(([v,l]) =>
-          `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
-        <input id="d-ltitle" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'Add to the timeline…'}">
-        <textarea id="d-ldetails" placeholder="Details (optional)"></textarea>
-        <button class="btn sm" id="d-log">Add to timeline</button>
-      </div>
-      <div id="tlmount" style="min-height:60px;color:var(--muted);font-size:12.5px">Loading…</div>
+        </div>`)}
+      ${pane('notes', `<div class="notes"><textarea id="d-notes" placeholder="Never public. Context for the team.">${esc(b.internal_notes||'')}</textarea>
+          <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save notes</button></div>`)}
     </div>
   </div>`;
 }
@@ -2429,7 +2462,8 @@ function render() {
   const b = S.bills.find(x => x.id === S.drawerBill);
   $('#app').innerHTML = chrome(body) + (b ? drawerHTML(b) : '');
   wire();
-  if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (el) el.innerHTML = timelineHTML(tl); })
+  if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (!el) return; el.innerHTML = timelineHTML(tl);
+      const m = $('#d-tlmore'); if (m) m.onclick = () => { S.drawerOpen.tlAll = true; el.innerHTML = timelineHTML(tl); }; })
     .catch(()=>{});
 }
 function wire() {
@@ -2568,6 +2602,13 @@ function wireDrawer() {
   if (ds) ds.ontoggle = () => { S.drawerOpen.details = ds.open; };
   const ts = $('#d-teamsec'); if (ts) ts.ontoggle = () => { S.drawerOpen.team = ts.open; };
   const tp = $('#d-todoplus'); if (tp) tp.onclick = () => { S.drawerOpen.todo = true; render(); $('#d-tdnew')?.focus(); };
+  const keep = fn => { const y = $('.dbody')?.scrollTop || 0; fn(); render(); const db = $('.dbody'); if (db) db.scrollTop = y; };
+  document.querySelectorAll('[data-dtab]').forEach(el => el.onclick = () => keep(() => { S.drawerOpen.tab = el.dataset.dtab; }));
+  $('#d-more') && ($('#d-more').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
+  $('#d-logopen') && ($('#d-logopen').onclick = () => { keep(() => { S.drawerOpen.log = true; }); $('#d-ltitle')?.focus(); });
+  $('#d-logclose') && ($('#d-logclose').onclick = () => keep(() => { S.drawerOpen.log = false; }));
+  $('.dprimary') && ($('.dprimary').onclick = () => { const row = document.querySelector(`[data-draft="${$('.dprimary').dataset.primary}"]`);
+    const btn = row?.querySelector(`[data-act="${$('.dprimary').dataset.primaryact}"]`); if (btn) { row.scrollIntoView({ block: 'center' }); btn.click(); } });
   const save = (patch, msg) => DB.updateBill(b.id, patch)
     .then(() => { toast(msg || 'Saved'); render(); })
     .catch(e => toast(e.message, true));
@@ -2658,7 +2699,7 @@ function wireDrawer() {
     $('#d-tdadd').onclick = addTodo;
     $('#d-tdnew').addEventListener('keydown', e => e.key === 'Enter' && addTodo());
   }
-  $('#d-log').onclick = async () => {
+  if ($('#d-log')) $('#d-log').onclick = async () => {
     const title = $('#d-ltitle').value.trim();
     if (!title) return toast('Add a short summary first', true);
     if (!S.me) return toast('Your login isn\'t linked to an advocate yet — ask your admin', true);
