@@ -132,7 +132,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, slots, fol, att, outc] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, slots, fol, att, outc] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -147,6 +147,7 @@ const DB = {
       S.supa.from('committees').select('*'),
       S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
       S.supa.from('app_settings').select('value').eq('key', 'calendar').maybeSingle(),
+      S.supa.from('app_settings').select('value').eq('key', 'email').maybeSingle(),
       S.supa.from('committee_slots').select('*'),
       S.supa.from('bill_follows').select('advocate_id,bill_id'),
       S.supa.from('hearing_attendance').select('hearing_id,advocate_id'),
@@ -154,6 +155,7 @@ const DB = {
     ]);
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
+    S.emailCfg = ecfg?.data?.value || { enabled: true };
     S.slots = slots?.data || [];
     S.followersBy = {}; (fol?.data || []).forEach(r => (S.followersBy[r.bill_id] ??= []).push(r.advocate_id));
     S.attend = {}; (att?.data || []).forEach(r => (S.attend[r.hearing_id] ??= []).push(r.advocate_id));
@@ -404,6 +406,12 @@ const DB = {
     const { data, error } = await S.supa.rpc('calendar_connect_state');
     if (error) throw error;
     location.href = `${SUPABASE_URL}/functions/v1/google-connect?state=${encodeURIComponent(data)}`;
+  },
+  async saveEmailSettings(cfg) {
+    S.emailCfg = cfg;
+    if (DEMO) return;
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'email', value: cfg, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
   async saveCalendarSettings(cfg) {
     S.calCfg = cfg;
@@ -1024,7 +1032,10 @@ function renderPortfolio(list) {
       ${stacked ? '' : `<div>${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, true)}${recentHearingsHtml}</div>`}
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
-    ${foldable('board', '🗂 Where every bill stands', board.a.length + board.b.length + board.c.length, board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false)}`;
+    ${foldable('board', '🗂 Where every bill stands', board.a.length + board.b.length + board.c.length, board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false)}
+    ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
+      ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')
+      (list.filter(b => diedish(b) && b.position !== 'monitor').sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)))}`;
 }
 
 function cell(b, c) {
@@ -1128,9 +1139,21 @@ const DK_RAIL_STAGES = ['introduced','first_lateral','first_decking','first_cros
 const DK_RAIL_IDX = { introduced:0, first_triple:1, first_lateral:1, first_decking:2,
   first_crossover:3, second_triple:4, second_lateral:4, second_decking:5,
   second_crossover:6, conference:6, governor:7, enacted:8, vetoed:7, dead:null };
+// The rail a bill actually walks: a triple-referred bill gets its Triple stop
+// in that chamber (racing the Triple Filing date) before Lateral.
+const railFor = b => { const r = ['introduced']; if ((b.origin_stops || 0) >= 3) r.push('first_triple');
+  r.push('first_lateral', 'first_decking', 'first_crossover'); if ((b.second_stops || 0) >= 3) r.push('second_triple');
+  r.push('second_lateral', 'second_decking', 'second_crossover', 'governor', 'enacted'); return r; };
+const railIdx = (b, rail) => { let st = effStage(b);
+  if (st === 'dead' && b.died_at_stage) st = b.died_at_stage;
+  // Died before its first hearing: it was racing the Triple (or Lateral) date, so mark that stop.
+  if (diedish(b) && st === 'introduced') st = rail.includes('first_triple') ? 'first_triple' : 'first_lateral';
+  const alias = { conference: 'second_crossover', vetoed: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral' };
+  if (!rail.includes(st)) st = alias[st] || 'introduced';
+  return Math.max(0, rail.indexOf(st)); };
 function dkRail(b) {
   const dead = diedish(b);
-  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  const DK_RAIL_STAGES = railFor(b); const idx = railIdx(b, DK_RAIL_STAGES);
   const sq = (i) => {
     const cls = i < idx ? '#0E7C86' : (i === idx && !dead) ? '#C9A227' : (i === idx && dead) ? '#C2483B' : '#D7E0E4';
     return `<span style="display:inline-block;width:7px;height:7px;border-radius:1px;background:${cls};margin:0 1px"></span>`;
@@ -1399,6 +1422,15 @@ const RAIL = [['introduced','Intro'],['first_lateral','1st\nLat'],['first_deckin
 const RAIL_IDX = { introduced:0, first_triple:1, first_lateral:1, first_decking:2, first_crossover:3,
   second_triple:4, second_lateral:4, second_decking:5, second_crossover:5, conference:6, governor:7,
   enacted:8, vetoed:7, dead:null };
+// "First Lateral 2/20/26" -> a sentence, for the Did not advance fold and the panel.
+function whyDead(b) {
+  const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  if (m) return `Missed the ${esc(m[1])} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
+  if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
+  if (/deferred/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
+  if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
+  return effStage(b) === 'vetoed' ? 'Vetoed by the Governor.' : 'Did not advance.';
+}
 const diedish = b => { const st = effStage(b);
   if (st === 'dead' || st === 'vetoed') return true;
   if (S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > new Date())) return false;
@@ -1571,6 +1603,10 @@ function renderSettings() {
     <section id="st-conn">
       <h2>Connections <span class="tag a">admin</span></h2>
       <p class="tok">Keys are saved write-only: once saved they show as set, never shown again. Leave a field blank to keep what is there; type <b>clear</b> to remove it.</p>
+      <h3>Email</h3>
+      <p class="tok">${(S.emailCfg || {}).enabled === false ? '⏸ <b>All outgoing email is paused.</b> Alerts, reminders, digests and public hearing emails are held and never sent; Slack still works.' : '✅ Email is on.'}</p>
+      ${chk('st-email-on', (S.emailCfg || {}).enabled !== false, 'Send email', 'switch off to hold every outgoing email; held messages are not sent later')}
+      <div class="btns"><button class="btn" id="st-save-email">Save email setting</button></div>
       <h3>Google Calendar</h3>
       <p class="tok" id="st-cal-status">Checking…</p>
       <label class="row"><span style="min-width:140px">Client ID</span><input id="st-gid" placeholder="…apps.googleusercontent.com" autocomplete="off"></label>
@@ -1630,6 +1666,11 @@ function wireSettings() {
       catch (e) { toast(e.message, true); }
     };
     $('#st-connect-cal').onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e.message, true); } };
+    $('#st-save-email') && ($('#st-save-email').onclick = async () => {
+      const on = $('#st-email-on').checked;
+      try { await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
+      catch (e) { toast(e.message, true); }
+    });
     $('#st-save-cal').onclick = async () => {
       try { await DB.saveCalendarSettings({ ...(S.calCfg || {}), enabled: $('#st-cal-on').checked, include_test: $('#st-cal-test').checked }); toast('Calendar settings saved'); }
       catch (e) { toast(e.message, true); }
@@ -1655,7 +1696,7 @@ function wireSettings() {
 const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
-  ['1 – 5', 'Bill tabs: Timeline, Details, Team, Public, Notes'], ['n / p', 'Next / previous week on the calendar'],
+  ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
   ['g then p / d / t / c / s', 'Go to Portfolio, Desk, Table, Cards, Settings'], ['?', 'This help page'],
 ];
 function renderHelp() {
@@ -1916,7 +1957,7 @@ function todosHTML(b) {
 // have to decode dots.
 function stageCalHTML(b) {
   const dead = diedish(b);
-  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
+  const DK_RAIL_STAGES = railFor(b); const idx = railIdx(b, DK_RAIL_STAGES);
   const lab = s => STAGE_LABEL[s] || s;
   const steps = DK_RAIL_STAGES.map((s, i) => {
     const k = i < idx ? 'done' : i === idx ? (dead ? 'dead' : 'now') : 'todo';
@@ -1932,8 +1973,8 @@ function stageCalHTML(b) {
 // is on the books.
 function nextStageLabel(b) {
   if (diedish(b)) return null;
-  let idx = DK_RAIL_IDX[effStage(b)]; if (idx == null) idx = 0;
-  const s = DK_RAIL_STAGES[idx + 1];
+  const rail = railFor(b), idx = railIdx(b, rail);
+  const s = rail[idx + 1];
   return s ? (STAGE_LABEL[s] || s) : null;
 }
 
@@ -1969,7 +2010,7 @@ function drawerHTML(b) {
   // hearing, the deadline, and the testimony step with its button. Summary.
   // Tasks. Then Timeline · Details · Team · Public · Notes as tabs.
   if (S.drawerOpen.bill !== b.id)
-    S.drawerOpen = { bill: b.id, tab: 'timeline', more: false, log: false, tlAll: false, todo: false };
+    S.drawerOpen = { bill: b.id, tab: 'details', more: false, log: false, tlAll: false, todo: false };
   const open = S.drawerOpen;
   const now = Date.now();
   const owner = owners(b)[0];
@@ -2018,14 +2059,20 @@ function drawerHTML(b) {
   } else if (ups.length) {
     nextHtml = ups.map(h => { const c = S.committees[h.committee]; const dr = draftFor(b.id, h.committee); if (dr) seen.add(dr.id);
       const dueSoon = h.testimony_deadline && new Date(h.testimony_deadline) - now < 48 * 3600e3 && new Date(h.testimony_deadline) > now;
-      return `<div class="next"><div class="nextk">Next</div><div class="nextv">
-        <b>${esc(c ? c.name : h.committee)}</b>${c ? ` <span class="code">${esc(h.committee)}</span>` : ''} hearing · ${fmtDT(h.scheduled_at)}${h.room ? ` · ${esc(h.room.replace(/\s*via videoconference/i, ''))}` : ''}
-        <div class="nextline">${c && c.chair ? `Chair ${(m => m ? `<a class="chairmail" href="mailto:${esc(m.email)}" title="${esc(m.email)}">${esc(c.chair)}</a>` : esc(c.chair))(chairMail(h.committee))}${c.vice_chair ? ` · Vice Chair ${esc(c.vice_chair)}` : ''}` : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div>
-        <div class="nextline attendline">${(att => att.length ? `Attending: ${att.map(a => esc(a.full_name)).join(', ')}` : '<span class="muted">No one marked as attending</span>')(attendees(h))}
-          <button class="draftbtn ${attendees(h).some(a => a.id === S.me?.id) ? '' : 'pri'}" data-attend="${h.id}">${attendees(h).some(a => a.id === S.me?.id) ? 'Not attending' : 'I\u2019m attending'}</button></div>
-        ${h.testimony_deadline ? `<div class="nextline due">Written testimony due ${fmtDT(h.testimony_deadline)}${inWhen(h.testimony_deadline) === 'passed' ? ' · passed' : ` · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
+      const duePast = h.testimony_deadline && inWhen(h.testimony_deadline) === 'passed';
+      const att = attendees(h), meIn = att.some(a => a.id === S.me?.id), m = chairMail(h.committee);
+      const room = (h.room || '').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
+      const row = (l, v, cls = '') => `<div class="nr ${cls}"><span class="nl">${l}</span><span class="nv">${v}</span></div>`;
+      return `<div class="next v3">
+        <div class="nexthead"><span class="nextk">Next</span><b>${esc(c ? c.name : h.committee)}</b>${c ? `<span class="code">${esc(h.committee)}</span>` : ''}<span class="muted">hearing</span></div>
+        <div class="nextgrid">
+          ${row('When', `${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}`)}
+          ${c && c.chair ? row('Chair', `${m ? `<a class="chairmail" href="mailto:${esc(m.email)}" title="${esc(m.email)}">${esc(c.chair)}</a>` : esc(c.chair)}${c.vice_chair ? `<span class="muted"> · Vice Chair ${esc(c.vice_chair)}</span>` : ''}`) : ''}
+          ${row('Attending', `${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button>`)}
+          ${h.testimony_deadline ? row('Testimony', duePast ? `due ${fmtDT(h.testimony_deadline)} <span class="muted">· passed</span>` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`, dueSoon ? 'due' : '') : ''}
+        </div>
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
-      </div></div>`; }).join('');
+      </div>`; }).join('');
   } else {
     const ns = nextStageLabel(b); const dl = nextDeadline(b);
     const sl = dl ? lastSlotBefore(b.committee, dl.date, S.slots) : null;
@@ -2050,13 +2097,14 @@ function drawerHTML(b) {
     </div>
     <div class="dbody">
       ${stageCalHTML(b)}
+      ${b.last_action ? `<div class="lastact"><span class="lal">Last action</span> ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span> · ` : ''}${esc(b.last_action)}</div>` : ''}
       ${nextHtml}
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
       ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
       <div class="sec">Summary</div>
       ${summary}
       ${todosHTML(b)}
-      <div class="dtabs">${tab('timeline', 'Timeline')}${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}</div>
+      <div class="dtabs">${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}${tab('timeline', 'Timeline')}</div>
       ${pane('timeline', `
         ${open.log ? `<div class="logform">
           <div class="typechips">${LOG_TYPES.map(([v,l]) => `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
@@ -2549,7 +2597,7 @@ document.addEventListener('keydown', e => {
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
   if (S.drawerBill) {
     const b = S.bills.find(x => x.id === S.drawerBill);
-    if ('12345'.includes(k) && k) { const tab = ['timeline', 'details', 'team', 'public', 'notes'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
+    if ('12345'.includes(k) && k) { const tab = ['details', 'team', 'public', 'notes', 'timeline'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
     if (k === 'f') { document.querySelector('[data-follow]')?.click(); return; }
     if (k === 'a') { document.querySelector('[data-attend]')?.click(); return; }
     return;

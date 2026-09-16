@@ -621,7 +621,7 @@ details.sincefold>summary::-webkit-details-marker{display:none}
   .calweek .calbtns{flex-basis:100%}
   .calweek .calnone{text-align:left}
 }
-/* ---------- P1: pale teal wash, gold priority tab, larger type (the .p3 class name is historical; it marks P1) ---------- */
+/* ---------- P1: pale teal wash and a thicker stripe, same type as everything else (the .p3 class name is historical; it marks P1) ---------- */
 .wrow.p3,.calrow.p3,.chip3.p3,.tlrow.p3{background:#EAF5F6;position:relative;border-left-width:5px}
 .chip3.p3{border-color:#BFDCDF}
 .wrow.p3,.calrow.p3{border-bottom-color:#D5E8EA}
@@ -629,13 +629,6 @@ details.sincefold>summary::-webkit-details-marker{display:none}
 .chip3.p3::after{border-radius:0 8px 0 8px}
 .wrow.p3::after,.calrow.p3::after,.tlrow.p3::after{border-radius:0 0 0 9px}
 .p3 .pri{display:none}
-.wrow.p3 .verb{font-size:17px}
-.wrow.p3 .pmain{font-size:15px}
-.wrow.p3 .pdesc{font-size:14.5px;line-height:1.45}
-.wrow.p3 .psmall,.chip3.p3 .l2,.tlrow.p3 .tlts,.tlrow.p3 .tltitle{font-size:12.5px}
-.wrow.p3 .pmain b,.chip3.p3 .l1 b,.tlrow.p3 .tltext b{font-size:15px}
-.chip3.p3 .l1{font-size:14px;padding-right:34px}
-.chip3.p3 .cm{font-size:13px}
 .chip3.p3 .ldesc{font-size:14px;line-height:1.4}
 .chip3.p3:hover{border-color:var(--teal)}
 .tlrow.p3{padding-left:18px;margin:2px 0;border-radius:8px}
@@ -881,3 +874,26 @@ details.fold .calnav{margin-left:auto}
   .calweek .calrow.p3{padding:12px 10px 13px 9px}
   .calweek .pdesc{-webkit-line-clamp:3}
 }
+
+/* ---------- 9/16: bill panel — details first, last action up top, calmer Next card ---------- */
+.lastact{margin:8px 0 0;font-size:12.5px;color:var(--ink);line-height:1.45}
+.lastact .lal{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#7F98A3;margin-right:6px}
+.lastact .when{color:var(--muted)}
+.next.v3{display:block;background:#F5F9FA;border:1px solid #DCE8EB;padding:12px 14px;border-radius:12px;margin:12px 0 4px}
+.next.v3 .nexthead{display:flex;align-items:baseline;gap:8px;margin-bottom:9px;font-size:13px;flex-wrap:wrap}
+.next.v3 .nexthead .nextk{padding-top:0}
+.next.v3 .nexthead b{font-family:'Space Grotesk';font-size:15px}
+.next.v3 .nexthead .code{margin-left:0}
+.next.v3 .nextgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;align-items:baseline}
+.next.v3 .nr{display:contents}
+.next.v3 .nl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#7F98A3;white-space:nowrap;padding-top:2px}
+.next.v3 .nv{font-size:13px;line-height:1.5;min-width:0}
+.next.v3 .nv .draftbtn{margin-left:8px;vertical-align:middle}
+.next.v3 .nr.due .nv{color:#7A5B08}
+.next.v3 .draftrow.nx{margin-top:12px;border-color:#DCE8EB}
+.next.v3 .nextline.muted{margin-top:10px;font-size:12.5px}
+.panel.dead summary.ph{cursor:pointer;list-style:none}
+.panel.dead summary.ph::-webkit-details-marker{display:none}
+.panel.dead .prow{opacity:.85}
+.panel.dead .prow .pri{font-size:10px;color:var(--muted);margin:0 4px}
+@media (max-width:480px){ .next.v3 .nextgrid{grid-template-columns:1fr;gap:2px} .next.v3 .nl{margin-top:6px} .next.v3 .nr:first-child .nl{margin-top:0} }

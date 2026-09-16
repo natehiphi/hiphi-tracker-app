@@ -245,10 +245,21 @@ const chairOf = code => { const c = S.committees[String(code || '').split('/')[0
   const last = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
   const title = c.chamber === 'S' ? 'Sen.' : 'Rep.';
   return ` · Chair <a class="chairmail" href="mailto:${c.chamber === 'S' ? 'sen' : 'rep'}${esc(last.toLowerCase().replace(/[^a-z]/g, ''))}@capitol.hawaii.gov" onclick="event.stopPropagation()" title="Email the chair">${title} ${esc(last)}</a>`; };
+const RAIL_SHORT = { introduced: 'Intro', first_triple: '1st Triple', first_lateral: '1st Lat', first_decking: '1st Deck', first_crossover: 'Cross',
+  second_triple: '2nd Triple', second_lateral: '2nd Lat', second_decking: '2nd Deck', conference: 'Conf', governor: 'Gov', enacted: 'Law' };
+// A triple-referred bill gets its Triple stop in that chamber, before Lateral.
+const railFor = b => { const r = ['introduced']; if ((b.origin_stops || 0) >= 3) r.push('first_triple');
+  r.push('first_lateral', 'first_decking', 'first_crossover'); if ((b.second_stops || 0) >= 3) r.push('second_triple');
+  r.push('second_lateral', 'second_decking', 'conference', 'governor', 'enacted'); return r; };
 function rail(b) {
-  let idx = RAIL_IDX[b.stage || 'introduced']; if (idx == null) idx = 0;
+  const r = railFor(b);
+  let st = b.stage || 'introduced'; if (st === 'dead' && b.died_at_stage) st = b.died_at_stage;
+  if (!alive(b) && st === 'introduced') st = r.includes('first_triple') ? 'first_triple' : 'first_lateral';   // died before its first hearing
+  const alias = { second_crossover: 'conference', vetoed: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral' };
+  if (!r.includes(st)) st = alias[st] || 'introduced';
+  const idx = Math.max(0, r.indexOf(st));
   const dead = !alive(b) && !['enacted', 'governor'].includes(b.stage || '');
-  return `<div class="pv-rail">${RAIL.map(([, l], i) => `<div class="pv-stop ${i < idx ? 'done' : ''} ${i === idx && !dead ? 'now' : (i === idx ? 'done' : '')}"><span class="sq"></span><span class="sl">${l}</span></div>`).join('')}</div>`;
+  return `<div class="pv-rail">${r.map((s, i) => `<div class="pv-stop ${i < idx ? 'done' : ''} ${i === idx && !dead ? 'now' : (i === idx ? 'done' : '')}"><span class="sq"></span><span class="sl">${RAIL_SHORT[s]}</span></div>`).join('')}</div>`;
 }
 // Add-to-calendar: an .ics the phone opens in its own calendar, plus a Google
 // Calendar link. One hour, room only, bill title in the description.
@@ -382,17 +393,17 @@ function panelFor(b) {
       ${b.hiphi_action ? `<div class="next"><span class="nk">ASK</span><div>${esc(b.hiphi_action)}</div></div>` : ''}
       ${b.sandbox_untracked ? '<p class="desc"><i>Sandbox: this bill is not on HIPHI’s list, so its history and hearings are not loaded here. In the live app every bill is complete.</i></p>' : ''}
       <div class="sec">Summary</div><p class="desc">${esc(b.hiphi_summary || b.description || 'No summary available yet.')}</p>
+      <div class="sec">Details</div>
+      <div class="kv"><span class="k">Committees</span><span>${esc((b.referrals || []).join(', ') || b.committee || '—')}</span></div>
+      ${b.sponsors?.length ? `<div class="kv"><span class="k">Sponsors</span><span>${esc(b.sponsors.slice(0, 8).map(x => typeof x === 'string' ? x : x.n || x.name || '').filter(Boolean).join(', '))}</span></div>` : ''}
+      ${b.companions?.length ? `<div class="kv"><span class="k">Companion</span><span>${esc(b.companions.join(', '))}</span></div>` : ''}
+      ${b.current_version ? `<div class="kv"><span class="k">Version</span><span>${esc(b.current_version)} — the bill has been amended ${b.current_version.replace(/\D/g, '')} time${b.current_version.replace(/\D/g, '') === '1' ? '' : 's'} in the ${/^H/.test(b.current_version) ? 'House' : /^S/.test(b.current_version) ? 'Senate' : 'conference committee'}</span></div>` : ''}
       <div class="sec">Hearings</div>
       ${!alive(b) ? `<p class="desc"><i>This bill did not advance. Hearings listed below are historical.</i></p>` : ''}
       ${hs.length ? hs.map(h => { const past = new Date(h.scheduled_at) < now; return `<div class="prow"><div class="pmain"><b>${esc(h.committee)}</b> · ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${h.status !== 'scheduled' ? ` · ${esc(h.status)}` : ''} ${past ? outcomeChip(h) : ''}${chairOf(h.committee)}
         <div class="psmall">${h.testimony_deadline && !past ? 'written testimony due ' + fmtDT(h.testimony_deadline) : ''}${S.outcomes[h.id]?.report ? esc(S.outcomes[h.id].report.slice(0, 140)) : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div>
         ${!past && h.status === 'scheduled' ? `<div class="calbtns">${b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Submit testimony ↗</a>` : ''}${calLinks(b, h)}</div>` : ''}</div></div>`; }).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
       ${alive(b) ? testifyBox() : ''}
-      <div class="sec">Details</div>
-      <div class="kv"><span class="k">Committees</span><span>${esc((b.referrals || []).join(', ') || b.committee || '—')}</span></div>
-      ${b.sponsors?.length ? `<div class="kv"><span class="k">Sponsors</span><span>${esc(b.sponsors.slice(0, 8).map(x => typeof x === 'string' ? x : x.n || x.name || '').filter(Boolean).join(', '))}</span></div>` : ''}
-      ${b.companions?.length ? `<div class="kv"><span class="k">Companion</span><span>${esc(b.companions.join(', '))}</span></div>` : ''}
-      ${b.current_version ? `<div class="kv"><span class="k">Version</span><span>${esc(b.current_version)} — the bill has been amended ${b.current_version.replace(/\D/g, '')} time${b.current_version.replace(/\D/g, '') === '1' ? '' : 's'} in the ${/^H/.test(b.current_version) ? 'House' : /^S/.test(b.current_version) ? 'Senate' : 'conference committee'}</span></div>` : ''}
       <p style="margin-top:12px">${b.state_url ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Capitol bill page ↗</a>` : ''}</p>
     </div></div>`;
 }
