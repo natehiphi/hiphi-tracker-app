@@ -715,3 +715,21 @@ details.fold .calnav{margin-left:auto}
   .wrow .btn{order:3;margin-top:4px}
   .wrow.p3{min-height:0}
 }
+/* ---------- phone calendar: full width, day label above its hearings ---------- */
+@media (max-width:900px){
+  details.fold>summary{margin:10px 0 0}
+  details.fold[open]>.panel,details.fold>.calwrap>.panel{margin:0}
+  details.fold>.calwrap{padding:0}
+  .calweek .calday{display:block}
+  .calweek .calrail{flex-direction:row;align-items:baseline;justify-content:flex-start;gap:8px;padding:7px 12px;border-right:none;border-bottom:1px solid #EEF2F5}
+  .calweek .calrail .dom{font-size:15px}
+  .calweek .calrail .dow{font-size:11px}
+  .calweek .calrail .tod{margin-left:2px}
+  .calweek .calrail .cnt{margin-left:auto}
+  .calweek .calbody{width:100%}
+  .calweek .calrow{padding:10px 12px}
+  .calweek .caltime{flex-basis:100%}
+  .calweek .calrow .pmain{flex-basis:100%}
+  .calweek .calbtns{flex-basis:100%;gap:6px}
+  .calweek .calnone{padding:10px 12px;text-align:left}
+}
