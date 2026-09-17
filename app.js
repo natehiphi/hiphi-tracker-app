@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage','inbox'].includes(v)
+  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage','inbox','memo'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -135,7 +135,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -160,6 +160,7 @@ const DB = {
       S.supa.from('bill_messages').select('*').is('deleted_at', null).gte('created_at', new Date(Date.now() - 90 * 864e5).toISOString()).order('created_at'),
       S.supa.from('bill_message_reads').select('*'),
       S.supa.rpc('my_inbox', { p_limit: 300 }),
+      S.supa.from('session_calendar').select('*'),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -169,6 +170,7 @@ const DB = {
     S.emailCfg = ecfg?.data?.value || { enabled: true };
     S.syncCfg = sycfg?.data?.value || {};
     applySessionDeadlines(dls?.data || []);
+    S.sessionCal = scal?.data || [];
     S.slots = slots?.data || [];
     S.followersBy = {}; (fol?.data || []).forEach(r => (S.followersBy[r.bill_id] ??= []).push(r.advocate_id));
     S.attend = {}; (att?.data || []).forEach(r => (S.attend[r.hearing_id] ??= []).push(r.advocate_id));
@@ -513,6 +515,11 @@ const DB = {
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
+  async saveSessionCalendar(row) {
+    S.sessionCal = [...(S.sessionCal || []).filter(c => c.session_year !== row.session_year), row];
+    if (DEMO) return;
+    const { error } = await S.supa.from('session_calendar').upsert({ ...row, updated_at: new Date().toISOString() }); if (error) throw error;
+  },
   async saveSyncSettings(cfg) {
     S.syncCfg = cfg;
     if (DEMO) return;
@@ -576,6 +583,7 @@ async function demoInit() {
   S.campaigns = snap.campaigns;
   S.slots = snap.slots;
   applySessionDeadlines(snap.deadlines);
+  S.sessionCal = snap.calendar || [];
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -692,6 +700,7 @@ function visibleBills() {
   if (S.camps.size) list = list.filter(b => (S.billCampaigns[b.id] || []).some(c => S.camps.has(c)));
   if (S.stageF) list = list.filter(b => effStage(b) === S.stageF);
   if (S.tripleF) list = list.filter(isTriple);
+  if (S.riskF) list = list.filter(atRisk);
   if (S.q) {
     const q = S.q.toLowerCase(), qn = q.replace(/\s/g,'');
     list = list.filter(b => b.bill_number.toLowerCase().includes(qn) ||
@@ -710,12 +719,13 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['triage','Triage'],['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings'],['help','Help']];
+const MORE_VIEWS = [['memo','Weekly memo'],['triage','Triage'],['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
-const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.stageF ? 1 : 0);
+const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.stageF ? 1 : 0);
 const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
   S.camps.size ? [...S.camps].map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean).join(', ') : null,
   S.tripleF ? 'triple-referred' : null,
+  S.riskF ? 'at risk' : null,
   S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null].filter(Boolean).join(' · ');
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
@@ -747,11 +757,11 @@ function chrome(inner) {
     <div class="top staff">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}">Portfolio</button>
-        <button data-view="inbox" class="${S.view==='inbox'?'on':''}">Inbox${(n => n ? ` <span class="navn">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>
-        <button data-view="add" class="${S.view==='add'?'on':''}">+ Add bills</button>
+        <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}"><span class="ti" aria-hidden="true">⌂</span>Portfolio</button>
+        <button data-view="inbox" class="${S.view==='inbox'?'on':''}"><span class="ti" aria-hidden="true">✉</span>Inbox${(n => n ? ` <span class="navn">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>
+        <button data-view="add" class="${S.view==='add'?'on':''}"><span class="ti" aria-hidden="true">＋</span><span class="lg">+ Add bills</span><span class="sm">Add</span></button>
         <details class="more">
-          <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}">${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'} ▾</summary>
+          <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}"><span class="ti" aria-hidden="true">☰</span>${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'}<span class="lg"> ▾</span></summary>
           <div class="menu">
             ${MORE_VIEWS.map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
             <button id="logout2">Sign out</button>
@@ -759,7 +769,7 @@ function chrome(inner) {
         </details>
       </div>
       <input type="search" class="qbox topq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
-      <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
+      <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${(ld => ld ? `${ld.today ? 'day' : 'recess, day'} ${ld.day} of ${ld.of} · ` : '')(legislativeDay())}${S.bills.length} tracked · ${freshTxt}</span>
       <span class="who">${av(S.me)}<button id="logout">sign out</button></span>
     </div>
     <div class="controls">
@@ -778,6 +788,8 @@ function chrome(inner) {
           ${S.campaigns.map(c => `<label><input type="checkbox" data-campf="${c.id}" ${S.camps.has(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}
           <div class="mh">Referral</div>
           <label><input type="checkbox" id="triplef" ${S.tripleF?'checked':''}> Triple-referred only</label>
+          <div class="mh">Risk</div>
+          <label title="In committee, no hearing scheduled, and the deadline it is racing is ${RISK_DAYS} days away or less"><input type="checkbox" id="riskf" ${S.riskF?'checked':''}> At risk only · no hearing, deadline within ${RISK_DAYS}d</label>
           ${S.view==='table' ? `<div class="mh">Stage</div><select id="stagef"><option value="">Any stage</option>${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>` : ''}
           ${filterCount() ? '<button class="clear" id="clearf">Clear filters</button>' : ''}
         </div></details>
@@ -794,6 +806,8 @@ function statusChip(b) {
     const urgent = h.testimony_deadline && new Date(h.testimony_deadline) - Date.now() < 48*3600e3;
     return `<span class="chipx ${urgent?'c-red':'c-gold'}">◷ Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</span>`;
   }
+  const rk = riskOf(b);
+  if (rk) return `<span class="chipx c-red" title="In committee with no hearing scheduled">⚠ At risk · needs ${esc(rk.committee || 'a')} hearing by ${fmtDate(rk.deadline.date)} (${rk.deadline.days}d)</span>`;
   const cls = st==='enacted' ? 'c-green' : (st==='dead'||st==='vetoed') ? 'c-gray' :
               st==='governor' ? 'c-navy' : 'c-teal';
   return `<span class="chipx ${cls}">${STAGE_LABEL[st]}</span>`;
@@ -854,9 +868,49 @@ function chairOf(code) {
   const m = chairMail(code);
   return ` · Chair <a class="chairmail" href="mailto:${esc(m.email)}" onclick="event.stopPropagation()" title="${esc(m.email)}">${esc(m.title)} ${esc(m.last)}</a>`;
 }
+// The session on one line: every deadline as a gate, today's marker, and
+// under each gate still ahead how many of these bills are racing it, how many
+// of those have no hearing yet, and how many of those are P1. Gates already
+// passed say how many bills stopped there.
+const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${g.label.toLowerCase()}` : g.label;
+function sessionGates(list) {
+  const now = Date.now(), endOf = d => new Date(d + 'T23:59:59-10:00').getTime();
+  const live = list.filter(b => b.position !== 'monitor' && !diedish(b)).map(b => ({ b, st: stopOf(b) }));
+  const dead = list.filter(b => diedish(b) && b.position !== 'monitor');
+  const tag = g => { const d = new Date(g.date + 'T12:00:00-10:00'); return `${g.label} ${d.getUTCMonth() + 1}/${d.getUTCDate()}/${String(d.getUTCFullYear()).slice(2)}`; };
+  let nextSeen = false;
+  return deadlineCalendar().map(g => { const past = endOf(g.date) < now, next = !past && !nextSeen; if (next) nextSeen = true;
+    const racing = past ? [] : live.filter(x => x.st.deadline && !x.st.deadline.missed && x.st.deadline.date === g.date);
+    const noHearing = racing.filter(x => x.st.column === 'a');
+    return { ...g, name: gateName(g), past, next, days: Math.floor((endOf(g.date) - now) / 864e5), racing, noHearing,
+      p1: noHearing.filter(x => x.b.priority === 1).length, stopped: past ? dead.filter(b => b.died_deadline === tag(g)).length : 0 }; });
+}
+function sessionTrack(gates) {
+  if (!gates.length) return '';
+  const now = Date.now(), sc = (S.sessionCal || []).find(c => c.session_year === SESSION_YEAR);
+  const start = sc?.opening_day ? new Date(String(sc.opening_day).slice(0, 10) + 'T00:00:00-10:00').getTime() : new Date(gates[0].date + 'T00:00:00-10:00').getTime() - 8 * 864e5;
+  const end = new Date(gates[gates.length - 1].date + 'T23:59:59-10:00').getTime();
+  const pct = t => Math.max(0, Math.min(100, (t - start) / (end - start) * 100)).toFixed(2);
+  const ld = legislativeDay();
+  const lastPast = gates.filter(g => g.past).slice(-1)[0];
+  const cards = gates.filter(g => !g.past || g === lastPast);
+  return `<div class="strack" id="pf-track">
+      <div class="sthead"><b>Where we are in the session</b><span>${ld ? esc(ld.text) + ' · ' : ''}each mark is a deadline; the numbers are these bills still racing it</span></div>
+      <div class="stbar"><div class="stdone" style="width:${pct(now)}%"></div>
+        ${gates.map(g => `<i class="stgate ${g.past ? 'past' : g.next ? 'upnext' : ''}" style="left:${pct(new Date(g.date + 'T12:00:00-10:00').getTime())}%" title="${esc(g.name)} · ${fmtDate(g.date)}"></i>`).join('')}
+        <span class="stnow" style="left:${pct(now)}%">Today</span></div>
+      <div class="stcards">${cards.map(g => `
+        <div class="stcard ${g.past ? 'past' : g.next ? 'upnext' : ''}"><b>${esc(g.name)}</b>
+          <span class="when">${fmtDate(g.date)} · ${g.past ? 'passed' : g.days <= 0 ? 'today' : g.days === 1 ? 'tomorrow' : `in ${g.days} days`}</span>
+          ${g.past ? (g.stopped ? `<span class="load">${g.stopped} stopped here</span>` : '')
+            : g.racing.length ? `<span class="load"><b>${g.racing.length}</b> racing it${g.noHearing.length ? ` · <span class="${g.days <= RISK_DAYS ? 'hot' : 'warm'}">${g.noHearing.length} with no hearing</span>${g.p1 ? ` · <span class="hot">${g.p1} P1</span>` : ''}` : ' · all have hearings ✓'}</span>` : '<span class="load none">none of these bills</span>'}
+        </div>`).join('')}</div>
+    </div>`;
+}
 function pfBoard(list) {
   const cur = currentDeadline();
-  if (SESSION_OVER || !cur) return { html: '', a: [], b: [], c: [] };
+  if (SESSION_OVER || !cur) return { html: '', a: [], b: [], c: [], gates: [] };
+  const gates = sessionGates(list);
   const now = Date.now();
   // Each live bill is placed by where it stands (stops.js): needs a hearing,
   // hearing scheduled or held, or through committee. Monitor bills, dead
@@ -869,7 +923,7 @@ function pfBoard(list) {
     cols[st.column].push({ b, st, h: st.hearing, dl: st.deadline });
   }
   const { a, b: bcol, c } = cols;
-  const days = d => Math.ceil((new Date(d + 'T23:59:59-10:00') - now) / 864e5);
+  const days = d => Math.max(0, Math.floor((new Date(d + 'T23:59:59-10:00') - now) / 864e5));
   a.sort((x, y) => byPri(x, y) || (x.dl ? days(x.dl.date) : 999) - (y.dl ? days(y.dl.date) : 999) || x.b.bill_number.localeCompare(y.b.bill_number));
   bcol.sort((x, y) => byPri(x, y) || x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   c.sort((x, y) => byPri(x, y) || (y.b.last_action_date || '').localeCompare(x.b.last_action_date || '') || x.b.bill_number.localeCompare(y.b.bill_number));
@@ -888,6 +942,7 @@ function pfBoard(list) {
   const html = `
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
       <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it is racing; bills re-sort as dates pass.</span></div>
+    ${sessionTrack(gates)}
     <p class="boardhow">${BOARD_EXPLAINER}</p>
     <div class="board3">
       ${col('a', a, ({ b, st, dl }) => `
@@ -895,7 +950,7 @@ function pfBoard(list) {
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral'}</span>${who(b)}</span>
           <span class="lstop">Waiting in ${st.committee ? `${esc(st.committee)}, the ${CHAMBER_NAME[st.chamber]}’s ${['first', 'second', 'third', 'fourth'][st.stop - 1] || st.stop + 'th'} of ${st.stops} committee${st.stops === 1 ? '' : 's'}` : `the ${CHAMBER_NAME[st.chamber]} for a committee referral`}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date)} — ${dl.days}d left (${esc(dl.label)})</span>` : `Needs a hearing by ${fmtDate(dl.date)} · ${dl.days}d (${esc(dl.label)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
+          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date)} — ${dl.days === 0 ? 'today' : dl.days + 'd left'} (${esc(dl.label)})</span>` : `Needs a hearing by ${fmtDate(dl.date)} · ${dl.days}d (${esc(dl.label)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', bcol, ({ b, st, h }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
@@ -912,7 +967,7 @@ function pfBoard(list) {
           <span class="l2">${esc((b.last_action || '').slice(0, 60))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</span>
         </div>`, 'Nothing is through committee yet.')}
     </div>`;
-  return { html, a, b: bcol, c };
+  return { html, a, b: bcol, c, gates };
 }
 
 // The home page. In session: what is waiting on you, this week's hearings
@@ -1199,7 +1254,7 @@ function renderPortfolio(list) {
   const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.');
   const cur = currentDeadline();
-  const dlDays = cur ? Math.ceil((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5) : null;
+  const dlDays = cur ? Math.max(0, Math.floor((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5)) : null;
   const openWeeks = (() => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(); return now > cut - 18 * 864e5 && now < cut + 3 * 864e5; })();
   if (openWeeks && !S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true; DB.triageCounts().then(c => { S.triageCounts = c; rerenderKeep(); }).catch(() => {}); }
   const banner = openWeeks ? `<div class="openbanner"><span><b>Opening weeks.</b> ${S.triageCounts ? `${S.triageCounts.introduced} bills introduced · <b>${S.triageCounts.undecided}</b> waiting for a decision · ${S.triageCounts.suggested} suggested · ${S.triageCounts.tracked} tracked` : 'Every new bill needs one decision: track it or skip it.'}</span><button class="btn sm" data-view="triage">Open Triage</button></div>` : '';
@@ -1232,8 +1287,22 @@ function renderPortfolio(list) {
       </div>
       <div class="gsec last"><div class="gtiles two">${tile(waitingOthers.length, 'testimony steps on teammates', 'data-jump="pf-others"')}${tile(recent.length, 'official actions in 72h', 'data-jump="pf-recent"')}</div></div>
     </div>`;
+  // One plain sentence on top: the next deadline and what it means for these bills, then today.
+  const num = n => n < 10 ? ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] : String(n);
+  const whose = S.owner === 'me' ? 'your' : S.owner === 'all' ? 'the team’s' : `${esc((advocate(S.owner)?.full_name || '').split(' ')[0])}’s`;
+  const whenIs = g => g.days <= 0 ? 'is today' : g.days === 1 ? 'is tomorrow' : g.days <= 6 ? `is ${new Date(g.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Pacific/Honolulu' })}` : `is in ${g.days} days`;
+  const racingLine = g => g.noHearing.length ? `${g.noHearing.length < g.racing.length ? `${num(g.noHearing.length)} of ${whose} ${g.racing.length} bills` : g.racing.length === 1 ? `${whose[0].toUpperCase() + whose.slice(1)} one bill` : g.racing.length === 2 ? `Both of ${whose} bills` : `All ${g.racing.length} of ${whose} bills`} racing it still need${g.noHearing.length === 1 ? 's' : ''} a hearing${g.p1 ? `, <span class="hot">${g.p1 === g.noHearing.length ? (g.p1 === 1 ? 'and it is P1' : 'all P1') : `${g.p1} of them P1`}</span>` : ''}.` : `All ${g.racing.length} of ${whose} bills racing it have a hearing on the books.`;
+  const urgentN = merged.filter(urgentRow).length;
+  const headline = (() => { const up = (board.gates || []).filter(g => !g.past); if (!up.length) return SESSION_OVER ? `The ${SESSION_YEAR} session is over. ${list.filter(b => ['enacted', 'governor'].includes(effStage(b))).length} of ${whose} bills reached the Governor or became law.` : '';
+    const g = up[0], g2 = up.find(x => x.racing.length);
+    let t = `<b>${esc(g.name)} ${whenIs(g)}.</b> `;
+    if (g.racing.length) t += racingLine(g);
+    else if (g2) t += `None of ${whose} bills are racing it. <b>${esc(g2.name)} ${whenIs(g2)}:</b> ${racingLine(g2).replace(/^./, c => c.toLowerCase())}`;
+    else t += `None of ${whose} bills are racing a deadline right now.`;
+    if (urgentN) t += ` <a data-jump="pf-wait" class="hot">${num(urgentN)} thing${urgentN === 1 ? '' : 's'} need${urgentN === 1 ? 's' : ''} action in the next 24 hours.</a>`;
+    return t; })();
   const stripShort = [`${list.length} bill${list.length === 1 ? '' : 's'}`, filterCount() ? `<span class="filtnote">showing ${esc(filterLabel())} only</span>` : null].filter(Boolean).join(' · ');
-  return head(`${esc(who)}'s Portfolio`, `${today} · ${stripShort}`) + banner + todayStrip + `
+  return head(`${esc(who)}'s Portfolio`, `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + (headline ? `<p class="headline">${headline}</p>` : '') + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
       <div>${glance}${recentHearingsHtml}</div>
@@ -1608,6 +1677,25 @@ let DEADLINES = {   // fallback only; the real calendar comes from session_deadl
 // The calendar lives in session_deadlines (one row per deadline; JANUARY.md).
 // Maps the table's keys onto the phase buckets the app uses. Session year =
 // the latest year in the table; the session is over once sine die has passed.
+// Legislative day: the Legislature numbers only the days the chambers convene.
+// session_calendar holds opening day, sine die and the weekdays that do not
+// count (recess, holidays, closures). Null when the year has no calendar or
+// today is outside the session, so a wrong number is never shown.
+function legislativeDay(at = Date.now()) {
+  const cal = (S.sessionCal || []).find(c => c.session_year === SESSION_YEAR); if (!cal || !cal.opening_day) return null;
+  const off = new Set((cal.off_days || []).map(d => String(d).slice(0, 10)));
+  const today = hstDayOf(at), end = cal.sine_die ? String(cal.sine_die).slice(0, 10) : null;
+  if (today < String(cal.opening_day).slice(0, 10) || (end && today > end)) return null;
+  let n = 0, total = 0, isDay = false;
+  for (let d = new Date(String(cal.opening_day).slice(0, 10) + 'T12:00:00-10:00'); ; d.setUTCDate(d.getUTCDate() + 1)) {
+    const k = d.toISOString().slice(0, 10); if (end ? k > end : total > 80) break;
+    const dow = new Date(k + 'T12:00:00-10:00').getUTCDay(); const counts = dow !== 0 && dow !== 6 && !off.has(k);
+    if (counts) { total++; if (k <= today) n++; if (k === today) isDay = true; }
+    if (!end && total >= 60) break;
+  }
+  return { day: n, of: total, today: isDay, text: isDay ? `Legislative day ${n} of ${total}` : `Recess · ${n} of ${total} legislative days done` };
+}
+const hstDayOf = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 function applySessionDeadlines(rows) {
   if (!rows || !rows.length) return;
   const yr = Math.max(...rows.map(r => r.session_year));
@@ -1647,8 +1735,17 @@ function referralPath(b) {
 // Where the bill stands (stops.js): leg, committee, position, deadline, hearing, board column.
 function stopOf(b) {
   return billStop(b, { stage: effStage(b), hearings: S.hearings.filter(h => h.bill_id === b.id), outcomes: S.outcomes || {},
-    deadlineFor: key => { const last = (DEADLINES[key] || []).slice(-1)[0]; return last ? { label: last[0], date: last[1] } : null; } });
+    deadlineFor: key => { const last = key === 'final_decking' ? (DEADLINES.conference || [])[0] : (DEADLINES[key] || []).slice(-1)[0]; return last ? { label: last[0], date: last[1] } : null; } });
 }
+// At risk: a live bill the team has a position on, sitting in committee with
+// no hearing on the books, whose deadline is RISK_DAYS away or less.
+const RISK_DAYS = 7;
+function riskOf(b) {
+  if (SESSION_OVER || b.position === 'monitor' || diedish(b)) return null;
+  const st = stopOf(b);
+  return st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS ? st : null;
+}
+const atRisk = b => !!riskOf(b);
 // The committee deadline a bill still has to make (null once it is through committee or has missed it).
 const nextDeadline = b => { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; };
 // True triple referral: 3+ stops within a SINGLE chamber (joint committees
@@ -1851,6 +1948,14 @@ function renderSettings() {
       <label class="row"><span style="min-width:200px">Session year</span><input type="number" id="st-bulk-year" style="width:110px" value="${SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR}"></label>
       <label class="row"><span style="min-width:200px">CSV export URL</span><input id="st-bulk-url" placeholder="https://data.openstates.org/csv/latest/HI_${SESSION_YEAR + 1}_csv_….zip"><button class="btn sm" id="st-bulk-run">Import</button></label>
       <p class="tok" id="st-bulk-status"></p>
+      <h3>Session days</h3>
+      ${(yr => { const c = (S.sessionCal || []).find(x => x.session_year === yr) || {}; return `
+      <p class="tok">Drives “Legislative day 27 of 58”. From the Public Access Room’s session calendar: opening day, adjournment, and every weekday the chambers do <b>not</b> convene (recess days, holidays, “Legislature closed”), one date per line. Weekends are skipped automatically. Or drop the calendar PDF in the inbox folder and Claude enters it.</p>
+      <label class="row"><span style="min-width:200px">Session year</span><input type="number" id="st-sd-year" style="width:110px" value="${yr}" readonly></label>
+      <label class="row"><span style="min-width:200px">Opening day</span><input type="date" id="st-sd-open" value="${esc(String(c.opening_day || '').slice(0, 10))}"></label>
+      <label class="row"><span style="min-width:200px">Adjournment sine die</span><input type="date" id="st-sd-end" value="${esc(String(c.sine_die || '').slice(0, 10))}"></label>
+      <label class="row" style="align-items:flex-start"><span style="min-width:200px">Recess days and holidays</span><textarea id="st-sd-off" rows="5" style="flex:1;max-width:260px;font-family:ui-monospace,monospace;font-size:12.5px" placeholder="2027-02-15&#10;2027-02-25">${esc((c.off_days || []).map(d => String(d).slice(0, 10)).join('\n'))}</textarea></label>
+      <div class="btns"><button class="btn sm" id="st-sd-save">Save session days</button><span class="tok" id="st-sd-status">${(ld => ld ? esc(ld.text) : c.opening_day ? 'Saved. The count shows while the session is running.' : 'Not entered for ' + yr + '.')(legislativeDay())}</span></div>`; })(SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR)}
       <label class="row" style="margin-top:10px"><span style="min-width:200px">Hourly sync (opening weeks) until</span><input type="date" id="st-burst" value="${esc((S.syncCfg || {}).burst_until || '')}"><button class="btn sm" id="st-save-burst">Save</button><span class="tok">blank = four times a day</span></label>
     </section>
     <section id="st-coal">
@@ -1864,6 +1969,14 @@ function renderSettings() {
         <input data-cicon value="${esc(c.icon || '')}" placeholder="icon" title="One emoji for the public page tile" maxlength="4">
         <input data-cdesc value="${esc(c.description || '')}" placeholder="one friendly sentence for the public page tile"></div>`).join('')}</div>
       <div class="btns"><button class="btn" id="st-save-coal">Save coalitions</button></div>
+    </section>
+    <section id="st-embed">
+      <h2>Put the tracker on your website <span class="tag a">admin</span></h2>
+      <p class="tok">A compact table of the bills we have a public position on: bill, our position, where it stands. It reads the same public data as the public page, so internal notes, owners and drafts can never appear. Pick a coalition (or all), copy the code, and paste it into an HTML block on hiphi.org or a coalition site.</p>
+      <label class="row"><span style="min-width:200px">Show</span><select id="st-emb-coal"><option value="">Every coalition</option>${S.campaigns.filter(c => c.is_public && c.slug).map(c => `<option value="${esc(c.slug)}">${esc(c.public_name || c.name)}</option>`).join('')}</select>
+        <select id="st-emb-limit"><option value="">up to 50 bills</option><option value="10">10 bills</option><option value="25">25 bills</option><option value="200">all bills</option></select></label>
+      <textarea id="st-emb-code" rows="5" readonly style="width:100%;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+      <div class="btns"><button class="btn sm" id="st-emb-copy">Copy the code</button><a class="btn sm ghost" id="st-emb-open" target="_blank" rel="noopener">Preview ↗</a></div>
     </section>
     <section id="st-import">
       <h2>Import the tracked list <span class="tag a">admin</span></h2>
@@ -1950,6 +2063,18 @@ function wireSettings() {
       $('#st-bulk-run').disabled = true; $('#st-bulk-status').textContent = 'Starting…';
       try { await DB.dispatch('bulk-import', { url, session }); $('#st-bulk-status').innerHTML = `Import started for ${esc(session)}. It takes 10–30 minutes; the readiness row "${esc(session)} bills imported" turns green when it lands (re-check).`; toast('Import started'); }
       catch (e) { $('#st-bulk-status').textContent = e.message; toast(e.message, true); $('#st-bulk-run').disabled = false; } });
+    $('#st-sd-save') && ($('#st-sd-save').onclick = async () => {
+      const yr = Number($('#st-sd-year').value), open = $('#st-sd-open').value, end = $('#st-sd-end').value || null;
+      const raw = $('#st-sd-off').value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean), bad = raw.filter(x => !/^\d{4}-\d{2}-\d{2}$/.test(x));
+      if (!open) return toast('Enter the opening day', true);
+      if (bad.length) return toast(`Not a date (use 2027-02-15): ${bad.slice(0, 3).join(', ')}`, true);
+      try { await DB.saveSessionCalendar({ session_year: yr, opening_day: open, sine_die: end, off_days: [...new Set(raw)].sort() }); toast('Session days saved'); render(); } catch (e) { toast(e.message, true); } });
+    const embCode = () => { const base = new URL('embed.html', location.href); base.search = ''; base.hash = ''; const c = $('#st-emb-coal').value, l = $('#st-emb-limit').value;
+      if (c) base.searchParams.set('coalition', c); if (l) base.searchParams.set('limit', l);
+      $('#st-emb-open').href = base.href + (DEMO ? (base.search ? '&' : '?') + 'demo=1' : '');
+      $('#st-emb-code').value = `<iframe id="hiphi-tracker" src="${base.href}" title="HIPHI bill tracker" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`; };
+    if ($('#st-emb-code')) { embCode(); $('#st-emb-coal').onchange = embCode; $('#st-emb-limit').onchange = embCode;
+      $('#st-emb-copy').onclick = async () => { try { await navigator.clipboard.writeText($('#st-emb-code').value); toast('Code copied'); } catch { $('#st-emb-code').select(); toast('Press ⌘C to copy'); } }; }
     $('#st-save-burst') && ($('#st-save-burst').onclick = async () => { const until = $('#st-burst').value || null;
       try { await DB.saveSyncSettings({ ...(S.syncCfg || {}), burst_until: until }); toast(until ? `Hourly sync until ${until}` : 'Back to four syncs a day'); } catch (e) { toast(e.message, true); } });
     // Coalitions
@@ -1998,7 +2123,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / d / t / c / s / i / n', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / d / t / c / s / i / n / m', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2107,6 +2232,64 @@ function wireInbox() {
     DB.inboxMark([i.key]).catch(() => {});
     if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
     await openDrawer(i.bill_id); if (i.tab === 'chat') S.drawerOpen.chat = true; else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
+}
+// ---------------- Weekly memo: the update that writes itself ----------------
+// Built from the bill records for one coalition or all of them, so nobody
+// rewrites the same update three times. Sections with nothing in them are
+// left out. Copy as text (email, Slack) or formatted (Docs, Word).
+function memoData() {
+  const v = S.memoView ??= { coalition: '' }, now = Date.now(), wk = 7 * 864e5;
+  const inScope = b => b.position !== 'monitor' && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
+  const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
+  const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
+  const short = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
+  const name = b => `${billNum(b).replace(/^(\D+)/, '$1 ')} (${short(b)})`;
+  const gates = sessionGates(bills).filter(g => !g.past), g = gates[0], g2 = gates.find(x => x.racing.length);
+  const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
+  const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();
+  const coal = v.coalition ? S.campaigns.find(c => c.id === v.coalition) : null;
+  const title = `${coal ? (coal.public_name || coal.name) + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
+  const ld = legislativeDay();
+  const intro = `${ld ? ld.text + '. ' : ''}We have a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${bills.filter(b => b.priority === 1).length ? ` (${bills.filter(b => b.priority === 1).length} top priority)` : ''}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${g2 ? ` ${g2.racing.length} must clear committee by ${g2.name.toLowerCase()} on ${fmtDate(g2.date)}${g2.noHearing.length ? `; ${g2.noHearing.length} of those have no hearing yet` : ''}.` : ''}`;
+  const sections = [];
+  // hearings in the next seven days
+  const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  if (hs.length) sections.push(['Hearings this week', hs.map(h => { const b = billById(h.bill_id), d = draftFor(b.id, h.committee);
+    return `${name(b)}: ${h.committee}, ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomShortMemo(h.room) : ''}. Testimony ${d ? (d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not yet filed' : 'in progress') : 'not started'}${(!d || !['filed', 'approved'].includes(d.status)) && h.testimony_deadline && new Date(h.testimony_deadline) > now ? `, due ${fmtDT(h.testimony_deadline)}` : ''}.`; })]);
+  // moved in the last seven days
+  const sig = /pass(ed)? (second|third|final) reading|recommend(s|ed)? (that the measure be )?pass|reported from|transmitted to|received from|conference committee|enrolled|governor|became law|act \d+/i;
+  const moved = live.filter(b => b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && sig.test(b.last_action || ''));
+  if (moved.length) sections.push(['Moving', moved.slice(0, 12).map(b => `${name(b)}: ${(b.last_action || '').replace(/\s+/g, ' ').slice(0, 140)} (${fmtDate(b.last_action_date)}).`).concat(moved.length > 12 ? [`…and ${moved.length - 12} more.`] : [])]);
+  // no hearing, deadline inside two weeks
+  const risk = live.map(b => ({ b, st: stopOf(b) })).filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed && x.st.deadline.days <= 14).sort((x, y) => x.st.deadline.days - y.st.deadline.days || (x.b.priority || 9) - (y.b.priority || 9));
+  if (risk.length) sections.push(['At risk: no hearing yet', risk.slice(0, 12).map(({ b, st }) => `${name(b)}: waiting in ${st.committee || 'the ' + CHAMBER_NAME[st.chamber] + ' for a referral'}; needs a hearing by ${fmtDate(st.deadline.date)} (${when(st.deadline)}).`).concat(risk.length > 12 ? [`…and ${risk.length - 12} more in the same position.`] : [])]);
+  // stopped in the last seven days
+  const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
+  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => `${name(b)}: ${whyDead(b).replace(/<[^>]+>/g, '')}`).concat(died.length > 12 ? [`…and ${died.length - 12} more.`] : [])]);
+  // what supporters can do
+  const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || !b.public_action_until || b.public_action_until >= today));
+  if (asks.length) sections.push(['How you can help', asks.slice(0, 8).map(b => `${name(b)}: ${b.public_action.replace(/\s+/g, ' ').trim()}`)]);
+  const foot = `Every bill, with hearing dates and how to testify: ${new URL('track.html', location.href).href.split('?')[0]}`;
+  return { title, intro, sections, foot, empty: !sections.length };
+}
+const roomShortMemo = r => String(r || '').replace(/Conference Room/i, 'Rm').replace(/\s*&.*$/, '').trim();
+const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(i => '• ' + i)]), '', m.foot].join('\n');
+const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(i => `<li>${esc(i).replace(/^([A-Z]+ \d+(?: [A-Z]+\d+)?)/, '<b>$1</b>')}</li>`).join('')}</ul>`).join('')}<p>${esc(m.foot)}</p>`;
+function renderMemo() {
+  const v = S.memoView ??= { coalition: '' }, m = memoData();
+  return `<div class="memowrap">
+    <div class="dashhead"><h1>Weekly memo</h1><span class="sub">Writes itself from the bill records. Pick a coalition, read it over, copy it into an email, a Slack post or a board packet. Nothing is sent from here.</span></div>
+    <div class="ifilters"><select id="memo-coal"><option value="">Every coalition</option>${S.campaigns.map(c => `<option value="${c.id}" ${v.coalition === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <button class="btn sm" id="memo-copy">Copy as text</button><button class="btn sm ghost" id="memo-copy-rich">Copy with formatting</button></div>
+    <div class="memo" id="memo-body">${memoHTML(m)}${m.empty ? '<p class="tok">A quiet week for these bills: no hearings, no floor votes, nothing at risk inside two weeks.</p>' : ''}</div>
+  </div>`;
+}
+function wireMemo() {
+  $('#memo-coal') && ($('#memo-coal').onchange = () => { S.memoView.coalition = $('#memo-coal').value; render(); });
+  $('#memo-copy') && ($('#memo-copy').onclick = async () => { try { await navigator.clipboard.writeText(memoText(memoData())); toast('Memo copied'); } catch (e) { toast('Could not copy: ' + e.message, true); } });
+  $('#memo-copy-rich') && ($('#memo-copy-rich').onclick = async () => { const m = memoData();
+    try { await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([memoHTML(m)], { type: 'text/html' }), 'text/plain': new Blob([memoText(m)], { type: 'text/plain' }) })]); toast('Memo copied with formatting'); }
+    catch { try { await navigator.clipboard.writeText(memoText(m)); toast('Copied as plain text'); } catch (e) { toast('Could not copy: ' + e.message, true); } } });
 }
 // ---------------- Triage: every introduced bill gets one decision ----------------
 // Sandbox: keyword rules against the untracked index (titles + descriptions).
@@ -2747,6 +2930,7 @@ function render() {
     : S.view === 'settings' ? renderSettings()
     : S.view === 'triage' ? renderTriage()
     : S.view === 'inbox' ? renderInbox()
+    : S.view === 'memo' ? renderMemo()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -2759,6 +2943,7 @@ function render() {
 function wire() {
   if (S.view === 'triage') wireTriage();
   if (S.view === 'inbox') wireInbox();
+  if (S.view === 'memo') wireMemo();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
@@ -2818,10 +3003,11 @@ function wire() {
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
   document.querySelectorAll('[data-prif]').forEach(el => el.onchange = () => { const p = Number(el.dataset.prif); el.checked ? S.pris.add(p) : S.pris.delete(p); rerenderKeep('.pillmenu.filt'); });
   $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; rerenderKeep('.pillmenu.filt'); });
+  $('#riskf') && ($('#riskf').onchange = () => { S.riskF = $('#riskf').checked; rerenderKeep('.pillmenu.filt'); });
   $('#triplef') && ($('#triplef').onchange = () => { S.tripleF = $('#triplef').checked; rerenderKeep('.pillmenu.filt'); });
   document.querySelectorAll('[data-campf]').forEach(el => el.onchange = () => { const id = el.dataset.campf; el.checked ? S.camps.add(id) : S.camps.delete(id); rerenderKeep('.pillmenu.filt'); });
-  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.stageF = ''; render(); });
-  $('#clearf2') && ($('#clearf2').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.stageF = ''; render(); });
+  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.riskF = false; S.stageF = ''; render(); });
+  $('#clearf2') && ($('#clearf2').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.riskF = false; S.stageF = ''; render(); });
   document.querySelectorAll('.pillmenu').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.pillmenu').forEach(o => { if (o !== d) o.open = false; }); }));
   document.addEventListener('click', e => { if (!e.target.closest('.pillmenu')) document.querySelectorAll('.pillmenu[open]').forEach(d => d.open = false); }, { once: true });
   $('#csv') && ($('#csv').onclick = exportCSV);
@@ -3129,7 +3315,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage', n: 'inbox' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }

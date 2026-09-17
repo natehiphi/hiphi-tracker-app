@@ -110,7 +110,7 @@ export function billStop(b, ctx) {
   const d = out.deadlineKey ? ctx.deadlineFor(out.deadlineKey) : null;
   if (d) {
     const end = new Date(d.date + 'T23:59:59-10:00').getTime();
-    out.deadline = { key: out.deadlineKey, label: d.label, date: d.date, days: Math.ceil((end - now) / 864e5), missed: end < now };
+    out.deadline = { key: out.deadlineKey, label: d.label, date: d.date, days: Math.max(0, Math.floor((end - now) / 864e5)), missed: end < now };
   }
 
   // ---- hearing in the current committee ----
