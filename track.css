@@ -200,3 +200,17 @@
 .top.pub .who .addbtn{background:var(--teal);font-weight:600}
 .addstrip{display:flex;gap:8px;align-items:center;margin:0 0 14px}
 .addstrip input{flex:1;max-width:520px}
+
+/* ---------- 9/16: search and browse in the header, on every screen ---------- */
+.pubnav{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid var(--line);padding:8px 20px 6px;display:flex;flex-direction:column;gap:6px}
+.pubnav .topq{width:100%;max-width:640px;font-size:14px;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px}
+.pubnav .topq:focus{border-color:var(--teal);outline:none}
+.issuerow{display:flex;gap:6px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none;padding-bottom:2px}
+.issuerow::-webkit-scrollbar{display:none}
+.issuelbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--muted);margin-right:2px;flex:0 0 auto}
+.issuerow .fchip{flex:0 0 auto;padding:5px 11px;font-size:12px}
+.issuerow .fchip.more{color:var(--teal);border-style:dashed}
+.top.pub .who .addbtn{display:none}
+.addstrip{display:none}
+.browse{display:none}
+@media (max-width:760px){ .pubnav{padding:8px 12px 6px} }

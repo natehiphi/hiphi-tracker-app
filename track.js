@@ -440,8 +440,10 @@ function chrome(inner) {
   const who = DEMO ? `<span title="The real 2026 session, frozen at March 16. Nothing here is saved.">sandbox · March 16, 2026</span>`
     : S.session ? `<span>${esc(S.session.user.email)}</span><button data-nav="settings">Settings</button><button id="signout">Sign out</button>`
     : `<button data-nav="signin">Sign in</button>`;
+  const chips = groups().sort((a, b) => (/general/i.test(a.key) ? 1 : 0) - (/general/i.test(b.key) ? 1 : 0) || (b.live || 0) - (a.live || 0) || a.sort_order - b.sort_order).map(c => `<button class="fchip ${S.view === 'find' && S.browse && c.names.includes(S.browse.name) ? 'on' : ''}" data-browse="${esc(c.names[0])}">${esc(c.icon || '')} ${esc(c.key)}</button>`).join('');
   return `<div class="top pub"><span class="logo" data-nav="home" style="cursor:pointer"><span class="mark">☀</span>HIPHI Bill Tracker</span><a class="brand" href="https://www.hiphi.org" target="_blank" rel="noopener" title="Hawaiʻi Public Health Institute">by the Hawaiʻi Public Health Institute ↗</a>
-      <span class="who"><button class="addbtn" data-nav="find" title="Search, browse by issue, or pick from HIPHI’s picks">＋ Add bills</button><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
+      <span class="who"><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
+    <div class="pubnav"><input type="search" id="q" class="topq" placeholder="Search any bill: HB1563, vaping, school meals…" value="${esc(S.q)}" aria-label="Search bills"><div class="issuerow"><span class="issuelbl">Browse</span>${chips}<button class="fchip more" data-nav="find">＋ more</button></div></div>
     <div class="pubwrap">${inner}</div>`;
 }
 const resultRow = b => `
@@ -450,8 +452,7 @@ const resultRow = b => `
         ${watchBtn(b)}</div>`;
 function searchBox() {
   const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${groups().sort((a, b) => a.sort_order - b.sort_order).map(c => `<button class="fchip ${S.browse && c.names.includes(S.browse.name) ? 'on' : ''}" data-browse="${esc(c.names[0])}">${esc(c.key)} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
-  return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>${chips}
-    ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
+  return `${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
     ${S.browse ? (({ picks, rest }) => `<div class="panel"><div class="ph"><span>${esc(cname(S.browse.name))} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) : ''}</span></div>
       ${picks.length ? `<div class="pickhead">HIPHI’s picks <span class="tok">· the bills we are pushing hardest</span> <button class="btn sm" data-watchpicks="${esc(S.browse.name)}">Follow these ${picks.length}</button></div><div class="results" style="border:0;margin:0">${picks.map(resultRow).join('')}</div>` : ''}
       <details class="fold" style="margin:6px 12px 10px"><summary class="tok" style="cursor:pointer">${rest.length} other bill${rest.length === 1 ? '' : 's'} in ${esc(cname(S.browse.name))} (${rest.filter(alive).length} live)</summary><div class="results" style="border:0;margin:0">${rest.map(resultRow).join('') || '<div class="row" style="color:var(--muted)">Nothing else.</div>'}</div></details></div>`)(curate(S.browse.rows, 8)) : ''}`;
@@ -637,13 +638,12 @@ function landing() {
   const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 110))}</div></div>${watchBtn(b)}</div>`; }).join('');
-  const guided = !S.browse && !S.results && !S.q && (!wiz().skipped || S.view === 'wizard');
+  const guided = !wiz().skipped || S.view === 'wizard';
   if (guided) return `${stripHTML()}${wizardHTML()}${recoHTML(false).replace('More ways to help this week', 'Or act on one bill right now')}`;
   return `
     ${stripHTML()}
-    <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, follow a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify. <button class="linkbtn" data-wizrestart>Guided start</button></span></div>
-    ${searchBox()}
-    ${S.browse ? '' : `<div class="tiles">${tiles}</div>`}
+    <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Search above, pick an issue below, or take the <button class="linkbtn" data-wizrestart>guided start</button>. Follow a few bills and this page becomes your week at the Capitol: hearings, deadlines, and how to testify.</span></div>
+    <div class="tiles">${tiles}</div>
     ${!S.browse ? doNowHTML(f.bills, f.hearings, 'This week’s actions') : ''}
     ${!S.browse && featured ? `<div class="panel sec-cal"><div class="ph"><span>◷ Also this week at the Capitol</span><span class="psub">hearings on bills HIPHI is working on · Follow any of them</span></div>${featured}</div>` : ''}
     ${nudgeHTML()}`;
@@ -653,7 +653,7 @@ function find() {
   const gen = c => /general/i.test(c.key) ? 1 : 0;
   const tiles = groups().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
     <button class="tile" data-tile="${esc(c.names[0])}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span></button>`).join('');
-  return `<div class="pubhead"><h1>Add bills</h1><span class="sub">Search by number or words, browse an issue for HIPHI’s picks, or <button class="linkbtn" data-wizrestart>start over with the guided picks</button>. You follow ${S.watch.size} bill${S.watch.size === 1 ? '' : 's'} now.</span></div>
+  return `<div class="pubhead"><h1>${S.browse ? esc(cname(S.browse.name)) : S.results ? `Search: “${esc(S.q)}”` : 'Add bills'}</h1><span class="sub">${S.browse || S.results ? `<button class="linkbtn" data-browse="">← all issues</button> · ` : ''}search above, pick an issue, or <button class="linkbtn" data-wizrestart>start over with the guided picks</button>. You follow ${S.watch.size} bill${S.watch.size === 1 ? '' : 's'}.</span></div>
     ${searchBox()}
     ${S.browse || S.results ? '' : `<div class="tiles">${tiles}</div>`}
     ${S.browse || S.results ? '' : recoHTML(false).replace('More ways to help this week', 'Bills that need someone this week')}`;
@@ -726,7 +726,7 @@ function home() {
   const watchRow = b => `<div class="prow ${posCls(b)}" data-open="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> <span class="chipx c-gray explain" data-explain="${esc(STAGE_PLAIN[b.stage] || '')}" title="tap for what this means">${STAGE_LABEL[b.stage] || 'Introduced'}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 120))}</div>${!alive(b) ? `<div class="psmall">${whyDead(b)}</div>` : ''}</div>${watchBtn(b)}</div>`;
   const dashPanels = [recent.length ? feed : '', recentH.length ? recentHearings : ''].filter(Boolean);
   const phone = window.innerWidth < 760;
-  const browse = `<div class="addstrip"><input type="search" id="q" placeholder="Search any bill by number or words…" value="${esc(S.q)}"><button class="btn sm" data-nav="find">Browse by issue</button></div>${S.results ? searchBox().replace(/^[\s\S]*?<\/div>/, '') : ''}`;
+  const browse = '';
   return `
     ${stripHTML()}${nudgeHTML()}
     <div class="pubhead"><h1>Your bills and actions</h1><span class="sub">${today} · ${strip}</span></div>
@@ -834,11 +834,11 @@ function wire() {
   const q = $('#q');
   if (q) { let t; q.oninput = () => { S.q = q.value; clearTimeout(t); t = setTimeout(async () => {
       if (S.q.trim().length < 2) { S.results = null; render(); return; }
-      try { S.browse = null; S.results = await search(S.q.trim()); if (S.view === 'home' && S.watch.size) S.view = 'find'; render(); const el = $('#q'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+      try { S.browse = null; S.results = await search(S.q.trim()); S.view = 'find'; render(); const el = $('#q'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
       catch (e) { toast(e.message, true); } }, 300); }; }
   document.querySelectorAll('[data-watch]').forEach(el => el.onclick = e => { e.stopPropagation(); toggleWatch(el.dataset.watch); });
   document.querySelectorAll('[data-open]').forEach(el => el.onclick = () => openBill(el.dataset.open));
-  document.querySelectorAll('[data-browse], [data-tile]').forEach(el => el.onclick = async () => { const name = el.dataset.browse ?? el.dataset.tile; if (!name) { S.browse = null; render(); return; } onbSet({ issues: true }); try { S.open = null; await browseCoalition(name); render(); window.scrollTo(0, 0); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-browse], [data-tile]').forEach(el => el.onclick = async () => { const name = el.dataset.browse ?? el.dataset.tile; if (!name) { S.browse = null; render(); return; } onbSet({ issues: true }); try { S.open = null; await browseCoalition(name); S.view = 'find'; render(); window.scrollTo(0, 0); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-watchall]').forEach(el => el.onclick = async () => { const rows = (S.browse?.rows || []).filter(b => alive(b) && !S.watch.has(b.id)); el.disabled = true;
     for (const b of rows) { S.watch.add(b.id); } saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
@@ -908,7 +908,7 @@ document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
   if (e.key === 'Escape') {
-    if (typing) { e.target.blur(); if (S.q) { S.q = ''; S.results = null; render(); } return; }
+    if (typing) { e.target.blur(); if (S.q) { S.q = ''; S.results = null; if (S.view === 'find' && !S.browse) S.view = S.watch.size ? 'home' : 'home'; render(); } return; }
     if (S.open) { closeBill(); return; }
     if (S.results || S.browse) { S.q = ''; S.results = null; S.browse = null; render(); }
     return;
