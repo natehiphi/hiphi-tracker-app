@@ -352,7 +352,9 @@ function searchBox() {
   const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${S.coalitions.map(c => `<button class="fchip ${S.browse?.name === c.name ? 'on' : ''}" data-browse="${esc(c.name)}">${esc(c.name)} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
   return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>${chips}
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
-    ${S.browse ? `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) + ' · ' : ''}press Watch on any, or <button class="btn sm" data-watchall="${esc(S.browse.name)}">Watch all ${S.browse.rows.filter(alive).length} live</button></span></div><div class="results" style="border:0;margin:0">${S.browse.rows.length ? S.browse.rows.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">Nothing public in this coalition yet.</div>'}</div></div>` : ''}`;
+    ${S.browse ? (({ picks, rest }) => `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) : ''}</span></div>
+      ${picks.length ? `<div class="pickhead">HIPHI’s picks <span class="tok">· the bills we are pushing hardest</span> <button class="btn sm" data-watchpicks="${esc(S.browse.name)}">Watch these ${picks.length}</button></div><div class="results" style="border:0;margin:0">${picks.map(resultRow).join('')}</div>` : ''}
+      <details class="fold" style="margin:6px 12px 10px"><summary class="tok" style="cursor:pointer">${rest.length} other bill${rest.length === 1 ? '' : 's'} in ${esc(S.browse.name)} (${rest.filter(alive).length} live)</summary><div class="results" style="border:0;margin:0">${rest.map(resultRow).join('') || '<div class="row" style="color:var(--muted)">Nothing else.</div>'}</div></details></div>`)(curate(S.browse.rows, 8)) : ''}`;
 }
 // ---------------- Do this now: one card per open opportunity ----------------
 const POS_VERB = { strongly_support: 'support', support: 'support', support_amend: 'support with amendments', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'comment on' };
@@ -450,13 +452,60 @@ function wireHelper() {
   $('#h-copy').onclick = async () => { try { await navigator.clipboard.writeText($('#h-text').value); toast('Copied — now paste it at the Capitol'); } catch { $('#h-text').select(); toast('Select all and copy', true); } };
   $('#h-did').onclick = async () => { await markDone(b.id, h.id, 'testimony'); toast('Marked done. Mahalo for testifying!'); close(); };
 }
+// HIPHI's picks for a coalition: strongly supported/opposed first, then bills
+// with a position and a hearing coming up, then the rest with a position. Dead
+// bills stay out. Capped so a first-timer sees a handful, not hundreds.
+const POS_RANK = { strongly_support: 0, strongly_oppose: 0, support: 1, oppose: 1, support_amend: 2, neutral: 3 };
+function curate(rows, cap = 6) {
+  const now = Date.now(), up = new Set([...S.hearings, ...((S.featured || {}).hearings || [])].filter(h => new Date(h.scheduled_at) > now).map(h => h.bill_id));
+  const live = rows.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor');
+  live.sort((a, b) => (POS_RANK[a.hiphi_position] ?? 9) - (POS_RANK[b.hiphi_position] ?? 9) || (up.has(b.id) - up.has(a.id)) || a.bill_number.localeCompare(b.bill_number));
+  return { picks: live.slice(0, cap), rest: rows.filter(b => !live.slice(0, cap).includes(b)) };
+}
+async function billsForCoalitions(names) {
+  if (DEMO) return D.bills.filter(b => b.coalitions.some(n => names.includes(n)));
+  const { data, error } = await S.supa.from('public_all_bills').select('*').overlaps('coalitions', names).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').limit(400);
+  if (error) throw error; return data || [];
+}
+// ---------- the guided start: pick issues -> pick bills -> done ----------
+function wiz() { try { return JSON.parse(localStorage.getItem('hiphi_wiz') || '{"step":1,"issues":[]}'); } catch { return { step: 1, issues: [] }; } }
+function wizSet(patch) { const w = { ...wiz(), ...patch }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } return w; }
+function wizardHTML() {
+  const w = wiz(); const sel = new Set(w.issues || []);
+  if (w.step === 2) {
+    const rows = S.wizRows;
+    if (!rows) { billsForCoalitions([...sel]).then(r => { S.wizRows = r; render(); }).catch(e => toast(e.message, true)); return `<div class="wiz"><div class="pempty">Finding HIPHI’s picks…</div></div>`; }
+    const picked = new Set(S.wizPick || []);
+    const groups = [...sel].map(name => { const mine = rows.filter(b => (b.coalitions || []).includes(name)); const { picks, rest } = curate(mine, S.wizMore?.[name] ? 40 : 6); return { name, picks, more: mine.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor').length - picks.length }; });
+    const card = b => { const c = S.coalitions.find(x => x.name === (b.coalitions || [])[0]); const h = [...((S.featured || {}).hearings || [])].find(x => x.bill_id === b.id); return `
+      <label class="pick ${picked.has(b.id) ? 'on' : ''}"><input type="checkbox" data-wizpick="${b.id}" ${picked.has(b.id) ? 'checked' : ''}>
+        <span class="pickb"><span class="pickl1"><b>${esc(billNum(b))}</b> <span class="chipx ${/oppose/.test(b.hiphi_position) ? 'c-red' : 'c-green'}">HIPHI ${esc(POS[b.hiphi_position] || '')}</span>${h ? ` <span class="chipx c-gold">hearing ${fmtDate(h.scheduled_at)}</span>` : ''}</span>
+        <span class="pickt">${esc(b.hiphi_summary || titleCase(b.title))}</span></span></label>`; };
+    return `<div class="wiz">
+      <div class="wizhead"><span class="wizk">Step 2 of 2</span><h1>Pick the bills you want to follow</h1><p>These are HIPHI’s picks for ${[...sel].map(esc).join(', ')}. Tap the ones you care about, or take all the picks. You can change this any time.</p></div>
+      ${groups.map(g => `<div class="wizgroup"><div class="wizg"><span>${esc((S.coalitions.find(c => c.name === g.name) || {}).icon || '')} ${esc(g.name)}</span><button class="linkbtn" data-wizall="${esc(g.name)}">${g.picks.every(b => picked.has(b.id)) ? 'Clear these' : `Take all ${g.picks.length}`}</button></div>
+        ${g.picks.map(card).join('') || '<div class="pempty">No live bills with a HIPHI position here right now.</div>'}
+        ${g.more > 0 ? `<button class="morelink" data-wizmore="${esc(g.name)}">${g.more} more in ${esc(g.name)}</button>` : ''}</div>`).join('')}
+      <div class="wizfoot"><button class="btn ghost" data-wizback>← Issues</button><span class="wizn">${picked.size} selected</span><button class="btn" data-wizdone ${picked.size ? '' : 'disabled'}>Follow ${picked.size || ''} bill${picked.size === 1 ? '' : 's'} →</button></div>
+    </div>`;
+  }
+  const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;
+  const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
+    <label class="tile ${sel.has(c.name) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.name)}" ${sel.has(c.name) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.name)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
+  return `<div class="wiz">
+    <div class="wizhead"><span class="wizk">Step 1 of 2</span><h1>What do you care about?</h1><p>Pick one or more. Next you choose a few bills, and this page becomes your week at the Capitol with a five-minute way to testify.</p></div>
+    <div class="tiles">${tiles}</div>
+    <div class="wizfoot"><span class="wizn">${sel.size ? `${sel.size} issue${sel.size === 1 ? '' : 's'} picked` : 'pick at least one'}</span><button class="btn" data-wiznext ${sel.size ? '' : 'disabled'}>Continue →</button></div>
+    <p class="tok" style="margin-top:10px">Know a bill number? <button class="linkbtn" data-wizsearch>Search instead</button></p>
+  </div>`;
+}
 // The three steps a new person walks: pick issues, watch bills, get alerts.
 function stripHTML() {
   const o = onb(); if (o.dismissed) return '';
   const done = [!!(o.issues || S.browse || S.watch.size), S.watch.size > 0, [...S.done].some(k => k.endsWith('|testimony'))];
   if (done.every(Boolean)) return '';
   const cur = done.findIndex(d => !d);
-  const steps = [['Pick your issues', 'tap a coalition below'], ['Pick bills', 'press Watch on any bill'], ['Take action', 'submit testimony in five minutes']];
+  const steps = [['Pick your issues', 'one or more'], ['Pick bills', 'HIPHI’s picks, or your own'], ['Take action', 'submit testimony in five minutes']];
   return `<div class="onbstrip">${steps.map(([t, h], i) => `<div class="onbstep ${done[i] ? 'done' : i === cur ? 'now' : ''}"><span class="onbn">${done[i] ? '✓' : i + 1}</span><span class="onbt">${t}<small>${h}</small></span></div>`).join('<span class="onbsep"></span>')}<button class="onbx" data-onbdismiss title="Hide">✕</button></div>`;
 }
 function nudgeHTML() {
@@ -474,9 +523,11 @@ function landing() {
   const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 110))}</div></div>${watchBtn(b)}</div>`; }).join('');
+  const guided = !S.browse && !S.results && !S.q && !wiz().skipped;
+  if (guided) return `${stripHTML()}${wizardHTML()}${doNowHTML(f.bills, f.hearings, 'Or act on one bill right now')}`;
   return `
     ${stripHTML()}
-    <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, watch a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify.</span></div>
+    <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, watch a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify. <button class="linkbtn" data-wizrestart>Guided start</button></span></div>
     ${searchBox()}
     ${S.browse ? '' : `<div class="tiles">${tiles}</div>`}
     ${!S.browse ? doNowHTML(f.bills, f.hearings, 'This week’s actions') : ''}
@@ -665,6 +716,23 @@ function wire() {
   document.querySelectorAll('[data-share]').forEach(el => el.onclick = async () => { const num = el.dataset.share, url = `${location.origin}${location.pathname}#bill=${num}`; const b = S.bills.find(x => x.bill_number === num) || ((S.featured || {}).bills || []).find(x => x.bill_number === num);
     const text = b ? `${num}: ${titleCase(b.title)} — HIPHI ${POS[b.hiphi_position] || 'is following it'}. Hearing coming up; testimony takes five minutes: ${url}` : url;
     try { if (navigator.share) await navigator.share({ title: num, text, url }); else { await navigator.clipboard.writeText(text); toast('Copied a ready-to-post line'); } } catch { /* cancelled */ } });
+  // guided start
+  document.querySelectorAll('[data-wizissue]').forEach(el => el.onchange = () => { const w = wiz(); const set = new Set(w.issues || []); if (el.checked) set.add(el.dataset.wizissue); else set.delete(el.dataset.wizissue); wizSet({ issues: [...set] }); onbSet({ issues: set.size > 0 }); S.wizRows = null; render(); });
+  $('[data-wiznext]') && ($('[data-wiznext]').onclick = () => { wizSet({ step: 2 }); S.wizRows = null; S.wizPick = []; render(); window.scrollTo(0, 0); });
+  $('[data-wizback]') && ($('[data-wizback]').onclick = () => { wizSet({ step: 1 }); render(); window.scrollTo(0, 0); });
+  $('[data-wizsearch]') && ($('[data-wizsearch]').onclick = () => { wizSet({ skipped: true }); render(); $('#q')?.focus(); });
+  $('[data-wizrestart]') && ($('[data-wizrestart]').onclick = () => { wizSet({ skipped: false, step: 1 }); S.browse = null; S.results = null; S.q = ''; render(); });
+  document.querySelectorAll('[data-wizpick]').forEach(el => el.onchange = () => { const set = new Set(S.wizPick || []); if (el.checked) set.add(el.dataset.wizpick); else set.delete(el.dataset.wizpick); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  document.querySelectorAll('[data-wizall]').forEach(el => el.onclick = () => { const name = el.dataset.wizall; const { picks } = curate((S.wizRows || []).filter(b => (b.coalitions || []).includes(name)), S.wizMore?.[name] ? 40 : 6); const set = new Set(S.wizPick || []); const all = picks.every(b => set.has(b.id)); picks.forEach(b => all ? set.delete(b.id) : set.add(b.id)); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  document.querySelectorAll('[data-wizmore]').forEach(el => el.onclick = () => { S.wizMore = { ...(S.wizMore || {}), [el.dataset.wizmore]: true }; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  $('[data-wizdone]') && ($('[data-wizdone]').onclick = async () => { const ids = S.wizPick || []; if (!ids.length) return; $('[data-wizdone]').disabled = true;
+    ids.forEach(id => S.watch.add(id)); saveLocal();
+    if (S.user && !DEMO) { const r = await S.supa.from('watchlist').insert(ids.map(bill_id => ({ user_id: S.user.id, bill_id }))); if (r.error) toast(r.error.message, true); }
+    wizSet({ step: 1, done: true }); onbSet({ issues: true }); await loadBills(); if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+    render(); window.scrollTo(0, 0); toast(`You’re following ${ids.length} bill${ids.length === 1 ? '' : 's'}`); });
+  document.querySelectorAll('[data-watchpicks]').forEach(el => el.onclick = async () => { const { picks } = curate(S.browse?.rows || [], 8); const rows = picks.filter(b => !S.watch.has(b.id)); el.disabled = true; rows.forEach(b => S.watch.add(b.id)); saveLocal();
+    if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
+    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Watching ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-onbdismiss]').forEach(el => el.onclick = () => { onbSet({ dismissed: true }); render(); });
   document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { S.nudge = false; render(); });
   $('#nudge-form') && ($('#nudge-form').onsubmit = async e => { e.preventDefault(); const email = $('#nudge-email').value.trim(); if (!email) return;
