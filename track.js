@@ -66,7 +66,7 @@ const SHORTCUTS = [
 
 const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
   committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
-  extra: {}, xh: {}, slots: [] };
+  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null };
 
 // ---------------- data ----------------
 async function init() {
@@ -100,6 +100,31 @@ async function demoLoad() {
   S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0 }));
 }
 const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
+// "I did it" marks: in this browser until sign-in, then in public_actions.
+const DONE_KEY = DEMO ? 'hiphi_done_demo' : 'hiphi_done';
+function localDone() { try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); } catch { return new Set(); } }
+function saveDone() { try { localStorage.setItem(DONE_KEY, JSON.stringify([...S.done])); } catch { /* ignore */ } }
+const doneKey = (billId, hearingId, kind) => `${billId}|${hearingId || ''}|${kind}`;
+async function loadActions(ids) {
+  S.done = localDone();
+  if (DEMO) { for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; } return; }
+  if (S.session && S.user) {
+    const { data } = await S.supa.from('public_actions').select('bill_id,hearing_id,kind');
+    (data || []).forEach(a => S.done.add(doneKey(a.bill_id, a.hearing_id, a.kind)));
+  }
+  if (ids.length) { const { data } = await S.supa.from('public_action_counts').select('*').in('bill_id', ids); (data || []).forEach(r => { S.actionCounts[r.bill_id] = r; }); }
+}
+async function markDone(billId, hearingId, kind, on = true) {
+  const k = doneKey(billId, hearingId, kind);
+  if (on) S.done.add(k); else S.done.delete(k); saveDone();
+  const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
+  const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
+  if (!DEMO && S.session && S.user) {
+    const r = on ? await S.supa.from('public_actions').insert({ user_id: S.session.user.id, bill_id: billId, hearing_id: hearingId || null, kind })
+                 : await S.supa.from('public_actions').delete().eq('user_id', S.session.user.id).eq('bill_id', billId).eq('kind', kind).is('hearing_id', hearingId || null);
+    if (r.error && !/duplicate/.test(r.error.message)) toast(r.error.message, true);
+  }
+}
 function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
 function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...S.watch])); } catch { /* private mode */ } }
 async function loadUser() {
@@ -123,6 +148,7 @@ async function loadBills() {
     S.bills = D.bills.filter(b => w.has(b.id)); S.hearings = D.hearings.filter(h => w.has(h.bill_id));
     S.activity = D.activity.filter(a => w.has(a.bill_id)).sort((x, y) => y.occurred_at.localeCompare(x.occurred_at));
     S.outcomes = Object.fromEntries(D.outcomes.filter(o => w.has(o.bill_id)).map(o => [o.hearing_id, o]));
+    await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]);
     return;
   }
   if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; S.outcomes = {}; }
@@ -136,6 +162,7 @@ async function loadBills() {
     S.bills = b.data || []; S.hearings = h.data || []; S.activity = a.data || [];
     S.outcomes = Object.fromEntries((o.data || []).map(x => [x.hearing_id, x]));
   }
+  try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length) {
     const [d, c, sl, co] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
       S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*')]);
@@ -219,7 +246,7 @@ async function openFromHash() {
 
 // ---------------- helpers ----------------
 const bill = id => S.bills.find(b => b.id === id);
-const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || S.extra[id] || null;
+const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
 const hearingsOf = b => [...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 function stopOf(b) {
@@ -327,13 +354,109 @@ function searchBox() {
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
     ${S.browse ? `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) + ' · ' : ''}press Watch on any, or <button class="btn sm" data-watchall="${esc(S.browse.name)}">Watch all ${S.browse.rows.filter(alive).length} live</button></span></div><div class="results" style="border:0;margin:0">${S.browse.rows.length ? S.browse.rows.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">Nothing public in this coalition yet.</div>'}</div></div>` : ''}`;
 }
+// ---------------- Do this now: one card per open opportunity ----------------
+const POS_VERB = { strongly_support: 'support', support: 'support', support_amend: 'support with amendments', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'comment on' };
+const POS_WORD = { strongly_support: 'SUPPORT', support: 'SUPPORT', support_amend: 'SUPPORT WITH AMENDMENTS', strongly_oppose: 'OPPOSITION', oppose: 'OPPOSITION', neutral: 'COMMENTS' };
+function actionsList(bills, hearings) {
+  const now = Date.now();
+  return hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now)
+    .map(h => ({ h, b: bills.find(b => b.id === h.bill_id) }))
+    .filter(x => x.b && x.b.hiphi_position && x.b.hiphi_position !== 'monitor' && alive(x.b))
+    .sort((x, y) => (x.h.testimony_deadline || x.h.scheduled_at).localeCompare(y.h.testimony_deadline || y.h.scheduled_at));
+}
+function actionCard(b, h) {
+  const now = Date.now(), due = h.testimony_deadline, duePast = due && new Date(due) < now, dueSoon = due && !duePast && new Date(due) - now < 48 * 3600e3;
+  const did = k => S.done.has(doneKey(b.id, h.id, k));
+  const c = S.committees[String(h.committee).split('/')[0]], m = c ? { email: `${c.chamber === 'S' ? 'sen' : 'rep'}${(c.chair || '').replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov` } : null;
+  const cnt = S.actionCounts[b.id] || {};
+  const proof = cnt.testimonies ? `<span class="proof">${cnt.testimonies} ${cnt.testimonies === 1 ? 'person has' : 'people have'} submitted testimony through HIPHI</span>` : '';
+  const mail = m ? `mailto:${m.email}?subject=${encodeURIComponent(`${b.bill_number} — please ${POS_VERB[b.hiphi_position] || 'consider'} (hearing ${fmtDT(h.scheduled_at)})`)}&body=${encodeURIComponent(`Dear Chair ${c.chair || ''},\n\nI am writing in ${POS_WORD[b.hiphi_position] || 'regard'} of ${b.bill_number}, ${titleCase(b.title)}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[Add a sentence about why this matters to you.]\n\nMahalo,\n`)}` : null;
+  const doneAll = did('testimony');
+  return `<div class="acard ${posCls(b)} ${doneAll ? 'done' : ''}" data-acard="${b.id}">
+    <div class="ahead"><span class="apos">HIPHI ${esc(POS[b.hiphi_position] || '')}</span><b data-open="${b.id}">${esc(billNum(b))}</b> <span class="atitle">${esc(titleCase(b.title))}</span></div>
+    <div class="aask">${esc(b.hiphi_action || blurb(b, 140))}</div>
+    <div class="awhen">${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${due ? ` · <span class="${dueSoon ? 'hot' : ''}">testimony ${duePast ? 'deadline passed' : 'due ' + inWhen(due)}</span>` : ''}</div>
+    <div class="abtns">
+      ${doneAll ? `<span class="adone">✓ You submitted testimony</span><button class="linkbtn" data-undo="${b.id}|${h.id}|testimony">undo</button>` : `<button class="btn" data-helper="${h.id}" ${duePast ? 'title="The written deadline has passed; late testimony is still posted"' : ''}>Submit testimony</button>`}
+      ${mail ? `<a class="btn sm ghost" href="${mail}" data-did="${b.id}|${h.id}|email">${did('email') ? '✓ Emailed the chair' : 'Email the chair'}</a>` : ''}
+      ${calLinks(b, h)}
+      <button class="btn sm ghost" data-share="${esc(b.bill_number)}">${did('share') ? '✓ Shared' : 'Share'}</button>
+    </div>
+    ${proof}
+  </div>`;
+}
+function doNowHTML(bills, hearings, title) {
+  const list = actionsList(bills, hearings); if (!list.length) return '';
+  const open = list.filter(x => !S.done.has(doneKey(x.b.id, x.h.id, 'testimony'))), done = list.filter(x => S.done.has(doneKey(x.b.id, x.h.id, 'testimony')));
+  return `<div class="panel donow" id="pf-actions"><div class="ph"><span>✊ ${title} <span class="chipx c-gold">${open.length}</span></span><span class="psub">soonest deadline first · five minutes each</span></div>
+    ${open.map(x => actionCard(x.b, x.h)).join('') || '<div class="pempty">Nothing open right now. 🤙</div>'}
+    ${done.length ? `<details class="adonefold"><summary>${done.length} done this week</summary>${done.map(x => actionCard(x.b, x.h)).join('')}</details>` : ''}
+  </div>`;
+}
+// ---------------- the testimony helper ----------------
+function helperHTML() {
+  const { b, h } = S.helper; let me = {}; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); } catch { /* ignore */ }
+  const c = S.committees[String(h.committee).split('/')[0]];
+  const word = POS_WORD[b.hiphi_position] || 'COMMENTS', verb = POS_VERB[b.hiphi_position] || 'comment on';
+  const text = (name, town, why, speak) => [
+    `Testimony in ${word} of ${b.bill_number}${b.current_version ? ' ' + b.current_version : ''}`,
+    titleCase(b.title),
+    `${c ? c.name + ' (' + h.committee + ')' : 'Committee on ' + h.committee} · Hearing ${fmtDT(h.scheduled_at)} · ${clean(h.room)}`,
+    '',
+    `Dear Chair ${c?.chair || ''}${c?.vice_chair ? ', Vice Chair ' + c.vice_chair : ''}, and members of the committee,`,
+    '',
+    `My name is ${name || '[your name]'} and I live in ${town || '[your town]'}. I ${verb} ${b.bill_number}${b.hiphi_summary ? ', which ' + b.hiphi_summary.replace(/^[A-Z]/, m => m.toLowerCase()).replace(/\.?$/, '.') : '.'}`,
+    b.hiphi_action ? `\n${b.hiphi_action}` : '',
+    why ? `\n${why.trim()}` : '\n[One or two sentences on why this matters to you, your family or your community.]',
+    '',
+    /OPPOS/.test(word) ? `I respectfully ask the committee to hold ${b.bill_number}.` : `I respectfully ask the committee to pass ${b.bill_number}.`,
+    speak ? `I would like to testify ${speak === 'remote' ? 'remotely by video' : 'in person'} at the hearing.` : '',
+    '',
+    'Mahalo for the opportunity to testify,',
+    name || '[your name]',
+  ].filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n');
+  S.helperText = text;
+  return `<div class="scrim" id="hscrim"></div><div class="drawer helper">
+    <div class="dhead"><button class="close" id="hclose">✕</button><h2>Submit testimony on ${esc(b.bill_number)}</h2><div class="sub">${esc(POS[b.hiphi_position] || '')} · ${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · written testimony due ${fmtDT(h.testimony_deadline)}` : ''}</div></div>
+    <div class="dbody">
+      <ol class="hsteps"><li><b>Fill in three things.</b> We write the rest from HIPHI’s position.</li><li><b>Copy it</b> (or download).</li><li><b>Paste it at the Capitol</b> — the link opens the bill’s page; press Submit Testimony, sign in (free account), pick this hearing, paste.</li></ol>
+      <div class="hform">
+        <label>Your name<input id="h-name" value="${esc(me.name || '')}" placeholder="Jane Doe"></label>
+        <label>Where you live<input id="h-town" value="${esc(me.town || '')}" placeholder="Hilo, Hawaiʻi Island"></label>
+        <label>Why this matters to you <span class="tok">one or two sentences, optional</span><textarea id="h-why" rows="3" placeholder="As a parent of two teenagers…">${esc(me.why || '')}</textarea></label>
+        <label class="row"><span>Speak at the hearing?</span><select id="h-speak"><option value="">No, written only</option><option value="remote">Yes, remotely by video</option><option value="person">Yes, in person</option></select></label>
+      </div>
+      <div class="sec">Your testimony</div>
+      <textarea id="h-text" class="htext" rows="14">${esc(text(me.name, me.town, me.why, ''))}</textarea>
+      <div class="hbtns">
+        <button class="btn" id="h-copy">Copy testimony</button>
+        <a class="btn ghost" id="h-dl" download="${esc(b.bill_number)}-testimony.txt">Download</a>
+        ${b.state_url ? `<a class="btn ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Open the Capitol page ↗</a>` : ''}
+      </div>
+      <div class="hdone"><button class="btn sm" id="h-did">✓ I submitted it</button><span class="tok">Marks it done here${S.session ? '' : ' on this device'}; HIPHI only ever sees a count.</span></div>
+    </div></div>`;
+}
+function wireHelper() {
+  if (!S.helper) return;
+  const { b, h } = S.helper;
+  const close = () => { S.helper = null; render(); };
+  $('#hscrim').onclick = close; $('#hclose').onclick = close;
+  const regen = () => { const name = $('#h-name').value.trim(), town = $('#h-town').value.trim(), why = $('#h-why').value, speak = $('#h-speak').value;
+    try { localStorage.setItem('hiphi_me', JSON.stringify({ name, town, why })); } catch { /* ignore */ }
+    S.helper = { ...S.helper, name, town, why, speak }; $('#h-text').value = S.helperText(name, town, why, speak); refreshDl(); };
+  const refreshDl = () => { $('#h-dl').href = 'data:text/plain;charset=utf-8,' + encodeURIComponent($('#h-text').value); };
+  ['#h-name', '#h-town', '#h-why', '#h-speak'].forEach(id => { $(id).oninput = regen; $(id).onchange = regen; });
+  $('#h-text').oninput = refreshDl; refreshDl();
+  $('#h-copy').onclick = async () => { try { await navigator.clipboard.writeText($('#h-text').value); toast('Copied — now paste it at the Capitol'); } catch { $('#h-text').select(); toast('Select all and copy', true); } };
+  $('#h-did').onclick = async () => { await markDone(b.id, h.id, 'testimony'); toast('Marked done. Mahalo for testifying!'); close(); };
+}
 // The three steps a new person walks: pick issues, watch bills, get alerts.
 function stripHTML() {
   const o = onb(); if (o.dismissed) return '';
-  const done = [!!(o.issues || S.browse || S.watch.size), S.watch.size > 0, !!S.session];
+  const done = [!!(o.issues || S.browse || S.watch.size), S.watch.size > 0, [...S.done].some(k => k.endsWith('|testimony'))];
   if (done.every(Boolean)) return '';
   const cur = done.findIndex(d => !d);
-  const steps = [['Pick your issues', 'tap a coalition below'], ['Watch bills', 'press Watch on any bill'], ['Get alerts', 'sign in with your email']];
+  const steps = [['Pick your issues', 'tap a coalition below'], ['Pick bills', 'press Watch on any bill'], ['Take action', 'submit testimony in five minutes']];
   return `<div class="onbstrip">${steps.map(([t, h], i) => `<div class="onbstep ${done[i] ? 'done' : i === cur ? 'now' : ''}"><span class="onbn">${done[i] ? '✓' : i + 1}</span><span class="onbt">${t}<small>${h}</small></span></div>`).join('<span class="onbsep"></span>')}<button class="onbx" data-onbdismiss title="Hide">✕</button></div>`;
 }
 function nudgeHTML() {
@@ -356,7 +479,8 @@ function landing() {
     <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, watch a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify.</span></div>
     ${searchBox()}
     ${S.browse ? '' : `<div class="tiles">${tiles}</div>`}
-    ${!S.browse && featured ? `<div class="panel sec-cal"><div class="ph"><span>◷ This week at the Capitol</span><span class="psub">hearings on bills HIPHI is working on · Watch any of them</span></div>${featured}</div>` : ''}
+    ${!S.browse ? doNowHTML(f.bills, f.hearings, 'This week’s actions') : ''}
+    ${!S.browse && featured ? `<div class="panel sec-cal"><div class="ph"><span>◷ Also this week at the Capitol</span><span class="psub">hearings on bills HIPHI is working on · Watch any of them</span></div>${featured}</div>` : ''}
     ${nudgeHTML()}`;
 }
 function home() {
@@ -378,7 +502,7 @@ function home() {
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span>${past ? `<div class="tagline">${outcomeChip(h)}</div>` : ''}
         <div class="pdesc">${esc(blurb(b, 96))}</div>
         <div class="psmall">${h.testimony_deadline && !past ? (inWhen(h.testimony_deadline) === 'passed' ? 'testimony deadline passed' : `written testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
-      <div class="calbtns">${b.state_url && alive(b) && !past ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Submit testimony ↗</a>` : ''}${!past ? calLinks(b, h) : ''}</div>
+      <div class="calbtns">${!past && alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor' ? `<button class="btn sm" data-helper="${h.id}" onclick="event.stopPropagation()">Submit testimony</button>` : b.state_url && alive(b) && !past ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Submit testimony ↗</a>` : ''}${!past ? calLinks(b, h) : ''}</div>
     </div>`; };
   const calHtml = `<div class="calweek" style="--ndays:${days.length}">${days.map(d => { const hs = week.filter(h => hstDay(h.scheduled_at) === d); const dt = new Date(d + 'T12:00:00-10:00'); const isToday = d === hstDay(now), isPast = d < hstDay(now); return `
     <div class="calday${hs.length ? '' : ' nohear'}${isToday ? ' today' : ''}${isPast ? ' past' : ''}"><div class="calrail"><span class="dow">${dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: HST })}</span><span class="dom">${dt.getDate()}</span>${isToday ? '<span class="tod">today</span>' : ''}${hs.length ? `<span class="cnt">${hs.length}</span>` : ''}</div>
@@ -424,8 +548,9 @@ function home() {
   const watchRow = b => `<div class="prow ${posCls(b)}" data-open="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> <span class="chipx c-gray explain" data-explain="${esc(STAGE_PLAIN[b.stage] || '')}" title="tap for what this means">${STAGE_LABEL[b.stage] || 'Introduced'}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 120))}</div>${!alive(b) ? `<div class="psmall">${whyDead(b)}</div>` : ''}</div>${watchBtn(b)}</div>`;
   return `
     ${stripHTML()}${nudgeHTML()}
-    <div class="pubhead"><h1>Your watchlist</h1><span class="sub">${today} · ${strip}</span></div>
+    <div class="pubhead"><h1>Your bills and actions</h1><span class="sub">${today} · ${strip}</span></div>
     ${searchBox()}
+    ${doNowHTML(S.bills, S.hearings, 'Do this now')}
     <div class="dash"><div>${feed}</div><div>${recentHearings}</div></div>
     <div class="panel sec-cal" id="pf-week"><div class="ph"><span>◷ ${wkLabel} ${calNav}</span><span class="psub">hearings on the bills you watch · add any to your calendar</span></div>${(week.length || off) ? calHtml : '<div class="pempty">No hearings on your bills in the next 7 days.</div>'}</div>
     ${board}
@@ -464,7 +589,7 @@ function panelFor(b) {
       ${!alive(b) ? `<p class="desc"><i>This bill did not advance. Hearings listed below are historical.</i></p>` : ''}
       ${hs.length ? hs.map(h => { const past = new Date(h.scheduled_at) < now; return `<div class="prow"><div class="pmain"><b>${esc(h.committee)}</b> · ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${h.status !== 'scheduled' ? ` · ${esc(h.status)}` : ''} ${past ? outcomeChip(h) : ''}${chairOf(h.committee)}
         <div class="psmall">${h.testimony_deadline && !past ? 'written testimony due ' + fmtDT(h.testimony_deadline) : ''}${S.outcomes[h.id]?.report ? esc(S.outcomes[h.id].report.slice(0, 140)) : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div>
-        ${!past && h.status === 'scheduled' ? `<div class="calbtns">${b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Submit testimony ↗</a>` : ''}${calLinks(b, h)}</div>` : ''}</div></div>`; }).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
+        ${!past && h.status === 'scheduled' ? `<div class="calbtns">${alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor' ? `<button class="btn sm" data-helper="${h.id}">Submit testimony</button>` : b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Submit testimony ↗</a>` : ''}${calLinks(b, h)}</div>` : ''}</div></div>`; }).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
       ${alive(b) ? testifyBox() : ''}
       <p style="margin-top:12px">${b.state_url ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Capitol bill page ↗</a>` : ''}</p>
     </div></div>`;
@@ -515,8 +640,8 @@ function help() {
 function render() {
   const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : home();
   const b = S.open && findBill(S.open);
-  $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '');
-  wire();
+  $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '') + (S.helper ? helperHTML() : '');
+  wire(); wireHelper();
 }
 function wire() {
   document.querySelectorAll('[data-nav]').forEach(el => el.onclick = () => { S.view = el.dataset.nav; S.open = null; render(); window.scrollTo(0, 0); });
@@ -534,6 +659,12 @@ function wire() {
     for (const b of rows) { S.watch.add(b.id); } saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
     await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Watching ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+  document.querySelectorAll('[data-helper]').forEach(el => el.onclick = () => { const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...Object.values(S.xh).flat()].find(x => x.id === el.dataset.helper); const b = h && findBill(h.bill_id); if (b) { S.helper = { b, h }; render(); } });
+  document.querySelectorAll('[data-did]').forEach(el => el.addEventListener('click', () => { const [bid, hid, kind] = el.dataset.did.split('|'); setTimeout(() => markDone(bid, hid, kind).then(() => render()), 400); }));
+  document.querySelectorAll('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|'); await markDone(bid, hid, kind, false); render(); });
+  document.querySelectorAll('[data-share]').forEach(el => el.onclick = async () => { const num = el.dataset.share, url = `${location.origin}${location.pathname}#bill=${num}`; const b = S.bills.find(x => x.bill_number === num) || ((S.featured || {}).bills || []).find(x => x.bill_number === num);
+    const text = b ? `${num}: ${titleCase(b.title)} — HIPHI ${POS[b.hiphi_position] || 'is following it'}. Hearing coming up; testimony takes five minutes: ${url}` : url;
+    try { if (navigator.share) await navigator.share({ title: num, text, url }); else { await navigator.clipboard.writeText(text); toast('Copied a ready-to-post line'); } } catch { /* cancelled */ } });
   document.querySelectorAll('[data-onbdismiss]').forEach(el => el.onclick = () => { onbSet({ dismissed: true }); render(); });
   document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { S.nudge = false; render(); });
   $('#nudge-form') && ($('#nudge-form').onsubmit = async e => { e.preventDefault(); const email = $('#nudge-email').value.trim(); if (!email) return;
@@ -568,10 +699,11 @@ function wire() {
 }
 // ---------------- first-visit tour: four cards, one per section ----------------
 const TOUR = [
+  ['#pf-actions', 'Do this now', 'One card per open opportunity, soonest deadline first. Submit testimony writes it for you from HIPHI’s position; you add a sentence and paste it at the Capitol.'],
   ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
   ['.board3', 'Where your bills stand', 'A bill walks left to right in each chamber: needs a hearing, hearing scheduled, through committee. Miss a deadline and it is done for the year.'],
   ['#pf-recent', 'Last 72 hours', 'Everything that happened to your bills in the last three days, newest first.'],
-  ['#pf-list', 'Your watchlist', 'Every bill you watch, with HIPHI’s position. Tap a bill for its history, hearings and how to testify. Sign in to get an email when a hearing is scheduled.'],
+  ['#pf-list', 'Your bills', 'Every bill you watch, with HIPHI’s position. Tap a bill for its history, hearings and how to testify. Sign in to get an email when a hearing is scheduled.'],
 ];
 let tourStep = -1;
 function startTour(force) {

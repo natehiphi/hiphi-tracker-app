@@ -92,3 +92,32 @@
 .tourbtns{display:flex;gap:8px;justify-content:flex-end}
 .tourcard .btn.ghost{color:#fff;border-color:rgba(255,255,255,.4)}
 @media (max-width:760px){ .tiles{grid-template-columns:1fr 1fr} .onbsep{display:none} .onbstrip{gap:6px 14px} }
+
+/* ---------- 9/16: action first — Do this now, the testimony helper, I did it ---------- */
+.donow{border-color:#E9D8A6}
+.donow .ph{background:#FDF6E3}
+.acard{padding:12px 14px;border-bottom:1px solid #EEF2F5;border-left:4px solid var(--line)}
+.acard.pos-support{border-left-color:var(--green)}.acard.pos-oppose{border-left-color:var(--red)}.acard.pos-neutral{border-left-color:var(--gold)}
+.acard.done{opacity:.75;background:#F7FAFB}
+.ahead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;font-size:14px}
+.ahead b{color:var(--teal);cursor:pointer}
+.apos{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--teal);background:var(--teal-soft);padding:2px 8px;border-radius:8px}
+.atitle{color:var(--ink)}
+.aask{font-size:13.5px;line-height:1.5;margin:6px 0 4px}
+.awhen{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.abtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.abtns .btn{font-weight:600}
+.adone{color:var(--green);font-weight:600;font-size:13px}
+.proof{display:block;margin-top:8px;font-size:12px;color:var(--muted)}
+.adonefold summary{cursor:pointer;padding:8px 14px;font-size:13px;color:var(--muted)}
+.drawer.helper{max-width:720px}
+.hsteps{margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.5}
+.hform{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:8px}
+.hform label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.hform label:nth-child(3){grid-column:1 / -1}
+.hform label.row{grid-column:1 / -1;flex-direction:row;align-items:center;gap:10px}
+.hform input,.hform textarea,.hform select{font-weight:400;color:var(--ink)}
+.htext{width:100%;font:13px/1.5 ui-monospace,Menlo,monospace;padding:10px;border:1px solid var(--line);border-radius:10px;resize:vertical}
+.hbtns{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.hdone{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
+@media (max-width:760px){ .hform{grid-template-columns:1fr} .abtns .btn{flex:1 1 auto;text-align:center} }
