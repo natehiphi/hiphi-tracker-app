@@ -174,3 +174,16 @@
 .acard.reco{border-left-color:#BFDCDF}
 .awhy{font-size:12px;color:var(--teal);margin:4px 0 2px;font-weight:600}
 .acard .watchbtn{align-self:center}
+
+/* ---------- 9/16: folds on phones, hidden list, toast under the tour ---------- */
+.foldp>summary.ph{cursor:pointer;list-style:none}
+.foldp>summary.ph::-webkit-details-marker{display:none}
+.foldp>summary.ph .psub::after{content:" ▾"}
+.foldp[open]>summary.ph .psub::after{content:" ▴"}
+.boardfold{background:#fff;border:1px solid var(--line);border-radius:12px;margin:0 0 12px}
+.boardfold .dashhead{padding:8px 14px 0}
+.foldp .calnav{display:inline-flex;margin:6px 12px}
+.chip3 .l2.hot{color:var(--red);font-weight:600}
+.hiddenline{padding:8px 14px 10px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line)}
+.hiddenlist{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}
+@media (max-width:760px){ .toastmsg{bottom:auto;top:auto} #toast{z-index:59} }

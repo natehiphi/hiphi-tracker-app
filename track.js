@@ -248,6 +248,7 @@ function recoHTML(quiet) {
   return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `HIPHI’s priorities and the issues you picked (${likes.slice(0, 3).join(', ')})` : 'HIPHI’s priorities'} · three at a time</span></div>
     ${shown.map(recoCard).join('')}
     ${list.length > n ? `<button class="pempty boardmore" data-recomore>Show three more</button>` : ''}
+    ${(hid => hid.length ? `<div class="hiddenline">${hid.length} bill${hid.length === 1 ? '' : 's'} hidden · <button class="linkbtn" data-showhidden>${S.showHidden ? 'hide' : 'show'}</button>${S.showHidden ? `<div class="hiddenlist">${hid.map(b => `<span>${esc(b.bill_number)} <button class="linkbtn" data-unhide="${b.id}">bring back</button></span>`).join('')}</div>` : ''}</div>` : '')(S.pool.bills.filter(b => dismissed().has(b.id)))}
   </div>`;
 }
 async function loadFeatured() {
@@ -595,7 +596,7 @@ function stripHTML() {
   const done = [!!(o.issues || S.browse || S.watch.size), S.watch.size > 0, [...S.done].some(k => k.endsWith('|testimony'))];
   if (done.every(Boolean)) return '';
   const cur = done.findIndex(d => !d);
-  const steps = [['Pick your issues', 'one or more'], ['Follow bills', 'HIPHI’s picks, or your own'], ['Take action', 'submit testimony in five minutes']];
+  const steps = [['Pick your issues', 'one or more'], ['Follow bills', 'HIPHI’s picks, or your own'], ['Take action', 'testimony, or a note to a chair, in five minutes']];
   return `<div class="onbstrip">${steps.map(([t, h], i) => `<div class="onbstep ${done[i] ? 'done' : i === cur ? 'now' : ''}"><span class="onbn">${done[i] ? '✓' : i + 1}</span><span class="onbt">${t}<small>${h}</small></span></div>`).join('<span class="onbsep"></span>')}<button class="onbx" data-onbdismiss title="Hide">✕</button></div>`;
 }
 function nudgeHTML() {
@@ -658,16 +659,18 @@ function home() {
   a.sort((x, y) => (x.dl ? x.dl.days : 999) - (y.dl ? y.dl.days : 999)); bcol.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   const stopn = st => `<span class="stopn">in the ${CHAMBER_NAME[st.chamber]}${st.stops ? ` · committee ${st.stop} of ${st.stops}` : ''}</span>`;
   const phaseLabel = st => st.phase === 'conference' ? 'Conference' : `${CHAMBER_NAME[st.chamber]} floor`;
-  const chip = (b, cls, stop, l2) => `<div class="chip3 ${posCls(b)}" data-open="${b.id}"><span class="l1"><b>${esc(billNum(b))}</b><span class="cm">${cls}</span></span><span class="lstop">${stop}</span><span class="ldesc">${esc(blurb(b, 120))}</span><span class="l2">${l2}</span></div>`;
+  const ORD = ['first', 'second', 'third', 'fourth', 'fifth'];
+  const chip = (b, sentence, hot) => `<div class="chip3 ${posCls(b)}" data-open="${b.id}"><span class="l1"><b>${esc(billNum(b))}</b></span><span class="ldesc">${esc(b.hiphi_summary || blurb(b, 120))}</span><span class="l2 ${hot ? 'hot' : ''}">${sentence}</span></div>`;
+  const where = st => st.committee ? `${esc(st.committee)}${st.stops ? `, the ${CHAMBER_NAME[st.chamber]}’s ${ORD[st.stop - 1] || st.stop + 'th'} of ${st.stops} committee${st.stops === 1 ? '' : 's'} for this bill` : ''}` : `waiting to be assigned a committee in the ${CHAMBER_NAME[st.chamber]}`;
   const PUB_COLUMNS = { a: { icon: '📡', title: 'Waiting for a hearing', sub: 'nothing scheduled yet' }, b: { icon: '◷', title: 'Hearing scheduled', sub: 'or held, waiting for the committee’s decision' }, c: { icon: '✅', title: 'Through committee', sub: 'waiting for a vote of the full chamber' } };
   const col = (key, rows, empty) => { const C = PUB_COLUMNS[key]; return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${C.icon} ${C.title} <span class="cnt">${rows.length}</span></span><span class="psub">${C.sub}</span></div>${rows.length ? `<div class="chips">${rows.join('')}</div>` : `<div class="pempty">${empty}</div>`}</div>`; };
   const dlDays = cur ? Math.ceil((new Date(cur.deadline_date + 'T23:59:59-10:00') - now) / 864e5) : null;
   const board = cur ? `
     <div class="dashhead boardhead"><h1>Where your bills stand</h1><span class="sub">Left to right in each chamber: needs a hearing → hearing scheduled → through committee, then a vote. A bill that misses its deadline (next: <b>${fmtDate(cur.deadline_date + 'T12:00:00-10:00', { month: 'short' })}</b>) stops for the year.</span></div>
     <div class="board3">
-      ${col('a', a.map(({ b, st, dl }) => chip(b, st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral', stopn(st), dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date + 'T12:00:00-10:00', { month: 'short' })} — ${dl.days} day${dl.days === 1 ? '' : 's'} left</span>` : `Needs a hearing by ${fmtDate(dl.date + 'T12:00:00-10:00', { month: 'short' })}`) : 'Needs a hearing')), 'Every bill you follow has a hearing or is through committee.')}
-      ${col('b', bcol.map(({ b, st, h }) => chip(b, esc(h.committee), stopn(st), st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)} · waiting for the report` : fmtDT(h.scheduled_at) + (h.testimony_deadline && new Date(h.testimony_deadline) > now ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''))), 'No hearings on the books.')}
-      ${col('c', c.map(({ b, st }) => chip(b, phaseLabel(st), st.stops ? `through the ${CHAMBER_NAME[st.chamber]} committees` : '', st.phase === 'conference' ? 'House and Senate working out one version' : `Waiting for the ${CHAMBER_NAME[st.chamber]} to vote`)), 'Nothing is through committee yet.')}
+      ${col('a', a.map(({ b, st, dl }) => chip(b, `Waiting in ${where(st)}. ${dl ? `Needs a hearing by ${fmtDate(dl.date + 'T12:00:00-10:00', { month: 'short' })}${dl.days <= 5 ? ` — ${dl.days} day${dl.days === 1 ? '' : 's'} left` : ''}.` : 'Needs a hearing.'}${st.committee && chairOf(st.committee) ? ` Chair: ${chairOf(st.committee).replace(/^ · Chair /, '')}` : ''}`, dl && dl.days <= 5)), 'Every bill you follow has a hearing or is through committee.')}
+      ${col('b', bcol.map(({ b, st, h }) => chip(b, st.hearingState === 'held' ? `Heard by ${esc(h.committee)} on ${fmtDate(h.scheduled_at)}; waiting for the committee’s decision.` : `${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline && new Date(h.testimony_deadline) > now ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''}.`, h.testimony_deadline && new Date(h.testimony_deadline) > now && new Date(h.testimony_deadline) - now < 48 * 3600e3)), 'No hearings on the books.')}
+      ${col('c', c.map(({ b, st }) => chip(b, st.phase === 'conference' ? 'Passed both chambers in different forms; House and Senate are working out one version.' : `Through the ${CHAMBER_NAME[st.chamber]} committees; waiting for the full ${CHAMBER_NAME[st.chamber]} to vote.`, false)), 'Nothing is through committee yet.')}
     </div>` : '';
 
   // feed + recent hearings (top dash, like the staff page)
@@ -697,8 +700,9 @@ function home() {
     ${(open => `${open ? doNowHTML(S.bills, S.hearings, 'Do this now', waitingN) : ''}${recoHTML(!open)}${open ? '' : doNowHTML(S.bills, S.hearings, 'Do this now', waitingN)}`)(actionsList(S.bills, S.hearings).some(x => !S.done.has(doneKey(x.b.id, x.h.id, 'testimony'))))}
     ${browse}
     ${dashPanels.length ? `<div class="dash${dashPanels.length === 1 ? ' one' : ''}">${dashPanels.map(p => `<div>${p}</div>`).join('')}</div>` : ''}
-    <div class="panel sec-cal" id="pf-week"><div class="ph"><span>◷ ${wkLabel} ${calNav}</span><span class="psub">hearings on your bills · add any to your calendar</span></div>${(week.length || off) ? calHtml : '<div class="pempty">No hearings on your bills in the next 7 days.</div>'}</div>
-    ${board}
+    ${(fold => fold ? `<details class="panel sec-cal foldp" id="pf-week"><summary class="ph"><span>◷ ${wkLabel}</span><span class="psub">no hearings on your bills this week · tap to page through weeks</span></summary>${calNav}${calHtml}</details>`
+        : `<div class="panel sec-cal" id="pf-week"><div class="ph"><span>◷ ${wkLabel} ${calNav}</span><span class="psub">hearings on your bills · add any to your calendar</span></div>${(week.length || off) ? calHtml : '<div class="pempty">No hearings on your bills in the next 7 days.</div>'}</div>`)(phone && !week.length && !off)}
+    ${(fold => fold ? `<details class="foldp boardfold"><summary class="ph"><span>🗂 Where your bills stand</span><span class="psub">${a.length} waiting for a hearing · ${bcol.length} scheduled · ${c.length} through committee · tap to open</span></summary>${board}</details>` : board)(phone && !bcol.length && !a.some(x => x.dl && x.dl.days <= 7))}
     <div class="panel" id="pf-list"><div class="ph"><span>★ Your bills</span><span class="psub">${liveBills.length} live · tap a bill for details</span></div>
       ${liveBills.map(watchRow).join('') || '<div class="pempty">None of your bills are still moving.</div>'}</div>
     ${deadBills.length ? `<details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${deadBills.length}</span></span><span class="psub">why each one stopped</span></summary>${deadBills.map(watchRow).join('')}</details>` : ''}`;
@@ -807,6 +811,8 @@ function wire() {
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
     await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) onbSet({ pendingNudge: true }); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-dismiss]').forEach(el => el.onclick = () => { dismiss(el.dataset.dismiss); render(); toast('Okay, not that one'); });
+  $('[data-showhidden]') && ($('[data-showhidden]').onclick = () => { S.showHidden = !S.showHidden; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  document.querySelectorAll('[data-unhide]').forEach(el => el.onclick = () => { const d = dismissed(); d.delete(el.dataset.unhide); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } const y = window.scrollY; render(); window.scrollTo(0, y); });
   $('[data-recomore]') && ($('[data-recomore]').onclick = () => { S.recoN = (S.recoN || 3) + 3; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-helper]').forEach(el => el.onclick = () => { const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh).flat()].find(x => x.id === el.dataset.helper); const b = h && findBill(h.bill_id); if (b) { S.helper = { b, h }; render(); } });
   document.querySelectorAll('[data-did]').forEach(el => el.addEventListener('click', () => { const [bid, hid, kind] = el.dataset.did.split('|'); setTimeout(() => markDone(bid, hid, kind).then(() => render()), 400); }));
@@ -865,11 +871,9 @@ function wire() {
 }
 // ---------------- first-visit tour: four cards, one per section ----------------
 const TOUR = [
-  ['#pf-actions', 'Do this now', 'When one of your bills has a hearing, its card appears here with a Submit testimony button that writes the testimony for you; you add a sentence and paste it at the Capitol.'],
+  ['#pf-actions .acard', 'Do this now', 'When one of your bills has a hearing, its card appears here with a Submit testimony button that writes the testimony for you; you add a sentence and paste it at the Capitol.'],
   ['#pf-reco', 'More ways to help', 'Three suggestions at a time from the issues you picked: a hearing to testify at, or a stuck bill whose chair needs a nudge. Follow one, or say not for me.'],
   ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
-  ['.board3', 'Where your bills stand', 'A bill walks left to right in each chamber: needs a hearing, hearing scheduled, through committee. Miss a deadline and it is done for the year.'],
-  ['#pf-recent', 'Last 72 hours', 'Everything that happened to your bills in the last three days, newest first.'],
   ['#pf-list', 'Your bills', 'Every bill you follow, with HIPHI’s position. Tap a bill for its history, hearings and how to testify. Sign in to get an email when a hearing is scheduled.'],
 ];
 let tourStep = -1;
