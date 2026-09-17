@@ -1017,3 +1017,38 @@ details.fold .calnav{margin-left:auto}
 .sitsep{display:none}
 @media (max-width:760px){ .inbox{padding:4px 12px 30px} }
 .top .who .bell{display:inline-flex !important;align-items:center}
+
+/* ---- Action needed: the clock on every row ---- */
+.timer{display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto;min-width:92px;margin-left:10px;font:700 14px/1.15 'Inter',sans-serif;color:var(--muted);text-align:right;white-space:nowrap}
+.timer small{display:block;font:500 10.5px/1.3 'Inter',sans-serif;color:var(--muted);margin-top:2px;letter-spacing:.01em}
+.timer.warm{color:#B7791F}
+.timer.hot{color:var(--red)}
+.timer.over{color:#fff;background:var(--red);padding:5px 9px;border-radius:8px}
+.timer.over small{color:#FFE3E0}
+@media (max-width:760px){ .timer{min-width:0;font-size:12.5px} .timer small{display:none} }
+
+/* ---- Inbox in the main menu + Inbox v2 ---- */
+.navn{display:inline-block;background:var(--red);color:#fff;font:700 10.5px/1 'Inter',sans-serif;padding:3px 6px;border-radius:9px;margin-left:5px;min-width:17px;text-align:center;vertical-align:1px}
+.navn.quiet{background:#DCE5EA;color:#47606C}
+.itabs{display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid var(--line);margin:6px 0 12px;flex-wrap:wrap}
+.itab{background:transparent;border:none;border-bottom:3px solid transparent;padding:9px 14px 8px;font:600 13.5px 'Inter',sans-serif;color:var(--muted);cursor:pointer;border-radius:8px 8px 0 0;margin-bottom:-1px}
+.itab:hover{color:var(--ink);background:#F2F6F8}
+.itab.on{color:var(--ink);border-bottom-color:var(--teal)}
+.itools{margin-left:auto;padding-bottom:6px}
+.ifilters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ifilters input[type=search]{flex:1 1 220px;max-width:320px;width:auto;padding:7px 11px;font-size:13px}
+.ifilters select{width:auto;flex:0 0 auto;padding:7px 28px 7px 10px;font-size:13px}
+.ifilters label.row{display:inline-flex;align-items:center;gap:6px;margin:0;font:500 13px 'Inter',sans-serif;color:var(--ink);white-space:nowrap;cursor:pointer}
+.ifilters label.row input{width:auto;margin:0}
+.ikinds{display:inline-flex;gap:6px;flex-wrap:wrap}
+.igroup{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.ighead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;background:#F7FAFB;border-bottom:1px solid #EEF2F5;font-size:13px;cursor:pointer}
+.ighead > span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.ighead b{color:var(--ink);margin-right:4px}
+.igacts{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto}
+.igmore{padding:7px 14px 9px 40px;font-size:12px;color:var(--muted)}
+.iread{flex:0 0 auto;background:transparent;border:1px solid transparent;border-radius:7px;color:var(--muted);font-size:14px;padding:2px 7px;cursor:pointer;opacity:.55}
+.irow:hover .iread,.irow.unread .iread{opacity:1}
+.iread:hover{border-color:var(--line);background:#fff;color:var(--teal)}
+.irow.kfocus{outline:2px solid var(--teal);outline-offset:-2px}
+@media (max-width:760px){ .ifilters input[type=search]{max-width:none;flex-basis:100%} .itools{width:100%;margin:4px 0 0;padding-bottom:8px} }
