@@ -795,7 +795,7 @@ const FILTER_VIEWS = ['portfolio', 'table'];
 function filterBarHTML() {
   if (!FILTER_VIEWS.includes(S.view)) return '';
   const base = barBase(), person = !['me', 'all'].includes(S.owner) ? advocate(S.owner) : null, n = filterCount();
-  const quick = [['pris:1', 'P1', '', f => f.pri === 1, 'pris'], ...FLAGS.slice(0, 2).map(([k, l, tip, test]) => [k, l, tip, test, k]), ['stands:a', 'Needs a hearing', 'in committee with nothing scheduled', f => f.stand === 'a', 'stands']];
+  const quick = [['pris:1', 'P1', 'top priority', f => f.pri === 1, 'pris', 'p1'], ...FLAGS.slice(0, 2).map(([k, l, tip, test], i) => [k, l, tip, test, k, i ? 'hear' : 'risk']), ['stands:a', 'Needs a hearing', 'in committee with nothing scheduled', f => f.stand === 'a', 'stands', 'need']];
   const isOn = spec => { const [k, v] = spec.split(':'); return v === undefined ? !!S[k] : S[k].has(k === 'pris' ? Number(v) : v); };
   return `<div class="fbar">
       <div class="seg" role="group" aria-label="Whose bills">
@@ -804,10 +804,12 @@ function filterBarHTML() {
         <details class="pillmenu lens"><summary class="${person ? 'on' : ''}">${person ? esc(person.full_name.split(' ')[0]) + ` <i>${base.length}</i>` : 'Teammate'} ▾</summary>
           <div class="menu">${S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id).map(a => `<button data-owner="${a.id}" class="${S.owner===a.id?'on':''}">${av(a, 'avatar sm')}<span>${esc(a.full_name)}</span></button>`).join('')}</div></details>
       </div>
-      <div class="qchips">
-        ${quick.map(([spec, label, tip, test, key]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip ${on ? 'on' : ''}" data-ft="${spec}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}">${label} <i>${c}</i></button>`; }).join('')}
-        <button class="qchip more ${S.filterOpen ? 'open' : ''}" id="fopen" aria-expanded="${S.filterOpen}">☰ Filters${n ? ` <i class="n">${n}</i>` : ''}</button>
-        ${S.view==='table' ? '<button class="qchip" id="csv">⬇ Export CSV</button>' : ''}
+      <div class="qwrap">
+        <button class="fbtn ${S.filterOpen ? 'open' : ''} ${n ? 'has' : ''}" id="fopen" aria-expanded="${S.filterOpen}"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4.5 8h7M7 12h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>Filters${n ? `<i>${n}</i>` : ''}</button>
+        <div class="qchips" role="group" aria-label="Quick filters">
+          ${quick.map(([spec, label, tip, test, key, tone]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip t-${tone} ${on ? 'on' : ''}" data-ft="${spec}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}"><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span>${label}<i>${c}</i></button>`; }).join('')}
+        </div>
+        ${S.view==='table' ? '<button class="fbtn" id="csv">⬇ Export CSV</button>' : ''}
       </div>
     </div>`;
 }
