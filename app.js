@@ -159,7 +159,7 @@ const DB = {
       S.supa.from('hearing_outcomes').select('*').gte('scheduled_at', new Date(Date.now() - 14 * 864e5).toISOString()),
       S.supa.from('bill_messages').select('*').is('deleted_at', null).gte('created_at', new Date(Date.now() - 90 * 864e5).toISOString()).order('created_at'),
       S.supa.from('bill_message_reads').select('*'),
-      S.supa.rpc('my_inbox', { p_limit: 200 }),
+      S.supa.rpc('my_inbox', { p_limit: 300 }),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -484,17 +484,17 @@ const DB = {
   // ---- inbox (migration 032): everything addressed to me, read or unread ----
   async loadInbox() {
     if (DEMO) return S.inbox;
-    const { data, error } = await S.supa.rpc('my_inbox', { p_limit: 200 }); if (error) throw error; S.inbox = data || []; return S.inbox;
+    const { data, error } = await S.supa.rpc('my_inbox', { p_limit: 300 }); if (error) throw error; S.inbox = data || []; return S.inbox;
   },
   async inboxMark(keys) {
     const set = new Set(keys); (S.inbox || []).forEach(i => { if (set.has(i.key)) i.unread = false; });
     if (DEMO || !keys.length) return;
     const { error } = await S.supa.rpc('inbox_mark', { p_keys: keys }); if (error) throw error;
   },
-  async inboxMarkAll() {
-    (S.inbox || []).forEach(i => { i.unread = false; });
-    if (DEMO) return;
-    const { error } = await S.supa.rpc('inbox_mark_all'); if (error) throw error;
+  async inboxUnmark(keys) {
+    const set = new Set(keys); (S.inbox || []).forEach(i => { if (set.has(i.key)) i.unread = true; });
+    if (DEMO || !keys.length) return;
+    const { error } = await S.supa.rpc('inbox_unmark', { p_keys: keys }); if (error) throw error;
   },
   // ---- bill chat (migration 025) ----
   async sendMessage(billId, body) {
@@ -630,11 +630,12 @@ async function demoInit() {
   S.demoTriaged = new Set();
   // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
   S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id)).map(b => b.id)); const out = [];
-    for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
+    for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
-      if (d.status === 'review') out.push({ key: 'n:' + d.id, kind: 'testimony', bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
-      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
-    for (const a of DEMO_TL) if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 3 * 864e5 });
+      if (d.status === 'review') out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
+      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
+    for (const a of DEMO_TL) { const ab = S.bills.find(b => b.id === a.bill_id); if (!ab || (ab.position === 'monitor' && !S.follows.has(ab.id))) continue;
+      if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), direct: false, priority: ab.priority, kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 7 * 864e5 }); }
     return out.sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 200); };
   S.messages = {}; S.chatSeen = {};
   if (anchor) { const kv = byIni.KV || S.advocates[1]?.id, ago = h => new Date(Date.now() - h * 36e5).toISOString();
@@ -747,6 +748,7 @@ function chrome(inner) {
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
         <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}">Portfolio</button>
+        <button data-view="inbox" class="${S.view==='inbox'?'on':''}">Inbox${(n => n ? ` <span class="navn">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>
         <button data-view="add" class="${S.view==='add'?'on':''}">+ Add bills</button>
         <details class="more">
           <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}">${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'} ▾</summary>
@@ -758,7 +760,7 @@ function chrome(inner) {
       </div>
       <input type="search" class="qbox topq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
       <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
-      <span class="who"><button class="bell ${S.view === 'inbox' ? 'on' : ''}" data-view="inbox" title="Inbox: everything addressed to you (g n)">🔔${(n => n ? `<span class="belln">${n > 99 ? '99+' : n}</span>` : '')((S.inbox || []).filter(i => i.unread).length)}</button>${av(S.me)}<button id="logout">sign out</button></span>
+      <span class="who"><button class="bell ${S.view === 'inbox' ? 'on' : ''}" data-view="inbox" title="Inbox: ${inboxCount()} that need you (g n)">🔔${(n => n ? `<span class="belln">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>${av(S.me)}<button id="logout">sign out</button></span>
     </div>
     <div class="controls">
       <input type="search" class="qbox rowq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
@@ -1074,11 +1076,18 @@ function renderPortfolio(list) {
         <div class="psmall">${esc(why)}${h ? ` · hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? (inWhen(h.testimony_deadline) === 'passed' ? ' · testimony deadline passed' : ` · testimony due <b${soon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}` : ''}</div></div>
       <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span>
     </div>`; };
+  // The clock on every row: time left to the thing that makes it urgent
+  // (testimony deadline, hearing start, or the bill's committee deadline).
+  const timer = (t, label) => { if (!t || t === Infinity) return ''; const ms = t - now, h = Math.abs(ms) / 36e5;
+    const txt = h < 1 ? `${Math.max(1, Math.round(Math.abs(ms) / 6e4))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`;
+    const cls = ms < 0 ? 'over' : h < 24 ? 'hot' : h < 72 ? 'warm' : '';
+    return `<span class="timer ${cls}" title="${esc(label)} ${fmtDT(new Date(t).toISOString())}">${ms < 0 ? `${txt} overdue` : `${txt} left`}<small>${esc(label)}</small></span>`; };
   // One list: your workflow steps ("Your step") and unclaimed situations ("Needs someone"),
   // by day, your steps first within a day. Reading (chat, notices) lives in the Inbox.
   const dayKey = t => t === Infinity ? '9999' : hstDay(t);
-  const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: waitRow(x).replace('<b class="verb">', '<span class="dtag you">Your step</span><b class="verb">') })),
-                  ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: sitRow(x).replace('<b class="verb">', '<span class="dtag any">Needs someone</span><b class="verb">') }))]
+  const clockLabel = x => x.kind === 'attend' ? 'to the hearing' : x.kind === 'chair' ? 'to the deadline' : x.kind === 'ask' ? 'to the hearing' : 'to the testimony deadline';
+  const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: waitRow(x).replace('<b class="verb">', '<span class="dtag you">Your step</span><b class="verb">').replace('<span class="dkav">', timer(x.t, x.h?.testimony_deadline ? 'to the testimony deadline' : 'to the hearing') + '<span class="dkav">') })),
+                  ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: sitRow(x).replace('<b class="verb">', '<span class="dtag any">Needs someone</span><b class="verb">').replace('<span class="dkav">', timer(x.t, clockLabel(x)) + '<span class="dkav">') }))]
     .sort((x, y) => dayKey(x.t).localeCompare(dayKey(y.t)) || (y.mine - x.mine) || x.pri - y.pri || x.t - y.t);
   const DO_CAP = 10, doMore = (S.boardMore || {}).donow;
   const waitingHtml = (doMore ? merged : merged.slice(0, DO_CAP)).map(x => x.html).join('') + (merged.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="donow">${doMore ? 'Show fewer' : `…and ${merged.length - DO_CAP} more`}</button>` : '');
@@ -1169,9 +1178,9 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `soonest first · “Your step” is waiting on you, “Needs someone” is unclaimed${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitSub = `soonest first, with the time left · “Your step” is waiting on you, “Needs someone” is unclaimed${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
   const waitPanel = ((waitingMine.length || filedToday || situations.length)
-    ? panel('pf-wait', '✊ Do this now', waitSub, waitingHtml,
+    ? panel('pf-wait', '🎯 Action needed', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
   // Layout adapts: a short feed sits under the checklist instead of beside it.
   const stacked = false;
@@ -1971,7 +1980,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / d / t / c / s / i / n', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox (notifications)'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / d / t / c / s / i / n', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2004,31 +2013,78 @@ function parseTrackerCsv(text) {
   return rows.slice(hi + 1).map(r => ({ num: (r[ix('Bill Number')] || '').replace(/\s+/g, '').toUpperCase(), coalition: (r[ix('Coalition')] || '').trim(), position: (r[ix('Coalition Position')] || '').trim() }))
     .filter(r => /^(HB|SB)\d+$/.test(r.num));
 }
-const billById = id => S.bills.find(b => b.id === id);
 // ---------------- Inbox: what was addressed to you, and it stays ----------------
-const INBOX_KINDS = [['all', 'All'], ['message', '💬 Messages'], ['testimony', '📝 Testimony'], ['hearing', '🏛 Hearings'], ['status', '📈 Status'], ['deadline', '⏰ Deadlines'], ['system', '⚙️ System']];
+// Two piles. "Needs you" = direct items (messages, @mentions, testimony steps,
+// reminders): only these count in the badge. "Updates" = official news on
+// your bills, grouped by bill, never counted, and they clear themselves after
+// a week. Anything can be marked read or unread; "Mark all read" clears the
+// pile you are looking at, never the other one.
+const INBOX_KINDS = [['message', '💬 Messages'], ['testimony', '📝 Testimony'], ['deadline', '⏰ Deadlines'], ['hearing', '🏛 Hearings'], ['status', '📈 Status'], ['system', '⚙️ System']];
 const INBOX_ICON = { message: '💬', testimony: '📝', hearing: '🏛', status: '📈', deadline: '⏰', system: '⚙️' };
 const unslack = t => String(t || '').replace(/<([^|>]+)\|([^>]+)>/g, '$2').replace(/<([^>]+)>/g, '$1').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+const billById = id => S.bills.find(b => b.id === id);
+const inboxCount = () => (S.inbox || []).filter(i => i.direct && i.unread).length;
+function inboxRows() {
+  const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
+  let rows = (S.inbox || []).filter(i => v.tab === 'all' || (v.tab === 'needs' ? i.direct : !i.direct));
+  if (v.kind) rows = rows.filter(i => i.kind === v.kind);
+  if (v.unreadOnly) rows = rows.filter(i => i.unread);
+  if (v.q.trim()) { const q = v.q.trim().toLowerCase(); rows = rows.filter(i => [i.bill_number, i.title, i.body].join(' ').toLowerCase().includes(q)); }
+  const cmp = v.sort === 'pri' ? (x, y) => (x.priority || 9) - (y.priority || 9) || String(y.at).localeCompare(String(x.at))
+    : v.sort === 'bill' ? (x, y) => String(x.bill_number || 'zzz').localeCompare(String(y.bill_number || 'zzz'), 'en', { numeric: true }) || String(y.at).localeCompare(String(x.at))
+    : (x, y) => (y.unread - x.unread) || String(y.at).localeCompare(String(x.at));
+  return rows.sort(cmp);
+}
 function renderInbox() {
-  const f = S.inboxFilter || 'all', all = S.inbox || [];
-  const rows = all.filter(i => f === 'all' || i.kind === f);
-  const unread = all.filter(i => i.unread).length;
+  const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
+  const all = S.inbox || [], rows = inboxRows();
+  const nNeeds = all.filter(i => i.direct && i.unread).length, nUpd = all.filter(i => !i.direct && i.unread).length;
   const ago = iso => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 0 ? fmtDT(iso) : h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : h < 24 * 7 ? `${Math.round(h / 24)}d ago` : fmtDate(iso); };
-  return `<div class="inbox">
-    <div class="dashhead"><h1>Inbox</h1><span class="sub">${unread ? `<b>${unread}</b> unread · ` : ''}messages, testimony steps, hearings and status changes on the bills you own or follow. Nothing here disappears when you open it.${unread ? ` <button class="linkbtn" id="inbox-readall">Mark all read</button>` : ''}</span></div>
-    <div class="tchips">${INBOX_KINDS.map(([k, l]) => { const n = k === 'all' ? all.length : all.filter(i => i.kind === k).length; return n || k === 'all' ? `<button class="fchip ${f === k ? 'on' : ''}" data-inboxf="${k}">${l} <span class="cnt">${n}</span></button>` : ''; }).join('')}</div>
-    <div class="ilist">${rows.map(i => { const b = i.bill_id && billById(i.bill_id); return `
+  const item = i => { const b = i.bill_id && billById(i.bill_id); return `
       <div class="irow ${i.unread ? 'unread' : ''} ${b ? posCls(b) : ''}" data-inbox="${esc(i.key)}">
         <span class="iicon">${INBOX_ICON[i.kind] || '•'}</span>
-        <div class="imain"><div class="il1">${i.bill_number ? `<b>${esc(i.bill_number)}</b> ` : ''}${esc(unslack(i.title))}</div>
-          ${i.body ? `<div class="ibody">${esc(unslack(i.body).slice(0, 220))}</div>` : ''}${b ? `<div class="psmall">${esc(blurb(b, 90))}</div>` : ''}</div>
+        <div class="imain"><div class="il1">${i.bill_number ? `<b>${esc(i.bill_number)}</b>${i.priority === 1 ? ' <span class="pri">P1</span>' : ''} ` : ''}${esc(unslack(i.title))}</div>
+          ${i.body ? `<div class="ibody">${esc(unslack(i.body).slice(0, 200))}</div>` : ''}</div>
         <span class="iwhen">${ago(i.at)}</span>
-      </div>`; }).join('') || '<div class="pempty">Nothing here yet. Messages, workflow steps and changes on your bills will collect in this list.</div>'}</div>
+        <button class="iread" data-inboxtoggle="${esc(i.key)}" title="${i.unread ? 'Mark read (e)' : 'Mark unread'}">${i.unread ? '✓' : '↺'}</button>
+      </div>`; };
+  // Updates read better grouped: one block per bill, newest first, one button to clear the block.
+  const grouped = v.group && v.sort !== 'pri' && (v.tab === 'updates' || v.sort === 'bill');
+  let body;
+  if (!rows.length) body = `<div class="pempty">${v.unreadOnly || v.kind || v.q ? 'Nothing matches these filters.' : v.tab === 'needs' ? 'Nothing needs you. 🤙 Messages, @mentions, testimony steps and reminders land here.' : 'No updates. Official actions on the bills you own or follow land here for a week.'}</div>`;
+  else if (grouped) { const by = new Map(); for (const i of rows) { const k = i.bill_id || 'none'; if (!by.has(k)) by.set(k, []); by.get(k).push(i); }
+    body = [...by.entries()].map(([k, list]) => { const b = k !== 'none' && billById(k); const un = list.filter(i => i.unread).length; return `
+      <div class="igroup"><div class="ighead" ${b ? `data-bill="${b.id}"` : ''}><span><b>${esc(list[0].bill_number || 'General')}</b> ${b ? esc(blurb(b, 80)) : ''}</span><span class="igacts">${un ? `<span class="chipx c-teal">${un} new</span><button class="linkbtn" data-inboxgroup="${esc(k)}">mark read</button>` : ''}</span></div>${list.slice(0, 4).map(item).join('')}${list.length > 4 ? `<div class="igmore">${list.length - 4} earlier on this bill · open the Timeline tab</div>` : ''}</div>`; }).join(''); }
+  else body = rows.slice(0, 150).map(item).join('');
+  const unreadHere = rows.filter(i => i.unread).length;
+  return `<div class="inbox">
+    <div class="dashhead"><h1>Inbox</h1><span class="sub">“Needs you” is what the badge counts. Updates are news on your bills; they never count and clear themselves after a week.</span></div>
+    <div class="itabs">
+      <button class="itab ${v.tab === 'needs' ? 'on' : ''}" data-inboxtab="needs">Needs you${nNeeds ? ` <span class="navn">${nNeeds}</span>` : ''}</button>
+      <button class="itab ${v.tab === 'updates' ? 'on' : ''}" data-inboxtab="updates">Updates${nUpd ? ` <span class="navn quiet">${nUpd}</span>` : ''}</button>
+      <button class="itab ${v.tab === 'all' ? 'on' : ''}" data-inboxtab="all">Everything</button>
+      <span class="itools"><button class="btn sm ${unreadHere ? '' : 'ghost'}" id="inbox-readall" ${unreadHere ? '' : 'disabled'}>Mark ${unreadHere || ''} read</button></span>
+    </div>
+    <div class="ifilters">
+      <input type="search" id="inbox-q" placeholder="Filter by bill or words…" value="${esc(v.q)}">
+      <label class="row"><input type="checkbox" id="inbox-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
+      <select id="inbox-sort" title="Sort"><option value="new" ${v.sort === 'new' ? 'selected' : ''}>Unread first, then newest</option><option value="pri" ${v.sort === 'pri' ? 'selected' : ''}>Priority (P1 first)</option><option value="bill" ${v.sort === 'bill' ? 'selected' : ''}>By bill</option></select>
+      <span class="ikinds">${INBOX_KINDS.filter(([k]) => all.some(i => i.kind === k && (v.tab === 'all' || (v.tab === 'needs') === i.direct))).map(([k, l]) => `<button class="fchip ${v.kind === k ? 'on' : ''}" data-inboxf="${k}">${l}</button>`).join('')}</span>
+    </div>
+    <div class="ilist">${body}</div>
+    <p class="tok" style="margin-top:10px">Keys: <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> open · <kbd>e</kbd> mark read · <kbd>Shift</kbd>+<kbd>A</kbd> mark this list read. Testimony items clear themselves once the draft is filed; reminders clear after the hearing.</p>
   </div>`;
 }
 function wireInbox() {
-  document.querySelectorAll('[data-inboxf]').forEach(el => el.onclick = () => { S.inboxFilter = el.dataset.inboxf; render(); });
-  $('#inbox-readall') && ($('#inbox-readall').onclick = async () => { try { await DB.inboxMarkAll(); render(); } catch (e) { toast(e.message, true); } });
+  const v = S.inboxView;
+  document.querySelectorAll('[data-inboxtab]').forEach(el => el.onclick = () => { v.tab = el.dataset.inboxtab; v.kind = ''; render(); });
+  document.querySelectorAll('[data-inboxf]').forEach(el => el.onclick = () => { v.kind = v.kind === el.dataset.inboxf ? '' : el.dataset.inboxf; render(); });
+  $('#inbox-unread') && ($('#inbox-unread').onchange = () => { v.unreadOnly = $('#inbox-unread').checked; render(); });
+  $('#inbox-sort') && ($('#inbox-sort').onchange = () => { v.sort = $('#inbox-sort').value; render(); });
+  const q = $('#inbox-q'); if (q) { let t; q.oninput = () => { v.q = q.value; clearTimeout(t); t = setTimeout(() => { render(); const el = $('#inbox-q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 200); }; }
+  $('#inbox-readall') && ($('#inbox-readall').onclick = async () => { const keys = inboxRows().filter(i => i.unread).map(i => i.key); try { await DB.inboxMark(keys); toast(`${keys.length} marked read`); render(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-inboxgroup]').forEach(el => el.onclick = async e => { e.stopPropagation(); const k = el.dataset.inboxgroup; const keys = inboxRows().filter(i => (i.bill_id || 'none') === k && i.unread).map(i => i.key); try { await DB.inboxMark(keys); render(); } catch (err) { toast(err.message, true); } });
+  document.querySelectorAll('[data-inboxtoggle]').forEach(el => el.onclick = async e => { e.stopPropagation(); const i = (S.inbox || []).find(x => x.key === el.dataset.inboxtoggle); if (!i) return; try { if (i.unread) await DB.inboxMark([i.key]); else await DB.inboxUnmark([i.key]); render(); } catch (err) { toast(err.message, true); } });
   document.querySelectorAll('[data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
     DB.inboxMark([i.key]).catch(() => {});
     if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
@@ -3060,6 +3116,13 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (k === 'n' || k === 'p') { const el = document.querySelector(`[data-week="${k === 'n' ? 1 : -1}"]`); if (el && el.checkVisibility()) el.click(); return; }
+  if (S.view === 'inbox' && !S.drawerBill) {
+    const rows = [...document.querySelectorAll('.irow')];
+    if (k === 'j' || k === 'k') { e.preventDefault(); const cur = rows.findIndex(r => r.classList.contains('kfocus')); const nx = Math.max(0, Math.min(rows.length - 1, cur + (k === 'j' ? 1 : -1))); rows.forEach(r => r.classList.remove('kfocus')); rows[nx]?.classList.add('kfocus'); rows[nx]?.scrollIntoView({ block: 'nearest' }); return; }
+    if (k === 'e') { document.querySelector('.irow.kfocus [data-inboxtoggle]')?.click(); return; }
+    if (k === 'A') { document.querySelector('#inbox-readall')?.click(); return; }
+    if (k === 'Enter') { document.querySelector('.irow.kfocus')?.click(); return; }
+  }
   if (S.view === 'triage' && S.triage?.rows?.length) {
     const t = S.triage, rows = [...document.querySelectorAll('.trow')];
     if (k === 'j' || k === 'k') { e.preventDefault(); t.focus = Math.max(0, Math.min(rows.length - 1, t.focus + (k === 'j' ? 1 : -1))); rows.forEach((r, i) => r.classList.toggle('kfocus', i === t.focus)); rows[t.focus]?.scrollIntoView({ block: 'nearest' }); return; }
