@@ -288,7 +288,7 @@ async function toggleWatch(id) {
   }
   await loadBills();
   // Sign-in nudge after the first and third Watch, never a modal, never before a Watch.
-  if (!on && !S.session && S.watch.size && [1, 3].includes(S.watch.size) && (onb().nudges || 0) < 2) { if (onb().tour) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } else onbSet({ pendingNudge: true }); }
+  if (!on && !S.session && S.watch.size && [1, 3].includes(S.watch.size) && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
   render();
 }
 async function search(q) {
@@ -806,7 +806,7 @@ function help() {
       <p>Bills must clear each stage by the session calendar’s dates or they die. The board shows the deadline each bill is racing and the last regular committee meeting before it. Committees must post a hearing notice 48 hours ahead, so a bill without a notice two days before that last meeting is very likely done.</p>
       ${dls.length ? dls.map(d => `<div class="krow"><b>${esc(d.label)}</b><span>${fmtDate(d.deadline_date + 'T12:00:00-10:00', { weekday: 'short', month: 'short' })}</span></div>`).join('') : '<p class="muted">The session has ended; dates for the next session appear when the Legislature publishes them.</p>'}</section>
     <section><h2>How to testify</h2>${testifyBox().replace('<details class="testify"', '<details class="testify" open')}</section>
-    <section><h2>Getting around</h2><p>The home page has four parts: this week’s hearings on your bills, where every bill stands against the session deadlines, what happened in the last 72 hours, and your watchlist. <button class="btn sm ghost" data-tour>Replay the two-minute tour</button></p></section>
+    <section><h2>Getting around</h2><p>The home page has four parts: things to do now, this week’s hearings on your bills, where every bill stands against the session deadlines, and your bills.</p></section>
     <section><h2>Keyboard shortcuts</h2>${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}<p class="muted" style="font-size:12px">Shortcuts are off while you are typing in a field.</p></section>
     <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address and the list of bills you watch, nothing else. HIPHI staff see how many people watch each bill, never who. Delete your account from Settings at any time; it removes everything immediately.</p></section>
     <section><h2>About</h2><p>Built by the Hawaiʻi Public Health Institute. Bill data comes from the Legislature’s public records and refreshes several times a day. Positions marked HIPHI are ours; everything else is the public record. Questions: <a href="mailto:info@hiphi.org">info@hiphi.org</a>.</p></section>
@@ -833,7 +833,7 @@ function wire() {
   document.querySelectorAll('[data-watchall]').forEach(el => el.onclick = async () => { const rows = (S.browse?.rows || []).filter(b => alive(b) && !S.watch.has(b.id)); el.disabled = true;
     for (const b of rows) { S.watch.add(b.id); } saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
-    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) onbSet({ pendingNudge: true }); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-dismiss]').forEach(el => el.onclick = () => { dismiss(el.dataset.dismiss); render(); toast('Okay, not that one'); });
   $('[data-showhidden]') && ($('[data-showhidden]').onclick = () => { S.showHidden = !S.showHidden; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-unhide]').forEach(el => el.onclick = () => { const d = dismissed(); d.delete(el.dataset.unhide); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } const y = window.scrollY; render(); window.scrollTo(0, y); });
@@ -856,19 +856,19 @@ function wire() {
   $('[data-wizdone]') && ($('[data-wizdone]').onclick = async () => { const ids = S.wizPick || []; if (!ids.length) return; $('[data-wizdone]').disabled = true;
     ids.forEach(id => S.watch.add(id)); saveLocal();
     if (S.user && !DEMO) { const r = await S.supa.from('watchlist').insert(ids.map(bill_id => ({ user_id: S.user.id, bill_id }))); if (r.error) toast(r.error.message, true); }
-    wizSet({ step: 1, done: true }); onbSet({ issues: true }); await loadBills(); if (!S.session && (onb().nudges || 0) < 2) onbSet({ pendingNudge: true });
+    wizSet({ step: 1, done: true }); onbSet({ issues: true }); await loadBills(); if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
     render(); window.scrollTo(0, 0); toast(`You’re following ${ids.length} bill${ids.length === 1 ? '' : 's'}`); });
   document.querySelectorAll('[data-watchpicks]').forEach(el => el.onclick = async () => { const { picks } = curate(S.browse?.rows || [], 8); const rows = picks.filter(b => !S.watch.has(b.id)); el.disabled = true; rows.forEach(b => S.watch.add(b.id)); saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
-    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) onbSet({ pendingNudge: true }); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-onbdismiss]').forEach(el => el.onclick = () => { onbSet({ dismissed: true }); render(); });
   document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { S.nudge = false; render(); });
   $('#nudge-form') && ($('#nudge-form').onsubmit = async e => { e.preventDefault(); const email = $('#nudge-email').value.trim(); if (!email) return;
     const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) toast(error.message, true); else { toast('Check your email for the link'); S.nudge = false; render(); } });
   document.querySelectorAll('[data-explain]').forEach(el => el.onclick = e => { e.stopPropagation(); const old = document.querySelector('.expl'); const was = old && old.previousElementSibling === el; old?.remove(); if (was) return; const p = document.createElement('span'); p.className = 'expl'; p.textContent = el.dataset.explain; el.after(p); });
-  document.querySelectorAll('[data-tour]').forEach(el => el.onclick = () => { S.view = 'home'; render(); startTour(true); });
-  if (S.view === 'home' && S.watch.size && !onb().tour && !S.open) startTour(false);
+
+
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   document.querySelectorAll('[data-copylink]').forEach(el => el.onclick = async e => { e.stopPropagation(); const b = findBill(el.dataset.copylink); if (!b) return;
     const url = `${location.origin}${location.pathname}#bill=${b.bill_number}`;
@@ -892,30 +892,6 @@ function wire() {
     try { localStorage.removeItem(LOCAL_KEY); } catch { /* ignore */ }
     await S.supa.auth.signOut(); S.watch = new Set(); S.view = 'home'; toast('Account deleted'); render();
   });
-}
-// ---------------- first-visit tour: four cards, one per section ----------------
-const TOUR = [
-  ['#pf-actions .acard', 'Do this now', 'When one of your bills has a hearing, its card appears here with a Submit testimony button that writes the testimony for you; you add a sentence and paste it at the Capitol.'],
-  ['#pf-reco', 'More ways to help', 'Three suggestions at a time from the issues you picked: a hearing to testify at, or a stuck bill whose chair needs a nudge. Follow one, or say not for me.'],
-  ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
-  ['#pf-list', 'Your bills', 'Every bill you follow, with HIPHI’s position. Tap a bill for its history, hearings and how to testify. Sign in to get an email when a hearing is scheduled.'],
-];
-let tourStep = -1;
-function startTour(force) {
-  if (!force && onb().tour) return;
-  if (document.querySelector('.tourcard')) return;
-  tourStep = 0; showTourStep();
-}
-function showTourStep() {
-  document.querySelectorAll('.tour-hi').forEach(el => el.classList.remove('tour-hi')); document.querySelector('.tourcard')?.remove();
-  while (tourStep < TOUR.length && !document.querySelector(TOUR[tourStep][0])) tourStep++;
-  if (tourStep >= TOUR.length) { const o = onbSet({ tour: true }); if (o.pendingNudge && !S.session) { onbSet({ pendingNudge: false, nudges: (o.nudges || 0) + 1 }); S.nudge = true; render(); } return; }
-  const [sel, title, text] = TOUR[tourStep]; const target = document.querySelector(sel); target.classList.add('tour-hi'); target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  const card = document.createElement('div'); card.className = 'tourcard';
-  card.innerHTML = `<div class="tourk">${tourStep + 1} of ${TOUR.length}</div><b>${esc(title)}</b><p>${esc(text)}</p><div class="tourbtns"><button class="btn sm ghost" data-tourskip>Skip</button><button class="btn sm" data-tournext>${tourStep === TOUR.length - 1 ? 'Done' : 'Next'}</button></div>`;
-  document.body.appendChild(card);
-  card.querySelector('[data-tournext]').onclick = () => { tourStep++; showTourStep(); };
-  card.querySelector('[data-tourskip]').onclick = () => { tourStep = TOUR.length; showTourStep(); };
 }
 // ---------------- keyboard ----------------
 let pendingG = 0;
