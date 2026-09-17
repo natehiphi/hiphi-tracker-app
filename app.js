@@ -5,7 +5,7 @@
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
-import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME } from './stops.js';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream } from './stops.js';
 const DEMO = new URLSearchParams(location.search).has('demo');
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
@@ -515,6 +515,11 @@ const DB = {
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
+  async setHearingStream(hearingId, url) {
+    const h = S.hearings.find(x => x.id === hearingId); if (!h) return;
+    if (!DEMO) { const { data, error } = await S.supa.rpc('set_hearing_stream', { p_hearing: hearingId, p_url: url || '' }); if (error) throw error; h.stream_url = data || null; }
+    else h.stream_url = url || null;
+  },
   async saveSessionCalendar(row) {
     S.sessionCal = [...(S.sessionCal || []).filter(c => c.session_year !== row.session_year), row];
     if (DEMO) return;
@@ -834,6 +839,9 @@ function filterPanelHTML() {
       <div class="fpfoot"><button class="btn sm ghost" id="clearf" ${filterCount() ? '' : 'disabled'}>Clear all</button><button class="btn sm" id="fdone">Show ${shown} bill${shown === 1 ? '' : 's'}</button></div>
     </div></div>`;
 }
+// ▶ the hearing's video: exact link if someone saved one, else the chamber's YouTube channel.
+const streamOf = h => hearingStream(h, S.committees?.[String(h.committee || '').split('/')[0]]?.chamber);
+const streamLink = (h, cls = 'streamlink') => { const v = streamOf(h); return v ? `<a class="${cls}${v.state === 'live' ? ' live' : ''}" href="${esc(v.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(v.hint || v.channel)}">▶ ${v.label}</a>` : ''; };
 function chrome(inner) {
   const upcoming = S.hearings
     .filter(h => new Date(h.scheduled_at) > new Date())
@@ -1299,7 +1307,7 @@ function renderPortfolio(list) {
         <div class="pdesc">${esc(blurb(b, 96))}</div>
         <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
       <div class="calbtns">${draftActionBtn(b, h.committee)}
-      <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a></div>
+      <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>${hstDay(h.scheduled_at) === hstDay(now) ? streamLink(h, 'btn sm ghost streambtn') : ''}</div>
     </div>`; };
   const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
@@ -2635,6 +2643,7 @@ function drawerHTML(b) {
           ${row('When', `${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}`)}
           ${c && c.chair ? row('Chair', `${m ? `<a class="chairmail" href="mailto:${esc(m.email)}" title="${esc(m.email)}">${esc(c.chair)}</a>` : esc(c.chair)}${c.vice_chair ? `<span class="muted"> · Vice Chair ${esc(c.vice_chair)}</span>` : ''}`) : ''}
           ${row('Attending', `${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button>`)}
+          ${(v => v ? row('Video', `${streamLink(h)}<span class="muted"> · ${v.exact ? 'exact link saved' : esc(v.channel) + ' channel'}</span><button class="draftbtn" data-setstream="${h.id}" title="Paste the exact YouTube address for this hearing">${v.exact ? 'Change' : 'Set exact link'}</button>`) : '')(streamOf(h))}
           ${h.testimony_deadline ? row('Testimony', duePast ? `due ${fmtDT(h.testimony_deadline)} <span class="muted">· passed</span>` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`, dueSoon ? 'due' : '') : ''}
         </div>
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
@@ -2666,7 +2675,7 @@ function drawerHTML(b) {
       ${b.last_action ? `<div class="lastact"><span class="lal">Last action</span> ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span> · ` : ''}${esc(b.last_action)}</div>` : ''}
       ${nextHtml}
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
-      ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
+      ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''} ${streamLink(h)}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
       <div class="sec">Summary</div>
       ${summary}
       ${todosHTML(b)}
@@ -2833,6 +2842,9 @@ function wire() {
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
   $('#logout3') && ($('#logout3').onclick = () => DB.logout());
+  document.querySelectorAll('[data-setstream]').forEach(el => el.onclick = async e => { e.stopPropagation(); const h = S.hearings.find(x => x.id === el.dataset.setstream); if (!h) return;
+    const url = prompt('Paste the YouTube address for this hearing (leave blank to go back to the channel link):', h.stream_url || ''); if (url === null) return;
+    try { await DB.setHearingStream(h.id, url.trim()); toast(url.trim() ? 'Video link saved' : 'Back to the channel link'); render(); } catch (err) { toast(err.message, true); } });
   $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;

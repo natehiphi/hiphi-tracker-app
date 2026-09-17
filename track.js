@@ -6,7 +6,7 @@
 // Layout mirrors the staff home: summary line, Last 72 hours + Recent
 // hearings, This week calendar, the three-column board, then the watchlist.
 // ============================================================
-import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME } from './stops.js';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream } from './stops.js';
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -388,6 +388,7 @@ function lastSlotBefore(code, dateStr, slots) {
   }
   return null;
 }
+const streamOf = h => hearingStream(h, S.committees[String(h.committee || '').split('/')[0]]?.chamber);
 const chairOf = code => { const c = S.committees[String(code || '').split('/')[0]]; if (!c?.chair) return '';
   const last = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
   const title = c.chamber === 'S' ? 'Sen.' : 'Rep.';
@@ -772,8 +773,8 @@ function panelFor(b) {
       <div class="sec">Hearings</div>
       ${!alive(b) ? `<p class="desc"><i>This bill did not advance. Hearings listed below are historical.</i></p>` : ''}
       ${hs.length ? hs.map(h => { const past = new Date(h.scheduled_at) < now; return `<div class="prow"><div class="pmain"><b>${esc(h.committee)}</b> · ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${h.status !== 'scheduled' ? ` · ${esc(h.status)}` : ''} ${past ? outcomeChip(h) : ''}${chairOf(h.committee)}
-        <div class="psmall">${h.testimony_deadline && !past ? 'written testimony due ' + fmtDT(h.testimony_deadline) : ''}${S.outcomes[h.id]?.report ? esc(S.outcomes[h.id].report.slice(0, 140)) : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}</div>
-        ${!past && h.status === 'scheduled' ? `<div class="calbtns">${alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor' ? `<button class="btn sm" data-helper="${h.id}">Submit testimony</button>` : b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Submit testimony ↗</a>` : ''}${calLinks(b, h)}</div>` : ''}</div></div>`; }).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
+        <div class="psmall">${h.testimony_deadline && !past ? 'written testimony due ' + fmtDT(h.testimony_deadline) : ''}${S.outcomes[h.id]?.report ? esc(S.outcomes[h.id].report.slice(0, 140)) : ''}${h.notice_url ? ` · <a href="${esc(h.notice_url)}" target="_blank" rel="noopener">notice ↗</a>` : ''}${(v => v && v.state === 'after' ? ` · <a href="${esc(v.url)}" target="_blank" rel="noopener" title="${esc(v.hint)}">▶ watch the recording</a>` : '')(streamOf(h))}</div>
+        ${!past && h.status === 'scheduled' ? `<div class="calbtns">${alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor' ? `<button class="btn sm" data-helper="${h.id}">Submit testimony</button>` : b.state_url && alive(b) ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Submit testimony ↗</a>` : ''}${calLinks(b, h)}${(v => v ? `<a class="btn sm ghost${v.state === 'live' ? ' livebtn' : ''}" href="${esc(v.url)}" target="_blank" rel="noopener" title="${esc(v.hint)}">▶ ${v.label}</a>` : '')(streamOf(h))}</div>${(v => v && !v.exact ? `<div class="psmall streamhint">${esc(v.hint)}</div>` : '')(streamOf(h))}` : ''}</div></div>`; }).join('') : '<p class="desc"><i>No hearings on record.</i></p>'}
       ${alive(b) ? testifyBox() : ''}
       <p style="margin-top:12px">${b.state_url ? `<a class="btn sm ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Capitol bill page ↗</a>` : ''}</p>
     </div></div>`;

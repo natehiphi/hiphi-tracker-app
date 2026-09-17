@@ -148,3 +148,25 @@ export const COLUMNS = {
   c: { icon: '✅', title: 'Through committee', sub: 'waiting for a floor vote, crossover, or conference' },
 };
 export const BOARD_EXPLAINER = 'A bill walks left to right in each chamber: it needs a hearing, the hearing happens, then it is through committee and waits for the floor. After it crosses over, it starts again on the left in the other chamber.';
+
+// ---- Video ----
+// The Capitol streams every committee hearing on its chamber's YouTube
+// channel and keeps the recording there; hearing notices link to the channel,
+// never to one video. So the link is the channel's Live tab (upcoming, live
+// and past streams, newest first) unless someone has saved the exact address
+// on the hearing (hearings.stream_url).
+export const STREAM_CHANNELS = {
+  S: { name: 'Hawaiʻi State Senate', url: 'https://www.youtube.com/channel/UCekvvdL_uyq2DUyj1GjlrOA' },
+  H: { name: 'Hawaiʻi House of Representatives', url: 'https://www.youtube.com/channel/UCvoLAX1ww3e63K8qQ5of0bw' },
+};
+export function hearingStream(h, chamber, now = Date.now()) {
+  const ch = STREAM_CHANNELS[chamber]; if (!h || (!ch && !h.stream_url)) return null;
+  const start = new Date(h.scheduled_at).getTime(), exact = !!h.stream_url;
+  const state = h.status === 'cancelled' ? 'off' : now < start - 15 * 6e4 ? 'before' : now < start + 4 * 36e5 ? 'live' : 'after';
+  if (state === 'off') return null;
+  return { url: exact ? h.stream_url : ch.url + '/streams', exact, state, channel: ch?.name || 'YouTube',
+    label: state === 'live' ? 'Watch live' : state === 'after' ? 'Watch the recording' : 'Watch on YouTube',
+    hint: exact ? '' : state === 'before' ? `Streams on the ${ch.name} channel; the video appears shortly before the start time.`
+      : state === 'live' ? `On the ${ch.name} channel: pick the stream with this committee’s name.`
+      : `On the ${ch.name} channel: past streams are listed by date and committee.` };
+}

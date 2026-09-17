@@ -1263,3 +1263,11 @@ details.fold .calnav{margin-left:auto}
   .fopt{padding:9px 13px;font-size:14px}
   .fpfoot .btn{flex:1;justify-content:center;padding:11px}
 }
+
+/* ---- Hearing video link ---- */
+.streamlink{color:var(--teal);font-weight:600;text-decoration:none;white-space:nowrap}
+.streamlink:hover{text-decoration:underline}
+.streamlink.live,.streambtn.live{color:var(--red)}
+.streamlink.live::before,.streambtn.live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:1px;animation:livepulse 1.4s ease-in-out infinite}
+@keyframes livepulse{50%{opacity:.35}}
+.pastheard .streamlink{margin-left:6px;font-size:12px}

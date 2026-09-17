@@ -214,3 +214,9 @@
 .addstrip{display:none}
 .browse{display:none}
 @media (max-width:760px){ .pubnav{padding:8px 12px 6px} }
+
+/* ---- Hearing video link ---- */
+.btn.livebtn{color:#BE4038;border-color:#E9B9B5}
+.btn.livebtn::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#BE4038;margin-right:6px;vertical-align:1px;animation:livepulse 1.4s ease-in-out infinite}
+@keyframes livepulse{50%{opacity:.35}}
+.streamhint{margin-top:6px}
