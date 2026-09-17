@@ -628,7 +628,10 @@ async function demoInit() {
   // upcoming, and finished.
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   S.todos = {};
-  if (anchor) S.todos[anchor.id] = [
+  // Strongly supported bills (Support + P1) carry the email-blast task the database adds on the live app (migration 026).
+  for (const b of S.bills) if (b.tracked && b.position === 'support' && b.priority === 1)
+    S.todos[b.id] = [{ id: 'eb' + b.id, bill_id: b.id, title: 'Send an email blast asking supporters to submit testimony', done: false, due_date: null, assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }];
+  if (anchor) S.todos[anchor.id] = (S.todos[anchor.id] || []).concat([
     { id: 'td1', bill_id: anchor.id, title: 'Draft testimony for the next hearing',
       done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,
       created_at: new Date().toISOString() },
@@ -638,7 +641,7 @@ async function demoInit() {
     { id: 'td3', bill_id: anchor.id, title: 'Send one-pager to committee staff',
       done: true, due_date: null, assignee_id: S.advocates[2].id, sort_order: 2,
       created_at: new Date().toISOString() },
-  ];
+  ]);
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
   S.feed = sc.tl.filter(t => t.source === 'team');
   S.sinceVisit = Date.now() - 3*864e5;
