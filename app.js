@@ -1255,7 +1255,7 @@ function renderPortfolio(list) {
       ${clock(t, until)}
       <div class="amain"><div class="aask">${ask}</div>
         ${note ? `<div class="anote">“${esc(note)}”</div>` : ''}
-        <div class="actx"><span class="dtag ${mine ? 'you' : 'any'}">${mine ? 'Yours' : 'Unclaimed'}</span>${esc(topic(b))}${ctx ? ' · ' + ctx : ''}</div></div>
+        <div class="actx">${esc(topic(b))}</div></div>
       <div class="abtn">${btn}</div>
     </div>`;
   const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: actRow({ mine: true, b: x.b, t: x.t, until: x.h?.testimony_deadline ? 'it’s due' : 'the hearing',
@@ -1304,8 +1304,8 @@ function renderPortfolio(list) {
     return `
     <div class="prow calrow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
       <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}<span class="calwho">${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</span></span>
-      <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span><div class="tagline">${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}</div>
-        <div class="pdesc one">${esc(blurb(b, 60))}</div>
+      <div class="pmain"><div class="calhead"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span></div><div class="tagline">${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}</div>
+        <div class="pdesc">${esc(blurb(b, 70))}</div>
         <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}${hstDay(h.scheduled_at) === hstDay(now) ? ' ' + streamLink(h) : ''}</div></div>
     </div>`; };
   const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
@@ -1355,7 +1355,7 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `soonest first${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitSub = `soonest first · teal edge is yours, grey is open to anyone${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
   const waitPanel = ((waitingMine.length || filedToday || situations.length)
     ? panel('pf-wait', '🎯 Action needed', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
