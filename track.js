@@ -59,6 +59,14 @@ const OUTCOME_CLS = { passed: 'c-green', passed_amended: 'c-gold', deferred: 'c-
 const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
 // Coalitions keep their internal name as the key; the public sees public_name.
 const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_name || n;
+// Tiles are grouped by public name: two internal coalitions can share one tile.
+function groups() {
+  const g = {};
+  for (const c of S.coalitions || []) { const k = c.public_name || c.name; const x = g[k] ??= { key: k, names: [], icon: c.icon, description: c.description, bills: 0, live: 0, sort_order: c.sort_order || 99 };
+    x.names.push(c.name); x.bills += c.bills || 0; x.live += c.live || 0; x.icon = x.icon || c.icon; x.description = x.description || c.description; x.sort_order = Math.min(x.sort_order, c.sort_order || 99); }
+  return Object.values(g);
+}
+const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
 const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter', 'Open the highlighted bill'],
   ['Esc', 'Close the bill, or clear the search'], ['w', 'Watch / unwatch the open or highlighted bill'],
@@ -198,7 +206,7 @@ function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setI
 function interests() {
   const w = {}; const add = (n, k) => { if (n) w[n] = (w[n] || 0) + k; };
   for (const b of S.bills) for (const n of (b.coalitions || [])) add(n, 2);
-  for (const n of (wiz().issues || [])) add(n, 3);
+  for (const n of (wiz().issues || [])) for (const m of groupNames(n)) add(m, 3);
   return w;
 }
 // Ranked suggestions: something to do this week on a bill they do not follow yet.
@@ -293,10 +301,11 @@ async function search(q) {
 }
 // Every public bill HIPHI has tagged with a coalition (public_all_bills.coalitions).
 async function browseCoalition(name) {
-  if (DEMO) { S.browse = { name, rows: D.bills.filter(b => b.coalitions.includes(name)) }; S.results = null; S.q = ''; return; }
-  const { data, error } = await S.supa.from('public_all_bills').select('*').contains('coalitions', [name]).order('bill_number').limit(200);
+  const names = groupNames(name);
+  if (DEMO) { S.browse = { name: names[0], rows: D.bills.filter(b => b.coalitions.some(n => names.includes(n))) }; S.results = null; S.q = ''; return; }
+  const { data, error } = await S.supa.from('public_all_bills').select('*').overlaps('coalitions', names).order('bill_number').limit(300);
   if (error) throw error;
-  S.browse = { name, rows: data || [] }; S.results = null; S.q = '';
+  S.browse = { name: names[0], rows: data || [] }; S.results = null; S.q = '';
 }
 // A bill opened from search, browse, or a #bill= link is not in S.bills, so
 // its hearings and outcomes are fetched on demand and kept in S.xh.
@@ -440,7 +449,7 @@ const resultRow = b => `
         <span class="t">${esc(titleCase(b.title))}<small>${b.description || b.hiphi_summary ? esc(blurb(b, 120)) : ''}${b.hiphi_follows ? ' · HIPHI follows this bill' : ''}${(b.coalitions || []).length ? ' · ' + esc(b.coalitions.map(cname).join(', ')) : ''}${b.watchers ? ` · ${b.watchers} following` : ''}${!alive(b) ? ' · <span class="hot">did not advance</span>' : ''}</small></span>
         ${watchBtn(b)}</div>`;
 function searchBox() {
-  const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${S.coalitions.map(c => `<button class="fchip ${S.browse?.name === c.name ? 'on' : ''}" data-browse="${esc(c.name)}">${esc(cname(c.name))} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
+  const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${groups().sort((a, b) => a.sort_order - b.sort_order).map(c => `<button class="fchip ${S.browse && c.names.includes(S.browse.name) ? 'on' : ''}" data-browse="${esc(c.names[0])}">${esc(c.key)} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
   return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>${chips}
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
     ${S.browse ? (({ picks, rest }) => `<div class="panel"><div class="ph"><span>${esc(cname(S.browse.name))} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) : ''}</span></div>
@@ -502,7 +511,7 @@ function helperHTML() {
     '',
     `My name is ${name || '[your name]'} and I live in ${town || '[your town]'}. I ${verb} ${b.bill_number}${b.hiphi_summary ? ', which ' + b.hiphi_summary.replace(/^[A-Z]/, m => m.toLowerCase()).replace(/\.?$/, '.') : '.'}`,
     b.hiphi_action ? `\n${b.hiphi_action}` : '',
-    why ? `\n${why.trim()}` : '\n[One or two sentences on why this matters to you, your family or your community.]',
+    why && why.trim() ? `\n${why.trim()}` : '',
     '',
     /OPPOS/.test(word) ? `I respectfully ask the committee to hold ${b.bill_number}.` : `I respectfully ask the committee to pass ${b.bill_number}.`,
     speak ? `I would like to testify ${speak === 'remote' ? 'remotely by video' : 'in person'} at the hearing.` : '',
@@ -514,7 +523,7 @@ function helperHTML() {
   return `<div class="scrim" id="hscrim"></div><div class="drawer helper">
     <div class="dhead"><button class="close" id="hclose">✕</button><h2>Submit testimony on ${esc(b.bill_number)}</h2><div class="sub">${esc(POS[b.hiphi_position] || '')} · ${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · written testimony due ${fmtDT(h.testimony_deadline)}` : ''}</div></div>
     <div class="dbody">
-      <ol class="hsteps"><li><b>Fill in three things.</b> We write the rest from HIPHI’s position.</li><li><b>Copy it</b> (or download).</li><li><b>Paste it at the Capitol</b> — the link opens the bill’s page; press Submit Testimony, sign in (free account), pick this hearing, paste.</li></ol>
+      <ol class="hsteps" id="h-steps"><li data-step="1"><b>Fill in your name and town.</b> We write the rest from HIPHI’s position; add a sentence of your own if you like.</li><li data-step="2"><b>Copy your testimony.</b></li><li data-step="3"><b>Paste it at the Capitol.</b> The button opens the bill’s page: press Submit Testimony, sign in (free account), pick this hearing, paste.</li><li data-step="4"><b>Come back and press “I submitted it”.</b></li></ol>
       <div class="hform">
         <label>Your name<input id="h-name" value="${esc(me.name || '')}" placeholder="Jane Doe"></label>
         <label>Where you live<input id="h-town" value="${esc(me.town || '')}" placeholder="Hilo, Hawaiʻi Island"></label>
@@ -523,12 +532,13 @@ function helperHTML() {
       </div>
       <div class="sec">Your testimony</div>
       <textarea id="h-text" class="htext" rows="14">${esc(text(me.name, me.town, me.why, ''))}</textarea>
+      <div class="hnext" id="h-next"></div>
       <div class="hbtns">
         <button class="btn" id="h-copy">Copy testimony</button>
-        <a class="btn ghost" id="h-dl" download="${esc(b.bill_number)}-testimony.txt">Download</a>
-        ${b.state_url ? `<a class="btn ghost" href="${esc(b.state_url)}" target="_blank" rel="noopener">Open the Capitol page ↗</a>` : ''}
+        <a class="btn ghost" id="h-dl" download="${esc(b.bill_number)}-testimony.txt">Download instead</a>
+        ${b.state_url ? `<a class="btn ghost" id="h-capitol" href="${esc(b.state_url)}" target="_blank" rel="noopener">Open the Capitol page ↗</a>` : ''}
       </div>
-      <div class="hdone"><button class="btn sm" id="h-did">✓ I submitted it</button><span class="tok">Marks it done here${S.session ? '' : ' on this device'}; HIPHI only ever sees a count.</span></div>
+      <div class="hdone"><button class="btn sm ghost" id="h-did">✓ I submitted it</button><span class="tok">Marks it done here${S.session ? '' : ' on this device'}; HIPHI only ever sees a count.</span></div>
     </div></div>`;
 }
 function wireHelper() {
@@ -539,10 +549,22 @@ function wireHelper() {
   const regen = () => { const name = $('#h-name').value.trim(), town = $('#h-town').value.trim(), why = $('#h-why').value, speak = $('#h-speak').value;
     try { localStorage.setItem('hiphi_me', JSON.stringify({ name, town, why })); } catch { /* ignore */ }
     S.helper = { ...S.helper, name, town, why, speak }; $('#h-text').value = S.helperText(name, town, why, speak); refreshDl(); };
-  const refreshDl = () => { $('#h-dl').href = 'data:text/plain;charset=utf-8,' + encodeURIComponent($('#h-text').value); };
-  ['#h-name', '#h-town', '#h-why', '#h-speak'].forEach(id => { $(id).oninput = regen; $(id).onchange = regen; });
-  $('#h-text').oninput = refreshDl; refreshDl();
-  $('#h-copy').onclick = async () => { try { await navigator.clipboard.writeText($('#h-text').value); toast('Copied — now paste it at the Capitol'); } catch { $('#h-text').select(); toast('Select all and copy', true); } };
+  // Which step is next: blanks -> 1, ready -> 2, copied -> 3.
+  const ready = () => $('#h-name').value.trim() && $('#h-town').value.trim();
+  const showStep = () => { const step = S.helper.copied ? 3 : ready() ? 2 : 1;
+    document.querySelectorAll('#h-steps li').forEach(li => li.classList.toggle('now', Number(li.dataset.step) === step));
+    document.querySelectorAll('#h-steps li').forEach(li => li.classList.toggle('done', Number(li.dataset.step) < step));
+    const copy = $('#h-copy'), cap = $('#h-capitol'), did = $('#h-did'), nx = $('#h-next');
+    copy.disabled = !ready(); copy.textContent = ready() ? (S.helper.copied ? 'Copied ✓ · copy again' : 'Copy your testimony') : 'Fill in your name and town first';
+    copy.classList.toggle('ghost', S.helper.copied); if (cap) cap.classList.toggle('ghost', !S.helper.copied); did.classList.toggle('ghost', !S.helper.copied);
+    nx.innerHTML = step === 1 ? '<b>Next:</b> your name and where you live go in above — the testimony fills itself in.'
+      : step === 2 ? '<b>Next:</b> press Copy. Then the Capitol button opens the bill’s page in a new tab.'
+      : `<b>Copied.</b> Now open the Capitol page, press <b>Submit Testimony</b>, sign in, choose the ${esc(h.committee)} hearing on ${fmtDate(h.scheduled_at)}, and paste. Then come back and press <b>I submitted it</b>.`;
+    ['#h-name', '#h-town'].forEach(id => $(id).classList.toggle('missing', !$(id).value.trim())); };
+  const refreshDl = () => { $('#h-dl').href = 'data:text/plain;charset=utf-8,' + encodeURIComponent($('#h-text').value); showStep(); };
+  ['#h-name', '#h-town', '#h-why', '#h-speak'].forEach(id => { $(id).oninput = () => { S.helper.copied = false; regen(); }; $(id).onchange = () => { S.helper.copied = false; regen(); }; });
+  $('#h-text').oninput = () => { S.helper.copied = false; refreshDl(); }; refreshDl();
+  $('#h-copy').onclick = async () => { if (!ready()) { $('#h-name').focus(); return; } try { await navigator.clipboard.writeText($('#h-text').value); S.helper.copied = true; showStep(); toast('Copied — now open the Capitol page and paste'); $('#h-capitol')?.focus(); } catch { $('#h-text').select(); toast('Select all and copy', true); } };
   $('#h-did').onclick = async () => { await markDone(b.id, h.id, 'testimony'); toast('Marked done. Mahalo for testifying!'); close(); };
 }
 // HIPHI's picks for a coalition: strongly supported/opposed first, then bills
@@ -567,9 +589,9 @@ function wizardHTML() {
   const w = wiz(); const sel = new Set(w.issues || []);
   if (w.step === 2) {
     const rows = S.wizRows;
-    if (!rows) { billsForCoalitions([...sel]).then(r => { S.wizRows = r; render(); }).catch(e => toast(e.message, true)); return `<div class="wiz"><div class="pempty">Finding HIPHI’s picks…</div></div>`; }
+    if (!rows) { billsForCoalitions([...sel].flatMap(groupNames)).then(r => { S.wizRows = r; render(); }).catch(e => toast(e.message, true)); return `<div class="wiz"><div class="pempty">Finding HIPHI’s picks…</div></div>`; }
     const picked = new Set(S.wizPick || []);
-    const groups = [...sel].map(name => { const mine = rows.filter(b => (b.coalitions || []).includes(name)); const { picks, rest } = curate(mine, S.wizMore?.[name] ? 40 : 6); return { name, picks, more: mine.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor').length - picks.length }; });
+    const groups = [...sel].map(name => { const names = groupNames(name); const mine = rows.filter(b => (b.coalitions || []).some(n => names.includes(n))); const { picks, rest } = curate(mine, S.wizMore?.[name] ? 40 : 6); return { name, picks, more: mine.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor').length - picks.length }; });
     const card = b => { const c = S.coalitions.find(x => x.name === (b.coalitions || [])[0]); const h = [...((S.featured || {}).hearings || [])].find(x => x.bill_id === b.id); return `
       <label class="pick ${picked.has(b.id) ? 'on' : ''}"><input type="checkbox" data-wizpick="${b.id}" ${picked.has(b.id) ? 'checked' : ''}>
         <span class="pickb"><span class="pickl1"><b>${esc(billNum(b))}</b> <span class="chipx ${/oppose/.test(b.hiphi_position) ? 'c-red' : 'c-green'}">HIPHI ${esc(POS[b.hiphi_position] || '')}</span>${h ? ` <span class="chipx c-gold">hearing ${fmtDate(h.scheduled_at)}</span>` : ''}</span>
@@ -582,9 +604,9 @@ function wizardHTML() {
       <div class="wizfoot"><button class="btn ghost" data-wizback>← Issues</button><span class="wizn">${picked.size} selected</span><button class="btn" data-wizdone ${picked.size ? '' : 'disabled'}>Follow ${picked.size || ''} bill${picked.size === 1 ? '' : 's'} →</button></div>
     </div>`;
   }
-  const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;
-  const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
-    <label class="tile ${sel.has(c.name) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.name)}" ${sel.has(c.name) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(cname(c.name))}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
+  const gen = c => /general/i.test(c.key) ? 1 : 0;
+  const tiles = groups().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
+    <label class="tile ${sel.has(c.names[0]) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.names[0])}" ${sel.has(c.names[0]) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
   return `<div class="wiz">
     <div class="wizhead"><span class="wizk">Step 1 of 2</span><h1>What do you care about?</h1><p>Pick one or more. Next you choose a few bills, and this page becomes your week at the Capitol with a five-minute way to testify.</p></div>
     <div class="tiles">${tiles}</div>
@@ -609,9 +631,9 @@ function nudgeHTML() {
 }
 function landing() {
   const now = Date.now();
-  const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;   // the catch-all tiles go last
-  const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0) || (a.sort_order || 0) - (b.sort_order || 0)).map(c => `
-    <button class="tile" data-tile="${esc(c.name)}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(cname(c.name))}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'} · ` : ''}${c.bills} this session</span></button>`).join('');
+  const gen = c => /general/i.test(c.key) ? 1 : 0;   // the catch-all tile goes last
+  const tiles = groups().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0) || (a.sort_order || 0) - (b.sort_order || 0)).map(c => `
+    <button class="tile" data-tile="${esc(c.names[0])}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'} · ` : ''}${c.bills} this session</span></button>`).join('');
   const f = S.featured || { hearings: [], bills: [] };
   const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
@@ -829,7 +851,7 @@ function wire() {
   $('[data-wizsearch]') && ($('[data-wizsearch]').onclick = () => { wizSet({ skipped: true }); render(); $('#q')?.focus(); });
   $('[data-wizrestart]') && ($('[data-wizrestart]').onclick = () => { wizSet({ skipped: false, step: 1 }); S.browse = null; S.results = null; S.q = ''; render(); });
   document.querySelectorAll('[data-wizpick]').forEach(el => el.onchange = () => { const set = new Set(S.wizPick || []); if (el.checked) set.add(el.dataset.wizpick); else set.delete(el.dataset.wizpick); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
-  document.querySelectorAll('[data-wizall]').forEach(el => el.onclick = () => { const name = el.dataset.wizall; const { picks } = curate((S.wizRows || []).filter(b => (b.coalitions || []).includes(name)), S.wizMore?.[name] ? 40 : 6); const set = new Set(S.wizPick || []); const all = picks.every(b => set.has(b.id)); picks.forEach(b => all ? set.delete(b.id) : set.add(b.id)); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  document.querySelectorAll('[data-wizall]').forEach(el => el.onclick = () => { const name = el.dataset.wizall, names = groupNames(name); const { picks } = curate((S.wizRows || []).filter(b => (b.coalitions || []).some(n => names.includes(n))), S.wizMore?.[name] ? 40 : 6); const set = new Set(S.wizPick || []); const all = picks.every(b => set.has(b.id)); picks.forEach(b => all ? set.delete(b.id) : set.add(b.id)); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-wizmore]').forEach(el => el.onclick = () => { S.wizMore = { ...(S.wizMore || {}), [el.dataset.wizmore]: true }; const y = window.scrollY; render(); window.scrollTo(0, y); });
   $('[data-wizdone]') && ($('[data-wizdone]').onclick = async () => { const ids = S.wizPick || []; if (!ids.length) return; $('[data-wizdone]').disabled = true;
     ids.forEach(id => S.watch.add(id)); saveLocal();

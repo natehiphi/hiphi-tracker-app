@@ -187,3 +187,11 @@
 .hiddenline{padding:8px 14px 10px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line)}
 .hiddenlist{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}
 @media (max-width:760px){ .toastmsg{bottom:auto;top:auto} #toast{z-index:59} }
+
+/* ---------- 9/16: helper steps ---------- */
+.hsteps li{color:var(--muted);padding:2px 0}
+.hsteps li.now{color:var(--ink);background:#FDF6E3;border-radius:6px;padding:4px 8px;margin-left:-8px}
+.hsteps li.done{text-decoration:line-through;opacity:.7}
+.hnext{background:var(--teal-soft);border-radius:10px;padding:9px 12px;font-size:13px;margin:8px 0 2px;line-height:1.45}
+.hform input.missing{border-color:#E9B949;background:#FFFBEE}
+.hbtns .btn[disabled]{opacity:.55;cursor:not-allowed}
