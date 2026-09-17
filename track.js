@@ -210,15 +210,16 @@ function recommendations(limit) {
     let kind = null, when = null, score = 0, why = [];
     if (st.hearingState === 'scheduled' && st.hearing) {
       const due = st.hearing.testimony_deadline ? new Date(st.hearing.testimony_deadline).getTime() : new Date(st.hearing.scheduled_at).getTime();
-      if (due > now) { kind = 'testify'; when = due; score += 6 + Math.max(0, 5 - (due - now) / 864e5); why.push(`hearing ${fmtDate(st.hearing.scheduled_at, { weekday: 'short' })}`); }
+      if (due > now) { kind = 'testify'; when = due; score += 6 + Math.max(0, 5 - (due - now) / 864e5); }
     } else if (st.column === 'a' && st.deadline && !st.deadline.missed && st.committee && st.deadline.days <= 21) {
-      kind = 'hearing'; when = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(); score += 3 + Math.max(0, 3 - st.deadline.days / 7); why.push(`needs a hearing by ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'short' })}`);
+      kind = 'hearing'; when = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(); score += 3 + Math.max(0, 3 - st.deadline.days / 7); why.push('stuck in committee — the chair needs to hear from people');
     }
     if (!kind) continue;
     const mine = (b.coalitions || []).filter(n => likes[n]);
     if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${mine[0]}`); }
     else if (anyLikes) score -= 1;
     if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
+    if (!why.length) why.push(kind === 'testify' ? 'testimony window is open' : 'needs a push');
     if ((S.actionCounts[b.id] || {}).testimonies) score += 0.5;
     out.push({ b, st, kind, when, score, why });
   }
@@ -244,7 +245,7 @@ function recoHTML(quiet) {
   const n = S.recoN || 3, list = recommendations(n + 1), shown = list.slice(0, n);
   if (!shown.length) return '';
   const likes = Object.keys(interests());
-  return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `picked for you from ${likes.slice(0, 3).join(', ')}` : 'HIPHI’s priorities'} · three at a time</span></div>
+  return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `HIPHI’s priorities and the issues you picked (${likes.slice(0, 3).join(', ')})` : 'HIPHI’s priorities'} · three at a time</span></div>
     ${shown.map(recoCard).join('')}
     ${list.length > n ? `<button class="pempty boardmore" data-recomore>Show three more</button>` : ''}
   </div>`;
@@ -662,8 +663,7 @@ function home() {
   const col = (key, rows, empty) => { const C = PUB_COLUMNS[key]; return `<div class="panel bcol bcol-${key}" id="pf-board-${key}"><div class="ph"><span>${C.icon} ${C.title} <span class="cnt">${rows.length}</span></span><span class="psub">${C.sub}</span></div>${rows.length ? `<div class="chips">${rows.join('')}</div>` : `<div class="pempty">${empty}</div>`}</div>`; };
   const dlDays = cur ? Math.ceil((new Date(cur.deadline_date + 'T23:59:59-10:00') - now) / 864e5) : null;
   const board = cur ? `
-    <div class="dashhead boardhead"><h1>Where your bills stand</h1><span class="sub">A bill needs a hearing before its deadline or it stops for the year. Next deadline: <b>${fmtDate(cur.deadline_date + 'T12:00:00-10:00', { month: 'short' })}</b> (${dlDays} day${dlDays === 1 ? '' : 's'}).</span></div>
-    <p class="boardhow">A bill walks left to right in each chamber: it needs a hearing, the hearing happens, then it waits for a vote. After it crosses to the other chamber, it starts again on the left.</p>
+    <div class="dashhead boardhead"><h1>Where your bills stand</h1><span class="sub">Left to right in each chamber: needs a hearing → hearing scheduled → through committee, then a vote. A bill that misses its deadline (next: <b>${fmtDate(cur.deadline_date + 'T12:00:00-10:00', { month: 'short' })}</b>) stops for the year.</span></div>
     <div class="board3">
       ${col('a', a.map(({ b, st, dl }) => chip(b, st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral', stopn(st), dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date + 'T12:00:00-10:00', { month: 'short' })} — ${dl.days} day${dl.days === 1 ? '' : 's'} left</span>` : `Needs a hearing by ${fmtDate(dl.date + 'T12:00:00-10:00', { month: 'short' })}`) : 'Needs a hearing')), 'Every bill you follow has a hearing or is through committee.')}
       ${col('b', bcol.map(({ b, st, h }) => chip(b, esc(h.committee), stopn(st), st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)} · waiting for the report` : fmtDT(h.scheduled_at) + (h.testimony_deadline && new Date(h.testimony_deadline) > now ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''))), 'No hearings on the books.')}
@@ -683,7 +683,7 @@ function home() {
   const deadBills = S.bills.filter(b => !alive(b)).sort((x, y) => x.bill_number.localeCompare(y.bill_number));
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST });
   const strip = [`${S.watch.size} bill${S.watch.size === 1 ? '' : 's'}`, due48 ? `<a data-jump="pf-actions" class="hot">${due48} testimony deadline${due48 === 1 ? '' : 's'} in 48h</a>` : null,
-    `<a data-jump="pf-week">${week.length} hearing${week.length === 1 ? '' : 's'} this week</a>`, a.length ? `<a data-jump="pf-board-a">${a.length} waiting for a hearing</a>` : null,
+    week.length ? `<a data-jump="pf-week">${week.length} hearing${week.length === 1 ? '' : 's'} this week</a>` : null, a.length ? `<a data-jump="pf-board-a">${a.length} waiting for a hearing</a>` : null,
     recent.length ? `<a data-jump="pf-recent">${recent.length} update${recent.length === 1 ? '' : 's'} in 72h</a>` : null,
     cur ? `next deadline for bills in committee: ${fmtDate(cur.deadline_date + 'T12:00:00-10:00', { month: 'short' })}` : null, S.user || DEMO ? null : '<a data-nav="signin">sign in</a> to keep this list everywhere'].filter(Boolean).join(' · ');
   const waitingN = a.length;
@@ -865,7 +865,7 @@ function wire() {
 }
 // ---------------- first-visit tour: four cards, one per section ----------------
 const TOUR = [
-  ['#pf-actions', 'Do this now', 'One card per open opportunity, soonest deadline first. Submit testimony writes it for you from HIPHI’s position; you add a sentence and paste it at the Capitol.'],
+  ['#pf-actions', 'Do this now', 'When one of your bills has a hearing, its card appears here with a Submit testimony button that writes the testimony for you; you add a sentence and paste it at the Capitol.'],
   ['#pf-reco', 'More ways to help', 'Three suggestions at a time from the issues you picked: a hearing to testify at, or a stuck bill whose chair needs a nudge. Follow one, or say not for me.'],
   ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
   ['.board3', 'Where your bills stand', 'A bill walks left to right in each chamber: needs a hearing, hearing scheduled, through committee. Miss a deadline and it is done for the year.'],
