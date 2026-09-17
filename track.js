@@ -96,15 +96,8 @@ async function demoLoad() {
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   S.slots = snap.slots;
-  const counts = {}; for (const b of D.bills) for (const n of b.coalitions) counts[n] = (counts[n] || 0) + 1;
-  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, slug: c.slug, bills: counts[c.name] }));
-  // A starter watchlist for a first visit: HIPHI's live priority bills with a hearing coming up.
-  if (!localWatch().size) {
-    const up = new Set(D.hearings.filter(h => new Date(h.scheduled_at) > Date.now()).map(h => h.bill_id));
-    const pick = D.bills.filter(b => b.stage !== 'dead' && b.hiphi_position && b.hiphi_position !== 'monitor' && up.has(b.id)).slice(0, 6)
-      .concat(D.bills.filter(b => b.stage === 'dead' && b.hiphi_position && b.hiphi_position !== 'monitor').slice(0, 2));
-    S.watch = new Set(pick.map(b => b.id)); saveLocal();
-  }
+  const counts = {}, live = {}; for (const b of D.bills) for (const n of b.coalitions) { counts[n] = (counts[n] || 0) + 1; if (alive(b)) live[n] = (live[n] || 0) + 1; }
+  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0 }));
 }
 const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
 function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
@@ -124,6 +117,7 @@ async function loadUser() {
 }
 async function loadBills() {
   const ids = [...S.watch];
+  if (!S.featured) { try { await loadFeatured(); } catch { S.featured = { hearings: [], bills: [] }; } }
   if (DEMO) {
     const w = new Set(ids);
     S.bills = D.bills.filter(b => w.has(b.id)); S.hearings = D.hearings.filter(h => w.has(h.bill_id));
@@ -151,6 +145,24 @@ async function loadBills() {
     S.coalitions = (co.data || []).filter(x => x.bills > 0);
   }
 }
+// This week at the Capitol: upcoming hearings on bills HIPHI has a position on,
+// so a first visit has something to watch in one tap.
+async function loadFeatured() {
+  const now = Date.now(), until = new Date(now + 8 * 864e5).toISOString();
+  if (DEMO) {
+    const hs = D.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now && h.scheduled_at < until);
+    const ids = new Set(hs.map(h => h.bill_id));
+    const bills = D.bills.filter(b => ids.has(b.id) && b.hiphi_position && b.hiphi_position !== 'monitor');
+    S.featured = { hearings: hs.filter(h => bills.some(b => b.id === h.bill_id)), bills }; return;
+  }
+  const { data: hs } = await S.supa.from('public_all_hearings').select('*').eq('status', 'scheduled').gt('scheduled_at', new Date(now).toISOString()).lt('scheduled_at', until).order('scheduled_at').limit(60);
+  const ids = [...new Set((hs || []).map(h => h.bill_id))];
+  const { data: bills } = ids.length ? await S.supa.from('public_all_bills').select('*').in('id', ids).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor') : { data: [] };
+  S.featured = { hearings: (hs || []).filter(h => (bills || []).some(b => b.id === h.bill_id)), bills: bills || [] };
+}
+// Onboarding state lives in this browser: which steps are done, nudges shown, tour seen.
+function onb() { try { return JSON.parse(localStorage.getItem('hiphi_onb') || '{}'); } catch { return {}; } }
+function onbSet(patch) { const o = { ...onb(), ...patch }; try { localStorage.setItem('hiphi_onb', JSON.stringify(o)); } catch { /* ignore */ } return o; }
 async function toggleWatch(id) {
   const on = S.watch.has(id);
   if (on) S.watch.delete(id); else S.watch.add(id);
@@ -160,7 +172,10 @@ async function toggleWatch(id) {
                  : await S.supa.from('watchlist').insert({ user_id: S.user.id, bill_id: id });
     if (r.error) { toast(r.error.message, true); if (on) S.watch.add(id); else S.watch.delete(id); saveLocal(); return; }
   }
-  await loadBills(); render();
+  await loadBills();
+  // Sign-in nudge after the first and third Watch, never a modal, never before a Watch.
+  if (!on && !S.session && S.watch.size && [1, 3].includes(S.watch.size) && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+  render();
 }
 async function search(q) {
   if (DEMO) return [...D.bills.filter(b => dmatch(b, q)), ...D.index.filter(b => dmatch(b, q))].slice(0, 25);
@@ -310,14 +325,43 @@ function searchBox() {
   const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${S.coalitions.map(c => `<button class="fchip ${S.browse?.name === c.name ? 'on' : ''}" data-browse="${esc(c.name)}">${esc(c.name)} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
   return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>${chips}
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
-    ${S.browse ? `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">bills HIPHI works on with this coalition · press Watch to add one</span></div><div class="results" style="border:0;margin:0">${S.browse.rows.length ? S.browse.rows.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">Nothing public in this coalition yet.</div>'}</div></div>` : ''}`;
+    ${S.browse ? `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) + ' · ' : ''}press Watch on any, or <button class="btn sm" data-watchall="${esc(S.browse.name)}">Watch all ${S.browse.rows.filter(alive).length} live</button></span></div><div class="results" style="border:0;margin:0">${S.browse.rows.length ? S.browse.rows.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">Nothing public in this coalition yet.</div>'}</div></div>` : ''}`;
+}
+// The three steps a new person walks: pick issues, watch bills, get alerts.
+function stripHTML() {
+  const o = onb(); if (o.dismissed) return '';
+  const done = [!!(o.issues || S.browse || S.watch.size), S.watch.size > 0, !!S.session];
+  if (done.every(Boolean)) return '';
+  const cur = done.findIndex(d => !d);
+  const steps = [['Pick your issues', 'tap a coalition below'], ['Watch bills', 'press Watch on any bill'], ['Get alerts', 'sign in with your email']];
+  return `<div class="onbstrip">${steps.map(([t, h], i) => `<div class="onbstep ${done[i] ? 'done' : i === cur ? 'now' : ''}"><span class="onbn">${done[i] ? '✓' : i + 1}</span><span class="onbt">${t}<small>${h}</small></span></div>`).join('<span class="onbsep"></span>')}<button class="onbx" data-onbdismiss title="Hide">✕</button></div>`;
+}
+function nudgeHTML() {
+  if (!S.nudge || S.session) return '';
+  return `<div class="nudge"><div><b>Saved on this device.</b> Enter your email to keep your list on every device and get an email when one of your bills gets a hearing.</div>
+    ${DEMO ? '<span class="tok">Sign-in is off in the sandbox.</span>' : `<form class="nudgeform" id="nudge-form"><input type="email" id="nudge-email" placeholder="you@example.com" autocomplete="email" required><button class="btn sm">Send me a link</button></form>`}
+    <button class="nudgex" data-nudgex>Later</button></div>`;
+}
+function landing() {
+  const now = Date.now();
+  const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;   // the catch-all tiles go last
+  const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0) || (a.sort_order || 0) - (b.sort_order || 0)).map(c => `
+    <button class="tile" data-tile="${esc(c.name)}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.name)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'} · ` : ''}${c.bills} this session</span></button>`).join('');
+  const f = S.featured || { hearings: [], bills: [] };
+  const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
+    <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
+      <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 110))}</div></div>${watchBtn(b)}</div>`; }).join('');
+  return `
+    ${stripHTML()}
+    <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, watch a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify.</span></div>
+    ${searchBox()}
+    ${S.browse ? '' : `<div class="tiles">${tiles}</div>`}
+    ${!S.browse && featured ? `<div class="panel sec-cal"><div class="ph"><span>◷ This week at the Capitol</span><span class="psub">hearings on bills HIPHI is working on · Watch any of them</span></div>${featured}</div>` : ''}
+    ${nudgeHTML()}`;
 }
 function home() {
   const now = Date.now();
-  if (!S.watch.size) return `
-    <div class="pubhead"><h1>Watch the bills you care about</h1></div>
-    ${searchBox()}
-    <div class="hint"><b>How it works.</b> Search any bill in the ${S.deadlines[0]?.session_year || new Date().getFullYear()} Hawaiʻi Legislature, or browse a coalition, and press Watch. This page then shows you their hearings this week, where each one stands against the session's deadlines, and what changed in the last three days. Sign in with your email to keep your list on every device and get hearing alerts by email. HIPHI's positions appear on bills where we have published one.</div>`;
+  if (!S.watch.size) return landing();
   const hUp = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const wk = now + 7 * 864e5;
   const mondayOf = t => { const d = new Date(hstDay(t) + 'T12:00:00-10:00'); return t - ((d.getUTCDay() + 6) % 7) * 864e5; };
@@ -377,8 +421,9 @@ function home() {
     `<a data-jump="pf-week">${week.length} hearing${week.length === 1 ? '' : 's'} this week</a>`, a.length ? `<a data-jump="pf-board-a">${a.length} need a hearing</a>` : null,
     recent.length ? `<a data-jump="pf-recent">${recent.length} action${recent.length === 1 ? '' : 's'} in 72h</a>` : null,
     cur ? `next deadline <b>${esc(cur.label)}</b> in ${dlDays}d` : null, S.user || DEMO ? null : '<a data-nav="signin">sign in</a> to keep this list everywhere'].filter(Boolean).join(' · ');
-  const watchRow = b => `<div class="prow ${posCls(b)}" data-open="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> <span class="chipx c-gray" title="${esc(STAGE_PLAIN[b.stage] || '')}">${STAGE_LABEL[b.stage] || 'Introduced'}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 120))}</div>${!alive(b) ? `<div class="psmall">${whyDead(b)}</div>` : ''}</div>${watchBtn(b)}</div>`;
+  const watchRow = b => `<div class="prow ${posCls(b)}" data-open="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> <span class="chipx c-gray explain" data-explain="${esc(STAGE_PLAIN[b.stage] || '')}" title="tap for what this means">${STAGE_LABEL[b.stage] || 'Introduced'}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 120))}</div>${!alive(b) ? `<div class="psmall">${whyDead(b)}</div>` : ''}</div>${watchBtn(b)}</div>`;
   return `
+    ${stripHTML()}${nudgeHTML()}
     <div class="pubhead"><h1>Your watchlist</h1><span class="sub">${today} · ${strip}</span></div>
     ${searchBox()}
     <div class="dash"><div>${feed}</div><div>${recentHearings}</div></div>
@@ -404,6 +449,7 @@ function panelFor(b) {
       <h2>${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}${b.current_version ? ` <span class="chipx c-navy" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}</h2><div class="sub">${esc(titleCase(b.title))}</div>
       <div class="hchips">${b.hiphi_position ? `<span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}${(b.coalitions || []).map(c => `<span class="chipx c-gray">${esc(c)}</span>`).join('')}<span class="chipx c-gray">${b.watchers || 0} watching</span>${watchBtn(b)}<button class="chipx tool" data-copylink="${b.id}" title="Copy a link to this bill (c)">🔗 Copy link</button></div></div>
     <div class="dbody">
+      ${!S.watch.size ? `<div class="arrive"><b>You are not watching any bills yet.</b> Press Watch on this one to get its hearing alerts${(b.coalitions || [])[0] ? `, or see everything HIPHI is doing on <button class="linkbtn" data-browse="${esc(b.coalitions[0])}">${esc(b.coalitions[0])}</button>` : ''}.</div>` : ''}
       <div class="status"><div class="stagenow">${STAGE_LABEL[b.stage] || 'Introduced'}<span class="lastact">${esc(b.last_action || '')} <span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span></span></div>${rail(b)}
         <p class="plain">${esc(alive(b) ? stopOf(b).says : whyDead(b))}</p></div>
       ${b.hiphi_action ? `<div class="next"><span class="nk">ASK</span><div>${esc(b.hiphi_action)}</div></div>` : ''}
@@ -460,6 +506,7 @@ function help() {
       <p>Bills must clear each stage by the session calendar’s dates or they die. The board shows the deadline each bill is racing and the last regular committee meeting before it. Committees must post a hearing notice 48 hours ahead, so a bill without a notice two days before that last meeting is very likely done.</p>
       ${dls.length ? dls.map(d => `<div class="krow"><b>${esc(d.label)}</b><span>${fmtDate(d.deadline_date + 'T12:00:00-10:00', { weekday: 'short', month: 'short' })}</span></div>`).join('') : '<p class="muted">The session has ended; dates for the next session appear when the Legislature publishes them.</p>'}</section>
     <section><h2>How to testify</h2>${testifyBox().replace('<details class="testify"', '<details class="testify" open')}</section>
+    <section><h2>Getting around</h2><p>The home page has four parts: this week’s hearings on your bills, where every bill stands against the session deadlines, what happened in the last 72 hours, and your watchlist. <button class="btn sm ghost" data-tour>Replay the two-minute tour</button></p></section>
     <section><h2>Keyboard shortcuts</h2>${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}<p class="muted" style="font-size:12px">Shortcuts are off while you are typing in a field.</p></section>
     <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address and the list of bills you watch, nothing else. HIPHI staff see how many people watch each bill, never who. Delete your account from Settings at any time; it removes everything immediately.</p></section>
     <section><h2>About</h2><p>Built by the Hawaiʻi Public Health Institute. Bill data comes from the Legislature’s public records and refreshes several times a day. Positions marked HIPHI are ours; everything else is the public record. Questions: <a href="mailto:info@hiphi.org">info@hiphi.org</a>.</p></section>
@@ -482,7 +529,19 @@ function wire() {
       catch (e) { toast(e.message, true); } }, 300); }; }
   document.querySelectorAll('[data-watch]').forEach(el => el.onclick = e => { e.stopPropagation(); toggleWatch(el.dataset.watch); });
   document.querySelectorAll('[data-open]').forEach(el => el.onclick = () => openBill(el.dataset.open));
-  document.querySelectorAll('[data-browse]').forEach(el => el.onclick = async () => { if (!el.dataset.browse) { S.browse = null; render(); return; } try { await browseCoalition(el.dataset.browse); render(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-browse], [data-tile]').forEach(el => el.onclick = async () => { const name = el.dataset.browse ?? el.dataset.tile; if (!name) { S.browse = null; render(); return; } onbSet({ issues: true }); try { S.open = null; await browseCoalition(name); render(); window.scrollTo(0, 0); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-watchall]').forEach(el => el.onclick = async () => { const rows = (S.browse?.rows || []).filter(b => alive(b) && !S.watch.has(b.id)); el.disabled = true;
+    for (const b of rows) { S.watch.add(b.id); } saveLocal();
+    if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
+    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Watching ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+  document.querySelectorAll('[data-onbdismiss]').forEach(el => el.onclick = () => { onbSet({ dismissed: true }); render(); });
+  document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { S.nudge = false; render(); });
+  $('#nudge-form') && ($('#nudge-form').onsubmit = async e => { e.preventDefault(); const email = $('#nudge-email').value.trim(); if (!email) return;
+    const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) toast(error.message, true); else { toast('Check your email for the link'); S.nudge = false; render(); } });
+  document.querySelectorAll('[data-explain]').forEach(el => el.onclick = e => { e.stopPropagation(); const old = document.querySelector('.expl'); const was = old && old.previousElementSibling === el; old?.remove(); if (was) return; const p = document.createElement('span'); p.className = 'expl'; p.textContent = el.dataset.explain; el.after(p); });
+  document.querySelectorAll('[data-tour]').forEach(el => el.onclick = () => { S.view = 'home'; render(); startTour(true); });
+  if (S.view === 'home' && S.watch.size && !onb().tour && !S.open) startTour(false);
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   document.querySelectorAll('[data-copylink]').forEach(el => el.onclick = async e => { e.stopPropagation(); const b = findBill(el.dataset.copylink); if (!b) return;
     const url = `${location.origin}${location.pathname}#bill=${b.bill_number}`;
@@ -506,6 +565,30 @@ function wire() {
     try { localStorage.removeItem(LOCAL_KEY); } catch { /* ignore */ }
     await S.supa.auth.signOut(); S.watch = new Set(); S.view = 'home'; toast('Account deleted'); render();
   });
+}
+// ---------------- first-visit tour: four cards, one per section ----------------
+const TOUR = [
+  ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
+  ['.board3', 'Where your bills stand', 'A bill walks left to right in each chamber: needs a hearing, hearing scheduled, through committee. Miss a deadline and it is done for the year.'],
+  ['#pf-recent', 'Last 72 hours', 'Everything that happened to your bills in the last three days, newest first.'],
+  ['#pf-list', 'Your watchlist', 'Every bill you watch, with HIPHI’s position. Tap a bill for its history, hearings and how to testify. Sign in to get an email when a hearing is scheduled.'],
+];
+let tourStep = -1;
+function startTour(force) {
+  if (!force && onb().tour) return;
+  if (document.querySelector('.tourcard')) return;
+  tourStep = 0; showTourStep();
+}
+function showTourStep() {
+  document.querySelectorAll('.tour-hi').forEach(el => el.classList.remove('tour-hi')); document.querySelector('.tourcard')?.remove();
+  while (tourStep < TOUR.length && !document.querySelector(TOUR[tourStep][0])) tourStep++;
+  if (tourStep >= TOUR.length) { onbSet({ tour: true }); return; }
+  const [sel, title, text] = TOUR[tourStep]; const target = document.querySelector(sel); target.classList.add('tour-hi'); target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const card = document.createElement('div'); card.className = 'tourcard';
+  card.innerHTML = `<div class="tourk">${tourStep + 1} of ${TOUR.length}</div><b>${esc(title)}</b><p>${esc(text)}</p><div class="tourbtns"><button class="btn sm ghost" data-tourskip>Skip</button><button class="btn sm" data-tournext>${tourStep === TOUR.length - 1 ? 'Done' : 'Next'}</button></div>`;
+  document.body.appendChild(card);
+  card.querySelector('[data-tournext]').onclick = () => { tourStep++; showTourStep(); };
+  card.querySelector('[data-tourskip]').onclick = () => { tourStep = TOUR.length; showTourStep(); };
 }
 // ---------------- keyboard ----------------
 let pendingG = 0;
