@@ -143,6 +143,7 @@ async function loadUser() {
 async function loadBills() {
   const ids = [...S.watch];
   if (!S.featured) { try { await loadFeatured(); } catch { S.featured = { hearings: [], bills: [] }; } }
+  if (!S.pool) { try { await loadPool(); } catch { S.pool = { bills: [], hearings: [] }; } }
   if (DEMO) {
     const w = new Set(ids);
     S.bills = D.bills.filter(b => w.has(b.id)); S.hearings = D.hearings.filter(h => w.has(h.bill_id));
@@ -174,6 +175,80 @@ async function loadBills() {
 }
 // This week at the Capitol: upcoming hearings on bills HIPHI has a position on,
 // so a first visit has something to watch in one tap.
+// The pool suggestions come from: every live bill HIPHI has a position on, with
+// hearings in the next two weeks. Loaded once per visit.
+async function loadPool() {
+  const now = Date.now(), until = new Date(now + 15 * 864e5).toISOString();
+  if (DEMO) {
+    const bills = D.bills.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor');
+    const ids = new Set(bills.map(b => b.id));
+    S.pool = { bills, hearings: D.hearings.filter(h => ids.has(h.bill_id) && h.status === 'scheduled' && h.scheduled_at < until) }; return;
+  }
+  const { data: bills } = await S.supa.from('public_all_bills').select('*').not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').not('stage', 'in', '("dead","vetoed","enacted","governor")').limit(500);
+  const ids = (bills || []).map(b => b.id);
+  const { data: hs } = ids.length ? await S.supa.from('public_all_hearings').select('*').in('bill_id', ids).eq('status', 'scheduled').gt('scheduled_at', new Date(now - 864e5).toISOString()).lt('scheduled_at', until) : { data: [] };
+  S.pool = { bills: (bills || []).filter(alive), hearings: hs || [] };
+}
+function dismissed() { try { return new Set(JSON.parse(localStorage.getItem('hiphi_dismiss') || '[]')); } catch { return new Set(); } }
+function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } }
+// What this person seems to care about: coalitions of the bills they follow,
+// plus the issues they picked at the start.
+function interests() {
+  const w = {}; const add = (n, k) => { if (n) w[n] = (w[n] || 0) + k; };
+  for (const b of S.bills) for (const n of (b.coalitions || [])) add(n, 2);
+  for (const n of (wiz().issues || [])) add(n, 3);
+  return w;
+}
+// Ranked suggestions: something to do this week on a bill they do not follow yet.
+function recommendations(limit) {
+  const pool = S.pool; if (!pool) return [];
+  const now = Date.now(), skip = dismissed(), likes = interests(), anyLikes = Object.keys(likes).length > 0;
+  const out = [];
+  for (const b of pool.bills) {
+    if (S.watch.has(b.id) || skip.has(b.id)) continue;
+    const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => { const d = S.deadlines.filter(x => x.key === k).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
+    let kind = null, when = null, score = 0, why = [];
+    if (st.hearingState === 'scheduled' && st.hearing) {
+      const due = st.hearing.testimony_deadline ? new Date(st.hearing.testimony_deadline).getTime() : new Date(st.hearing.scheduled_at).getTime();
+      if (due > now) { kind = 'testify'; when = due; score += 6 + Math.max(0, 5 - (due - now) / 864e5); why.push(`hearing ${fmtDate(st.hearing.scheduled_at, { weekday: 'short' })}`); }
+    } else if (st.column === 'a' && st.deadline && !st.deadline.missed && st.committee && st.deadline.days <= 21) {
+      kind = 'hearing'; when = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(); score += 3 + Math.max(0, 3 - st.deadline.days / 7); why.push(`needs a hearing by ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'short' })}`);
+    }
+    if (!kind) continue;
+    const mine = (b.coalitions || []).filter(n => likes[n]);
+    if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${mine[0]}`); }
+    else if (anyLikes) score -= 1;
+    if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
+    if ((S.actionCounts[b.id] || {}).testimonies) score += 0.5;
+    out.push({ b, st, kind, when, score, why });
+  }
+  out.sort((x, y) => y.score - x.score || x.when - y.when);
+  return out.slice(0, limit);
+}
+function recoCard({ b, st, kind, why }) {
+  const h = st.hearing, c = S.committees[String(st.committee || h?.committee || '').split('/')[0]];
+  const chairMail = c && c.chair ? `${c.chamber === 'S' ? 'sen' : 'rep'}${c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov` : null;
+  const ask = kind === 'hearing' && chairMail ? `mailto:${chairMail}?subject=${encodeURIComponent(`Please schedule a hearing for ${b.bill_number}`)}&body=${encodeURIComponent(`Dear Chair ${c.chair},\n\nI am writing to ask that ${st.committee} schedule a hearing for ${b.bill_number}, ${titleCase(b.title)}, before the ${st.deadline?.label || ''} deadline${st.deadline ? ' on ' + fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'long' }) : ''}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[One sentence on why this matters to you.]\n\nMahalo,\n`)}` : null;
+  return `<div class="acard reco ${posCls(b)}" data-acard="${b.id}">
+    <div class="ahead"><span class="apos">HIPHI ${esc(POS[b.hiphi_position] || '')}</span><b data-open="${b.id}">${esc(billNum(b))}</b> <span class="atitle">${esc(b.hiphi_summary || titleCase(b.title))}</span></div>
+    <div class="awhy">${why.map(esc).join(' · ')}</div>
+    <div class="awhen">${kind === 'testify' ? `${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''}` : `Waiting in ${esc(st.committee)} · needs a hearing by ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'short' })}${c?.chair ? ` · Chair ${esc(c.chair)}` : ''}`}</div>
+    <div class="abtns">
+      ${kind === 'testify' ? `<button class="btn" data-helper="${h.id}">Submit testimony</button>` : ask ? `<a class="btn" href="${ask}" data-did="${b.id}||email">Ask the chair for a hearing</a>` : ''}
+      ${watchBtn(b)}
+      <button class="btn sm ghost" data-dismiss="${b.id}" title="Do not suggest this bill again">Not for me</button>
+    </div></div>`;
+}
+function recoHTML(quiet) {
+  if (!S.pool) return '';
+  const n = S.recoN || 3, list = recommendations(n + 1), shown = list.slice(0, n);
+  if (!shown.length) return '';
+  const likes = Object.keys(interests());
+  return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `picked for you from ${likes.slice(0, 3).join(', ')}` : 'HIPHI’s priorities'} · three at a time</span></div>
+    ${shown.map(recoCard).join('')}
+    ${list.length > n ? `<button class="pempty boardmore" data-recomore>Show three more</button>` : ''}
+  </div>`;
+}
 async function loadFeatured() {
   const now = Date.now(), until = new Date(now + 8 * 864e5).toISOString();
   if (DEMO) {
@@ -246,7 +321,7 @@ async function openFromHash() {
 
 // ---------------- helpers ----------------
 const bill = id => S.bills.find(b => b.id === id);
-const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
+const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
 const hearingsOf = b => [...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 function stopOf(b) {
@@ -538,7 +613,7 @@ function landing() {
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 110))}</div></div>${watchBtn(b)}</div>`; }).join('');
   const guided = !S.browse && !S.results && !S.q && !wiz().skipped;
-  if (guided) return `${stripHTML()}${wizardHTML()}${doNowHTML(f.bills, f.hearings, 'Or act on one bill right now')}`;
+  if (guided) return `${stripHTML()}${wizardHTML()}${recoHTML(false).replace('More ways to help this week', 'Or act on one bill right now')}`;
   return `
     ${stripHTML()}
     <div class="pubhead"><h1>Follow the bills that matter to Hawaiʻi’s health</h1><span class="sub">Pick an issue, follow a few bills, and this page becomes your week at the Capitol: hearings, deadlines, and how to testify. <button class="linkbtn" data-wizrestart>Guided start</button></span></div>
@@ -619,7 +694,7 @@ function home() {
   return `
     ${stripHTML()}${nudgeHTML()}
     <div class="pubhead"><h1>Your bills and actions</h1><span class="sub">${today} · ${strip}</span></div>
-    ${doNowHTML(S.bills, S.hearings, 'Do this now', waitingN)}
+    ${(open => `${open ? doNowHTML(S.bills, S.hearings, 'Do this now', waitingN) : ''}${recoHTML(!open)}${open ? '' : doNowHTML(S.bills, S.hearings, 'Do this now', waitingN)}`)(actionsList(S.bills, S.hearings).some(x => !S.done.has(doneKey(x.b.id, x.h.id, 'testimony'))))}
     ${browse}
     ${dashPanels.length ? `<div class="dash${dashPanels.length === 1 ? ' one' : ''}">${dashPanels.map(p => `<div>${p}</div>`).join('')}</div>` : ''}
     <div class="panel sec-cal" id="pf-week"><div class="ph"><span>◷ ${wkLabel} ${calNav}</span><span class="psub">hearings on your bills · add any to your calendar</span></div>${(week.length || off) ? calHtml : '<div class="pempty">No hearings on your bills in the next 7 days.</div>'}</div>
@@ -731,10 +806,12 @@ function wire() {
     for (const b of rows) { S.watch.add(b.id); } saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
     await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) onbSet({ pendingNudge: true }); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
-  document.querySelectorAll('[data-helper]').forEach(el => el.onclick = () => { const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...Object.values(S.xh).flat()].find(x => x.id === el.dataset.helper); const b = h && findBill(h.bill_id); if (b) { S.helper = { b, h }; render(); } });
+  document.querySelectorAll('[data-dismiss]').forEach(el => el.onclick = () => { dismiss(el.dataset.dismiss); render(); toast('Okay, not that one'); });
+  $('[data-recomore]') && ($('[data-recomore]').onclick = () => { S.recoN = (S.recoN || 3) + 3; const y = window.scrollY; render(); window.scrollTo(0, y); });
+  document.querySelectorAll('[data-helper]').forEach(el => el.onclick = () => { const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh).flat()].find(x => x.id === el.dataset.helper); const b = h && findBill(h.bill_id); if (b) { S.helper = { b, h }; render(); } });
   document.querySelectorAll('[data-did]').forEach(el => el.addEventListener('click', () => { const [bid, hid, kind] = el.dataset.did.split('|'); setTimeout(() => markDone(bid, hid, kind).then(() => render()), 400); }));
   document.querySelectorAll('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|'); await markDone(bid, hid, kind, false); render(); });
-  document.querySelectorAll('[data-share]').forEach(el => el.onclick = async () => { const num = el.dataset.share, url = `${location.origin}${location.pathname}#bill=${num}`; const b = S.bills.find(x => x.bill_number === num) || ((S.featured || {}).bills || []).find(x => x.bill_number === num);
+  document.querySelectorAll('[data-share]').forEach(el => el.onclick = async () => { const num = el.dataset.share, url = `${location.origin}${location.pathname}#bill=${num}`; const b = S.bills.find(x => x.bill_number === num) || ((S.featured || {}).bills || []).find(x => x.bill_number === num) || ((S.pool || {}).bills || []).find(x => x.bill_number === num);
     const text = b ? `${num}: ${titleCase(b.title)} — HIPHI ${POS[b.hiphi_position] || 'is following it'}. Hearing coming up; testimony takes five minutes: ${url}` : url;
     try { if (navigator.share) await navigator.share({ title: num, text, url }); else { await navigator.clipboard.writeText(text); toast('Copied a ready-to-post line'); } } catch { /* cancelled */ } });
   // guided start
@@ -789,6 +866,7 @@ function wire() {
 // ---------------- first-visit tour: four cards, one per section ----------------
 const TOUR = [
   ['#pf-actions', 'Do this now', 'One card per open opportunity, soonest deadline first. Submit testimony writes it for you from HIPHI’s position; you add a sentence and paste it at the Capitol.'],
+  ['#pf-reco', 'More ways to help', 'Three suggestions at a time from the issues you picked: a hearing to testify at, or a stuck bill whose chair needs a nudge. Follow one, or say not for me.'],
   ['#pf-week', 'This week', 'Hearings on your bills, by day. Each one has a Submit testimony link and an add-to-calendar button. The arrows page through weeks.'],
   ['.board3', 'Where your bills stand', 'A bill walks left to right in each chamber: needs a hearing, hearing scheduled, through committee. Miss a deadline and it is done for the year.'],
   ['#pf-recent', 'Last 72 hours', 'Everything that happened to your bills in the last three days, newest first.'],

@@ -167,3 +167,10 @@
   .top.pub .brand{display:none}
   .stagenow{display:none}
 }
+
+/* ---------- 9/16: suggestions ---------- */
+.donow.reco{border-color:#DCEBEE}
+.donow.reco .ph{background:#F1F8F9}
+.acard.reco{border-left-color:#BFDCDF}
+.awhy{font-size:12px;color:var(--teal);margin:4px 0 2px;font-weight:600}
+.acard .watchbtn{align-self:center}
