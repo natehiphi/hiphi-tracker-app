@@ -59,7 +59,7 @@ const S = {
   // at an empty page. Unknown names fall back.
   view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
-  owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
+  owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
   drafts: {},  // bill_id -> [testimony draft]
@@ -177,7 +177,7 @@ const DB = {
     S.outcomes = Object.fromEntries((outc?.data || []).map(o => [o.hearing_id, o]));
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
-    S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data;
+    S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data; loadFilters();
     S.hearings = hear.data;
     S.assignments = {}; asg.data.forEach(r =>
       (S.assignments[r.bill_id] ??= []).push(r.advocate_id));
@@ -580,7 +580,7 @@ async function demoInit() {
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
   const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
-  S.campaigns = snap.campaigns;
+  S.campaigns = snap.campaigns; loadFilters();
   S.slots = snap.slots;
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
@@ -691,21 +691,58 @@ async function demoInit() {
 }
 
 // ---------------- filtering ----------------
-function visibleBills() {
+// Facets: within a group any selected value matches (P1 or P2); across groups
+// every group must match (P1 AND Healthy eating). Flags are yes/no checks.
+// Every option shows how many bills it would leave, counted against the other
+// groups' selections, so nobody clicks into an empty list. One record of facts
+// per bill per render keeps that cheap.
+const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
+let FACTS = new Map();
+function factsOf(b) {
+  let f = FACTS.get(b.id); if (f) return f;
+  const now = Date.now(), dead = diedish(b), st = dead ? null : stopOf(b);
+  f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
+    stand: dead ? 'dead' : st.column || (['governor', 'enacted'].includes(effStage(b)) ? 'done' : 'c'),
+    risk: !!st && !SESSION_OVER && b.position !== 'monitor' && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
+    hear: S.hearings.some(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * 864e5) };
+  FACTS.set(b.id, f); return f;
+}
+const facets = () => [
+  { key: 'pris', label: 'Priority', opts: [[1, 'P1'], [2, 'P2'], [3, 'P3']], has: (f, v) => f.pri === v },
+  { key: 'poss', label: 'Our position', opts: [['support', 'Support'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']], has: (f, v) => f.pos === v },
+  { key: 'stands', label: 'Where it stands', opts: [['a', 'Needs a hearing'], ['b', 'Hearing scheduled'], ['c', 'Through committee'], ['done', 'Governor or law'], ['dead', 'Did not advance']], has: (f, v) => f.stand === v },
+  { key: 'camps', label: 'Coalition', opts: S.campaigns.map(c => [c.id, c.name]), has: (f, v) => f.camps.includes(v) },
+];
+const FLAGS = [['riskF', 'At risk', 'no hearing yet and the deadline is a week away or less', f => f.risk], ['hearF', 'Hearing this week', 'a hearing in the next 7 days', f => f.hear], ['tripleF', 'Triple-referred', 'three committees in one chamber', f => f.triple]];
+function passes(b, skip) {
+  const f = factsOf(b);
+  for (const g of facets()) if (g.key !== skip && S[g.key].size && ![...S[g.key]].some(v => g.has(f, v))) return false;
+  for (const [k, , , test] of FLAGS) if (k !== skip && S[k] && !test(f)) return false;
+  return !S.stageF || effStage(b) === S.stageF;
+}
+// The lens (whose bills) and the search box; the facets narrow this.
+function lensBills(owner = S.owner) {
   let list = S.bills;
-  if (S.owner === 'me' && S.me) list = list.filter(b => (S.assignments[b.id]||[]).includes(S.me.id) || (S.follows || new Set()).has(b.id));
-  else if (S.owner && S.owner !== 'all' && S.owner !== 'me')
-    list = list.filter(b => (S.assignments[b.id]||[]).includes(S.owner));
-  if (S.pris.size) list = list.filter(b => S.pris.has(b.priority));
-  if (S.camps.size) list = list.filter(b => (S.billCampaigns[b.id] || []).some(c => S.camps.has(c)));
-  if (S.stageF) list = list.filter(b => effStage(b) === S.stageF);
-  if (S.tripleF) list = list.filter(isTriple);
-  if (S.riskF) list = list.filter(atRisk);
-  if (S.q) {
-    const q = S.q.toLowerCase(), qn = q.replace(/\s/g,'');
-    list = list.filter(b => b.bill_number.toLowerCase().includes(qn) ||
-      (b.title||'').toLowerCase().includes(q));
-  }
+  if (owner === 'me' && S.me) list = list.filter(b => (S.assignments[b.id]||[]).includes(S.me.id) || (S.follows || new Set()).has(b.id));
+  else if (owner && owner !== 'all' && owner !== 'me') list = list.filter(b => (S.assignments[b.id]||[]).includes(owner));
+  if (S.q) { const q = S.q.toLowerCase(), qn = q.replace(/\s/g,'');
+    list = list.filter(b => b.bill_number.toLowerCase().includes(qn) || (b.title||'').toLowerCase().includes(q)); }
+  return list;
+}
+// What the counts are counted against: the home page never lists Monitor bills, the Table does.
+const barBase = (owner = S.owner) => { const l = lensBills(owner); return S.view === 'portfolio' && !S.q ? l.filter(b => b.position !== 'monitor') : l; };
+const facetCount = (base, key, test) => base.filter(b => passes(b, key) && test(factsOf(b))).length;
+const FILTER_KEY = DEMO ? 'hiphi_filters_demo' : 'hiphi_filters';
+function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify({ pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], riskF: S.riskF, hearF: S.hearF, tripleF: S.tripleF })); } catch {} }
+function loadFilters() { try { const f = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); if (!f) return;
+  S.pris = new Set(f.pris || []); S.poss = new Set(f.poss || []); S.stands = new Set(f.stands || []); S.camps = new Set((f.camps || []).filter(id => S.campaigns.some(c => c.id === id)));
+  S.riskF = !!f.riskF; S.hearF = !!f.hearF; S.tripleF = !!f.tripleF; } catch {} }
+function toggleFilter(spec) { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
+  if (FLAGS.some(([x]) => x === k)) S[k] = !S[k]; else if (k === 'stageF') S.stageF = ''; else { const v = k === 'pris' ? Number(raw) : raw; S[k].has(v) ? S[k].delete(v) : S[k].add(v); }
+  saveFilters(); }
+function clearFilters() { S.pris = new Set(); S.camps = new Set(); S.poss = new Set(); S.stands = new Set(); S.tripleF = false; S.riskF = false; S.hearF = false; S.stageF = ''; saveFilters(); }
+function visibleBills() {
+  const list = lensBills().filter(b => passes(b));
   const [key, dir] = S.sort;
   return [...list].sort((a,b) => {
     const va = key==='owner' ? (owners(a)[0]?.full_name||'') : key==='pulse'
@@ -721,12 +758,9 @@ function visibleBills() {
 // under "More" (Table is desktop-only: it never worked at phone width).
 const MORE_VIEWS = [['memo','Weekly memo'],['triage','Triage'],['table','Table'],['settings','Settings'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
-const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.stageF ? 1 : 0);
-const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
-  S.camps.size ? [...S.camps].map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean).join(', ') : null,
-  S.tripleF ? 'triple-referred' : null,
-  S.riskF ? 'at risk' : null,
-  S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null].filter(Boolean).join(' · ');
+const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
+const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
+const filterLabel = () => activeFilters().map(([, , l]) => l).join(' · ');
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
   return [who, S.q ? `“${S.q}”` : null, S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
@@ -752,6 +786,51 @@ function railHTML(freshTxt, stale) {
       <button id="logout3" title="Sign out"><span class="ri" aria-hidden="true">⎋</span><span class="rl">Sign out</span></button>
     </div>
   </aside>`;
+}
+// The filter bar. Whose bills (a segmented switch), four one-tap filters with
+// live counts, and a Filters button for the rest. What is switched on shows
+// underneath as pills that come off one at a time. Only on the pages that
+// list bills.
+const FILTER_VIEWS = ['portfolio', 'table'];
+function filterBarHTML() {
+  if (!FILTER_VIEWS.includes(S.view)) return '';
+  const base = barBase(), person = !['me', 'all'].includes(S.owner) ? advocate(S.owner) : null, n = filterCount();
+  const quick = [['pris:1', 'P1', '', f => f.pri === 1, 'pris'], ...FLAGS.slice(0, 2).map(([k, l, tip, test]) => [k, l, tip, test, k]), ['stands:a', 'Needs a hearing', 'in committee with nothing scheduled', f => f.stand === 'a', 'stands']];
+  const isOn = spec => { const [k, v] = spec.split(':'); return v === undefined ? !!S[k] : S[k].has(k === 'pris' ? Number(v) : v); };
+  return `<div class="fbar">
+      <div class="seg" role="group" aria-label="Whose bills">
+        <button data-owner="me" class="${S.owner === 'me' ? 'on' : ''}">My bills <i>${barBase('me').length}</i></button>
+        <button data-owner="all" class="${S.owner === 'all' ? 'on' : ''}">Everyone <i>${barBase('all').length}</i></button>
+        <details class="pillmenu lens"><summary class="${person ? 'on' : ''}">${person ? esc(person.full_name.split(' ')[0]) + ` <i>${base.length}</i>` : 'Teammate'} ▾</summary>
+          <div class="menu">${S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id).map(a => `<button data-owner="${a.id}" class="${S.owner===a.id?'on':''}">${av(a, 'avatar sm')}<span>${esc(a.full_name)}</span></button>`).join('')}</div></details>
+      </div>
+      <div class="qchips">
+        ${quick.map(([spec, label, tip, test, key]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip ${on ? 'on' : ''}" data-ft="${spec}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}">${label} <i>${c}</i></button>`; }).join('')}
+        <button class="qchip more ${S.filterOpen ? 'open' : ''}" id="fopen" aria-expanded="${S.filterOpen}">☰ Filters${n ? ` <i class="n">${n}</i>` : ''}</button>
+        ${S.view==='table' ? '<button class="qchip" id="csv">⬇ Export CSV</button>' : ''}
+      </div>
+    </div>`;
+}
+function filterPillsHTML() {
+  if (!FILTER_VIEWS.includes(S.view)) return '';
+  const act = activeFilters(); if (!act.length) return '';
+  const shown = barBase().filter(b => passes(b)).length, of = barBase().length;
+  return `<div class="fpills"><span class="fshow">Showing <b>${shown}</b> of ${of}</span>${act.map(([spec, group, label]) => `<span class="fpill">${group ? `<em>${esc(group)}:</em> ` : ''}${esc(label)}<button data-ft="${esc(spec)}" aria-label="Remove ${esc(label)}">×</button></span>`).join('')}<a id="clearf2">Clear all</a></div>`;
+}
+function filterPanelHTML() {
+  if (!S.filterOpen || !FILTER_VIEWS.includes(S.view)) return '';
+  const base = barBase(), shown = base.filter(b => passes(b)).length;
+  const opt = (spec, label, c, on, tip = '') => `<button class="fopt ${on ? 'on' : ''}" data-ft="${esc(spec)}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}">${esc(label)} <i>${c}</i></button>`;
+  return `<div class="fback" id="fclose"></div>
+    <div class="fanchor"><div class="fpanel" role="dialog" aria-label="Filters">
+      <div class="fphead"><b>Filters</b><span>Pick as many as you like. Inside a group it is “any of these”; across groups it is “all of these”.</span><button id="fclose2" aria-label="Close">×</button></div>
+      <div class="fpbody">
+        <div class="fgroup"><h4>Quick checks</h4><div class="fopts">${FLAGS.map(([k, l, tip, test]) => opt(k, l, facetCount(base, k, test), S[k], tip)).join('')}</div></div>
+        ${facets().map(g => ({ ...g, opts: g.opts.filter(([v]) => !(g.key === 'poss' && v === 'monitor' && S.view === 'portfolio' && !S.poss.has('monitor'))) })).map(g => `<div class="fgroup"><h4>${g.label}${S[g.key].size ? ` <a data-fclear="${g.key}">clear</a>` : ''}</h4><div class="fopts">${g.opts.map(([v, l]) => opt(`${g.key}:${v}`, l, facetCount(base, g.key, f => g.has(f, v)), S[g.key].has(v))).join('')}</div></div>`).join('')}
+        ${S.view==='table' ? `<div class="fgroup"><h4>Stage</h4><select id="stagef"><option value="">Any stage</option>${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select></div>` : ''}
+      </div>
+      <div class="fpfoot"><button class="btn sm ghost" id="clearf" ${filterCount() ? '' : 'disabled'}>Clear all</button><button class="btn sm" id="fdone">Show ${shown} bill${shown === 1 ? '' : 's'}</button></div>
+    </div></div>`;
 }
 function chrome(inner) {
   const upcoming = S.hearings
@@ -795,28 +874,9 @@ function chrome(inner) {
     </div>
     <div class="controls">
       <input type="search" class="qbox rowq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
-      <details class="pillmenu lens"><summary class="fchip on">Viewing: ${esc(lensName())} ▾</summary>
-        <div class="menu">
-          <button data-owner="me" class="${S.owner==='me'?'on':''}">${S.me ? av(S.me, 'avatar sm') : ''}<span>My bills</span></button>
-          <button data-owner="all" class="${S.owner==='all'?'on':''}"><span class="avatar sm all">☀</span><span>Everyone</span></button>
-          ${S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id).map(a => `<button data-owner="${a.id}" class="${S.owner===a.id?'on':''}">${av(a, 'avatar sm')}<span>${esc(a.full_name)}</span></button>`).join('')}
-        </div></details>
-      <details class="pillmenu filt"><summary class="fchip ${filterCount() ? 'on' : ''}">${filterCount() ? 'Filter: ' + esc(filterLabel()) : 'Filter'} ▾</summary>
-        <div class="menu">
-          <div class="mh">Priority</div>
-          ${[1,2,3].map(p => `<label><input type="checkbox" data-prif="${p}" ${S.pris.has(p)?'checked':''}> P${p}${p===1?' · highest':p===3?' · lowest':''}</label>`).join('')}
-          <div class="mh">Coalition</div>
-          ${S.campaigns.map(c => `<label><input type="checkbox" data-campf="${c.id}" ${S.camps.has(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}
-          <div class="mh">Referral</div>
-          <label><input type="checkbox" id="triplef" ${S.tripleF?'checked':''}> Triple-referred only</label>
-          <div class="mh">Risk</div>
-          <label title="In committee, no hearing scheduled, and the deadline it is racing is ${RISK_DAYS} days away or less"><input type="checkbox" id="riskf" ${S.riskF?'checked':''}> At risk only · no hearing, deadline within ${RISK_DAYS}d</label>
-          ${S.view==='table' ? `<div class="mh">Stage</div><select id="stagef"><option value="">Any stage</option>${STAGES.map(([v,l])=>`<option ${S.stageF===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>` : ''}
-          ${filterCount() ? '<button class="clear" id="clearf">Clear filters</button>' : ''}
-        </div></details>
-      ${S.view==='table' ? '<button class="fchip" id="csv">⬇ Export CSV</button>' : ''}
-      ${filterCount() ? `<span class="filtline">Showing ${esc(filterLabel())} only · <a id="clearf2">clear</a></span>` : ''}
+      ${filterBarHTML()}
     </div>
+    ${filterPillsHTML()}${filterPanelHTML()}
     ${inner}`;
 }
 
@@ -1349,7 +1409,7 @@ function renderPortfolio(list) {
     else t += `None of ${whose} bills are racing a deadline right now.`;
     if (urgentN) t += ` <a data-jump="pf-wait" class="hot">${num(urgentN)} thing${urgentN === 1 ? '' : 's'} need${urgentN === 1 ? 's' : ''} action in the next 24 hours.</a>`;
     return t; })();
-  const stripShort = [`${list.length} bill${list.length === 1 ? '' : 's'}`, filterCount() ? `<span class="filtnote">showing ${esc(filterLabel())} only</span>` : null].filter(Boolean).join(' · ');
+  const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
   return head(`${esc(who)}'s Portfolio`, `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + (headline ? `<p class="headline">${headline}</p>` : '') + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
@@ -2733,6 +2793,7 @@ function renderRecovery() {
 
 // ---------------- render + events ----------------
 function render() {
+  FACTS = new Map();
   if (isMobile() && S.view === 'table') S.view = 'portfolio';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
@@ -2780,7 +2841,7 @@ function wire() {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
     S.boardMore[k] = !S.boardMore[k]; rerenderKeep(isMobile() ? '#fold-board' : null, 'pf-board-' + k);
   });
-  document.querySelectorAll('[data-browse]').forEach(el => el.onclick = () => { S.q = ''; S.camps = new Set([el.dataset.browse]); S.owner = 'all'; render(); });
+  document.querySelectorAll('[data-browse]').forEach(el => el.onclick = () => { S.q = ''; clearFilters(); S.camps = new Set([el.dataset.browse]); saveFilters(); S.owner = 'all'; render(); });
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () =>
     document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   // Portfolio search reaches every bill: the untracked half comes from the
@@ -2812,13 +2873,15 @@ function wire() {
   document.querySelectorAll('.qbox').forEach(el => el.oninput = e => { S.q = e.target.value; S.qFocus = el.classList.contains('topq') ? 'topq' : 'rowq'; rerenderBody(); });
   document.querySelectorAll('[data-owner]').forEach(el =>
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
-  document.querySelectorAll('[data-prif]').forEach(el => el.onchange = () => { const p = Number(el.dataset.prif); el.checked ? S.pris.add(p) : S.pris.delete(p); rerenderKeep('.pillmenu.filt'); });
-  $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; rerenderKeep('.pillmenu.filt'); });
-  $('#riskf') && ($('#riskf').onchange = () => { S.riskF = $('#riskf').checked; rerenderKeep('.pillmenu.filt'); });
-  $('#triplef') && ($('#triplef').onchange = () => { S.tripleF = $('#triplef').checked; rerenderKeep('.pillmenu.filt'); });
-  document.querySelectorAll('[data-campf]').forEach(el => el.onchange = () => { const id = el.dataset.campf; el.checked ? S.camps.add(id) : S.camps.delete(id); rerenderKeep('.pillmenu.filt'); });
-  $('#clearf') && ($('#clearf').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.riskF = false; S.stageF = ''; render(); });
-  $('#clearf2') && ($('#clearf2').onclick = () => { S.pris = new Set(); S.camps = new Set(); S.tripleF = false; S.riskF = false; S.stageF = ''; render(); });
+  // Filters: every chip, option and pill is a toggle; the panel stays open and keeps its scroll.
+  const filterRender = () => { const y = $('.fpbody')?.scrollTop || 0; render(); const el = $('.fpbody'); if (el) el.scrollTop = y; };
+  document.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggleFilter(el.dataset.ft); filterRender(); });
+  document.querySelectorAll('[data-fclear]').forEach(el => el.onclick = () => { S[el.dataset.fclear] = new Set(); saveFilters(); filterRender(); });
+  $('#fopen') && ($('#fopen').onclick = () => { S.filterOpen = !S.filterOpen; render(); });
+  ['#fclose', '#fclose2', '#fdone'].forEach(id => $(id) && ($(id).onclick = () => { S.filterOpen = false; render(); }));
+  $('#stagef') && ($('#stagef').onchange = e => { S.stageF = e.target.value; filterRender(); });
+  $('#clearf') && ($('#clearf').onclick = () => { clearFilters(); filterRender(); });
+  $('#clearf2') && ($('#clearf2').onclick = () => { clearFilters(); render(); });
   document.querySelectorAll('.pillmenu').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.pillmenu').forEach(o => { if (o !== d) o.open = false; }); }));
   document.addEventListener('click', e => { if (!e.target.closest('.pillmenu')) document.querySelectorAll('.pillmenu[open]').forEach(d => d.open = false); }, { once: true });
   $('#csv') && ($('#csv').onclick = exportCSV);
@@ -3120,6 +3183,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (typing) { document.activeElement.blur(); return; }
     if (S.drawerBill) { S.drawerBill = null; render(); return; }
+    if (S.filterOpen) { S.filterOpen = false; render(); return; }
     const open = document.querySelector('.pillmenu[open], .viewtabs details[open]'); if (open) { open.open = false; return; }
     if (S.q) { S.q = ''; render(); }
     return;
