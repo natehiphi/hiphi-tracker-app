@@ -153,18 +153,20 @@ export const BOARD_EXPLAINER = 'A bill walks left to right in each chamber: it n
 // The Capitol streams every committee hearing on its chamber's YouTube
 // channel and keeps the recording there; hearing notices link to the channel,
 // never to one video. So the link is the channel's Live tab (upcoming, live
-// and past streams, newest first) unless someone has saved the exact address
-// on the hearing (hearings.stream_url).
+// and past streams, newest first) until the exact video is known: the sync
+// matches it from the channel's feed (hearings.stream_auto_url), or a staff
+// member pastes it (hearings.stream_url, which wins).
 export const STREAM_CHANNELS = {
   S: { name: 'Hawaiʻi State Senate', url: 'https://www.youtube.com/channel/UCekvvdL_uyq2DUyj1GjlrOA' },
   H: { name: 'Hawaiʻi House of Representatives', url: 'https://www.youtube.com/channel/UCvoLAX1ww3e63K8qQ5of0bw' },
 };
 export function hearingStream(h, chamber, now = Date.now()) {
   const ch = STREAM_CHANNELS[chamber]; if (!h || (!ch && !h.stream_url)) return null;
-  const start = new Date(h.scheduled_at).getTime(), exact = !!h.stream_url;
+  const link = h.stream_url || h.stream_auto_url || null;   // staff's link, else the one the sync matched from the channel feed
+  const start = new Date(h.scheduled_at).getTime(), exact = !!link;
   const state = h.status === 'cancelled' ? 'off' : now < start - 15 * 6e4 ? 'before' : now < start + 4 * 36e5 ? 'live' : 'after';
   if (state === 'off') return null;
-  return { url: exact ? h.stream_url : ch.url + '/streams', exact, state, channel: ch?.name || 'YouTube',
+  return { url: exact ? link : ch.url + '/streams', exact, auto: !h.stream_url && !!h.stream_auto_url, state, channel: ch?.name || 'YouTube',
     label: state === 'live' ? 'Watch live' : state === 'after' ? 'Watch the recording' : 'Watch on YouTube',
     hint: exact ? '' : state === 'before' ? `Streams on the ${ch.name} channel; the video appears shortly before the start time.`
       : state === 'live' ? `On the ${ch.name} channel: pick the stream with this committee’s name.`
