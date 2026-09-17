@@ -57,6 +57,8 @@ const POS = { strongly_support: 'Strongly supports', support: 'Supports', suppor
 const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
 const OUTCOME_CLS = { passed: 'c-green', passed_amended: 'c-gold', deferred: 'c-red', recommitted: 'c-gray' };
 const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
+// Coalitions keep their internal name as the key; the public sees public_name.
+const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_name || n;
 const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter', 'Open the highlighted bill'],
   ['Esc', 'Close the bill, or clear the search'], ['w', 'Watch / unwatch the open or highlighted bill'],
@@ -97,7 +99,7 @@ async function demoLoad() {
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   S.slots = snap.slots;
   const counts = {}, live = {}; for (const b of D.bills) for (const n of b.coalitions) { counts[n] = (counts[n] || 0) + 1; if (alive(b)) live[n] = (live[n] || 0) + 1; }
-  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0 }));
+  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, public_name: c.public_name || c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0, sort_order: c.sort_order }));
 }
 const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
 // "I did it" marks: in this browser until sign-in, then in public_actions.
@@ -216,7 +218,7 @@ function recommendations(limit) {
     }
     if (!kind) continue;
     const mine = (b.coalitions || []).filter(n => likes[n]);
-    if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${mine[0]}`); }
+    if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${cname(mine[0])}`); }
     else if (anyLikes) score -= 1;
     if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
     if (!why.length) why.push(kind === 'testify' ? 'testimony window is open' : 'needs a push');
@@ -245,7 +247,7 @@ function recoHTML(quiet) {
   const n = S.recoN || 3, list = recommendations(n + 1), shown = list.slice(0, n);
   if (!shown.length) return '';
   const likes = Object.keys(interests());
-  return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `HIPHI’s priorities and the issues you picked (${likes.slice(0, 3).join(', ')})` : 'HIPHI’s priorities'} · three at a time</span></div>
+  return `<div class="panel donow reco" id="pf-reco"><div class="ph"><span>🌺 ${quiet ? 'Your bills are quiet this week — here is where you can help' : 'More ways to help this week'}</span><span class="psub">${likes.length ? `HIPHI’s priorities and the issues you picked (${likes.slice(0, 3).map(cname).join(', ')})` : 'HIPHI’s priorities'} · three at a time</span></div>
     ${shown.map(recoCard).join('')}
     ${list.length > n ? `<button class="pempty boardmore" data-recomore>Show three more</button>` : ''}
     ${(hid => hid.length ? `<div class="hiddenline">${hid.length} bill${hid.length === 1 ? '' : 's'} hidden · <button class="linkbtn" data-showhidden>${S.showHidden ? 'hide' : 'show'}</button>${S.showHidden ? `<div class="hiddenlist">${hid.map(b => `<span>${esc(b.bill_number)} <button class="linkbtn" data-unhide="${b.id}">bring back</button></span>`).join('')}</div>` : ''}</div>` : '')(S.pool.bills.filter(b => dismissed().has(b.id)))}
@@ -435,15 +437,15 @@ function chrome(inner) {
 }
 const resultRow = b => `
       <div class="row prow" data-open="${b.id}"><span class="bno">${esc(billNum(b))}</span>
-        <span class="t">${esc(titleCase(b.title))}<small>${b.description || b.hiphi_summary ? esc(blurb(b, 120)) : ''}${b.hiphi_follows ? ' · HIPHI follows this bill' : ''}${(b.coalitions || []).length ? ' · ' + esc(b.coalitions.join(', ')) : ''}${b.watchers ? ` · ${b.watchers} following` : ''}${!alive(b) ? ' · <span class="hot">did not advance</span>' : ''}</small></span>
+        <span class="t">${esc(titleCase(b.title))}<small>${b.description || b.hiphi_summary ? esc(blurb(b, 120)) : ''}${b.hiphi_follows ? ' · HIPHI follows this bill' : ''}${(b.coalitions || []).length ? ' · ' + esc(b.coalitions.map(cname).join(', ')) : ''}${b.watchers ? ` · ${b.watchers} following` : ''}${!alive(b) ? ' · <span class="hot">did not advance</span>' : ''}</small></span>
         ${watchBtn(b)}</div>`;
 function searchBox() {
-  const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${S.coalitions.map(c => `<button class="fchip ${S.browse?.name === c.name ? 'on' : ''}" data-browse="${esc(c.name)}">${esc(c.name)} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
+  const chips = S.coalitions.length ? `<div class="browse">Browse HIPHI’s coalitions: ${S.coalitions.map(c => `<button class="fchip ${S.browse?.name === c.name ? 'on' : ''}" data-browse="${esc(c.name)}">${esc(cname(c.name))} <span class="cnt">${c.bills}</span></button>`).join('')}${S.browse ? '<button class="fchip" data-browse="">✕ clear</button>' : ''}</div>` : '';
   return `<div class="search"><input type="search" id="q" placeholder="Search any Hawaiʻi bill by number (SB123) or words in the title…" value="${esc(S.q)}"></div>${chips}
     ${S.results ? `<div class="results">${S.results.length ? S.results.map(resultRow).join('') : '<div class="row" style="color:var(--muted)">No bill matches. Try the number, like HB1563, or a word from the title.</div>'}</div>` : ''}
-    ${S.browse ? (({ picks, rest }) => `<div class="panel"><div class="ph"><span>${esc(S.browse.name)} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) : ''}</span></div>
+    ${S.browse ? (({ picks, rest }) => `<div class="panel"><div class="ph"><span>${esc(cname(S.browse.name))} <span class="chipx c-gray">${S.browse.rows.length}</span></span><span class="psub">${(S.coalitions.find(c => c.name === S.browse.name) || {}).description ? esc(S.coalitions.find(c => c.name === S.browse.name).description) : ''}</span></div>
       ${picks.length ? `<div class="pickhead">HIPHI’s picks <span class="tok">· the bills we are pushing hardest</span> <button class="btn sm" data-watchpicks="${esc(S.browse.name)}">Follow these ${picks.length}</button></div><div class="results" style="border:0;margin:0">${picks.map(resultRow).join('')}</div>` : ''}
-      <details class="fold" style="margin:6px 12px 10px"><summary class="tok" style="cursor:pointer">${rest.length} other bill${rest.length === 1 ? '' : 's'} in ${esc(S.browse.name)} (${rest.filter(alive).length} live)</summary><div class="results" style="border:0;margin:0">${rest.map(resultRow).join('') || '<div class="row" style="color:var(--muted)">Nothing else.</div>'}</div></details></div>`)(curate(S.browse.rows, 8)) : ''}`;
+      <details class="fold" style="margin:6px 12px 10px"><summary class="tok" style="cursor:pointer">${rest.length} other bill${rest.length === 1 ? '' : 's'} in ${esc(cname(S.browse.name))} (${rest.filter(alive).length} live)</summary><div class="results" style="border:0;margin:0">${rest.map(resultRow).join('') || '<div class="row" style="color:var(--muted)">Nothing else.</div>'}</div></details></div>`)(curate(S.browse.rows, 8)) : ''}`;
 }
 // ---------------- Do this now: one card per open opportunity ----------------
 const POS_VERB = { strongly_support: 'support', support: 'support', support_amend: 'support with amendments', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'comment on' };
@@ -573,16 +575,16 @@ function wizardHTML() {
         <span class="pickb"><span class="pickl1"><b>${esc(billNum(b))}</b> <span class="chipx ${/oppose/.test(b.hiphi_position) ? 'c-red' : 'c-green'}">HIPHI ${esc(POS[b.hiphi_position] || '')}</span>${h ? ` <span class="chipx c-gold">hearing ${fmtDate(h.scheduled_at)}</span>` : ''}</span>
         <span class="pickt">${esc(b.hiphi_summary || titleCase(b.title))}</span></span></label>`; };
     return `<div class="wiz">
-      <div class="wizhead"><span class="wizk">Step 2 of 2</span><h1>Pick the bills you want to follow</h1><p>These are HIPHI’s picks for ${[...sel].map(esc).join(', ')}. Tap the ones you care about, or take all the picks. You can change this any time.</p></div>
-      ${groups.map(g => `<div class="wizgroup"><div class="wizg"><span>${esc((S.coalitions.find(c => c.name === g.name) || {}).icon || '')} ${esc(g.name)}</span><button class="linkbtn" data-wizall="${esc(g.name)}">${g.picks.every(b => picked.has(b.id)) ? 'Clear these' : `Take all ${g.picks.length}`}</button></div>
+      <div class="wizhead"><span class="wizk">Step 2 of 2</span><h1>Pick the bills you want to follow</h1><p>These are HIPHI’s picks for ${[...sel].map(n => esc(cname(n))).join(', ')}. Tap the ones you care about, or take all the picks. You can change this any time.</p></div>
+      ${groups.map(g => `<div class="wizgroup"><div class="wizg"><span>${esc((S.coalitions.find(c => c.name === g.name) || {}).icon || '')} ${esc(cname(g.name))}</span><button class="linkbtn" data-wizall="${esc(g.name)}">${g.picks.every(b => picked.has(b.id)) ? 'Clear these' : `Take all ${g.picks.length}`}</button></div>
         ${g.picks.map(card).join('') || '<div class="pempty">No live bills with a HIPHI position here right now.</div>'}
-        ${g.more > 0 ? `<button class="morelink" data-wizmore="${esc(g.name)}">${g.more} more in ${esc(g.name)}</button>` : ''}</div>`).join('')}
+        ${g.more > 0 ? `<button class="morelink" data-wizmore="${esc(g.name)}">${g.more} more in ${esc(cname(g.name))}</button>` : ''}</div>`).join('')}
       <div class="wizfoot"><button class="btn ghost" data-wizback>← Issues</button><span class="wizn">${picked.size} selected</span><button class="btn" data-wizdone ${picked.size ? '' : 'disabled'}>Follow ${picked.size || ''} bill${picked.size === 1 ? '' : 's'} →</button></div>
     </div>`;
   }
   const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;
   const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
-    <label class="tile ${sel.has(c.name) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.name)}" ${sel.has(c.name) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.name)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
+    <label class="tile ${sel.has(c.name) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.name)}" ${sel.has(c.name) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(cname(c.name))}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
   return `<div class="wiz">
     <div class="wizhead"><span class="wizk">Step 1 of 2</span><h1>What do you care about?</h1><p>Pick one or more. Next you choose a few bills, and this page becomes your week at the Capitol with a five-minute way to testify.</p></div>
     <div class="tiles">${tiles}</div>
@@ -609,7 +611,7 @@ function landing() {
   const now = Date.now();
   const gen = c => /general hiphi|^hiphi$/i.test(c.name) ? 1 : 0;   // the catch-all tiles go last
   const tiles = S.coalitions.slice().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0) || (a.sort_order || 0) - (b.sort_order || 0)).map(c => `
-    <button class="tile" data-tile="${esc(c.name)}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.name)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'} · ` : ''}${c.bills} this session</span></button>`).join('');
+    <button class="tile" data-tile="${esc(c.name)}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(cname(c.name))}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'} · ` : ''}${c.bills} this session</span></button>`).join('');
   const f = S.featured || { hearings: [], bills: [] };
   const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
@@ -722,9 +724,9 @@ function panelFor(b) {
   return `<div class="scrim" id="scrim"></div><div class="drawer"><div class="dhead"><button class="close" id="dclose" title="Close (Esc)">✕</button>
       <h2>${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}${b.current_version ? ` <span class="chipx c-navy" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}</h2>
       <div class="headline">${esc(b.hiphi_summary || blurb({ description: b.description, title: b.title }, 160))}</div><div class="sub">${esc(titleCase(b.title))}</div>
-      <div class="hchips">${b.hiphi_position ? `<span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}${(b.coalitions || []).map(c => `<span class="chipx c-gray">${esc(c)}</span>`).join('')}<span class="chipx c-gray">${b.watchers || 0} following</span>${watchBtn(b)}<button class="chipx tool" data-copylink="${b.id}" title="Copy a link to this bill (c)">🔗 Copy link</button></div></div>
+      <div class="hchips">${b.hiphi_position ? `<span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}${(b.coalitions || []).map(c => `<span class="chipx c-gray">${esc(cname(c))}</span>`).join('')}<span class="chipx c-gray">${b.watchers || 0} following</span>${watchBtn(b)}<button class="chipx tool" data-copylink="${b.id}" title="Copy a link to this bill (c)">🔗 Copy link</button></div></div>
     <div class="dbody">
-      ${!S.watch.size ? `<div class="arrive"><b>You are not following any bills yet.</b> Press Follow on this one to get its hearing alerts${(b.coalitions || [])[0] ? `, or see everything HIPHI is doing on <button class="linkbtn" data-browse="${esc(b.coalitions[0])}">${esc(b.coalitions[0])}</button>` : ''}.</div>` : ''}
+      ${!S.watch.size ? `<div class="arrive"><b>You are not following any bills yet.</b> Press Follow on this one to get its hearing alerts${(b.coalitions || [])[0] ? `, or see everything HIPHI is doing on <button class="linkbtn" data-browse="${esc(b.coalitions[0])}">${esc(cname(b.coalitions[0]))}</button>` : ''}.</div>` : ''}
       <div class="status"><p class="plain lead">${esc(alive(b) ? stopOf(b).says.replace(/stop (\d+) of (\d+)/, 'committee $1 of $2').replace(/ · (Triple filing|Lateral|Decking|Crossover|Cross back|Final decking) (\d+\/\d+)( \(\d+d\))?\./, (m, l, d, left) => ` · needs a hearing by ${d}${left || ''}.`) : whyDead(b))}</p>${railPublic(b)}</div>
       ${b.hiphi_action ? `<div class="next"><span class="nk">ASK</span><div>${esc(b.hiphi_action)}</div></div>` : ''}
       ${b.sandbox_untracked ? '<p class="desc"><i>Sandbox: this bill is not on HIPHI’s list, so its history and hearings are not loaded here. In the live app every bill is complete.</i></p>' : ''}

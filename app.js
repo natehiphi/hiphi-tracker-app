@@ -1758,6 +1758,7 @@ function renderSettings() {
         <select data-cowner><option value="">no owner</option>${S.advocates.filter(a => a.is_active).map(a => `<option value="${a.id}" ${c.owner_id === a.id ? 'selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select>
         <input data-cchan value="${esc(c.slack_channel || '')}" placeholder="#slack-channel">
         <input data-ckw value="${esc((c.keywords || []).join(', '))}" placeholder="keywords, comma-separated">
+        <input data-cpub value="${esc(c.public_name || '')}" placeholder="public name (what visitors see)">
         <input data-cicon value="${esc(c.icon || '')}" placeholder="icon" title="One emoji for the public page tile" maxlength="4">
         <input data-cdesc value="${esc(c.description || '')}" placeholder="one friendly sentence for the public page tile"></div>`).join('')}</div>
       <div class="btns"><button class="btn" id="st-save-coal">Save coalitions</button></div>
@@ -1853,7 +1854,7 @@ function wireSettings() {
     $('#st-save-coal') && ($('#st-save-coal').onclick = async () => {
       try { for (const row of document.querySelectorAll('.coalrow')) {
           const keywords = row.querySelector('[data-ckw]').value.split(',').map(x => x.trim()).filter(Boolean);
-          await DB.saveCampaign(row.dataset.coal, { owner_id: row.querySelector('[data-cowner]').value || null, slack_channel: row.querySelector('[data-cchan]').value.trim() || null, keywords, icon: row.querySelector('[data-cicon]').value.trim() || null, description: row.querySelector('[data-cdesc]').value.trim() || null }); }
+          await DB.saveCampaign(row.dataset.coal, { owner_id: row.querySelector('[data-cowner]').value || null, slack_channel: row.querySelector('[data-cchan]').value.trim() || null, keywords, icon: row.querySelector('[data-cicon]').value.trim() || null, description: row.querySelector('[data-cdesc]').value.trim() || null, public_name: row.querySelector('[data-cpub]').value.trim() || null }); }
         toast('Coalitions saved'); if (S.triage) S.triage.rows = null; } catch (e) { toast(e.message, true); } });
     // Import the tracked list from the spreadsheet export
     $('#st-csv') && ($('#st-csv').onchange = async () => { const f = $('#st-csv').files[0]; if (!f) return; const out = $('#st-import-preview');
