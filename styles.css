@@ -1145,3 +1145,30 @@ details.fold .calnav{margin-left:auto}
 .memo ul{margin:0;padding-left:18px}.memo li{margin:5px 0}
 .memo p{margin:0 0 6px}.memo p:last-child{margin-top:16px;color:var(--muted);font-size:13px;word-break:break-word}
 @media (max-width:760px){ .memowrap{padding:4px 12px 30px} .memo{padding:16px} }
+
+/* ---- Left rail (wide screens; sandbox trial) ---- */
+.rail{display:none}
+@media (min-width:1000px){
+  body.has-rail{padding-left:60px}
+  body.has-rail.rail-pinned{padding-left:216px}
+  body.has-rail .top.staff .logo,body.has-rail .top.staff .viewtabs{display:none}
+  .rail{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:60px;z-index:55;background:var(--navy);color:#C9DAE2;padding:12px 8px;overflow:hidden;transition:width .16s ease;box-shadow:none}
+  .rail:hover,.rail:focus-within,body.rail-pinned .rail{width:216px}
+  body:not(.rail-pinned) .rail:hover,body:not(.rail-pinned) .rail:focus-within{box-shadow:12px 0 32px rgba(12,34,51,.28)}
+  .rail .rl{opacity:0;white-space:nowrap;transition:opacity .12s ease;pointer-events:none}
+  .rail:hover .rl,.rail:focus-within .rl,body.rail-pinned .rail .rl{opacity:1}
+  .rbrand{display:flex;align-items:center;gap:11px;padding:2px 9px 16px;font:700 14.5px 'Space Grotesk','Inter',sans-serif;color:#fff}
+  .rbrand .mark{flex:none;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#12A0AC,#0E7C86);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .rail nav{display:flex;flex-direction:column;gap:2px}
+  .rail button{display:flex;align-items:center;gap:12px;width:100%;padding:9px 11px;border-radius:9px;background:none;color:#C9DAE2;font:600 13px 'Inter',sans-serif;text-align:left;position:relative;white-space:nowrap}
+  .rail button:hover{background:#1B3A47;color:#fff}
+  .rail button.on{background:#fff;color:var(--navy)}
+  .rail .ri{flex:none;width:22px;text-align:center;font-size:16px;line-height:1}
+  .rail .rn{margin-left:auto;background:var(--red);color:#fff;font:700 10.5px/1 'Inter',sans-serif;padding:3px 6px;border-radius:9px;min-width:17px;text-align:center}
+  .rail:not(:hover):not(:focus-within) .rn{position:absolute;top:3px;left:30px;margin:0}
+  body.rail-pinned .rail .rn{position:static;margin-left:auto}
+  .rfoot{margin-top:auto;display:flex;flex-direction:column;gap:2px;border-top:1px solid #1B3A47;padding-top:10px}
+  .rfacts{font-size:11.5px;line-height:1.55;color:#9DB4C0;padding:0 11px 8px;height:0;overflow:hidden}
+  .rail:hover .rfacts,.rail:focus-within .rfacts,body.rail-pinned .rfacts{height:auto}
+  .rfacts b{color:#fff;font-weight:600}.rfacts .hot{color:#F0A097}
+}

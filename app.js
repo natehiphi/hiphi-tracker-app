@@ -1,6 +1,6 @@
 // ============================================================
 // HIPHI Bill Tracker — staff app
-// Views: Portfolio · Pipeline · Table · Desk · Cards  (+ bill drawer, add bills)
+// Views: Portfolio · Inbox · Table · Weekly memo · Triage  (+ bill drawer, add bills)
 // Data: Supabase (RLS-protected). Demo mode: append ?demo=1
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage','inbox','memo'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -719,7 +719,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['memo','Weekly memo'],['triage','Triage'],['desk','Desk'],['pipeline','Pipeline'],['table','Table'],['cards','Cards'],['settings','Settings'],['help','Help']];
+const MORE_VIEWS = [['memo','Weekly memo'],['triage','Triage'],['table','Table'],['settings','Settings'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.stageF ? 1 : 0);
 const filterLabel = () => [S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
@@ -731,6 +731,27 @@ function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
   return [who, S.q ? `“${S.q}”` : null, S.pris.size ? [...S.pris].sort().map(p => 'P' + p).join(', ') : null,
     S.stageF ? (STAGE_LABEL[S.stageF] || S.stageF) : null, S.tripleF ? '3X' : null].filter(Boolean).join(' · ');
+}
+// Left rail (sandbox trial, or ?rail=1): every view one click away with its
+// count, session facts at the foot. Collapsed to icons until hovered or
+// pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
+const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
+const RAIL_ITEMS = [['portfolio', '⌂', 'Portfolio'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
+function railHTML(freshTxt, stale) {
+  if (!SIDE_RAIL) return '';
+  const pinned = localStorage.getItem('railPinned') === '1';
+  document.body.classList.add('has-rail'); document.body.classList.toggle('rail-pinned', pinned);
+  const count = v => v === 'inbox' ? inboxCount() : v === 'triage' ? (S.triageCounts?.undecided || 0) : 0;
+  const ld = legislativeDay();
+  return `<aside class="rail" aria-label="Sections">
+    <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
+    <nav>${RAIL_ITEMS.map(([v, ic, l]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}</span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>
+    <div class="rfoot">
+      <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
+      <button id="railpin" title="${pinned ? 'Collapse the menu' : 'Keep the menu open'}"><span class="ri" aria-hidden="true">${pinned ? '«' : '»'}</span><span class="rl">${pinned ? 'Collapse' : 'Keep open'}</span></button>
+      <button id="logout3" title="Sign out"><span class="ri" aria-hidden="true">⎋</span><span class="rl">Sign out</span></button>
+    </div>
+  </aside>`;
 }
 function chrome(inner) {
   const upcoming = S.hearings
@@ -753,7 +774,7 @@ function chrome(inner) {
     : hrs == null ? 'no sync recorded'
     : hrs < 1 ? 'data current'
     : hrs < 48 ? `data ${hrs}h old` : `data ${Math.round(hrs / 24)}d old`;
-  return `
+  return `${railHTML(freshTxt, stale)}
     <div class="top staff">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
@@ -1348,34 +1369,6 @@ function billTable(list, cols) {
     <tbody>${list.map(b => `<tr data-bill="${b.id}">${cols.map(c => cell(b, c)).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
-function renderPipeline(list) {
-  const groups = Object.fromEntries(STAGES.map(([v]) => [v, []]));
-  list.forEach(b => (groups[effStage(b)] ??= []).push(b));
-  const final = ['enacted','vetoed','dead'];
-  const cols = STAGES.filter(([v]) => !final.includes(v)).map(([v,l]) => [v,l,groups[v]]);
-  cols.push(['final','Outcome', final.flatMap(v => groups[v])]);
-  const MAX = 25;
-  const dlchips = v => (DEADLINES[v]||[]).map(([lab,d]) => {
-    const past = new Date(d) < new Date();
-    return `<span class="dlchip ${past?'past':''}">${lab} · ${new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
-  }).join('');
-  return `<div class="board">${cols.map(([v,l,bs]) => `
-    <div class="col"><div class="colh"><span class="nm">${l}</span><span class="n">${bs.length}</span></div>
-      <div class="dlrow">${dlchips(v)}</div>
-      ${bs.slice(0,MAX).map(b => `
-        <div class="card p${b.priority||3}" data-bill="${b.id}">
-          <div class="r1"><span class="bno">${esc(b.bill_number)}</span>
-            ${isTriple(b) ? '<span class="chipx c-navy" style="font-size:9px" title="Triple referral — races the Triple Filing deadline">3X</span>' : ''}
-            ${v==='final' ? `<span class="chipx ${effStage(b)==='enacted'?'c-green':'c-gray'}" style="font-size:9.5px">${STAGE_LABEL[effStage(b)]}</span>`
-              : (diedish(b) ? '<span class="chipx c-red" style="font-size:9px">DIED</span>' : '')}
-            ${compChip(b)}
-            ${owners(b).slice(0,1).map(a=>av(a)).join('')}</div>
-          <div class="tt">${esc(b.title||'')}</div>
-          <div>${b.position ? `<span class="chipx c-gray pos-${b.position}" style="background:var(--chip)">${POSITIONS.find(p=>p[0]===b.position)?.[1]||''}</span>`:''}</div>
-        </div>`).join('')}
-      ${bs.length>MAX ? `<div class="colmore">+ ${bs.length-MAX} more — use filters</div>` : ''}
-    </div>`).join('')}</div>`;
-}
 
 function bulkBar() {
   const n = S.selected.size;
@@ -1487,175 +1480,6 @@ function dkBand(icon, title, sub, rows, rowFn) {
   </div>`;
 }
 
-function renderDesk(list) {
-  const now = Date.now();
-  const ids = new Set(list.map(b => b.id));
-  const bill = id => S.bills.find(b => b.id === id);
-  const who = S.owner === 'me' ? (S.me?.full_name || 'My') :
-    S.owner === 'all' ? 'Team' : (advocate(S.owner)?.full_name || '');
-  const today = new Date().toLocaleDateString('en-US',
-    { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' });
-
-  if (!list.length) return `
-    <div class="dashhead"><h1>${esc(who)}'s desk</h1><span class="sub">${today}</span></div>
-    <div class="empty">No bills match these filters. Try “All tracked”, or clear the filters above.</div>`;
-
-  // Stage mix - always meaningful, in or out of session.
-  const byOutcome = o => list.filter(b => dkOutcome(b) === o);
-  const law = byOutcome('law'), vetoed = byOutcome('vetoed'),
-        gov = byOutcome('governor'), died = byOutcome('died');
-  const open = list.filter(b => dkOutcome(b) === null);
-  const dist = [
-    ['In committee', '#0E7C86', open.filter(b => DK_COMMITTEE.includes(effStage(b))).length],
-    ['Crossed over', '#5B7FBF', open.filter(b => DK_CROSSED.includes(effStage(b))).length],
-    ['Governor', '#7E5BA6', gov.length],
-    ['Signed into law', '#3E8E63', law.length],
-    ['Vetoed', '#B9713A', vetoed.length],
-    ['Died / deferred', '#8FA1AD', died.length],
-  ].filter(([, , n]) => n > 0);
-  const distBlock = dist.length ? `
-    <div style="margin:0 0 16px">
-      <div style="display:flex;gap:3px;margin-bottom:5px">${dist.map(([l, c, n]) =>
-        `<span title="${l}: ${n}" style="flex:${n};background:${c};height:9px;border-radius:2px"></span>`).join('')}</div>
-      <div>${dist.map(([l, c, n]) =>
-        `<span style="font-size:10.5px;color:var(--muted);margin-right:12px;white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};margin-right:4px"></span>${l} <b>${n}</b></span>`).join('')}</div>
-    </div>` : '';
-
-  // ============ BETWEEN SESSIONS ============
-  // Nothing is pending, so "what needs doing today" is the wrong question.
-  // Show what the session actually did, grouped by real outcome, expanded.
-  if (SESSION_OVER) {
-    const stat = (v, l, warn) => `<div class="stat ${warn ? 'warn' : ''}"><div class="v">${v}</div><div class="l">${l}</div></div>`;
-    const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number);
-    const actOf = b => (b.last_action || '').match(/Act\s+\d+[^.]*/i)?.[0] || '';
-    return `
-      <div class="dashhead">
-        <h1>${esc(who)}'s desk — ${SESSION_YEAR} session results</h1>
-        <span class="sub">${today} · session adjourned sine die · ${list.length} bill${list.length !== 1 ? 's' : ''} tracked
-          · the live desk (hearings, testimony deadlines, radar) returns when the ${SESSION_YEAR + 1} session convenes</span>
-      </div>
-      <div class="stats">
-        ${stat(law.length, 'Signed into law')}
-        ${stat(vetoed.length, 'Vetoed', vetoed.length > 0)}
-        ${stat(died.length, 'Died / deferred')}
-        ${stat(open.length + gov.length, 'No final action')}
-      </div>
-      ${distBlock}
-      ${bulkBar()}
-      ${dkBand('✅', 'Signed into law', 'wins from this session', [...law].sort(byNum),
-        b => dkRow(b, actOf(b) ? `<b style="flex:0 0 auto;color:#3E8E63;font-size:11px">${esc(actOf(b))}</b>` : ''))}
-      ${dkBand('⛔', 'Vetoed', 'passed both chambers, then vetoed', [...vetoed].sort(byNum),
-        b => dkRow(b, `<b style="flex:0 0 auto;color:#C2483B;font-size:11px">VETOED</b>`))}
-      ${dkBand('⏳', 'Still with the Governor', 'awaiting signature or veto', [...gov].sort(byNum))}
-      ${dkBand('✖️', 'Died or deferred', 'killed in committee or on the floor', [...died].sort(byNum),
-        b => dkRow(b, `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${esc(b.committee || '')}</span>`))}
-      ${dkBand('☰', 'No recorded final action', 'stalled without a formal kill', [...open].sort(byNum),
-        b => dkRow(b, `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${STAGE_LABEL[effStage(b)]}</span>`))}`;
-  }
-
-  // ============ IN SESSION ============
-  const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
-    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
-  const hFor = b => hUp.find(h => h.bill_id === b.id);
-  const due48 = hUp.filter(h => h.testimony_deadline &&
-    new Date(h.testimony_deadline) > new Date() &&
-    new Date(h.testimony_deadline) - now < 48 * 3600e3);
-  const todayStr = new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu' });
-  const todayH = hUp.filter(h => !due48.includes(h) &&
-    new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu' }) === todayStr);
-  const radar = open.map(b => ({ b, dl: nextDeadline(b) }))
-    .filter(x => x.dl && x.dl.days >= 0 && x.dl.days <= RADAR_DAYS && !hFor(x.b))
-    .sort((x, y) => x.dl.days - y.dl.days || (x.b.priority || 3) - (y.b.priority || 3));
-  const radarDl = new Map(radar.map(x => [x.b.id, x.dl]));
-
-  // NOW strip: everything time-critical, clock-sorted, at most 6.
-  const tiles = [
-    ...due48.map(h => ({ k: 'due', b: bill(h.bill_id), h, t: +new Date(h.testimony_deadline) })),
-    ...todayH.map(h => ({ k: 'today', b: bill(h.bill_id), h, t: +new Date(h.scheduled_at) })),
-    ...radar.filter(x => x.dl.days <= 5).map(x => ({ k: 'radar', b: x.b, dl: x.dl,
-      t: +new Date(x.dl.date + 'T23:59:59-10:00') })),
-  ].filter(x => x.b).sort((a, b) => a.t - b.t).slice(0, 6);
-  const COL = { due: '#C2483B', today: '#C9A227', radar: '#7E5BA6' };
-  const tileHtml = it => {
-    const c = COL[it.k];
-    const head = it.k === 'due' ? `TESTIMONY DUE IN ${Math.max(0, Math.round((it.t - now) / 36e5))}H`
-      : it.k === 'today' ? `HEARING TODAY ${fmtDT(it.h.scheduled_at).split(', ').pop()}`
-      : `${it.dl.label.toUpperCase()} IN ${it.dl.days}D`;
-    const sub = it.h ? `${esc(it.h.committee)} · ${esc(it.h.room || 'room TBD')}`
-      : `waiting in ${esc(it.b.committee || 'committee')} — no hearing`;
-    return `<div class="dk-tile" data-bill="${it.b.id}" style="flex:0 0 auto;min-width:190px;max-width:250px;
-      border:1px solid var(--line);border-left:4px solid ${c};border-radius:10px;padding:9px 11px;background:var(--panel);cursor:pointer">
-      <div style="font-size:9.5px;font-weight:700;letter-spacing:.03em;color:${c}">${head}</div>
-      <div style="font-weight:700;font-size:13px;margin-top:2px">${esc(it.b.bill_number)}</div>
-      <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>
-      <div style="margin-top:7px;display:flex;gap:5px">
-        ${it.k === 'due' ? draftActionBtn(it.b, it.h.committee) : ''}
-        <a class="btn sm ghost" href="${esc(capitolUrl(it.b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>
-      </div></div>`;
-  };
-
-  // Since your last visit
-  const sinceH = S.hearings.filter(h => ids.has(h.bill_id) && h.notice_posted_at &&
-    new Date(h.notice_posted_at).getTime() > S.sinceVisit && new Date(h.scheduled_at) > new Date()).slice(0, 6);
-  const evBy = {};
-  for (const ev of (S.sinceEvents || [])) if (ids.has(ev.bill_id)) (evBy[ev.bill_id] ||= []).push(ev);
-  const sinceRows = Object.entries(evBy).map(([bid, evs]) => ({ b: bill(bid), evs }))
-    .filter(x => x.b).slice(0, 6);
-  const nNew = sinceH.length + sinceRows.length;
-
-  // Bands, each bill in exactly one
-  const hearBills = hUp.map(h => bill(h.bill_id)).filter(Boolean)
-    .filter((b, i, a) => a.findIndex(x => x.id === b.id) === i);
-  const inBand = new Set(hearBills.map(b => b.id));
-  const waitBills = radar.map(x => x.b).filter(b => !inBand.has(b.id));
-  waitBills.forEach(b => inBand.add(b.id));
-  const movedBills = open.filter(b => !inBand.has(b.id) &&
-    b.last_action_date && now - new Date(b.last_action_date) < 7 * 864e5)
-    .sort((a, b) => (b.last_action_date || '').localeCompare(a.last_action_date || ''));
-  movedBills.forEach(b => inBand.add(b.id));
-  const restBills = open.filter(b => !inBand.has(b.id))
-    .sort((a, b) => (a.priority || 3) - (b.priority || 3) || a.bill_number.localeCompare(b.bill_number));
-  const settled = [...law, ...vetoed, ...died];
-
-  return `
-    <div class="dashhead">
-      <h1>${esc(who)}'s desk — one view</h1>
-      <span class="sub">${today} · ${list.length} bills · ${hUp.length} hearing${hUp.length !== 1 ? 's' : ''} ahead${
-        nNew ? ` · <b style="color:#C9A227">${nNew} new since your last visit</b>` : ''}</span>
-    </div>
-    <div style="display:flex;gap:8px;overflow-x:auto;padding:0 0 12px">${
-      tiles.length ? tiles.map(tileHtml).join('')
-        : `<div style="font-size:13px;color:var(--muted);padding:4px 2px">Nothing time-critical right now — no testimony deadlines, hearings today, or deadlines inside 5 days. 🤙</div>`}</div>
-    ${nNew ? `<details class="panel sincefold" style="margin-bottom:8px" ${isMobile() ? '' : 'open'}>
-      <summary class="ph"><span>⚡ Since your last visit <span class="chipx c-gold">${nNew}</span></span><span class="psub">after ${fmtDT(S.sinceVisit)}${isMobile() ? ' · tap' : ''}</span></summary>
-      ${sinceH.map(h => { const b = bill(h.bill_id); return b ? `
-        <div class="prow" data-bill="${b.id}"><div class="pmain">📅 <b>${esc(b.bill_number)}</b> — ${esc(h.committee)} hearing posted${
-          (dr => dr ? ` <a class="draftlink" href="${esc(dr.doc_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">\ud83d\udcc4 ${dr.status === 'filed' ? 'filed' : 'draft'} \u2197</a>` : '')(draftFor(b.id, h.committee))}
-          <div class="psmall">${fmtDT(h.scheduled_at)} · ${esc(h.room || 'room TBD')}</div></div></div>` : ''; }).join('')}
-      ${sinceRows.map(({ b, evs }) => `
-        <div class="prow" data-bill="${b.id}"><div class="pmain">${AMENDED_RE.test(evs[0].title) ? '✏️ ' : ''}<b>${esc(b.bill_number)}</b> — ${esc(evs[0].title.slice(0, 78))}
-          <div class="psmall">${fmtDate(evs[0].occurred_at)}${evs.length > 1 ? ` · +${evs.length - 1} more` : ''}</div></div></div>`).join('')}
-    </details>` : ''}
-    ${distBlock}
-    ${bulkBar()}
-    ${dkBand('◷', 'Hearing scheduled', 'soonest first', hearBills, b => { const h = hFor(b);
-      const urgent = h.testimony_deadline && new Date(h.testimony_deadline) > new Date() &&
-        new Date(h.testimony_deadline) - now < 48 * 3600e3;
-      return dkRow(b, `<span style="flex:0 0 auto;font-size:11px;${urgent ? 'color:#C2483B;font-weight:700' : 'color:var(--muted)'}">${esc(h.committee)} ${fmtDT(h.scheduled_at)}</span>`); })}
-    ${dkBand('📡', 'Waiting — deadline near', `no hearing on the books`, waitBills, b => { const dl = radarDl.get(b.id);
-      return dkRow(b, `<span style="flex:0 0 auto;font-size:11px;${dl.days <= 5 ? 'color:#C2483B;font-weight:700' : 'color:var(--muted)'}">${esc(dl.label)} ${dl.days}d</span>`); })}
-    ${dkBand('⚡', 'Moved this week', 'official action in the last 7 days', movedBills,
-      b => dkRow(b, `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${fmtDate(b.last_action_date)}</span>`))}
-    ${dkBand('☰', 'In progress', 'active, nothing scheduled', restBills,
-      b => dkRow(b, `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${STAGE_LABEL[effStage(b)]}</span>`))}
-    ${settled.length ? `<div class="panel" style="margin-bottom:8px">
-      <div class="ph" id="dk-out" style="cursor:pointer"><span>${S.deskOut ? '▾' : '▸'} Outcomes — law · vetoed · died</span>
-        <span class="psub">${settled.length} · tap to ${S.deskOut ? 'collapse' : 'expand'}</span></div>
-      ${S.deskOut ? settled.map(b => dkRow(b, dkOutcome(b) === 'law'
-        ? `<b style="flex:0 0 auto;color:#3E8E63;font-size:11px">LAW</b>`
-        : `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${STAGE_LABEL[effStage(b)]}</span>`)).join('') : ''}
-    </div>` : ''}`;
-}
 
 // ---------------- Cards view (advocacy print) ----------------
 let SESSION_OVER = DEMO ? false : true;   // set from the calendar at load: over once sine die has passed
@@ -1836,45 +1660,6 @@ function pvCard(b) {
     </div>
     <div class="pv-foot"><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Official page ↗</a>
       <span style="color:var(--ptealD)">Open in tracker ▸</span></div>
-  </div>`;
-}
-function renderCards(list) {
-  if (S.camp) list = list.filter(b => (S.billCampaigns[b.id]||[]).includes(S.camp));
-  const now = new Date(), soon = Date.now() + 7*864e5;
-  const hearingsUp = S.hearings.filter(h => list.some(b => b.id === h.bill_id) && new Date(h.scheduled_at) > now);
-  const stats = [
-    [list.length, 'Bills tracked'],
-    [hearingsUp.length, 'Hearings scheduled'],
-    [hearingsUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) < new Date(soon)).length, 'Deadline soon'],
-    [list.filter(b => effStage(b) === 'enacted').length, 'Enacted / adopted'],
-    [list.filter(diedish).length, 'Died / stalled'],
-  ];
-  const campCounts = {};
-  visibleBills().forEach(b => (S.billCampaigns[b.id]||[]).forEach(c => campCounts[c] = (campCounts[c]||0)+1));
-  const tiers = [['ACTIVE — STRONGLY SUPPORT · STRONGLY OPPOSE', b => !diedish(b) && tierOf(b)===0],
-    ['ACTIVE — SUPPORT · OPPOSE · COMMENT', b => !diedish(b) && tierOf(b)===1],
-    ['ACTIVE — MONITOR', b => !diedish(b) && tierOf(b)===2],
-    ['DIED / STALLED — STRONGLY SUPPORT · STRONGLY OPPOSE', b => diedish(b) && tierOf(b)===0],
-    ['DIED / STALLED — SUPPORT · OPPOSE · COMMENT', b => diedish(b) && tierOf(b)===1],
-    ['DIED / STALLED — MONITOR', b => diedish(b) && tierOf(b)===2]];
-  const tix = hearingsUp.slice(0,6).map(h => { const b = S.bills.find(x=>x.id===h.bill_id); if (!b) return '';
-    const hrs = h.testimony_deadline ? Math.max(0, Math.round((new Date(h.testimony_deadline)-Date.now())/36e5)) : null;
-    return `<div class="pv-tick"><div class="bn">${esc(b.bill_number)}</div>
-      <div class="when">${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</div>
-      ${hrs != null ? `<div class="due">TESTIMONY DUE IN ${hrs}H</div>` : ''}</div>`; }).join('');
-  return `<div class="pv">
-    ${hearingsUp.length ? `<div class="pv-testify"><div class="h"><span class="t">TESTIFY</span>
-      <span class="s">Upcoming hearings &amp; committee meetings</span></div>
-      <div class="pv-tix">${tix}</div></div>` : ''}
-    <div class="pv-stats">${stats.map(([v,l]) =>
-      `<div class="pv-stat"><div class="v pdisp">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
-    <div class="pv-tabs"><button class="pv-tab ${!S.camp?'on':''}" data-camp="">All coalitions<span class="n">${visibleBills().length}</span></button>
-      ${S.campaigns.filter(c => campCounts[c.id]).map(c =>
-        `<button class="pv-tab ${S.camp===c.id?'on':''}" data-camp="${c.id}">${esc(c.name)}<span class="n">${campCounts[c.id]}</span></button>`).join('')}</div>
-    ${tiers.map(([label, fn]) => { const bs = list.filter(fn); return bs.length ? `
-      <div class="pv-sechead">${label}</div>
-      <div class="pv-grid">${bs.map(pvCard).join('')}</div>` : ''; }).join('') ||
-      '<div class="empty">No bills match these filters.</div>'}
   </div>`;
 }
 
@@ -2123,7 +1908,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / d / t / c / s / i / n / m', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / t / s / i / n / m', 'Go to Portfolio, Table, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2924,9 +2709,6 @@ function render() {
   if (isMobile() && S.view === 'table') S.view = 'portfolio';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
-    : S.view === 'pipeline' ? renderPipeline(list)
-    : S.view === 'desk' ? renderDesk(list)
-    : S.view === 'cards' ? renderCards(list)
     : S.view === 'settings' ? renderSettings()
     : S.view === 'triage' ? renderTriage()
     : S.view === 'inbox' ? renderInbox()
@@ -2960,6 +2742,8 @@ function wire() {
     await openDrawer(i.bill_id); if (i.tab === 'chat') S.drawerOpen.chat = true; else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
+  $('#logout3') && ($('#logout3').onclick = () => DB.logout());
+  $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
     rerenderKeep(isMobile() ? '#fold-week' : null, isMobile() ? 'fold-week' : 'pf-week');
@@ -3315,7 +3099,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', t: 'table', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
