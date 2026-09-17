@@ -441,7 +441,7 @@ function chrome(inner) {
     : S.session ? `<span>${esc(S.session.user.email)}</span><button data-nav="settings">Settings</button><button id="signout">Sign out</button>`
     : `<button data-nav="signin">Sign in</button>`;
   return `<div class="top pub"><span class="logo" data-nav="home" style="cursor:pointer"><span class="mark">☀</span>HIPHI Bill Tracker</span><a class="brand" href="https://www.hiphi.org" target="_blank" rel="noopener" title="Hawaiʻi Public Health Institute">by the Hawaiʻi Public Health Institute ↗</a>
-      <span class="who"><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
+      <span class="who"><button class="addbtn" data-nav="find" title="Search, browse by issue, or pick from HIPHI’s picks">＋ Add bills</button><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
     <div class="pubwrap">${inner}</div>`;
 }
 const resultRow = b => `
@@ -638,7 +638,7 @@ function landing() {
   const featured = f.hearings.slice(0, 8).map(h => { const b = f.bills.find(x => x.id === h.bill_id); if (!b) return ''; return `
     <div class="prow calrow ${posCls(b)}" data-open="${b.id}"><span class="caltime">${fmtDT(h.scheduled_at)}</span>
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 110))}</div></div>${watchBtn(b)}</div>`; }).join('');
-  const guided = !S.browse && !S.results && !S.q && !wiz().skipped;
+  const guided = !S.browse && !S.results && !S.q && (!wiz().skipped || S.view === 'wizard');
   if (guided) return `${stripHTML()}${wizardHTML()}${recoHTML(false).replace('More ways to help this week', 'Or act on one bill right now')}`;
   return `
     ${stripHTML()}
@@ -649,9 +649,19 @@ function landing() {
     ${!S.browse && featured ? `<div class="panel sec-cal"><div class="ph"><span>◷ Also this week at the Capitol</span><span class="psub">hearings on bills HIPHI is working on · Follow any of them</span></div>${featured}</div>` : ''}
     ${nudgeHTML()}`;
 }
+// Add bills: search, browse by issue, or run the guided picks again.
+function find() {
+  const gen = c => /general/i.test(c.key) ? 1 : 0;
+  const tiles = groups().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
+    <button class="tile" data-tile="${esc(c.names[0])}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span></button>`).join('');
+  return `<div class="pubhead"><h1>Add bills</h1><span class="sub">Search by number or words, browse an issue for HIPHI’s picks, or <button class="linkbtn" data-wizrestart>start over with the guided picks</button>. You follow ${S.watch.size} bill${S.watch.size === 1 ? '' : 's'} now.</span></div>
+    ${searchBox()}
+    ${S.browse || S.results ? '' : `<div class="tiles">${tiles}</div>`}
+    ${S.browse || S.results ? '' : recoHTML(false).replace('More ways to help this week', 'Bills that need someone this week')}`;
+}
 function home() {
   const now = Date.now();
-  if (!S.watch.size) return landing();
+  if (!S.watch.size || S.view === 'wizard') return landing();
   const hUp = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const wk = now + 7 * 864e5;
   const mondayOf = t => { const d = new Date(hstDay(t) + 'T12:00:00-10:00'); return t - ((d.getUTCDay() + 6) % 7) * 864e5; };
@@ -717,7 +727,7 @@ function home() {
   const watchRow = b => `<div class="prow ${posCls(b)}" data-open="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> <span class="chipx c-gray explain" data-explain="${esc(STAGE_PLAIN[b.stage] || '')}" title="tap for what this means">${STAGE_LABEL[b.stage] || 'Introduced'}</span>${b.hiphi_position ? ` <span class="chipx c-teal">HIPHI ${POS[b.hiphi_position] || ''}</span>` : ''}<div class="pdesc">${esc(blurb(b, 120))}</div>${!alive(b) ? `<div class="psmall">${whyDead(b)}</div>` : ''}</div>${watchBtn(b)}</div>`;
   const dashPanels = [recent.length ? feed : '', recentH.length ? recentHearings : ''].filter(Boolean);
   const phone = window.innerWidth < 760;
-  const browse = phone ? `<details class="browsefold"><summary>Search or browse more bills</summary>${searchBox()}</details>` : searchBox();
+  const browse = `<div class="addstrip"><input type="search" id="q" placeholder="Search any bill by number or words…" value="${esc(S.q)}"><button class="btn sm" data-nav="find">Browse by issue</button></div>${S.results ? searchBox().replace(/^[\s\S]*?<\/div>/, '') : ''}`;
   return `
     ${stripHTML()}${nudgeHTML()}
     <div class="pubhead"><h1>Your bills and actions</h1><span class="sub">${today} · ${strip}</span></div>
@@ -813,7 +823,7 @@ function help() {
   </div>`;
 }
 function render() {
-  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : home();
+  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : home();
   const b = S.open && findBill(S.open);
   $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '') + (S.helper ? helperHTML() : '');
   wire(); wireHelper();
@@ -825,7 +835,7 @@ function wire() {
   const q = $('#q');
   if (q) { let t; q.oninput = () => { S.q = q.value; clearTimeout(t); t = setTimeout(async () => {
       if (S.q.trim().length < 2) { S.results = null; render(); return; }
-      try { S.browse = null; S.results = await search(S.q.trim()); render(); const el = $('#q'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+      try { S.browse = null; S.results = await search(S.q.trim()); if (S.view === 'home' && S.watch.size) S.view = 'find'; render(); const el = $('#q'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
       catch (e) { toast(e.message, true); } }, 300); }; }
   document.querySelectorAll('[data-watch]').forEach(el => el.onclick = e => { e.stopPropagation(); toggleWatch(el.dataset.watch); });
   document.querySelectorAll('[data-open]').forEach(el => el.onclick = () => openBill(el.dataset.open));
@@ -849,14 +859,14 @@ function wire() {
   $('[data-wiznext]') && ($('[data-wiznext]').onclick = () => { wizSet({ step: 2 }); S.wizRows = null; S.wizPick = []; render(); window.scrollTo(0, 0); });
   $('[data-wizback]') && ($('[data-wizback]').onclick = () => { wizSet({ step: 1 }); render(); window.scrollTo(0, 0); });
   $('[data-wizsearch]') && ($('[data-wizsearch]').onclick = () => { wizSet({ skipped: true }); render(); $('#q')?.focus(); });
-  $('[data-wizrestart]') && ($('[data-wizrestart]').onclick = () => { wizSet({ skipped: false, step: 1 }); S.browse = null; S.results = null; S.q = ''; render(); });
+  $('[data-wizrestart]') && ($('[data-wizrestart]').onclick = () => { wizSet({ skipped: false, step: 1, done: false }); S.browse = null; S.results = null; S.q = ''; S.view = 'wizard'; render(); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-wizpick]').forEach(el => el.onchange = () => { const set = new Set(S.wizPick || []); if (el.checked) set.add(el.dataset.wizpick); else set.delete(el.dataset.wizpick); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-wizall]').forEach(el => el.onclick = () => { const name = el.dataset.wizall, names = groupNames(name); const { picks } = curate((S.wizRows || []).filter(b => (b.coalitions || []).some(n => names.includes(n))), S.wizMore?.[name] ? 40 : 6); const set = new Set(S.wizPick || []); const all = picks.every(b => set.has(b.id)); picks.forEach(b => all ? set.delete(b.id) : set.add(b.id)); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-wizmore]').forEach(el => el.onclick = () => { S.wizMore = { ...(S.wizMore || {}), [el.dataset.wizmore]: true }; const y = window.scrollY; render(); window.scrollTo(0, y); });
   $('[data-wizdone]') && ($('[data-wizdone]').onclick = async () => { const ids = S.wizPick || []; if (!ids.length) return; $('[data-wizdone]').disabled = true;
     ids.forEach(id => S.watch.add(id)); saveLocal();
     if (S.user && !DEMO) { const r = await S.supa.from('watchlist').insert(ids.map(bill_id => ({ user_id: S.user.id, bill_id }))); if (r.error) toast(r.error.message, true); }
-    wizSet({ step: 1, done: true }); onbSet({ issues: true }); await loadBills(); if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+    wizSet({ step: 1, done: true, skipped: true }); onbSet({ issues: true }); S.view = 'home'; await loadBills(); if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
     render(); window.scrollTo(0, 0); toast(`You’re following ${ids.length} bill${ids.length === 1 ? '' : 's'}`); });
   document.querySelectorAll('[data-watchpicks]').forEach(el => el.onclick = async () => { const { picks } = curate(S.browse?.rows || [], 8); const rows = picks.filter(b => !S.watch.has(b.id)); el.disabled = true; rows.forEach(b => S.watch.add(b.id)); saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }

@@ -195,3 +195,8 @@
 .hnext{background:var(--teal-soft);border-radius:10px;padding:9px 12px;font-size:13px;margin:8px 0 2px;line-height:1.45}
 .hform input.missing{border-color:#E9B949;background:#FFFBEE}
 .hbtns .btn[disabled]{opacity:.55;cursor:not-allowed}
+
+/* ---------- 9/16: Add bills ---------- */
+.top.pub .who .addbtn{background:var(--teal);font-weight:600}
+.addstrip{display:flex;gap:8px;align-items:center;margin:0 0 14px}
+.addstrip input{flex:1;max-width:520px}
