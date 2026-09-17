@@ -1421,7 +1421,13 @@ function renderPortfolio(list) {
       <div>${glance}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
-    ${board.html ? foldable('board', `🗂 Where every bill stands <span class="foldsub">${board.a.length} need a hearing · ${board.b.length} hearing scheduled · ${board.c.length} through committee${cur ? ` · next deadline ${esc(cur.label)} ${dlDays === 0 ? 'today' : `in ${dlDays}d`}` : ''}</span>`, '', board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false, true) : ''}
+    ${board.html ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
+      <span class="bsum">
+        <span class="bstat a"><b>${board.a.length}</b><span>need a hearing<small>in committee, nothing scheduled</small></span></span>
+        <span class="bstat b"><b>${board.b.length}</b><span>hearing scheduled<small>or held, awaiting the report</small></span></span>
+        <span class="bstat c"><b>${board.c.length}</b><span>through committee<small>waiting for the floor or conference</small></span></span>
+        ${(g => g ? `<span class="bstat dl ${g.days <= RISK_DAYS ? 'soon' : ''}"><b>${g.days <= 0 ? 'Today' : `${g.days} day${g.days === 1 ? '' : 's'}`}</b><span>${g.days <= 0 ? 'is' : 'until'} ${esc(g.name)} · ${new Date(g.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })}<small>${g.racing.length ? `${g.racing.length} of these bills racing it${g.noHearing.length ? `, ${g.noHearing.length} with no hearing` : ', all with hearings'}` : 'next deadline · none of these bills racing it'}</small></span></span>` : '')((board.gates || []).find(x => !x.past))}
+      </span>`, '', board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false, true) : ''}
     ${recent.length ? foldable('recent', '⚡ Last 72 hours <span class="foldsub">official actions on these bills, newest first</span>', recent.length, recentHtml, false, true) : ''}
     ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
       ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')

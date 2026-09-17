@@ -1299,3 +1299,28 @@ details.boardhow p{margin:6px 0 0;max-width:820px;line-height:1.5}
   details.panel.fold>summary,details.panel.fold[open]>summary{margin:0;border:none;border-radius:12px;background:none;padding:13px 16px}
   details.panel.fold[open]>summary{border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
 }
+
+/* ---- The closed "Where every bill stands" bar: four figures you can read at a glance ---- */
+#fold-board>summary{flex-wrap:wrap;gap:10px 16px;padding:14px 16px}
+#fold-board>summary>span:first-child{display:flex;flex-direction:column;gap:10px;flex:1;min-width:0}
+.bsumtitle{font:700 15px 'Space Grotesk','Inter',sans-serif;color:var(--ink)}
+.bsum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.5fr);gap:10px}
+.bstat{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:10px;border:1px solid var(--line);background:#FAFCFD;min-width:0}
+.bstat>b{font:700 26px/1 'Inter',sans-serif;color:var(--ink);flex:none;min-width:30px;text-align:center}
+.bstat>span{font:600 13px/1.3 'Inter',sans-serif;color:var(--ink);min-width:0}
+.bstat small{display:block;font:400 11.5px/1.35 'Inter',sans-serif;color:var(--muted);margin-top:1px}
+.bstat.a{background:#FFF8E6;border-color:#F1DFA6}.bstat.a>b{color:#A0660A}
+.bstat.b{background:#EEF4FE;border-color:#CFDDF5}.bstat.b>b{color:#2F5FA8}
+.bstat.c{background:#EAF7EE;border-color:#C6E6CF}.bstat.c>b{color:#1E7A4C}
+.bstat.dl{background:#fff;border-style:dashed}
+.bstat.dl>b{font-size:19px;min-width:64px;white-space:nowrap}
+.bstat.dl.soon{border-color:#E9B9B5;border-style:solid;background:#FDF3F2}.bstat.dl.soon>b{color:var(--red)}
+#fold-board[open] .bsum{display:none}
+#fold-board[open]>summary{padding:13px 16px}
+@media (max-width:900px){ .bsum{grid-template-columns:repeat(3,minmax(0,1fr))} .bstat.dl{grid-column:1/-1} }
+@media (max-width:760px){
+  .bstat{flex-direction:column;align-items:flex-start;gap:3px;padding:8px 9px}
+  .bstat>b{font-size:21px;text-align:left}
+  .bstat>span{font-size:11.5px}.bstat small{display:none}
+  .bstat.dl{flex-direction:row;align-items:center;gap:10px}.bstat.dl small{display:block}
+}
