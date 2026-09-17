@@ -991,3 +991,29 @@ details.fold .calnav{margin-left:auto}
 .trow2 .btn{flex:0 0 auto;font-size:11px;padding:4px 9px}
 .trow2 .hot{color:#FFB4A8}
 @media (max-width:760px){ .todaystrip{margin:0 12px 12px} }
+
+/* ---------- 9/17: Inbox and the merged Do this now ---------- */
+.bell{position:relative;background:transparent;color:#fff;font-size:16px;padding:4px 8px;border-radius:8px;margin-right:4px}
+.bell.on{background:#1B3A47}
+.belln{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font:700 10px/1 'Inter',sans-serif;padding:3px 5px;border-radius:9px;min-width:16px;text-align:center}
+.inbox{padding:4px 20px 30px;max-width:980px}
+.inbox .dashhead{padding-left:0;padding-right:0}
+.ilist{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.irow{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-bottom:1px solid #EEF2F5;cursor:pointer;border-left:3px solid transparent}
+.irow:last-child{border-bottom:none}
+.irow:hover{background:#F7FAFB}
+.irow.unread{background:#F1F8F9}
+.irow.unread .il1{font-weight:600}
+.irow.unread .iwhen::before{content:"●";color:var(--teal);margin-right:5px;font-size:9px;vertical-align:1px}
+.iicon{flex:0 0 22px;text-align:center}
+.imain{flex:1;min-width:0}
+.il1{font-size:13.5px;line-height:1.4}
+.il1 b{color:var(--teal)}
+.ibody{font-size:12.5px;color:var(--ink);line-height:1.4;margin-top:2px}
+.iwhen{flex:0 0 auto;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.dtag{display:inline-block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:6px;vertical-align:1px}
+.dtag.you{background:#FDF6E3;color:#7A5B08}
+.dtag.any{background:#EEF2F5;color:#5B7180}
+.sitsep{display:none}
+@media (max-width:760px){ .inbox{padding:4px 12px 30px} }
+.top .who .bell{display:inline-flex !important;align-items:center}

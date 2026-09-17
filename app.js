@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage'].includes(v)
+  view: (v => ['portfolio','pipeline','desk','table','cards','add','settings','help','triage','inbox'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -135,7 +135,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -159,7 +159,9 @@ const DB = {
       S.supa.from('hearing_outcomes').select('*').gte('scheduled_at', new Date(Date.now() - 14 * 864e5).toISOString()),
       S.supa.from('bill_messages').select('*').is('deleted_at', null).gte('created_at', new Date(Date.now() - 90 * 864e5).toISOString()).order('created_at'),
       S.supa.from('bill_message_reads').select('*'),
+      S.supa.rpc('my_inbox', { p_limit: 200 }),
     ]);
+    S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
     S.chatSeen = Object.fromEntries((reads?.data || []).map(r => [r.bill_id, r.seen_at]));
     S.slackCfg = scfg?.data?.value || null;
@@ -479,6 +481,21 @@ const DB = {
     const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
     if (!j.ok) throw new Error(j.error || 'could not start'); return j;
   },
+  // ---- inbox (migration 032): everything addressed to me, read or unread ----
+  async loadInbox() {
+    if (DEMO) return S.inbox;
+    const { data, error } = await S.supa.rpc('my_inbox', { p_limit: 200 }); if (error) throw error; S.inbox = data || []; return S.inbox;
+  },
+  async inboxMark(keys) {
+    const set = new Set(keys); (S.inbox || []).forEach(i => { if (set.has(i.key)) i.unread = false; });
+    if (DEMO || !keys.length) return;
+    const { error } = await S.supa.rpc('inbox_mark', { p_keys: keys }); if (error) throw error;
+  },
+  async inboxMarkAll() {
+    (S.inbox || []).forEach(i => { i.unread = false; });
+    if (DEMO) return;
+    const { error } = await S.supa.rpc('inbox_mark_all'); if (error) throw error;
+  },
   // ---- bill chat (migration 025) ----
   async sendMessage(billId, body) {
     const m = { id: 'm' + Date.now(), bill_id: billId, advocate_id: S.me?.id, body, created_at: new Date().toISOString() };
@@ -491,6 +508,8 @@ const DB = {
   },
   async markChatSeen(billId) {
     S.chatSeen[billId] = new Date().toISOString();
+    const keys = (S.inbox || []).filter(i => i.unread && i.kind === 'message' && i.bill_id === billId).map(i => i.key);
+    if (keys.length) DB.inboxMark(keys).catch(() => {});
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
@@ -609,6 +628,14 @@ async function demoInit() {
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
   S.demoTriaged = new Set();
+  // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
+  S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id)).map(b => b.id)); const out = [];
+    for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
+    for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
+      if (d.status === 'review') out.push({ key: 'n:' + d.id, kind: 'testimony', bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
+      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
+    for (const a of DEMO_TL) if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 3 * 864e5 });
+    return out.sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 200); };
   S.messages = {}; S.chatSeen = {};
   if (anchor) { const kv = byIni.KV || S.advocates[1]?.id, ago = h => new Date(Date.now() - h * 36e5).toISOString();
     S.messages[anchor.id] = [
@@ -651,6 +678,7 @@ async function demoInit() {
   S.recentEvents = [...sc.since.map(e => ({ ...e, source: 'auto', type: 'status_auto' })), ...DEMO_TL]
     .filter(e => e.occurred_at).sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)));
   S.session = { user: { email: 'nate@hiphi.org' } };
+  S.inbox = S.buildDemoInbox();
 }
 
 // ---------------- filtering ----------------
@@ -730,7 +758,7 @@ function chrome(inner) {
       </div>
       <input type="search" class="qbox topq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
       <span class="fresh"${stale ? ' style="color:#C2483B;font-weight:600" title="The daily sync has not completed successfully recently - data may be stale"' : ''}>${SESSION_YEAR} session · ${S.bills.length} tracked · ${freshTxt}</span>
-      <span class="who">${av(S.me)}<button id="logout">sign out</button></span>
+      <span class="who"><button class="bell ${S.view === 'inbox' ? 'on' : ''}" data-view="inbox" title="Inbox: everything addressed to you (g n)">🔔${(n => n ? `<span class="belln">${n > 99 ? '99+' : n}</span>` : '')((S.inbox || []).filter(i => i.unread).length)}</button>${av(S.me)}<button id="logout">sign out</button></span>
     </div>
     <div class="controls">
       <input type="search" class="qbox rowq" placeholder="Search any bill…" value="${esc(S.q)}" aria-label="Search any bill">
@@ -1024,7 +1052,6 @@ function renderPortfolio(list) {
       if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
     }
     if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.title + ' ' + m.last : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
-    if (unreadCount(b)) situations.push({ b, t: now, kind: 'chat', verb: 'Reply in chat', why: `${unreadCount(b)} new message${unreadCount(b) === 1 ? '' : 's'} on this bill`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="chat">Open chat</button>` });
   }
   situations.sort((x, y) => byPri(x, y) || x.t - y.t);
   const SIT_CAP = 8, sitMore = (S.boardMore || {}).situations;
@@ -1047,8 +1074,14 @@ function renderPortfolio(list) {
         <div class="psmall">${esc(why)}${h ? ` · hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? (inWhen(h.testimony_deadline) === 'passed' ? ' · testimony deadline passed' : ` · testimony due <b${soon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}` : ''}</div></div>
       <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span>
     </div>`; };
-  const waitingHtml = waitingMine.slice(0, WAIT_CAP).map(waitRow).join('') + (waitingMine.length > WAIT_CAP ? `<div class="pempty">…and ${waitingMine.length - WAIT_CAP} more</div>` : '')
-    + (situations.length ? `<div class="sitsep">Also on your bills</div>${situationsHtml}` : '');
+  // One list: your workflow steps ("Your step") and unclaimed situations ("Needs someone"),
+  // by day, your steps first within a day. Reading (chat, notices) lives in the Inbox.
+  const dayKey = t => t === Infinity ? '9999' : hstDay(t);
+  const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: waitRow(x).replace('<b class="verb">', '<span class="dtag you">Your step</span><b class="verb">') })),
+                  ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: sitRow(x).replace('<b class="verb">', '<span class="dtag any">Needs someone</span><b class="verb">') }))]
+    .sort((x, y) => dayKey(x.t).localeCompare(dayKey(y.t)) || (y.mine - x.mine) || x.pri - y.pri || x.t - y.t);
+  const DO_CAP = 10, doMore = (S.boardMore || {}).donow;
+  const waitingHtml = (doMore ? merged : merged.slice(0, DO_CAP)).map(x => x.html).join('') + (merged.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="donow">${doMore ? 'Show fewer' : `…and ${merged.length - DO_CAP} more`}</button>` : '');
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
       ${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : '';
@@ -1136,7 +1169,7 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `your steps first${me.is_admin ? ' · the team’s are under Waiting on others' : ''}${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitSub = `soonest first · “Your step” is waiting on you, “Needs someone” is unclaimed${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
   const waitPanel = ((waitingMine.length || filedToday || situations.length)
     ? panel('pf-wait', '✊ Do this now', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
@@ -1938,7 +1971,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / d / t / c / s / i', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake)'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / d / t / c / s / i / n', 'Go to Portfolio, Desk, Table, Cards, Settings, Triage (intake), Inbox (notifications)'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -1970,6 +2003,36 @@ function parseTrackerCsv(text) {
   const h = rows[hi], ix = n => h.indexOf(n);
   return rows.slice(hi + 1).map(r => ({ num: (r[ix('Bill Number')] || '').replace(/\s+/g, '').toUpperCase(), coalition: (r[ix('Coalition')] || '').trim(), position: (r[ix('Coalition Position')] || '').trim() }))
     .filter(r => /^(HB|SB)\d+$/.test(r.num));
+}
+const billById = id => S.bills.find(b => b.id === id);
+// ---------------- Inbox: what was addressed to you, and it stays ----------------
+const INBOX_KINDS = [['all', 'All'], ['message', '💬 Messages'], ['testimony', '📝 Testimony'], ['hearing', '🏛 Hearings'], ['status', '📈 Status'], ['deadline', '⏰ Deadlines'], ['system', '⚙️ System']];
+const INBOX_ICON = { message: '💬', testimony: '📝', hearing: '🏛', status: '📈', deadline: '⏰', system: '⚙️' };
+const unslack = t => String(t || '').replace(/<([^|>]+)\|([^>]+)>/g, '$2').replace(/<([^>]+)>/g, '$1').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+function renderInbox() {
+  const f = S.inboxFilter || 'all', all = S.inbox || [];
+  const rows = all.filter(i => f === 'all' || i.kind === f);
+  const unread = all.filter(i => i.unread).length;
+  const ago = iso => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 0 ? fmtDT(iso) : h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : h < 24 * 7 ? `${Math.round(h / 24)}d ago` : fmtDate(iso); };
+  return `<div class="inbox">
+    <div class="dashhead"><h1>Inbox</h1><span class="sub">${unread ? `<b>${unread}</b> unread · ` : ''}messages, testimony steps, hearings and status changes on the bills you own or follow. Nothing here disappears when you open it.${unread ? ` <button class="linkbtn" id="inbox-readall">Mark all read</button>` : ''}</span></div>
+    <div class="tchips">${INBOX_KINDS.map(([k, l]) => { const n = k === 'all' ? all.length : all.filter(i => i.kind === k).length; return n || k === 'all' ? `<button class="fchip ${f === k ? 'on' : ''}" data-inboxf="${k}">${l} <span class="cnt">${n}</span></button>` : ''; }).join('')}</div>
+    <div class="ilist">${rows.map(i => { const b = i.bill_id && billById(i.bill_id); return `
+      <div class="irow ${i.unread ? 'unread' : ''} ${b ? posCls(b) : ''}" data-inbox="${esc(i.key)}">
+        <span class="iicon">${INBOX_ICON[i.kind] || '•'}</span>
+        <div class="imain"><div class="il1">${i.bill_number ? `<b>${esc(i.bill_number)}</b> ` : ''}${esc(unslack(i.title))}</div>
+          ${i.body ? `<div class="ibody">${esc(unslack(i.body).slice(0, 220))}</div>` : ''}${b ? `<div class="psmall">${esc(blurb(b, 90))}</div>` : ''}</div>
+        <span class="iwhen">${ago(i.at)}</span>
+      </div>`; }).join('') || '<div class="pempty">Nothing here yet. Messages, workflow steps and changes on your bills will collect in this list.</div>'}</div>
+  </div>`;
+}
+function wireInbox() {
+  document.querySelectorAll('[data-inboxf]').forEach(el => el.onclick = () => { S.inboxFilter = el.dataset.inboxf; render(); });
+  $('#inbox-readall') && ($('#inbox-readall').onclick = async () => { try { await DB.inboxMarkAll(); render(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
+    DB.inboxMark([i.key]).catch(() => {});
+    if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
+    await openDrawer(i.bill_id); if (i.tab === 'chat') S.drawerOpen.chat = true; else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
 }
 // ---------------- Triage: every introduced bill gets one decision ----------------
 // Sandbox: keyword rules against the untracked index (titles + descriptions).
@@ -2609,6 +2672,7 @@ function render() {
     : S.view === 'cards' ? renderCards(list)
     : S.view === 'settings' ? renderSettings()
     : S.view === 'triage' ? renderTriage()
+    : S.view === 'inbox' ? renderInbox()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -2620,6 +2684,7 @@ function render() {
 }
 function wire() {
   if (S.view === 'triage') wireTriage();
+  if (S.view === 'inbox') wireInbox();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
@@ -2983,7 +3048,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', d: 'desk', t: 'table', c: 'cards', s: 'settings', h: 'help', i: 'triage', n: 'inbox' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
