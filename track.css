@@ -147,3 +147,23 @@
 .pickt{display:block;font-size:12.5px;color:var(--ink);line-height:1.4;margin-top:2px}
 .pickhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px 4px;font-weight:600;font-size:13px}
 @media (max-width:760px){ .wizhead h1{font-size:20px} .wizfoot{flex-wrap:wrap} .wizfoot .btn{flex:1 1 auto;text-align:center} }
+
+/* ---------- 9/16: public polish — layout, headline, plain rail, browse fold, brand ---------- */
+.top.pub .brand{color:#AFC3CF;font-size:11.5px;margin-left:10px;text-decoration:none;white-space:nowrap}
+.top.pub .brand:hover{color:#fff}
+.drawer .headline{font-size:16px;line-height:1.4;color:var(--ink);margin:4px 0 2px;font-weight:500}
+.drawer .dhead .sub{font-size:12px;color:var(--muted)}
+.drawer .plain.lead{font-size:14.5px;line-height:1.5;margin:0 0 8px;font-weight:500}
+.pv-rail.plain .sl{font-family:'Inter';font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
+.browsefold{margin:0 0 12px}
+.browsefold summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--teal);padding:8px 0;list-style:none}
+.browsefold summary::before{content:"▸ "}
+.browsefold[open] summary::before{content:"▾ "}
+.awaiting{padding:8px 14px 10px;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line)}
+.donow .pempty{font-size:13px;line-height:1.5}
+.dash.one{grid-template-columns:1fr}
+@media (max-width:760px){
+  .tourcard{top:12px;bottom:auto}
+  .top.pub .brand{display:none}
+  .stagenow{display:none}
+}
