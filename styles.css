@@ -1172,3 +1172,30 @@ details.fold .calnav{margin-left:auto}
   .rail:hover .rfacts,.rail:focus-within .rfacts,body.rail-pinned .rfacts{height:auto}
   .rfacts b{color:#fff;font-weight:600}.rfacts .hot{color:#F0A097}
 }
+
+/* ---- Action needed v3: clock · the ask in a sentence · one button ---- */
+.prow.arow{display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:14px 16px 14px 12px;border-left:4px solid var(--teal);background:#fff}
+.prow.arow.open{border-left-color:#C5D3DA}
+.awhen{text-align:center;line-height:1.15;color:var(--muted)}
+.awhen b{display:block;font:700 20px/1.1 'Inter',sans-serif;color:var(--ink)}
+.awhen span{display:block;font-size:10.5px;margin-top:3px}
+.awhen.warm b{color:#B7791F}
+.awhen.hot b,.awhen.hot span{color:var(--red)}
+.awhen.over{background:var(--red);border-radius:10px;padding:7px 4px}
+.awhen.over b,.awhen.over span{color:#fff}
+.aask{font:600 15px/1.4 'Inter',sans-serif;color:var(--ink)}
+.aask .abill{color:var(--teal);font-weight:700;white-space:nowrap}
+.aask .pri{vertical-align:1px}
+.aask .awhere{display:block;font-weight:500;color:var(--ink);font-size:13.5px;margin-top:1px}
+.anote{margin-top:4px;font-size:13px;color:var(--ink);border-left:3px solid #E8D9A8;padding-left:9px;font-style:italic}
+.actx{margin-top:4px;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.actx .dtag{margin-right:7px}
+.abtn .btn{min-width:124px;justify-content:center;white-space:nowrap}
+.arow .btn.pri,.arow .btn:not(.ghost){background:var(--teal);color:#fff}
+@media (max-width:760px){
+  .prow.arow{grid-template-columns:58px minmax(0,1fr);padding:12px 12px 12px 8px;gap:8px 12px;align-items:start}
+  .awhen b{font-size:17px}
+  .aask{font-size:14.5px}
+  .abtn{grid-column:2}
+  .abtn .btn{min-width:0}
+}

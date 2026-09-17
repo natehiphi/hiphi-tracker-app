@@ -1124,12 +1124,12 @@ function renderPortfolio(list) {
     const ups = S.hearings.filter(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * day).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee);
-      if (!attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
-      if (!dr) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'nodraft', verb: 'No draft yet', why: `The ${h.committee} hearing is ${fmtDT(h.scheduled_at)} and no testimony draft exists. It is created from the notice within the hour; if it does not appear, ask Nate.`, btn: `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` });
-      else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
-      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
+      if (!attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', h, dr, verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
+      if (!dr) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'nodraft', h, dr, verb: 'No draft yet', why: `The ${h.committee} hearing is ${fmtDT(h.scheduled_at)} and no testimony draft exists. It is created from the notice within the hour; if it does not appear, ask Nate.`, btn: `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` });
+      else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', h, dr, verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
+      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', h, dr, verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
     }
-    if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.title + ' ' + m.last : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
+    if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', st, verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.title + ' ' + m.last : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
   }
   situations.sort((x, y) => byPri(x, y) || x.t - y.t);
   const SIT_CAP = 8, sitMore = (S.boardMore || {}).situations;
@@ -1152,18 +1152,45 @@ function renderPortfolio(list) {
         <div class="psmall">${esc(why)}${h ? ` · hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? (inWhen(h.testimony_deadline) === 'passed' ? ' · testimony deadline passed' : ` · testimony due <b${soon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}` : ''}</div></div>
       <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span>
     </div>`; };
-  // The clock on every row: time left to the thing that makes it urgent
-  // (testimony deadline, hearing start, or the bill's committee deadline).
-  const timer = (t, label) => { if (!t || t === Infinity) return ''; const ms = t - now, h = Math.abs(ms) / 36e5;
-    const txt = h < 1 ? `${Math.max(1, Math.round(Math.abs(ms) / 6e4))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`;
-    const cls = ms < 0 ? 'over' : h < 24 ? 'hot' : h < 72 ? 'warm' : '';
-    return `<span class="timer ${cls}" title="${esc(label)} ${fmtDT(new Date(t).toISOString())}">${ms < 0 ? `${txt} overdue` : `${txt} left`}<small>${esc(label)}</small></span>`; };
   // One list: your workflow steps ("Your step") and unclaimed situations ("Needs someone"),
   // by day, your steps first within a day. Reading (chat, notices) lives in the Inbox.
   const dayKey = t => t === Infinity ? '9999' : hstDay(t);
-  const clockLabel = x => x.kind === 'attend' ? 'to the hearing' : x.kind === 'chair' ? 'to the deadline' : x.kind === 'ask' ? 'to the hearing' : 'to the testimony deadline';
-  const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: waitRow(x).replace('<b class="verb">', '<span class="dtag you">Your step</span><b class="verb">').replace('<span class="dkav">', timer(x.t, x.h?.testimony_deadline ? 'to the testimony deadline' : 'to the hearing') + '<span class="dkav">') })),
-                  ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: sitRow(x).replace('<b class="verb">', '<span class="dtag any">Needs someone</span><b class="verb">').replace('<span class="dkav">', timer(x.t, clockLabel(x)) + '<span class="dkav">') }))]
+  // One row, three parts: the clock, the ask as a plain sentence with one
+  // line of context under it, and the one button that does it.
+  const hn = b => `<b class="abill">${esc(billNum(b).replace(/^(\D+)/, '$1 '))}</b>${b.priority === 1 ? ' <span class="pri">P1</span>' : ''}`;
+  const first = id => esc((advocate(id)?.full_name || 'a teammate').split(' ')[0]);
+  const askOfDraft = ({ d, b }) => d.status === 'review' ? `Review and approve ${first(d.submitted_by)}’s ${esc(d.committee)} testimony on ${hn(b)}`
+    : d.status === 'second_review' ? `Give the second approval on the ${esc(d.committee)} testimony for ${hn(b)}`
+    : d.status === 'approved' ? `File the approved ${esc(d.committee)} testimony for ${hn(b)} at the Capitol`
+    : d.review_note ? `Revise your ${esc(d.committee)} testimony on ${hn(b)} and send it back for review`
+    : `Write the ${esc(d.committee)} testimony for ${hn(b)}, then submit it for review`;
+  const askOfSit = ({ b, kind, h, st, dr }) => kind === 'attend' ? `Someone needs to attend the ${esc(h.committee)} hearing on ${hn(b)} <span class="awhere">${fmtDT(h.scheduled_at)}${h.room ? ', ' + esc(roomShort(h.room)) : ''}</span>`
+    : kind === 'nodraft' ? `${hn(b)} has a ${esc(h.committee)} hearing but no testimony draft yet`
+    : kind === 'stale' ? `Check the ${esc(h.committee)} testimony for ${hn(b)}: the bill changed to ${esc(b.current_version)}`
+    : kind === 'ask' ? `Write what the public should say about ${hn(b)} before its hearing`
+    : `Ask the ${esc(st.committee)} chair to schedule a hearing for ${hn(b)}`;
+  const hearingLine = h => h ? `${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.room ? ', ' + esc(roomShort(h.room)) : ''}` : '';
+  const ctxOfSit = ({ kind, h, st, dr }) => kind === 'attend' ? ''
+    : kind === 'nodraft' ? `${hearingLine(h)} · the draft is made from the notice within the hour; if it does not appear, tell Nate`
+    : kind === 'stale' ? `${hearingLine(h)} · the draft was written for ${esc(dr.version || 'the introduced bill')}`
+    : kind === 'ask' ? `${hearingLine(h)} · the public page shows only the official title`
+    : `P1 with no hearing · it must be heard by ${fmtDate(st.deadline.date)} (${esc(st.deadline.label)})`;
+  const clock = (t, until) => { if (!t || t === Infinity) return '<div class="awhen none"><b>—</b><span>no date</span></div>';
+    const ms = t - now, h = Math.abs(ms) / 36e5, txt = h < 1 ? `${Math.max(1, Math.round(Math.abs(ms) / 6e4))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`;
+    return `<div class="awhen ${ms < 0 ? 'over' : h < 24 ? 'hot' : h < 72 ? 'warm' : ''}" title="${fmtDT(new Date(t).toISOString())}"><b>${txt}</b><span>${ms < 0 ? 'overdue' : 'until ' + until}</span></div>`; };
+  const topic = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 80) return t; const c = t.slice(0, 80); return c.slice(0, c.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
+  const actRow = ({ mine, b, t, until, ask, ctx, note, btn, extra = '' }) => `
+    <div class="prow arow ${mine ? 'mine' : 'open srow'}" data-bill="${b.id}">
+      ${clock(t, until)}
+      <div class="amain"><div class="aask">${ask}</div>
+        ${note ? `<div class="anote">“${esc(note)}”</div>` : ''}
+        <div class="actx"><span class="dtag ${mine ? 'you' : 'any'}">${mine ? 'Yours' : 'Unclaimed'}</span>${esc(topic(b))}${ctx ? ' · ' + ctx : ''}</div></div>
+      <div class="abtn">${btn}</div>
+    </div>`;
+  const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: actRow({ mine: true, b: x.b, t: x.t, until: x.h?.testimony_deadline ? 'it’s due' : 'the hearing',
+                      ask: askOfDraft(x), note: x.d.status === 'draft' ? x.d.review_note : '', ctx: hearingLine(x.h), btn: draftActionBtn(x.b, x.d.committee) }) })),
+                  ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: actRow({ mine: false, b: x.b, t: x.t, until: x.kind === 'attend' || x.kind === 'ask' ? 'the hearing' : x.kind === 'chair' ? 'the deadline' : 'it’s due',
+                      ask: askOfSit(x), ctx: ctxOfSit(x), btn: x.btn }) }))]
     .sort((x, y) => dayKey(x.t).localeCompare(dayKey(y.t)) || (y.mine - x.mine) || x.pri - y.pri || x.t - y.t);
   // Short by default: five rows, except that anything overdue or due inside
   // 24 hours is never hidden, however many there are.
@@ -1259,7 +1286,7 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `soonest first, with the time left · “Your step” is waiting on you, “Needs someone” is unclaimed${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitSub = `soonest first · “Yours” is waiting on you, “Unclaimed” is open to anyone${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
   const waitPanel = ((waitingMine.length || filedToday || situations.length)
     ? panel('pf-wait', '🎯 Action needed', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
