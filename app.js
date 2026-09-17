@@ -842,6 +842,7 @@ function filterPanelHTML() {
 // ▶ the hearing's video: exact link if someone saved one, else the chamber's YouTube channel.
 const streamOf = h => hearingStream(h, S.committees?.[String(h.committee || '').split('/')[0]]?.chamber);
 const streamLink = (h, cls = 'streamlink') => { const v = streamOf(h); return v ? `<a class="${cls}${v.state === 'live' ? ' live' : ''}" href="${esc(v.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(v.hint || v.channel)}">▶ ${v.label}</a>` : ''; };
+const loadFolds = () => { try { return JSON.parse(localStorage.getItem('hiphi_folds') || '{}') || {}; } catch { return {}; } };
 function chrome(inner) {
   const upcoming = S.hearings
     .filter(h => new Date(h.scheduled_at) > new Date())
@@ -920,7 +921,7 @@ function pulseCell(b) {
 // column A, waiting for its next hearing. Triple-filing deadlines only bind
 // 3-stop bills; everyone else is measured against the lateral that follows.
 const STAGE_ORDER = Object.fromEntries(STAGES.map(([v], i) => [v, i]));
-const BOARD_CAP = 15;
+const BOARD_CAP = 8;
 function deadlineCalendar() {
   return Object.entries(DEADLINES).flatMap(([phase, arr]) => arr.map(([label, date]) => ({ phase, label, date })))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -1034,7 +1035,7 @@ function pfBoard(list) {
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
       <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it is racing; bills re-sort as dates pass.</span></div>
     ${sessionTrack(gates)}
-    <p class="boardhow">${BOARD_EXPLAINER}</p>
+    <details class="boardhow"><summary>How to read this</summary><p>${BOARD_EXPLAINER}</p></details>
     <div class="board3">
       ${col('a', a, ({ b, st, dl }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
@@ -1304,10 +1305,8 @@ function renderPortfolio(list) {
     <div class="prow calrow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
       <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}<span class="calwho">${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</span></span>
       <div class="pmain"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span><div class="tagline">${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}</div>
-        <div class="pdesc">${esc(blurb(b, 96))}</div>
-        <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}</div></div>
-      <div class="calbtns">${draftActionBtn(b, h.committee)}
-      <a class="btn sm ghost" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Capitol ↗</a>${hstDay(h.scheduled_at) === hstDay(now) ? streamLink(h, 'btn sm ghost streambtn') : ''}</div>
+        <div class="pdesc one">${esc(blurb(b, 60))}</div>
+        <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}${hstDay(h.scheduled_at) === hstDay(now) ? ' ' + streamLink(h) : ''}</div></div>
     </div>`; };
   const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
@@ -1356,15 +1355,15 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `soonest first · “Yours” is waiting on you, “Unclaimed” is open to anyone${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitSub = `soonest first${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
   const waitPanel = ((waitingMine.length || filedToday || situations.length)
     ? panel('pf-wait', '🎯 Action needed', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
   // Layout adapts: a short feed sits under the checklist instead of beside it.
   const stacked = false;
-  const foldable = (id, title, count, inner, openByDefault) => !mobile ? inner : `
-    <details class="fold" id="fold-${id}" ${(S.folds || {})[id] ?? openByDefault ? 'open' : ''}>
-      <summary><span>${title}</span><span class="chipx c-gray">${count}</span></summary>${inner}</details>`;
+  const foldable = (id, title, count, inner, openByDefault, always = false) => !mobile && !always ? inner : `
+    <details class="fold" id="fold-${id}" ${(S.folds ??= loadFolds())[id] ?? openByDefault ? 'open' : ''}>
+      <summary><span>${title}</span>${count === '' ? '' : `<span class="chipx c-gray">${count}</span>`}</summary>${inner}</details>`;
   const legend = `<span class="legend"><i class="sw s"></i>support <i class="sw o"></i>oppose <i class="sw n"></i>comments</span>`;
   const wkLabel = wkOff === 0 ? 'This week' : wkOff === 1 ? 'Next week' : wkOff === -1 ? 'Last week'
     : 'Week of ' + new Date(hstDay(wkStart) + 'T12:00:00-10:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
@@ -1392,7 +1391,6 @@ function renderPortfolio(list) {
     <div class="panel glance" id="pf-glance"><div class="ph"><span>📊 At a glance</span><span class="psub">${esc(today)}</span></div>
       <div class="gsec"><div class="gh"><span>Inbox</span><a data-view="inbox">open ›</a></div>
         <div class="gtiles two">${tile(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${tile(inbUpd.length, 'updates on your bills', 'data-view="inbox" data-inboxgo="updates"')}</div>
-        ${inbNeeds.slice(0, 3).map(i => `<div class="gline" data-inbox="${esc(i.key)}"><span class="gi">${INBOX_ICON[i.kind] || '•'}</span><span class="gt"><b>${esc(i.bill_number || '')}</b> ${esc(unslack(i.title))}</span><span class="gw">${agoShort(i.at)}</span></div>`).join('') || '<div class="gnone">Nothing is waiting on you. 🤙</div>'}
       </div>
       <div class="gsec"><div class="gh"><span>This week</span></div>
         <div class="gtiles">${tile(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${tile(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${tile(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}</div>
@@ -1400,10 +1398,7 @@ function renderPortfolio(list) {
       </div>
       <div class="gsec"><div class="gh"><span>Bills</span><span class="gsub">${live.length} live${deadN ? ` · <a data-jump="pf-dead">${deadN} did not advance</a>` : ''}</span></div>
         <div class="gtiles">${tile(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${tile(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${tile(board.c.length, 'through committee', 'data-jump="pf-board-a"')}</div>
-        <div class="gbar" title="Positions on live bills">${[['s', ['strongly_support', 'support'], 'support'], ['o', ['strongly_oppose', 'oppose'], 'oppose'], ['n', ['neutral'], 'comments'], ['m', ['monitor'], 'monitor']].map(([c, k, l]) => { const n = posN(k); return n ? `<i class="${c}" style="flex:${n}" title="${n} ${l}"></i>` : ''; }).join('')}</div>
-        <div class="glegend"><span><i class="s"></i>${posN(['strongly_support', 'support'])} support</span><span><i class="o"></i>${posN(['strongly_oppose', 'oppose'])} oppose</span><span><i class="n"></i>${posN(['neutral'])} comment${posN(['neutral']) === 1 ? '' : 's'}</span><span><i class="m"></i>${posN(['monitor'])} monitor</span><span class="gp1">${live.filter(b => b.priority === 1).length} P1</span></div>
       </div>
-      <div class="gsec last"><div class="gtiles two">${tile(waitingOthers.length, 'testimony steps on teammates', 'data-jump="pf-others"')}${tile(recent.length, 'official actions in 72h', 'data-jump="pf-recent"')}</div></div>
     </div>`;
   // One plain sentence on top: the next deadline and what it means for these bills, then today.
   const num = n => n < 10 ? ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] : String(n);
@@ -1426,8 +1421,8 @@ function renderPortfolio(list) {
       <div>${glance}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
-    ${foldable('board', '🗂 Where every bill stands', board.a.length + board.b.length + board.c.length, board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false)}
-    ${recent.length ? `<div class="calwrap">${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, false)}</div>` : ''}
+    ${board.html ? foldable('board', `🗂 Where every bill stands <span class="foldsub">${board.a.length} need a hearing · ${board.b.length} hearing scheduled · ${board.c.length} through committee${cur ? ` · next deadline ${esc(cur.label)} ${dlDays === 0 ? 'today' : `in ${dlDays}d`}` : ''}</span>`, '', board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false, true) : ''}
+    ${recent.length ? foldable('recent', '⚡ Last 72 hours <span class="foldsub">official actions on these bills, newest first</span>', recent.length, recentHtml, false, true) : ''}
     ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
       ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')
       (list.filter(b => diedish(b) && b.position !== 'monitor').sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)))}`;
@@ -2850,14 +2845,16 @@ function wire() {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
     rerenderKeep(isMobile() ? '#fold-week' : null, isMobile() ? 'fold-week' : 'pf-week');
   });
-  document.querySelectorAll('details.fold').forEach(d => d.ontoggle = () => { S.folds = S.folds || {}; S.folds[d.id.replace('fold-', '')] = d.open; });
+  document.querySelectorAll('details.fold').forEach(d => d.ontoggle = () => { S.folds ??= loadFolds(); S.folds[d.id.replace('fold-', '')] = d.open; try { localStorage.setItem('hiphi_folds', JSON.stringify(S.folds)); } catch {} });
   document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
     S.boardMore[k] = !S.boardMore[k]; rerenderKeep(isMobile() ? '#fold-board' : null, 'pf-board-' + k);
   });
   document.querySelectorAll('[data-browse]').forEach(el => el.onclick = () => { S.q = ''; clearFilters(); S.camps = new Set([el.dataset.browse]); saveFilters(); S.owner = 'all'; render(); });
-  document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () =>
-    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => { const t = document.getElementById(el.dataset.jump); if (!t) return;
+    for (let d = t.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
+    if (t.tagName === 'DETAILS') t.open = true;
+    t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   // Portfolio search reaches every bill: the untracked half comes from the
   // database, debounced, and the page re-renders when it lands.
   if (S.view === 'portfolio') {
