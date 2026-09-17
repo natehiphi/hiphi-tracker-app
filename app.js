@@ -1868,6 +1868,11 @@ function renderSettings() {
       <div class="btns"><button class="btn ghost" id="st-save-google">Save Google keys</button>
         <button class="btn" id="st-connect-cal">Connect Google Calendar</button>
         <button class="btn ghost" id="st-save-cal">Save calendar settings</button></div>
+      <h3>YouTube</h3>
+      <p class="tok" id="st-yt-status"></p>
+      <p class="tok">Hearing videos are matched from the chambers’ public feeds (newest 15 per chamber) with no key. A YouTube Data API key lets the daily sync search the last week of videos and lets Claude backfill the whole session. Google Cloud → the HIPHI project → APIs &amp; Services → Enable “YouTube Data API v3” → Credentials → Create API key. Type <i>clear</i> to remove it.</p>
+      <label class="row"><span style="min-width:140px">API key</span><input id="st-ytkey" type="password" placeholder="AIza…" autocomplete="new-password"></label>
+      <div class="btns"><button class="btn ghost" id="st-save-ytkey">Save YouTube key</button></div>
       <h3>Slack</h3>
       <p class="tok" id="st-slack-status"></p>
       <label class="row"><span style="min-width:140px">Bot token</span><input id="st-slacktok" type="password" placeholder="xoxb-…" autocomplete="new-password"></label>
@@ -1899,6 +1904,7 @@ function wireSettings() {
           ? `✅ Connected${cal.calendar_id ? ' · calendar "' + esc(cal.name || 'HIPHI Hearings') + '" is set' : ' · calendar not created yet, press Connect again'}`
           : `Not connected. Keys: Client ID ${st.google_oauth_client_id ? 'set ✓' : 'missing'} · Client secret ${st.google_oauth_client_secret ? 'set ✓' : 'missing'}. Save both, then press Connect.`;
         $('#st-slack-status').textContent = st.slack_bot_token ? '✅ Bot token set' : 'No bot token saved.';
+        $('#st-yt-status').textContent = st.youtube_api_key ? '✅ API key set · the daily sync searches the last week of videos' : 'No key saved · feed only (newest 15 videos per chamber).';
       } catch (e) { $('#st-cal-status').textContent = e.message; }
     };
     showStatus();
@@ -1908,6 +1914,8 @@ function wireSettings() {
         await DB.setSecret(k, v.toLowerCase() === 'clear' ? '' : v); $(el).value = '';
       }
     };
+    $('#st-save-ytkey').onclick = async () => {
+      try { await saveKeys([['youtube_api_key', '#st-ytkey']]); toast('YouTube key saved'); showStatus(); } catch (e) { toast(e.message, true); } };
     $('#st-save-google').onclick = async () => {
       try { await saveKeys([['google_oauth_client_id', '#st-gid'], ['google_oauth_client_secret', '#st-gsec']]); toast('Google keys saved'); showStatus(); }
       catch (e) { toast(e.message, true); }
