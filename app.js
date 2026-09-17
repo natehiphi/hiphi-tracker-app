@@ -1,6 +1,6 @@
 // ============================================================
 // HIPHI Bill Tracker — staff app
-// Views: Portfolio · Inbox · Table · Weekly memo · Triage  (+ bill drawer, add bills)
+// Views: Dashboard (view key 'portfolio') · Inbox · Table · Weekly memo · Triage  (+ bill drawer, add bills)
 // Data: Supabase (RLS-protected). Demo mode: append ?demo=1
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
@@ -775,7 +775,7 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Portfolio'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = localStorage.getItem('railPinned') === '1';
@@ -868,7 +868,7 @@ function chrome(inner) {
     <div class="top staff">
       <span class="logo"><span class="mark">☀</span>HIPHI Bill Tracker</span>
       <div class="viewtabs">
-        <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}"><span class="ti" aria-hidden="true">⌂</span>Portfolio</button>
+        <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}"><span class="ti" aria-hidden="true">⌂</span>Dashboard</button>
         <button data-view="inbox" class="${S.view==='inbox'?'on':''}"><span class="ti" aria-hidden="true">✉</span>Inbox${(n => n ? ` <span class="navn">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>
         <button data-view="add" class="${S.view==='add'?'on':''}"><span class="ti" aria-hidden="true">＋</span><span class="lg">+ Add bills</span><span class="sm">Add</span></button>
         <details class="more">
@@ -979,24 +979,25 @@ function sessionGates(list) {
 }
 function sessionTrack(gates) {
   if (!gates.length) return '';
-  const now = Date.now(), sc = (S.sessionCal || []).find(c => c.session_year === SESSION_YEAR);
-  const start = sc?.opening_day ? new Date(String(sc.opening_day).slice(0, 10) + 'T00:00:00-10:00').getTime() : new Date(gates[0].date + 'T00:00:00-10:00').getTime() - 8 * 864e5;
-  const end = new Date(gates[gates.length - 1].date + 'T23:59:59-10:00').getTime();
-  const pct = t => Math.max(0, Math.min(100, (t - start) / (end - start) * 100)).toFixed(2);
-  const ld = legislativeDay();
-  const lastPast = gates.filter(g => g.past).slice(-1)[0];
-  const cards = gates.filter(g => !g.past || g === lastPast);
+  const now = Date.now(), sc = (S.sessionCal || []).find(c => c.session_year === SESSION_YEAR), ld = legislativeDay();
+  const at = d => new Date(d + 'T23:59:59-10:00').getTime();
+  const lastPast = gates.filter(g => g.past).slice(-1)[0], earlier = gates.filter(g => g.past).length - (lastPast ? 1 : 0);
+  // Steps are evenly spaced, one per deadline, so each description sits under its own mark.
+  // With nothing passed yet the first step is opening day. Today sits between the
+  // last step behind us and the next one, in proportion to the dates.
+  const steps = [...(lastPast ? [lastPast] : sc?.opening_day ? [{ name: 'Opening day', date: String(sc.opening_day).slice(0, 10), past: true, opening: true, racing: [], noHearing: [] }] : []), ...gates.filter(g => !g.past)];
+  const n = steps.length, from = steps[0]?.past ? at(steps[0].date) : null, to = steps[1] ? at(steps[1].date) : null;
+  const frac = from && to ? Math.max(0.04, Math.min(0.96, (now - from) / (to - from))) : 0, todayPct = (frac / n * 100).toFixed(2);
   return `<div class="strack" id="pf-track">
-      <div class="sthead"><b>Where we are in the session</b><span>${ld ? esc(ld.text) + ' · ' : ''}each mark is a deadline; the numbers are these bills still racing it</span></div>
-      <div class="stbar"><div class="stdone" style="width:${pct(now)}%"></div>
-        ${gates.map(g => `<i class="stgate ${g.past ? 'past' : g.next ? 'upnext' : ''}" style="left:${pct(new Date(g.date + 'T12:00:00-10:00').getTime())}%" title="${esc(g.name)} · ${fmtDate(g.date)}"></i>`).join('')}
-        <span class="stnow" style="left:${pct(now)}%">Today</span></div>
-      <div class="stcards">${cards.map(g => `
-        <div class="stcard ${g.past ? 'past' : g.next ? 'upnext' : ''}"><b>${esc(g.name)}</b>
+      <div class="sthead"><b>Where we are in the session</b><span>${ld ? esc(ld.text) + ' · ' : ''}one step per deadline${earlier > 0 ? ` · ${earlier} earlier deadline${earlier === 1 ? '' : 's'} already passed` : ''}</span></div>
+      <div class="stscroll"><div class="stgrid" style="--n:${n}">
+        <div class="stline"><div class="stfill" style="width:${todayPct}%"></div>${from ? `<span class="stnow" style="left:${todayPct}%">Today</span>` : ''}</div>
+        ${steps.map(g => `<div class="stcol ${g.past ? 'past' : g.next ? 'upnext' : ''}"><i class="stnode" aria-hidden="true"></i><b>${esc(g.name)}</b>
           <span class="when">${fmtDate(g.date)} · ${g.past ? 'passed' : g.days <= 0 ? 'today' : g.days === 1 ? 'tomorrow' : `in ${g.days} days`}</span>
-          ${g.past ? (g.stopped ? `<span class="load">${g.stopped} stopped here</span>` : '')
-            : g.racing.length ? `<span class="load"><b>${g.racing.length}</b> racing it${g.noHearing.length ? ` · <span class="${g.days <= RISK_DAYS ? 'hot' : 'warm'}">${g.noHearing.length} with no hearing</span>${g.p1 ? ` · <span class="hot">${g.p1} P1</span>` : ''}` : ' · all have hearings ✓'}</span>` : '<span class="load none">none of these bills</span>'}
-        </div>`).join('')}</div>
+          ${g.opening ? '' : g.past ? (g.stopped ? `<span class="load">${g.stopped} of these bills stopped here</span>` : '')
+            : g.racing.length ? `<span class="load"><b>${g.racing.length}</b> bill${g.racing.length === 1 ? '' : 's'} must be heard by then${g.noHearing.length ? `<br><span class="${g.days <= RISK_DAYS ? 'hot' : 'warm'}">${g.noHearing.length} ha${g.noHearing.length === 1 ? 's' : 've'} no hearing yet</span>${g.p1 ? ` · <span class="hot">${g.p1} P1</span>` : ''}` : '<br>all have hearings ✓'}</span>` : '<span class="load none">does not affect these bills</span>'}
+        </div>`).join('')}
+      </div></div>
     </div>`;
 }
 function pfBoard(list) {
@@ -1033,30 +1034,27 @@ function pfBoard(list) {
   const phaseLabel = st => st.phase === 'conference' ? 'Conference' : `${CHAMBER_NAME[st.chamber]} floor`;
   const html = `
     <div class="dashhead boardhead"><h1>Where every bill stands</h1>
-      <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it is racing; bills re-sort as dates pass.</span></div>
+      <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it has to meet; bills re-sort as dates pass.</span></div>
     ${sessionTrack(gates)}
     <details class="boardhow"><summary>How to read this</summary><p>${BOARD_EXPLAINER}</p></details>
     <div class="board3">
       ${col('a', a, ({ b, st, dl }) => `
-        <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
-          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral'}</span>${who(b)}</span>
-          <span class="lstop">Waiting in ${st.committee ? `${esc(st.committee)}, the ${CHAMBER_NAME[st.chamber]}’s ${['first', 'second', 'third', 'fourth'][st.stop - 1] || st.stop + 'th'} of ${st.stops} committee${st.stops === 1 ? '' : 's'}` : `the ${CHAMBER_NAME[st.chamber]} for a committee referral`}</span>
-          <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date)} — ${dl.days === 0 ? 'today' : dl.days + 'd left'} (${esc(dl.label)})</span>` : `Needs a hearing by ${fmtDate(dl.date)} · ${dl.days}d (${esc(dl.label)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
+        <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="lnext">Needs a ${st.committee ? esc(st.committee) + ' hearing' : 'committee referral'}</span>
+          <span class="ldl ${dl && dl.days <= RISK_DAYS ? 'hot' : ''}">${dl ? `by ${fmtDate(dl.date)} · ${dl.days <= 0 ? 'today' : dl.days + 'd'}` : 'no deadline on the calendar'}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', bcol, ({ b, st, h }) => `
-        <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
-          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${esc(h.committee)}</span>${who(b)}</span>
-          <span class="lstop">${stopn(st)}</span>
-          <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)} · waiting for the report` : fmtDT(h.scheduled_at)}${draftChip(b)}</span>
+        <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="lnext">${st.hearingState === 'held' ? `${esc(h.committee)} heard it · waiting for the report` : `${esc(h.committee)} hearing${draftFor(b.id, h.committee)?.status === 'filed' ? ' · testimony filed' : ''}`}</span>
+          <span class="ldl">${st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)}` : fmtDT(h.scheduled_at)}</span>
         </div>`, 'No hearings on the books.')}
       ${col('c', c, ({ b, st }) => `
-        <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
-          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${phaseLabel(st)}</span>${who(b)}</span>
-          <span class="lstop">${st.stops ? `through ${st.stops} ${CHAMBER_NAME[st.chamber]} committee${st.stops === 1 ? '' : 's'}` : ''}${st.deadline && !st.deadline.missed ? ` · ${esc(st.deadline.label)} ${fmtDate(st.deadline.date)}` : ''}</span>
-          <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${esc((b.last_action || '').slice(0, 60))}${b.last_action_date ? ' · ' + fmtDate(b.last_action_date) : ''}</span>
+        <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
+          <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="lnext">Waiting for ${st.phase === 'conference' ? 'conference' : `the ${CHAMBER_NAME[st.chamber]} floor vote`}</span>
+          <span class="ldl">${st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${fmtDate(st.deadline.date)} · ${st.deadline.days <= 0 ? 'today' : st.deadline.days + 'd'}` : ''}</span>
         </div>`, 'Nothing is through committee yet.')}
     </div>`;
   return { html, a, b: bcol, c, gates };
@@ -1066,6 +1064,7 @@ function pfBoard(list) {
 // (each bill once), the dying-quietly radar, then folded/optional context.
 // With text in the search box it becomes a search across every bill in the
 // database, tracked or not, so anything can be added from here.
+const dashTitle = () => S.owner === 'all' ? 'Team Dashboard' : `${esc((S.owner === 'me' ? S.me?.full_name : advocate(S.owner)?.full_name) || 'My').split(' ')[0]}’s Dashboard`;
 function renderPortfolio(list) {
   const ids = new Set(list.map(b => b.id));
   const now = Date.now(), wk = now + 7*864e5, day = 864e5;
@@ -1101,7 +1100,7 @@ function renderPortfolio(list) {
       ['Next session deadlines loaded', 'ask Claude: load the ' + (SESSION_YEAR + 1) + ' calendar'],
       ['Committee chairs refreshed from the Capitol', 'ask Claude: refresh committees'],
     ];
-    return head(`${esc(who)}'s Portfolio`, `${today} · session adjourned sine die · the live desk returns when the ${SESSION_YEAR + 1} session convenes`) + `
+    return head(dashTitle(), `${today} · session adjourned sine die · the live desk returns when the ${SESSION_YEAR + 1} session convenes`) + `
       <div class="stats pf">
         ${stat(law.length, 'Signed into law')}${stat(vetoed.length, 'Vetoed')}${stat(died.length, 'Died / deferred')}${stat(open.length + gov.length, 'No final action')}
       </div>
@@ -1400,22 +1399,8 @@ function renderPortfolio(list) {
         <div class="gtiles">${tile(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${tile(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${tile(board.c.length, 'through committee', 'data-jump="pf-board-a"')}</div>
       </div>
     </div>`;
-  // One plain sentence on top: the next deadline and what it means for these bills, then today.
-  const num = n => n < 10 ? ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][n] : String(n);
-  const whose = S.owner === 'me' ? 'your' : S.owner === 'all' ? 'the team’s' : `${esc((advocate(S.owner)?.full_name || '').split(' ')[0])}’s`;
-  const whenIs = g => g.days <= 0 ? 'is today' : g.days === 1 ? 'is tomorrow' : g.days <= 6 ? `is ${new Date(g.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Pacific/Honolulu' })}` : `is in ${g.days} days`;
-  const racingLine = g => g.noHearing.length ? `${g.noHearing.length < g.racing.length ? `${num(g.noHearing.length)} of ${whose} ${g.racing.length} bills` : g.racing.length === 1 ? `${whose[0].toUpperCase() + whose.slice(1)} one bill` : g.racing.length === 2 ? `Both of ${whose} bills` : `All ${g.racing.length} of ${whose} bills`} racing it still need${g.noHearing.length === 1 ? 's' : ''} a hearing${g.p1 ? `, <span class="hot">${g.p1 === g.noHearing.length ? (g.p1 === 1 ? 'and it is P1' : 'all P1') : `${g.p1} of them P1`}</span>` : ''}.` : `All ${g.racing.length} of ${whose} bills racing it have a hearing on the books.`;
-  const urgentN = merged.filter(urgentRow).length;
-  const headline = (() => { const up = (board.gates || []).filter(g => !g.past); if (!up.length) return SESSION_OVER ? `The ${SESSION_YEAR} session is over. ${list.filter(b => ['enacted', 'governor'].includes(effStage(b))).length} of ${whose} bills reached the Governor or became law.` : '';
-    const g = up[0], g2 = up.find(x => x.racing.length);
-    let t = `<b>${esc(g.name)} ${whenIs(g)}.</b> `;
-    if (g.racing.length) t += racingLine(g);
-    else if (g2) t += `None of ${whose} bills are racing it. <b>${esc(g2.name)} ${whenIs(g2)}:</b> ${racingLine(g2).replace(/^./, c => c.toLowerCase())}`;
-    else t += `None of ${whose} bills are racing a deadline right now.`;
-    if (urgentN) t += ` <a data-jump="pf-wait" class="hot">${num(urgentN)} thing${urgentN === 1 ? '' : 's'} need${urgentN === 1 ? 's' : ''} action in the next 24 hours.</a>`;
-    return t; })();
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
-  return head(`${esc(who)}'s Portfolio`, `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + (headline ? `<p class="headline">${headline}</p>` : '') + banner + todayStrip + `
+  return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
       <div>${glance}${recentHearingsHtml}</div>
@@ -1426,7 +1411,7 @@ function renderPortfolio(list) {
         <span class="bstat a"><b>${board.a.length}</b><span>need a hearing<small>in committee, nothing scheduled</small></span></span>
         <span class="bstat b"><b>${board.b.length}</b><span>hearing scheduled<small>or held, awaiting the report</small></span></span>
         <span class="bstat c"><b>${board.c.length}</b><span>through committee<small>waiting for the floor or conference</small></span></span>
-        ${(g => g ? `<span class="bstat dl ${g.days <= RISK_DAYS ? 'soon' : ''}"><b>${g.days <= 0 ? 'Today' : `${g.days} day${g.days === 1 ? '' : 's'}`}</b><span>${g.days <= 0 ? 'is' : 'until'} ${esc(g.name)} · ${new Date(g.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })}<small>${g.racing.length ? `${g.racing.length} of these bills racing it${g.noHearing.length ? `, ${g.noHearing.length} with no hearing` : ', all with hearings'}` : 'next deadline · none of these bills racing it'}</small></span></span>` : '')((board.gates || []).find(x => !x.past))}
+        ${(g => g ? `<span class="bstat dl ${g.days <= RISK_DAYS ? 'soon' : ''}"><b>${g.days <= 0 ? 'Today' : `${g.days} day${g.days === 1 ? '' : 's'}`}</b><span>${g.days <= 0 ? 'is' : 'until'} ${esc(g.name)} · ${new Date(g.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })}<small>${g.racing.length ? `${g.racing.length} of these bills must be heard by then${g.noHearing.length ? ` · ${g.noHearing.length} have no hearing yet` : ' · all have hearings'}` : 'next deadline · it does not affect these bills'}</small></span></span>` : '')((board.gates || []).find(x => !x.past))}
       </span>`, '', board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false, true) : ''}
     ${recent.length ? foldable('recent', '⚡ Last 72 hours <span class="foldsub">official actions on these bills, newest first</span>', recent.length, recentHtml, false, true) : ''}
     ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
@@ -2006,7 +1991,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / t / s / i / n / m', 'Go to Portfolio, Table, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / t / s / i / n / m', 'Go to Dashboard, Table, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2014,13 +1999,13 @@ function renderHelp() {
     <section><h2>Keyboard shortcuts</h2><div class="keys">${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}</div>
       <p class="tok">Shortcuts are off while you are typing in a field.</p></section>
     <section><h2>The home page</h2>
-      <p><b>Testimony waiting on you</b> lists the next step that is yours on each draft: write, submit, approve, file. Admins also see <b>Waiting on others</b>. <b>This week</b> is the hearing calendar for the bills in your lens, with the draft\u2019s next step on each card. <b>Where every bill stands</b> sorts live bills by the deadline they are racing: needs a hearing, hearing scheduled, cleared committee. <b>Last 72 hours</b> is everything the Legislature and the team did, newest first.</p>
+      <p><b>Testimony waiting on you</b> lists the next step that is yours on each draft: write, submit, approve, file. Admins also see <b>Waiting on others</b>. <b>This week</b> is the hearing calendar for the bills in your lens, with the draft\u2019s next step on each card. <b>Where every bill stands</b> sorts live bills by the deadline they have to meet: needs a hearing, hearing scheduled, cleared committee. <b>Last 72 hours</b> is everything the Legislature and the team did, newest first.</p>
       <p><b>Viewing</b> picks whose bills you see: My bills (owned or followed), Everyone, or a colleague. <b>Filter</b> narrows by priority, coalition, or triple referral and stays on until cleared.</p></section>
     <section><h2>Testimony workflow</h2>
       <p>A hearing notice arrives → the draft Doc is created in Drive and the owner is told → the owner writes it and presses <b>Submit for review</b> → Nate approves → if it is HIPHI\u2019s first testimony on that bill, Jess or Jaylen also approves → the owner files it at the Capitol and presses <b>Mark filed</b>. Written testimony is due 24 hours before the hearing.</p></section>
     <section><h2>Stages, in plain language</h2>
-      ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop, racing the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber, racing the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber, racing the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`).join('')}</section>
-    <section><h2>Deadlines</h2><p>Bills must clear each stage by the session calendar\u2019s dates or they die. The board shows the date each bill is racing and the last regular committee slot before it; the 48-hour notice rule means a hearing has to be announced two days before that slot.</p></section>
+      ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop, it must be heard before the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber, it must be heard before the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber, it must be heard before the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`).join('')}</section>
+    <section><h2>Deadlines</h2><p>Bills must clear each stage by the session calendar\u2019s dates or they die. The board shows the date each bill has to meet and the last regular committee slot before it; the 48-hour notice rule means a hearing has to be announced two days before that slot.</p></section>
     <section><h2>Where things live</h2><p>Drafts: Google Drive, Testimony / year / coalition / bill. Alerts: Slack #hearing-alerts-2027 and coalition channels; DMs for your own steps. Calendar: the HIPHI Hearings Google Calendar. Settings: your DM and reminder preferences under More → Settings. Questions: Nate.</p></section>
   </div>`;
 }
@@ -2806,6 +2791,7 @@ function renderRecovery() {
 // ---------------- render + events ----------------
 function render() {
   FACTS = new Map();
+  document.body.classList.add('staffapp');
   if (isMobile() && S.view === 'table') S.view = 'portfolio';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)

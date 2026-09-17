@@ -35,13 +35,13 @@ const STAGE_LABEL = { introduced: 'Introduced', first_triple: '1st Triple', firs
   second_crossover: 'Passed both', conference: 'Conference', governor: 'Governor', enacted: 'Law', vetoed: 'Vetoed', dead: 'Dead' };
 // The same stages in plain language, for people who do not live at the Capitol.
 const STAGE_PLAIN = { introduced: 'Introduced and waiting for its first committee hearing',
-  first_triple: 'In its first committee; a triple-referred bill racing the Triple Filing deadline',
-  first_lateral: 'In a committee of its first chamber, racing the Lateral deadline',
-  first_decking: 'In the money committee of its first chamber, racing the Decking deadline',
+  first_triple: 'In its first committee; a triple-referred bill that must be heard before the Triple Filing deadline',
+  first_lateral: 'In a committee of its first chamber; it must be heard before the Lateral deadline',
+  first_decking: 'In the money committee of its first chamber; it must be heard before the Decking deadline',
   first_crossover: 'Passed its first chamber; now in the other chamber',
-  second_triple: 'In its first committee of the second chamber, racing the Triple Filing deadline',
-  second_lateral: 'In a committee of the second chamber, racing the Lateral deadline',
-  second_decking: 'In the money committee of the second chamber, racing the Decking deadline',
+  second_triple: 'In its first committee of the second chamber; it must be heard before the Triple Filing deadline',
+  second_lateral: 'In a committee of the second chamber; it must be heard before the Lateral deadline',
+  second_decking: 'In the money committee of the second chamber; it must be heard before the Decking deadline',
   second_crossover: 'Passed both chambers; the two versions may need to be reconciled',
   conference: 'House and Senate negotiators are reconciling their versions',
   governor: 'On the Governor’s desk, waiting for signature or veto',
@@ -813,7 +813,7 @@ function help() {
       <p>Share a bill with a link like <code>${esc(location.origin + location.pathname)}#bill=HB1563</code>. It opens straight to that bill.</p></section>
     <section><h2>Stages, in plain language</h2>${Object.entries(STAGE_PLAIN).map(([k, v]) => `<div class="krow"><b>${esc(STAGE_LABEL[k])}</b><span>${esc(v)}</span></div>`).join('')}</section>
     <section><h2>Deadlines this session</h2>
-      <p>Bills must clear each stage by the session calendar’s dates or they die. The board shows the deadline each bill is racing and the last regular committee meeting before it. Committees must post a hearing notice 48 hours ahead, so a bill without a notice two days before that last meeting is very likely done.</p>
+      <p>Bills must clear each stage by the session calendar’s dates or they die. The board shows the deadline each bill has to meet and the last regular committee meeting before it. Committees must post a hearing notice 48 hours ahead, so a bill without a notice two days before that last meeting is very likely done.</p>
       ${dls.length ? dls.map(d => `<div class="krow"><b>${esc(d.label)}</b><span>${fmtDate(d.deadline_date + 'T12:00:00-10:00', { weekday: 'short', month: 'short' })}</span></div>`).join('') : '<p class="muted">The session has ended; dates for the next session appear when the Legislature publishes them.</p>'}</section>
     <section><h2>How to testify</h2>${testifyBox().replace('<details class="testify"', '<details class="testify" open')}</section>
     <section><h2>Getting around</h2><p>The home page has four parts: things to do now, this week’s hearings on your bills, where every bill stands against the session deadlines, and your bills.</p></section>

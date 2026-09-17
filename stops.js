@@ -143,7 +143,7 @@ export function billStop(b, ctx) {
 
 // Column copy, shared so the two boards read the same.
 export const COLUMNS = {
-  a: { icon: '📡', title: 'Needs a hearing', sub: 'in committee, nothing scheduled — racing the deadline shown' },
+  a: { icon: '📡', title: 'Needs a hearing', sub: 'in committee, nothing scheduled — each shows the date it must be heard by' },
   b: { icon: '◷', title: 'Hearing scheduled', sub: 'or held, waiting for the committee’s report' },
   c: { icon: '✅', title: 'Through committee', sub: 'waiting for a floor vote, crossover, or conference' },
 };
