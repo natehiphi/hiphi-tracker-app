@@ -863,9 +863,9 @@ function pfBoard(list) {
       ${col('a', a, ({ b, st, dl }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}<span class="cm">${st.committee ? esc(st.committee) + chairOf(st.committee) : 'awaiting referral'}</span>${who(b)}</span>
-          <span class="lstop">${stopn(st)}</span>
+          <span class="lstop">Waiting in ${st.committee ? `${esc(st.committee)}, the ${CHAMBER_NAME[st.chamber]}’s ${['first', 'second', 'third', 'fourth'][st.stop - 1] || st.stop + 'th'} of ${st.stops} committee${st.stops === 1 ? '' : 's'}` : `the ${CHAMBER_NAME[st.chamber]} for a committee referral`}</span>
           <span class="ldesc">${esc(blurb(b, 120))}</span>
-          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">${esc(dl.label)} in ${dl.days}d</span>` : `${esc(dl.label)} in ${dl.days}d (${fmtDate(dl.date)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
+          <span class="l2">${dl ? (dl.days <= 5 ? `<span class="hot">Needs a hearing by ${fmtDate(dl.date)} — ${dl.days}d left (${esc(dl.label)})</span>` : `Needs a hearing by ${fmtDate(dl.date)} · ${dl.days}d (${esc(dl.label)})`) : 'no deadline on the calendar'}${(sl => sl ? (now > sl.noticeBy ? ' · <span class="hot">notice window closed — call the chair</span>' : ` · last slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`) : '')(dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null)}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', bcol, ({ b, st, h }) => `
         <div class="chip3 ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
@@ -951,15 +951,20 @@ function renderPortfolio(list) {
   const q = S.q.trim();
   if (q.length >= 2) {
     const ql = q.toLowerCase(), qn = ql.replace(/\s/g,'');
-    const hit = b => b.bill_number.toLowerCase().includes(qn) || (b.title||'').toLowerCase().includes(ql);
-    const tracked = S.bills.filter(hit).slice(0, 30);
+    // Number, title, summary, description, committee/referrals, owner, coalition, sponsor, position or stage.
+    const hay = b => [b.bill_number, b.title, b.public_summary, b.description, b.committee, (b.referrals || []).join(' '),
+      owners(b).map(a => a.full_name + ' ' + a.initials).join(' '), (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).join(' '),
+      (b.sponsors || []).map(x => typeof x === 'string' ? x : x.n || x.name || '').join(' '), POSITIONS.find(p => p[0] === b.position)?.[1], STAGE_LABEL[effStage(b)]].join(' | ').toLowerCase();
+    const terms = ql.split(/\s+/).filter(Boolean);
+    const hit = b => b.bill_number.toLowerCase().includes(qn) || terms.every(t => hay(b).includes(t));
+    const tracked = S.bills.filter(hit).sort((a, b) => (diedish(a) - diedish(b)) || (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number)).slice(0, 30);
     const sa = S.searchAll || {};
     const untracked = sa.q === q ? (sa.rows || []) : null;
     const row = b => `<div class="prow" data-bill="${b.id}">
         <div class="pmain"><b>${esc(b.bill_number)}</b> ${esc(b.title||'')}
           <div class="psmall">${statusChip(b)}${owners(b)[0] ? ' · ' + esc(owners(b)[0].full_name) : ' · no owner'}${b.position ? ' · ' + esc(POSITIONS.find(p=>p[0]===b.position)?.[1]||'') : ''}</div></div>
         <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span></div>`;
-    return head(`Search: “${esc(q)}”`, `${tracked.length} tracked match${tracked.length===1?'':'es'} · ${untracked ? untracked.length + ' not tracked yet' : 'looking through every bill…'}`) + `
+    return head(`Search: “${esc(q)}”`, `${tracked.length} tracked match${tracked.length===1?'':'es'} · ${untracked ? untracked.length + ' not tracked yet' : 'looking through every bill…'} · matches number, title, committee, owner, coalition, sponsor, position`) + `
       <div class="browse">Browse by coalition: ${S.campaigns.map(c => `<button class="fchip" data-browse="${c.id}">${esc(c.name)}</button>`).join('')}</div>
       <div class="dash one">
         <div>
@@ -1003,6 +1008,35 @@ function renderPortfolio(list) {
   }).filter(Boolean).sort((x,y) => byPri(x, y) || x.t - y.t);
   const waitingOthers = waiting.filter(x => !x.mine); const waitingMine = waiting.filter(x => x.mine);
   const WAIT_CAP = 8;
+  // Situations beyond the testimony workflow, on the bills in this lens:
+  // nobody attending, a draft for an old version, no draft yet, a P1 stuck
+  // without a hearing as the deadline nears, no public ask on a bill about
+  // to be heard, an unread chat. One card each, with the button that fixes it.
+  const situations = [];
+  for (const b of list) {
+    if (b.position === 'monitor' || diedish(b)) continue;
+    const ups = S.hearings.filter(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * day).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
+    for (const h of ups) {
+      const dr = draftFor(b.id, h.committee);
+      if (!attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
+      if (!dr) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'nodraft', verb: 'No draft yet', why: `The ${h.committee} hearing is ${fmtDT(h.scheduled_at)} and no testimony draft exists. It is created from the notice within the hour; if it does not appear, ask Nate.`, btn: `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` });
+      else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
+      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
+    }
+    if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.title + ' ' + m.last : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
+    if (unreadCount(b)) situations.push({ b, t: now, kind: 'chat', verb: 'Reply in chat', why: `${unreadCount(b)} new message${unreadCount(b) === 1 ? '' : 's'} on this bill`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="chat">Open chat</button>` });
+  }
+  situations.sort((x, y) => byPri(x, y) || x.t - y.t);
+  const SIT_CAP = 8, sitMore = (S.boardMore || {}).situations;
+  const sitRow = ({ b, verb, why, btn }) => `
+    <div class="prow wrow srow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
+      ${btn}
+      <div class="pmain"><b class="verb">${esc(verb)}</b> ${esc(billNum(b))}
+        <div class="pdesc">${esc(blurb(b, 110))}</div>
+        <div class="psmall">${why}</div></div>
+      <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span>
+    </div>`;
+  const situationsHtml = (sitMore ? situations : situations.slice(0, SIT_CAP)).map(sitRow).join('') + (situations.length > SIT_CAP ? `<button class="pempty boardmore" data-boardmore="situations">${sitMore ? 'Show fewer' : `…and ${situations.length - SIT_CAP} more`}</button>` : '');
   const verbOf = d => d.status === 'review' ? 'Approve testimony' : d.status === 'second_review' ? '2nd approval · testimony'
     : d.status === 'approved' ? 'File testimony' : d.review_note ? 'Revise testimony' : 'Write testimony';
   const waitRow = ({ d, b, why, h }) => { const soon = h?.testimony_deadline && hrsLeft(h.testimony_deadline) < 48; return `
@@ -1013,7 +1047,8 @@ function renderPortfolio(list) {
         <div class="psmall">${esc(why)}${h ? ` · hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? (inWhen(h.testimony_deadline) === 'passed' ? ' · testimony deadline passed' : ` · testimony due <b${soon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}` : ''}</div></div>
       <span class="dkav">${owners(b)[0] ? av(owners(b)[0]) : ''}</span>
     </div>`; };
-  const waitingHtml = waitingMine.slice(0, WAIT_CAP).map(waitRow).join('') + (waitingMine.length > WAIT_CAP ? `<div class="pempty">…and ${waitingMine.length - WAIT_CAP} more</div>` : '');
+  const waitingHtml = waitingMine.slice(0, WAIT_CAP).map(waitRow).join('') + (waitingMine.length > WAIT_CAP ? `<div class="pempty">…and ${waitingMine.length - WAIT_CAP} more</div>` : '')
+    + (situations.length ? `<div class="sitsep">Also on your bills</div>${situationsHtml}` : '');
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
       ${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : '';
@@ -1101,9 +1136,9 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `across the whole team, whatever the lens${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
-  const waitPanel = ((waitingMine.length || filedToday)
-    ? panel('pf-wait', '✋ Testimony waiting on you', waitSub, waitingHtml,
+  const waitSub = `your steps first${me.is_admin ? ' · the team’s are under Waiting on others' : ''}${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
+  const waitPanel = ((waitingMine.length || filedToday || situations.length)
+    ? panel('pf-wait', '✊ Do this now', waitSub, waitingHtml,
         `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
   // Layout adapts: a short feed sits under the checklist instead of beside it.
   const stacked = false;
@@ -1132,17 +1167,23 @@ function renderPortfolio(list) {
   const openWeeks = (() => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(); return now > cut - 18 * 864e5 && now < cut + 3 * 864e5; })();
   if (openWeeks && !S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true; DB.triageCounts().then(c => { S.triageCounts = c; rerenderKeep(); }).catch(() => {}); }
   const banner = openWeeks ? `<div class="openbanner"><span><b>Opening weeks.</b> ${S.triageCounts ? `${S.triageCounts.introduced} bills introduced · <b>${S.triageCounts.undecided}</b> waiting for a decision · ${S.triageCounts.suggested} suggested · ${S.triageCounts.tracked} tracked` : 'Every new bill needs one decision: track it or skip it.'}</span><button class="btn sm" data-view="triage">Open Triage</button></div>` : '';
-  return head(`${esc(who)}'s Portfolio`, `${today} · ${strip}`) + banner + `
+  const todayHearings = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && hstDay(h.scheduled_at) === hstDay(now)).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
+  const dueToday = hUp.filter(h => h.testimony_deadline && hstDay(h.testimony_deadline) === hstDay(now) && new Date(h.testimony_deadline) > now);
+  const todayStrip = mobile && (todayHearings.length || dueToday.length) ? `<div class="todaystrip"><div class="th"><b>Today</b> · ${todayHearings.length} hearing${todayHearings.length === 1 ? '' : 's'}${dueToday.length ? ` · <span class="hot">${dueToday.length} testimony due</span>` : ''}</div>
+      ${todayHearings.map(h => { const b = bill(h.bill_id); if (!b) return ''; const att = attendees(h); return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> ${esc(h.committee)} · ${esc(roomShort(h.room))}${att.length ? ` · ${att.map(a => esc(a.initials)).join('/')} attending` : ' · <span class="hot">no one attending</span>'}</span>${draftActionBtn(b, h.committee)}</div>`; }).join('')}
+      ${dueToday.filter(h => !todayHearings.includes(h)).map(h => { const b = bill(h.bill_id); if (!b) return ''; return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.testimony_deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> testimony due · ${esc(h.committee)} hearing tomorrow</span>${draftActionBtn(b, h.committee)}</div>`; }).join('')}
+    </div>` : '';
+  return head(`${esc(who)}'s Portfolio`, `${today} · ${strip}`) + banner + todayStrip + `
     <div class="dash${recentHearingsHtml ? '' : ' one'}">
       <div>${waitPanel}</div>
       ${recentHearingsHtml ? `<div>${recentHearingsHtml}</div>` : ''}
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${foldable('board', '🗂 Where every bill stands', board.a.length + board.b.length + board.c.length, board.html.replace('bills re-sort as dates pass.</span>', 'bills re-sort as dates pass. ' + legend + '</span>'), false)}
+    ${recent.length ? `<div class="calwrap">${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, false)}</div>` : ''}
     ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
       ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')
-      (list.filter(b => diedish(b) && b.position !== 'monitor').sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)))}
-    ${recent.length ? `<div class="calwrap">${foldable('recent', '⚡ Last 72 hours', recent.length, recentHtml, false)}</div>` : ''}`;
+      (list.filter(b => diedish(b) && b.position !== 'monitor').sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)))}`;
 }
 
 function cell(b, c) {
@@ -2154,6 +2195,7 @@ const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; P1 rows
 const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
 // "HB 1563 HD1": the draft the bill is currently on rides along with the number.
 const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
+const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
 // Legislators' addresses follow one pattern: rep/sen + last name @capitol.hawaii.gov.
 function chairMail(code) {
   const c = S.committees?.[String(code || '').split('/')[0]];
@@ -2578,6 +2620,9 @@ function render() {
 }
 function wire() {
   if (S.view === 'triage') wireTriage();
+  document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
+    const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
+    try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null; render();
     if (S.view === 'add') $('#addq')?.focus();
@@ -2736,11 +2781,13 @@ function wireDrawer() {
     const on = !S.follows?.has(el.dataset.follow);
     try { await DB.follow(el.dataset.follow, on); toast(on ? 'Following — it shows in My bills now' : 'Unfollowed'); keep(() => {}); } catch (e) { toast(e.message, true); }
   });
+  document.querySelectorAll('[data-opentab]').forEach(el => el.onclick = async e => { e.stopPropagation(); const id = el.dataset.opentab, tab = el.dataset.tab; await openDrawer(id); if (tab === 'chat') { S.drawerOpen.chat = true; } else S.drawerOpen.tab = tab; render(); });
+  document.querySelectorAll('[data-bill-open]').forEach(el => el.onclick = e => { e.stopPropagation(); openDrawer(el.dataset.billOpen); });
   document.querySelectorAll('[data-copylink]').forEach(el => el.onclick = async () => {
     const url = `${APP_URL}#bill=${el.dataset.copylink}`;
     try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { prompt('Copy this link', url); }
   });
-  document.querySelectorAll('[data-attend]').forEach(el => el.onclick = async () => {
+  document.querySelectorAll('.drawer [data-attend]').forEach(el => el.onclick = async () => {
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); keep(() => {}); } catch (e) { toast(e.message, true); }
   });

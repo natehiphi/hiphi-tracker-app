@@ -976,3 +976,18 @@ details.fold .calnav{margin-left:auto}
 .chatadd{display:flex;gap:8px;align-items:flex-end;position:sticky;bottom:0;background:#fff;padding-top:4px}
 .chatadd textarea{flex:1;min-height:36px;max-height:120px;resize:vertical;font-size:13px}
 .chatchip{margin-left:4px}
+
+/* ---------- 9/16: Do this now situations, Today strip ---------- */
+.sitsep{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:#7F98A3;padding:12px 14px 4px;border-top:1px solid var(--line);margin-top:6px}
+.srow .verb{color:var(--ink)}
+.srow .btn.pri{background:var(--teal);color:#fff}
+.todaystrip{margin:0 20px 12px;background:var(--navy);color:#fff;border-radius:12px;padding:10px 12px}
+.todaystrip .th{font-size:13px;margin-bottom:6px;opacity:.95}
+.todaystrip .th b{font-family:'Space Grotesk';font-size:15px}
+.trow2{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid rgba(255,255,255,.12);font-size:13px}
+.trow2 .tt{flex:0 0 64px;font-weight:700;font-size:12px;opacity:.9}
+.trow2 .tb{flex:1;min-width:0;line-height:1.35}
+.trow2 .tb b{color:#9FE0E4}
+.trow2 .btn{flex:0 0 auto;font-size:11px;padding:4px 9px}
+.trow2 .hot{color:#FFB4A8}
+@media (max-width:760px){ .todaystrip{margin:0 12px 12px} }
