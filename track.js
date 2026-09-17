@@ -601,17 +601,16 @@ function wizardHTML() {
       ${groups.map(g => `<div class="wizgroup"><div class="wizg"><span>${esc((S.coalitions.find(c => c.name === g.name) || {}).icon || '')} ${esc(cname(g.name))}</span><button class="linkbtn" data-wizall="${esc(g.name)}">${g.picks.every(b => picked.has(b.id)) ? 'Clear these' : `Take all ${g.picks.length}`}</button></div>
         ${g.picks.map(card).join('') || '<div class="pempty">No live bills with a HIPHI position here right now.</div>'}
         ${g.more > 0 ? `<button class="morelink" data-wizmore="${esc(g.name)}">${g.more} more in ${esc(cname(g.name))}</button>` : ''}</div>`).join('')}
-      <div class="wizfoot"><button class="btn ghost" data-wizback>← Issues</button><span class="wizn">${picked.size} selected</span><button class="btn" data-wizdone ${picked.size ? '' : 'disabled'}>Follow ${picked.size || ''} bill${picked.size === 1 ? '' : 's'} →</button></div>
+      <div class="wizfoot"><button class="btn ghost" data-wizback>← Issues</button><button class="btn ghost" data-wizsearch>Skip for now</button><span class="wizn">${picked.size} selected</span><button class="btn" data-wizdone ${picked.size ? '' : 'disabled'}>Follow ${picked.size || ''} bill${picked.size === 1 ? '' : 's'} →</button></div>
     </div>`;
   }
   const gen = c => /general/i.test(c.key) ? 1 : 0;
   const tiles = groups().sort((a, b) => gen(a) - gen(b) || (b.live || 0) - (a.live || 0)).map(c => `
     <label class="tile ${sel.has(c.names[0]) ? 'sel' : ''}"><input type="checkbox" data-wizissue="${esc(c.names[0])}" ${sel.has(c.names[0]) ? 'checked' : ''}><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span><span class="tick">✓</span></label>`).join('');
   return `<div class="wiz">
-    <div class="wizhead"><span class="wizk">Step 1 of 2</span><h1>What do you care about?</h1><p>Pick one or more. Next you choose a few bills, and this page becomes your week at the Capitol with a five-minute way to testify.</p></div>
+    <div class="wizhead"><span class="wizk">Step 1 of 2 · <button class="linkbtn" data-wizsearch>skip</button></span><h1>What do you care about?</h1><p>Pick one or more. Next you choose a few bills, and this page becomes your week at the Capitol with a five-minute way to testify. Or skip and just search.</p></div>
     <div class="tiles">${tiles}</div>
-    <div class="wizfoot"><span class="wizn">${sel.size ? `${sel.size} issue${sel.size === 1 ? '' : 's'} picked` : 'pick at least one'}</span><button class="btn" data-wiznext ${sel.size ? '' : 'disabled'}>Continue →</button></div>
-    <p class="tok" style="margin-top:10px">Know a bill number? <button class="linkbtn" data-wizsearch>Search instead</button></p>
+    <div class="wizfoot"><button class="btn ghost" data-wizsearch>Skip for now</button><span class="wizn">${sel.size ? `${sel.size} issue${sel.size === 1 ? '' : 's'} picked` : 'pick at least one, or skip'}</span><button class="btn" data-wiznext ${sel.size ? '' : 'disabled'}>Continue →</button></div>
   </div>`;
 }
 // The three steps a new person walks: pick issues, watch bills, get alerts.
@@ -858,7 +857,7 @@ function wire() {
   document.querySelectorAll('[data-wizissue]').forEach(el => el.onchange = () => { const w = wiz(); const set = new Set(w.issues || []); if (el.checked) set.add(el.dataset.wizissue); else set.delete(el.dataset.wizissue); wizSet({ issues: [...set] }); onbSet({ issues: set.size > 0 }); S.wizRows = null; render(); });
   $('[data-wiznext]') && ($('[data-wiznext]').onclick = () => { wizSet({ step: 2 }); S.wizRows = null; S.wizPick = []; render(); window.scrollTo(0, 0); });
   $('[data-wizback]') && ($('[data-wizback]').onclick = () => { wizSet({ step: 1 }); render(); window.scrollTo(0, 0); });
-  $('[data-wizsearch]') && ($('[data-wizsearch]').onclick = () => { wizSet({ skipped: true }); render(); $('#q')?.focus(); });
+  document.querySelectorAll('[data-wizsearch]').forEach(el => el.onclick = () => { wizSet({ skipped: true, step: 1 }); S.view = 'home'; render(); window.scrollTo(0, 0); $('#q')?.focus(); });
   $('[data-wizrestart]') && ($('[data-wizrestart]').onclick = () => { wizSet({ skipped: false, step: 1, done: false }); S.browse = null; S.results = null; S.q = ''; S.view = 'wizard'; render(); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-wizpick]').forEach(el => el.onchange = () => { const set = new Set(S.wizPick || []); if (el.checked) set.add(el.dataset.wizpick); else set.delete(el.dataset.wizpick); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-wizall]').forEach(el => el.onclick = () => { const name = el.dataset.wizall, names = groupNames(name); const { picks } = curate((S.wizRows || []).filter(b => (b.coalitions || []).some(n => names.includes(n))), S.wizMore?.[name] ? 40 : 6); const set = new Set(S.wizPick || []); const all = picks.every(b => set.has(b.id)); picks.forEach(b => all ? set.delete(b.id) : set.add(b.id)); S.wizPick = [...set]; const y = window.scrollY; render(); window.scrollTo(0, y); });
