@@ -40,9 +40,9 @@ const STAGES = [
   ['enacted','Law'], ['vetoed','Vetoed'], ['dead','Dead'],
 ];
 const STAGE_LABEL = Object.fromEntries(STAGES);
-const POSITIONS = [['','—'],['support','Support'],['support_amend','Support w/ amendments'],
+const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
   ['oppose','Oppose'],['monitor','Monitor'],['neutral','Comments (neutral)']];
-const POS_CLS = { support: 'c-green', support_amend: 'c-green', oppose: 'c-red', monitor: 'c-gray', neutral: 'c-gold' };
+const POS_CLS = { strongly_support: 'c-green', support: 'c-green', support_amend: 'c-green', strongly_oppose: 'c-red', oppose: 'c-red', monitor: 'c-gray', neutral: 'c-gold' };
 const LOG_TYPES = [['testimony','Testimony'],['coalition','Coalition'],['meeting','Meeting'],
   ['action_alert','Action alert'],['note','Note']];
 const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
@@ -557,7 +557,7 @@ async function demoInit() {
   S.campaigns = snap.campaigns;
   S.slots = snap.slots;
   applySessionDeadlines(snap.deadlines);
-  S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['support','support_amend','oppose','neutral'], workflow_dm: true, health_dm: true,
+  S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
     templates: { hearing_alert: '📅 *{{bill}}* · {{position}}{{priority}}{{owner}}\n{{title}}\n{{committee}} hearing · {{hearing}} · {{room}}\nWritten testimony due *{{deadline}}*\n<{{tracker}}|Open in tracker> · <{{pdf}}|Notice PDF>',
@@ -628,9 +628,10 @@ async function demoInit() {
   // upcoming, and finished.
   const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   S.todos = {};
-  // Strongly supported bills (Support + P1) carry the email-blast task the database adds on the live app (migration 026).
-  for (const b of S.bills) if (b.tracked && b.position === 'support' && b.priority === 1)
-    S.todos[b.id] = [{ id: 'eb' + b.id, bill_id: b.id, title: 'Send an email blast asking supporters to submit testimony', done: false, due_date: null, assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }];
+  // Strongly supported bills get an email-blast task per scheduled hearing (the database adds it live, migration 027b).
+  for (const h of S.hearings) { const b = S.bills.find(x => x.id === h.bill_id); if (!b || b.position !== 'strongly_support' || h.status !== 'scheduled' || new Date(h.scheduled_at) <= Date.now()) continue;
+    const dt = new Date(h.scheduled_at), title = `Send an email blast for the ${h.committee} hearing ${dt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })}`;
+    (S.todos[b.id] ??= []).push({ id: 'eb' + h.id, bill_id: b.id, title, done: false, due_date: new Date(h.testimony_deadline || dt - 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }); }
   if (anchor) S.todos[anchor.id] = (S.todos[anchor.id] || []).concat([
     { id: 'td1', bill_id: anchor.id, title: 'Draft testimony for the next hearing',
       done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,
@@ -1588,17 +1589,19 @@ const compChip = (b, pv) => {
 const tierOf = b => {
   const p = b.position;
   if ((p === 'support' || p === 'oppose') && b.priority === 1) return 0;   // strongly
-  if (p === 'support' || p === 'support_amend' || p === 'oppose' || p === 'neutral') return 1;
+  if (p === 'strongly_support' || p === 'support' || p === 'support_amend' || p === 'strongly_oppose' || p === 'oppose' || p === 'neutral') return 1;
   return 2;                                                                 // monitor / unset
 };
 const posLabel = b => {
   const strong = b.priority === 1 ? 'STRONGLY ' : '';
-  return { support: strong + 'SUPPORT', support_amend: 'SUPPORT W/ AMENDMENTS',
+  return { strongly_support: 'STRONGLY SUPPORT', strongly_oppose: 'STRONGLY OPPOSE', support: strong + 'SUPPORT', support_amend: 'SUPPORT W/ AMENDMENTS',
     oppose: strong + 'OPPOSE', neutral: 'COMMENT', monitor: 'MONITOR' }[b.position] || 'MONITOR';
 };
 const headClass = b => {
   const p = b.position;
   if (tierOf(b) === 0) return p === 'oppose' ? 'solid-r' : 'solid-g';
+  if (p === 'strongly_support') return 'solid-g';
+  if (p === 'strongly_oppose') return 'solid-r';
   if (p === 'support' || p === 'support_amend') return 'hatch-g';
   if (p === 'oppose') return 'hatch-r';
   if (p === 'neutral') return 'hatch-t';
@@ -2158,7 +2161,7 @@ const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(Boolean);
 const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
 const OUTCOME_CLS = { passed: 'c-green', passed_amended: 'c-green', deferred: 'c-red', recommitted: 'c-gold' };
 // Left-edge stripe by position: the same bill looks the same in every section.
-const posCls = b => ({ support: 'pos-support', support_amend: 'pos-support', oppose: 'pos-oppose',
+const posCls = b => ({ strongly_support: 'pos-support', support: 'pos-support', support_amend: 'pos-support', strongly_oppose: 'pos-oppose', oppose: 'pos-oppose',
   neutral: 'pos-neutral', monitor: 'pos-monitor' }[b.position] || 'pos-none');
 // Status priority for the one chip a Desk row can afford.
 const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };

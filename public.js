@@ -53,11 +53,11 @@ const SECTIONS = [
   ['COMMENT', b => b.position === 'neutral'],
   ['MONITORING', b => !b.position || b.position === 'monitor'],
 ];
-const headClass = b => ({ support:'solid-g', oppose:'solid-r', support_amend:'hatch-g',
+const headClass = b => ({ strongly_support:'solid-g', strongly_oppose:'solid-r', support:'solid-g', oppose:'solid-r', support_amend:'hatch-g',
   neutral:'hatch-t' }[b.position] || 'plain');
-const posLabel = b => ({ support:'SUPPORT', support_amend:'SUPPORT W/ AMENDMENTS',
+const posLabel = b => ({ strongly_support:'STRONGLY SUPPORT', strongly_oppose:'STRONGLY OPPOSE', support:'SUPPORT', support_amend:'SUPPORT W/ AMENDMENTS',
   oppose:'OPPOSE', neutral:'COMMENT' }[b.position] || 'MONITOR');
-const ctaVerb = b => ({ support: 'Testify in SUPPORT', support_amend: 'Testify in support, with amendments',
+const ctaVerb = b => ({ strongly_support: 'Testify in SUPPORT', strongly_oppose: 'Testify in OPPOSITION', support: 'Testify in SUPPORT', support_amend: 'Testify in support, with amendments',
   oppose: 'Testify in OPPOSITION', neutral: 'Submit comments' }[b.position] || 'Submit testimony');
 function icsStamp(d) { return new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); }
 function makeIcs(b, h) {
@@ -83,11 +83,11 @@ function actionItems(bills, hearings, now, starred) {
     // Only bills we have a position on get an automatic testimony ask; the
     // public should never be sent to testify on something we merely monitor.
     const autoOk = h && h.testimony_deadline && new Date(h.testimony_deadline) > now &&
-      ['support', 'support_amend', 'oppose'].includes(b.position);
+      ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose'].includes(b.position);
     // Governor's desk: sign/veto ask derived from position (support -> sign,
     // oppose -> veto; monitor/comment -> no clear instruction, so no item).
     const gov = !SESSION_OVER && b.stage === 'governor' &&
-      ['support', 'support_amend', 'oppose'].includes(b.position)
+      ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose'].includes(b.position)
       ? (b.position === 'oppose'
         ? 'On the Governor\u2019s desk — urge the Governor to VETO this bill.'
         : 'On the Governor\u2019s desk — urge the Governor to SIGN this bill.')
