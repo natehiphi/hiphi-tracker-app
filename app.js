@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -75,11 +75,18 @@ const toast = (msg, err) => {
   d.className = 'toastmsg' + (err ? ' err' : ''); d.textContent = msg;
   $('#toast').append(d); setTimeout(() => d.remove(), 3600);
 };
+// A toast with an Undo button: mistakes are cheap, so nobody needs an "are you sure".
+const toastUndo = (msg, undo) => {
+  const d = document.createElement('div'); d.className = 'toastmsg undo';
+  d.innerHTML = `<span>${esc(msg)}</span><button>Undo</button>`;
+  d.querySelector('button').onclick = async () => { d.remove(); try { await undo(); } catch (e) { toast(e.message, true); } };
+  $('#toast').append(d); setTimeout(() => d.remove(), 10000);
+};
 // A date-only value (2026-03-16) is a Hawaiʻi calendar day, not UTC midnight.
 const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);
 const fmtDate = (d, opts) => d ? asDate(d).toLocaleString('en-US',
   { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric', ...opts }) : '—';
-const fmtDT = d => fmtDate(d, { hour: 'numeric', minute: '2-digit' });
+const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' }).replace(/^(\w{3}),/, '$1');   // "Wed 3/18, 1:00 PM": nobody should have to work out the weekday
 const daysAgo = d => d ? Math.floor((Date.now() - new Date(d)) / 864e5) : null;
 const effStage = b => b.stage_override || b.stage || 'introduced';
 const advocate = id => S.advocates.find(a => a.id === id);
@@ -802,7 +809,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['lists','Lists'],['memo','Weekly memo'],['triage','Triage'],['table','Table'],['settings','Settings'],['help','Help']];
+const MORE_VIEWS = [['table','All bills'],['lists','Lists'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
 const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
@@ -816,16 +823,16 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['lists', '☰', 'Lists'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['lists', '☰', 'Lists', 'Lists'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '🛠', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
-  const pinned = localStorage.getItem('railPinned') === '1';
+  const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
   document.body.classList.add('has-rail'); document.body.classList.toggle('rail-pinned', pinned);
   const count = v => v === 'inbox' ? inboxCount() : v === 'triage' ? (S.triageCounts?.undecided || 0) : 0;
   const ld = legislativeDay();
   return `<aside class="rail ${S.railQuiet ? 'quiet' : ''}" aria-label="Sections">
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
-    <nav>${RAIL_ITEMS.map(([v, ic, l]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}</span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>
+    <nav>${RAIL_ITEMS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>
     <div class="rfoot">
       <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
       <button id="railpin" title="${pinned ? 'Collapse the menu' : 'Keep the menu open'}"><span class="ri" aria-hidden="true">${pinned ? '«' : '»'}</span><span class="rl">${pinned ? 'Collapse' : 'Keep open'}</span></button>
@@ -911,11 +918,11 @@ function chrome(inner) {
       <div class="viewtabs">
         <button data-view="portfolio" class="${S.view==='portfolio'?'on':''}"><span class="ti" aria-hidden="true">⌂</span>Dashboard</button>
         <button data-view="inbox" class="${S.view==='inbox'?'on':''}"><span class="ti" aria-hidden="true">✉</span>Inbox${(n => n ? ` <span class="navn">${n > 99 ? '99+' : n}</span>` : '')(inboxCount())}</button>
-        <button data-view="add" class="${S.view==='add'?'on':''}"><span class="ti" aria-hidden="true">＋</span><span class="lg">+ Add bills</span><span class="sm">Add</span></button>
+        <button data-view="add" class="${S.view==='add'?'on':''}"><span class="ti" aria-hidden="true">＋</span><span class="lg">New bills</span><span class="sm">New</span></button>
         <details class="more">
           <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}"><span class="ti" aria-hidden="true">☰</span>${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'}<span class="lg"> ▾</span></summary>
           <div class="menu">
-            ${MORE_VIEWS.map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
+            ${MORE_VIEWS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
             <button id="logout2">Sign out</button>
           </div>
         </details>
@@ -1321,8 +1328,8 @@ function renderPortfolio(list) {
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
-      <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}
-      <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours · tap to ${(S.folds || {}).actopen ? 'hide' : 'show'}</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now.')}</details>
+      <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
+      <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours · tap to ${(S.folds || {}).actopen ? 'hide' : 'show'}</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now. Things that anyone can pick up appear here: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask.')}</details>
     </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
@@ -1428,12 +1435,12 @@ function renderPortfolio(list) {
     : 'Week of ' + new Date(hstDay(wkStart) + 'T12:00:00-10:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
   const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
-      SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills in the next 7 days.');
+      SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills this week. Hearings appear here as soon as the Capitol posts a notice, usually two days ahead; the draft and the Slack alert follow within the hour.');
   const cur = currentDeadline();
   const dlDays = cur ? Math.max(0, Math.floor((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5)) : null;
   const openWeeks = (() => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(); return now > cut - 18 * 864e5 && now < cut + 3 * 864e5; })();
   if (openWeeks && !S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true; DB.triageCounts().then(c => { S.triageCounts = c; rerenderKeep(); }).catch(() => {}); }
-  const banner = openWeeks ? `<div class="openbanner"><span><b>Opening weeks.</b> ${S.triageCounts ? `${S.triageCounts.introduced} bills introduced · <b>${S.triageCounts.undecided}</b> waiting for a decision · ${S.triageCounts.suggested} suggested · ${S.triageCounts.tracked} tracked` : 'Every new bill needs one decision: track it or skip it.'}</span><button class="btn sm" data-view="triage">Open Triage</button></div>` : '';
+  const banner = openWeeks ? `<div class="openbanner"><span><b>Opening weeks.</b> ${S.triageCounts ? `${S.triageCounts.introduced} bills introduced · <b>${S.triageCounts.undecided}</b> waiting for a decision · ${S.triageCounts.suggested} suggested · ${S.triageCounts.tracked} tracked` : 'Every new bill needs one decision: track it or skip it.'}</span><button class="btn sm" data-view="add">Open New bills</button></div>` : '';
   const todayHearings = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && hstDay(h.scheduled_at) === hstDay(now)).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const dueToday = hUp.filter(h => h.testimony_deadline && hstDay(h.testimony_deadline) === hstDay(now) && new Date(h.testimony_deadline) > now);
   const todayStrip = mobile && (todayHearings.length || dueToday.length) ? `<div class="todaystrip"><div class="th"><b>Today</b> · ${todayHearings.length} hearing${todayHearings.length === 1 ? '' : 's'}${dueToday.length ? ` · <span class="hot">${dueToday.length} testimony due</span>` : ''}</div>
@@ -1462,7 +1469,10 @@ function renderPortfolio(list) {
       </div>
     </div>`;
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
-  return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + banner + todayStrip + `
+  const welcome = (() => { try { if (localStorage.getItem('hiphi_welcome')) return ''; } catch { return ''; }
+    const own = S.bills.filter(b => (S.assignments[b.id] || []).includes(me.id)).length;
+    return `<div class="welcome" id="welcome"><b>Welcome, ${esc((me.full_name || '').split(' ')[0] || 'there')}.</b> You own ${own} bill${own === 1 ? '' : 's'}. <b>Action needed</b> is what is waiting on you; everything below it is reference. The filters at the top narrow every section, and the search box finds any bill in the session. Nothing here needs setting up.<button class="linkbtn" id="welcome-x">Got it</button></div>`; })();
+  return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + welcome + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
       <div>${glance}${recentHearingsHtml}</div>
@@ -1942,11 +1952,12 @@ function renderSettings() {
       <label class="row"><span style="min-width:140px">Bot token</span><input id="st-slacktok" type="password" placeholder="xoxb-…" autocomplete="new-password"></label>
       <div class="btns"><button class="btn ghost" id="st-save-slacktok">Save Slack token</button></div>
     </section>`;
-  return `<div class="settings"><h1>Settings</h1>${mine}${admin}</div>`;
+  if (S.view === 'setup') return `<div class="settings"><h1>Session setup</h1><p class="tok" style="margin:-6px 0 14px">Admin only. Everything that has to be true for the season: the calendar, the import, coalitions, connections, the public embed. Your own messages are under <a data-view="settings">My settings</a>.</p>${admin || '<div class="pempty">Admins only.</div>'}</div>`;
+  return `<div class="settings"><h1>My settings</h1><p class="tok" style="margin:-6px 0 14px">How the tracker reaches you. ${me.is_admin ? 'Session-wide setup lives under <a data-view="setup">Session setup</a>.' : ''}</p>${mine}</div>`;
 }
 function wireSettings() {
-  if (!$('#st-save-me')) return;
-  $('#st-save-me').onclick = async () => {
+  if (!['settings', 'setup'].includes(S.view)) return;
+  if ($('#st-save-me')) $('#st-save-me').onclick = async () => {
     const prefs = { ...(S.me.prefs || {}),
       reminders: { morning_on: $('#st-mon').checked, morning: $('#st-mont').value || '08:35',
         before_on: $('#st-bef').checked, hours_before: Number($('#st-befh').value) || 1,
@@ -1955,7 +1966,7 @@ function wireSettings() {
     try { await DB.saveMyPrefs({ slack_dm: $('#st-dm').checked, prefs }); toast('Saved'); render(); }
     catch (e) { toast(e.message, true); }
   };
-  $('#st-test').onclick = async () => {
+  if ($('#st-test')) $('#st-test').onclick = async () => {
     try { await DB.slackTest(); toast('Test DM on its way'); } catch (e) { toast(e.message, true); }
   };
   const conn = $('#st-conn');
@@ -2063,7 +2074,7 @@ const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
   ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
   ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / t / s / i / n / m', 'Go to Dashboard, Table, Settings, Triage (intake), Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['g then p / t / s / i / n / m', 'Go to Dashboard, All bills, My settings, New bills, Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2294,7 +2305,7 @@ function wireLists() {
     await DB.updateList(l.id, { is_published: on }); toast(on ? 'Published — the link works now' : 'Unpublished'); }));
   document.querySelectorAll('[data-lfield]').forEach(el => el.onchange = keepOpen(el.dataset.list, async () => { const val = el.value.trim(); if (el.dataset.lfield === 'title' && val.length < 2) throw new Error('Title is too short'); await DB.updateList(el.dataset.list, { [el.dataset.lfield]: val || null }); toast('Saved'); }));
   document.querySelectorAll('[data-lnote]').forEach(el => el.onchange = async () => { const [lid, bid] = el.dataset.lnote.split('|'); try { await DB.setListBill(lid, bid, { note: el.value.trim() || null }); toast('Note saved'); } catch (e) { toast(e.message, true); } });
-  document.querySelectorAll('[data-lrm]').forEach(el => el.onclick = e => { e.stopPropagation(); const [lid, bid] = el.dataset.lrm.split('|'); keepOpen(lid, () => DB.removeListBill(lid, bid))(); });
+  document.querySelectorAll('[data-lrm]').forEach(el => el.onclick = e => { e.stopPropagation(); const [lid, bid] = el.dataset.lrm.split('|'); keepOpen(lid, async () => { await DB.removeListBill(lid, bid); toastUndo('Removed from the list', async () => { await DB.addListBills(lid, [bid]); v.open = lid; rerenderKeep(); }); })(); });
   document.querySelectorAll('[data-ladd]').forEach(el => el.onclick = () => { const [lid, bid] = el.dataset.ladd.split('|'); keepOpen(lid, async () => { await DB.addListBills(lid, [bid]); v.q[lid] = ''; })(); });
   document.querySelectorAll('[data-lmove]').forEach(el => el.onclick = e => { e.stopPropagation(); const [lid, bid, d] = el.dataset.lmove.split('|');
     keepOpen(lid, async () => { const rows = S.listBills.filter(x => x.list_id === lid).sort((a, b) => a.sort_order - b.sort_order || a.added_at.localeCompare(b.added_at)); const i = rows.findIndex(x => x.bill_id === bid), j = i + Number(d); if (j < 0 || j >= rows.length) return;
@@ -2338,14 +2349,14 @@ async function loadTriage() {
     const [rows, counts] = await Promise.all([DB.triageQueue(S.triage.camp, S.triage.matchedOnly), DB.triageCounts()]);
     S.triage.rows = rows; S.triage.counts = counts; S.triage.focus = Math.min(S.triage.focus, Math.max(0, rows.length - 1));
   } catch (e) { S.triage.rows = []; toast('Could not load the triage queue: ' + e.message, true); }
-  if (S.view === 'triage') rerenderKeep();
+  if (S.view === 'triage' || S.view === 'add') { const q = $('#addq'), val = q?.value || '', pos = q?.selectionStart; rerenderKeep(); const n = $('#addq'); if (n && val) { n.value = val; n.setSelectionRange(pos, pos); } }
 }
 function bestCampaign(r) {
   if (r.lookalike?.coalition) { const c = S.campaigns.find(x => x.name === r.lookalike.coalition); if (c) return c; }
   if (r.matches?.length) { const c = S.campaigns.find(x => x.id === r.matches[0].campaign_id); if (c) return c; }
   return S.campaigns.find(c => c.name === 'General HIPHI') || S.campaigns[0];
 }
-function renderTriage() {
+function renderTriage(embedded = false) {
   const t = S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
   if (t.rows === null) loadTriage();
   const c = t.counts || {};
@@ -2373,7 +2384,7 @@ function renderTriage() {
   const rows = t.rows === null ? '<div class="pempty">Loading the queue…</div>'
     : t.rows.length ? t.rows.map(row).join('') : `<div class="pempty">Nothing waiting${t.matchedOnly ? ' among the suggestions — untick "suggestions only" to see every undecided bill' : ''}. 🤙</div>`;
   return `<div class="triage">
-    <div class="dashhead"><h1>Triage</h1><span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
+    <div class="dashhead ${embedded ? 'sub2' : ''}"><h1>${embedded ? 'Decide on the new ones' : 'New bills'}</h1><span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
     <p class="boardhow">Each row is a bill nobody has decided on. <b>Track</b> puts it on the tracker under that coalition with the coalition’s owner, Monitor, P2 — change any of that on the bill page later. <b>Skip</b> hides it for good (undo is one click). Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>t</kbd> track, <kbd>s</kbd> skip, <kbd>u</kbd> undo.</p>
     ${chips}
     <div class="tlist">${rows}</div>
@@ -2388,19 +2399,20 @@ function wireTriage() {
     catch (e) { toast(e.message, true); } };
   document.querySelectorAll('[data-ttrack]').forEach(el => el.onclick = () => act(el.dataset.ttrack, async r => { await DB.triageTrack(r, el.dataset.tcampid); t.last = { ...r, tracked: true }; if (t.counts) t.counts.tracked++; toast(`${r.bill_number} tracked as ${S.campaigns.find(c => c.id === el.dataset.tcampid)?.name || ''}`); }));
   document.querySelectorAll('[data-tsel]').forEach(el => el.onchange = () => { if (!el.value) return; act(el.dataset.tsel, async r => { await DB.triageTrack(r, el.value); t.last = { ...r, tracked: true }; if (t.counts) t.counts.tracked++; toast(`${r.bill_number} tracked as ${S.campaigns.find(c => c.id === el.value)?.name || ''}`); }); });
-  document.querySelectorAll('[data-tskip]').forEach(el => el.onclick = () => act(el.dataset.tskip, async r => { await DB.triageSkip(r); t.last = { ...r, tracked: false }; }));
+  document.querySelectorAll('[data-tskip]').forEach(el => el.onclick = () => act(el.dataset.tskip, async r => { await DB.triageSkip(r); t.last = { ...r, tracked: false }; toastUndo(`${r.bill_number} skipped`, async () => { await DB.triageUndo(r); t.last = null; t.rows = null; render(); }); }));
   document.querySelectorAll('[data-tundo]').forEach(el => el.onclick = async () => { const r = t.last; if (!r) return; try { await DB.triageUndo(r); t.last = null; t.rows = null; render(); toast(`${r.bill_number} is back in the queue`); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('.trow').forEach(el => el.onclick = e => { if (e.target.closest('button, select, a')) return; t.focus = Number(el.dataset.ti); document.querySelectorAll('.trow').forEach(x => x.classList.toggle('kfocus', x === el)); });
 }
 const titleCaseHI = t => String(t || '').replace(/^RELATING TO /i, 'Relating to ').replace(/\b([A-Z]{2,})\b/g, w => w.charAt(0) + w.slice(1).toLowerCase()).replace(/\bHawaii\b/g, 'Hawaiʻi');
 function renderAdd() {
+  // One page for bringing bills in: search every introduced measure, and
+  // below it the queue of new bills nobody has decided on yet (the old Triage).
   return `<div class="addbill">
-    <h2 style="margin:16px 0 4px">Add bills to the tracker</h2>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">
-      Search the full imported session (every introduced measure) and start tracking anything new.</p>
-    <input type="search" id="addq" placeholder="Search by number (SB123) or keyword…">
-    <div class="results" id="addresults"><div class="row" style="color:var(--muted)">Type at least 3 characters…</div></div>
-  </div>`;
+    <div class="dashhead"><h1>New bills</h1><span class="sub">Search any bill in the session and track it, or work through the new ones that match your coalitions’ keywords below.</span></div>
+    <input type="search" id="addq" placeholder="Search every introduced bill: SB123, vaping, school meals…">
+    <div class="results" id="addresults"></div>
+  </div>
+  ${renderTriage(true)}`;
 }
 
 // ---------------- drawer ----------------
@@ -2715,6 +2727,12 @@ function nextHTML(b) {
 }
 
 const titleCaseTitle = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase().replace(/\bhawaii\b/gi, 'Hawaii') : t;
+// Write → Review → Approve → File: where a draft is, without a status word.
+const DRAFT_STEPS = [['draft', 'Write'], ['review', 'Review'], ['approved', 'Approve'], ['filed', 'File']];
+function draftJourney(d) {
+  const idx = { draft: 0, review: 1, second_review: 1, approved: 2, filed: 3 }[d.status] ?? 0, done = d.status === 'filed';
+  return `<span class="journey" title="${esc(DRAFT_LABEL[d.status] || d.status)}">${DRAFT_STEPS.map(([k, l], i) => `<i class="${done || i < idx ? 'done' : i === idx ? 'cur' : ''}">${l}${i === idx && d.status === 'second_review' ? ' 2/2' : ''}</i>`).join('<b></b>')}</span>`;
+}
 function drawerHTML(b) {
   // Four blocks and a tab row. Header: the one-second facts. Next: the
   // hearing, the deadline, and the testimony step with its button. Summary.
@@ -2746,7 +2764,7 @@ function drawerHTML(b) {
       ? `<div class="draftform"><input class="dfnote" placeholder="What should change?" aria-label="What should change"><button class="draftbtn pri" data-act="request_changes">Send</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`
       : `<div class="draftform"><input class="dfurl" placeholder="Capitol confirmation link (optional)" aria-label="Confirmation link"><button class="draftbtn pri" data-act="file">Filed</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`) : '';
     return `<div class="draftrow nx" data-draft="${esc(d.id)}">
-      <span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
+      ${draftJourney(d)}<span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
       <span class="draftwho">${esc(draftWho(d))}${d.version || b.current_version ? ` · written for ${esc(d.version || 'the introduced bill')}` : ''}${d.version !== (b.current_version || null) && b.current_version && d.status !== 'filed' ? ` <span class="hot">— bill is now ${esc(b.current_version)}, check the draft</span>` : ''}</span>
       <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
       <span class="dlinks"><a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>
@@ -2938,7 +2956,7 @@ function render() {
   if (isMobile() && S.view === 'table') S.view = 'portfolio';
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
-    : S.view === 'settings' ? renderSettings()
+    : S.view === 'settings' || S.view === 'setup' ? renderSettings()
     : S.view === 'triage' ? renderTriage()
     : S.view === 'inbox' ? renderInbox()
     : S.view === 'memo' ? renderMemo()
@@ -2953,13 +2971,13 @@ function render() {
     .catch(()=>{});
 }
 function wire() {
-  if (S.view === 'triage') wireTriage();
+  if (S.view === 'triage' || S.view === 'add') wireTriage();
   if (S.view === 'inbox') wireInbox();
   if (S.view === 'memo') wireMemo();
   if (S.view === 'lists') wireLists();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
-    try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+    try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); rerenderKeep(); }); rerenderKeep(); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null;
     if (el.closest('.rail')) S.railQuiet = true;   // stay collapsed until the mouse leaves, so the page is not covered
@@ -2982,6 +3000,7 @@ function wire() {
     const url = prompt('Paste the YouTube address for this hearing (leave blank to go back to the channel link):', h.stream_url || ''); if (url === null) return;
     try { await DB.setHearingStream(h.id, url.trim()); toast(url.trim() ? 'Video link saved' : 'Back to the channel link'); render(); } catch (err) { toast(err.message, true); } });
   $('.rail') && ($('.rail').onmouseleave = () => { if (S.railQuiet) { S.railQuiet = false; $('.rail')?.classList.remove('quiet'); } });
+  $('#welcome-x') && ($('#welcome-x').onclick = () => { try { localStorage.setItem('hiphi_welcome', '1'); } catch {} $('#welcome')?.remove(); });
   $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
@@ -3150,7 +3169,7 @@ function wireDrawer() {
   });
   document.querySelectorAll('.drawer [data-attend]').forEach(el => el.onclick = async () => {
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
-    try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); keep(() => {}); } catch (e) { toast(e.message, true); }
+    try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); keep(() => {}); }); keep(() => {}); } catch (e) { toast(e.message, true); }
   });
   $('.dprimary') && ($('.dprimary').onclick = () => { const row = document.querySelector(`[data-draft="${$('.dprimary').dataset.primary}"]`);
     const btn = row?.querySelector(`[data-act="${$('.dprimary').dataset.primaryact}"]`); if (btn) { row.scrollIntoView({ block: 'center' }); btn.click(); } });
@@ -3206,8 +3225,9 @@ function wireDrawer() {
       try {
         await DB.transition(b.id, id, act, note, url);
         S.draftUI = null;
-        toast({ submit: 'Sent for review', approve: 'Approved', request_changes: 'Sent back with your note',
-          withdraw: 'Back to draft', file: 'Marked filed', unfile: 'Unmarked' }[act] || 'Done');
+        const said = { submit: 'Sent for review — the approver gets a DM', approve: 'Approved — the owner gets a DM to file it', request_changes: 'Sent back with your note',
+          withdraw: 'Back to draft', file: 'Marked filed', unfile: 'Unmarked' }[act] || 'Done';
+        if (act === 'file') toastUndo(said, async () => { await DB.transition(b.id, id, 'unfile'); render(); }); else toast(said);
         if (act === 'file' && !DEMO) openDrawer(b.id); else render();
       } catch (e) { btn.disabled = false; toast(e.message, true); }
     });
@@ -3257,10 +3277,12 @@ function wireDrawer() {
 }
 function wireAdd() {
   const q = $('#addq'); if (!q) return;
+  const tri = document.querySelector('.triage'); const showTri = on => { if (tri) tri.hidden = !on; };
   let t; q.oninput = () => { clearTimeout(t); t = setTimeout(doSearch, 350); };
   async function doSearch() {
     const val = q.value.trim(), box = $('#addresults');
-    if (val.length < 3) { box.innerHTML = '<div class="row" style="color:var(--muted)">Type at least 3 characters…</div>'; return; }
+    if (val.length < 3) { box.innerHTML = ''; showTri(true); return; }
+    showTri(false);
     box.innerHTML = '<div class="row" style="color:var(--muted)">Searching…</div>';
     try {
       const rows = await DB.searchUntracked(val);
@@ -3345,7 +3367,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', t: 'table', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo', l: 'lists' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', t: 'table', s: 'settings', h: 'help', i: 'add', n: 'inbox', m: 'memo', l: 'lists' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
