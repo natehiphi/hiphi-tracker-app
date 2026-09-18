@@ -1243,7 +1243,8 @@ function renderPortfolio(list) {
     const ups = S.hearings.filter(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * day).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee);
-      if (!attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', h, dr, verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
+      // Attendance is off the list for now (Nate, 9/17); the calendar and the bill page still show who is going.
+      if (ATTEND_ASKS && !attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', h, dr, verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
       if (!dr) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'nodraft', h, dr, verb: 'No draft yet', why: `The ${h.committee} hearing is ${fmtDT(h.scheduled_at)} and no testimony draft exists. It is created from the notice within the hour; if it does not appear, ask Nate.`, btn: `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` });
       else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', h, dr, verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
       if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', h, dr, verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
@@ -1321,7 +1322,7 @@ function renderPortfolio(list) {
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
       <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}
-      <div class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours</small></div>${colHtml('open', openItems, 'Nothing unclaimed right now.')}
+      <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours · tap to ${(S.folds || {}).actopen ? 'hide' : 'show'}</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now.')}</details>
     </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
@@ -1709,6 +1710,7 @@ function stopOf(b) {
 // At risk: a live bill the team has a position on, sitting in committee with
 // no hearing on the books, whose deadline is RISK_DAYS away or less.
 const RISK_DAYS = 7;
+const ATTEND_ASKS = false;   // "Someone needs to attend" rows in Action needed
 function riskOf(b) {
   if (SESSION_OVER || b.position === 'monitor' || diedish(b)) return null;
   const st = stopOf(b);
@@ -2995,7 +2997,7 @@ function wire() {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
     rerenderKeep(isMobile() ? '#fold-week' : null, isMobile() ? 'fold-week' : 'pf-week');
   });
-  document.querySelectorAll('details.fold').forEach(d => d.ontoggle = () => { S.folds ??= loadFolds(); S.folds[d.id.replace('fold-', '')] = d.open; try { localStorage.setItem('hiphi_folds', JSON.stringify(S.folds)); } catch {} });
+  document.querySelectorAll('details.fold, details.actopen').forEach(d => d.ontoggle = () => { S.folds ??= loadFolds(); S.folds[d.id.replace('fold-', '')] = d.open; try { localStorage.setItem('hiphi_folds', JSON.stringify(S.folds)); } catch {} });
   document.querySelectorAll('[data-boardmore]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.boardMore = S.boardMore || {}; const k = el.dataset.boardmore;
     S.boardMore[k] = !S.boardMore[k]; rerenderKeep(isMobile() ? '#fold-board' : null, 'pf-board-' + k);

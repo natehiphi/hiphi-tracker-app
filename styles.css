@@ -1489,3 +1489,10 @@ body.staffapp .loginwrap{min-height:calc(100vh / 1.07)}
 @media (max-width:760px){ .sec-wait .shead{padding:14px 12px 12px} .bstat.done{display:none} }
 
 .actlist .boardmore{padding:12px 22px;text-align:left}
+
+/* Open to anyone folds; closed until wanted */
+details.actopen>summary{list-style:none;cursor:pointer}
+details.actopen>summary::-webkit-details-marker{display:none}
+details.actopen>summary::after{content:'▾';margin-left:8px;color:var(--muted)}
+details.actopen[open]>summary::after{content:'▴'}
+details.actopen>summary:hover{background:#F7FAFB}
