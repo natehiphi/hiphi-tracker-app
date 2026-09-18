@@ -1440,20 +1440,28 @@ function renderPortfolio(list) {
   const live = list.filter(b => !diedish(b)), deadN = list.filter(b => diedish(b) && b.position !== 'monitor').length;
   const posN = k => live.filter(b => k.includes(b.position || 'monitor')).length;
   const tile = (n, label, attr, cls = '') => `<button class="gtile ${cls}" ${attr}><b>${n}</b><span>${label}</span></button>`;
-  // At a glance: one strip of figures across the page, each a way in.
-  const g = (n, label, attr, cls = '') => `<button class="gtile ${cls}" ${attr}><b>${n}</b><span>${label}</span></button>`;
   const glance = `
-    <div class="glance strip" id="pf-glance">
-      <div class="ggroup"><span class="glbl">Inbox</span>${g(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${g(inbUpd.length, 'updates', 'data-view="inbox" data-inboxgo="updates"')}</div>
-      <div class="ggroup"><span class="glbl">This week</span>${g(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${g(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${g(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}${cur ? g(dlDays <= 0 ? 'Today' : `${dlDays}d`, `to ${esc(cur.label)}`, 'data-jump="pf-board"', dlDays <= 3 ? 'hotn' : '') : ''}</div>
-      <div class="ggroup"><span class="glbl">Bills · ${live.length} live</span>${g(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${g(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${g(board.c.length, 'through committee', 'data-jump="pf-board-a"')}${deadN ? g(deadN, 'did not advance', 'data-jump="pf-dead"', 'quiet') : ''}</div>
+    <div class="panel glance" id="pf-glance"><div class="ph"><span>📊 At a glance</span><span class="psub">${esc(today)}</span></div>
+      <div class="gsec"><div class="gh"><span>Inbox</span><a data-view="inbox">open ›</a></div>
+        <div class="gtiles two">${tile(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${tile(inbUpd.length, 'updates on your bills', 'data-view="inbox" data-inboxgo="updates"')}</div>
+        ${inbNeeds.slice(0, 3).map(i => `<div class="gline" data-inbox="${esc(i.key)}"><span class="gi">${INBOX_ICON[i.kind] || '•'}</span><span class="gt"><b>${esc(i.bill_number || '')}</b> ${esc(unslack(i.title))}</span><span class="gw">${agoShort(i.at)}</span></div>`).join('') || '<div class="gnone">Nothing is waiting on you. 🤙</div>'}
+      </div>
+      <div class="gsec"><div class="gh"><span>This week</span></div>
+        <div class="gtiles">${tile(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${tile(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${tile(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}</div>
+        ${cur ? `<div class="gdead"><span>Next deadline</span><b>${esc(cur.label)}</b><span class="${dlDays <= 3 ? 'hot' : ''}">${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span></div>` : ''}
+      </div>
+      <div class="gsec"><div class="gh"><span>Bills</span><span class="gsub">${live.length} live${deadN ? ` · <a data-jump="pf-dead">${deadN} did not advance</a>` : ''}</span></div>
+        <div class="gtiles">${tile(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${tile(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${tile(board.c.length, 'through committee', 'data-jump="pf-board-a"')}</div>
+        <div class="gbar" title="Positions on live bills">${[['s', ['strongly_support', 'support'], 'support'], ['o', ['strongly_oppose', 'oppose'], 'oppose'], ['n', ['neutral'], 'comments'], ['m', ['monitor'], 'monitor']].map(([c, k, l]) => { const n = posN(k); return n ? `<i class="${c}" style="flex:${n}" title="${n} ${l}"></i>` : ''; }).join('')}</div>
+        <div class="glegend"><span><i class="s"></i>${posN(['strongly_support', 'support'])} support</span><span><i class="o"></i>${posN(['strongly_oppose', 'oppose'])} oppose</span><span><i class="n"></i>${posN(['neutral'])} comment${posN(['neutral']) === 1 ? '' : 's'}</span><span><i class="m"></i>${posN(['monitor'])} monitor</span><span class="gp1">${live.filter(b => b.priority === 1).length} P1</span></div>
+      </div>
+      <div class="gsec last"><div class="gtiles two">${tile(waitingOthers.length, 'testimony steps on teammates', 'data-jump="pf-others"')}${tile(recent.length, 'official actions in 72h', 'data-jump="pf-recent"')}</div></div>
     </div>`;
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
   return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + banner + todayStrip + `
-    ${glance}
-    <div class="dash home one">
+    <div class="dash home">
       <div>${waitPanel}</div>
-      ${recentHearingsHtml ? `<div>${recentHearingsHtml}</div>` : ''}
+      <div>${glance}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${board.html ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
