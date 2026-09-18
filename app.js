@@ -1314,9 +1314,9 @@ function renderPortfolio(list) {
     const shown = more ? items : items.filter(x => urgentRow(x) || room-- > 0);
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
-  const waitingHtml = `<div class="actcols">
-      <div class="actcol"><div class="acth">Yours <span class="cnt">${mineItems.length}</span><small>the next step on a draft is yours</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}</div>
-      <div class="actcol open"><div class="acth">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours</small></div>${colHtml('open', openItems, 'Nothing unclaimed right now.')}</div>
+  const waitingHtml = `<div class="actlist">
+      <div class="acth">Yours <span class="cnt">${mineItems.length}</span><small>the next step on a draft is yours</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}
+      <div class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours</small></div>${colHtml('open', openItems, 'Nothing unclaimed right now.')}
     </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
