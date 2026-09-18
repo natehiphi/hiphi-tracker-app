@@ -1823,3 +1823,22 @@ body.has-rail .top .who{margin-left:auto}
 .frrow.ok .frc{background:#1E7B45;border-color:#1E7B45}.frrow.ok b{color:var(--muted);font-weight:500;text-decoration:line-through}
 
 .chrow[hidden]{display:none !important}
+
+/* one tail for every filter row: the count, then one way out */
+.ifilters .fcount{margin-left:auto}
+.ifilters .fclear{margin-left:4px}
+.qchip.t-mon .qdot{background:#8FA1AD}
+/* Inbox: one-tap actions */
+.irow .iacts{display:inline-flex;gap:6px;align-items:center;margin:0 6px;flex:none}
+@media (max-width:760px){ .irow{flex-wrap:wrap} .irow .iacts{order:5;flex-basis:100%;margin:6px 0 0 34px} }
+/* My settings: the three channels */
+.chan{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:6px 0;font-size:13.5px}
+.chan span{color:var(--muted)}
+/* Wide screens: a bill, a legislator or a person opens as a side panel, and the page behind stays live.
+   Click another row and the panel follows; close with the X or Esc. Narrower screens keep the centred sheet. */
+@media (min-width:1280px){
+  .scrim{background:transparent;backdrop-filter:none;pointer-events:none}
+  .drawer.v2{top:0;bottom:0;right:0;left:auto;transform:none;height:auto;max-height:none;width:min(720px,50vw);border-radius:0;border-left:1px solid var(--line);box-shadow:-14px 0 44px rgba(12,34,51,.16)}
+}
+
+.settings input[type=radio]{width:16px;height:16px;flex:none;margin:0}

@@ -876,12 +876,15 @@ function lensBills(owner = S.owner) {
     list = list.filter(b => b.bill_number.toLowerCase().includes(qn) || (b.title||'').toLowerCase().includes(q)); }
   return list;
 }
-// What the counts are counted against: the home page never lists Monitor bills, the Table does.
-const barBase = (owner = S.owner) => { const l = lensBills(owner); return S.view === 'portfolio' && !S.q ? l.filter(b => b.position !== 'monitor') : l; };
+// One meaning for "My bills", "Everyone" and a teammate's count on every page: bills with a position. Monitor bills
+// join only on All bills, when the "monitor" chip (or the Monitor position filter) asks for them. A search covers everything.
+const monitorShown = () => !!S.q || (S.view === 'table' && (S.showMonitor || S.poss.has('monitor')));
+const barBase = (owner = S.owner) => { const l = lensBills(owner); return monitorShown() ? l : l.filter(b => b.position !== 'monitor'); };
+const monitorCount = () => lensBills().filter(b => b.position === 'monitor').length;
 const facetCount = (base, key, test) => base.filter(b => passes(b, key) && test(factsOf(b))).length;
 const FILTER_KEY = DEMO ? 'hiphi_filters_demo' : 'hiphi_filters';
 function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify({ pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], riskF: S.riskF, hearF: S.hearF, tripleF: S.tripleF })); } catch {} }
-function loadFilters() { try { const f = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); if (!f) return;
+function loadFilters() { try { S.showMonitor = !!localStorage.getItem('hiphi_showmon'); } catch {} try { const f = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); if (!f) return;
   S.pris = new Set(f.pris || []); S.poss = new Set(f.poss || []); S.stands = new Set(f.stands || []); S.camps = new Set((f.camps || []).filter(id => S.campaigns.some(c => c.id === id)));
   S.riskF = !!f.riskF; S.hearF = !!f.hearF; S.tripleF = !!f.tripleF; } catch {} }
 function toggleFilter(spec) { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
@@ -889,7 +892,7 @@ function toggleFilter(spec) { const i = spec.indexOf(':'), k = i < 0 ? spec : sp
   saveFilters(); }
 function clearFilters() { S.pris = new Set(); S.camps = new Set(); S.poss = new Set(); S.stands = new Set(); S.tripleF = false; S.riskF = false; S.hearF = false; S.stageF = ''; saveFilters(); }
 function visibleBills() {
-  const list = lensBills().filter(b => passes(b));
+  const list = barBase().filter(b => passes(b));
   const [key, dir] = S.sort;
   return [...list].sort((a,b) => {
     const va = key==='owner' ? (owners(a)[0]?.full_name||'') : key==='pulse'
@@ -957,6 +960,7 @@ function filterBarHTML() {
         <div class="qchips" role="group" aria-label="Quick filters">
           ${quick.map(([spec, label, tip, test, key, tone]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip t-${tone} ${on ? 'on' : ''}" data-ft="${spec}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}"><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span>${label}<i>${c}</i></button>`; }).join('')}
         </div>
+        ${S.view === 'table' && !S.q && monitorCount() ? `<button class="qchip t-mon ${S.showMonitor ? 'on' : ''}" id="monchip" aria-pressed="${!!S.showMonitor}" title="Monitor bills are tracked without a position. They are left out of every count unless you include them here."><span class="qdot" aria-hidden="true">${S.showMonitor ? '✓' : '＋'}</span>${S.showMonitor ? 'including' : ''} monitor bills<i>${monitorCount()}</i></button>` : ''}
         ${S.view==='table' ? '<button class="fbtn" id="csv">⬇ Export CSV</button>' : ''}
       </div>
     </div>`;
@@ -1654,7 +1658,7 @@ function bulkBar() {
 function renderTable(list) {
   const q = (S.q || '').trim();
   // Say out loud that a search is narrowing the table, and offer the way out when the scope is what hides the match.
-  const elsewhere = q && S.owner !== 'all' ? (() => { const keep = S.owner; S.owner = 'all'; const n = lensBills().filter(b => passes(b)).length; S.owner = keep; return n; })() : 0;
+  const elsewhere = q && S.owner !== 'all' ? (() => { const keep = S.owner; S.owner = 'all'; const n = barBase().filter(b => passes(b)).length; S.owner = keep; return n; })() : 0;
   const banner = q ? `<div class="qbanner">Showing bills that match <b>“${esc(q)}”</b> · ${list.length} found${elsewhere > list.length ? ` here, ${elsewhere} under Everyone <button class="linkbtn" data-scopeall="1">show everyone</button>` : ''} <button class="linkbtn qclear">clear the search</button></div>` : '';
   if (q && !list.length) return banner + `<div class="empty">Nothing ${S.owner === 'me' ? 'of yours' : S.owner === 'all' ? 'on the tracker' : 'of theirs'} matches “${esc(q)}”.${elsewhere ? ' It is there under Everyone.' : ' Bills that are not tracked yet are under New bills.'}</div>`;
   return banner + bulkBar() + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
@@ -1943,9 +1947,12 @@ function renderSettings() {
   const slackState = DEMO ? 'sandbox' : me.slack_user_id ? 'connected' : 'not matched yet - matched by email on the first message';
   const mine = `
     <section>
-      <h2>Your Slack messages</h2>
-      <p class="tok">Slack account: ${esc(slackState)}. Anything switched off here arrives by email instead when it is a workflow step, and not at all when it is a reminder.</p>
-      ${chk('st-dm', me.slack_dm !== false, 'Send me Slack direct messages')}
+      <h2>How the tracker reaches you</h2>
+      <div class="chan"><b>📥 Inbox</b><span>Always on. Everything that needs you lands there, whatever you choose below, and the red number counts it.</span></div>
+      <div class="chan"><b>🔔 Nudges</b><span>The same things, pushed to you so you do not have to look. Pick where they go:</span></div>
+      <label class="row"><input type="radio" name="st-nudge" id="st-dm" ${me.slack_dm !== false ? 'checked' : ''}><span>Slack direct message <span class="tok">· Slack account: ${esc(slackState)}</span></span></label>
+      <label class="row"><input type="radio" name="st-nudge" id="st-dm-email" ${me.slack_dm === false ? 'checked' : ''}><span>Email to ${esc(me.email || 'my address')} instead${(S.emailCfg || {}).enabled === false ? ' <span class="tok hot">· an admin has paused all email, so these are held right now</span>' : ''} <span class="tok">· workflow steps only; deadline reminders are Slack-only</span></span></label>
+      <p class="tok">Untick anything below and it stops nudging you. It still shows in the Inbox.</p>
       <h3>Testimony deadline reminders</h3>
       <p class="tok">Only for bills I own, and only while the testimony is not marked filed.</p>
       <label class="row"><input type="checkbox" id="st-mon" ${v(rem.morning_on, dflt.morning_on !== false) ? 'checked' : ''}><span>The morning of the deadline at</span>
@@ -2281,8 +2288,8 @@ function renderPeople() {
       <label class="row sec2"><input type="checkbox" id="pp-optin" ${f.optin ? 'checked' : ''}> Opted in to action alerts</label>
       <label class="row sec2"><input type="checkbox" id="pp-acted" ${f.acted ? 'checked' : ''}> Took an action</label>
       <select id="pp-sort">${opt('active', 'Last active', v.sort)}${opt('score', 'Most engaged', v.sort)}${opt('newest', 'Newest', v.sort)}${opt('name', 'By name', v.sort)}</select>
-      <span class="tok">${rows.length} of ${all.length}</span>
-      ${pfEmpty(f) ? '' : '<button class="linkbtn" id="pp-clear">clear filters</button>'}
+      <span class="tok fcount">${rows.length} of ${all.length}</span>
+      ${pfEmpty(f) ? '' : '<button class="linkbtn fclear" id="pp-clear">clear filters</button>'}
       <button class="linkbtn pfmore" id="pp-more">${v.more ? 'fewer filters' : 'more filters'}</button>
     </div>
     <div class="btns segbtns">
@@ -2574,6 +2581,16 @@ function inboxRows() {
     : (x, y) => (y.unread - x.unread) || String(y.at).localeCompare(String(x.at));
   return rows.sort(cmp);
 }
+// One-tap actions on an Inbox row: reply to a message, approve or submit testimony, open the draft. Steps that need a
+// word first (request changes, mark filed with a link) still open the bill, where the field is.
+function inboxActs(i) {
+  if (!i.bill_id || !billById(i.bill_id)) return '';
+  if (i.kind === 'message') return `<span class="iacts"><button class="btn sm ghost" data-inboxreply="${i.bill_id}" data-inboxkey="${esc(i.key)}">Reply</button></span>`;
+  if (i.kind !== 'testimony') return '';
+  const d = (S.drafts[i.bill_id] || []).filter(x => x.status !== 'cancelled').sort((a, b) => ['review', 'second_review', 'approved', 'draft'].indexOf(a.status) - ['review', 'second_review', 'approved', 'draft'].indexOf(b.status))[0]; if (!d) return '';
+  const quick = draftActions(d).filter(([act]) => act === 'approve' || act === 'submit');
+  return `<span class="iacts" data-draft="${esc(d.id)}" data-inboxkey="${esc(i.key)}">${d.doc_url ? `<a class="btn sm ghost" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Draft ↗</a>` : ''}${quick.map(([act, label, cls]) => `<button class="btn sm ${cls === 'pri' ? '' : 'ghost'}" data-act="${act}">${label}</button>`).join('')}</span>`;
+}
 function renderInbox() {
   const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
   const all = S.inbox || [], rows = inboxRows();
@@ -2584,6 +2601,7 @@ function renderInbox() {
         <span class="iicon">${INBOX_ICON[i.kind] || '•'}</span>
         <div class="imain"><div class="il1">${i.bill_number ? `<b>${esc(i.bill_number)}</b>${i.priority === 1 ? ' <span class="pri">P1</span>' : ''} ` : ''}${esc(unslack(i.title))}</div>
           ${i.body ? `<div class="ibody">${esc(unslack(i.body).slice(0, 200))}</div>` : ''}</div>
+        ${inboxActs(i)}
         <span class="iwhen">${ago(i.at)}</span>
         <button class="iread" data-inboxtoggle="${esc(i.key)}" title="${i.unread ? 'Mark read (e)' : 'Mark unread'}">${i.unread ? '✓' : '↺'}</button>
       </div>`; };
@@ -2609,6 +2627,7 @@ function renderInbox() {
       <label class="row"><input type="checkbox" id="inbox-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
       <select id="inbox-sort" title="Sort"><option value="new" ${v.sort === 'new' ? 'selected' : ''}>Unread first, then newest</option><option value="pri" ${v.sort === 'pri' ? 'selected' : ''}>Priority (P1 first)</option><option value="bill" ${v.sort === 'bill' ? 'selected' : ''}>By bill</option></select>
       <span class="ikinds">${INBOX_KINDS.filter(([k]) => all.some(i => i.kind === k && (v.tab === 'all' || (v.tab === 'needs') === i.direct))).map(([k, l]) => `<button class="fchip ${v.kind === k ? 'on' : ''}" data-inboxf="${k}">${l}</button>`).join('')}</span>
+      <span class="tok fcount">${rows.length} shown</span>${v.q || v.unreadOnly || v.kind ? '<button class="linkbtn fclear" id="inbox-clear">clear filters</button>' : ''}
     </div>
     <div class="ilist">${body}</div>
     <p class="tok" style="margin-top:10px">Keys: <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>Enter</kbd> open · <kbd>e</kbd> mark read · <kbd>Shift</kbd>+<kbd>A</kbd> mark this list read. Testimony items clear themselves once the draft is filed; reminders clear after the hearing.</p>
@@ -2618,11 +2637,14 @@ function wireInbox() {
   const v = S.inboxView;
   document.querySelectorAll('[data-inboxtab]').forEach(el => el.onclick = () => { v.tab = el.dataset.inboxtab; v.kind = ''; render(); });
   document.querySelectorAll('[data-inboxf]').forEach(el => el.onclick = () => { v.kind = v.kind === el.dataset.inboxf ? '' : el.dataset.inboxf; render(); });
+  $('#inbox-clear') && ($('#inbox-clear').onclick = () => { v.q = ''; v.unreadOnly = false; v.kind = ''; render(); });
   $('#inbox-unread') && ($('#inbox-unread').onchange = () => { v.unreadOnly = $('#inbox-unread').checked; render(); });
   $('#inbox-sort') && ($('#inbox-sort').onchange = () => { v.sort = $('#inbox-sort').value; render(); });
   const q = $('#inbox-q'); if (q) { let t; q.oninput = () => { v.q = q.value; clearTimeout(t); t = setTimeout(() => { render(); const el = $('#inbox-q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 200); }; }
   $('#inbox-readall') && ($('#inbox-readall').onclick = async () => { const keys = inboxRows().filter(i => i.unread).map(i => i.key); try { await DB.inboxMark(keys); toast(`${keys.length} marked read`); render(); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-inboxgroup]').forEach(el => el.onclick = async e => { e.stopPropagation(); const k = el.dataset.inboxgroup; const keys = inboxRows().filter(i => (i.bill_id || 'none') === k && i.unread).map(i => i.key); try { await DB.inboxMark(keys); render(); } catch (err) { toast(err.message, true); } });
+  document.querySelectorAll('.iacts').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-act], a') && el.dataset.inboxkey) DB.inboxMark([el.dataset.inboxkey]).catch(() => {}); }));
+  document.querySelectorAll('[data-inboxreply]').forEach(el => el.onclick = async e => { e.stopPropagation(); DB.inboxMark([el.dataset.inboxkey]).catch(() => {}); await openDrawer(el.dataset.inboxreply); S.drawerOpen.chat = true; S.drawerOpen.tab = 'chat'; render(); const box = $('#d-chatnew'); if (box) { box.focus(); box.scrollIntoView({ block: 'center' }); } });
   document.querySelectorAll('[data-inboxtoggle]').forEach(el => el.onclick = async e => { e.stopPropagation(); const i = (S.inbox || []).find(x => x.key === el.dataset.inboxtoggle); if (!i) return; try { if (i.unread) await DB.inboxMark([i.key]); else await DB.inboxUnmark([i.key]); render(); } catch (err) { toast(err.message, true); } });
   document.querySelectorAll('[data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
     DB.inboxMark([i.key]).catch(() => {});
@@ -2672,7 +2694,7 @@ const roomShortMemo = r => String(r || '').replace(/Conference Room/i, 'Rm').rep
 const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(i => '• ' + i)]), '', m.foot].join('\n');
 const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(i => `<li>${esc(i).replace(/^([A-Z]+ \d+(?: [A-Z]+\d+)?)/, '<b>$1</b>')}</li>`).join('')}</ul>`).join('')}<p>${esc(m.foot)}</p>`;
 function renderMemo() {
-  const v = S.memoView ??= { coalition: '' }, m = memoData();
+  const v = S.memoView ??= { coalition: (S.campaigns.find(c => c.owner_id === S.me?.id) || {}).id || '' }, m = memoData();
   return `<div class="memowrap">
     <div class="dashhead"><h1>Weekly memo</h1><span class="sub">Writes itself from the bill records. Pick a coalition, read it over, copy it into an email, a Slack post or a board packet. Nothing is sent from here.</span></div>
     <div class="ifilters"><select id="memo-coal"><option value="">Every coalition</option>${S.campaigns.map(c => `<option value="${c.id}" ${v.coalition === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
@@ -2726,7 +2748,7 @@ function renderLegislators() {
       ${v.addr && v.addr.q === v.q.trim() && v.addr.results.length && !v.pick ? `<div class="legsug">${v.addr.results.map((x, i) => `<button data-addrpick="${i}"><span class="sk">📍</span>${esc(x.label)}${x.exact ? '' : ' <small>area</small>'}</button>`).join('')}</div>` : (looksLikeAddress(v.q) && v.addrLoading && !v.pick ? '<div class="legsug"><button disabled><span class="sk">…</span>Looking up addresses</button></div>' : '')}
       <select id="leg-ch"><option value="">Both chambers</option><option value="S" ${v.chamber === 'S' ? 'selected' : ''}>Senate</option><option value="H" ${v.chamber === 'H' ? 'selected' : ''}>House</option></select>
       <select id="leg-cm"><option value="">Any committee</option>${Object.values(S.committees || {}).filter(c => !v.chamber || c.chamber === v.chamber).sort((a, b) => a.code.localeCompare(b.code)).map(c => `<option value="${esc(c.code)}" ${v.committee === c.code ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>
-      <span class="tok">${rows.length} of ${(S.legislators || []).length}</span></div>
+      <span class="tok fcount">${rows.length} of ${(S.legislators || []).length}</span>${v.q || v.chamber || v.committee ? '<button class="linkbtn fclear" id="leg-clear">clear filters</button>' : ''}</div>
     ${v.pick ? `<div class="panel legpick"><div class="ph"><span>📍 ${esc(v.pick.label)}</span><span class="psub">${esc(v.pick.matched || '')}</span><button class="linkbtn" id="leg-pickx" style="margin-left:auto">clear</button></div><div class="leggrid" style="padding:12px">${v.pick.ids.map(legById).filter(Boolean).map(card).join('') || '<div class="pempty">No match for that address.</div>'}</div></div>` : ''}
     <div class="leggrid">${rows.map(card).join('') || '<div class="pempty">No one matches.</div>'}</div>
   </div>`;
@@ -2739,6 +2761,7 @@ function wireLegislators() {
     try { const j = await geoDistricts(x); v.pick = { label: 'Legislators for this address', matched: x.label, ids: j.found ? (S.legislators || []).filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) : [] }; v.focusQ = false; render(); }
     catch (e) { toast('Could not look that up', true); } });
   $('#leg-pickx') && ($('#leg-pickx').onclick = () => { v.pick = null; v.q = ''; render(); });
+  $('#leg-clear') && ($('#leg-clear').onclick = () => { v.q = ''; v.chamber = ''; v.committee = ''; v.pick = null; v.addr = null; render(); });
   $('#leg-ch') && ($('#leg-ch').onchange = () => { v.chamber = $('#leg-ch').value; v.focusQ = false; render(); });
   $('#leg-cm') && ($('#leg-cm').onchange = () => { v.committee = $('#leg-cm').value; v.focusQ = false; render(); });
 }
@@ -3840,6 +3863,7 @@ function wire() {
   document.querySelectorAll('.qbox').forEach(el => el.oninput = e => { S.q = e.target.value; S.qFocus = el.classList.contains('topq') ? 'topq' : 'rowq'; rerenderBody(); });
   document.querySelectorAll('[data-owner]').forEach(el =>
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
+  $('#monchip') && ($('#monchip').onclick = () => { S.showMonitor = !S.showMonitor; try { localStorage.setItem('hiphi_showmon', S.showMonitor ? '1' : ''); } catch {} render(); });
   $('#scopesel') && ($('#scopesel').onchange = () => { S.owner = $('#scopesel').value; render(); });
   // Filters: every chip, option and pill is a toggle; the panel stays open and keeps its scroll.
   const filterRender = () => { const y = $('.fpbody')?.scrollTop || 0; render(); const el = $('.fpbody'); if (el) el.scrollTop = y; };
@@ -4157,6 +4181,7 @@ document.addEventListener('keydown', e => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if (e.key === 'Escape') {
     if (typing) { document.activeElement.blur(); return; }
+    if (S.personOpen) { S.personOpen = null; S.personEdit = null; render(); return; }
     if (S.legOpen) { S.legOpen = null; render(); return; }
     if (S.drawerBill) { S.drawerBill = null; render(); return; }
     if (S.filterOpen) { S.filterOpen = false; render(); return; }
