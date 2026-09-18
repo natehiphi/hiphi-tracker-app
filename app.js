@@ -1992,7 +1992,9 @@ function renderSettings() {
       <h3>Email</h3>
       <p class="tok">${(S.emailCfg || {}).enabled === false ? '⏸ <b>All outgoing email is paused.</b> Alerts, reminders, digests and public hearing emails are held and never sent; Slack still works.' : '✅ Email is on.'}</p>
       ${chk('st-email-on', (S.emailCfg || {}).enabled !== false, 'Send email', 'switch off to hold every outgoing email; held messages are not sent later')}
-      <div class="btns"><button class="btn" id="st-save-email">Save email setting</button></div>
+      <label class="row"><span style="min-width:140px">Postal address</span><input id="st-email-postal" value="${esc((S.emailCfg || {}).postal || '')}" placeholder="707 Richards Street, Suite 300, Honolulu, HI 96813" autocomplete="off"></label>
+      <p class="tok">Printed in the footer of every email to the public; the law requires a real mailing address. Blank uses the hiphi.org address.</p>
+      <div class="btns"><button class="btn" id="st-save-email">Save email settings</button></div>
       <h3>Google Calendar</h3>
       <p class="tok" id="st-cal-status">Checking…</p>
       <label class="row"><span style="min-width:140px">Client ID</span><input id="st-gid" placeholder="…apps.googleusercontent.com" autocomplete="off"></label>
@@ -2112,7 +2114,8 @@ function wireSettings() {
       } catch (e) { out.innerHTML = `<p class="tok hot">${esc(e.message)}</p>`; } });
     $('#st-save-email') && ($('#st-save-email').onclick = async () => {
       const on = $('#st-email-on').checked;
-      try { await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
+      const postal = ($('#st-email-postal')?.value || '').trim();
+      try { await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on, postal, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
       catch (e) { toast(e.message, true); }
     });
     $('#st-save-cal').onclick = async () => {
