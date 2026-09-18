@@ -1501,3 +1501,20 @@ body.staffapp .loginwrap{min-height:calc(100vh / 1.07)}
 .chip3.min .ldesc{font-size:12.5px;color:var(--muted);line-height:1.4;white-space:normal}
 @media (max-width:1000px){ .actcols{grid-template-columns:1fr} .actcol{border-right:none;border-bottom:1px solid #EEF2F5} .actcol:last-child{border-bottom:none} }
 @media (max-width:760px){ .sec-wait .shead{padding:14px 12px 12px} .bstat.done{display:none} }
+
+/* ---- At a glance as one strip across the page ---- */
+.glance.strip{display:flex;flex-wrap:wrap;gap:10px 22px;padding:10px 32px 22px;max-width:1320px}
+.ggroup{display:flex;align-items:stretch;gap:8px;position:relative;padding-top:16px}
+.glbl{position:absolute;top:0;left:2px;font:700 10px 'Inter',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.glance.strip .gtile{display:flex;flex-direction:row;align-items:baseline;gap:7px;padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:10px;min-width:0;text-align:left;cursor:pointer}
+.glance.strip .gtile:hover{border-color:var(--teal)}
+.glance.strip .gtile b{font:700 18px/1 'Inter',sans-serif;color:var(--ink)}
+.glance.strip .gtile span{font-size:11.5px;color:var(--muted);line-height:1.2;white-space:nowrap}
+.glance.strip .gtile.hotn b{color:var(--red)}.glance.strip .gtile.warn b{color:#B7791F}.glance.strip .gtile.quiet b{color:var(--muted)}
+.dash.home.one{grid-template-columns:minmax(0,1fr);max-width:1320px}
+.dash.home.one > div:nth-child(2){max-width:560px}
+@media (max-width:760px){
+  .glance.strip{padding:0 12px 14px;gap:8px 14px}
+  .ggroup{flex-wrap:wrap}
+  .glance.strip .gtile{padding:7px 10px}
+}

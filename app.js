@@ -1440,24 +1440,20 @@ function renderPortfolio(list) {
   const live = list.filter(b => !diedish(b)), deadN = list.filter(b => diedish(b) && b.position !== 'monitor').length;
   const posN = k => live.filter(b => k.includes(b.position || 'monitor')).length;
   const tile = (n, label, attr, cls = '') => `<button class="gtile ${cls}" ${attr}><b>${n}</b><span>${label}</span></button>`;
+  // At a glance: one strip of figures across the page, each a way in.
+  const g = (n, label, attr, cls = '') => `<button class="gtile ${cls}" ${attr}><b>${n}</b><span>${label}</span></button>`;
   const glance = `
-    <div class="panel glance" id="pf-glance"><div class="ph"><span>📊 At a glance</span><span class="psub">${esc(today)}</span></div>
-      <div class="gsec"><div class="gh"><span>Inbox</span><a data-view="inbox">open ›</a></div>
-        <div class="gtiles two">${tile(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${tile(inbUpd.length, 'updates on your bills', 'data-view="inbox" data-inboxgo="updates"')}</div>
-      </div>
-      <div class="gsec"><div class="gh"><span>This week</span></div>
-        <div class="gtiles">${tile(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${tile(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${tile(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}</div>
-        ${cur ? `<div class="gdead"><span>Next deadline</span><b>${esc(cur.label)}</b><span class="${dlDays <= 3 ? 'hot' : ''}">${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span></div>` : ''}
-      </div>
-      <div class="gsec"><div class="gh"><span>Bills</span><span class="gsub">${live.length} live${deadN ? ` · <a data-jump="pf-dead">${deadN} did not advance</a>` : ''}</span></div>
-        <div class="gtiles">${tile(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${tile(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${tile(board.c.length, 'through committee', 'data-jump="pf-board-a"')}</div>
-      </div>
+    <div class="glance strip" id="pf-glance">
+      <div class="ggroup"><span class="glbl">Inbox</span>${g(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${g(inbUpd.length, 'updates', 'data-view="inbox" data-inboxgo="updates"')}</div>
+      <div class="ggroup"><span class="glbl">This week</span>${g(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${g(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${g(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}${cur ? g(dlDays <= 0 ? 'Today' : `${dlDays}d`, `to ${esc(cur.label)}`, 'data-jump="pf-board"', dlDays <= 3 ? 'hotn' : '') : ''}</div>
+      <div class="ggroup"><span class="glbl">Bills · ${live.length} live</span>${g(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${g(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${g(board.c.length, 'through committee', 'data-jump="pf-board-a"')}${deadN ? g(deadN, 'did not advance', 'data-jump="pf-dead"', 'quiet') : ''}</div>
     </div>`;
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
   return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + banner + todayStrip + `
-    <div class="dash home">
+    ${glance}
+    <div class="dash home one">
       <div>${waitPanel}</div>
-      <div>${glance}${recentHearingsHtml}</div>
+      ${recentHearingsHtml ? `<div>${recentHearingsHtml}</div>` : ''}
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${board.html ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
