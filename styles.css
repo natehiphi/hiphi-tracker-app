@@ -1694,11 +1694,17 @@ details.actopen>summary:hover{background:#F7FAFB}
 .segbtns{margin:0 0 12px;align-items:center;flex-wrap:wrap}
 .segbtns .grow{flex:1}
 .ptable{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.prow2{display:grid;grid-template-columns:minmax(200px,2fr) minmax(120px,1.2fr) 60px 70px 90px 110px minmax(120px,1.4fr);gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #EEF2F5;font-size:13.5px;cursor:pointer}
+.prow2{display:grid;grid-template-columns:22px minmax(200px,2fr) minmax(120px,1.2fr) 60px 70px 90px 110px minmax(120px,1.4fr);gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #EEF2F5;font-size:13.5px;cursor:pointer}
 .prow2:last-child{border-bottom:none}
 .prow2:hover{background:#F6F9FA}
 .prow2.head{font:600 11px 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:default;background:var(--paper)}
 .prow2.head:hover{background:var(--paper)}
+.prow2 .psel{width:16px;height:16px;margin:0;cursor:pointer}
+.prow2.sel{background:var(--teal-soft)}
+.bulkbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;margin:0 0 10px;background:#FFFBEA;border:1px solid #F1DFA6;border-radius:10px;font-size:13px}
+.bulkbar input,.bulkbar select{width:auto;font-size:13px;padding:6px 9px}
+.bulkbar #pb-tag{width:150px}.bulkbar #pb-fup{width:220px}
+.bulkbar .sep{width:1px;height:20px;background:#E6D9A8;margin:0 4px}
 .prow2 .ppn{display:flex;flex-direction:column;min-width:0}
 .prow2 .ppn b,.prow2 .ppn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prow2 .ppn span{font-size:12px}
@@ -1735,7 +1741,7 @@ details.actopen>summary:hover{background:#F7FAFB}
   .peoplewrap{padding:4px 12px 30px}
   .pfmore{display:inline}
   .pfilters:not(.open) .sec2{display:none}
-  .prow2{grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px}
+  .prow2{grid-template-columns:22px 1fr auto;gap:2px 10px;padding:10px 12px}
   .prow2.head,.prow2 .ppw,.prow2 .ppc,.prow2 .ppl{display:none}
   .pdform label.row>span:first-child{flex-basis:80px}.pdform .pdd,.pdchecks{margin-left:0}.pdchecks{grid-template-columns:1fr}
   .pdfupadd{grid-template-columns:1fr 1fr;}

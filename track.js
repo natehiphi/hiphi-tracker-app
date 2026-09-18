@@ -464,6 +464,8 @@ async function toggleWatch(id) {
     if (r.error) { toast(r.error.message, true); if (on) S.watch.add(id); else S.watch.delete(id); saveLocal(); return; }
   }
   await loadBills();
+  // Signed in, first bill followed, no districts yet: ask for a home address once (it is the field HIPHI needs most).
+  if (!on && S.user && !DEMO && S.watch.size >= 1 && !(S.profile || {}).senate_district && !onb().addrAsked) { S.addrCard = true; onbSet({ addrAsked: true }); }
   // Sign-in nudge after the first and third Watch, never a modal, never before a Watch.
   if (!on && !S.session && S.watch.size && [1, 3].includes(S.watch.size) && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
   render();
@@ -984,6 +986,24 @@ function signin() {
 
 // About you: name, phone, home address (autocomplete gives the districts) and how you can help. Saved through save_my_profile();
 // staff see it on the People page.
+const addrCardHTML = () => S.addrCard && S.user && !DEMO ? `<section class="ccard addrcard"><div class="sec">Find your legislators</div>
+    <p style="margin:0 0 6px">Your home address tells us which senator and representative to point you at when a bill you follow needs a voice. Only HIPHI staff see it.</p>
+    <div class="legbox" style="position:relative"><input id="ac-addr" placeholder="Street address, e.g. 415 S Beretania St, Honolulu" autocomplete="off"><div id="ac-sug"></div></div>
+    <p class="tok" id="ac-dist" style="margin:6px 0 0"></p>
+    <div class="btns"><button class="btn sm" id="ac-save" disabled>Save</button><button class="btn sm ghost" id="ac-later">Not now</button></div></section>` : '';
+function wireAddrCard() {
+  if (!$('#ac-addr')) return;
+  let picked = null;
+  const wirePicks = () => document.querySelectorAll('[data-acpick]').forEach(el => el.onclick = async () => { const x = (S.acRes || [])[Number(el.dataset.acpick)]; if (!x) return;
+    let sd = x.sd, hd = x.hd; if (!sd || !hd) { try { const { data } = await (await supa()).rpc('districts_at', { lat: x.lat, lon: x.lon }); sd = data?.[0]?.sd; hd = data?.[0]?.hd; } catch {} }
+    picked = { label: x.label, sd: sd || null, hd: hd || null }; $('#ac-addr').value = x.label; $('#ac-sug').innerHTML = '';
+    $('#ac-dist').textContent = sd ? `Senate District ${sd} · House District ${hd}` : 'We could not find districts for that address.'; $('#ac-save').disabled = !sd; });
+  $('#ac-addr').oninput = () => { const q = $('#ac-addr').value; picked = null; $('#ac-save').disabled = true; clearTimeout(S.acT); S.acT = setTimeout(async () => { if (!looksLikeAddress(q)) return; try { const r = await fetchAddrSuggest(q); if ($('#ac-addr')?.value !== q) return; S.acRes = r; $('#ac-sug').innerHTML = r.length ? `<div class="legsug">${r.map((x, i) => `<button data-acpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>` : ''; wirePicks(); } catch {} }, 250); };
+  $('#ac-later').onclick = () => { S.addrCard = false; render(); };
+  $('#ac-save').onclick = async () => { if (!picked) return; const pr = S.profile || {};
+    const { error } = await S.supa.rpc('save_my_profile', { p_name: pr.name || '', p_phone: pr.phone || '', p_address: picked.label, p_house: picked.hd, p_senate: picked.sd, p_interests: pr.interests || [] });
+    if (error) toast(error.message, true); else { S.profile = { ...pr, address: picked.label, senate_district: picked.sd, house_district: picked.hd }; S.addrCard = false; toast('Saved — your legislators are on the Your legislators page'); render(); } };
+}
 function profileFormHTML() {
   const pr = S.profile || {}, a = S.profAddr || {};
   const INTERESTS = [['testify', 'I would testify in person'], ['story', 'I have a story to share'], ['quote', 'HIPHI may quote me'], ['host', 'I could host or help at an event'], ['volunteer', 'I want to volunteer']];
@@ -1054,7 +1074,7 @@ function help() {
   </div>`;
 }
 function render() {
-  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : S.view === 'list' ? listPage() : S.view === 'legislators' ? legislatorsPage() : S.view === 'legislator' && legById(S.legOpen) ? legislatorPage(legById(S.legOpen)) : consentCardHTML() + home();
+  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : S.view === 'list' ? listPage() : S.view === 'legislators' ? legislatorsPage() : S.view === 'legislator' && legById(S.legOpen) ? legislatorPage(legById(S.legOpen)) : consentCardHTML() + addrCardHTML() + home();
   const b = S.open && findBill(S.open);
   $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '') + (S.helper ? helperHTML() : '');
   wire(); wireHelper();
@@ -1127,7 +1147,7 @@ function wire() {
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; toast('Saved'); }
   });
-  wireProfile();
+  wireProfile(); wireAddrCard();
   $('#cc-save') && ($('#cc-save').onclick = async () => {
     const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, action_alerts: $('#cc-action').checked, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);

@@ -142,7 +142,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, ppl, segs, fups] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -176,9 +176,8 @@ const DB = {
       S.supa.from('committee_counterparts').select('*'),
       S.supa.from('legislator_stances').select('*'),
       S.supa.from('action_alerts').select('*').order('created_at', { ascending: false }).limit(200),
-      S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000),
       S.supa.from('people_segments').select('*').order('name'),
-      S.supa.from('people_followups').select('*').is('done_at', null).order('due', { nullsFirst: false }),
+      S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -190,7 +189,7 @@ const DB = {
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
     S.alerts = als?.data || [];
-    S.people = ppl?.data || []; S.segments = segs?.data || []; S.followups = fups?.data || []; S.peopleNotes = {}; S.personTL = {};
+    S.people = []; S.peopleLoaded = false; S.segments = segs?.data || []; S.followups = fups?.data || []; S.peopleNotes = {}; S.personTL = {};
     S.legislators = legs?.data || []; S.committeeMembers = cms?.data || []; S.counterparts = cps?.data || []; S.stances = sts?.data || []; S.legNotes = {};
     S.lists = pls?.data || []; S.listBills = plb?.data || []; S.listFollowers = Object.fromEntries((plf?.data || []).map(r => [r.list_id, Number(r.followers)]));
     S.slots = slots?.data || [];
@@ -539,6 +538,14 @@ const DB = {
   },
 
   // ---- people (CRM) ----
+  async loadPeople() {
+    if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;
+    try { const { data, error } = await S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000); if (error) throw error; S.people = data || []; S.peopleLoaded = true; }
+    finally { S.peopleLoading = false; }
+  },
+  async ensurePerson(id) { if (personById(id)) return personById(id); if (DEMO) return null; return this.refreshPerson(id); },
+  async bulkTag(ids, tag, add) { if (DEMO) { for (const id of ids) { const p = personById(id); p.tags = add ? [...new Set([...p.tags, tag])] : p.tags.filter(t => t !== tag); } return ids.length; } const { data, error } = await S.supa.rpc('people_bulk_tag', { p_ids: ids, p_tag: tag, p_add: add }); if (error) throw error; for (const id of ids) { const p = personById(id); if (p) p.tags = add ? [...new Set([...p.tags, tag])] : p.tags.filter(t => t !== tag); } return data; },
+  async bulkFollowup(ids, advocateId, what, due) { if (DEMO) { for (const id of ids) S.followups.push({ id: Date.now() + Math.random(), person_id: id, advocate_id: advocateId, what, due: due || null, created_by: S.me.id, created_at: new Date().toISOString(), person: personById(id) }); return ids.length; } const { data, error } = await S.supa.rpc('people_bulk_followup', { p_ids: ids, p_advocate: advocateId, p_what: what, p_due: due || null }); if (error) throw error; const { data: f } = await S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }); if (f) S.followups = f; return data; },
   async refreshPerson(id) { const { data, error } = await S.supa.from('people_overview').select('*').eq('id', id).maybeSingle(); if (error) throw error; const i = S.people.findIndex(p => p.id === id); if (data) { if (i >= 0) S.people[i] = data; else S.people.unshift(data); } else if (i >= 0) S.people.splice(i, 1); return data; },
   async savePerson(id, patch) {
     if (DEMO) { const p = personById(id); Object.assign(p, patch, { island: islandOf(patch.senate_district ?? p.senate_district) }); if (!p.has_account && 'action_alerts' in patch) p.action_optin = !!patch.action_alerts; return p; }
@@ -555,14 +562,14 @@ const DB = {
   async importPeople(rows, note) { if (DEMO) { let added = 0, updated = 0, skipped = 0; for (const r of rows) { if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email || '')) { skipped++; continue; } const ex = S.people.find(p => p.email.toLowerCase() === r.email.toLowerCase()); if (ex) { ex.tags = [...new Set([...ex.tags, ...(r.tags || [])])]; updated++; } else { await this.addPerson({ email: r.email.toLowerCase(), name: r.name || null, phone: r.phone || null, tags: r.tags || [], interests: r.interests || [], action_alerts: r.action_alerts ?? null }); S.people[0].source = 'import'; S.people[0].source_note = note; added++; } } return { added, updated, skipped }; }
     let tot = { added: 0, updated: 0, skipped: 0 };
     for (let i = 0; i < rows.length; i += 500) { const { data, error } = await S.supa.rpc('import_people', { p_rows: rows.slice(i, i + 500), p_source_note: note || null }); if (error) throw error; const r = data?.[0] || {}; tot = { added: tot.added + (r.added || 0), updated: tot.updated + (r.updated || 0), skipped: tot.skipped + (r.skipped || 0) }; }
-    const { data } = await S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000); if (data) S.people = data;
+    S.peopleLoaded = false; await this.loadPeople();
     return tot;
   },
   async personNotes(id) { if (DEMO) return S.peopleNotes[id] ??= []; const { data, error } = await S.supa.from('people_notes').select('*').eq('person_id', id).order('created_at', { ascending: false }); if (error) throw error; return S.peopleNotes[id] = data || []; },
   async addPersonNote(id, body) { if (DEMO) { (S.peopleNotes[id] ??= []).unshift({ id: Date.now(), person_id: id, advocate_id: S.me.id, body, created_at: new Date().toISOString() }); return; } const { error } = await S.supa.from('people_notes').insert({ person_id: id, advocate_id: S.me.id, body }); if (error) throw error; await this.personNotes(id); },
   async delPersonNote(noteId, id) { if (DEMO) { S.peopleNotes[id] = (S.peopleNotes[id] || []).filter(n => String(n.id) !== String(noteId)); return; } const { error } = await S.supa.from('people_notes').delete().eq('id', noteId); if (error) throw error; await this.personNotes(id); },
   async personTimeline(id) { if (DEMO) return S.personTL[id] ??= []; const { data, error } = await S.supa.rpc('person_timeline', { p_person: id }); if (error) throw error; return S.personTL[id] = data || []; },
-  async addFollowup(personId, advocateId, what, due) { if (DEMO) { S.followups.push({ id: Date.now(), person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id, created_at: new Date().toISOString() }); return; } const { data, error } = await S.supa.from('people_followups').insert({ person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id }).select('*').single(); if (error) throw error; S.followups.push(data); },
+  async addFollowup(personId, advocateId, what, due) { if (DEMO) { S.followups.push({ id: Date.now(), person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id, created_at: new Date().toISOString(), person: personById(personId) }); return; } const { data, error } = await S.supa.from('people_followups').insert({ person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id }).select('*, person:people(id,name,email,phone)').single(); if (error) throw error; S.followups.push(data); },
   async doneFollowup(id) { if (!DEMO) { const { error } = await S.supa.from('people_followups').update({ done_at: new Date().toISOString() }).eq('id', id); if (error) throw error; } S.followups = S.followups.filter(f => f.id !== id); },
   async saveSegment(seg) {
     if (DEMO) { if (seg.id) Object.assign(S.segments.find(x => x.id === seg.id), seg); else { seg.id = 's' + Date.now(); seg.created_by = S.me.id; S.segments.push(seg); } S.segments.sort((a, b) => a.name.localeCompare(b.name)); return seg; }
@@ -726,7 +733,7 @@ async function demoInit() {
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
   S.alerts = [];
-  S.people = (snap.people || []).map(x => ({ ...x })); S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
+  S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
@@ -1422,7 +1429,7 @@ function renderPortfolio(list) {
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
   // Admins: action alerts waiting for a second pair of eyes are steps too.
   for (const a of alertsToReview()) merged.push({ mine: true, t: Infinity, pri: 0, html: `<div class="prow arow mine" data-alertopen="${a.id}"><div class="awhen none"><b>✉</b><span>to approve</span></div><div class="amain"><div class="aask">Approve ${esc(advocate(a.author_id)?.full_name?.split(' ')[0] || 'a teammate')}’s action alert to the followers of <b class="abill">${esc(alertTarget(a))}</b></div><div class="actx">“${esc(a.subject)}”</div></div><div class="abtn"><button class="btn sm">Review</button></div></div>` });
-  for (const f of (S.followups || []).filter(f => !f.done_at && f.advocate_id === S.me?.id)) { const p = personById(f.person_id); if (!p) continue; const t = f.due ? new Date(f.due + 'T17:00:00-10:00').getTime() : Infinity;
+  for (const f of (S.followups || []).filter(f => !f.done_at && f.advocate_id === S.me?.id)) { const p = f.person || personById(f.person_id); if (!p) continue; const t = f.due ? new Date(f.due + 'T17:00:00-10:00').getTime() : Infinity;
     merged.push({ mine: true, t, pri: 1, html: `<div class="prow arow mine" data-personopen="${p.id}">${clock(t, 'to do')}<div class="amain"><div class="aask">${esc(f.what)} · <b class="abill">${esc(personName(p))}</b></div><div class="actx">follow-up${p.phone ? ` · ${esc(p.phone)}` : ''} · ${esc(p.email)}</div></div><div class="abtn"><button class="btn sm">Open</button></div></div>` }); }
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
@@ -2228,8 +2235,10 @@ const whereOf = p => [p.island, p.senate_district ? `SD ${p.senate_district}` : 
 const sortPeople = (rows, by) => rows.slice().sort((a, b) => by === 'score' ? (b.score || 0) - (a.score || 0) : by === 'newest' ? String(b.created_at).localeCompare(String(a.created_at)) : by === 'name' ? personName(a).localeCompare(personName(b)) : String(b.last_active || '').localeCompare(String(a.last_active || '')));
 
 function renderPeople() {
-  const v = S.peopleView ??= { f: EMPTY_PF(), sort: 'active', seg: null, billQ: '' };
+  const v = S.peopleView ??= { f: EMPTY_PF(), sort: 'active', seg: null, billQ: '', sel: new Set() };
+  if (!S.peopleLoaded && !DEMO) { DB.loadPeople().then(() => rerenderKeep()).catch(e => toast(e.message, true)); return `<div class="peoplewrap"><div class="dashhead"><h1>People</h1></div><div class="pempty">Loading people…</div></div>`; }
   const all = S.people || [], f = v.f;
+  v.sel ??= new Set(); for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
   const rows = sortPeople(all.filter(p => peopleMatch(p, f)), v.sort);
   const tags = [...new Set(all.flatMap(p => p.tags || []))].sort();
   const sds = [...new Set(all.map(p => p.senate_district).filter(Boolean))].sort((a, b) => a - b), hds = [...new Set(all.map(p => p.house_district).filter(Boolean))].sort((a, b) => a - b);
@@ -2237,7 +2246,8 @@ function renderPeople() {
   const changed = seg && JSON.stringify(pfClean(f)) !== JSON.stringify(pfClean({ ...EMPTY_PF(), ...seg.filter }));
   const opt = (val, label, cur) => `<option value="${esc(val)}" ${String(cur) === String(val) ? 'selected' : ''}>${esc(label)}</option>`;
   const billsPicked = f.bills.map(id => billById(id)).filter(Boolean);
-  const row = p => `<div class="prow2" data-personopen="${p.id}">
+  const row = p => `<div class="prow2 ${v.sel.has(p.id) ? 'sel' : ''}" data-personopen="${p.id}">
+      <input type="checkbox" class="psel" data-psel="${p.id}" ${v.sel.has(p.id) ? 'checked' : ''} aria-label="select">
       <div class="ppn"><b>${esc(personName(p))}</b><span class="muted">${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ''}</span></div>
       <div class="ppw">${esc(whereOf(p)) || '<span class="muted">—</span>'}</div>
       <div class="ppc">${(p.bill_ids || []).length || '<span class="muted">—</span>'}</div>
@@ -2276,13 +2286,19 @@ function renderPeople() {
       <button class="btn sm ghost" id="pp-add">＋ Add a person</button>
       ${S.me?.is_admin ? `<button class="btn sm ghost" id="pp-import">Import CSV</button><input type="file" id="pp-file" accept=".csv,text/csv" hidden><button class="btn sm ghost" id="pp-export">Export ${rows.length === all.length ? 'all' : 'these'} as CSV</button>` : ''}
     </div>
+    ${v.sel.size ? `<div class="bulkbar"><b>${v.sel.size} selected</b>
+      <input id="pb-tag" placeholder="tag…" list="pb-tags" autocomplete="off"><datalist id="pb-tags">${tags.map(t => `<option value="${esc(t)}">`).join('')}</datalist><button class="btn sm" id="pb-tagadd">Add tag</button><button class="btn sm ghost" id="pb-tagrm">Remove tag</button>
+      <span class="sep"></span>
+      <input id="pb-fup" placeholder="follow-up for each…" maxlength="300"><input type="date" id="pb-fupdue"><select id="pb-fupwho">${S.advocates.filter(x => x.is_active).map(x => `<option value="${x.id}" ${x.id === S.me?.id ? 'selected' : ''}>${esc(x.full_name.split(' ')[0])}</option>`).join('')}</select><button class="btn sm" id="pb-fupadd">Add follow-up</button>
+      <span class="sep"></span><button class="linkbtn" id="pb-clear">clear selection</button></div>` : ''}
     <div class="ptable">
-      <div class="prow2 head"><div>Person</div><div>Where</div><div class="ppc" title="bills followed">Bills</div><div class="ppc" title="testimony, emails to chairs, hearings attended, shares">Actions</div><div class="ppc" title="emails sent · opened">Emails</div><div>Last active</div><div></div></div>
+      <div class="prow2 head"><input type="checkbox" class="psel" id="pp-selall" ${rows.length && rows.slice(0, 500).every(p => v.sel.has(p.id)) ? 'checked' : ''} title="Select everyone shown"><div>Person</div><div>Where</div><div class="ppc" title="bills followed">Bills</div><div class="ppc" title="testimony, emails to chairs, hearings attended, shares">Actions</div><div class="ppc" title="emails sent · opened">Emails</div><div>Last active</div><div></div></div>
       ${rows.slice(0, 500).map(row).join('') || '<div class="pempty">Nobody matches.</div>'}
       ${rows.length > 500 ? `<div class="pempty">Showing the first 500 of ${rows.length}. Narrow the filters or export.</div>` : ''}
     </div>
   </div>`;
 }
+async function openPerson(id) { if (!personById(id)) { try { await DB.ensurePerson(id); } catch (e) { return toast(e.message, true); } } if (!personById(id)) return toast('That person is no longer in People', true); S.personOpen = id; render(); }
 function wirePeople() {
   const v = S.peopleView, f = v.f;
   const keep = () => { const y = scrollY; render(); scrollTo(0, y); };
@@ -2297,6 +2313,15 @@ function wirePeople() {
   $('#pp-sort').onchange = () => { v.sort = $('#pp-sort').value; keep(); };
   $('#pp-bill').onchange = () => { const q = $('#pp-bill').value.trim().toUpperCase().replace(/\s+/g, ''); const b = S.bills.find(x => x.bill_number === q); if (b) { if (!f.bills.includes(b.id)) f.bills.push(b.id); v.billQ = ''; keep(); } else v.billQ = $('#pp-bill').value; };
   document.querySelectorAll('[data-unbill]').forEach(el => el.onclick = () => { f.bills = f.bills.filter(id => id !== el.dataset.unbill); keep(); });
+  // selection and bulk actions
+  const shown = () => sortPeople(S.people.filter(p => peopleMatch(p, f)), v.sort).slice(0, 500);
+  document.querySelectorAll('[data-psel]').forEach(el => { el.onclick = e => e.stopPropagation(); el.onchange = () => { if (el.checked) v.sel.add(el.dataset.psel); else v.sel.delete(el.dataset.psel); keep(); }; });
+  $('#pp-selall') && ($('#pp-selall').onchange = () => { const on = $('#pp-selall').checked; for (const p of shown()) { if (on) v.sel.add(p.id); else v.sel.delete(p.id); } keep(); });
+  $('#pb-clear') && ($('#pb-clear').onclick = () => { v.sel.clear(); keep(); });
+  const ids = () => [...v.sel];
+  $('#pb-tagadd') && ($('#pb-tagadd').onclick = async () => { const tag = $('#pb-tag').value.trim(); if (!tag) return; try { const n = await DB.bulkTag(ids(), tag, true); toast(`Tagged ${n}`); keep(); } catch (e) { toast(e.message, true); } });
+  $('#pb-tagrm') && ($('#pb-tagrm').onclick = async () => { const tag = $('#pb-tag').value.trim(); if (!tag) return; try { const n = await DB.bulkTag(ids(), tag, false); toast(`Removed from ${n}`); keep(); } catch (e) { toast(e.message, true); } });
+  $('#pb-fupadd') && ($('#pb-fupadd').onclick = async () => { const what = $('#pb-fup').value.trim(); if (!what) return; if (!confirm(`Add “${what}” as a follow-up on ${v.sel.size} people for ${$('#pb-fupwho').selectedOptions[0].textContent}?`)) return; try { const n = await DB.bulkFollowup(ids(), $('#pb-fupwho').value, what, $('#pb-fupdue').value || null); toast(`${n} follow-ups added`); v.sel.clear(); keep(); } catch (e) { toast(e.message, true); } });
   $('#pp-clear') && ($('#pp-clear').onclick = () => { v.f = EMPTY_PF(); v.seg = null; keep(); });
   $('#pp-more') && ($('#pp-more').onclick = () => { v.more = !v.more; keep(); });
   document.querySelectorAll('[data-seg]').forEach(el => el.onclick = () => { const sg = S.segments.find(x => x.id === el.dataset.seg); if (v.seg === sg.id) { v.seg = null; v.f = EMPTY_PF(); } else { v.seg = sg.id; v.f = { ...EMPTY_PF(), ...JSON.parse(JSON.stringify(sg.filter)) }; } keep(); });
@@ -2312,7 +2337,6 @@ function wirePeople() {
     if (!rows.length) return toast(`No rows with an email address found (columns: ${cols.join(', ')})`, true);
     if (!confirm(`Import ${rows.length} people from ${file.name}? Existing people are updated, never blanked; new ones are added as contacts. ${rows.filter(r => r.action_alerts).length} are marked as opted in to action alerts.`)) return;
     try { const r = await DB.importPeople(rows, file.name); toast(`Imported: ${r.added} added, ${r.updated} updated, ${r.skipped} skipped`); keep(); } catch (e) { toast(e.message, true); } });
-  document.querySelectorAll('[data-personopen]').forEach(el => el.onclick = () => { S.personOpen = el.dataset.personopen; render(); });
 }
 // CSV in: any column order; we look for email, name (or first + last), phone, tags, interests, and an opt-in column (subscribed / opt in / action alerts)
 function parsePeopleCSV(text) {
@@ -2373,7 +2397,7 @@ function personDrawerHTML(p) {
       <h2>${esc(personName(p))}</h2>
       <div class="sub"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${p.phone ? ` · <a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : ''}</div>
       <div class="sub muted">${state}</div>
-      <div class="pdstats"><span><b>${bills.length}</b> bills followed</span><span><b>${p.actions || 0}</b> actions${p.testimonies ? ` (${p.testimonies} testimony)` : ''}</span><span><b>${p.emails_sent || 0}</b> emails · <b>${p.emails_opened || 0}</b> opened · <b>${p.emails_clicked || 0}</b> clicked</span><span title="follows + actions×5 + opens + clicks×2"><b>${p.score || 0}</b> engagement</span></div>
+      <div class="pdstats"><span><b>${bills.length}</b> bills followed</span><span><b>${p.actions || 0}</b> actions${p.testimonies ? ` (${p.testimonies} testimony)` : ''}</span><span><b>${p.emails_sent || 0}</b> emails · <b>${p.emails_opened || 0}</b> opened · <b>${p.emails_clicked || 0}</b> clicked</span><span title="follows + actions×5 + clicks×2 + a quarter point per open"><b>${p.score || 0}</b> engagement</span></div>
     </div>
     <div class="dbody">
       <div class="sec">Details</div>${details}
@@ -2394,6 +2418,7 @@ function personDrawerHTML(p) {
 }
 const def2 = (k, v) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`;
 function wirePersonDrawer() {
+  document.querySelectorAll('[data-personopen]').forEach(el => el.onclick = () => openPerson(el.dataset.personopen));   // People rows and Action needed follow-ups
   const p = S.personOpen && personById(S.personOpen); if (!p) return;
   const close = () => { S.personOpen = null; S.personEdit = null; S.pdAddr = null; render(); };
   $('#pclose').onclick = close; $('#pscrim').onclick = close;
