@@ -653,11 +653,6 @@ const DB = {
     const x = S.listBills.find(r => r.list_id === listId && r.bill_id === billId); if (!x) return; Object.assign(x, patch);
     if (!DEMO) { const { error } = await S.supa.from('public_list_bills').update(patch).eq('list_id', listId).eq('bill_id', billId); if (error) throw error; }
   },
-  async sharedFollowers() {
-    if (DEMO) return [{ user_id: 'd1', email: 'malia@example.com', name: 'Malia K.', consent_at: new Date(Date.now() - 5 * 864e5).toISOString(), hearing_alerts: true, bills: ['HB1562', 'HB2121', 'SB972'] },
-      { user_id: 'd2', email: 'keoni@example.com', name: null, consent_at: new Date(Date.now() - 12 * 864e5).toISOString(), hearing_alerts: false, bills: ['HB1562'] }];
-    const { data, error } = await S.supa.rpc('shared_followers'); if (error) throw error; return data || [];
-  },
   async setHearingStream(hearingId, url) {
     const h = S.hearings.find(x => x.id === hearingId); if (!h) return;
     if (!DEMO) { const { data, error } = await S.supa.rpc('set_hearing_stream', { p_hearing: hearingId, p_url: url || '' }); if (error) throw error; h.stream_url = data || null; }
@@ -3002,11 +2997,7 @@ function renderLists() {
         <label class="wide">One friendly sentence<input id="ln-desc" maxlength="200" placeholder="The bills that decide what kids eat, breathe and can get care for this year."></label></div>
       <div class="btns"><button class="btn sm" id="ln-create">Create as a draft</button></div></div>
     ${lists.length ? lists.map(card).join('') : '<div class="pempty">No lists yet.</div>'}
-    <div class="panel supporters" id="supporters"><div class="ph"><span>🙋 Supporters who share their follows</span><span class="psub">people who said yes to “let HIPHI see which bills I follow” · nobody else is listed here</span></div>
-      ${sup ? `<div class="ifilters"><input type="search" id="sup-q" placeholder="Filter by email, name or bill" value="${esc(v.supQ)}"><span class="tok">${supRows.length} of ${sup.length}</span><button class="btn sm ghost" id="sup-csv" ${sup.length ? '' : 'disabled'}>⬇ Export CSV</button></div>
-        ${supRows.length ? `<table class="suptable"><thead><tr><th>Person</th><th>Alerts</th><th>Agreed</th><th>Follows</th></tr></thead><tbody>${supRows.map(r => `<tr><td><b>${esc(r.name || r.email)}</b>${r.name ? `<br><span class="muted">${esc(r.email)}</span>` : ''}</td><td>${r.hearing_alerts ? 'hearing emails on' : '<span class="muted">off</span>'}</td><td>${r.consent_at ? fmtDate(r.consent_at) : '—'}</td><td>${r.bills.length} bill${r.bills.length === 1 ? '' : 's'}<br><span class="muted">${esc(r.bills.slice(0, 12).join(', '))}${r.bills.length > 12 ? '…' : ''}</span></td></tr>`).join('')}</tbody></table>` : '<div class="pempty">Nobody yet. The choice is offered when people sign in to the public page.</div>'}`
-      : `<div class="pempty"><button class="btn sm ghost" id="sup-load">Show supporters</button></div>`}
-    </div>
+    <div class="panel supporters"><div class="ph"><span>🙋 Who follows what</span><span class="psub">every follower, with the bills and lists they follow, lives on the <button class="linkbtn" data-view="people">People</button> page</span></div></div>
   </div>`;
 }
 function wireLists() {
@@ -3031,10 +3022,6 @@ function wireLists() {
     const code = `<iframe id="hiphi-tracker" src="${u.href}" title="HIPHI bill list" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
     try { await navigator.clipboard.writeText(code); toast('Embed code copied'); } catch { prompt('Copy this code', code); } });
   document.querySelectorAll('[data-larchive]').forEach(el => el.onclick = async () => { const l = S.lists.find(x => x.id === el.dataset.larchive); if (!confirm(`Archive “${l.title}”? The public link stops working; people keep the bills they already follow.`)) return; try { await DB.archiveList(l.id); toast('Archived'); render(); } catch (e) { toast(e.message, true); } });
-  $('#sup-load') && ($('#sup-load').onclick = async () => { try { v.supporters = await DB.sharedFollowers(); rerenderKeep(); } catch (e) { toast(e.message, true); } });
-  $('#sup-q') && ($('#sup-q').oninput = () => { v.supQ = $('#sup-q').value; const y = scrollY; render(); scrollTo(0, y); const n = $('#sup-q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
-  $('#sup-csv') && ($('#sup-csv').onclick = () => { const rows = [['email', 'name', 'agreed', 'hearing_alerts', 'bills'], ...v.supporters.map(r => [r.email, r.name || '', r.consent_at || '', r.hearing_alerts ? 'yes' : 'no', r.bills.join(' ')])];
-    const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'hiphi-supporters.csv'; a.click(); });
 }
 // ---------------- Triage: every introduced bill gets one decision ----------------
 // Sandbox: keyword rules against the untracked index (titles + descriptions).
