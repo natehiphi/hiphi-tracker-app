@@ -855,7 +855,7 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '🏛', 'Legislators', 'Members'], ['lists', '☰', 'Lists', 'Lists'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '🛠', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['lists', '☰', 'Lists', 'Lists'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
@@ -3240,7 +3240,7 @@ function wire() {
     const url = prompt('Paste the YouTube address for this hearing (leave blank to go back to the channel link):', h.stream_url || ''); if (url === null) return;
     try { await DB.setHearingStream(h.id, url.trim()); toast(url.trim() ? 'Video link saved' : 'Back to the channel link'); render(); } catch (err) { toast(err.message, true); } });
   $('.rail') && ($('.rail').onmouseleave = () => { if (S.railQuiet) { S.railQuiet = false; $('.rail')?.classList.remove('quiet'); } });
-  $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
+  $('#railpin') && ($('#railpin').onclick = () => { const pinned = (localStorage.getItem('railPinned') ?? '1') === '1'; localStorage.setItem('railPinned', pinned ? '0' : '1'); S.railQuiet = !pinned ? false : true; render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
     rerenderKeep(isMobile() ? '#fold-week' : null, isMobile() ? 'fold-week' : 'pf-week');
