@@ -2359,9 +2359,10 @@ const legMailto = (l, b) => { const ask = b && (b.public_action || '').trim(); c
   return `mailto:${l.email || ''}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`; };
 
 // Address lookup for staff too: suggestions from the proxy as you type, then the point -> districts.
-const looksLikeAddress = q => /\d/.test(q) && q.trim().length >= 4;
-async function geoSuggest(q) { const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?suggest=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } }); return (await r.json()).results || []; }
-async function geoDistricts(pt, q) { const r = await fetch(pt ? `${SUPABASE_URL}/functions/v1/geo-lookup?lat=${pt.lat}&lon=${pt.lon}` : `${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } }); return r.json(); }
+const looksLikeAddress = q => /\d/.test(q) && q.trim().length >= 3;
+async function supaAnon() { if (S.supa) return S.supa; if (!S.supaAnon) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supaAnon = createClient(SUPABASE_URL, SUPABASE_KEY); } return S.supaAnon; }
+async function geoSuggest(q) { const { data, error } = await (await supaAnon()).rpc('address_suggest', { q, n: 8 }); if (error) throw error; return data || []; }
+async function geoDistricts(pt) { if (pt.sd && pt.hd) return { found: true, senate: pt.sd, house: pt.hd }; const { data } = await (await supaAnon()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; return { found: !!(d?.sd || d?.hd), senate: d?.sd, house: d?.hd }; }
 function renderLegislators() {
   const v = S.legView ??= { q: '', chamber: '', committee: '' };
   const q = plain(v.q.trim());
@@ -2383,9 +2384,9 @@ function renderLegislators() {
 function wireLegislators() {
   const v = S.legView; const keepQ = () => { const y = scrollY; render(); scrollTo(0, y); const n = $('#leg-q'); if (n && document.activeElement !== n && v.focusQ) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
   $('#leg-q') && ($('#leg-q').oninput = () => { v.q = $('#leg-q').value; v.pick = null; v.focusQ = true; clearTimeout(v.t); v.t = setTimeout(async () => { keepQ();
-    const q = v.q.trim(); if (looksLikeAddress(q) && !(v.addr && v.addr.q === q)) { v.addrLoading = true; try { const results = await geoSuggest(q); if (v.q.trim() === q) v.addr = { q, results }; } catch {} v.addrLoading = false; if (v.q.trim() === q) keepQ(); } }, 200); });
+    const q = v.q.trim(); if (looksLikeAddress(q) && !(v.addr && v.addr.q === q)) { v.addrLoading = true; try { const results = await geoSuggest(q); if (v.q.trim() === q) v.addr = { q, results }; } catch {} v.addrLoading = false; if (v.q.trim() === q) keepQ(); } }, 120); });
   document.querySelectorAll('[data-addrpick]').forEach(el => el.onclick = async () => { const x = v.addr.results[Number(el.dataset.addrpick)]; if (!x) return; toast('Finding the districts…');
-    try { const j = await geoDistricts(x, null); v.pick = { label: 'Legislators for this address', matched: x.label, ids: j.found ? (S.legislators || []).filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) : [] }; v.focusQ = false; render(); }
+    try { const j = await geoDistricts(x); v.pick = { label: 'Legislators for this address', matched: x.label, ids: j.found ? (S.legislators || []).filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) : [] }; v.focusQ = false; render(); }
     catch (e) { toast('Could not look that up', true); } });
   $('#leg-pickx') && ($('#leg-pickx').onclick = () => { v.pick = null; v.q = ''; render(); });
   $('#leg-ch') && ($('#leg-ch').onchange = () => { v.chamber = $('#leg-ch').value; v.focusQ = false; render(); });
