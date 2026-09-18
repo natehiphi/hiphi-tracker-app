@@ -1496,3 +1496,23 @@ details.actopen>summary::-webkit-details-marker{display:none}
 details.actopen>summary::after{content:'▾';margin-left:8px;color:var(--muted)}
 details.actopen[open]>summary::after{content:'▴'}
 details.actopen>summary:hover{background:#F7FAFB}
+
+/* ---- Bill page, streamlined ---- */
+.drawer.v2 .dhead h2 .ver{font:600 12px 'Inter',sans-serif;color:var(--muted);background:#EEF3F6;border-radius:6px;padding:2px 7px;vertical-align:4px;letter-spacing:0;margin-left:4px}
+.drawer.v2 .dhead h2 .pri{vertical-align:4px;margin-left:2px}
+.drawer.v2 .dhead .sub{color:var(--ink);font-size:14px}
+.lastact.clamp{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.lastact:not(.clamp){cursor:pointer}
+.next.v3.slim{padding:12px 14px}
+.next.v3.slim .nexthead{margin-bottom:4px}
+.next.v3.slim .nextline{margin-top:4px;font-size:13.5px}
+.next.v3.slim .nextline.big{font-size:14.5px;font-weight:600;color:var(--ink)}
+.next.v3.slim .nextline.big .streamlink{font-weight:600;font-size:13px}
+.next.v3.slim .nextline.due .hot{color:var(--red)}
+.next.v3.slim .draftrow.nx{margin:10px 0 6px}
+.next.v3.slim .nextline.attend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+.drawer.v2 .dtabs{margin:14px 0 12px}
+.dtab .navn{margin-left:4px;vertical-align:1px}
+.dpane[data-pane="chat"] .sec:first-child{margin-top:0}
+.drawer.v2 .dhead h2 .pri{font-size:11px;padding:2px 7px;line-height:1.2}
+@media (max-width:760px){ .drawer.v2 .dtabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:2px;scrollbar-width:none} .drawer.v2 .dtabs::-webkit-scrollbar{display:none} }

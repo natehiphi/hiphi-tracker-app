@@ -2171,7 +2171,7 @@ function wireInbox() {
   document.querySelectorAll('[data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
     DB.inboxMark([i.key]).catch(() => {});
     if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
-    await openDrawer(i.bill_id); if (i.tab === 'chat') S.drawerOpen.chat = true; else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
+    await openDrawer(i.bill_id); if (i.tab === 'chat') { S.drawerOpen.chat = true; S.drawerOpen.tab = 'chat'; } else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
 }
 // ---------------- Weekly memo: the update that writes itself ----------------
 // Built from the bill records for one coalition or all of them, so nobody
@@ -2614,8 +2614,6 @@ function draftsHTML(b) {
 function chatHTML(b) {
   const list = (S.messages[b.id] || []).slice().sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
   const unread = unreadCount(b);
-  const open = S.drawerOpen.chat || list.length;
-  if (!open) return `<button class="todoline" id="d-chatopen">💬 Message the team about this bill</button>`;
   const when = iso => { const d = new Date(iso), ms = Date.now() - d; return ms < 36e5 ? `${Math.max(1, Math.round(ms / 6e4))}m ago` : ms < 864e5 ? fmtDT(iso).replace(/^.*?, /, '') : fmtDT(iso); };
   const shown = S.drawerOpen.chatAll ? list : list.slice(-12);
   const linkBills = t => esc(t).replace(/\b([HS]B ?\d{1,4})\b/g, (m, n) => `<a data-jumpbill="${n.replace(/\s/g, '')}">${m}</a>`);
@@ -2716,6 +2714,7 @@ function nextHTML(b) {
     </div></div>`;
 }
 
+const titleCaseTitle = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase().replace(/\bhawaii\b/gi, 'Hawaii') : t;
 function drawerHTML(b) {
   // Four blocks and a tab row. Header: the one-second facts. Next: the
   // hearing, the deadline, and the testimony step with its button. Summary.
@@ -2731,11 +2730,8 @@ function drawerHTML(b) {
   const dead = diedish(b), st = effStage(b);
   const chips = [
     b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="chipx c-gray">no position</span>',
-    b.priority ? `<span class="chipx c-gray">P${b.priority}</span>` : '',
     owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
     ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
-    `<span class="chipx ${dead ? 'c-gray' : st === 'enacted' ? 'c-green' : 'c-teal'}">${STAGE_LABEL[st]}${b.stage_override ? ' · override' : ''}</span>`,
-    b.current_version ? `<span class="chipx c-navy" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : '',
     `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
     `<button class="chipx tool" data-copylink="${esc(b.bill_number)}" title="Copy a link to this bill">🔗 Copy link</button>`,
   ].filter(Boolean).join('');
@@ -2774,16 +2770,13 @@ function drawerHTML(b) {
       const att = attendees(h), meIn = att.some(a => a.id === S.me?.id), m = chairMail(h.committee);
       const room = (h.room || '').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
       const row = (l, v, cls = '') => `<div class="nr ${cls}"><span class="nl">${l}</span><span class="nv">${v}</span></div>`;
-      return `<div class="next v3">
+      const v = streamOf(h);
+      return `<div class="next v3 slim">
         <div class="nexthead"><span class="nextk">Next</span><b>${esc(c ? c.name : h.committee)}</b>${c ? `<span class="code">${esc(h.committee)}</span>` : ''}<span class="muted">hearing</span></div>
-        <div class="nextgrid">
-          ${row('When', `${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}`)}
-          ${c && c.chair ? row('Chair', `${m ? `<a class="chairmail" href="mailto:${esc(m.email)}" title="${esc(m.email)}">${esc(c.chair)}</a>` : esc(c.chair)}${c.vice_chair ? `<span class="muted"> · Vice Chair ${esc(c.vice_chair)}</span>` : ''}`) : ''}
-          ${row('Attending', `${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button>`)}
-          ${(v => v ? row('Video', `${streamLink(h)}<span class="muted"> · ${v.auto ? 'this hearing’s video, found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel · the exact video is added automatically once it is posted'}</span><button class="draftbtn" data-setstream="${h.id}" title="Paste the exact YouTube address for this hearing">${v.exact ? 'Change' : 'Paste a link'}</button>`) : '')(streamOf(h))}
-          ${h.testimony_deadline ? row('Testimony', duePast ? `due ${fmtDT(h.testimony_deadline)} <span class="muted">· passed</span>` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`, dueSoon ? 'due' : '') : ''}
-        </div>
+        <div class="nextline big">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
+        ${h.testimony_deadline ? `<div class="nextline ${dueSoon ? 'due' : ''}">Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
+        <div class="nextline attend"><span class="muted">Attending:</span> ${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></div>
       </div>`; }).join('');
   } else {
     const stp = stopOf(b); const dl = stp.deadline && !stp.deadline.missed ? stp.deadline : null;
@@ -2795,29 +2788,25 @@ function drawerHTML(b) {
   }
   const otherDrafts = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && d.status !== 'cancelled');
   const primary = (() => { const d = ups.map(h => draftFor(b.id, h.committee)).find(Boolean); if (!d) return null; const a = draftActions(d)[0]; return a ? { id: d.id, act: a[0], label: a[1] } : null; })();
-  const summary = text ? `<p class="desc${open.more ? '' : ' clamp'}" id="d-desc">${esc(text)}</p>${text.length > 220 ? `<button class="morelink" id="d-more">${open.more ? 'less' : 'more'}</button>` : ''}` : '<p class="desc"><i>No summary yet.</i></p>';
   const tab = (k, l) => `<button class="dtab ${open.tab === k ? 'on' : ''}" data-dtab="${k}">${l}</button>`;
   const pane = (k, inner) => `<div class="dpane" data-pane="${k}" ${open.tab === k ? '' : 'hidden'}>${inner}</div>`;
   return `<div class="scrim" id="scrim"></div>
   <div class="drawer v2">
     <div class="dhead">
       <button class="close" id="dclose">✕</button>
-      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</h2>
-      <div class="sub">${esc(b.title||'')}</div>
+      <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.current_version ? ` <span class="ver" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}${b.priority ? ` <span class="pri">P${b.priority}</span>` : ''}</h2>
+      <div class="sub">${esc(b.public_summary || titleCaseTitle(b.title || ''))}</div>
       <div class="dchips">${chips}</div>
       ${primary ? `<button class="btn sm dprimary" data-primary="${esc(primary.id)}" data-primaryact="${primary.act}">${primary.label}</button>` : ''}
     </div>
     <div class="dbody">
       ${stageCalHTML(b)}
-      ${b.last_action ? `<div class="lastact"><span class="lal">Last action</span> ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span> · ` : ''}${esc(b.last_action)}</div>` : ''}
+      ${b.last_action ? `<div class="lastact ${open.more ? '' : 'clamp'}" id="d-lastact" title="Click to expand"><span class="lal">Last action</span> ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span> · ` : ''}${esc(b.last_action)}</div>` : ''}
       ${nextHtml}
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
       ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''} ${streamLink(h)}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
-      <div class="sec">Summary</div>
-      ${summary}
-      ${todosHTML(b)}
-      ${chatHTML(b)}
-      <div class="dtabs">${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}${tab('timeline', 'Timeline')}</div>
+      <div class="dtabs">${tab('details', 'Details')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}`)}${tab('notes', 'Notes' + (notesHead ? ' •' : ''))}${tab('timeline', 'Timeline')}</div>
+      ${pane('chat', `${todosHTML(b)}${chatHTML(b)}`)}
       ${pane('timeline', `
         ${open.log ? `<div class="logform">
           <div class="typechips">${LOG_TYPES.map(([v,l]) => `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
@@ -2831,8 +2820,9 @@ function drawerHTML(b) {
           <span class="k">Referrals</span><span>${referralPath(b)}</span>
           ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
           ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
-          ${b.public_summary && b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}
-          <span class="k">Last action</span><span>${esc(b.last_action||'—')} ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date,{year:'2-digit'})}</span>` : ''}</span>
+          ${b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}
+          ${b.public_summary ? `<span class="k">Official title</span><span>${esc(b.title || '')}</span>` : ''}
+          ${(h => { const v = h && streamOf(h); return v ? `<span class="k">Video</span><span>${streamLink(h)}<span class="muted"> · ${v.auto ? 'this hearing’s video, found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel; the exact video is added automatically once it is posted'}</span> <button class="draftbtn" data-setstream="${h.id}">${v.exact ? 'Change' : 'Paste a link'}</button></span>` : ''; })(ups[0])}
           <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
         </div>`)}
       ${pane('team', `<div class="teamgrid">
@@ -2981,7 +2971,7 @@ function wire() {
   document.querySelectorAll('.glance [data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
     DB.inboxMark([i.key]).catch(() => {});
     if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
-    await openDrawer(i.bill_id); if (i.tab === 'chat') S.drawerOpen.chat = true; else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
+    await openDrawer(i.bill_id); if (i.tab === 'chat') { S.drawerOpen.chat = true; S.drawerOpen.tab = 'chat'; } else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
   $('#logout3') && ($('#logout3').onclick = () => DB.logout());
@@ -3145,7 +3135,7 @@ function wireDrawer() {
   const tp = $('#d-todoplus'); if (tp) tp.onclick = () => { S.drawerOpen.todo = true; render(); $('#d-tdnew')?.focus(); };
   const keep = fn => { const y = $('.dbody')?.scrollTop || 0; fn(); render(); const db = $('.dbody'); if (db) db.scrollTop = y; };
   document.querySelectorAll('[data-dtab]').forEach(el => el.onclick = () => keep(() => { S.drawerOpen.tab = el.dataset.dtab; }));
-  $('#d-more') && ($('#d-more').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
+  $('#d-lastact') && ($('#d-lastact').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
   $('#d-logopen') && ($('#d-logopen').onclick = () => { keep(() => { S.drawerOpen.log = true; }); $('#d-ltitle')?.focus(); });
   $('#d-logclose') && ($('#d-logclose').onclick = () => keep(() => { S.drawerOpen.log = false; }));
   document.querySelectorAll('[data-follow]').forEach(el => el.onclick = async () => {
