@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails','people'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -142,7 +142,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, ppl, segs, fups] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -176,6 +176,9 @@ const DB = {
       S.supa.from('committee_counterparts').select('*'),
       S.supa.from('legislator_stances').select('*'),
       S.supa.from('action_alerts').select('*').order('created_at', { ascending: false }).limit(200),
+      S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000),
+      S.supa.from('people_segments').select('*').order('name'),
+      S.supa.from('people_followups').select('*').is('done_at', null).order('due', { nullsFirst: false }),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -187,6 +190,7 @@ const DB = {
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
     S.alerts = als?.data || [];
+    S.people = ppl?.data || []; S.segments = segs?.data || []; S.followups = fups?.data || []; S.peopleNotes = {}; S.personTL = {};
     S.legislators = legs?.data || []; S.committeeMembers = cms?.data || []; S.counterparts = cps?.data || []; S.stances = sts?.data || []; S.legNotes = {};
     S.lists = pls?.data || []; S.listBills = plb?.data || []; S.listFollowers = Object.fromEntries((plf?.data || []).map(r => [r.list_id, Number(r.followers)]));
     S.slots = slots?.data || [];
@@ -533,12 +537,45 @@ const DB = {
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
+
+  // ---- people (CRM) ----
+  async refreshPerson(id) { const { data, error } = await S.supa.from('people_overview').select('*').eq('id', id).maybeSingle(); if (error) throw error; const i = S.people.findIndex(p => p.id === id); if (data) { if (i >= 0) S.people[i] = data; else S.people.unshift(data); } else if (i >= 0) S.people.splice(i, 1); return data; },
+  async savePerson(id, patch) {
+    if (DEMO) { const p = personById(id); Object.assign(p, patch, { island: islandOf(patch.senate_district ?? p.senate_district) }); if (!p.has_account && 'action_alerts' in patch) p.action_optin = !!patch.action_alerts; return p; }
+    const { error } = await S.supa.from('people').update({ ...patch, island: 'senate_district' in patch ? islandOf(patch.senate_district) : undefined, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
+    return this.refreshPerson(id);
+  },
+  async addPerson(fields) {
+    if (DEMO) { const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
+    const { data, error } = await S.supa.from('people').insert({ ...fields, island: islandOf(fields.senate_district), source: 'manual', created_by: S.me?.id }).select('id').single(); if (error) throw error;
+    return this.refreshPerson(data.id);
+  },
+  async deletePerson(id) { if (!DEMO) { const { error } = await S.supa.from('people').delete().eq('id', id); if (error) throw error; } S.people = S.people.filter(p => p.id !== id); },
+  async mergePeople(keep, drop) { if (DEMO) { const k = personById(keep), d = personById(drop); k.tags = [...new Set([...k.tags, ...d.tags])]; S.people = S.people.filter(p => p.id !== drop); return k; } const { error } = await S.supa.rpc('merge_people', { p_keep: keep, p_drop: drop }); if (error) throw error; S.people = S.people.filter(p => p.id !== drop); return this.refreshPerson(keep); },
+  async importPeople(rows, note) { if (DEMO) { let added = 0, updated = 0, skipped = 0; for (const r of rows) { if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email || '')) { skipped++; continue; } const ex = S.people.find(p => p.email.toLowerCase() === r.email.toLowerCase()); if (ex) { ex.tags = [...new Set([...ex.tags, ...(r.tags || [])])]; updated++; } else { await this.addPerson({ email: r.email.toLowerCase(), name: r.name || null, phone: r.phone || null, tags: r.tags || [], interests: r.interests || [], action_alerts: r.action_alerts ?? null }); S.people[0].source = 'import'; S.people[0].source_note = note; added++; } } return { added, updated, skipped }; }
+    let tot = { added: 0, updated: 0, skipped: 0 };
+    for (let i = 0; i < rows.length; i += 500) { const { data, error } = await S.supa.rpc('import_people', { p_rows: rows.slice(i, i + 500), p_source_note: note || null }); if (error) throw error; const r = data?.[0] || {}; tot = { added: tot.added + (r.added || 0), updated: tot.updated + (r.updated || 0), skipped: tot.skipped + (r.skipped || 0) }; }
+    const { data } = await S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000); if (data) S.people = data;
+    return tot;
+  },
+  async personNotes(id) { if (DEMO) return S.peopleNotes[id] ??= []; const { data, error } = await S.supa.from('people_notes').select('*').eq('person_id', id).order('created_at', { ascending: false }); if (error) throw error; return S.peopleNotes[id] = data || []; },
+  async addPersonNote(id, body) { if (DEMO) { (S.peopleNotes[id] ??= []).unshift({ id: Date.now(), person_id: id, advocate_id: S.me.id, body, created_at: new Date().toISOString() }); return; } const { error } = await S.supa.from('people_notes').insert({ person_id: id, advocate_id: S.me.id, body }); if (error) throw error; await this.personNotes(id); },
+  async delPersonNote(noteId, id) { if (DEMO) { S.peopleNotes[id] = (S.peopleNotes[id] || []).filter(n => String(n.id) !== String(noteId)); return; } const { error } = await S.supa.from('people_notes').delete().eq('id', noteId); if (error) throw error; await this.personNotes(id); },
+  async personTimeline(id) { if (DEMO) return S.personTL[id] ??= []; const { data, error } = await S.supa.rpc('person_timeline', { p_person: id }); if (error) throw error; return S.personTL[id] = data || []; },
+  async addFollowup(personId, advocateId, what, due) { if (DEMO) { S.followups.push({ id: Date.now(), person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id, created_at: new Date().toISOString() }); return; } const { data, error } = await S.supa.from('people_followups').insert({ person_id: personId, advocate_id: advocateId, what, due: due || null, created_by: S.me.id }).select('*').single(); if (error) throw error; S.followups.push(data); },
+  async doneFollowup(id) { if (!DEMO) { const { error } = await S.supa.from('people_followups').update({ done_at: new Date().toISOString() }).eq('id', id); if (error) throw error; } S.followups = S.followups.filter(f => f.id !== id); },
+  async saveSegment(seg) {
+    if (DEMO) { if (seg.id) Object.assign(S.segments.find(x => x.id === seg.id), seg); else { seg.id = 's' + Date.now(); seg.created_by = S.me.id; S.segments.push(seg); } S.segments.sort((a, b) => a.name.localeCompare(b.name)); return seg; }
+    const { data, error } = seg.id ? await S.supa.from('people_segments').update({ name: seg.name, filter: seg.filter }).eq('id', seg.id).select('*').single() : await S.supa.from('people_segments').insert({ name: seg.name, filter: seg.filter, created_by: S.me.id }).select('*').single(); if (error) throw error;
+    const i = S.segments.findIndex(x => x.id === data.id); if (i >= 0) S.segments[i] = data; else S.segments.push(data); S.segments.sort((a, b) => a.name.localeCompare(b.name)); return data;
+  },
+  async deleteSegment(id) { if (!DEMO) { const { error } = await S.supa.from('people_segments').delete().eq('id', id); if (error) throw error; } S.segments = S.segments.filter(x => x.id !== id); },
   // ---- action alerts (email to followers) ----
-  async alertAudience(billId, listId) { if (DEMO) return billId ? 12 : 31; const { data, error } = await S.supa.rpc('alert_audience', { p_bill: billId || null, p_list: listId || null }); if (error) throw error; return data || 0; },
-  async canAlert(billId, listId) { if (DEMO) return true; const { data } = await S.supa.rpc('can_alert', { p_bill: billId || null, p_list: listId || null }); return !!data; },
+  async alertAudience(billId, listId, segmentId) { if (DEMO) return segmentId ? segmentPeople(segmentId).filter(p => p.action_optin).length : billId ? 12 : 31; const { data, error } = await S.supa.rpc('alert_audience', { p_bill: billId || null, p_list: listId || null, p_segment: segmentId || null }); if (error) throw error; return data || 0; },
+  async canAlert(billId, listId, segmentId) { if (DEMO) return true; const { data } = await S.supa.rpc('can_alert', { p_bill: billId || null, p_list: listId || null, p_segment: segmentId || null }); return !!data; },
   async saveAlert(a) {
     if (DEMO) { if (!a.id) { a.id = -Date.now(); a.status = 'draft'; a.created_at = new Date().toISOString(); a.author_id = S.me?.id; S.alerts.unshift(a); } else Object.assign(S.alerts.find(x => x.id === a.id) || {}, a); return a; }
-    const row = { bill_id: a.bill_id || null, list_id: a.list_id || null, subject: a.subject, body: a.body, body_html: a.body_html || null, author_id: S.me?.id, updated_at: new Date().toISOString() };
+    const row = { bill_id: a.bill_id || null, list_id: a.list_id || null, segment_id: a.segment_id || null, subject: a.subject, body: a.body, body_html: a.body_html || null, author_id: S.me?.id, updated_at: new Date().toISOString() };
     if (!a.id) { const { data, error } = await S.supa.from('action_alerts').insert(row).select('*').single(); if (error) throw error; S.alerts.unshift(data); return data; }
     const { data, error } = await S.supa.from('action_alerts').update({ subject: row.subject, body: row.body, body_html: row.body_html, updated_at: row.updated_at }).eq('id', a.id).select('*').single(); if (error) throw error;
     Object.assign(S.alerts.find(x => x.id === a.id) || {}, data); return data;
@@ -689,6 +726,7 @@ async function demoInit() {
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
   S.alerts = [];
+  S.people = (snap.people || []).map(x => ({ ...x })); S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
@@ -863,7 +901,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['table','All bills'],['legislators','Legislators'],['lists','Lists'],['emails','Emails'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
+const MORE_VIEWS = [['table','All bills'],['legislators','Legislators'],['people','People'],['lists','Lists'],['emails','Emails'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
 const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
@@ -877,7 +915,7 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['lists', '☰', 'Lists', 'Lists'], ['emails', '✉', 'Emails', 'Emails'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['people', '☺\ufe0e', 'People', 'People'], ['lists', '☰', 'Lists', 'Lists'], ['emails', '✉', 'Emails', 'Emails'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
@@ -1384,6 +1422,8 @@ function renderPortfolio(list) {
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
   // Admins: action alerts waiting for a second pair of eyes are steps too.
   for (const a of alertsToReview()) merged.push({ mine: true, t: Infinity, pri: 0, html: `<div class="prow arow mine" data-alertopen="${a.id}"><div class="awhen none"><b>✉</b><span>to approve</span></div><div class="amain"><div class="aask">Approve ${esc(advocate(a.author_id)?.full_name?.split(' ')[0] || 'a teammate')}’s action alert to the followers of <b class="abill">${esc(alertTarget(a))}</b></div><div class="actx">“${esc(a.subject)}”</div></div><div class="abtn"><button class="btn sm">Review</button></div></div>` });
+  for (const f of (S.followups || []).filter(f => !f.done_at && f.advocate_id === S.me?.id)) { const p = personById(f.person_id); if (!p) continue; const t = f.due ? new Date(f.due + 'T17:00:00-10:00').getTime() : Infinity;
+    merged.push({ mine: true, t, pri: 1, html: `<div class="prow arow mine" data-personopen="${p.id}">${clock(t, 'to do')}<div class="amain"><div class="aask">${esc(f.what)} · <b class="abill">${esc(personName(p))}</b></div><div class="actx">follow-up${p.phone ? ` · ${esc(p.phone)}` : ''} · ${esc(p.email)}</div></div><div class="abtn"><button class="btn sm">Open</button></div></div>` }); }
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
       <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
@@ -2149,6 +2189,232 @@ const SHORTCUTS = [
 ];
 // Help is a reference, not a tutorial: what each page is for, how each part
 // behaves, the Capitol's words in plain language, and the shortcuts.
+
+// ============================================================
+// People — the CRM. Accounts from the public page (linked on sign-up) and
+// contacts imported or added by hand, with what they follow and do, the
+// emails they opened, districts, tags, notes and follow-ups. A segment is a
+// saved filter; an action alert can be sent to one.
+// ============================================================
+const INTERESTS = [['testify', 'Would testify in person'], ['story', 'Has a story to share'], ['quote', 'May be quoted'], ['host', 'Could host or help at an event'], ['volunteer', 'Wants to volunteer']];
+const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
+const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
+const personById = id => (S.people || []).find(p => p.id === id);
+const personName = p => p.name || p.email.split('@')[0];
+const EMPTY_PF = () => ({ q: '', tags: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
+const pfEmpty = f => !f.q && !f.tags.length && !f.interests.length && !f.islands.length && !f.house.length && !f.senate.length && f.account === 'any' && !f.optin && !f.bills.length && !f.lists.length && !f.campaigns.length && !f.active_days && !f.acted;
+const pfClean = f => { const o = {}; for (const [k, v] of Object.entries(f)) if (Array.isArray(v) ? v.length : v && v !== 'any') o[k] = v; return o; };
+// the same rules as people_match() in the database, so a saved segment reads the same here and when the alert is sent
+function peopleMatch(p, f) {
+  f = { ...EMPTY_PF(), ...(f || {}) };
+  const q = f.q.trim().toLowerCase();
+  if (q && !`${p.name || ''} ${p.email} ${p.phone || ''}`.toLowerCase().includes(q)) return false;
+  if (f.tags.length && !f.tags.some(t => (p.tags || []).includes(t))) return false;
+  if (f.interests.length && !f.interests.some(t => (p.interests || []).includes(t))) return false;
+  if (f.islands.length && !f.islands.includes(p.island)) return false;
+  if (f.house.length && !f.house.map(Number).includes(p.house_district)) return false;
+  if (f.senate.length && !f.senate.map(Number).includes(p.senate_district)) return false;
+  if (f.account !== 'any' && (f.account === 'yes') !== !!p.has_account) return false;
+  if (f.optin && !p.action_optin) return false;
+  if (f.bills.length && !f.bills.some(id => (p.bill_ids || []).includes(id))) return false;
+  if (f.lists.length && !f.lists.some(id => (p.list_ids || []).includes(id))) return false;
+  if (f.campaigns.length && !(p.bill_ids || []).some(id => (S.billCampaigns[id] || []).some(c => f.campaigns.includes(c)))) return false;
+  if (f.active_days && !(p.last_active && Date.now() - new Date(p.last_active) < f.active_days * 864e5)) return false;
+  if (f.acted && !(p.actions > 0)) return false;
+  return true;
+}
+const segmentPeople = id => { const sg = (S.segments || []).find(x => x.id === id); return sg ? (S.people || []).filter(p => peopleMatch(p, sg.filter)) : []; };
+const whereOf = p => [p.island, p.senate_district ? `SD ${p.senate_district}` : '', p.house_district ? `HD ${p.house_district}` : ''].filter(Boolean).join(' · ');
+const sortPeople = (rows, by) => rows.slice().sort((a, b) => by === 'score' ? (b.score || 0) - (a.score || 0) : by === 'newest' ? String(b.created_at).localeCompare(String(a.created_at)) : by === 'name' ? personName(a).localeCompare(personName(b)) : String(b.last_active || '').localeCompare(String(a.last_active || '')));
+
+function renderPeople() {
+  const v = S.peopleView ??= { f: EMPTY_PF(), sort: 'active', seg: null, billQ: '' };
+  const all = S.people || [], f = v.f;
+  const rows = sortPeople(all.filter(p => peopleMatch(p, f)), v.sort);
+  const tags = [...new Set(all.flatMap(p => p.tags || []))].sort();
+  const sds = [...new Set(all.map(p => p.senate_district).filter(Boolean))].sort((a, b) => a - b), hds = [...new Set(all.map(p => p.house_district).filter(Boolean))].sort((a, b) => a - b);
+  const seg = v.seg && (S.segments || []).find(x => x.id === v.seg);
+  const changed = seg && JSON.stringify(pfClean(f)) !== JSON.stringify(pfClean({ ...EMPTY_PF(), ...seg.filter }));
+  const opt = (val, label, cur) => `<option value="${esc(val)}" ${String(cur) === String(val) ? 'selected' : ''}>${esc(label)}</option>`;
+  const billsPicked = f.bills.map(id => billById(id)).filter(Boolean);
+  const row = p => `<div class="prow2" data-personopen="${p.id}">
+      <div class="ppn"><b>${esc(personName(p))}</b><span class="muted">${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ''}</span></div>
+      <div class="ppw">${esc(whereOf(p)) || '<span class="muted">—</span>'}</div>
+      <div class="ppc">${(p.bill_ids || []).length || '<span class="muted">—</span>'}</div>
+      <div class="ppc">${p.actions || '<span class="muted">—</span>'}</div>
+      <div class="ppc">${p.emails_sent ? `${p.emails_sent} · ${p.emails_opened}` : '<span class="muted">—</span>'}</div>
+      <div class="ppl">${p.last_active ? fmtDate(p.last_active) : '—'}</div>
+      <div class="ppt">${p.has_account ? '' : '<span class="chipx contact">contact</span>'}${p.action_optin ? '<span class="chipx ok">alerts</span>' : ''}${p.bounced_at ? '<span class="chipx hot">bounced</span>' : ''}${(p.tags || []).slice(0, 3).map(t => `<span class="chipx">${esc(t)}</span>`).join('')}</div>
+    </div>`;
+  const segChips = (S.segments || []).map(x => `<button class="segchip ${v.seg === x.id ? 'on' : ''}" data-seg="${x.id}" title="${esc(JSON.stringify(x.filter))}">${esc(x.name)} <small>${segmentPeople(x.id).length}</small></button>`).join('');
+  return `<div class="peoplewrap">
+    <div class="dashhead"><h1>People</h1><span class="sub">Everyone HIPHI knows: accounts from the public page and contacts you import or add. What they follow, what they did, which emails they opened, where they live. Filter, save a segment, email it.</span></div>
+    <div class="segstrip">${segChips}${(S.segments || []).length ? '' : '<span class="tok">No saved segments yet. Filter below, then Save as segment.</span>'}</div>
+    <div class="ifilters pfilters ${v.more ? 'open' : ''}">
+      <input type="search" id="pp-q" placeholder="Name, email or phone…" value="${esc(f.q)}" autocomplete="off">
+      <select id="pp-island"><option value="">Any island</option>${ISLANDS.map(i => opt(i, i, f.islands[0] || '')).join('')}</select>
+      <select id="pp-sd" class="sec2"><option value="">Senate district</option>${sds.map(d => opt(d, `SD ${d}`, f.senate[0] || '')).join('')}</select>
+      <select id="pp-hd" class="sec2"><option value="">House district</option>${hds.map(d => opt(d, `HD ${d}`, f.house[0] || '')).join('')}</select>
+      <select id="pp-camp" class="sec2"><option value="">Follows a bill in…</option>${(S.campaigns || []).map(c => opt(c.id, c.name, f.campaigns[0] || '')).join('')}</select>
+      <select id="pp-list" class="sec2"><option value="">Follows the list…</option>${(S.lists || []).map(l => opt(l.id, l.title, f.lists[0] || '')).join('')}</select>
+      <span class="billpick sec2"><input id="pp-bill" list="pp-bills" placeholder="Follows bill… (HB1563)" value="${esc(v.billQ)}" autocomplete="off"><datalist id="pp-bills">${S.bills.filter(b => b.is_public).slice(0, 800).map(b => `<option value="${esc(b.bill_number)}">${esc(blurb(b, 50))}</option>`).join('')}</datalist>${billsPicked.map(b => `<span class="chipx t">${esc(b.bill_number)} <button class="x" data-unbill="${b.id}">✕</button></span>`).join('')}</span>
+      <select id="pp-tag" class="sec2"><option value="">Any tag</option>${tags.map(t => opt(t, t, f.tags[0] || '')).join('')}</select>
+      <select id="pp-int" class="sec2"><option value="">Any interest</option>${INTERESTS.map(([k, l]) => opt(k, l, f.interests[0] || '')).join('')}</select>
+      <select id="pp-acct" class="sec2">${opt('any', 'Accounts and contacts', f.account)}${opt('yes', 'Accounts only', f.account)}${opt('no', 'Contacts only', f.account)}</select>
+      <select id="pp-active" class="sec2"><option value="0">Any time</option>${[7, 30, 90].map(d => opt(d, `Active in ${d} days`, f.active_days)).join('')}</select>
+      <label class="row sec2"><input type="checkbox" id="pp-optin" ${f.optin ? 'checked' : ''}> Opted in to action alerts</label>
+      <label class="row sec2"><input type="checkbox" id="pp-acted" ${f.acted ? 'checked' : ''}> Took an action</label>
+      <select id="pp-sort">${opt('active', 'Last active', v.sort)}${opt('score', 'Most engaged', v.sort)}${opt('newest', 'Newest', v.sort)}${opt('name', 'By name', v.sort)}</select>
+      <span class="tok">${rows.length} of ${all.length}</span>
+      ${pfEmpty(f) ? '' : '<button class="linkbtn" id="pp-clear">clear filters</button>'}
+      <button class="linkbtn pfmore" id="pp-more">${v.more ? 'fewer filters' : 'more filters'}</button>
+    </div>
+    <div class="btns segbtns">
+      ${pfEmpty(f) ? '' : seg && !changed ? `<span class="tok">Segment “${esc(seg.name)}”</span>` : seg && changed ? `<button class="btn sm" id="pp-segupdate">Update “${esc(seg.name)}”</button><button class="btn sm ghost" id="pp-segsave">Save as a new segment</button>` : `<button class="btn sm" id="pp-segsave">Save as segment</button>`}
+      ${seg ? `<button class="btn sm ghost" data-alertnew="s:${seg.id}">✉ Email this segment</button><button class="linkbtn danger" id="pp-segdel">delete segment</button>` : ''}
+      <span class="grow"></span>
+      <button class="btn sm ghost" id="pp-add">＋ Add a person</button>
+      ${S.me?.is_admin ? `<button class="btn sm ghost" id="pp-import">Import CSV</button><input type="file" id="pp-file" accept=".csv,text/csv" hidden><button class="btn sm ghost" id="pp-export">Export ${rows.length === all.length ? 'all' : 'these'} as CSV</button>` : ''}
+    </div>
+    <div class="ptable">
+      <div class="prow2 head"><div>Person</div><div>Where</div><div class="ppc" title="bills followed">Bills</div><div class="ppc" title="testimony, emails to chairs, hearings attended, shares">Actions</div><div class="ppc" title="emails sent · opened">Emails</div><div>Last active</div><div></div></div>
+      ${rows.slice(0, 500).map(row).join('') || '<div class="pempty">Nobody matches.</div>'}
+      ${rows.length > 500 ? `<div class="pempty">Showing the first 500 of ${rows.length}. Narrow the filters or export.</div>` : ''}
+    </div>
+  </div>`;
+}
+function wirePeople() {
+  const v = S.peopleView, f = v.f;
+  const keep = () => { const y = scrollY; render(); scrollTo(0, y); };
+  const focusQ = () => { const n = $('#pp-q'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+  $('#pp-q').oninput = () => { f.q = $('#pp-q').value; clearTimeout(v.t); v.t = setTimeout(() => { keep(); focusQ(); }, 180); };
+  const one = (id, key, conv = x => x) => { const el = $(id); if (el) el.onchange = () => { const val = el.value; f[key] = val ? [conv(val)] : []; keep(); }; };
+  one('#pp-island', 'islands'); one('#pp-sd', 'senate', Number); one('#pp-hd', 'house', Number); one('#pp-camp', 'campaigns'); one('#pp-list', 'lists'); one('#pp-tag', 'tags'); one('#pp-int', 'interests');
+  $('#pp-acct').onchange = () => { f.account = $('#pp-acct').value; keep(); };
+  $('#pp-active').onchange = () => { f.active_days = Number($('#pp-active').value); keep(); };
+  $('#pp-optin').onchange = () => { f.optin = $('#pp-optin').checked; keep(); };
+  $('#pp-acted').onchange = () => { f.acted = $('#pp-acted').checked; keep(); };
+  $('#pp-sort').onchange = () => { v.sort = $('#pp-sort').value; keep(); };
+  $('#pp-bill').onchange = () => { const q = $('#pp-bill').value.trim().toUpperCase().replace(/\s+/g, ''); const b = S.bills.find(x => x.bill_number === q); if (b) { if (!f.bills.includes(b.id)) f.bills.push(b.id); v.billQ = ''; keep(); } else v.billQ = $('#pp-bill').value; };
+  document.querySelectorAll('[data-unbill]').forEach(el => el.onclick = () => { f.bills = f.bills.filter(id => id !== el.dataset.unbill); keep(); });
+  $('#pp-clear') && ($('#pp-clear').onclick = () => { v.f = EMPTY_PF(); v.seg = null; keep(); });
+  $('#pp-more') && ($('#pp-more').onclick = () => { v.more = !v.more; keep(); });
+  document.querySelectorAll('[data-seg]').forEach(el => el.onclick = () => { const sg = S.segments.find(x => x.id === el.dataset.seg); if (v.seg === sg.id) { v.seg = null; v.f = EMPTY_PF(); } else { v.seg = sg.id; v.f = { ...EMPTY_PF(), ...JSON.parse(JSON.stringify(sg.filter)) }; } keep(); });
+  $('#pp-segsave') && ($('#pp-segsave').onclick = async () => { const name = prompt('Name this segment (it shows on the Emails page too)'); if (!name || name.trim().length < 2) return; try { const sg = await DB.saveSegment({ name: name.trim(), filter: pfClean(f) }); v.seg = sg.id; toast('Segment saved'); keep(); } catch (e) { toast(e.message, true); } });
+  $('#pp-segupdate') && ($('#pp-segupdate').onclick = async () => { const sg = S.segments.find(x => x.id === v.seg); try { await DB.saveSegment({ id: sg.id, name: sg.name, filter: pfClean(f) }); toast('Segment updated'); keep(); } catch (e) { toast(e.message, true); } });
+  $('#pp-segdel') && ($('#pp-segdel').onclick = async () => { const sg = S.segments.find(x => x.id === v.seg); if (!confirm(`Delete the segment “${sg.name}”? People are not affected.`)) return; try { await DB.deleteSegment(sg.id); v.seg = null; keep(); } catch (e) { toast(e.message, true); } });
+  $('#pp-add') && ($('#pp-add').onclick = async () => { const email = prompt('Email address of the person to add'); if (!email) return; const em = email.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast('That is not an email address', true);
+    const ex = S.people.find(p => p.email.toLowerCase() === em); if (ex) { S.personOpen = ex.id; return render(); }
+    const name = prompt('Their name (optional)') || ''; try { const p = await DB.addPerson({ email: em, name: name.trim() || null, tags: [], interests: [] }); S.personOpen = p.id; toast('Added'); render(); } catch (e) { toast(e.message, true); } });
+  $('#pp-export') && ($('#pp-export').onclick = () => { const rows = sortPeople(S.people.filter(p => peopleMatch(p, f)), v.sort); exportPeopleCSV(rows); });
+  $('#pp-import') && ($('#pp-import').onclick = () => $('#pp-file').click());
+  $('#pp-file') && ($('#pp-file').onchange = async () => { const file = $('#pp-file').files[0]; if (!file) return; const text = await file.text(); const { rows, cols } = parsePeopleCSV(text);
+    if (!rows.length) return toast(`No rows with an email address found (columns: ${cols.join(', ')})`, true);
+    if (!confirm(`Import ${rows.length} people from ${file.name}? Existing people are updated, never blanked; new ones are added as contacts. ${rows.filter(r => r.action_alerts).length} are marked as opted in to action alerts.`)) return;
+    try { const r = await DB.importPeople(rows, file.name); toast(`Imported: ${r.added} added, ${r.updated} updated, ${r.skipped} skipped`); keep(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-personopen]').forEach(el => el.onclick = () => { S.personOpen = el.dataset.personopen; render(); });
+}
+// CSV in: any column order; we look for email, name (or first + last), phone, tags, interests, and an opt-in column (subscribed / opt in / action alerts)
+function parsePeopleCSV(text) {
+  const lines = []; let cur = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) { const c = text[i];
+    if (inQ) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; } else field += c; }
+    else if (c === '"') inQ = true; else if (c === ',') { cur.push(field); field = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; cur.push(field); lines.push(cur); cur = []; field = ''; } else field += c; }
+  if (field || cur.length) { cur.push(field); lines.push(cur); }
+  const head = (lines.shift() || []).map(h => h.trim().toLowerCase());
+  const col = (...names) => head.findIndex(h => names.some(n => h === n || h.includes(n)));
+  const ci = { email: col('email', 'e-mail'), name: col('full name', 'name'), first: col('first'), last: col('last', 'surname'), phone: col('phone', 'mobile', 'cell'), tags: col('tags', 'groups', 'labels'), interests: col('interests'), optin: col('opt', 'subscribed', 'action alerts', 'consent', 'status') };
+  const yes = x => /^(yes|true|1|subscribed|opted?[ -]?in|active)$/i.test(String(x || '').trim());
+  const rows = [];
+  for (const l of lines) { if (ci.email < 0) break; const email = (l[ci.email] || '').trim(); if (!email.includes('@')) continue;
+    const name = ci.name >= 0 && !(ci.name === ci.first) ? (l[ci.name] || '').trim() : [l[ci.first], l[ci.last]].filter(Boolean).join(' ').trim();
+    rows.push({ email, name: name || null, phone: ci.phone >= 0 ? (l[ci.phone] || '').trim() || null : null,
+      tags: ci.tags >= 0 ? (l[ci.tags] || '').split(/[;,|]/).map(x => x.trim()).filter(Boolean) : [], interests: ci.interests >= 0 ? (l[ci.interests] || '').split(/[;,|]/).map(x => x.trim().toLowerCase()).filter(x => INTERESTS.some(([k]) => k === x)) : [],
+      action_alerts: ci.optin >= 0 ? yes(l[ci.optin]) : null }); }
+  return { rows, cols: head };
+}
+function exportPeopleCSV(rows) {
+  const q = x => `"${String(x ?? '').replace(/"/g, '""')}"`;
+  const head = ['name', 'email', 'phone', 'island', 'senate_district', 'house_district', 'account', 'action_alerts', 'bills_followed', 'actions', 'emails_sent', 'emails_opened', 'tags', 'interests', 'last_active', 'engagement'];
+  const lines = [head.join(',')].concat(rows.map(p => [p.name, p.email, p.phone, p.island, p.senate_district, p.house_district, p.has_account ? 'yes' : 'no', p.action_optin ? 'yes' : 'no', (p.bill_ids || []).map(id => billById(id)?.bill_number || '').filter(Boolean).join(' '), p.actions, p.emails_sent, p.emails_opened, (p.tags || []).join('; '), (p.interests || []).join('; '), p.last_active ? String(p.last_active).slice(0, 10) : '', p.score].map(q).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' })); a.download = `hiphi-people-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+}
+
+// The profile drawer: who they are, what they follow and did, notes, follow-ups, the editable details.
+function personDrawerHTML(p) {
+  const notes = S.peopleNotes[p.id], tl = S.personTL[p.id];
+  if (!notes) DB.personNotes(p.id).then(() => rerenderKeep()).catch(() => {});
+  if (!tl) DB.personTimeline(p.id).then(() => rerenderKeep()).catch(() => {});
+  const bills = (p.bill_ids || []).map(id => billById(id)).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
+  const lists = (p.list_ids || []).map(id => (S.lists || []).find(l => l.id === id)).filter(Boolean);
+  const fups = (S.followups || []).filter(f => f.person_id === p.id && !f.done_at);
+  const ed = S.personEdit === p.id, a = S.pdAddr || {};
+  const state = [p.has_account ? `Account since ${fmtDate(p.signed_up_at || p.created_at)}` : `Contact · ${p.source === 'import' ? `imported${p.source_note ? ' from ' + esc(p.source_note) : ''}` : 'added by hand'} ${fmtDate(p.created_at)}`,
+    p.action_optin ? '✓ action alerts' : '✗ no action alerts', p.hearing_optin ? '✓ hearing alerts' : '', p.unsubscribed_at ? `unsubscribed ${fmtDate(p.unsubscribed_at)}` : '', p.bounced_at ? `<span class="hot">email bounced ${fmtDate(p.bounced_at)}</span>` : ''].filter(Boolean).join(' · ');
+  const tlRow = e => `<div class="tlrow"><span class="tlwhen">${fmtDate(e.at)}</span><span class="tlk ${esc(e.kind)}">${e.kind === 'follow' ? '★' : e.kind === 'action' ? '✔' : e.kind === 'open' || e.kind === 'click' ? '✉' : e.kind === 'email' ? '✉' : e.kind === 'bounce' ? '⚠' : '•'}</span><span>${e.bill_id && billById(e.bill_id) ? `<a data-bill-open="${e.bill_id}">${esc(e.label)}</a>` : esc(e.label)}</span></div>`;
+  const details = ed ? `<div class="pdform">
+      <label class="row"><span>Name</span><input id="pd-name" value="${esc(p.name || '')}" maxlength="120"></label>
+      <label class="row"><span>Phone</span><input id="pd-phone" value="${esc(p.phone || '')}" maxlength="40" placeholder="808-555-0100"></label>
+      <label class="row legbox"><span>Home address</span><span class="grow"><input id="pd-addr" value="${esc(a.q ?? p.address ?? '')}" placeholder="Street address, for the districts" autocomplete="off">${a.results?.length && !a.picked ? `<div class="legsug">${a.results.map((x, i) => `<button data-pdpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>` : ''}</span></label>
+      <div class="tok pdd">Districts: <b id="pd-dist">${a.sd || p.senate_district ? `Senate ${a.sd || p.senate_district} · House ${a.hd || p.house_district} · ${esc(islandOf(a.sd || p.senate_district) || '')}` : 'unknown — pick an address above'}</b></div>
+      <div class="tok">Interests</div><div class="pdchecks">${INTERESTS.map(([k, l]) => `<label class="row"><input type="checkbox" data-pdint="${k}" ${(p.interests || []).includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+      <label class="row"><span>Tags</span><input id="pd-tags" value="${esc((p.tags || []).join(', '))}" placeholder="volunteer, donor, media…"></label>
+      ${p.has_account ? '' : `<label class="row"><input type="checkbox" id="pd-optin" ${p.action_alerts ? 'checked' : ''}> Opted in to action alerts (on the old list) </label>`}
+      <div class="btns"><button class="btn sm" id="pd-save">Save</button><button class="btn sm ghost" id="pd-cancel">Cancel</button></div>
+    </div>` : `<div class="pdfacts">
+      ${def2('Where', whereOf(p) || '<span class="muted">unknown</span>')}${p.address ? def2('Address', esc(p.address)) : ''}
+      ${def2('Interests', (p.interests || []).map(k => INTERESTS.find(x => x[0] === k)?.[1] || k).join(' · ') || '<span class="muted">none noted</span>')}
+      ${def2('Tags', (p.tags || []).map(t => `<span class="chipx">${esc(t)}</span>`).join(' ') || '<span class="muted">none</span>')}
+      <div class="btns"><button class="btn sm ghost" id="pd-edit">Edit details</button></div>
+    </div>`;
+  return `<div class="scrim" id="pscrim"></div>
+  <div class="drawer v2 persondrawer">
+    <div class="dhead"><button class="close" id="pclose">✕</button>
+      <h2>${esc(personName(p))}</h2>
+      <div class="sub"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${p.phone ? ` · <a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : ''}</div>
+      <div class="sub muted">${state}</div>
+      <div class="pdstats"><span><b>${bills.length}</b> bills followed</span><span><b>${p.actions || 0}</b> actions${p.testimonies ? ` (${p.testimonies} testimony)` : ''}</span><span><b>${p.emails_sent || 0}</b> emails · <b>${p.emails_opened || 0}</b> opened · <b>${p.emails_clicked || 0}</b> clicked</span><span title="follows + actions×5 + opens + clicks×2"><b>${p.score || 0}</b> engagement</span></div>
+    </div>
+    <div class="dbody">
+      <div class="sec">Details</div>${details}
+      <div class="sec">Follows <span class="tok">${bills.length} bills${lists.length ? ` · ${lists.length} lists` : ''}</span></div>
+      ${bills.length ? `<div class="pdbills">${bills.map(b => `<div class="lbill" data-bill-open="${b.id}"><b>${esc(billNum(b))}</b> <span class="muted">${esc(blurb(b, 70))}</span></div>`).join('')}</div>` : '<p class="muted">No bills yet.</p>'}
+      ${lists.length ? `<div class="lchips">${lists.map(l => `<span class="chipx t">☰ ${esc(l.title)}</span>`).join('')}</div>` : ''}
+      <div class="sec">Follow-ups <span class="tok">a task on this person, shown in Action needed for whoever owns it</span></div>
+      ${fups.map(x => `<div class="pdfup"><span><b>${esc(x.what)}</b> · ${esc(advocate(x.advocate_id)?.full_name?.split(' ')[0] || '?')}${x.due ? ` · due ${fmtDate(x.due + 'T12:00:00-10:00')}` : ''}</span><button class="btn sm ghost" data-fupdone="${x.id}">Done</button></div>`).join('')}
+      <div class="pdfupadd"><input id="pd-fup" placeholder="e.g. Call before the EDU hearing" maxlength="300"><input type="date" id="pd-fupdue"><select id="pd-fupwho">${S.advocates.filter(x => x.is_active).map(x => `<option value="${x.id}" ${x.id === S.me?.id ? 'selected' : ''}>${esc(x.full_name.split(' ')[0])}</option>`).join('')}</select><button class="btn sm" id="pd-fupadd">Add</button></div>
+      <div class="sec">Notes <span class="tok">team only</span></div>
+      <div class="chatadd"><textarea id="pd-note" rows="2" placeholder="e.g. Spoke 3/2 — will testify in person on HB 1563" maxlength="4000"></textarea><button class="btn sm" id="pd-noteadd">Add note</button></div>
+      ${notes ? (notes.length ? notes.map(n => `<div class="lnote2"><div class="lnh"><b>${esc(advocate(n.advocate_id)?.full_name || 'Someone')}</b> <span class="muted">${fmtDate(n.created_at)}</span>${n.advocate_id === S.me?.id || S.me?.is_admin ? ` <button class="linkbtn" data-pnotedel="${n.id}">delete</button>` : ''}</div><div>${esc(n.body)}</div></div>`).join('') : '<p class="muted">No notes yet.</p>') : '<p class="muted">Loading…</p>'}
+      <div class="sec">Timeline</div>
+      <div class="pdtl">${tl ? (tl.length ? tl.slice(0, 60).map(tlRow).join('') : '<p class="muted">Nothing yet.</p>') : '<p class="muted">Loading…</p>'}</div>
+      ${S.me?.is_admin ? `<div class="btns" style="margin-top:18px"><button class="linkbtn" id="pd-merge">Merge another person into this one…</button><button class="linkbtn danger" id="pd-delete">Delete this person</button></div>` : ''}
+    </div>
+  </div>`;
+}
+const def2 = (k, v) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`;
+function wirePersonDrawer() {
+  const p = S.personOpen && personById(S.personOpen); if (!p) return;
+  const close = () => { S.personOpen = null; S.personEdit = null; S.pdAddr = null; render(); };
+  $('#pclose').onclick = close; $('#pscrim').onclick = close;
+  document.querySelectorAll('.persondrawer [data-bill-open]').forEach(el => el.onclick = e => { e.stopPropagation(); S.personOpen = null; openDrawer(el.dataset.billOpen); });
+  $('#pd-edit') && ($('#pd-edit').onclick = () => { S.personEdit = p.id; S.pdAddr = null; rerenderKeep(); });
+  $('#pd-cancel') && ($('#pd-cancel').onclick = () => { S.personEdit = null; S.pdAddr = null; rerenderKeep(); });
+  $('#pd-addr') && ($('#pd-addr').oninput = () => { const q = $('#pd-addr').value; S.pdAddr = { ...(S.pdAddr || {}), q, picked: false }; clearTimeout(S.pdT); S.pdT = setTimeout(async () => { if (!looksLikeAddress(q)) return; try { const results = await geoSuggest(q); if ((S.pdAddr || {}).q === q) { S.pdAddr.results = results; const box = $('#pd-addr')?.parentElement; const old = box?.querySelector('.legsug'); old && old.remove(); if (results.length && box) { box.insertAdjacentHTML('beforeend', `<div class="legsug">${results.map((x, i) => `<button data-pdpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>`); wirePicks(); } } } catch {} }, 250); });
+  const wirePicks = () => document.querySelectorAll('[data-pdpick]').forEach(el => el.onclick = async () => { const x = S.pdAddr.results[Number(el.dataset.pdpick)]; if (!x) return; try { const d = await geoDistricts(x); S.pdAddr = { q: x.label, results: [], picked: true, sd: d.senate || null, hd: d.house || null }; $('#pd-addr').value = x.label; $('#pd-dist').textContent = d.found ? `Senate ${d.senate} · House ${d.house} · ${islandOf(d.senate) || ''}` : 'unknown for that address'; document.querySelector('#pd-addr')?.parentElement.querySelector('.legsug')?.remove(); } catch { toast('Could not look that up', true); } });
+  wirePicks();
+  $('#pd-save') && ($('#pd-save').onclick = async () => { const a = S.pdAddr || {}; const patch = { name: $('#pd-name').value.trim() || null, phone: $('#pd-phone').value.trim() || null, address: $('#pd-addr').value.trim() || null,
+      interests: [...document.querySelectorAll('[data-pdint]')].filter(el => el.checked).map(el => el.dataset.pdint), tags: $('#pd-tags').value.split(/[,;]/).map(x => x.trim()).filter(Boolean) };
+    if (a.picked) { patch.senate_district = a.sd; patch.house_district = a.hd; } else if (!patch.address) { patch.senate_district = null; patch.house_district = null; }
+    if ($('#pd-optin')) patch.action_alerts = $('#pd-optin').checked;
+    try { await DB.savePerson(p.id, patch); S.personEdit = null; S.pdAddr = null; toast('Saved'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#pd-fupadd') && ($('#pd-fupadd').onclick = async () => { const what = $('#pd-fup').value.trim(); if (!what) return; try { await DB.addFollowup(p.id, $('#pd-fupwho').value, what, $('#pd-fupdue').value || null); toast('Follow-up added'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-fupdone]').forEach(el => el.onclick = async () => { try { await DB.doneFollowup(isNaN(el.dataset.fupdone) ? el.dataset.fupdone : Number(el.dataset.fupdone)); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#pd-noteadd') && ($('#pd-noteadd').onclick = async () => { const body = $('#pd-note').value.trim(); if (!body) return; try { await DB.addPersonNote(p.id, body); toast('Note added'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-pnotedel]').forEach(el => el.onclick = async () => { try { await DB.delPersonNote(el.dataset.pnotedel, p.id); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#pd-merge') && ($('#pd-merge').onclick = async () => { const email = prompt(`Email of the duplicate to merge INTO ${personName(p)}. Its notes, follow-ups, tags and any account move here; the duplicate is deleted.`); if (!email) return; const d = S.people.find(x => x.email.toLowerCase() === email.trim().toLowerCase()); if (!d) return toast('No person with that email', true); if (d.id === p.id) return; if (!confirm(`Merge ${personName(d)} <${d.email}> into ${personName(p)}?`)) return; try { await DB.mergePeople(p.id, d.id); toast('Merged'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#pd-delete') && ($('#pd-delete').onclick = async () => { if (!confirm(`Delete ${personName(p)} <${p.email}> from People? Their tracker account, if any, is not touched.`)) return; try { await DB.deletePerson(p.id); close(); } catch (e) { toast(e.message, true); } });
+}
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
   const def = (k, v) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`;
@@ -2162,7 +2428,8 @@ function renderHelp() {
       ${def('New bills', 'Search any bill in the session and track it, or decide on the new ones that match your coalitions’ keywords.')}
       ${def('All bills', 'Every tracked bill as a table: sort, filter, tick several and change owner, position, priority, coalition or list at once. Export CSV.')}
       ${def('Legislators', 'Every senator and representative from the Capitol\u2019s pages: district and the places it covers, committees, contact, their record on our bills, and the team\u2019s notes. Refreshed daily.')}
-      ${def('Lists', 'Curated sets of public bills the public can follow with one tap, and the supporters who share their follows with HIPHI.')}
+      ${def('People', 'The CRM: everyone HIPHI knows. Accounts from the public page and imported contacts, with what they follow, what they did, which emails they opened, their districts, tags, notes and follow-ups. Filter, save a segment, email it.')}
+      ${def('Lists', 'Curated sets of public bills the public can follow with one tap.')}
       ${def('Emails', 'Action alerts to the public: written by an admin or the coalition owner about a bill or a list, sent from their own address to the followers who asked for them, after a second person approves. Hearing alerts need nobody: one email a day per person, bundled.')}
       ${def('Weekly memo', 'A memo that writes itself from the bill records for one coalition or all: hearings, movement, risk, how to help. Copy it; nothing is sent.')}
       ${def('My settings', 'How the tracker reaches you: Slack DMs and testimony reminders.')}
@@ -2513,7 +2780,7 @@ function pathwayHTML(b) {
 // author's own address. Postmark reports opens, clicks and bounces back.
 const ALERT_STATUS = { draft: ['Draft', 'c-gray'], returned: ['Sent back', 'c-red'], submitted: ['Waiting for approval', 'c-gold'], approved: ['Approved, not sent', 'c-teal'], sent: ['Sent', 'c-green'] };
 const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && S.me?.is_admin && a.author_id !== S.me?.id);
-const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list');
+const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : a.list_id ? ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list') : ((S.segments || []).find(x => x.id === a.segment_id)?.name || 'a segment');
 // ---- rich text for action alerts (no library). The email is HTML, so the composer edits HTML; a small
 // allowlist (p br b i u a ul ol li h3 blockquote, http/mailto links) keeps what mail clients render
 // predictable, and the server re-cleans on save. body stays the plain-text twin for previews and the text part.
@@ -2595,25 +2862,26 @@ function wireRTE(id) {
   });
   ed.addEventListener('click', e => { const a = e.target.closest('a'); if (a && (e.metaKey || e.ctrlKey)) { e.preventDefault(); window.open(a.href, '_blank', 'noopener'); } });
 }
-function alertTemplate(b, l) {
+function alertTemplate(b, l, sg) {
   const who = S.me?.full_name?.split(' ')[0] || 'HIPHI';
+  if (sg) return { subject: `A quick favour from HIPHI`, body: `Aloha,\n\n[What is happening and what would help, in a few sentences. Say which bill, the deadline, and the one thing to do.]\n\nMahalo,\n${who}` };
   if (b) { const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
     return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favour'}`,
       body: `Aloha,\n\nYou follow ${billNum(b).replace(/^(\D+)/, '$1 ')}, ${blurb(b, 160)}\n\n${h ? `It will be heard by ${h.committee} on ${fmtDT(h.scheduled_at)}${h.room ? ' in ' + roomShort(h.room) : ''}.${h.testimony_deadline ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}\n\n` : ''}${(b.public_action || '').trim() ? b.public_action.trim() + '\n\n' : 'Here is what would help: [the ask, in one or two sentences]\n\n'}Two sentences in your own words are enough. The link below opens the bill with a five-minute way to testify.\n\nMahalo,\n${who}` }; }
   return { subject: `${l.title}: a quick favour from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
 }
 function composerHTML(a) {
-  const b = a.bill_id && billById(a.bill_id), l = a.list_id && (S.lists || []).find(x => x.id === a.list_id);
+  const b = a.bill_id && billById(a.bill_id), l = a.list_id && (S.lists || []).find(x => x.id === a.list_id), sg = a.segment_id && (S.segments || []).find(x => x.id === a.segment_id);
   const editable = !a.id || ['draft', 'returned'].includes(a.status), me = S.me || {}, own = a.author_id === me.id;
   const au = a.author_id ? advocate(a.author_id) : me;
   return `<div class="panel composer" id="composer">
-    <div class="ph"><span>✉ ${a.id ? 'Action alert' : 'New action alert'} · ${esc(alertTarget(a))}</span><span class="psub">to followers of ${b ? esc(billNum(b)) : esc(l?.title || '')} who asked for action alerts · <b id="cmp-aud">…</b> people</span><button class="close" id="cmp-close">✕</button></div>
+    <div class="ph"><span>✉ ${a.id ? 'Action alert' : 'New action alert'} · ${esc(alertTarget(a))}</span><span class="psub">${sg ? `to the people in “${esc(sg.name)}” who opted in to action alerts` : `to followers of ${b ? esc(billNum(b)) : esc(l?.title || '')} who asked for action alerts`} · <b id="cmp-aud">…</b> people</span><button class="close" id="cmp-close">✕</button></div>
     <div class="cbody">
       ${a.status && a.status !== 'draft' ? `<div class="cstate"><span class="chipx ${ALERT_STATUS[a.status][1]}">${ALERT_STATUS[a.status][0]}</span>${a.review_note ? ` <span class="hot">“${esc(a.review_note)}”</span>` : ''}${a.approved_by ? ` · approved by ${esc(advocate(a.approved_by)?.full_name || '')}` : ''}${a.sent_at ? ` · sent ${fmtDT(a.sent_at)} to ${a.recipients} · ${a.opens} opened · ${a.clicks} clicked${a.bounces ? ` · ${a.bounces} bounced` : ''}` : ''}</div>` : ''}
       <div class="crow"><span class="cl">From</span><span>${esc(au?.full_name || '')} &lt;${esc(au?.email || '')}&gt; <span class="muted">· replies come to you</span></span></div>
       <div class="crow"><span class="cl">Subject</span><input id="cmp-subject" value="${esc(a.subject || '')}" maxlength="150" ${editable ? '' : 'readonly'}></div>
       <div class="crow tall"><span class="cl">Message</span>${rteHTML('cmp-body', cleanHTML(a.body_html || textToHtml(a.body || '')), editable)}</div>
-      <p class="tok">The email adds a button to the ${b ? 'bill' : 'list'} on the tracker, your name, and the unsubscribe footer. Keep it short: what is happening, what to do, by when. Select words and press Link (or ⌘K) to link them; paste a web address to link it.</p>
+      <p class="tok">The email adds a button to the ${b ? 'bill' : l ? 'list' : 'tracker'}, your name, and the unsubscribe footer. Keep it short: what is happening, what to do, by when. Select words and press Link (or ⌘K) to link them; paste a web address to link it.</p>
       <div class="btns">
         ${editable ? `<button class="btn sm ghost" id="cmp-save">Save draft</button><button class="btn sm" id="cmp-submit">Submit for approval</button>` : ''}
         ${a.id && (own || me.is_admin) && a.status !== 'sent' ? `<button class="btn sm ghost" id="cmp-test">Send a test to me</button>` : ''}
@@ -2635,7 +2903,7 @@ function renderEmails() {
   const hearingNote = `<div class="panel hnote"><div class="ph"><span>🔔 Hearing alerts run on their own</span></div><div class="pempty" style="text-align:left">Anyone who ticked “email me when a hearing is scheduled” gets one email a day listing every hearing on their bills, with HIPHI’s position and ask when the bill has them. Nothing to do here${S.emailCfg?.enabled === false ? ' — <b>email is paused in Session setup, so nothing is going out yet</b>' : ''}.</div></div>`;
   return `<div class="emailswrap">
     <div class="dashhead"><h1>Emails to the public</h1><span class="sub">Action alerts go to the followers of a bill or a list who asked for them, from your own address, after a second person approves. Start one from a bill’s Public tab, a list, or here.</span></div>
-    ${cur ? composerHTML(cur) : `<div class="btns" style="margin-bottom:12px"><select id="em-new"><option value="">New alert about…</option><optgroup label="Bills you own or follow">${S.bills.filter(b => b.is_public && b.position !== 'monitor' && !diedish(b) && ((S.assignments[b.id] || []).includes(S.me?.id) || S.me?.is_admin)).sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)).slice(0, 200).map(b => `<option value="b:${b.id}">${esc(billNum(b))} · ${esc(blurb(b, 50))}</option>`).join('')}</optgroup><optgroup label="Lists">${(S.lists || []).filter(l => l.is_published).map(l => `<option value="l:${l.id}">${esc(l.title)}</option>`).join('')}</optgroup></select></div>`}
+    ${cur ? composerHTML(cur) : `<div class="btns" style="margin-bottom:12px"><select id="em-new"><option value="">New alert about…</option><optgroup label="Bills you own or follow">${S.bills.filter(b => b.is_public && b.position !== 'monitor' && !diedish(b) && ((S.assignments[b.id] || []).includes(S.me?.id) || S.me?.is_admin)).sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)).slice(0, 200).map(b => `<option value="b:${b.id}">${esc(billNum(b))} · ${esc(blurb(b, 50))}</option>`).join('')}</optgroup><optgroup label="Lists">${(S.lists || []).filter(l => l.is_published).map(l => `<option value="l:${l.id}">${esc(l.title)}</option>`).join('')}</optgroup><optgroup label="Segments of people">${(S.segments || []).map(x => `<option value="s:${x.id}">${esc(x.name)}</option>`).join('')}</optgroup></select></div>`}
     ${hearingNote}
     <div class="panel"><div class="ph"><span>Action alerts</span><span class="psub">${rows.length ? `${alertsToReview().length} waiting for your approval` : 'none yet'}</span></div>
       ${rows.length ? rows.map(row).join('') : '<div class="pempty">No action alerts yet. Pick a bill or list above to write the first one.</div>'}</div>
@@ -2645,10 +2913,11 @@ function openComposer(alert) { S.emailView ??= { open: null }; S.emailView.open 
 function wireEmails() {
   const v = S.emailView ??= { open: null };
   document.querySelectorAll('[data-alertopen]').forEach(el => el.onclick = () => openComposer((S.alerts || []).find(a => a.id === Number(el.dataset.alertopen))));
-  document.querySelectorAll('[data-alertnew]').forEach(el => el.onclick = e => { e.stopPropagation(); const b = el.dataset.alertnew.startsWith('b:') ? billById(el.dataset.alertnew.slice(2)) : null, l = el.dataset.alertnew.startsWith('l:') ? (S.lists || []).find(x => x.id === el.dataset.alertnew.slice(2)) : null; if (!b && !l) return; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, ...alertTemplate(b, l) }); });
-  $('#em-new') && ($('#em-new').onchange = () => { const val = $('#em-new').value; if (!val) return; const b = val.startsWith('b:') ? billById(val.slice(2)) : null, l = val.startsWith('l:') ? (S.lists || []).find(x => x.id === val.slice(2)) : null; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, ...alertTemplate(b, l) }); });
+  const newFrom = val => { const b = val.startsWith('b:') ? billById(val.slice(2)) : null, l = val.startsWith('l:') ? (S.lists || []).find(x => x.id === val.slice(2)) : null, sg = val.startsWith('s:') ? (S.segments || []).find(x => x.id === val.slice(2)) : null; if (!b && !l && !sg) return; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, segment_id: sg?.id || null, ...alertTemplate(b, l, sg) }); };
+  document.querySelectorAll('[data-alertnew]').forEach(el => el.onclick = e => { e.stopPropagation(); newFrom(el.dataset.alertnew); });
+  $('#em-new') && ($('#em-new').onchange = () => { const val = $('#em-new').value; if (val) newFrom(val); });
   const cur = v.open; if (!cur) return;
-  const aud = document.getElementById('cmp-aud'); if (aud) DB.alertAudience(cur.bill_id, cur.list_id).then(n => { aud.textContent = n; const a2 = $('#cmp-aud2'); if (a2) a2.textContent = n; }).catch(() => { aud.textContent = '?'; });
+  const aud = document.getElementById('cmp-aud'); if (aud) DB.alertAudience(cur.bill_id, cur.list_id, cur.segment_id).then(n => { aud.textContent = n; const a2 = $('#cmp-aud2'); if (a2) a2.textContent = n; }).catch(() => { aud.textContent = '?'; });
   wireRTE('cmp-body');
   const read = () => { const body_html = cleanHTML($('#cmp-body')?.innerHTML || ''); return { ...cur, subject: $('#cmp-subject')?.value.trim() || '', body_html, body: htmlToText(body_html) }; };
   const valid = a => a.subject.length >= 3 && a.body.length >= 20 ? (a.body_html.length > 40000 ? (toast('That is too long for an email — trim it', true), false) : true) : (toast('Give it a subject and at least a couple of sentences', true), false);
@@ -3386,11 +3655,12 @@ function render() {
     : S.view === 'lists' ? renderLists()
     : S.view === 'legislators' ? renderLegislators()
     : S.view === 'emails' ? renderEmails()
+    : S.view === 'people' ? renderPeople()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
-  const lg = S.legOpen && legById(S.legOpen);
-  $('#app').innerHTML = chrome(body) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '');
+  const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
+  $('#app').innerHTML = chrome(body) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
   wire();
   if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (!el) return; el.innerHTML = timelineHTML(tl);
       const m = $('#d-tlmore'); if (m) m.onclick = () => { S.drawerOpen.tlAll = true; el.innerHTML = timelineHTML(tl); }; })
@@ -3402,8 +3672,10 @@ function wire() {
   if (S.view === 'memo') wireMemo();
   if (S.view === 'lists') wireLists();
   if (S.view === 'legislators') wireLegislators();
+  if (S.view === 'people') wirePeople();
   wireEmails();
   wireLegDrawer();
+  wirePersonDrawer();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); rerenderKeep(); }); rerenderKeep(); } catch (e) { toast(e.message, true); } });

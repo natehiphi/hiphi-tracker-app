@@ -149,9 +149,10 @@ async function loadUser() {
   S.user = data;
   // Choices made on the sign-in page, before the account existed.
   let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
-  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, action_alerts: !!pending.action_alerts, share_follows: !!pending.share_follows, consent_at: new Date().toISOString() };
+  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, action_alerts: !!pending.action_alerts, consent_at: new Date().toISOString() };
     const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; try { localStorage.removeItem(CONSENT_KEY); } catch {} }
   S.consentCard = !(S.user.prefs || {}).consent_at;
+  try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
   // Lists followed on this device join the account (and stay in sync from here on).
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
   for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
@@ -844,7 +845,7 @@ function find() {
 const consentCardHTML = () => S.consentCard && S.user && !DEMO ? `<section class="ccard"><div class="sec">Two quick choices</div>
     <label class="row"><input type="checkbox" id="cc-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b> <small>Off unless you tick it.</small></span></label>
     <label class="row"><input type="checkbox" id="cc-action"><span><b>Email me when HIPHI asks followers of my bills to act.</b> <small>A few a session. Off unless you tick it.</small></span></label>
-    <label class="row"><input type="checkbox" id="cc-share"><span><b>Let HIPHI see which bills I follow</b> <small>so staff can reach out about them. Otherwise they only see counts.</small></span></label>
+    <p class="tok" style="margin:0">HIPHI staff can see what you follow and do here, so they can reach out about your bills. Add your district or how you can help in Settings.</p>
     <div class="btns"><button class="btn sm" id="cc-save">Save</button><button class="btn sm ghost" id="cc-later">Not now</button></div></section>` : '';
 function home() {
   const now = Date.now();
@@ -975,11 +976,44 @@ function signin() {
       <div class="consent">
         <label class="row"><input type="checkbox" id="si-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b><br><small>The Capitol posts hearings about two days ahead; this is how you hear in time to testify. Off unless you tick it.</small></span></label>
         <label class="row"><input type="checkbox" id="si-action"><span><b>Email me when HIPHI asks followers of my bills to act.</b><br><small>A short note from the HIPHI staffer on the bill when it is time to testify or write to a chair. A few a session, never more than one a day per bill. Off unless you tick it.</small></span></label>
-        <label class="row"><input type="checkbox" id="si-share"><span><b>Let HIPHI see which bills I follow.</b><br><small>So HIPHI staff can reach out to you about those bills. Otherwise staff only ever see how many people follow each bill, never who.</small></span></label>
       </div>
       <button class="btn" id="si-send">Send me a sign-in link</button>
-      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, and the choices above. All can be changed any time in Settings, and every email has a one-click unsubscribe. You can delete your account and everything with it at any time.</p>
+      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, what you do on them, the choices above, and anything you add in Settings (name, phone, home district, how you can help). HIPHI staff can see all of it, so they can reach out about your bills; it is never sold or shared outside HIPHI. Change any of it in Settings; every email has a one-click unsubscribe; you can delete your account and everything with it at any time.</p>
     </div>`;
+}
+
+// About you: name, phone, home address (autocomplete gives the districts) and how you can help. Saved through save_my_profile();
+// staff see it on the People page.
+function profileFormHTML() {
+  const pr = S.profile || {}, a = S.profAddr || {};
+  const INTERESTS = [['testify', 'I would testify in person'], ['story', 'I have a story to share'], ['quote', 'HIPHI may quote me'], ['host', 'I could host or help at an event'], ['volunteer', 'I want to volunteer']];
+  const sd = a.picked ? a.sd : pr.senate_district, hd = a.picked ? a.hd : pr.house_district;
+  return `<div class="profile">
+    <label class="row"><span style="min-width:120px">Your name</span><input id="pf-name" value="${esc(pr.name || '')}" maxlength="120" autocomplete="name"></label>
+    <label class="row"><span style="min-width:120px">Phone</span><input id="pf-phone" value="${esc(pr.phone || '')}" maxlength="40" autocomplete="tel" placeholder="optional"></label>
+    <label class="row legbox" style="position:relative"><span style="min-width:120px">Home address</span><span style="flex:1;position:relative"><input id="pf-addr" value="${esc(a.q ?? pr.address ?? '')}" placeholder="Street address — finds your legislators" autocomplete="off">${a.results?.length && !a.picked ? `<div class="legsug">${a.results.map((x, i) => `<button data-pfpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>` : ''}</span></label>
+    <p class="tok" style="margin:-4px 0 10px 130px" id="pf-dist">${sd ? `Your legislators: Senate District ${sd} · House District ${hd}` : 'Pick your address from the list to find your districts.'}</p>
+    <div class="consent" style="margin-top:6px">${INTERESTS.map(([k, l]) => `<label class="row"><input type="checkbox" data-pfint="${k}" ${(pr.interests || []).includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+    <div class="btns"><button class="btn" id="pf-save">Save</button></div>
+  </div>`;
+}
+function wireProfile() {
+  if (!$('#pf-save')) return;
+  const box = () => $('#pf-addr')?.parentElement;
+  const wirePicks = () => document.querySelectorAll('[data-pfpick]').forEach(el => el.onclick = async () => { const x = S.profAddr.results[Number(el.dataset.pfpick)]; if (!x) return;
+    let sd = x.sd, hd = x.hd; if (!sd || !hd) { try { const { data } = await (await supa()).rpc('districts_at', { lat: x.lat, lon: x.lon }); sd = data?.[0]?.sd; hd = data?.[0]?.hd; } catch {} }
+    S.profAddr = { q: x.label, results: [], picked: true, sd: sd || null, hd: hd || null }; $('#pf-addr').value = x.label; box()?.querySelector('.legsug')?.remove();
+    $('#pf-dist').textContent = sd ? `Your legislators: Senate District ${sd} · House District ${hd}` : 'We could not find districts for that address.'; });
+  wirePicks();
+  $('#pf-addr').oninput = () => { const q = $('#pf-addr').value; S.profAddr = { ...(S.profAddr || {}), q, picked: false }; clearTimeout(S.pfT); S.pfT = setTimeout(async () => { if (!looksLikeAddress(q)) return; try { const results = await fetchAddrSuggest(q); if ((S.profAddr || {}).q !== q) return; S.profAddr.results = results; box()?.querySelector('.legsug')?.remove(); if (results.length) { box().insertAdjacentHTML('beforeend', `<div class="legsug">${results.map((x, i) => `<button data-pfpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>`); wirePicks(); } } catch {} }, 250); };
+  $('#pf-save').onclick = async () => {
+    const a = S.profAddr || {}, pr = S.profile || {};
+    const addr = $('#pf-addr').value.trim();
+    const sd = a.picked ? a.sd : (addr && addr === pr.address ? pr.senate_district : null), hd = a.picked ? a.hd : (addr && addr === pr.address ? pr.house_district : null);
+    const interests = [...document.querySelectorAll('[data-pfint]')].filter(el => el.checked).map(el => el.dataset.pfint);
+    const { error } = await S.supa.rpc('save_my_profile', { p_name: $('#pf-name').value.trim(), p_phone: $('#pf-phone').value.trim(), p_address: addr, p_house: hd || null, p_senate: sd || null, p_interests: interests });
+    if (error) toast(error.message, true); else { S.profile = { name: $('#pf-name').value.trim() || null, phone: $('#pf-phone').value.trim() || null, address: addr || null, senate_district: sd || null, house_district: hd || null, interests }; S.profAddr = null; toast('Saved — mahalo'); }
+  };
 }
 function settings() {
   const p = S.user?.prefs || {};
@@ -992,11 +1026,10 @@ function settings() {
         <option value="off" ${p.digest === 'off' ? 'selected' : ''}>Off</option></select></label>
       <label class="row"><input type="checkbox" id="st-alerts" ${p.hearing_alerts === true ? 'checked' : ''}><span>Email me when a hearing is scheduled on a bill I follow <small class="tok">(one email a day, listing every hearing)</small></span></label>
       <label class="row"><input type="checkbox" id="st-action" ${p.action_alerts === true ? 'checked' : ''}><span>Email me when HIPHI asks followers of my bills to act <small class="tok">(written by the staffer on the bill, a few a session)</small></span></label>
-      <h3>Sharing with HIPHI</h3>
-      <label class="row"><input type="checkbox" id="st-share" ${p.share_follows === true ? 'checked' : ''}><span>Let HIPHI staff see which bills I follow, so they can reach out about them</span></label>
-      <label class="row"><span style="min-width:120px">Your name</span><input id="st-name" value="${esc(p.name || '')}" maxlength="80" placeholder="optional · shown to HIPHI staff only if you share"></label>
-      <p class="tok">${p.consent_at ? `Choices saved ${fmtDate(p.consent_at)}.` : 'You have not saved these choices yet.'} Without sharing, HIPHI only ever sees how many people follow each bill.</p>
+      <p class="tok">${p.consent_at ? `Choices saved ${fmtDate(p.consent_at)}.` : 'You have not saved these choices yet.'}</p>
       <div class="btns"><button class="btn" id="st-save">Save</button></div>
+      <h3>About you <small class="tok">optional · helps HIPHI reach the right legislators with you</small></h3>
+      ${profileFormHTML()}
       <h3>Your data</h3>
       <p class="tok">We keep your email and your watchlist. Deleting your account removes both immediately and cannot be undone.</p>
       <div class="btns"><button class="btn ghost danger" id="st-delete">Delete my account</button></div>
@@ -1016,7 +1049,7 @@ function help() {
     <section><h2>How to testify</h2>${testifyBox().replace('<details class="testify"', '<details class="testify" open')}</section>
     <section><h2>Getting around</h2><p>The home page has four parts: things to do now, this week’s hearings on your bills, where every bill stands against the session deadlines, and your bills.</p></section>
     <section><h2>Keyboard shortcuts</h2>${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}<p class="muted" style="font-size:12px">Shortcuts are off while you are typing in a field.</p></section>
-    <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address and the list of bills you watch, nothing else. HIPHI staff see how many people watch each bill, never who. Delete your account from Settings at any time; it removes everything immediately.</p></section>
+    <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address, the bills and lists you follow, the actions you record, your email choices, and whatever you add under About you in Settings. HIPHI staff can see this so they can reach out about your bills; it is never sold or shared outside HIPHI. Delete your account from Settings at any time; it removes everything immediately.</p></section>
     <section><h2>About</h2><p>Built by the Hawaiʻi Public Health Institute. Bill data comes from the Legislature’s public records and refreshes several times a day. Positions marked HIPHI are ours; everything else is the public record. Questions: <a href="mailto:info@hiphi.org">info@hiphi.org</a>.</p></section>
   </div>`;
 }
@@ -1085,17 +1118,18 @@ function wire() {
   $('#scrim') && ($('#scrim').onclick = closeBill); $('#dclose') && ($('#dclose').onclick = closeBill);
   $('#si-send') && ($('#si-send').onclick = async () => {
     const email = $('#si-email').value.trim(); if (!email) return;
-    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts: $('#si-alerts').checked, action_alerts: $('#si-action').checked, share_follows: $('#si-share').checked })); } catch {}
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts: $('#si-alerts').checked, action_alerts: $('#si-action').checked })); } catch {}
     const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) toast(error.message, true); else { toast('Check your email for the link'); $('#si-send').disabled = true; }
   });
   $('#st-save') && ($('#st-save').onclick = async () => {
-    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked, action_alerts: $('#st-action').checked, share_follows: $('#st-share').checked, name: $('#st-name').value.trim() || null, consent_at: new Date().toISOString() };
+    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked, action_alerts: $('#st-action').checked, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; toast('Saved'); }
   });
+  wireProfile();
   $('#cc-save') && ($('#cc-save').onclick = async () => {
-    const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, action_alerts: $('#cc-action').checked, share_follows: $('#cc-share').checked, consent_at: new Date().toISOString() };
+    const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, action_alerts: $('#cc-action').checked, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; render(); toast('Saved — change it any time in Settings'); }
   });

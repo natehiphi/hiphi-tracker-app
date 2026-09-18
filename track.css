@@ -280,3 +280,9 @@
 .wdmembers{font-size:13px;color:var(--muted);padding:6px 0 2px;line-height:1.8}
 .wdmembers a{color:var(--teal);cursor:pointer}
 @media (max-width:560px){ .leggrid{grid-template-columns:1fr} .legcard.big{flex-direction:column} }
+/* About you (profile) */
+.profile label.row{display:flex;gap:10px;align-items:center;margin:0 0 10px;font-size:14px}
+.profile label.row input{flex:1}
+.profile .consent{gap:8px}
+.profile .consent input{width:18px;height:18px}
+@media (max-width:640px){.profile label.row{flex-direction:column;align-items:stretch;gap:4px}.profile label.row>span:first-child{min-width:0 !important}.profile #pf-dist{margin-left:0 !important}}
