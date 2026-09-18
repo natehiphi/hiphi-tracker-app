@@ -980,14 +980,14 @@ function signin() {
         <label class="row"><input type="checkbox" id="si-action"><span><b>Email me when HIPHI asks followers of my bills to act.</b><br><small>A short note from the HIPHI staffer on the bill when it is time to testify or write to a chair. A few a session, never more than one a day per bill. Off unless you tick it.</small></span></label>
       </div>
       <button class="btn" id="si-send">Send me a sign-in link</button>
-      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, what you do on them, the choices above, and anything you add in Settings (name, phone, home district, how you can help). HIPHI staff can see all of it, so they can reach out about your bills; it is never sold or shared outside HIPHI. Change any of it in Settings; every email has a one-click unsubscribe; you can delete your account and everything with it at any time.</p>
+      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, what you do on them, the choices above, and anything you add in Settings (name, phone, home district, how you can help). HIPHI staff can see all of it, so they can reach out about your bills, except your street address: staff see only the districts it falls in. Nothing is sold or shared outside HIPHI. Change any of it in Settings; every email has a one-click unsubscribe; you can delete your account and everything with it at any time.</p>
     </div>`;
 }
 
 // About you: name, phone, home address (autocomplete gives the districts) and how you can help. Saved through save_my_profile();
 // staff see it on the People page.
 const addrCardHTML = () => S.addrCard && S.user && !DEMO ? `<section class="ccard addrcard"><div class="sec">Find your legislators</div>
-    <p style="margin:0 0 6px">Your home address tells us which senator and representative to point you at when a bill you follow needs a voice. Only HIPHI staff see it.</p>
+    <p style="margin:0 0 6px">Your home address tells us which senator and representative to point you at when a bill you follow needs a voice. HIPHI staff see only your districts; the address itself stays private to you.</p>
     <div class="legbox" style="position:relative"><input id="ac-addr" placeholder="Street address, e.g. 415 S Beretania St, Honolulu" autocomplete="off"><div id="ac-sug"></div></div>
     <p class="tok" id="ac-dist" style="margin:6px 0 0"></p>
     <div class="btns"><button class="btn sm" id="ac-save" disabled>Save</button><button class="btn sm ghost" id="ac-later">Not now</button></div></section>` : '';
@@ -1011,7 +1011,7 @@ function profileFormHTML() {
   return `<div class="profile">
     <label class="row"><span style="min-width:120px">Your name</span><input id="pf-name" value="${esc(pr.name || '')}" maxlength="120" autocomplete="name"></label>
     <label class="row"><span style="min-width:120px">Phone</span><input id="pf-phone" value="${esc(pr.phone || '')}" maxlength="40" autocomplete="tel" placeholder="optional"></label>
-    <label class="row legbox" style="position:relative"><span style="min-width:120px">Home address</span><span style="flex:1;position:relative"><input id="pf-addr" value="${esc(a.q ?? pr.address ?? '')}" placeholder="Street address — finds your legislators" autocomplete="off">${a.results?.length && !a.picked ? `<div class="legsug">${a.results.map((x, i) => `<button data-pfpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>` : ''}</span></label>
+    <label class="row legbox" style="position:relative"><span style="min-width:120px">Home address <small class="tok" style="display:block;font-weight:400">private · staff see only your districts</small></span><span style="flex:1;position:relative"><input id="pf-addr" value="${esc(a.q ?? pr.address ?? '')}" placeholder="Street address — finds your legislators" autocomplete="off">${a.results?.length && !a.picked ? `<div class="legsug">${a.results.map((x, i) => `<button data-pfpick="${i}"><span class="sk">📍</span>${esc(x.label)}</button>`).join('')}</div>` : ''}</span></label>
     <p class="tok" style="margin:-4px 0 10px 130px" id="pf-dist">${sd ? `Your legislators: Senate District ${sd} · House District ${hd}` : 'Pick your address from the list to find your districts.'}</p>
     <div class="consent" style="margin-top:6px">${INTERESTS.map(([k, l]) => `<label class="row"><input type="checkbox" data-pfint="${k}" ${(pr.interests || []).includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
     <div class="btns"><button class="btn" id="pf-save">Save</button></div>
@@ -1069,7 +1069,7 @@ function help() {
     <section><h2>How to testify</h2>${testifyBox().replace('<details class="testify"', '<details class="testify" open')}</section>
     <section><h2>Getting around</h2><p>The home page has four parts: things to do now, this week’s hearings on your bills, where every bill stands against the session deadlines, and your bills.</p></section>
     <section><h2>Keyboard shortcuts</h2>${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}<p class="muted" style="font-size:12px">Shortcuts are off while you are typing in a field.</p></section>
-    <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address, the bills and lists you follow, the actions you record, your email choices, and whatever you add under About you in Settings. HIPHI staff can see this so they can reach out about your bills; it is never sold or shared outside HIPHI. Delete your account from Settings at any time; it removes everything immediately.</p></section>
+    <section><h2>Privacy</h2><p>Without an account, your watchlist lives only in this browser. With one, we keep your email address, the bills and lists you follow, the actions you record, your email choices, and whatever you add under About you in Settings. HIPHI staff can see this so they can reach out about your bills, except your street address, which stays private: staff see only your districts. Nothing is sold or shared outside HIPHI. Delete your account from Settings at any time; it removes everything immediately.</p></section>
     <section><h2>About</h2><p>Built by the Hawaiʻi Public Health Institute. Bill data comes from the Legislature’s public records and refreshes several times a day. Positions marked HIPHI are ours; everything else is the public record. Questions: <a href="mailto:info@hiphi.org">info@hiphi.org</a>.</p></section>
   </div>`;
 }
