@@ -1082,18 +1082,21 @@ function pfBoard(list) {
       ${col('a', a, ({ b, st, dl }) => `
         <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="ldesc">${esc(blurb(b, 80))}</span>
           <span class="lnext">Needs a ${st.committee ? esc(st.committee) + ' hearing' : 'committee referral'}</span>
           <span class="ldl ${dl && dl.days <= RISK_DAYS ? 'hot' : ''}">${dl ? `by ${fmtDate(dl.date)} · ${dl.days <= 0 ? 'today' : dl.days + 'd'}` : 'no deadline on the calendar'}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', bcol, ({ b, st, h }) => `
         <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="ldesc">${esc(blurb(b, 80))}</span>
           <span class="lnext">${st.hearingState === 'held' ? `${esc(h.committee)} heard it · waiting for the report` : `${esc(h.committee)} hearing${draftFor(b.id, h.committee)?.status === 'filed' ? ' · testimony filed' : ''}`}</span>
           <span class="ldl">${st.hearingState === 'held' ? `held ${fmtDate(h.scheduled_at)}` : fmtDT(h.scheduled_at)}</span>
         </div>`, 'No hearings on the books.')}
       ${col('c', c, ({ b, st }) => `
         <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}" title="${esc(b.last_action || '')}">
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
+          <span class="ldesc">${esc(blurb(b, 80))}</span>
           <span class="lnext">Waiting for ${st.phase === 'conference' ? 'conference' : `the ${CHAMBER_NAME[st.chamber]} floor vote`}</span>
           <span class="ldl">${st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${fmtDate(st.deadline.date)} · ${st.deadline.days <= 0 ? 'today' : st.deadline.days + 'd'}` : ''}</span>
         </div>`, 'Nothing is through committee yet.')}
@@ -1303,13 +1306,18 @@ function renderPortfolio(list) {
                   ...situations.map(x => ({ mine: false, t: x.t, pri: x.b.priority || 9, html: actRow({ mine: false, b: x.b, t: x.t, until: x.kind === 'attend' || x.kind === 'ask' ? 'the hearing' : x.kind === 'chair' ? 'the deadline' : 'it’s due',
                       ask: askOfSit(x), ctx: ctxOfSit(x), btn: x.btn }) }))]
     .sort((x, y) => dayKey(x.t).localeCompare(dayKey(y.t)) || (y.mine - x.mine) || x.pri - y.pri || x.t - y.t);
-  // Short by default: five rows, except that anything overdue or due inside
-  // 24 hours is never hidden, however many there are.
-  const DO_CAP = 5, doMore = (S.boardMore || {}).donow;
-  const urgentRow = x => x.t !== Infinity && x.t - now < 864e5;
-  let doRoom = Math.max(0, DO_CAP - merged.filter(urgentRow).length);
-  const doShown = doMore ? merged : merged.filter(x => urgentRow(x) || doRoom-- > 0);
-  const waitingHtml = doShown.map(x => x.html).join('') + (merged.length > doShown.length || doMore && merged.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="donow">${doMore ? 'Show fewer' : `Show all ${merged.length} · ${merged.length - doShown.length} more, none due in the next 24 hours`}</button>` : '');
+  // Two columns: what is yours, and what is open to anyone. Each shows five
+  // rows, except that anything overdue or due inside 24 hours is never hidden.
+  const DO_CAP = 5, urgentRow = x => x.t !== Infinity && x.t - now < 864e5;
+  const byTime = (x, y) => dayKey(x.t).localeCompare(dayKey(y.t)) || x.pri - y.pri || x.t - y.t;
+  const colHtml = (key, items, empty) => { const more = (S.boardMore || {})[key]; let room = Math.max(0, DO_CAP - items.filter(urgentRow).length);
+    const shown = more ? items : items.filter(x => urgentRow(x) || room-- > 0);
+    return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
+  const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
+  const waitingHtml = `<div class="actcols">
+      <div class="actcol"><div class="acth">Yours <span class="cnt">${mineItems.length}</span><small>the next step on a draft is yours</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}</div>
+      <div class="actcol open"><div class="acth">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours</small></div>${colHtml('open', openItems, 'Nothing unclaimed right now.')}</div>
+    </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
       <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
       ${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : '';
@@ -1395,10 +1403,15 @@ function renderPortfolio(list) {
   // Progress: testimony marked filed today, by anyone.
   const todayHst = hstDay(now);
   const filedToday = Object.values(S.drafts).flat().filter(d => d.status === 'filed' && d.filed_at && hstDay(d.filed_at) === todayHst).length;
-  const waitSub = `soonest first · teal edge is yours, grey is open to anyone${filedToday ? ` · <span class="done">${filedToday} filed today ✓</span>` : ''}`;
-  const waitPanel = ((waitingMine.length || filedToday || situations.length)
-    ? panel('pf-wait', '🎯 Action needed', waitSub, waitingHtml,
-        `All caught up${filedToday ? ` — ${filedToday} filed today` : ''}. 🤙`).replace('class="panel"', 'class="panel sec-wait"') : '') + othersHtml;
+  const due24 = merged.filter(urgentRow).length, overdue = merged.filter(x => x.t !== Infinity && x.t < now).length;
+  const waitHead = `<div class="shead"><span class="bsumtitle">🎯 Action needed</span>
+      <span class="bsum">
+        <span class="bstat you"><b>${mineItems.length}</b><span>yours<small>waiting on you</small></span></span>
+        <span class="bstat any"><b>${openItems.length}</b><span>open to anyone<small>unclaimed</small></span></span>
+        <span class="bstat dl ${due24 ? 'soon' : ''}"><b>${due24}</b><span>due in 24h<small>${overdue ? `${overdue} overdue` : 'none overdue'}</small></span></span>
+        <span class="bstat done"><b>${filedToday}</b><span>filed today<small>by anyone</small></span></span>
+      </span></div>`;
+  const waitPanel = `<div class="panel sec-wait" id="pf-wait">${waitHead}${waitingHtml}</div>` + othersHtml;
   // Layout adapts: a short feed sits under the checklist instead of beside it.
   const stacked = false;
   const foldable = (id, title, count, inner, openByDefault, always = false) => !mobile && !always ? inner : `
