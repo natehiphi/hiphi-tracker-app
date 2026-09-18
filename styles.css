@@ -1552,3 +1552,21 @@ details.actopen>summary:hover{background:#F7FAFB}
 .addbill .dashhead{padding-left:0;padding-right:0}
 .addbill #addq{max-width:640px}
 @media (max-width:760px){ .welcome{margin:0 12px 14px} .addbill{padding:4px 12px 0} }
+
+/* Rail: the icon never moves. Same button height and icon column in both states;
+   the short label keeps its space when the long one shows. */
+@media (min-width:1000px){
+  .rail button,.rail:hover button,.rail:focus-within button,body.rail-pinned .rail button,body:not(.rail-pinned) .rail.quiet:hover button{display:flex;flex-direction:row;align-items:center;gap:0;height:50px;padding:0;margin:0}
+  .rail .ri,.rail:hover .ri,.rail:focus-within .ri,body.rail-pinned .rail .ri,body:not(.rail-pinned) .rail.quiet:hover .ri{width:60px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:50px}
+  .rail .rs,body:not(.rail-pinned) .rail.quiet:hover .rs{display:block;visibility:visible}
+  .rail:hover .rs,.rail:focus-within .rs,body.rail-pinned .rail .rs{display:block;visibility:hidden}
+  .rail .rl,body:not(.rail-pinned) .rail.quiet:hover .rl{display:none}
+  .rail:hover .rl,.rail:focus-within .rl,body.rail-pinned .rail .rl{display:inline;opacity:1;padding-right:12px}
+  .rail .rn,.rail:not(:hover):not(:focus-within) .rn,body.rail-pinned .rail .rn{position:absolute;top:6px;left:36px;margin:0}
+  .rbrand{height:44px;padding:0 0 0 17px;margin-bottom:8px}
+  .rfoot .rfacts{padding-left:14px}
+}
+@media (min-width:1000px){
+  .rail:hover .rl,.rail:focus-within .rl,body.rail-pinned .rail .rl{transform:translateY(-6px)}
+  .rail .rn,.rail:not(:hover):not(:focus-within) .rn,body.rail-pinned .rail .rn{top:3px;left:38px}
+}
