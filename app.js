@@ -1207,20 +1207,25 @@ function renderPortfolio(list) {
   list = list.filter(b => b.position !== 'monitor');
   const ids2 = new Set(list.map(b => b.id)); ids.clear(); list.forEach(b => ids.add(b.id));
 
-  // ---------- waiting on you (whole team, ignores the lens) ----------
-  const isMine = b => (S.assignments[b.id]||[]).includes(me.id);
+  // ---------- waiting on you ----------
+  // "You" is whoever the view is about: yourself on My bills and Everyone,
+  // the teammate when the view is theirs. Filters apply: only bills in the
+  // current list count, so P1 or a coalition narrows this too.
+  const subject = (S.owner === 'me' || S.owner === 'all') ? me : (advocate(S.owner) || me);
+  const subjectIsMe = subject.id === me.id, subjectName = subjectIsMe ? 'Yours' : `${esc((subject.full_name || '').split(' ')[0])}’s`;
+  const isMine = b => (S.assignments[b.id]||[]).includes(subject.id);
   const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   const hearingFor = d => S.hearings.find(h => h.id === d.hearing_id) ||
     S.hearings.filter(h => h.bill_id === d.bill_id && h.committee === d.committee && new Date(h.scheduled_at) > new Date())
       .sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
-  const waiting = Object.values(S.drafts).flat().filter(d => d.status !== 'cancelled').map(d => {
+  const waiting = Object.values(S.drafts).flat().filter(d => d.status !== 'cancelled' && ids.has(d.bill_id)).map(d => {
     const b = bill(d.bill_id); if (!b || b.position === 'monitor') return null;
     // mine: the next step is literally mine. others: someone else's step, visible to admins.
     let why = null, mine = false;
-    if (d.status === 'review') { why = 'Waiting for admin approval'; mine = !!me.is_admin; if (!mine && !me.is_admin) return null; }
-    else if (d.status === 'second_review') { why = 'Needs a reviewer\u2019s approval (first testimony on this bill)'; mine = !!me.is_reviewer; if (!mine && !me.is_admin) return null; }
-    else if (d.status === 'approved') { why = 'Approved — file it at the Capitol'; mine = isMine(b) || d.submitted_by === me.id; if (!mine && !me.is_admin) return null; }
-    else if (d.status === 'draft' && d.review_note) { why = 'Sent back: ' + d.review_note; mine = d.submitted_by === me.id || isMine(b); if (!mine && !me.is_admin) return null; }
+    if (d.status === 'review') { why = 'Waiting for admin approval'; mine = !!subject.is_admin; if (!mine && !me.is_admin) return null; }
+    else if (d.status === 'second_review') { why = 'Needs a reviewer\u2019s approval (first testimony on this bill)'; mine = !!subject.is_reviewer; if (!mine && !me.is_admin) return null; }
+    else if (d.status === 'approved') { why = 'Approved — file it at the Capitol'; mine = isMine(b) || d.submitted_by === subject.id; if (!mine && !me.is_admin) return null; }
+    else if (d.status === 'draft' && d.review_note) { why = 'Sent back: ' + d.review_note; mine = d.submitted_by === subject.id || isMine(b); if (!mine && !me.is_admin) return null; }
     else if (d.status === 'draft' && !d.submitted_at) { why = 'Draft ready — write it, then submit for review'; mine = isMine(b); if (!mine && !me.is_admin) return null; }
     else return null;
     const h = hearingFor(d);
@@ -1315,7 +1320,7 @@ function renderPortfolio(list) {
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
-      <div class="acth">Yours <span class="cnt">${mineItems.length}</span><small>the next step on a draft is yours</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}
+      <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙')}
       <div class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours</small></div>${colHtml('open', openItems, 'Nothing unclaimed right now.')}
     </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
@@ -1406,7 +1411,7 @@ function renderPortfolio(list) {
   const due24 = merged.filter(urgentRow).length, overdue = merged.filter(x => x.t !== Infinity && x.t < now).length;
   const waitHead = `<div class="shead"><span class="bsumtitle">🎯 Action needed</span>
       <span class="bsum">
-        <span class="bstat you"><b>${mineItems.length}</b><span>yours<small>waiting on you</small></span></span>
+        <span class="bstat you"><b>${mineItems.length}</b><span>${subjectIsMe ? 'yours' : subjectName.toLowerCase()}<small>${subjectIsMe ? 'waiting on you' : 'waiting on ' + esc((subject.full_name || '').split(' ')[0])}</small></span></span>
         <span class="bstat any"><b>${openItems.length}</b><span>open to anyone<small>unclaimed</small></span></span>
         <span class="bstat dl ${due24 ? 'soon' : ''}"><b>${due24}</b><span>due in 24h<small>${overdue ? `${overdue} overdue` : 'none overdue'}</small></span></span>
         <span class="bstat done"><b>${filedToday}</b><span>filed today<small>by anyone</small></span></span>
