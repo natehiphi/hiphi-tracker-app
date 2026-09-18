@@ -1834,11 +1834,5 @@ body.has-rail .top .who{margin-left:auto}
 /* My settings: the three channels */
 .chan{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:6px 0;font-size:13.5px}
 .chan span{color:var(--muted)}
-/* Wide screens: a bill, a legislator or a person opens as a side panel, and the page behind stays live.
-   Click another row and the panel follows; close with the X or Esc. Narrower screens keep the centred sheet. */
-@media (min-width:1280px){
-  .scrim{background:transparent;backdrop-filter:none;pointer-events:none}
-  .drawer.v2{top:0;bottom:0;right:0;left:auto;transform:none;height:auto;max-height:none;width:min(720px,50vw);border-radius:0;border-left:1px solid var(--line);box-shadow:-14px 0 44px rgba(12,34,51,.16)}
-}
 
 .settings input[type=radio]{width:16px;height:16px;flex:none;margin:0}

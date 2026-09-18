@@ -2494,7 +2494,7 @@ function renderHelp() {
       ${def('People', 'The CRM: everyone HIPHI knows. Accounts from the public page and imported contacts, with what they follow, what they did, which emails they opened, their districts (never their street address), tags, notes and follow-ups. Filter, save a segment, email it.')}
       ${def('Lists', 'Curated sets of public bills the public can follow with one tap.')}
       ${def('Emails', 'Action alerts to the public: written by an admin or the coalition owner about a bill or a list, sent from their own address to the followers who asked for them, after a second person approves. Hearing alerts need nobody: one email a day per person, bundled.')}
-      ${def('Weekly memo', 'A memo that writes itself from the bill records for one coalition or all: hearings, movement, risk, how to help. Copy it; nothing is sent.')}
+      ${def('Weekly memo', 'A memo that writes itself from the bills you own or follow (or everyone’s, or one coalition): hearings, movement, risk, how to help. Copy it; nothing is sent.')}
       ${def('My settings', 'How the tracker reaches you: Slack DMs and testimony reminders.')}
       ${def('Session setup', 'Admins: the session calendar, the import, coalitions, connections, session days, the website embed.')}`)}
     ${sec('dash', 'The dashboard', `
@@ -2656,8 +2656,10 @@ function wireInbox() {
 // rewrites the same update three times. Sections with nothing in them are
 // left out. Copy as text (email, Slack) or formatted (Docs, Word).
 function memoData() {
-  const v = S.memoView ??= { coalition: '' }, now = Date.now(), wk = 7 * 864e5;
-  const inScope = b => b.position !== 'monitor' && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
+  const v = S.memoView ??= { who: 'me', coalition: '' }, now = Date.now(), wk = 7 * 864e5;
+  // The memo is about the reader's bills: the ones they own or follow. "Everyone" is one choice away for a team or board memo.
+  const mineB = b => !!S.me && ((S.assignments[b.id] || []).includes(S.me.id) || (S.follows || new Set()).has(b.id));
+  const inScope = b => b.position !== 'monitor' && (v.who !== 'me' || mineB(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
   const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
   const short = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
@@ -2668,7 +2670,7 @@ function memoData() {
   const coal = v.coalition ? S.campaigns.find(c => c.id === v.coalition) : null;
   const title = `${coal ? (coal.public_name || coal.name) + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
   const ld = legislativeDay();
-  const intro = `${ld ? ld.text + '. ' : ''}We have a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${bills.filter(b => b.priority === 1).length ? ` (${bills.filter(b => b.priority === 1).length} top priority)` : ''}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${g2 ? ` ${g2.racing.length} must clear committee by ${g2.name.toLowerCase()} on ${fmtDate(g2.date)}${g2.noHearing.length ? `; ${g2.noHearing.length} of those have no hearing yet` : ''}.` : ''}`;
+  const intro = `${ld ? ld.text + '. ' : ''}${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${bills.filter(b => b.priority === 1).length ? ` (${bills.filter(b => b.priority === 1).length} top priority)` : ''}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${g2 ? ` ${g2.racing.length} must clear committee by ${g2.name.toLowerCase()} on ${fmtDate(g2.date)}${g2.noHearing.length ? `; ${g2.noHearing.length} of those have no hearing yet` : ''}.` : ''}`;
   const sections = [];
   // hearings in the next seven days
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
@@ -2694,15 +2696,17 @@ const roomShortMemo = r => String(r || '').replace(/Conference Room/i, 'Rm').rep
 const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(i => '• ' + i)]), '', m.foot].join('\n');
 const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(i => `<li>${esc(i).replace(/^([A-Z]+ \d+(?: [A-Z]+\d+)?)/, '<b>$1</b>')}</li>`).join('')}</ul>`).join('')}<p>${esc(m.foot)}</p>`;
 function renderMemo() {
-  const v = S.memoView ??= { coalition: (S.campaigns.find(c => c.owner_id === S.me?.id) || {}).id || '' }, m = memoData();
+  const v = S.memoView ??= { who: 'me', coalition: '' }, m = memoData();
   return `<div class="memowrap">
-    <div class="dashhead"><h1>Weekly memo</h1><span class="sub">Writes itself from the bill records. Pick a coalition, read it over, copy it into an email, a Slack post or a board packet. Nothing is sent from here.</span></div>
-    <div class="ifilters"><select id="memo-coal"><option value="">Every coalition</option>${S.campaigns.map(c => `<option value="${c.id}" ${v.coalition === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+    <div class="dashhead"><h1>Weekly memo</h1><span class="sub">Writes itself from the records of the bills you own or follow. Switch to everyone for a team or board memo, narrow to a coalition, read it over, copy it. Nothing is sent from here.</span></div>
+    <div class="ifilters"><select id="memo-who"><option value="me" ${v.who === 'me' ? 'selected' : ''}>My bills (own or follow)</option><option value="all" ${v.who !== 'me' ? 'selected' : ''}>Everyone’s bills</option></select>
+      <select id="memo-coal"><option value="">Every coalition</option>${S.campaigns.map(c => `<option value="${c.id}" ${v.coalition === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       <button class="btn sm" id="memo-copy">Copy as text</button><button class="btn sm ghost" id="memo-copy-rich">Copy with formatting</button></div>
     <div class="memo" id="memo-body">${memoHTML(m)}${m.empty ? '<p class="tok">A quiet week for these bills: no hearings, no floor votes, nothing at risk inside two weeks.</p>' : ''}</div>
   </div>`;
 }
 function wireMemo() {
+  $('#memo-who') && ($('#memo-who').onchange = () => { S.memoView.who = $('#memo-who').value; render(); });
   $('#memo-coal') && ($('#memo-coal').onchange = () => { S.memoView.coalition = $('#memo-coal').value; render(); });
   $('#memo-copy') && ($('#memo-copy').onclick = async () => { try { await navigator.clipboard.writeText(memoText(memoData())); toast('Memo copied'); } catch (e) { toast('Could not copy: ' + e.message, true); } });
   $('#memo-copy-rich') && ($('#memo-copy-rich').onclick = async () => { const m = memoData();
