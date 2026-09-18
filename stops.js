@@ -172,3 +172,37 @@ export function hearingStream(h, chamber, now = Date.now()) {
       : state === 'live' ? `On the ${ch.name} channel: pick the stream with this committee’s name.`
       : `On the ${ch.name} channel: past streams are listed by date and committee.` };
 }
+
+// ---- Pathway to victory ----
+// The committees a bill still has to get through, in order, with each one's
+// state: passed, current, next (this chamber), or predicted (the other
+// chamber's referral, from the companion bill when it has one, else the
+// House <-> Senate counterpart map). counterparts: [{house_code, senate_code}].
+export function pathwayStops(b, st, counterparts = [], companionRefs = null) {
+  const refs = b.referrals || []; if (!refs.length) return [];
+  const n = Math.min(b.origin_stops || refs.length, refs.length);
+  const origin = refs.slice(0, n), second = refs.slice(n);
+  const originCh = b.chamber, otherCh = originCh === 'H' ? 'S' : 'H';
+  const cur = st.committee, leg = st.leg || (st.chamber === originCh ? 'first' : 'second');
+  const out = [];
+  const inChamber = (list, ch, isCurrentLeg) => list.forEach((c, i) => {
+    let state = 'next';
+    if (!isCurrentLeg) state = leg === 'second' && ch === originCh ? 'passed' : 'next';
+    else if (c === cur) state = 'current';
+    else state = list.indexOf(cur) > i ? 'passed' : 'next';
+    if (st.phase !== 'committee' && isCurrentLeg) state = 'passed';
+    out.push({ chamber: ch, committee: c, state, stop: i + 1, of: list.length });
+  });
+  inChamber(origin, originCh, leg === 'first');
+  const done = ['governor', 'enacted', 'vetoed', 'conference'].includes(st.phase) || st.stage === 'second_crossover';
+  if (second.length) inChamber(second, otherCh, leg === 'second');
+  else if (!done) {
+    // predict from the companion's referral, else map each origin committee to its counterpart
+    let guess = companionRefs && companionRefs.length ? companionRefs : [];
+    if (!guess.length) { for (const c of origin) for (const code of c.split('/')) { const hit = counterparts.find(x => originCh === 'H' ? x.house_code === code : x.senate_code === code); const to = hit ? (originCh === 'H' ? hit.senate_code : hit.house_code) : null; if (to && !guess.includes(to)) guess.push(to); } }
+    const money = originCh === 'H' ? 'WAM' : 'FIN';
+    if (guess.includes(money)) guess = [...guess.filter(x => x !== money), money];   // the money committee is always last
+    guess.forEach((c, i) => out.push({ chamber: otherCh, committee: c, state: 'predicted', stop: i + 1, of: guess.length, from: companionRefs?.length ? 'companion' : 'map' }));
+  }
+  return out;
+}

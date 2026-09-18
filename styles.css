@@ -1574,3 +1574,63 @@ details.actopen>summary:hover{background:#F7FAFB}
 .helpnav a{color:var(--teal);cursor:pointer;font-weight:600}
 .help section{margin-bottom:22px}
 .help .krow b{min-width:150px}
+
+/* ---- Legislators ---- */
+.legwrap{padding:4px 32px 30px}
+.legwrap .dashhead{padding-left:0;padding-right:0}
+.leggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
+.lcardm{display:flex;gap:12px;align-items:flex-start;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;font:inherit;color:inherit}
+.lcardm:hover{border-color:var(--teal)}
+.lphoto{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none;background:#E3EBEF}
+.lphoto.none{display:inline-flex;align-items:center;justify-content:center;font:700 18px 'Inter',sans-serif;color:#5B7180}
+.lphoto.big{width:88px;height:88px;border-radius:14px}
+.lphoto.sm{width:34px;height:34px;border-radius:8px}
+.lphoto.sm.none{font-size:13px}
+.lm{display:flex;flex-direction:column;gap:3px;min-width:0}
+.lm b{font-size:14px}.lm b small{font-weight:500;color:var(--muted)}
+.ld{font-size:12.5px;color:var(--ink)}
+.lp{font-size:12px;color:var(--muted);line-height:1.35}
+.lc,.lchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.legdrawer{z-index:70}
+#lscrim{z-index:69}
+.lhero{display:flex;gap:16px;align-items:flex-start;padding-right:40px}
+.lhero h2{font-size:22px}.lhero h2 small{font-weight:500;color:var(--muted);font-size:14px}
+.lcontact{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.lbill{padding:7px 0;border-bottom:1px solid #EEF2F5;font-size:13px;cursor:pointer}
+.lbill:last-child{border-bottom:none}
+.lbill b{color:var(--teal)}
+.lnote{padding:9px 0;border-bottom:1px solid #EEF2F5;font-size:13px}
+.lnh{display:flex;gap:6px;align-items:baseline;margin-bottom:2px}
+.lnh .msgdel{margin-left:auto}
+/* stance colours */
+.st-yes{background:#E6F4EA;color:#1E7A4C}.st-lean{background:#EEF7F0;color:#3D8A62}.st-unk{background:#F1F5F7;color:#5B7180}.st-leanno{background:#FBEDEA;color:#B2566A}.st-no{background:#FAE6E4;color:#9C2F28}
+/* pathway */
+.pathway .tok{margin-bottom:10px}
+.pwintro{font-size:13px;margin-bottom:10px}
+.pwstop{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff;overflow:hidden}
+.pwstop.pws-current{border-color:var(--teal)}
+.pwstop.pws-passed{opacity:.8}
+.pwstop.pws-predicted{border-style:dashed}
+.pwh{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-size:13.5px;background:#F7FAFB}
+.pwh .code{font-size:11px;color:var(--muted);background:#EEF3F6;border-radius:5px;padding:1px 6px}
+.pwst{width:16px;text-align:center;color:var(--teal);font-weight:700}
+.pwstop.pws-passed .pwst{color:var(--green)}
+.pwcount{margin-left:auto;font-size:12px;color:var(--muted)}
+.pwbar{display:inline-flex;width:90px;height:7px;border-radius:4px;overflow:hidden;gap:1px;background:#E3EBEF}
+.pwbar i{display:block;height:100%}.pwbar .yes{background:#1E7A4C}.pwbar .lean{background:#7DB9B3}.pwbar .unk{background:#D9E2DF}.pwbar .leanno{background:#E39AA7}.pwbar .no{background:var(--red)}
+.pwpassed{padding:6px 14px 10px 38px;font-size:12.5px;color:var(--muted)}
+.pwpassed a{color:var(--teal);cursor:pointer}
+.pwbody{padding:6px 14px 12px}
+.pw{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF2F5}
+.pw:last-child{border-bottom:none}
+.pw.chair .pwm b{font-size:14.5px}
+.pwm a{color:var(--ink);cursor:pointer}.pwm a:hover{color:var(--teal)}
+.pwc{font-size:12px;margin-top:2px}
+.pwn{display:flex;gap:6px;margin-top:6px}
+.pwn input{flex:1;font-size:12.5px;padding:5px 9px}
+.pwn select{width:auto;font-size:12px;padding:4px 6px}
+.pwq{font-size:12px}
+.stsel{width:auto;font:600 12px 'Inter',sans-serif;border:none;border-radius:8px;padding:5px 24px 5px 9px}
+.pwmembers{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0 18px}
+.pwmembers .pw{grid-template-columns:34px minmax(0,1fr) auto}
+@media (max-width:760px){ .legwrap{padding:4px 12px 30px} .leggrid{grid-template-columns:1fr} .pwmembers{grid-template-columns:1fr} .lhero{flex-direction:column} }

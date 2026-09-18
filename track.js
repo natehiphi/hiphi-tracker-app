@@ -6,7 +6,7 @@
 // Layout mirrors the staff home: summary line, Last 72 hours + Recent
 // hearings, This week calendar, the three-column board, then the watchlist.
 // ============================================================
-import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream } from './stops.js';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from './stops.js';
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -76,7 +76,7 @@ const SHORTCUTS = [
 
 const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
   committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
-  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false };
+  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null };
 const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
 const CONSENT_KEY = 'hiphi_consent_pending';
 
@@ -106,6 +106,7 @@ async function demoLoad() {
   D.activity = snap.activity.map(a => ({ bill_id: a.bill_id, title: a.title, details: a.details, occurred_at: a.occurred_at }));
   D.outcomes = snap.outcomes;
   D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
+  S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   S.slots = snap.slots;
@@ -219,6 +220,100 @@ async function openList(slug) {
   S.view = 'list'; S.listSlug = slug; S.open = null; history.replaceState(null, '', '#list=' + slug); render(); window.scrollTo(0, 0);
   await listBillsFor(slug); render();
 }
+// ---------------- legislators ----------------
+// Official profiles from the Capitol's pages. "Find my legislators" takes a
+// street address (sent to the U.S. Census geocoder through our proxy, not
+// stored), a district, a town, or a name; the box suggests as you type.
+const plain = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʻ‘’`]/g, '').toLowerCase();
+const legById = id => S.legislators.find(l => l.id === Number(id));
+const legTitle = l => l.chamber === 'S' ? 'Sen.' : 'Rep.';
+const legsOf = code => { const c = String(code || '').split('/')[0], rank = { chair: 0, vice_chair: 1, member: 2 };
+  return S.committeeMembers.filter(m => m.committee === c).map(m => ({ ...m, l: legById(m.legislator_id) })).filter(m => m.l).sort((a, b) => rank[a.role] - rank[b.role] || a.l.sort_name.localeCompare(b.l.sort_name)); };
+const legPhoto = (l, cls = 'lphoto') => l.photo_url ? `<img class="${cls}" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} none',textContent:'${esc((l.name || '?')[0])}'}))">` : `<span class="${cls} none">${esc((l.name || '?')[0])}</span>`;
+const legChips = l => S.committeeMembers.filter(m => m.legislator_id === l.id).sort((a, b) => ({ chair: 0, vice_chair: 1, member: 2 }[a.role]) - ({ chair: 0, vice_chair: 1, member: 2 }[b.role])).map(m => `<span class="chipx ${m.role === 'chair' ? 'c-teal' : m.role === 'vice_chair' ? 'c-navy' : 'c-gray'}" title="${esc(S.committees[m.committee]?.name || m.committee)}">${esc(S.committees[m.committee]?.name || m.committee)}${m.role === 'chair' ? ' · Chair' : m.role === 'vice_chair' ? ' · Vice Chair' : ''}</span>`).join('');
+// the places a legislator's district covers, one name each
+const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/^(a )?portions? of\s+/i, '').trim()).filter(Boolean);
+// what the box suggests
+function legSuggest(q) {
+  const k = plain(q.trim()); if (k.length < 2) return [];
+  const out = [];
+  if (/^\d/.test(k) && k.length >= 5) out.push({ kind: 'address', label: `Look up the address “${q.trim()}”`, q: q.trim() });
+  const dm = /^(senate|house|sd|hd)?\s*(district)?\s*(\d{1,2})$/.exec(k);
+  if (dm) { const n = +dm[3]; if (!dm[1] || /^s/.test(dm[1])) out.push({ kind: 'district', label: `Senate District ${n}`, chamber: 'S', district: n }); if (!dm[1] || /^h/.test(dm[1])) out.push({ kind: 'district', label: `House District ${n}`, chamber: 'H', district: n }); }
+  const places = new Map();
+  for (const l of S.legislators) for (const pl of placesOf(l)) if (plain(pl).includes(k)) { const key = plain(pl); if (!places.has(key)) places.set(key, { kind: 'place', label: pl, ids: [] }); if (!places.get(key).ids.includes(l.id)) places.get(key).ids.push(l.id); }
+  out.push(...[...places.values()].sort((a, b) => a.label.localeCompare(b.label)).slice(0, 8));
+  out.push(...S.legislators.filter(l => plain(l.name).includes(k) || plain(l.sort_name).includes(k)).slice(0, 6).map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, ids: [l.id] })));
+  return out.slice(0, 12);
+}
+async function legLookupAddress(q) {
+  if (DEMO) { toast('Address lookup is off in the sandbox — try a town or district'); return null; }
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } });
+  const j = await r.json(); if (!j.found) return { none: true };
+  return { matched: j.matched, ids: S.legislators.filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) };
+}
+// mail draft for a legislator about a bill (or a general note)
+function legDraft(l, b) {
+  const ask = b && (b.hiphi_action || '').trim();
+  const subject = b ? `${b.bill_number.replace(/^(\D+)/, '$1 ')}${b.hiphi_position ? ' — ' + ({ strongly_support: 'please support', support: 'please support', support_amend: 'please support with amendments', strongly_oppose: 'please oppose', oppose: 'please oppose', neutral: 'comments' }[b.hiphi_position] || '') : ''}` : `A constituent from ${S.legTown || 'your district'}`;
+  const surname = (l.sort_name || l.name).split(',')[0].trim();
+  const body = `Aloha ${legTitle(l)} ${surname},\n\nMy name is [your name] and I live in [your town].${b ? `\n\nI am writing about ${b.bill_number.replace(/^(\D+)/, '$1 ')}, ${blurb(b, 140)}${ask ? `\n\n${ask}` : ''}` : ''}\n\n[Why this matters to you, in a sentence or two.]\n\nMahalo,\n[your name]`;
+  return { subject, body, mailto: `mailto:${l.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` };
+}
+// the contact panel under a person: mail app, or copy the address and the draft, or call
+function mailBoxHTML(l, b) {
+  const d = legDraft(l, b), key = `${l.id}|${b ? b.id : ''}`;
+  if (S.mailOpen !== key) return `<button class="btn sm" data-mailopen="${esc(key)}">✉ Email</button>${l.phone ? `<a class="btn sm ghost" href="tel:${esc(l.phone)}">☎ Call</a>` : ''}`;
+  return `<div class="mailbox">
+      <div class="mbrow"><a class="btn sm" href="${d.mailto}">Open in my mail app</a><span class="tok">no mail app? use the buttons below</span></div>
+      <div class="mbrow"><code>${esc(l.email || '')}</code><button class="btn sm ghost" data-copy="${esc(l.email || '')}">Copy address</button>${l.phone ? `<a class="btn sm ghost" href="tel:${esc(l.phone)}">☎ ${esc(l.phone)}</a>` : ''}</div>
+      <div class="mbrow"><b>Subject:</b> ${esc(d.subject)} <button class="btn sm ghost" data-copy="${esc(d.subject)}">Copy</button></div>
+      <textarea class="mbdraft" readonly rows="8">${esc(d.body)}</textarea>
+      <div class="mbrow"><button class="btn sm ghost" data-copy="${esc(d.body)}">Copy the message</button><button class="linkbtn" data-mailclose>Close</button></div>
+    </div>`;
+}
+const legCard = (l, b, big = false) => `<div class="legcard ${big ? 'big' : ''}" data-legcard="${l.id}">
+    ${legPhoto(l, big ? 'lphoto big' : 'lphoto')}
+    <div class="lm"><a class="lname" data-legopen="${l.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b>${l.party ? ` <small>(${esc(l.party)})</small>` : ''}</a>
+      <span class="ld">${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}${l.title ? ` · ${esc(l.title)}` : ''}</span>
+      <span class="lp">${esc(l.places || '')}</span>
+      <span class="lc">${legChips(l)}</span>
+      <div class="lacts">${mailBoxHTML(l, b)}</div>
+    </div></div>`;
+function legislatorsPage() {
+  const sug = S.legPick ? [] : legSuggest(S.legQ), pick = S.legPick;
+  const picked = pick ? (pick.ids || []).map(legById).filter(Boolean).sort((a, b) => a.chamber.localeCompare(b.chamber) || a.district - b.district) : [];
+  return `<div class="pubhead"><h1>Your legislators</h1><span class="sub">Every Hawaiʻi senator and representative. Type your street address, town, district or a name.</span></div>
+    <div class="legfind">
+      <input type="search" id="leg-q" placeholder="e.g. 415 S Beretania St, Honolulu · Kīhei · Senate District 9 · Amato" value="${esc(S.legQ)}" autocomplete="off">
+      ${sug.length ? `<div class="legsug">${sug.map((x, i) => `<button data-legsug="${i}"><span class="sk">${x.kind === 'address' ? '📍' : x.kind === 'district' ? '#' : x.kind === 'place' ? '🏘' : '👤'}</span>${esc(x.label)}${x.ids && x.ids.length > 1 ? ` <small>${x.ids.length} legislators</small>` : ''}</button>`).join('')}</div>` : ''}
+    </div>
+    ${pick ? `<div class="legresult"><div class="sec">${pick.none ? 'No match for that address' : esc(pick.label)}${pick.matched ? ` <span class="tok">· ${esc(pick.matched)}</span>` : ''}${picked.length > 2 ? ' <span class="tok">· this area crosses district lines, so more than one legislator serves it</span>' : ''}</div>
+      ${pick.none ? '<p class="desc">Try the street number and name with the town, or pick a town or district from the suggestions.</p>' : picked.map(l => legCard(l, null, true)).join('')}</div>` : ''}
+    ${!pick ? `<div class="sec">Browse</div><div class="leggrid">${S.legislators.slice().sort((a, b) => a.chamber.localeCompare(b.chamber) || a.district - b.district).map(l => legCard(l, null)).join('')}</div>` : ''}`;
+}
+function legislatorPage(l) {
+  const b = S.legFromBill && findBill(S.legFromBill);
+  return `<div class="pubhead"><h1>${esc(legTitle(l))} ${esc(l.name)}</h1><span class="sub"><button class="linkbtn" data-nav="legislators">← all legislators</button></span></div>
+    ${legCard(l, b || null, true)}
+    ${b ? `<p class="tok">You came from ${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}; the email draft is about that bill.</p>` : ''}`;
+}
+// Who decides: the committees a bill still has to get through, with the people on them.
+function whoDecidesHTML(b) {
+  if (!S.legislators.length) return '';
+  const st = stopOf(b);
+  const stops = pathwayStops(b, st, S.counterparts, null).filter(s => s.state !== 'passed');
+  if (!stops.length || !alive(b)) return '';
+  const person = (l, role) => `<div class="wd ${role}">${legPhoto(l, 'lphoto sm')}<div class="wdm"><a data-legopen="${l.id}" data-frombill="${b.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${role === 'chair' ? 'Chair' : role === 'vice_chair' ? 'Vice Chair' : ''} · ${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}</span><div class="lacts">${mailBoxHTML(l, b)}</div></div></div>`;
+  return `<div class="sec">Who decides next</div>
+    <p class="desc">The chair decides whether a bill gets a hearing; members vote. A short, polite email from a constituent counts.</p>
+    ${stops.slice(0, 4).map((s, i) => { const members = legsOf(s.committee), cm = S.committees[String(s.committee).split('/')[0]];
+      const chairs = members.filter(m => m.role === 'chair'), vices = members.filter(m => m.role === 'vice_chair'), rest = members.filter(m => m.role === 'member');
+      const label = { current: 'now', next: 'next', predicted: 'likely, once it crosses over' }[s.state];
+      return `<div class="wdstop pws-${s.state}"><div class="wdh"><b>${esc(cm?.name || s.committee)}</b> <span class="muted">· ${CHAMBER_NAME[s.chamber]} · ${label}</span></div>
+        ${i === 0 || s.state === 'current' ? `${chairs.map(m => person(m.l, 'chair')).join('')}${vices.map(m => person(m.l, 'vice_chair')).join('')}${rest.length ? `<div class="wdmembers">${rest.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}">${esc(legTitle(m.l))} ${esc(m.l.name.split(' ').pop())}</a>`).join(' · ')}</div>` : ''}` : `<div class="wdmembers">${chairs.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}"><b>${esc(legTitle(m.l))} ${esc(m.l.name)}</b>, chair</a>`).join(' · ') || '<span class="muted">roster not loaded</span>'}</div>`}
+      </div>`; }).join('')}`;
+}
 async function loadBills() {
   const ids = [...S.watch];
   if (!S.featured) { try { await loadFeatured(); } catch { S.featured = { hearings: [], bills: [] }; } }
@@ -244,8 +339,10 @@ async function loadBills() {
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length) {
-    const [d, c, sl, co] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
-      S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*')]);
+    const [d, c, sl, co, lg, cm, cp] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
+      S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*'),
+      S.supa.from('public_legislators').select('*').order('chamber').order('district'), S.supa.from('public_committee_members').select('*'), S.supa.from('public_committee_counterparts').select('*')]);
+    S.legislators = lg.data || []; S.committeeMembers = cm.data || []; S.counterparts = cp.data || [];
     S.slots = sl.data || [];
     S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
     S.committees = Object.fromEntries((c.data || []).map(x => [x.code, x]));
@@ -393,6 +490,9 @@ function closeBill() { S.open = null; history.replaceState(null, '', location.pa
 async function openFromHash() {
   const lm = /list=([a-z0-9-]+)/.exec(decodeURIComponent(location.hash));
   if (lm) { await openList(lm[1]); return; }
+  const gm = /legislator=(\d+)/.exec(location.hash);
+  if (gm) { S.legOpen = Number(gm[1]); S.view = 'legislator'; S.open = null; render(); window.scrollTo(0, 0); return; }
+  if (/#legislators$/.test(location.hash)) { S.view = 'legislators'; S.open = null; render(); return; }
   const m = /bill=([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash));
   if (!m) return;
   const num = m[1].replace(/\s/g, '').toUpperCase();
@@ -514,7 +614,7 @@ function chrome(inner) {
     : `<button data-nav="signin">Sign in</button>`;
   const chips = groups().sort((a, b) => (/general/i.test(a.key) ? 1 : 0) - (/general/i.test(b.key) ? 1 : 0) || (b.live || 0) - (a.live || 0) || a.sort_order - b.sort_order).map(c => `<button class="fchip ${S.view === 'find' && S.browse && c.names.includes(S.browse.name) ? 'on' : ''}" data-browse="${esc(c.names[0])}">${esc(c.icon || '')} ${esc(c.key)}</button>`).join('');
   return `<div class="top pub"><span class="logo" data-nav="home" style="cursor:pointer"><span class="mark">☀</span>HIPHI Bill Tracker</span><a class="brand" href="https://www.hiphi.org" target="_blank" rel="noopener" title="Hawaiʻi Public Health Institute">by the Hawaiʻi Public Health Institute ↗</a>
-      <span class="who"><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
+      <span class="who"><button data-nav="legislators" title="Find your senator and representative">Your legislators</button><button data-nav="help" title="Help and keyboard shortcuts (?)">Help</button>${who}</span></div>
     <div class="pubnav"><input type="search" id="q" class="topq" placeholder="Search any bill: HB1563, vaping, school meals…" value="${esc(S.q)}" aria-label="Search bills"><div class="issuerow"><span class="issuelbl">Browse</span>${chips}<button class="fchip more" data-nav="find">＋ more</button></div></div>
     <div class="pubwrap">${inner}</div>`;
 }
@@ -837,6 +937,7 @@ function panelFor(b) {
       ${!S.watch.size ? `<div class="arrive"><b>You are not following any bills yet.</b> Press Follow on this one to get its hearing alerts${(b.coalitions || [])[0] ? `, or see everything HIPHI is doing on <button class="linkbtn" data-browse="${esc(b.coalitions[0])}">${esc(cname(b.coalitions[0]))}</button>` : ''}.</div>` : ''}
       <div class="status"><p class="plain lead">${esc(alive(b) ? stopOf(b).says.replace(/stop (\d+) of (\d+)/, 'committee $1 of $2').replace(/ · (Triple filing|Lateral|Decking|Crossover|Cross back|Final decking) (\d+\/\d+)( \(\d+d\))?\./, (m, l, d, left) => ` · needs a hearing by ${d}${left || ''}.`) : whyDead(b))}</p>${railPublic(b)}</div>
       ${b.hiphi_action ? `<div class="next"><span class="nk">ASK</span><div>${esc(b.hiphi_action)}</div></div>` : ''}
+      ${whoDecidesHTML(b)}
       ${b.sandbox_untracked ? '<p class="desc"><i>Sandbox: this bill is not on HIPHI’s list, so its history and hearings are not loaded here. In the live app every bill is complete.</i></p>' : ''}
       <div class="sec">Summary</div><p class="desc">${esc(b.hiphi_summary || b.description || 'No summary available yet.')}</p>
       <div class="sec">Details</div>
@@ -907,7 +1008,7 @@ function help() {
   </div>`;
 }
 function render() {
-  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : S.view === 'list' ? listPage() : consentCardHTML() + home();
+  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : S.view === 'list' ? listPage() : S.view === 'legislators' ? legislatorsPage() : S.view === 'legislator' && legById(S.legOpen) ? legislatorPage(legById(S.legOpen)) : consentCardHTML() + home();
   const b = S.open && findBill(S.open);
   $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '') + (S.helper ? helperHTML() : '');
   wire(); wireHelper();
@@ -986,6 +1087,17 @@ function wire() {
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; render(); toast('Saved — change it any time in Settings'); }
   });
   $('#cc-later') && ($('#cc-later').onclick = () => { S.consentCard = false; render(); });
+  const legRender = () => { const y = scrollY; render(); scrollTo(0, y); };
+  $('#leg-q') && ($('#leg-q').oninput = () => { S.legQ = $('#leg-q').value; S.legPick = null; clearTimeout(S.legT); S.legT = setTimeout(() => { legRender(); const n = $('#leg-q'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 150); });
+  document.querySelectorAll('[data-legsug]').forEach(el => el.onclick = async () => { const x = legSuggest(S.legQ)[Number(el.dataset.legsug)]; if (!x) return;
+    if (x.kind === 'address') { toast('Looking up the address…'); try { const r = await legLookupAddress(x.q); if (r) S.legPick = { label: 'Your legislators', ...r }; } catch { toast('Could not look that up. Try a town or district.', true); } }
+    else if (x.kind === 'district') S.legPick = { label: x.label, ids: S.legislators.filter(l => l.chamber === x.chamber && l.district === x.district).map(l => l.id) };
+    else { S.legPick = { label: x.kind === 'place' ? `Legislators for ${x.label}` : x.label, ids: x.ids }; S.legTown = x.kind === 'place' ? x.label : null; }
+    legRender(); });
+  document.querySelectorAll('[data-legopen]').forEach(el => el.onclick = e => { e.stopPropagation(); S.legOpen = Number(el.dataset.legopen); S.legFromBill = el.dataset.frombill || null; S.view = 'legislator'; S.open = null; history.replaceState(null, '', '#legislator=' + S.legOpen); render(); window.scrollTo(0, 0); });
+  document.querySelectorAll('[data-mailopen]').forEach(el => el.onclick = e => { e.stopPropagation(); S.mailOpen = el.dataset.mailopen; legRender(); });
+  document.querySelectorAll('[data-mailclose]').forEach(el => el.onclick = e => { e.stopPropagation(); S.mailOpen = null; legRender(); });
+  document.querySelectorAll('[data-copy]').forEach(el => el.onclick = async e => { e.stopPropagation(); try { await navigator.clipboard.writeText(el.dataset.copy); toast('Copied'); } catch { prompt('Copy this', el.dataset.copy); } });
   document.querySelectorAll('[data-followlist]').forEach(el => el.onclick = e => { e.stopPropagation(); followList(el.dataset.followlist, el.dataset.on === '1'); });
   document.querySelectorAll('[data-list]').forEach(el => el.onclick = e => { e.stopPropagation(); openList(el.dataset.list); });
   $('#st-delete') && ($('#st-delete').onclick = async () => {
