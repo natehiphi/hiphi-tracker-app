@@ -1658,10 +1658,23 @@ details.actopen>summary:hover{background:#F7FAFB}
 .cbody{padding:14px 18px 16px}
 .cstate{font-size:13px;margin-bottom:12px}
 .crow{display:flex;gap:12px;align-items:center;margin-bottom:10px;font-size:13.5px}
-.crow.top{align-items:flex-start}
+.crow.tall{align-items:flex-start}
 .crow .cl{flex:0 0 70px;font:600 11px 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:2px}
 .crow input,.crow textarea{flex:1;font-size:14px}
 .crow textarea{line-height:1.5}
 .composer .btns{flex-wrap:wrap;gap:8px;align-items:center}
 .awhen.none b{font-size:16px}
-@media (max-width:760px){ .emailswrap{padding:4px 12px 30px} .crow{flex-direction:column;align-items:stretch;gap:4px} }
+@media (max-width:760px){ .emailswrap{padding:4px 12px 30px} .crow{flex-direction:column;align-items:stretch;gap:4px} .crow .cl{flex-basis:auto} }
+
+/* rich text editor for action alerts */
+.rte{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}
+.rtebar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:5px 8px;border-bottom:1px solid var(--line);background:var(--paper)}
+.rtebar button{border:1px solid transparent;background:none;border-radius:6px;padding:4px 9px;font:500 13px 'Inter',sans-serif;cursor:pointer;color:var(--ink);min-width:32px;line-height:1.3}
+.rtebar button:hover{background:#fff;border-color:var(--line)}
+.rtebar .sep{width:1px;height:18px;background:var(--line);margin:0 5px}
+.rteed{min-height:260px;max-height:62vh;overflow:auto;padding:12px 14px;font-size:14.5px;line-height:1.55;outline:none;color:var(--ink)}
+.rteed:focus{box-shadow:inset 0 0 0 2px var(--teal)}
+.rteed p{margin:0 0 10px}.rteed h3{font-size:16px;margin:14px 0 6px}.rteed ul,.rteed ol{margin:0 0 10px;padding-left:22px}.rteed li{margin:2px 0}
+.rteed a{color:var(--teal);text-decoration:underline}.rteed blockquote{border-left:3px solid var(--line);margin:0 0 10px;padding-left:10px;color:var(--muted)}
+.rteed[contenteditable="false"]{background:var(--paper);min-height:0}
+@media (max-width:640px){.rte{width:100%}.rtebar button{padding:7px 10px;font-size:14px}}

@@ -538,9 +538,9 @@ const DB = {
   async canAlert(billId, listId) { if (DEMO) return true; const { data } = await S.supa.rpc('can_alert', { p_bill: billId || null, p_list: listId || null }); return !!data; },
   async saveAlert(a) {
     if (DEMO) { if (!a.id) { a.id = -Date.now(); a.status = 'draft'; a.created_at = new Date().toISOString(); a.author_id = S.me?.id; S.alerts.unshift(a); } else Object.assign(S.alerts.find(x => x.id === a.id) || {}, a); return a; }
-    const row = { bill_id: a.bill_id || null, list_id: a.list_id || null, subject: a.subject, body: a.body, author_id: S.me?.id, updated_at: new Date().toISOString() };
+    const row = { bill_id: a.bill_id || null, list_id: a.list_id || null, subject: a.subject, body: a.body, body_html: a.body_html || null, author_id: S.me?.id, updated_at: new Date().toISOString() };
     if (!a.id) { const { data, error } = await S.supa.from('action_alerts').insert(row).select('*').single(); if (error) throw error; S.alerts.unshift(data); return data; }
-    const { data, error } = await S.supa.from('action_alerts').update({ subject: row.subject, body: row.body, updated_at: row.updated_at }).eq('id', a.id).select('*').single(); if (error) throw error;
+    const { data, error } = await S.supa.from('action_alerts').update({ subject: row.subject, body: row.body, body_html: row.body_html, updated_at: row.updated_at }).eq('id', a.id).select('*').single(); if (error) throw error;
     Object.assign(S.alerts.find(x => x.id === a.id) || {}, data); return data;
   },
   async alertStep(id, action, note) {
@@ -2514,6 +2514,87 @@ function pathwayHTML(b) {
 const ALERT_STATUS = { draft: ['Draft', 'c-gray'], returned: ['Sent back', 'c-red'], submitted: ['Waiting for approval', 'c-gold'], approved: ['Approved, not sent', 'c-teal'], sent: ['Sent', 'c-green'] };
 const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && S.me?.is_admin && a.author_id !== S.me?.id);
 const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list');
+// ---- rich text for action alerts (no library). The email is HTML, so the composer edits HTML; a small
+// allowlist (p br b i u a ul ol li h3 blockquote, http/mailto links) keeps what mail clients render
+// predictable, and the server re-cleans on save. body stays the plain-text twin for previews and the text part.
+const RTE_TAGS = { P: 'p', DIV: 'p', BR: 'br', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', A: 'a', UL: 'ul', OL: 'ol', LI: 'li', H1: 'h3', H2: 'h3', H3: 'h3', H4: 'h3', BLOCKQUOTE: 'blockquote' };
+const escT = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function cleanHTML(html) {
+  const doc = new DOMParser().parseFromString(`<body>${html || ''}</body>`, 'text/html');
+  const walk = node => { let out = '';
+    for (const n of node.childNodes) {
+      if (n.nodeType === 3) { out += escT(n.nodeValue); continue; }
+      if (n.nodeType !== 1 || n.tagName === 'SCRIPT' || n.tagName === 'STYLE') continue;
+      const t = RTE_TAGS[n.tagName], inner = walk(n);
+      if (!t) { out += inner; continue; }                                   // span, font, table cells…: keep the text only
+      if (t === 'br') { out += '<br>'; continue; }
+      if (t === 'a') { const href = (n.getAttribute('href') || '').trim(); out += /^(https?:\/\/|mailto:)/i.test(href) ? `<a href="${escT(href).replace(/"/g, '&quot;')}">${inner}</a>` : inner; continue; }
+      if (['p', 'h3', 'blockquote', 'li'].includes(t) && !inner.replace(/<br>|&nbsp;|\s/g, '')) continue;   // empty blocks add nothing in email
+      if (t === 'p' && /^<(p|ul|ol|h3|blockquote)>/.test(inner)) { out += inner; continue; }                 // nested wrappers from paste
+      out += `<${t}>${inner}</${t}>`;
+    }
+    return out; };
+  return walk(doc.body).replace(/(<br>)+$/, '');
+}
+function htmlToText(html) {
+  const doc = new DOMParser().parseFromString(`<body>${html || ''}</body>`, 'text/html');
+  const walk = node => { let out = '';
+    for (const n of node.childNodes) {
+      if (n.nodeType === 3) { out += n.nodeValue.replace(/\s+/g, ' '); continue; }
+      if (n.nodeType !== 1) continue;
+      const tag = n.tagName;
+      if (tag === 'BR') { out += '\n'; continue; }
+      if (tag === 'A') { const href = n.getAttribute('href') || '', t = walk(n).trim(); out += t && t !== href ? `${t} (${href})` : (t || href); continue; }
+      if (tag === 'LI') { out += (n.parentNode.tagName === 'OL' ? `${[...n.parentNode.children].indexOf(n) + 1}. ` : '• ') + walk(n).trim() + '\n'; continue; }
+      if (['P', 'H3', 'BLOCKQUOTE', 'UL', 'OL', 'DIV'].includes(tag)) { out += walk(n).replace(/^\n+|\n+$/g, '') + '\n\n'; continue; }
+      out += walk(n);
+    }
+    return out; };
+  return walk(doc.body).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+const textToHtml = text => String(text || '').trim().split(/\n{2,}/).map(par => `<p>${escT(par).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>').replace(/\n/g, '<br>')}</p>`).join('');
+function rteHTML(id, html, editable) {
+  const b = (cmd, label, title) => `<button type="button" data-rte="${cmd}" title="${title}">${label}</button>`;
+  return `<div class="rte" id="${id}-wrap">
+    <div class="rtebar" ${editable ? '' : 'hidden'}>${b('bold', '<b>B</b>', 'Bold (⌘B)')}${b('italic', '<i>I</i>', 'Italic (⌘I)')}${b('underline', '<u>U</u>', 'Underline (⌘U)')}<span class="sep"></span>${b('link', '🔗 Link', 'Add or edit a link (⌘K)')}${b('insertUnorderedList', '• List', 'Bulleted list')}${b('insertOrderedList', '1. List', 'Numbered list')}${b('heading', '<b>H</b> Heading', 'Small heading')}<span class="sep"></span>${b('removeFormat', 'Clear', 'Remove formatting')}</div>
+    <div class="rteed" id="${id}" contenteditable="${editable ? 'true' : 'false'}" spellcheck="true">${html}</div>
+  </div>`;
+}
+function wireRTE(id) {
+  const ed = document.getElementById(id); if (!ed || ed.contentEditable !== 'true') return;
+  try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
+  const wrap = ed.closest('.rte');
+  const run = cmd => {
+    ed.focus();
+    if (cmd === 'link') return link();
+    if (cmd === 'heading') { const blk = window.getSelection()?.anchorNode; const el = blk && (blk.nodeType === 1 ? blk : blk.parentElement)?.closest('h3'); return document.execCommand('formatBlock', false, el ? 'p' : 'h3'); }
+    document.execCommand(cmd, false, null);
+  };
+  const link = () => {
+    const sel = window.getSelection(); const node = sel?.anchorNode, a = node && (node.nodeType === 1 ? node : node.parentElement)?.closest('a');
+    const url = prompt(a ? 'Change the link (leave it blank to remove the link)' : 'Link to which web address?', a ? a.getAttribute('href') : 'https://');
+    if (url === null) return; let u = url.trim();
+    if (u && u !== 'https://' && !/^(https?:\/\/|mailto:)/i.test(u)) u = (u.includes('@') && !u.includes('/') ? 'mailto:' : 'https://') + u;
+    if (a) { if (!u || u === 'https://') a.replaceWith(document.createTextNode(a.textContent)); else a.setAttribute('href', u); return; }
+    if (!u || u === 'https://') return;
+    if (sel.isCollapsed) document.execCommand('insertHTML', false, `<a href="${escT(u).replace(/"/g, '&quot;')}">${escT(u)}</a>&nbsp;`);
+    else document.execCommand('createLink', false, u);
+  };
+  wrap.querySelectorAll('[data-rte]').forEach(btn => {
+    btn.onmousedown = e => e.preventDefault();                       // keep the selection in the editor
+    btn.onclick = () => run(btn.dataset.rte);
+    btn.addEventListener('touchend', e => { e.preventDefault(); run(btn.dataset.rte); });
+  });
+  ed.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); run('link'); } });
+  ed.addEventListener('paste', e => {
+    e.preventDefault();
+    const h = e.clipboardData.getData('text/html'), t = e.clipboardData.getData('text/plain').trim();
+    if (h) document.execCommand('insertHTML', false, cleanHTML(h));
+    else if (/^https?:\/\/\S+$/.test(t)) document.execCommand('insertHTML', false, `<a href="${escT(t).replace(/"/g, '&quot;')}">${escT(t)}</a>`);
+    else document.execCommand('insertText', false, t);
+  });
+  ed.addEventListener('click', e => { const a = e.target.closest('a'); if (a && (e.metaKey || e.ctrlKey)) { e.preventDefault(); window.open(a.href, '_blank', 'noopener'); } });
+}
 function alertTemplate(b, l) {
   const who = S.me?.full_name?.split(' ')[0] || 'HIPHI';
   if (b) { const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
@@ -2531,8 +2612,8 @@ function composerHTML(a) {
       ${a.status && a.status !== 'draft' ? `<div class="cstate"><span class="chipx ${ALERT_STATUS[a.status][1]}">${ALERT_STATUS[a.status][0]}</span>${a.review_note ? ` <span class="hot">“${esc(a.review_note)}”</span>` : ''}${a.approved_by ? ` · approved by ${esc(advocate(a.approved_by)?.full_name || '')}` : ''}${a.sent_at ? ` · sent ${fmtDT(a.sent_at)} to ${a.recipients} · ${a.opens} opened · ${a.clicks} clicked${a.bounces ? ` · ${a.bounces} bounced` : ''}` : ''}</div>` : ''}
       <div class="crow"><span class="cl">From</span><span>${esc(au?.full_name || '')} &lt;${esc(au?.email || '')}&gt; <span class="muted">· replies come to you</span></span></div>
       <div class="crow"><span class="cl">Subject</span><input id="cmp-subject" value="${esc(a.subject || '')}" maxlength="150" ${editable ? '' : 'readonly'}></div>
-      <div class="crow top"><span class="cl">Message</span><textarea id="cmp-body" rows="12" maxlength="8000" ${editable ? '' : 'readonly'}>${esc(a.body || '')}</textarea></div>
-      <p class="tok">The email adds a button to the ${b ? 'bill' : 'list'} on the tracker, your name, and the unsubscribe footer. Keep it short: what is happening, what to do, by when.</p>
+      <div class="crow tall"><span class="cl">Message</span>${rteHTML('cmp-body', cleanHTML(a.body_html || textToHtml(a.body || '')), editable)}</div>
+      <p class="tok">The email adds a button to the ${b ? 'bill' : 'list'} on the tracker, your name, and the unsubscribe footer. Keep it short: what is happening, what to do, by when. Select words and press Link (or ⌘K) to link them; paste a web address to link it.</p>
       <div class="btns">
         ${editable ? `<button class="btn sm ghost" id="cmp-save">Save draft</button><button class="btn sm" id="cmp-submit">Submit for approval</button>` : ''}
         ${a.id && (own || me.is_admin) && a.status !== 'sent' ? `<button class="btn sm ghost" id="cmp-test">Send a test to me</button>` : ''}
@@ -2568,8 +2649,9 @@ function wireEmails() {
   $('#em-new') && ($('#em-new').onchange = () => { const val = $('#em-new').value; if (!val) return; const b = val.startsWith('b:') ? billById(val.slice(2)) : null, l = val.startsWith('l:') ? (S.lists || []).find(x => x.id === val.slice(2)) : null; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, ...alertTemplate(b, l) }); });
   const cur = v.open; if (!cur) return;
   const aud = document.getElementById('cmp-aud'); if (aud) DB.alertAudience(cur.bill_id, cur.list_id).then(n => { aud.textContent = n; const a2 = $('#cmp-aud2'); if (a2) a2.textContent = n; }).catch(() => { aud.textContent = '?'; });
-  const read = () => ({ ...cur, subject: $('#cmp-subject')?.value.trim() || '', body: $('#cmp-body')?.value.trim() || '' });
-  const valid = a => a.subject.length >= 3 && a.body.length >= 20 ? true : (toast('Give it a subject and at least a couple of sentences', true), false);
+  wireRTE('cmp-body');
+  const read = () => { const body_html = cleanHTML($('#cmp-body')?.innerHTML || ''); return { ...cur, subject: $('#cmp-subject')?.value.trim() || '', body_html, body: htmlToText(body_html) }; };
+  const valid = a => a.subject.length >= 3 && a.body.length >= 20 ? (a.body_html.length > 40000 ? (toast('That is too long for an email — trim it', true), false) : true) : (toast('Give it a subject and at least a couple of sentences', true), false);
   const step = async (action, note) => { try { const a = await DB.alertStep(cur.id, action, note); v.open = a; toast({ submit: 'Submitted — an admin gets a DM to approve it', approve: 'Approved — the author can send it now', return: 'Sent back with your note', send: `Sent to ${a.recipients} people`, test: 'Test copy queued to your inbox' }[action]); render(); } catch (e) { toast(e.message, true); } };
   $('#cmp-close') && ($('#cmp-close').onclick = () => { v.open = null; render(); });
   $('#cmp-save') && ($('#cmp-save').onclick = async () => { const a = read(); if (!valid(a)) return; try { v.open = await DB.saveAlert(a); toast('Draft saved'); render(); } catch (e) { toast(e.message, true); } });
