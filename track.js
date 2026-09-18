@@ -149,7 +149,7 @@ async function loadUser() {
   S.user = data;
   // Choices made on the sign-in page, before the account existed.
   let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
-  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, share_follows: !!pending.share_follows, consent_at: new Date().toISOString() };
+  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, action_alerts: !!pending.action_alerts, share_follows: !!pending.share_follows, consent_at: new Date().toISOString() };
     const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; try { localStorage.removeItem(CONSENT_KEY); } catch {} }
   S.consentCard = !(S.user.prefs || {}).consent_at;
   // Lists followed on this device join the account (and stay in sync from here on).
@@ -843,6 +843,7 @@ function find() {
 }
 const consentCardHTML = () => S.consentCard && S.user && !DEMO ? `<section class="ccard"><div class="sec">Two quick choices</div>
     <label class="row"><input type="checkbox" id="cc-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b> <small>Off unless you tick it.</small></span></label>
+    <label class="row"><input type="checkbox" id="cc-action"><span><b>Email me when HIPHI asks followers of my bills to act.</b> <small>A few a session. Off unless you tick it.</small></span></label>
     <label class="row"><input type="checkbox" id="cc-share"><span><b>Let HIPHI see which bills I follow</b> <small>so staff can reach out about them. Otherwise they only see counts.</small></span></label>
     <div class="btns"><button class="btn sm" id="cc-save">Save</button><button class="btn sm ghost" id="cc-later">Not now</button></div></section>` : '';
 function home() {
@@ -973,10 +974,11 @@ function signin() {
       <input type="email" id="si-email" placeholder="you@example.com" autocomplete="email">
       <div class="consent">
         <label class="row"><input type="checkbox" id="si-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b><br><small>The Capitol posts hearings about two days ahead; this is how you hear in time to testify. Off unless you tick it.</small></span></label>
+        <label class="row"><input type="checkbox" id="si-action"><span><b>Email me when HIPHI asks followers of my bills to act.</b><br><small>A short note from the HIPHI staffer on the bill when it is time to testify or write to a chair. A few a session, never more than one a day per bill. Off unless you tick it.</small></span></label>
         <label class="row"><input type="checkbox" id="si-share"><span><b>Let HIPHI see which bills I follow.</b><br><small>So HIPHI staff can reach out to you about those bills. Otherwise staff only ever see how many people follow each bill, never who.</small></span></label>
       </div>
       <button class="btn" id="si-send">Send me a sign-in link</button>
-      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, and the two choices above. Both can be changed any time in Settings. You can delete your account and everything with it at any time.</p>
+      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, and the choices above. All can be changed any time in Settings, and every email has a one-click unsubscribe. You can delete your account and everything with it at any time.</p>
     </div>`;
 }
 function settings() {
@@ -988,7 +990,8 @@ function settings() {
         <option value="weekly" ${(p.digest || 'weekly') === 'weekly' ? 'selected' : ''}>Weekly, Monday morning</option>
         <option value="daily" ${p.digest === 'daily' ? 'selected' : ''}>Every morning</option>
         <option value="off" ${p.digest === 'off' ? 'selected' : ''}>Off</option></select></label>
-      <label class="row"><input type="checkbox" id="st-alerts" ${p.hearing_alerts === true ? 'checked' : ''}><span>Email me when a hearing is scheduled on a bill I follow</span></label>
+      <label class="row"><input type="checkbox" id="st-alerts" ${p.hearing_alerts === true ? 'checked' : ''}><span>Email me when a hearing is scheduled on a bill I follow <small class="tok">(one email a day, listing every hearing)</small></span></label>
+      <label class="row"><input type="checkbox" id="st-action" ${p.action_alerts === true ? 'checked' : ''}><span>Email me when HIPHI asks followers of my bills to act <small class="tok">(written by the staffer on the bill, a few a session)</small></span></label>
       <h3>Sharing with HIPHI</h3>
       <label class="row"><input type="checkbox" id="st-share" ${p.share_follows === true ? 'checked' : ''}><span>Let HIPHI staff see which bills I follow, so they can reach out about them</span></label>
       <label class="row"><span style="min-width:120px">Your name</span><input id="st-name" value="${esc(p.name || '')}" maxlength="80" placeholder="optional · shown to HIPHI staff only if you share"></label>
@@ -1082,17 +1085,17 @@ function wire() {
   $('#scrim') && ($('#scrim').onclick = closeBill); $('#dclose') && ($('#dclose').onclick = closeBill);
   $('#si-send') && ($('#si-send').onclick = async () => {
     const email = $('#si-email').value.trim(); if (!email) return;
-    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts: $('#si-alerts').checked, share_follows: $('#si-share').checked })); } catch {}
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts: $('#si-alerts').checked, action_alerts: $('#si-action').checked, share_follows: $('#si-share').checked })); } catch {}
     const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) toast(error.message, true); else { toast('Check your email for the link'); $('#si-send').disabled = true; }
   });
   $('#st-save') && ($('#st-save').onclick = async () => {
-    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked, share_follows: $('#st-share').checked, name: $('#st-name').value.trim() || null, consent_at: new Date().toISOString() };
+    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked, action_alerts: $('#st-action').checked, share_follows: $('#st-share').checked, name: $('#st-name').value.trim() || null, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; toast('Saved'); }
   });
   $('#cc-save') && ($('#cc-save').onclick = async () => {
-    const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, share_follows: $('#cc-share').checked, consent_at: new Date().toISOString() };
+    const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, action_alerts: $('#cc-action').checked, share_follows: $('#cc-share').checked, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
     if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; render(); toast('Saved — change it any time in Settings'); }
   });

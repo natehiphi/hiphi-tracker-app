@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -142,7 +142,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -175,6 +175,7 @@ const DB = {
       S.supa.from('committee_members').select('*'),
       S.supa.from('committee_counterparts').select('*'),
       S.supa.from('legislator_stances').select('*'),
+      S.supa.from('action_alerts').select('*').order('created_at', { ascending: false }).limit(200),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -185,6 +186,7 @@ const DB = {
     S.syncCfg = sycfg?.data?.value || {};
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
+    S.alerts = als?.data || [];
     S.legislators = legs?.data || []; S.committeeMembers = cms?.data || []; S.counterparts = cps?.data || []; S.stances = sts?.data || []; S.legNotes = {};
     S.lists = pls?.data || []; S.listBills = plb?.data || []; S.listFollowers = Object.fromEntries((plf?.data || []).map(r => [r.list_id, Number(r.followers)]));
     S.slots = slots?.data || [];
@@ -531,6 +533,25 @@ const DB = {
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
+  // ---- action alerts (email to followers) ----
+  async alertAudience(billId, listId) { if (DEMO) return billId ? 12 : 31; const { data, error } = await S.supa.rpc('alert_audience', { p_bill: billId || null, p_list: listId || null }); if (error) throw error; return data || 0; },
+  async canAlert(billId, listId) { if (DEMO) return true; const { data } = await S.supa.rpc('can_alert', { p_bill: billId || null, p_list: listId || null }); return !!data; },
+  async saveAlert(a) {
+    if (DEMO) { if (!a.id) { a.id = -Date.now(); a.status = 'draft'; a.created_at = new Date().toISOString(); a.author_id = S.me?.id; S.alerts.unshift(a); } else Object.assign(S.alerts.find(x => x.id === a.id) || {}, a); return a; }
+    const row = { bill_id: a.bill_id || null, list_id: a.list_id || null, subject: a.subject, body: a.body, author_id: S.me?.id, updated_at: new Date().toISOString() };
+    if (!a.id) { const { data, error } = await S.supa.from('action_alerts').insert(row).select('*').single(); if (error) throw error; S.alerts.unshift(data); return data; }
+    const { data, error } = await S.supa.from('action_alerts').update({ subject: row.subject, body: row.body, updated_at: row.updated_at }).eq('id', a.id).select('*').single(); if (error) throw error;
+    Object.assign(S.alerts.find(x => x.id === a.id) || {}, data); return data;
+  },
+  async alertStep(id, action, note) {
+    if (DEMO) { const a = S.alerts.find(x => x.id === id); const next = { submit: 'submitted', approve: 'approved', return: 'returned', send: 'sent', test: a.status }[action]; Object.assign(a, { status: next, review_note: action === 'return' ? note : a.review_note, sent_at: action === 'send' ? new Date().toISOString() : a.sent_at, recipients: action === 'send' ? 12 : a.recipients }); return a; }
+    const { data, error } = await S.supa.rpc('action_alert_step', { p_id: id, p_action: action, p_note: note || null }); if (error) throw error;
+    Object.assign(S.alerts.find(x => x.id === id) || {}, data);
+    const tok = S.session?.access_token;   // nudge the outbox so DMs, tests and sends go now
+    if (tok) fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {});
+    return data;
+  },
+  async deleteAlert(id) { if (!DEMO) { const { error } = await S.supa.from('action_alerts').delete().eq('id', id); if (error) throw error; } S.alerts = S.alerts.filter(x => x.id !== id); },
   // ---- legislators: stances, notes ----
   async setStance(billId, legId, patch) {
     let row = S.stances.find(x => x.bill_id === billId && x.legislator_id === legId);
@@ -667,6 +688,7 @@ async function demoInit() {
   S.slots = snap.slots;
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
+  S.alerts = [];
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
@@ -841,7 +863,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['table','All bills'],['legislators','Legislators'],['lists','Lists'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
+const MORE_VIEWS = [['table','All bills'],['legislators','Legislators'],['lists','Lists'],['emails','Emails'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
 const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
@@ -855,12 +877,12 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['lists', '☰', 'Lists', 'Lists'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['lists', '☰', 'Lists', 'Lists'], ['emails', '✉', 'Emails', 'Emails'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
   document.body.classList.add('has-rail'); document.body.classList.toggle('rail-pinned', pinned);
-  const count = v => v === 'inbox' ? inboxCount() : v === 'triage' ? (S.triageCounts?.undecided || 0) : 0;
+  const count = v => v === 'inbox' ? inboxCount() : v === 'triage' ? (S.triageCounts?.undecided || 0) : v === 'emails' ? alertsToReview().length : 0;
   const ld = legislativeDay();
   return `<aside class="rail ${S.railQuiet ? 'quiet' : ''}" aria-label="Sections">
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
@@ -1360,6 +1382,8 @@ function renderPortfolio(list) {
   const colHtml = (key, items, empty) => { const more = (S.boardMore || {})[key]; let room = Math.max(0, DO_CAP - items.filter(urgentRow).length);
     const shown = more ? items : items.filter(x => urgentRow(x) || room-- > 0);
     return items.length ? shown.map(x => x.html).join('') + (items.length > shown.length || more && items.length > DO_CAP ? `<button class="pempty boardmore" data-boardmore="${key}">${more ? 'Show fewer' : `Show all ${items.length} · ${items.length - shown.length} more`}</button>` : '') : `<div class="pempty">${empty}</div>`; };
+  // Admins: action alerts waiting for a second pair of eyes are steps too.
+  for (const a of alertsToReview()) merged.push({ mine: true, t: Infinity, pri: 0, html: `<div class="prow arow mine" data-alertopen="${a.id}"><div class="awhen none"><b>✉</b><span>to approve</span></div><div class="amain"><div class="aask">Approve ${esc(advocate(a.author_id)?.full_name?.split(' ')[0] || 'a teammate')}’s action alert to the followers of <b class="abill">${esc(alertTarget(a))}</b></div><div class="actx">“${esc(a.subject)}”</div></div><div class="abtn"><button class="btn sm">Review</button></div></div>` });
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
       <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
@@ -2136,6 +2160,7 @@ function renderHelp() {
       ${def('All bills', 'Every tracked bill as a table: sort, filter, tick several and change owner, position, priority, coalition or list at once. Export CSV.')}
       ${def('Legislators', 'Every senator and representative from the Capitol\u2019s pages: district and the places it covers, committees, contact, their record on our bills, and the team\u2019s notes. Refreshed daily.')}
       ${def('Lists', 'Curated sets of public bills the public can follow with one tap, and the supporters who share their follows with HIPHI.')}
+      ${def('Emails', 'Action alerts to the public: written by an admin or the coalition owner about a bill or a list, sent from their own address to the followers who asked for them, after a second person approves. Hearing alerts need nobody: one email a day per person, bundled.')}
       ${def('Weekly memo', 'A memo that writes itself from the bill records for one coalition or all: hearings, movement, risk, how to help. Copy it; nothing is sent.')}
       ${def('My settings', 'How the tracker reaches you: Slack DMs and testimony reminders.')}
       ${def('Session setup', 'Admins: the session calendar, the import, coalitions, connections, session days, the website embed.')}`)}
@@ -2477,6 +2502,81 @@ function pathwayHTML(b) {
   </div>`;
 }
 
+// ---------------- Emails: action alerts to the public ----------------
+// Two kinds of public email. Hearing alerts go out on their own (one a day
+// per person, bundled) and need nobody. Action alerts are written here by an
+// admin or the coalition owner, about a bill or a list, to its followers who
+// opted in; every one needs a second person's approval; it goes out from the
+// author's own address. Postmark reports opens, clicks and bounces back.
+const ALERT_STATUS = { draft: ['Draft', 'c-gray'], returned: ['Sent back', 'c-red'], submitted: ['Waiting for approval', 'c-gold'], approved: ['Approved, not sent', 'c-teal'], sent: ['Sent', 'c-green'] };
+const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && S.me?.is_admin && a.author_id !== S.me?.id);
+const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list');
+function alertTemplate(b, l) {
+  const who = S.me?.full_name?.split(' ')[0] || 'HIPHI';
+  if (b) { const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
+    return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favour'}`,
+      body: `Aloha,\n\nYou follow ${billNum(b).replace(/^(\D+)/, '$1 ')}, ${blurb(b, 160)}\n\n${h ? `It will be heard by ${h.committee} on ${fmtDT(h.scheduled_at)}${h.room ? ' in ' + roomShort(h.room) : ''}.${h.testimony_deadline ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}\n\n` : ''}${(b.public_action || '').trim() ? b.public_action.trim() + '\n\n' : 'Here is what would help: [the ask, in one or two sentences]\n\n'}Two sentences in your own words are enough. The link below opens the bill with a five-minute way to testify.\n\nMahalo,\n${who}` }; }
+  return { subject: `${l.title}: a quick favour from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
+}
+function composerHTML(a) {
+  const b = a.bill_id && billById(a.bill_id), l = a.list_id && (S.lists || []).find(x => x.id === a.list_id);
+  const editable = !a.id || ['draft', 'returned'].includes(a.status), me = S.me || {}, own = a.author_id === me.id;
+  const au = a.author_id ? advocate(a.author_id) : me;
+  return `<div class="panel composer" id="composer">
+    <div class="ph"><span>✉ ${a.id ? 'Action alert' : 'New action alert'} · ${esc(alertTarget(a))}</span><span class="psub">to followers of ${b ? esc(billNum(b)) : esc(l?.title || '')} who asked for action alerts · <b id="cmp-aud">…</b> people</span><button class="close" id="cmp-close">✕</button></div>
+    <div class="cbody">
+      ${a.status && a.status !== 'draft' ? `<div class="cstate"><span class="chipx ${ALERT_STATUS[a.status][1]}">${ALERT_STATUS[a.status][0]}</span>${a.review_note ? ` <span class="hot">“${esc(a.review_note)}”</span>` : ''}${a.approved_by ? ` · approved by ${esc(advocate(a.approved_by)?.full_name || '')}` : ''}${a.sent_at ? ` · sent ${fmtDT(a.sent_at)} to ${a.recipients} · ${a.opens} opened · ${a.clicks} clicked${a.bounces ? ` · ${a.bounces} bounced` : ''}` : ''}</div>` : ''}
+      <div class="crow"><span class="cl">From</span><span>${esc(au?.full_name || '')} &lt;${esc(au?.email || '')}&gt; <span class="muted">· replies come to you</span></span></div>
+      <div class="crow"><span class="cl">Subject</span><input id="cmp-subject" value="${esc(a.subject || '')}" maxlength="150" ${editable ? '' : 'readonly'}></div>
+      <div class="crow top"><span class="cl">Message</span><textarea id="cmp-body" rows="12" maxlength="8000" ${editable ? '' : 'readonly'}>${esc(a.body || '')}</textarea></div>
+      <p class="tok">The email adds a button to the ${b ? 'bill' : 'list'} on the tracker, your name, and the unsubscribe footer. Keep it short: what is happening, what to do, by when.</p>
+      <div class="btns">
+        ${editable ? `<button class="btn sm ghost" id="cmp-save">Save draft</button><button class="btn sm" id="cmp-submit">Submit for approval</button>` : ''}
+        ${a.id && (own || me.is_admin) && a.status !== 'sent' ? `<button class="btn sm ghost" id="cmp-test">Send a test to me</button>` : ''}
+        ${a.status === 'submitted' && me.is_admin && !own ? `<button class="btn sm" id="cmp-approve">Approve</button><button class="btn sm ghost" id="cmp-return">Send back with a note</button>` : ''}
+        ${a.status === 'submitted' && own ? '<span class="tok">Waiting for another admin to approve.</span>' : ''}
+        ${a.status === 'approved' && (own || me.is_admin) ? `<button class="btn sm pri" id="cmp-send">Send to <span id="cmp-aud2">…</span> people</button>` : ''}
+        ${a.id && ['draft', 'returned'].includes(a.status) ? `<button class="linkbtn danger" id="cmp-delete">Delete</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function renderEmails() {
+  const v = S.emailView ??= { open: null, q: '' };
+  const cur = v.open && (v.open.id ? (S.alerts || []).find(a => a.id === v.open.id) || v.open : v.open);
+  const rows = (S.alerts || []).slice().sort((a, b) => ({ submitted: 0, approved: 1, returned: 2, draft: 3, sent: 4 }[a.status] - { submitted: 0, approved: 1, returned: 2, draft: 3, sent: 4 }[b.status]) || String(b.created_at).localeCompare(String(a.created_at)));
+  const row = a => `<div class="arow2 ${a.status}" data-alertopen="${a.id}">
+      <span class="chipx ${ALERT_STATUS[a.status][1]}">${ALERT_STATUS[a.status][0]}</span>
+      <span class="am"><b>${esc(a.subject)}</b><span class="muted">to followers of ${esc(alertTarget(a))} · from ${esc(advocate(a.author_id)?.full_name || '')} · ${fmtDate(a.updated_at || a.created_at)}${a.sent_at ? ` · ${a.recipients} sent · ${a.opens} opened · ${a.clicks} clicked` : ''}</span></span></div>`;
+  const hearingNote = `<div class="panel hnote"><div class="ph"><span>🔔 Hearing alerts run on their own</span></div><div class="pempty" style="text-align:left">Anyone who ticked “email me when a hearing is scheduled” gets one email a day listing every hearing on their bills, with HIPHI’s position and ask when the bill has them. Nothing to do here${S.emailCfg?.enabled === false ? ' — <b>email is paused in Session setup, so nothing is going out yet</b>' : ''}.</div></div>`;
+  return `<div class="emailswrap">
+    <div class="dashhead"><h1>Emails to the public</h1><span class="sub">Action alerts go to the followers of a bill or a list who asked for them, from your own address, after a second person approves. Start one from a bill’s Public tab, a list, or here.</span></div>
+    ${cur ? composerHTML(cur) : `<div class="btns" style="margin-bottom:12px"><select id="em-new"><option value="">New alert about…</option><optgroup label="Bills you own or follow">${S.bills.filter(b => b.is_public && b.position !== 'monitor' && !diedish(b) && ((S.assignments[b.id] || []).includes(S.me?.id) || S.me?.is_admin)).sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)).slice(0, 200).map(b => `<option value="b:${b.id}">${esc(billNum(b))} · ${esc(blurb(b, 50))}</option>`).join('')}</optgroup><optgroup label="Lists">${(S.lists || []).filter(l => l.is_published).map(l => `<option value="l:${l.id}">${esc(l.title)}</option>`).join('')}</optgroup></select></div>`}
+    ${hearingNote}
+    <div class="panel"><div class="ph"><span>Action alerts</span><span class="psub">${rows.length ? `${alertsToReview().length} waiting for your approval` : 'none yet'}</span></div>
+      ${rows.length ? rows.map(row).join('') : '<div class="pempty">No action alerts yet. Pick a bill or list above to write the first one.</div>'}</div>
+  </div>`;
+}
+function openComposer(alert) { S.emailView ??= { open: null }; S.emailView.open = alert; S.view = 'emails'; S.drawerBill = null; render(); document.getElementById('composer')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+function wireEmails() {
+  const v = S.emailView ??= { open: null };
+  document.querySelectorAll('[data-alertopen]').forEach(el => el.onclick = () => openComposer((S.alerts || []).find(a => a.id === Number(el.dataset.alertopen))));
+  document.querySelectorAll('[data-alertnew]').forEach(el => el.onclick = e => { e.stopPropagation(); const b = el.dataset.alertnew.startsWith('b:') ? billById(el.dataset.alertnew.slice(2)) : null, l = el.dataset.alertnew.startsWith('l:') ? (S.lists || []).find(x => x.id === el.dataset.alertnew.slice(2)) : null; if (!b && !l) return; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, ...alertTemplate(b, l) }); });
+  $('#em-new') && ($('#em-new').onchange = () => { const val = $('#em-new').value; if (!val) return; const b = val.startsWith('b:') ? billById(val.slice(2)) : null, l = val.startsWith('l:') ? (S.lists || []).find(x => x.id === val.slice(2)) : null; openComposer({ bill_id: b?.id || null, list_id: l?.id || null, ...alertTemplate(b, l) }); });
+  const cur = v.open; if (!cur) return;
+  const aud = document.getElementById('cmp-aud'); if (aud) DB.alertAudience(cur.bill_id, cur.list_id).then(n => { aud.textContent = n; const a2 = $('#cmp-aud2'); if (a2) a2.textContent = n; }).catch(() => { aud.textContent = '?'; });
+  const read = () => ({ ...cur, subject: $('#cmp-subject')?.value.trim() || '', body: $('#cmp-body')?.value.trim() || '' });
+  const valid = a => a.subject.length >= 3 && a.body.length >= 20 ? true : (toast('Give it a subject and at least a couple of sentences', true), false);
+  const step = async (action, note) => { try { const a = await DB.alertStep(cur.id, action, note); v.open = a; toast({ submit: 'Submitted — an admin gets a DM to approve it', approve: 'Approved — the author can send it now', return: 'Sent back with your note', send: `Sent to ${a.recipients} people`, test: 'Test copy queued to your inbox' }[action]); render(); } catch (e) { toast(e.message, true); } };
+  $('#cmp-close') && ($('#cmp-close').onclick = () => { v.open = null; render(); });
+  $('#cmp-save') && ($('#cmp-save').onclick = async () => { const a = read(); if (!valid(a)) return; try { v.open = await DB.saveAlert(a); toast('Draft saved'); render(); } catch (e) { toast(e.message, true); } });
+  $('#cmp-submit') && ($('#cmp-submit').onclick = async () => { const a = read(); if (!valid(a)) return; try { const saved = await DB.saveAlert(a); cur.id = saved.id; v.open = saved; await step('submit'); } catch (e) { toast(e.message, true); } });
+  $('#cmp-test') && ($('#cmp-test').onclick = () => step('test'));
+  $('#cmp-approve') && ($('#cmp-approve').onclick = () => step('approve'));
+  $('#cmp-return') && ($('#cmp-return').onclick = () => { const note = prompt('What should change?'); if (note === null) return; step('return', note.trim()); });
+  $('#cmp-send') && ($('#cmp-send').onclick = async () => { const n = $('#cmp-aud2')?.textContent || '?'; if (!confirm(`Send this to ${n} people from ${advocate(cur.author_id)?.email || 'your address'}? This cannot be undone.`)) return; await step('send'); });
+  $('#cmp-delete') && ($('#cmp-delete').onclick = async () => { try { await DB.deleteAlert(cur.id); v.open = null; toast('Deleted'); render(); } catch (e) { toast(e.message, true); } });
+}
 // ---------------- Lists: curated sets of public bills the public can follow ----------------
 // A list is not tied to a coalition. Following stays in sync: a bill added
 // later joins every follower's bills (database trigger). Staff see follower
@@ -2502,7 +2602,7 @@ function renderLists() {
           <label>Icon<input data-lfield="icon" data-list="${l.id}" value="${esc(l.icon || '')}" maxlength="4" placeholder="one emoji"></label>
           <label class="wide">One friendly sentence<input data-lfield="description" data-list="${l.id}" value="${esc(l.description || '')}" maxlength="200" placeholder="What this list is for, in the public’s words"></label>
         </div>
-        <div class="lshare"><span class="tok">Link: <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></span><button class="btn sm ghost" data-lcopy="${esc(link)}">Copy link</button><button class="btn sm ghost" data-lembed="${esc(l.slug)}">Copy embed code</button>${l.is_published ? '' : '<span class="tok warn">Publish to make the link work.</span>'}</div>
+        <div class="lshare"><span class="tok">Link: <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></span><button class="btn sm ghost" data-lcopy="${esc(link)}">Copy link</button><button class="btn sm ghost" data-lembed="${esc(l.slug)}">Copy embed code</button>${l.is_published ? `<button class="btn sm ghost" data-alertnew="l:${l.id}">✉ Email followers</button>` : ''}${l.is_published ? '' : '<span class="tok warn">Publish to make the link work.</span>'}</div>
         <div class="lbills">${rows.length ? rows.map(({ x, b }, i) => `<div class="lrow" data-bill="${b.id}">
             <span class="lord"><button data-lmove="${l.id}|${b.id}|-1" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button data-lmove="${l.id}|${b.id}|1" ${i === rows.length - 1 ? 'disabled' : ''} title="Move down">▼</button></span>
             <span class="lmain"><b>${esc(billNum(b))}</b> <span class="muted">${esc(blurb(b, 90))}</span>
@@ -3094,6 +3194,8 @@ function drawerHTML(b) {
         <div class="pubgrid">
           <label>Lists</label>
           <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — More → Lists.</span>'}</div>
+          <label>Email followers</label>
+          <div class="typechips"><button data-alertnew="b:${b.id}" ${b.is_public && b.position !== 'monitor' ? '' : 'disabled title="Make the bill public first"'}>✉ Write an action alert</button><span class="tok" style="margin-left:8px">to the people following this bill who asked for action alerts · needs a second person’s approval</span></div>
           <label for="d-psum">Plain-language summary</label>
           <textarea id="d-psum" maxlength="280" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(b.public_summary || '')}</textarea>
           <label for="d-pact">Take Action ask</label>
@@ -3198,6 +3300,7 @@ function render() {
     : S.view === 'memo' ? renderMemo()
     : S.view === 'lists' ? renderLists()
     : S.view === 'legislators' ? renderLegislators()
+    : S.view === 'emails' ? renderEmails()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -3214,6 +3317,7 @@ function wire() {
   if (S.view === 'memo') wireMemo();
   if (S.view === 'lists') wireLists();
   if (S.view === 'legislators') wireLegislators();
+  wireEmails();
   wireLegDrawer();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
