@@ -787,7 +787,7 @@ details.fold .calnav{margin-left:auto}
 .drafts.other{margin-top:8px}
 .desc.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .morelink{color:var(--teal);font-weight:500;font-size:12.5px;background:none;padding:2px 0;cursor:pointer}
-.dtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 12px;overflow-x:auto}
+.dtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 12px;overflow:visible;flex-wrap:wrap}
 .dtab{padding:8px 12px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;background:none}
 .dtab.on{color:var(--teal);border-bottom-color:var(--teal);font-weight:600}
 .dpane{min-height:60px}
