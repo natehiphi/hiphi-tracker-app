@@ -1746,3 +1746,80 @@ details.actopen>summary:hover{background:#F7FAFB}
   .pdform label.row>span:first-child{flex-basis:80px}.pdform .pdd,.pdchecks{margin-left:0}.pdchecks{grid-template-columns:1fr}
   .pdfupadd{grid-template-columns:1fr 1fr;}
 }
+
+/* search: clear control + banner */
+.sbox{position:relative;display:inline-flex;align-items:center}
+.controls .sbox{flex:1 1 220px}
+.sbox .qbox{width:100%;padding-right:28px}
+.sbox .qclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:#8FA9B8;font-size:13px;cursor:pointer;padding:4px 6px;line-height:1}
+.controls .sbox .qclear{color:var(--muted)}
+.sbox .qbox:placeholder-shown + .qclear{display:none}
+.qbanner{margin:0 20px 10px;padding:8px 12px;background:#FFFBEA;border:1px solid #F1DFA6;border-radius:10px;font-size:13.5px}
+.qbanner .linkbtn{margin-left:8px}
+/* session facts live in the rail footer when the rail is there */
+body.has-rail .top .fresh.railhas{display:none}
+body.has-rail .top .who{margin-left:auto}
+
+.top .sbox{flex:0 0 220px;width:220px;max-width:26vw;margin-left:6px}
+.top .sbox .topq{width:100%;max-width:none;margin-left:0;padding-right:28px}
+.controls .sbox{display:none}
+@media (max-width:760px){ .top .sbox{display:none} .controls .sbox{display:inline-flex;flex:1;min-width:0} }
+
+/* drawers: the note box scrolls with the content (it used to float over the lists) */
+.legdrawer .chatadd,.persondrawer .chatadd{position:static}
+.morefold>summary{list-style:none;cursor:pointer;color:var(--teal);font:600 13px 'Inter',sans-serif;padding:8px 0}
+.morefold>summary::-webkit-details-marker{display:none}
+.morefold[open]>summary{display:none}
+/* Session setup: a section menu beside a long page */
+.setupwrap{display:grid;grid-template-columns:190px minmax(0,780px);gap:8px;align-items:start}
+.setupnav{position:sticky;top:70px;display:flex;flex-direction:column;gap:2px;padding:64px 0 0 20px}
+.setupnav a{padding:7px 10px;border-radius:8px;font:500 13.5px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
+.setupnav a:hover{background:#fff}
+.settings section{scroll-margin-top:70px}
+@media (max-width:900px){ .setupwrap{grid-template-columns:1fr} .setupnav{position:static;flex-direction:row;flex-wrap:wrap;padding:12px 16px 0;gap:4px} .setupnav a{background:#fff;border:1px solid var(--line);padding:5px 10px;font-size:13px} }
+
+/* New bills: progress and a finish line */
+.tprog{display:flex;align-items:center;gap:12px;margin:4px 0 12px;font-size:13px;color:var(--muted)}
+.tprog b{color:var(--ink)}
+.tprogbar{flex:0 0 180px;height:6px;border-radius:4px;background:#E3EAEE;overflow:hidden}
+.tprogbar span{display:block;height:100%;background:var(--teal);border-radius:4px;transition:width .2s}
+.tdone{background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px 20px;text-align:center}
+.tdonebig{font:600 20px 'Lexend','Inter',sans-serif;margin-bottom:6px}
+.tdone p{color:var(--muted);font-size:14px;max-width:520px;margin:0 auto}
+@media (max-width:640px){.tprog{flex-direction:column;align-items:stretch;gap:6px}.tprogbar{flex-basis:6px}}
+
+/* bill page: team note pinned above the chat, timeline folded under Details */
+.pinnote,.tlfold{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 12px;background:#fff}
+.tlfold{margin:16px 0 0}
+.pinnote>summary,.tlfold>summary{cursor:pointer;font:600 13px 'Inter',sans-serif;list-style:none}
+.pinnote>summary::-webkit-details-marker,.tlfold>summary::-webkit-details-marker{display:none}
+.pinnote>summary::after,.tlfold>summary::after{content:'▾';float:right;color:var(--muted)}
+.pinnote[open]>summary,.tlfold[open]>summary{margin-bottom:8px}
+.pinnote .notes textarea{min-height:70px}
+.teamsave{margin:8px 0 2px}
+.savedflash{color:#1E7B45;font-weight:600}
+
+/* glossary: the Capitol's words explain themselves */
+.gl{position:relative;cursor:help;outline:none}
+.gl:not(.stp):not(.pri){border-bottom:1px dotted currentColor}
+.gl:hover::after,.gl:focus::after{content:attr(data-gl);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);z-index:90;width:max-content;max-width:min(280px,70vw);padding:8px 10px;border-radius:8px;background:var(--navy);color:#fff;font:400 12.5px/1.4 'Inter',sans-serif;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;box-shadow:0 8px 24px rgba(12,34,51,.25);pointer-events:none}
+.stagecal .gl:nth-child(-n+2):hover::after,.stagecal .gl:nth-child(-n+2):focus::after{left:0;transform:none}
+.stagecal .gl:nth-last-child(-n+3):hover::after,.stagecal .gl:nth-last-child(-n+3):focus::after{left:auto;right:0;transform:none}
+/* phone: one scope control instead of three */
+.scopesel{display:none}
+@media (max-width:760px){ .fbar .scopesel{display:block;width:auto;max-width:48vw;padding:7px 26px 7px 10px;font:600 13px 'Inter',sans-serif;border-radius:10px} .fbar .seg{display:none} }
+/* contextual help */
+.helpq{vertical-align:middle;margin-left:8px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);font:600 12px 'Inter',sans-serif;cursor:pointer;line-height:1;padding:0}
+.helpq:hover{border-color:var(--teal);color:var(--teal)}
+#help-q{width:100%;max-width:420px;margin:6px 0 10px}
+
+/* first-run checklist */
+.firstrun{background:#fff;border:1px solid var(--teal);border-radius:14px;padding:12px 16px;margin:6px 20px 16px;max-width:1280px}
+.frh{display:flex;align-items:center;gap:10px;margin-bottom:6px}.frh .linkbtn{margin-left:auto}
+.frrow{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid #EEF2F5;font-size:13.5px}
+.frrow[data-view]{cursor:pointer}.frrow[data-view]:hover b{color:var(--teal)}
+.frrow small{display:block;color:var(--muted);font-size:12.5px}
+.frc{flex:0 0 20px;height:20px;border-radius:50%;border:1.5px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff;margin-top:1px}
+.frrow.ok .frc{background:#1E7B45;border-color:#1E7B45}.frrow.ok b{color:var(--muted);font-weight:500;text-decoration:line-through}
+
+.chrow[hidden]{display:none !important}
