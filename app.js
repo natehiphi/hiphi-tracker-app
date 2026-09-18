@@ -2069,24 +2069,74 @@ function wireSettings() {
 
 const SHORTCUTS = [
   ['/', 'Jump to search'], ['j / k', 'Next / previous bill on the page'], ['Enter or o', 'Open the highlighted bill'], ['Esc', 'Close the bill, a menu, or search'],
-  ['f', 'Follow / unfollow the open bill'], ['a', 'I\u2019m attending / not attending the open bill\u2019s next hearing'],
-  ['1 – 5', 'Bill tabs: Details, Team, Public, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
-  ['g then p / t / s / i / n / m', 'Go to Dashboard, All bills, My settings, New bills, Inbox, Weekly memo'], ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (Triage)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (Triage)', 'Track as the nth coalition'], ['?', 'This help page'],
+  ['f', 'Follow / unfollow the open bill'], ['a', 'I’m attending / not attending the open bill’s next hearing'],
+  ['1 – 6', 'Bill tabs: Details, Team, Public, Chat, Notes, Timeline'], ['n / p', 'Next / previous week on the calendar'],
+  ['g then p / i / n / t / l / m / s', 'Go to Dashboard, New bills, Inbox, All bills, Lists, Weekly memo, My settings'],
+  ['e / Shift+A (Inbox)', 'Mark the highlighted item read / mark the whole list read'], ['t / s / u (New bills)', 'Track / skip the highlighted bill, undo the last decision'], ['1 – 9 (New bills)', 'Track as the nth coalition'], ['?', 'This help page'],
 ];
+// Help is a reference, not a tutorial: what each page is for, how each part
+// behaves, the Capitol's words in plain language, and the shortcuts.
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
+  const def = (k, v) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`;
+  const sec = (id, title, inner) => `<section id="help-${id}"><h2>${title}</h2>${inner}</section>`;
+  const nav = [['pages', 'Pages'], ['dash', 'The dashboard'], ['bill', 'A bill’s page'], ['own', 'Owning vs following'], ['testimony', 'Testimony'], ['auto', 'What happens on its own'], ['words', 'The Capitol’s words'], ['stages', 'Stages'], ['public', 'Public page & lists'], ['where', 'Where things live'], ['keys', 'Shortcuts']];
   return `<div class="settings help"><h1>Help</h1>
-    <section><h2>Keyboard shortcuts</h2><div class="keys">${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}</div>
-      <p class="tok">Shortcuts are off while you are typing in a field.</p></section>
-    <section><h2>The home page</h2>
-      <p><b>Testimony waiting on you</b> lists the next step that is yours on each draft: write, submit, approve, file. Admins also see <b>Waiting on others</b>. <b>This week</b> is the hearing calendar for the bills in your lens, with the draft\u2019s next step on each card. <b>Where every bill stands</b> sorts live bills by the deadline they have to meet: needs a hearing, hearing scheduled, cleared committee. <b>Last 72 hours</b> is everything the Legislature and the team did, newest first.</p>
-      <p><b>Viewing</b> picks whose bills you see: My bills (owned or followed), Everyone, or a colleague. <b>Filter</b> narrows by priority, coalition, or triple referral and stays on until cleared.</p></section>
-    <section><h2>Testimony workflow</h2>
-      <p>A hearing notice arrives → the draft Doc is created in Drive and the owner is told → the owner writes it and presses <b>Submit for review</b> → Nate approves → if it is HIPHI\u2019s first testimony on that bill, Jess or Jaylen also approves → the owner files it at the Capitol and presses <b>Mark filed</b>. Written testimony is due 24 hours before the hearing.</p></section>
-    <section><h2>Stages, in plain language</h2>
-      ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop, it must be heard before the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber, it must be heard before the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber, it must be heard before the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`).join('')}</section>
-    <section><h2>Deadlines</h2><p>Bills must clear each stage by the session calendar\u2019s dates or they die. The board shows the date each bill has to meet and the last regular committee slot before it; the 48-hour notice rule means a hearing has to be announced two days before that slot.</p></section>
-    <section><h2>Where things live</h2><p>Drafts: Google Drive, Testimony / year / coalition / bill. Alerts: Slack #hearing-alerts-2027 and coalition channels; DMs for your own steps. Calendar: the HIPHI Hearings Google Calendar. Settings: your DM and reminder preferences under More → Settings. Questions: Nate.</p></section>
+    <p class="helpnav">${nav.map(([id, l]) => `<a data-jump="help-${id}">${l}</a>`).join(' · ')}</p>
+    ${sec('pages', 'What each page is for', `
+      ${def('Dashboard', 'Your day: what is waiting on you, this week’s hearings, and where every bill stands.')}
+      ${def('Inbox', 'Messages, testimony steps and reminders that need you (the badge counts only these), plus official updates on your bills.')}
+      ${def('New bills', 'Search any bill in the session and track it, or decide on the new ones that match your coalitions’ keywords.')}
+      ${def('All bills', 'Every tracked bill as a table: sort, filter, tick several and change owner, position, priority, coalition or list at once. Export CSV.')}
+      ${def('Lists', 'Curated sets of public bills the public can follow with one tap, and the supporters who share their follows with HIPHI.')}
+      ${def('Weekly memo', 'A memo that writes itself from the bill records for one coalition or all: hearings, movement, risk, how to help. Copy it; nothing is sent.')}
+      ${def('My settings', 'How the tracker reaches you: Slack DMs and testimony reminders.')}
+      ${def('Session setup', 'Admins: the session calendar, the import, coalitions, connections, session days, the website embed.')}`)}
+    ${sec('dash', 'The dashboard', `
+      <p><b>Whose bills</b> (My bills, Everyone, a teammate) and the <b>filters</b> narrow every section on the page. Counts on the chips tell you what you would get before you click. What is on shows as tags under the bar; each × removes one.</p>
+      ${def('Action needed', '<b>Yours</b> is the next step on a draft that belongs to you (write, revise, approve, file). <b>Open to anyone</b> is unclaimed: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask. Take one and it is yours. Five rows show, plus anything due within 24 hours; the clock on the left says how long until it is due or the hearing starts.')}
+      ${def('At a glance', 'The Inbox, this week and the board in numbers. Every number is a link.')}
+      ${def('This week', 'Hearings on these bills, Monday to Sunday, one card per bill: time, room, the draft’s state, who is attending, when testimony is due. Arrows page by week; n and p do too.')}
+      ${def('Where every bill stands', 'Closed, it shows four figures: bills that need a hearing, bills with a hearing scheduled, bills through committee, and days to the next deadline with how many bills must be heard by then. Open, it adds the session steps (one per deadline, Today marked) and three columns of cards: bill, what it is about, what is needed next, and the date. Green edge = support, red = oppose, gold = comments.')}
+      ${def('Last 72 hours', 'Official actions on these bills, newest first.')}
+      ${def('Did not advance', 'Bills that missed a deadline, were deferred or failed a vote, with why.')}`)}
+    ${sec('bill', 'A bill’s page', `
+      <p>Top: the plain summary, position, owner, coalition, Follow and Copy link. Then the stage rail, the last official action (click to read all of it) and the <b>Next</b> card: the hearing with time, room and video link, when testimony is due, the draft with its next step, and who is attending.</p>
+      ${def('Details', 'Committee and chair, referrals in both chambers, sponsors, companion, the official description and title, the video link, the Capitol source.')}
+      ${def('Team', 'Position, priority, owner, stage override, coalitions.')}
+      ${def('Public', 'Which lists the bill is on, the one-sentence summary and the ask the public sees, and whether it shows on the public page at all.')}
+      ${def('Chat', 'Tasks and the team thread on this bill. Owners, followers and anyone @mentioned get a Slack DM; new messages also land in the Inbox.')}
+      ${def('Notes', 'Never public. Context for the team.')}
+      ${def('Timeline', 'Every official action and every team note, oldest to newest.')}`)}
+    ${sec('own', 'Owning vs following', `
+      <p>The <b>owner</b> is responsible: drafts are created for the owner, and the steps in Action needed are the owner’s (or the person who submitted the draft, or an approver). <b>Following</b> a bill puts it in My bills, your calendar and your Inbox, and gets you the chat DMs. It never gives you a task. Everyone can follow anything; only admins change owners in bulk.</p>`)}
+    ${sec('testimony', 'Testimony: Write → Review → Approve → File', `
+      <p>The hearing notice arrives and a draft Doc is created in Drive for the owner. The owner writes it and presses <b>Submit for review</b>. An admin approves it (a first-time testimony on a bill also needs a reviewer’s second approval). The owner files it at the Capitol and presses <b>Mark filed</b>. Every draft card shows those four steps with the current one lit. Written testimony is due 24 hours before the hearing. <b>Undo</b> is offered for ten seconds after Mark filed, I’m attending, Skip and removing a bill from a list.</p>`)}
+    ${sec('auto', 'What happens on its own', `
+      ${def('Bills', 'Synced from the Legislature four times a day (hourly in the opening weeks). Stage, committee, last action and versions are never typed by hand.')}
+      ${def('Hearings', 'Read from the Capitol’s notice emails every 30 minutes during session. The card, the calendar event and the Slack alert follow within the hour.')}
+      ${def('Drafts', 'Created from the notice about an hour later for bills with a position other than Monitor, in Drive under Testimony / year / coalition / bill.')}
+      ${def('Video', 'Each hearing links to the chamber’s YouTube channel, and switches to the exact video once the chamber posts it. Staff can paste a link on the bill page.')}
+      ${def('Deadline deaths', 'A bill still in committee when its deadline passes is marked as not advancing, with the deadline it missed.')}
+      ${def('Email', 'Paused for now: nobody receives email from the tracker. Slack DMs are on.')}`)}
+    ${sec('words', 'The Capitol’s words', `
+      ${def('Legislative day', 'The Legislature counts only the days the chambers convene; recess days and holidays do not count. “Day 27 of 58.”')}
+      ${def('Referral', 'The committees a bill must pass through in a chamber, in order. Triple-referred = three or more in one chamber.')}
+      ${def('Triple filing', 'The last day a triple-referred bill can clear its first committee.')}
+      ${def('Lateral', 'The last day a bill can clear any committee that is not the money committee.')}
+      ${def('Decking', 'The last day a bill can clear the money committee (FIN in the House, WAM in the Senate) so it can be voted on.')}
+      ${def('Crossover', 'The last day a bill can pass its first chamber and cross to the other one. The second-chamber dates repeat the same steps; “cross back” is the return trip.')}
+      ${def('Conference', 'The two chambers negotiate one version. Final decking is the last day a conference draft can be agreed.')}
+      ${def('Sine die', 'The last day of session.')}
+      ${def('48-hour notice', 'A committee must announce a hearing at least two days before it. If the last regular meeting before a deadline is closer than that, the bill needs the chair’s help.')}`)}
+    ${sec('stages', 'Stages', `
+      ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop; it must be heard before the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber; it must be heard before the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber; it must be heard before the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => def(k, v)).join('')}`)}
+    ${sec('public', 'The public page and lists', `
+      <p>The public page shows only bills marked <b>Show on public page</b>, with the plain summary and ask from the Public tab. Visitors pick issues, follow bills or a <b>list</b>, and get a five-minute way to testify. Following a list follows every bill on it, including ones you add later. At sign-in people choose whether to get hearing emails and whether HIPHI may see what they follow; those who say yes appear under Lists → Supporters. Everyone else’s follows are counts only.</p>
+      <p>Share a bill with <code>${esc(APP_URL)}#bill=HB1563</code> or a list with <code>…/track.html#list=keiki-health</code>. Session setup has the code to put the tracker on hiphi.org.</p>`)}
+    ${sec('where', 'Where things live', `
+      <p>Drafts: Google Drive, Testimony / year / coalition / bill. Alerts: Slack #hearing-alerts and the coalition channels; DMs for your own steps. Calendar: the HIPHI Hearings Google Calendar. Video: the Senate and House YouTube channels. Your DM and reminder choices: My settings. Questions: Nate.</p>`)}
+    ${sec('keys', 'Keyboard shortcuts', `<div class="keys">${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}</div><p class="tok">Shortcuts are off while you are typing in a field.</p>`)}
   </div>`;
 }
 // The spreadsheet export: a banner line, then a header with Bill Number /
@@ -3369,7 +3419,7 @@ document.addEventListener('keydown', e => {
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
   if (S.drawerBill) {
     const b = S.bills.find(x => x.id === S.drawerBill);
-    if ('12345'.includes(k) && k) { const tab = ['details', 'team', 'public', 'notes', 'timeline'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
+    if ('123456'.includes(k) && k) { const tab = ['details', 'team', 'public', 'chat', 'notes', 'timeline'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
     if (k === 'f') { document.querySelector('[data-follow]')?.click(); return; }
     if (k === 'a') { document.querySelector('[data-attend]')?.click(); return; }
     return;

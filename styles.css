@@ -1570,3 +1570,7 @@ details.actopen>summary:hover{background:#F7FAFB}
   .rail:hover .rl,.rail:focus-within .rl,body.rail-pinned .rail .rl{transform:translateY(-6px)}
   .rail .rn,.rail:not(:hover):not(:focus-within) .rn,body.rail-pinned .rail .rn{top:3px;left:38px}
 }
+.helpnav{font-size:13px;color:var(--muted);margin:-4px 0 16px;line-height:1.9}
+.helpnav a{color:var(--teal);cursor:pointer;font-weight:600}
+.help section{margin-bottom:22px}
+.help .krow b{min-width:150px}
