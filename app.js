@@ -57,7 +57,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -135,7 +135,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -161,6 +161,9 @@ const DB = {
       S.supa.from('bill_message_reads').select('*'),
       S.supa.rpc('my_inbox', { p_limit: 300 }),
       S.supa.from('session_calendar').select('*'),
+      S.supa.from('public_lists').select('*').is('archived_at', null).order('sort_order').order('created_at'),
+      S.supa.from('public_list_bills').select('*').order('sort_order').order('added_at'),
+      S.supa.rpc('list_follow_counts'),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -171,6 +174,7 @@ const DB = {
     S.syncCfg = sycfg?.data?.value || {};
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
+    S.lists = pls?.data || []; S.listBills = plb?.data || []; S.listFollowers = Object.fromEntries((plf?.data || []).map(r => [r.list_id, Number(r.followers)]));
     S.slots = slots?.data || [];
     S.followersBy = {}; (fol?.data || []).forEach(r => (S.followersBy[r.bill_id] ??= []).push(r.advocate_id));
     S.attend = {}; (att?.data || []).forEach(r => (S.attend[r.hearing_id] ??= []).push(r.advocate_id));
@@ -515,6 +519,42 @@ const DB = {
     if (DEMO) return;
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
+  // ---- curated lists ----
+  async createList({ title, description, icon }) {
+    const base = title.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'list';
+    let slug = base, i = 2; while (S.lists.some(l => l.slug === slug)) slug = `${base}-${i++}`;
+    const row = { slug, title: title.trim(), description: (description || '').trim() || null, icon: (icon || '').trim() || null, owner_id: S.me?.id || null, is_published: false, sort_order: 100 + S.lists.length };
+    if (DEMO) { const l = { id: 'demo-' + Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...row }; S.lists.push(l); return l; }
+    const { data, error } = await S.supa.from('public_lists').insert(row).select('*').single(); if (error) throw error; S.lists.push(data); return data;
+  },
+  async updateList(id, patch) {
+    const l = S.lists.find(x => x.id === id); if (!l) return; Object.assign(l, patch, { updated_at: new Date().toISOString() });
+    if (DEMO) return;
+    const { error } = await S.supa.from('public_lists').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
+  },
+  async archiveList(id) { await this.updateList(id, { archived_at: new Date().toISOString(), is_published: false }); S.lists = S.lists.filter(l => l.id !== id); },
+  async addListBills(listId, billIds) {
+    const have = new Set(S.listBills.filter(x => x.list_id === listId).map(x => x.bill_id));
+    const ids = billIds.filter(id => !have.has(id) && S.bills.some(b => b.id === id && b.tracked !== false && b.is_public));
+    if (!ids.length) return 0;
+    const base = S.listBills.filter(x => x.list_id === listId).length;
+    const rows = ids.map((bill_id, i) => ({ list_id: listId, bill_id, note: null, sort_order: 100 + base + i, added_at: new Date().toISOString() }));
+    if (!DEMO) { const { error } = await S.supa.from('public_list_bills').insert(rows.map(({ added_at, ...r }) => r)); if (error) throw error; }
+    S.listBills.push(...rows); return rows.length;
+  },
+  async removeListBill(listId, billId) {
+    if (!DEMO) { const { error } = await S.supa.from('public_list_bills').delete().eq('list_id', listId).eq('bill_id', billId); if (error) throw error; }
+    S.listBills = S.listBills.filter(x => !(x.list_id === listId && x.bill_id === billId));
+  },
+  async setListBill(listId, billId, patch) {
+    const x = S.listBills.find(r => r.list_id === listId && r.bill_id === billId); if (!x) return; Object.assign(x, patch);
+    if (!DEMO) { const { error } = await S.supa.from('public_list_bills').update(patch).eq('list_id', listId).eq('bill_id', billId); if (error) throw error; }
+  },
+  async sharedFollowers() {
+    if (DEMO) return [{ user_id: 'd1', email: 'malia@example.com', name: 'Malia K.', consent_at: new Date(Date.now() - 5 * 864e5).toISOString(), hearing_alerts: true, bills: ['HB1562', 'HB2121', 'SB972'] },
+      { user_id: 'd2', email: 'keoni@example.com', name: null, consent_at: new Date(Date.now() - 12 * 864e5).toISOString(), hearing_alerts: false, bills: ['HB1562'] }];
+    const { data, error } = await S.supa.rpc('shared_followers'); if (error) throw error; return data || [];
+  },
   async setHearingStream(hearingId, url) {
     const h = S.hearings.find(x => x.id === hearingId); if (!h) return;
     if (!DEMO) { const { data, error } = await S.supa.rpc('set_hearing_stream', { p_hearing: hearingId, p_url: url || '' }); if (error) throw error; h.stream_url = data || null; }
@@ -589,6 +629,7 @@ async function demoInit() {
   S.slots = snap.slots;
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
+  S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -761,7 +802,7 @@ function visibleBills() {
 // ---------------- shared chrome ----------------
 // Portfolio is the home page (Nate, 9/14). The other views stay available
 // under "More" (Table is desktop-only: it never worked at phone width).
-const MORE_VIEWS = [['memo','Weekly memo'],['triage','Triage'],['table','Table'],['settings','Settings'],['help','Help']];
+const MORE_VIEWS = [['lists','Lists'],['memo','Weekly memo'],['triage','Triage'],['table','Table'],['settings','Settings'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
 const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
 const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
@@ -775,14 +816,14 @@ function filterSummary() {
 // count, session facts at the foot. Collapsed to icons until hovered or
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
-const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
+const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard'], ['inbox', '✉', 'Inbox'], ['add', '＋', 'Add bills'], ['lists', '☰', 'Lists'], ['memo', '✎', 'Weekly memo'], ['triage', '⚖', 'Triage'], ['table', '▤', 'Table'], ['settings', '⚙', 'Settings'], ['help', '?', 'Help']];
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = localStorage.getItem('railPinned') === '1';
   document.body.classList.add('has-rail'); document.body.classList.toggle('rail-pinned', pinned);
   const count = v => v === 'inbox' ? inboxCount() : v === 'triage' ? (S.triageCounts?.undecided || 0) : 0;
   const ld = legislativeDay();
-  return `<aside class="rail" aria-label="Sections">
+  return `<aside class="rail ${S.railQuiet ? 'quiet' : ''}" aria-label="Sections">
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
     <nav>${RAIL_ITEMS.map(([v, ic, l]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}</span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>
     <div class="rfoot">
@@ -1473,6 +1514,7 @@ function bulkBar() {
       <option value="__none">Unassign</option></select>
     <select id="bk-camp"><option value="">Add to coalition…</option>
       ${S.campaigns.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+    ${(S.lists || []).length ? `<select id="bk-list"><option value="">Add to a list…</option>${S.lists.map(l => `<option value="${l.id}">${esc(l.title)}</option>`).join('')}</select>` : ''}
     <button class="clear" id="bk-clear">Clear selection</button>
   </div>` + (hidden ? `<div class="bulkwarn">
     <span><b>${hidden}</b> of these ${hidden === 1 ? 'is' : 'are'} hidden by the current
@@ -2167,6 +2209,85 @@ function wireMemo() {
     try { await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([memoHTML(m)], { type: 'text/html' }), 'text/plain': new Blob([memoText(m)], { type: 'text/plain' }) })]); toast('Memo copied with formatting'); }
     catch { try { await navigator.clipboard.writeText(memoText(m)); toast('Copied as plain text'); } catch (e) { toast('Could not copy: ' + e.message, true); } } });
 }
+// ---------------- Lists: curated sets of public bills the public can follow ----------------
+// A list is not tied to a coalition. Following stays in sync: a bill added
+// later joins every follower's bills (database trigger). Staff see follower
+// counts, and the people who agreed to share their follows (Supporters).
+const PUBLIC_APP = () => new URL('track.html', location.href).href.split('?')[0];
+function renderLists() {
+  const v = S.listView ??= { open: null, q: {} , supporters: null, supQ: '' };
+  const lists = (S.lists || []).slice().sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+  const billsOf = l => S.listBills.filter(x => x.list_id === l.id).sort((a, b) => a.sort_order - b.sort_order || a.added_at.localeCompare(b.added_at)).map(x => ({ x, b: billById(x.bill_id) })).filter(r => r.b);
+  const card = l => { const rows = billsOf(l), open = v.open === l.id, link = `${PUBLIC_APP()}#list=${l.slug}`, followers = S.listFollowers?.[l.id] || 0;
+    const q = (v.q[l.id] || '').trim().toLowerCase(), qn = q.replace(/\s/g, '');
+    const hits = q.length >= 2 ? S.bills.filter(b => b.is_public && b.tracked !== false && !rows.some(r => r.b.id === b.id) && (b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(q) || (b.public_summary || '').toLowerCase().includes(q))).slice(0, 8) : [];
+    return `<div class="panel lcard ${l.is_published ? '' : 'draft'}" id="list-${l.id}">
+      <div class="lhead" data-lopen="${l.id}">
+        <span class="licon">${esc(l.icon || '☰')}</span>
+        <span class="ltitle"><b>${esc(l.title)}</b><span class="lsub">${rows.length} bill${rows.length === 1 ? '' : 's'} · ${followers} following · ${l.is_published ? '<span class="live">published</span>' : '<span class="draft">draft, not visible yet</span>'}</span></span>
+        <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" data-lpub="${l.id}" ${l.is_published ? 'checked' : ''}><span>${l.is_published ? 'Published' : 'Publish'}</span></label>
+        <span class="lchev">${open ? '▴' : '▾'}</span>
+      </div>
+      ${open ? `<div class="lbody">
+        <div class="lgrid">
+          <label>Title<input data-lfield="title" data-list="${l.id}" value="${esc(l.title)}" maxlength="80"></label>
+          <label>Icon<input data-lfield="icon" data-list="${l.id}" value="${esc(l.icon || '')}" maxlength="4" placeholder="one emoji"></label>
+          <label class="wide">One friendly sentence<input data-lfield="description" data-list="${l.id}" value="${esc(l.description || '')}" maxlength="200" placeholder="What this list is for, in the public’s words"></label>
+        </div>
+        <div class="lshare"><span class="tok">Link: <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></span><button class="btn sm ghost" data-lcopy="${esc(link)}">Copy link</button><button class="btn sm ghost" data-lembed="${esc(l.slug)}">Copy embed code</button>${l.is_published ? '' : '<span class="tok warn">Publish to make the link work.</span>'}</div>
+        <div class="lbills">${rows.length ? rows.map(({ x, b }, i) => `<div class="lrow" data-bill="${b.id}">
+            <span class="lord"><button data-lmove="${l.id}|${b.id}|-1" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button data-lmove="${l.id}|${b.id}|1" ${i === rows.length - 1 ? 'disabled' : ''} title="Move down">▼</button></span>
+            <span class="lmain"><b>${esc(billNum(b))}</b> <span class="muted">${esc(blurb(b, 90))}</span>
+              <input class="lnote" data-lnote="${l.id}|${b.id}" value="${esc(x.note || '')}" maxlength="160" placeholder="Optional note for the public: why this bill matters on this list"></span>
+            <button class="lrm" data-lrm="${l.id}|${b.id}" title="Remove from this list">×</button></div>`).join('') : '<div class="pempty">No bills yet. Search below, or tick bills in the Table and choose “Add to a list”.</div>'}</div>
+        <div class="ladd"><input type="search" data-lq="${l.id}" value="${esc(v.q[l.id] || '')}" placeholder="Add a bill: number or words (public bills only)">
+          ${hits.length ? `<div class="lhits">${hits.map(b => `<button data-ladd="${l.id}|${b.id}"><b>${esc(billNum(b))}</b> ${esc(blurb(b, 80))}</button>`).join('')}</div>` : (q.length >= 2 ? '<div class="tok">No public bill matches.</div>' : '')}</div>
+        <div class="lfoot"><span class="tok">${l.owner_id ? 'Curated by ' + esc(advocate(l.owner_id)?.full_name || 'HIPHI') : 'Curated by HIPHI'} · updated ${fmtDate(l.updated_at)}</span><button class="linkbtn danger" data-larchive="${l.id}">Archive this list</button></div>
+      </div>` : ''}
+    </div>`; };
+  const sup = v.supporters;
+  const supRows = sup ? sup.filter(r => !v.supQ || (r.email + ' ' + (r.name || '') + ' ' + r.bills.join(' ')).toLowerCase().includes(v.supQ.toLowerCase())) : [];
+  return `<div class="listswrap">
+    <div class="dashhead"><h1>Lists</h1><span class="sub">Curated sets of public bills the public can follow with one tap. A list is not tied to a coalition. When you add a bill later, everyone following the list gets it automatically.</span></div>
+    <div class="panel lnew"><div class="ph"><span>＋ New list</span></div>
+      <div class="lgrid"><label>Title<input id="ln-title" maxlength="80" placeholder="Keiki health 2027"></label><label>Icon<input id="ln-icon" maxlength="4" placeholder="🧒"></label>
+        <label class="wide">One friendly sentence<input id="ln-desc" maxlength="200" placeholder="The bills that decide what kids eat, breathe and can get care for this year."></label></div>
+      <div class="btns"><button class="btn sm" id="ln-create">Create as a draft</button></div></div>
+    ${lists.length ? lists.map(card).join('') : '<div class="pempty">No lists yet.</div>'}
+    <div class="panel supporters" id="supporters"><div class="ph"><span>🙋 Supporters who share their follows</span><span class="psub">people who said yes to “let HIPHI see which bills I follow” · nobody else is listed here</span></div>
+      ${sup ? `<div class="ifilters"><input type="search" id="sup-q" placeholder="Filter by email, name or bill" value="${esc(v.supQ)}"><span class="tok">${supRows.length} of ${sup.length}</span><button class="btn sm ghost" id="sup-csv" ${sup.length ? '' : 'disabled'}>⬇ Export CSV</button></div>
+        ${supRows.length ? `<table class="suptable"><thead><tr><th>Person</th><th>Alerts</th><th>Agreed</th><th>Follows</th></tr></thead><tbody>${supRows.map(r => `<tr><td><b>${esc(r.name || r.email)}</b>${r.name ? `<br><span class="muted">${esc(r.email)}</span>` : ''}</td><td>${r.hearing_alerts ? 'hearing emails on' : '<span class="muted">off</span>'}</td><td>${r.consent_at ? fmtDate(r.consent_at) : '—'}</td><td>${r.bills.length} bill${r.bills.length === 1 ? '' : 's'}<br><span class="muted">${esc(r.bills.slice(0, 12).join(', '))}${r.bills.length > 12 ? '…' : ''}</span></td></tr>`).join('')}</tbody></table>` : '<div class="pempty">Nobody yet. The choice is offered when people sign in to the public page.</div>'}`
+      : `<div class="pempty"><button class="btn sm ghost" id="sup-load">Show supporters</button></div>`}
+    </div>
+  </div>`;
+}
+function wireLists() {
+  const v = S.listView;
+  const keepOpen = (id, fn) => async () => { try { await fn(); } catch (e) { toast(e.message, true); } v.open = id; rerenderKeep(); };
+  $('#ln-create') && ($('#ln-create').onclick = async () => { const title = $('#ln-title').value.trim(); if (title.length < 2) return toast('Give the list a title', true);
+    try { const l = await DB.createList({ title, description: $('#ln-desc').value, icon: $('#ln-icon').value }); v.open = l.id; toast('List created as a draft'); render(); document.getElementById('list-' + l.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-lopen]').forEach(el => el.onclick = e => { if (e.target.closest('label, input')) return; v.open = v.open === el.dataset.lopen ? null : el.dataset.lopen; rerenderKeep(); });
+  document.querySelectorAll('[data-lpub]').forEach(el => el.onchange = keepOpen(el.dataset.lpub, async () => { const l = S.lists.find(x => x.id === el.dataset.lpub); const on = el.checked;
+    if (on && !S.listBills.some(x => x.list_id === l.id)) { el.checked = false; throw new Error('Add at least one bill before publishing'); }
+    await DB.updateList(l.id, { is_published: on }); toast(on ? 'Published — the link works now' : 'Unpublished'); }));
+  document.querySelectorAll('[data-lfield]').forEach(el => el.onchange = keepOpen(el.dataset.list, async () => { const val = el.value.trim(); if (el.dataset.lfield === 'title' && val.length < 2) throw new Error('Title is too short'); await DB.updateList(el.dataset.list, { [el.dataset.lfield]: val || null }); toast('Saved'); }));
+  document.querySelectorAll('[data-lnote]').forEach(el => el.onchange = async () => { const [lid, bid] = el.dataset.lnote.split('|'); try { await DB.setListBill(lid, bid, { note: el.value.trim() || null }); toast('Note saved'); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-lrm]').forEach(el => el.onclick = e => { e.stopPropagation(); const [lid, bid] = el.dataset.lrm.split('|'); keepOpen(lid, () => DB.removeListBill(lid, bid))(); });
+  document.querySelectorAll('[data-ladd]').forEach(el => el.onclick = () => { const [lid, bid] = el.dataset.ladd.split('|'); keepOpen(lid, async () => { await DB.addListBills(lid, [bid]); v.q[lid] = ''; })(); });
+  document.querySelectorAll('[data-lmove]').forEach(el => el.onclick = e => { e.stopPropagation(); const [lid, bid, d] = el.dataset.lmove.split('|');
+    keepOpen(lid, async () => { const rows = S.listBills.filter(x => x.list_id === lid).sort((a, b) => a.sort_order - b.sort_order || a.added_at.localeCompare(b.added_at)); const i = rows.findIndex(x => x.bill_id === bid), j = i + Number(d); if (j < 0 || j >= rows.length) return;
+      [rows[i], rows[j]] = [rows[j], rows[i]]; for (let k = 0; k < rows.length; k++) if (rows[k].sort_order !== 100 + k) await DB.setListBill(lid, rows[k].bill_id, { sort_order: 100 + k }); })(); });
+  document.querySelectorAll('[data-lq]').forEach(el => { let t; el.oninput = () => { v.q[el.dataset.lq] = el.value; clearTimeout(t); t = setTimeout(() => { v.open = el.dataset.lq; rerenderKeep(); const n = document.querySelector(`[data-lq="${el.dataset.lq}"]`); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); }; });
+  document.querySelectorAll('[data-lcopy]').forEach(el => el.onclick = async () => { try { await navigator.clipboard.writeText(el.dataset.lcopy); toast('Link copied'); } catch { prompt('Copy this link', el.dataset.lcopy); } });
+  document.querySelectorAll('[data-lembed]').forEach(el => el.onclick = async () => { const u = new URL('embed.html', location.href); u.search = ''; u.searchParams.set('list', el.dataset.lembed);
+    const code = `<iframe id="hiphi-tracker" src="${u.href}" title="HIPHI bill list" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
+    try { await navigator.clipboard.writeText(code); toast('Embed code copied'); } catch { prompt('Copy this code', code); } });
+  document.querySelectorAll('[data-larchive]').forEach(el => el.onclick = async () => { const l = S.lists.find(x => x.id === el.dataset.larchive); if (!confirm(`Archive “${l.title}”? The public link stops working; people keep the bills they already follow.`)) return; try { await DB.archiveList(l.id); toast('Archived'); render(); } catch (e) { toast(e.message, true); } });
+  $('#sup-load') && ($('#sup-load').onclick = async () => { try { v.supporters = await DB.sharedFollowers(); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#sup-q') && ($('#sup-q').oninput = () => { v.supQ = $('#sup-q').value; const y = scrollY; render(); scrollTo(0, y); const n = $('#sup-q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
+  $('#sup-csv') && ($('#sup-csv').onclick = () => { const rows = [['email', 'name', 'agreed', 'hearing_alerts', 'bills'], ...v.supporters.map(r => [r.email, r.name || '', r.consent_at || '', r.hearing_alerts ? 'yes' : 'no', r.bills.join(' ')])];
+    const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'hiphi-supporters.csv'; a.click(); });
+}
 // ---------------- Triage: every introduced bill gets one decision ----------------
 // Sandbox: keyword rules against the untracked index (titles + descriptions).
 function demoTriageQueue(campaignId, matchedOnly) {
@@ -2705,6 +2826,8 @@ function drawerHTML(b) {
           : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>`)}
       ${pane('public', `<div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
         <div class="pubgrid">
+          <label>Lists</label>
+          <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — More → Lists.</span>'}</div>
           <label for="d-psum">Plain-language summary</label>
           <textarea id="d-psum" maxlength="280" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(b.public_summary || '')}</textarea>
           <label for="d-pact">Take Action ask</label>
@@ -2807,6 +2930,7 @@ function render() {
     : S.view === 'triage' ? renderTriage()
     : S.view === 'inbox' ? renderInbox()
     : S.view === 'memo' ? renderMemo()
+    : S.view === 'lists' ? renderLists()
     : S.view === 'help' ? renderHelp()
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
@@ -2820,11 +2944,13 @@ function wire() {
   if (S.view === 'triage') wireTriage();
   if (S.view === 'inbox') wireInbox();
   if (S.view === 'memo') wireMemo();
+  if (S.view === 'lists') wireLists();
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toast(on ? 'Marked as attending' : 'No longer attending'); rerenderKeep(); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null;
+    if (el.closest('.rail')) S.railQuiet = true;   // stay collapsed until the mouse leaves, so the page is not covered
     if (S.view === 'inbox') { const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true }; v.tab = el.dataset.inboxgo || 'needs'; v.kind = ''; }
     render();
     if (S.view === 'add') $('#addq')?.focus();
@@ -2837,9 +2963,13 @@ function wire() {
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
   $('#logout3') && ($('#logout3').onclick = () => DB.logout());
+  document.querySelectorAll('[data-listt]').forEach(el => el.onclick = async e => { e.stopPropagation(); const b = S.bills.find(x => x.id === S.drawerBill); if (!b) return; const lid = el.dataset.listt;
+    const on = S.listBills.some(x => x.list_id === lid && x.bill_id === b.id);
+    try { if (on) await DB.removeListBill(lid, b.id); else await DB.addListBills(lid, [b.id]); toast(on ? 'Removed from the list' : 'Added to the list'); rerenderKeep(); } catch (err) { toast(err.message, true); } });
   document.querySelectorAll('[data-setstream]').forEach(el => el.onclick = async e => { e.stopPropagation(); const h = S.hearings.find(x => x.id === el.dataset.setstream); if (!h) return;
     const url = prompt('Paste the YouTube address for this hearing (leave blank to go back to the channel link):', h.stream_url || ''); if (url === null) return;
     try { await DB.setHearingStream(h.id, url.trim()); toast(url.trim() ? 'Video link saved' : 'Back to the channel link'); render(); } catch (err) { toast(err.message, true); } });
+  $('.rail') && ($('.rail').onmouseleave = () => { if (S.railQuiet) { S.railQuiet = false; $('.rail')?.classList.remove('quiet'); } });
   $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
@@ -2922,6 +3052,8 @@ function wire() {
   $('#bk-own') && ($('#bk-own').onchange = e => { const v = e.target.value; if (v)
     bulkGo(async () => { for (const id of S.selected) await DB.setOwner(id, v === '__none' ? null : v); },
       v === '__none' ? `Unassigned ${S.selected.size} bills` : `Owner set on ${S.selected.size} bills`); });
+  $('#bk-list') && ($('#bk-list').onchange = e => { const v = e.target.value; if (v)
+    bulkGo(async () => { const n = await DB.addListBills(v, [...S.selected]); const skipped = S.selected.size - n; if (skipped) toast(`${skipped} skipped: only public bills can go on a list`); }, `Added to ${esc(S.lists.find(l => l.id === v)?.title || 'the list')}`); });
   $('#bk-camp') && ($('#bk-camp').onchange = e => { const v = e.target.value; if (v)
     bulkGo(() => DB.addToCampaign([...S.selected], v), `Added ${S.selected.size} bills to coalition`); });
   $('#bk-clear') && ($('#bk-clear').onclick = () => { S.selected.clear(); render(); });
@@ -3201,7 +3333,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
-  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', t: 'table', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
+  if (KEY_PENDING_G) { KEY_PENDING_G = false; const m = { p: 'portfolio', t: 'table', s: 'settings', h: 'help', i: 'triage', n: 'inbox', m: 'memo', l: 'lists' }[k]; if (m) { S.view = m; S.drawerBill = null; localStorage.setItem('view', m); render(); } return; }
   if (k === 'g') { KEY_PENDING_G = true; setTimeout(() => { KEY_PENDING_G = false; }, 1200); return; }
   if (k === '/') { e.preventDefault(); const q = [...document.querySelectorAll('.qbox')].find(el => el.checkVisibility()); if (q) { q.focus(); q.select(); } return; }
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }

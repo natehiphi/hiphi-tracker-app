@@ -76,7 +76,9 @@ const SHORTCUTS = [
 
 const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
   committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
-  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null };
+  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false };
+const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
+const CONSENT_KEY = 'hiphi_consent_pending';
 
 // ---------------- data ----------------
 async function init() {
@@ -87,7 +89,7 @@ async function init() {
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) boot(); });
 }
 // ---------------- sandbox data ----------------
-const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [] };
+const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [] };
 async function demoLoad() {
   const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
@@ -103,6 +105,7 @@ async function demoLoad() {
   D.hearings = snap.hearings.map(h => ({ ...h, bill_number: snap.bills.find(b => b.id === h.bill_id)?.bill_number }));
   D.activity = snap.activity.map(a => ({ bill_id: a.bill_id, title: a.title, details: a.details, occurred_at: a.occurred_at }));
   D.outcomes = snap.outcomes;
+  D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   S.slots = snap.slots;
@@ -143,12 +146,78 @@ async function loadUser() {
   const { data, error } = await S.supa.rpc('ensure_public_user');
   if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut(); return; } throw error; }
   S.user = data;
+  // Choices made on the sign-in page, before the account existed.
+  let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
+  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, share_follows: !!pending.share_follows, consent_at: new Date().toISOString() };
+    const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; try { localStorage.removeItem(CONSENT_KEY); } catch {} }
+  S.consentCard = !(S.user.prefs || {}).consent_at;
+  // Lists followed on this device join the account (and stay in sync from here on).
+  const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
+  for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
+  try { localStorage.removeItem(LISTS_KEY); } catch {}
   const wl = await S.supa.from('watchlist').select('bill_id');
   const server = new Set((wl.data || []).map(r => r.bill_id));
   // First sign-in: what was starred on this device joins the account.
   const local = localWatch(); const missing = [...local].filter(id => !server.has(id));
   if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id }))); missing.forEach(id => server.add(id)); }
   S.watch = server; saveLocal();
+}
+// ---------------- curated lists ----------------
+// HIPHI staff curate lists of public bills. Following a list follows every
+// bill on it now and every bill added later (the database does that for
+// signed-in members; signed-out follows live in this browser and join the
+// account at sign-in).
+function localListFollows() { try { return new Set(JSON.parse(localStorage.getItem(LISTS_KEY) || '[]')); } catch { return new Set(); } }
+function saveListFollows() { try { localStorage.setItem(LISTS_KEY, JSON.stringify([...S.listFollows])); } catch {} }
+async function loadLists() {
+  if (DEMO) { S.lists = D.lists.map(l => ({ ...l, bills: D.listBills.filter(x => x.list_id === l.id).length, followers: l.followers || 0, curated_by: 'HIPHI' })); }
+  else { const { data } = await S.supa.from('public_lists_v').select('*').order('featured', { ascending: false }).order('sort_order'); S.lists = data || []; }
+  if (!S.user) S.listFollows = localListFollows();
+}
+async function listBillsFor(slug) {
+  if (S.listBills[slug]) return S.listBills[slug];
+  const l = S.lists.find(x => x.slug === slug); if (!l) return null;
+  let rows, bills;
+  if (DEMO) { rows = D.listBills.filter(x => x.list_id === l.id); bills = D.bills.filter(b => rows.some(r => r.bill_id === b.id)); }
+  else { const r = await S.supa.from('public_list_bills_v').select('*').eq('slug', slug); rows = r.data || [];
+    const ids = rows.map(x => x.bill_id); bills = ids.length ? (await S.supa.from('public_all_bills').select('*').in('id', ids)).data || [] : []; }
+  const out = rows.sort((a, b) => a.sort_order - b.sort_order || String(a.added_at).localeCompare(String(b.added_at))).map(x => ({ note: x.note, b: bills.find(b => b.id === x.bill_id) })).filter(x => x.b);
+  out.forEach(({ b }) => { S.extra[b.id] = b; });
+  S.listBills[slug] = out; return out;
+}
+async function followList(slug, on) {
+  const l = S.lists.find(x => x.slug === slug); if (!l) return;
+  const rows = await listBillsFor(slug) || [];
+  if (on) S.listFollows.add(l.id); else S.listFollows.delete(l.id);
+  if (S.user && !DEMO) {
+    const r = on ? await S.supa.rpc('follow_list', { p_list: l.id }) : await S.supa.rpc('unfollow_list', { p_list: l.id });
+    if (r.error) { toast(r.error.message, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
+  } else saveListFollows();
+  if (on) { rows.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
+  l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
+  await loadBills();
+  if (on && !S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+  render();
+  toast(on ? `Following ${rows.length} bill${rows.length === 1 ? '' : 's'} on “${l.title}” — new ones HIPHI adds will follow too` : `You no longer follow “${l.title}”; the bills stay in Your bills`);
+}
+const listTile = l => { const on = S.listFollows.has(l.id); return `<div class="ltile ${on ? 'on' : ''}"><button class="lopen" data-list="${esc(l.slug)}"><span class="ticon">${esc(l.icon || '☰')}</span><span class="tname">${esc(l.title)}</span><span class="tdesc">${esc(l.description || '')}</span><span class="tcount"><b>${l.bills}</b> bill${Number(l.bills) === 1 ? '' : 's'}${Number(l.followers) ? ` · ${l.followers} following` : ''}</span></button><button class="btn sm ${on ? 'ghost' : ''}" data-followlist="${esc(l.slug)}" data-on="${on ? 0 : 1}">${on ? '✓ Following' : 'Follow this list'}</button></div>`; };
+function listsStrip(title = 'Lists from HIPHI') {
+  if (!S.lists.length) return '';
+  return `<section class="lists"><div class="sec">${esc(title)}</div><p class="desc">Follow a list and you follow every bill on it — including the ones HIPHI adds later.</p><div class="ltiles">${S.lists.map(listTile).join('')}</div></section>`;
+}
+function listPage() {
+  const l = S.lists.find(x => x.slug === S.listSlug); if (!l) return `<div class="pubhead"><h1>List not found</h1><span class="sub"><button class="linkbtn" data-nav="find">← all lists</button></span></div>`;
+  const rows = S.listBills[l.slug], on = S.listFollows.has(l.id);
+  return `<div class="pubhead"><h1>${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}</h1><span class="sub">${esc(l.description || '')} · curated by ${esc(l.curated_by || 'HIPHI')} · ${l.bills} bill${Number(l.bills) === 1 ? '' : 's'}${Number(l.followers) ? ` · ${l.followers} following` : ''}</span></div>
+    <div class="listcta ${on ? 'on' : ''}"><button class="btn ${on ? 'ghost' : ''}" data-followlist="${esc(l.slug)}" data-on="${on ? 0 : 1}">${on ? '✓ Following this list' : 'Follow this list'}</button><span class="tok">${on ? 'Every bill here is in Your bills. When HIPHI adds a bill to this list, it follows too.' : 'One tap follows every bill here, and any bill HIPHI adds later.'}</span></div>
+    ${rows ? (rows.length ? `<div class="rows">${rows.map(({ b, note }) => `<div class="row prow listrow" data-open="${b.id}"><span class="bno">${esc(billNum(b))}</span>
+        <span class="t">${esc(blurb(b, 140))}${note ? `<em class="lnote">${esc(note)}</em>` : ''}<small>${b.hiphi_position ? esc(POS_SAYS[b.hiphi_position] || b.hiphi_position) + ' · ' : ''}${esc(stopOf(b).says.split('.')[0])}</small></span>${watchBtn(b)}</div>`).join('')}</div>` : '<p class="desc"><i>Nothing on this list yet.</i></p>') : '<p class="desc">Loading…</p>'}
+    <p class="tok" style="margin-top:14px"><button class="linkbtn" data-nav="find">← all lists and issues</button></p>`;
+}
+const POS_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes', strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting', monitor: 'HIPHI is watching' };
+async function openList(slug) {
+  S.view = 'list'; S.listSlug = slug; S.open = null; history.replaceState(null, '', '#list=' + slug); render(); window.scrollTo(0, 0);
+  await listBillsFor(slug); render();
 }
 async function loadBills() {
   const ids = [...S.watch];
@@ -322,6 +391,8 @@ async function openBill(id, known) {
 }
 function closeBill() { S.open = null; history.replaceState(null, '', location.pathname + location.search); render(); }
 async function openFromHash() {
+  const lm = /list=([a-z0-9-]+)/.exec(decodeURIComponent(location.hash));
+  if (lm) { await openList(lm[1]); return; }
   const m = /bill=([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash));
   if (!m) return;
   const num = m[1].replace(/\s/g, '').toUpperCase();
@@ -656,9 +727,14 @@ function find() {
     <button class="tile" data-tile="${esc(c.names[0])}"><span class="ticon">${esc(c.icon || '📋')}</span><span class="tname">${esc(c.key)}</span><span class="tdesc">${esc(c.description || '')}</span><span class="tcount">${c.live ? `<b>${c.live}</b> live bill${c.live === 1 ? '' : 's'}` : 'no live bills right now'}</span></button>`).join('');
   return `<div class="pubhead"><h1>${S.browse ? esc(cname(S.browse.name)) : S.results ? `Search: “${esc(S.q)}”` : 'Add bills'}</h1><span class="sub">${S.browse || S.results ? `<button class="linkbtn" data-browse="">← all issues</button> · ` : ''}search above, pick an issue, or <button class="linkbtn" data-wizrestart>start over with the guided picks</button>. You follow ${S.watch.size} bill${S.watch.size === 1 ? '' : 's'}.</span></div>
     ${searchBox()}
-    ${S.browse || S.results ? '' : `<div class="tiles">${tiles}</div>`}
+    ${S.browse || S.results ? '' : listsStrip()}
+    ${S.browse || S.results ? '' : `<div class="sec">Issues</div><div class="tiles">${tiles}</div>`}
     ${S.browse || S.results ? '' : recoHTML(false).replace('More ways to help this week', 'Bills that need someone this week')}`;
 }
+const consentCardHTML = () => S.consentCard && S.user && !DEMO ? `<section class="ccard"><div class="sec">Two quick choices</div>
+    <label class="row"><input type="checkbox" id="cc-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b> <small>Off unless you tick it.</small></span></label>
+    <label class="row"><input type="checkbox" id="cc-share"><span><b>Let HIPHI see which bills I follow</b> <small>so staff can reach out about them. Otherwise they only see counts.</small></span></label>
+    <div class="btns"><button class="btn sm" id="cc-save">Save</button><button class="btn sm ghost" id="cc-later">Not now</button></div></section>` : '';
 function home() {
   const now = Date.now();
   if (!S.watch.size || S.view === 'wizard') return landing();
@@ -784,8 +860,12 @@ function signin() {
     <div class="signin">
       <p>Enter your email and we send a sign-in link. No password. Your bills follow you to any device, and you can turn on email alerts for hearings on your bills.</p>
       <input type="email" id="si-email" placeholder="you@example.com" autocomplete="email">
+      <div class="consent">
+        <label class="row"><input type="checkbox" id="si-alerts"><span><b>Email me when a hearing is scheduled on a bill I follow.</b><br><small>The Capitol posts hearings about two days ahead; this is how you hear in time to testify. Off unless you tick it.</small></span></label>
+        <label class="row"><input type="checkbox" id="si-share"><span><b>Let HIPHI see which bills I follow.</b><br><small>So HIPHI staff can reach out to you about those bills. Otherwise staff only ever see how many people follow each bill, never who.</small></span></label>
+      </div>
       <button class="btn" id="si-send">Send me a sign-in link</button>
-      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email and the list of bills you watch, nothing else. HIPHI staff can see how many people watch each bill, never who. You can delete your account and everything with it at any time from Settings.</p>
+      <p class="tok" style="margin-top:12px"><b>Privacy.</b> We keep your email, the bills and lists you follow, and the two choices above. Both can be changed any time in Settings. You can delete your account and everything with it at any time.</p>
     </div>`;
 }
 function settings() {
@@ -797,7 +877,11 @@ function settings() {
         <option value="weekly" ${(p.digest || 'weekly') === 'weekly' ? 'selected' : ''}>Weekly, Monday morning</option>
         <option value="daily" ${p.digest === 'daily' ? 'selected' : ''}>Every morning</option>
         <option value="off" ${p.digest === 'off' ? 'selected' : ''}>Off</option></select></label>
-      <label class="row"><input type="checkbox" id="st-alerts" ${p.hearing_alerts !== false ? 'checked' : ''}><span>Email me when a hearing is scheduled on a bill I watch</span></label>
+      <label class="row"><input type="checkbox" id="st-alerts" ${p.hearing_alerts === true ? 'checked' : ''}><span>Email me when a hearing is scheduled on a bill I follow</span></label>
+      <h3>Sharing with HIPHI</h3>
+      <label class="row"><input type="checkbox" id="st-share" ${p.share_follows === true ? 'checked' : ''}><span>Let HIPHI staff see which bills I follow, so they can reach out about them</span></label>
+      <label class="row"><span style="min-width:120px">Your name</span><input id="st-name" value="${esc(p.name || '')}" maxlength="80" placeholder="optional · shown to HIPHI staff only if you share"></label>
+      <p class="tok">${p.consent_at ? `Choices saved ${fmtDate(p.consent_at)}.` : 'You have not saved these choices yet.'} Without sharing, HIPHI only ever sees how many people follow each bill.</p>
       <div class="btns"><button class="btn" id="st-save">Save</button></div>
       <h3>Your data</h3>
       <p class="tok">We keep your email and your watchlist. Deleting your account removes both immediately and cannot be undone.</p>
@@ -823,7 +907,7 @@ function help() {
   </div>`;
 }
 function render() {
-  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : home();
+  const inner = S.view === 'signin' ? signin() : S.view === 'settings' && S.session ? settings() : S.view === 'help' ? help() : S.view === 'find' ? find() : S.view === 'list' ? listPage() : consentCardHTML() + home();
   const b = S.open && findBill(S.open);
   $('#app').innerHTML = chrome(inner) + (b ? panelFor(b) : '') + (S.helper ? helperHTML() : '');
   wire(); wireHelper();
@@ -887,14 +971,23 @@ function wire() {
   $('#scrim') && ($('#scrim').onclick = closeBill); $('#dclose') && ($('#dclose').onclick = closeBill);
   $('#si-send') && ($('#si-send').onclick = async () => {
     const email = $('#si-email').value.trim(); if (!email) return;
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts: $('#si-alerts').checked, share_follows: $('#si-share').checked })); } catch {}
     const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) toast(error.message, true); else { toast('Check your email for the link'); $('#si-send').disabled = true; }
   });
   $('#st-save') && ($('#st-save').onclick = async () => {
-    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked };
+    const prefs = { ...(S.user.prefs || {}), digest: $('#st-digest').value, hearing_alerts: $('#st-alerts').checked, share_follows: $('#st-share').checked, name: $('#st-name').value.trim() || null, consent_at: new Date().toISOString() };
     const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
-    if (error) toast(error.message, true); else { S.user.prefs = prefs; toast('Saved'); }
+    if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; toast('Saved'); }
   });
+  $('#cc-save') && ($('#cc-save').onclick = async () => {
+    const prefs = { ...(S.user.prefs || {}), hearing_alerts: $('#cc-alerts').checked, share_follows: $('#cc-share').checked, consent_at: new Date().toISOString() };
+    const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
+    if (error) toast(error.message, true); else { S.user.prefs = prefs; S.consentCard = false; render(); toast('Saved — change it any time in Settings'); }
+  });
+  $('#cc-later') && ($('#cc-later').onclick = () => { S.consentCard = false; render(); });
+  document.querySelectorAll('[data-followlist]').forEach(el => el.onclick = e => { e.stopPropagation(); followList(el.dataset.followlist, el.dataset.on === '1'); });
+  document.querySelectorAll('[data-list]').forEach(el => el.onclick = e => { e.stopPropagation(); openList(el.dataset.list); });
   $('#st-delete') && ($('#st-delete').onclick = async () => {
     if (!confirm('Delete your account and your watchlist? This cannot be undone.')) return;
     const { error } = await S.supa.rpc('delete_my_account');
@@ -934,7 +1027,7 @@ document.addEventListener('keydown', e => {
   if (k === 'Enter' || k === 'o') { const r = document.querySelector('.kfocus[data-open]'); if (r) { e.preventDefault(); openBill(r.dataset.open); } }
 });
 async function boot() {
-  try { await loadUser(); await loadBills(); render(); await openFromHash(); }
+  try { await loadUser(); await loadLists(); await loadBills(); render(); await openFromHash(); }
   catch (e) { $('#app').innerHTML = `<div class="boot">Something went wrong: ${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Retry</button></div>`; }
 }
 window.addEventListener('hashchange', openFromHash);

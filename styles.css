@@ -1154,6 +1154,8 @@ details.fold .calnav{margin-left:auto}
   body.has-rail .top.staff .logo,body.has-rail .top.staff .viewtabs{display:none}
   .rail{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:60px;z-index:55;background:var(--navy);color:#C9DAE2;padding:12px 8px;overflow:hidden;transition:width .16s ease;box-shadow:none}
   .rail:hover,.rail:focus-within,body.rail-pinned .rail{width:216px}
+  body:not(.rail-pinned) .rail.quiet:hover{width:60px;box-shadow:none}
+  body:not(.rail-pinned) .rail.quiet:hover .rl,body:not(.rail-pinned) .rail.quiet:hover .rfacts{opacity:0;height:0}
   body:not(.rail-pinned) .rail:hover,body:not(.rail-pinned) .rail:focus-within{box-shadow:12px 0 32px rgba(12,34,51,.28)}
   .rail .rl{opacity:0;white-space:nowrap;transition:opacity .12s ease;pointer-events:none}
   .rail:hover .rl,.rail:focus-within .rl,body.rail-pinned .rail .rl{opacity:1}
@@ -1422,3 +1424,55 @@ body.staffapp .loginwrap{min-height:calc(100vh / 1.07)}
 .chip3.min .lnext{font-size:13px;color:var(--ink);line-height:1.35}
 .chip3.min .ldl{font-size:12px;color:var(--muted)}
 .chip3.min .ldl.hot{color:var(--red);font-weight:600}
+
+/* ---- Lists (staff) ---- */
+.listswrap{padding:4px 32px 30px;max-width:980px}
+.listswrap .dashhead{padding-left:0;padding-right:0}
+.lnew .lgrid{padding:12px 16px 0}
+.lgrid{display:grid;grid-template-columns:1fr 90px;gap:10px 14px}
+.lgrid label{display:flex;flex-direction:column;gap:4px;font:600 11px 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.lgrid label.wide{grid-column:1/-1}
+.lgrid input{font:400 13.5px 'Inter',sans-serif;letter-spacing:0;text-transform:none;color:var(--ink)}
+.lnew .btns{padding:10px 16px 14px}
+.lcard{margin-bottom:14px}
+.lcard.draft{border-style:dashed}
+.lhead{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer}
+.lhead:hover{background:#F7FAFB}
+.licon{font-size:22px;flex:none;width:32px;text-align:center}
+.ltitle{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ltitle b{font-size:15px}
+.lsub{font-size:12px;color:var(--muted)}
+.lsub .live{color:var(--green);font-weight:600}.lsub .draft{color:#B7791F;font-weight:600}
+.lhead .switch{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+.lhead .switch input{width:16px;height:16px;margin:0}
+.lchev{color:var(--muted)}
+.lbody{border-top:1px solid #EEF2F5;padding:14px 18px 16px}
+.lshare{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:12px 0}
+.lshare .tok a{color:var(--teal);word-break:break-all}
+.tok.warn{color:#B7791F}
+.lbills{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.lrow{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid #EEF2F5}
+.lrow:last-child{border-bottom:none}
+.lord{display:flex;flex-direction:column;gap:2px}
+.lord button{border:1px solid var(--line);background:#fff;border-radius:5px;font-size:9px;padding:1px 5px;color:var(--muted);cursor:pointer}
+.lord button:disabled{opacity:.3;cursor:default}
+.lmain{flex:1;min-width:0;font-size:13px}
+.lmain b{color:var(--teal)}
+.lnote{display:block;width:100%;margin-top:6px;font-size:12.5px;padding:6px 9px}
+.lrm{border:none;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px}
+.lrm:hover{color:var(--red)}
+.ladd{margin-top:12px;position:relative}
+.ladd input{width:100%}
+.lhits{margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.lhits button{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #EEF2F5;padding:9px 12px;font:400 13px 'Inter',sans-serif;cursor:pointer}
+.lhits button:last-child{border-bottom:none}
+.lhits button:hover{background:#F2F6F8}
+.lhits b{color:var(--teal)}
+.lfoot{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.linkbtn.danger{color:var(--red)}
+.listchips button small{font-weight:500;opacity:.7}
+.supporters .ifilters{padding:12px 16px 0}
+.suptable{width:100%;border-collapse:collapse;font-size:13px}
+.suptable th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:10px 16px;border-bottom:1px solid var(--line)}
+.suptable td{padding:10px 16px;border-bottom:1px solid #EEF2F5;vertical-align:top}
+@media (max-width:760px){ .listswrap{padding:4px 12px 30px} .lgrid{grid-template-columns:1fr 70px} .suptable{font-size:12px} }
