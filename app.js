@@ -1469,10 +1469,7 @@ function renderPortfolio(list) {
       </div>
     </div>`;
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
-  const welcome = (() => { try { if (localStorage.getItem('hiphi_welcome')) return ''; } catch { return ''; }
-    const own = S.bills.filter(b => (S.assignments[b.id] || []).includes(me.id)).length;
-    return `<div class="welcome" id="welcome"><b>Welcome, ${esc((me.full_name || '').split(' ')[0] || 'there')}.</b> You own ${own} bill${own === 1 ? '' : 's'}. <b>Action needed</b> is what is waiting on you; everything below it is reference. The filters at the top narrow every section, and the search box finds any bill in the session. Nothing here needs setting up.<button class="linkbtn" id="welcome-x">Got it</button></div>`; })();
-  return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + welcome + banner + todayStrip + `
+  return head(dashTitle(), `${today}${(ld => ld ? ' · ' + esc(ld.text) : '')(legislativeDay())} · ${stripShort}`) + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
       <div>${glance}${recentHearingsHtml}</div>
@@ -3000,7 +2997,6 @@ function wire() {
     const url = prompt('Paste the YouTube address for this hearing (leave blank to go back to the channel link):', h.stream_url || ''); if (url === null) return;
     try { await DB.setHearingStream(h.id, url.trim()); toast(url.trim() ? 'Video link saved' : 'Back to the channel link'); render(); } catch (err) { toast(err.message, true); } });
   $('.rail') && ($('.rail').onmouseleave = () => { if (S.railQuiet) { S.railQuiet = false; $('.rail')?.classList.remove('quiet'); } });
-  $('#welcome-x') && ($('#welcome-x').onclick = () => { try { localStorage.setItem('hiphi_welcome', '1'); } catch {} $('#welcome')?.remove(); });
   $('#railpin') && ($('#railpin').onclick = () => { localStorage.setItem('railPinned', localStorage.getItem('railPinned') === '1' ? '0' : '1'); render(); });
   document.querySelectorAll('[data-week]').forEach(el => el.onclick = e => {
     e.stopPropagation(); e.preventDefault(); const v = Number(el.dataset.week); S.weekOffset = v === 0 ? 0 : (S.weekOffset || 0) + v;
