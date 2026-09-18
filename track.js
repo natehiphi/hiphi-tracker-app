@@ -234,10 +234,16 @@ const legChips = l => S.committeeMembers.filter(m => m.legislator_id === l.id).s
 // the places a legislator's district covers, one name each
 const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/^(a )?portions? of\s+/i, '').trim()).filter(Boolean);
 // what the box suggests
+const looksLikeAddress = q => /\d/.test(q) && q.trim().length >= 4;
+async function fetchAddrSuggest(q) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?suggest=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } });
+  const j = await r.json(); return (j.results || []);
+}
 function legSuggest(q) {
   const k = plain(q.trim()); if (k.length < 2) return [];
   const out = [];
-  if (/^\d/.test(k) && k.length >= 5) out.push({ kind: 'address', label: `Look up the address “${q.trim()}”`, q: q.trim() });
+  if (S.addrSug && S.addrSug.q === q.trim()) out.push(...S.addrSug.results.map(x => ({ kind: 'addr', label: x.label, lat: x.lat, lon: x.lon, exact: x.exact })));
+  if (/^\d/.test(k) && k.length >= 5 && !out.some(x => x.exact)) out.push({ kind: 'address', label: `Look up “${q.trim()}” as typed`, q: q.trim() });
   const dm = /^(senate|house|sd|hd)?\s*(district)?\s*(\d{1,2})$/.exec(k);
   if (dm) { const n = +dm[3]; if (!dm[1] || /^s/.test(dm[1])) out.push({ kind: 'district', label: `Senate District ${n}`, chamber: 'S', district: n }); if (!dm[1] || /^h/.test(dm[1])) out.push({ kind: 'district', label: `House District ${n}`, chamber: 'H', district: n }); }
   const places = new Map();
@@ -246,11 +252,11 @@ function legSuggest(q) {
   out.push(...S.legislators.filter(l => plain(l.name).includes(k) || plain(l.sort_name).includes(k)).slice(0, 6).map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, ids: [l.id] })));
   return out.slice(0, 12);
 }
-async function legLookupAddress(q) {
-  if (DEMO) { toast('Address lookup is off in the sandbox — try a town or district'); return null; }
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } });
+async function legLookupAddress(q, pt) {
+  const url = pt ? `${SUPABASE_URL}/functions/v1/geo-lookup?lat=${pt.lat}&lon=${pt.lon}` : `${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`;
+  const r = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
   const j = await r.json(); if (!j.found) return { none: true };
-  return { matched: j.matched, ids: S.legislators.filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) };
+  return { matched: j.matched || q, ids: S.legislators.filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) };
 }
 // mail draft for a legislator about a bill (or a general note)
 function legDraft(l, b) {
@@ -286,7 +292,7 @@ function legislatorsPage() {
   return `<div class="pubhead"><h1>Your legislators</h1><span class="sub">Every Hawaiʻi senator and representative. Type your street address, town, district or a name.</span></div>
     <div class="legfind">
       <input type="search" id="leg-q" placeholder="e.g. 415 S Beretania St, Honolulu · Kīhei · Senate District 9 · Amato" value="${esc(S.legQ)}" autocomplete="off">
-      ${sug.length ? `<div class="legsug">${sug.map((x, i) => `<button data-legsug="${i}"><span class="sk">${x.kind === 'address' ? '📍' : x.kind === 'district' ? '#' : x.kind === 'place' ? '🏘' : '👤'}</span>${esc(x.label)}${x.ids && x.ids.length > 1 ? ` <small>${x.ids.length} legislators</small>` : ''}</button>`).join('')}</div>` : ''}
+      ${sug.length ? `<div class="legsug">${sug.map((x, i) => `<button data-legsug="${i}"><span class="sk">${x.kind === 'addr' || x.kind === 'address' ? '📍' : x.kind === 'district' ? '#' : x.kind === 'place' ? '🏘' : '👤'}</span>${esc(x.label)}${x.kind === 'addr' && !x.exact ? ' <small>area</small>' : ''}${x.ids && x.ids.length > 1 ? ` <small>${x.ids.length} legislators</small>` : ''}</button>`).join('')}</div>` : (looksLikeAddress(S.legQ) && S.addrLoading ? '<div class="legsug"><button disabled><span class="sk">…</span>Looking up addresses</button></div>' : '')}
     </div>
     ${pick ? `<div class="legresult"><div class="sec">${pick.none ? 'No match for that address' : esc(pick.label)}${pick.matched ? ` <span class="tok">· ${esc(pick.matched)}</span>` : ''}${picked.length > 2 ? ' <span class="tok">· this area crosses district lines, so more than one legislator serves it</span>' : ''}</div>
       ${pick.none ? '<p class="desc">Try the street number and name with the town, or pick a town or district from the suggestions.</p>' : picked.map(l => legCard(l, null, true)).join('')}</div>` : ''}
@@ -1088,9 +1094,11 @@ function wire() {
   });
   $('#cc-later') && ($('#cc-later').onclick = () => { S.consentCard = false; render(); });
   const legRender = () => { const y = scrollY; render(); scrollTo(0, y); };
-  $('#leg-q') && ($('#leg-q').oninput = () => { S.legQ = $('#leg-q').value; S.legPick = null; clearTimeout(S.legT); S.legT = setTimeout(() => { legRender(); const n = $('#leg-q'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 150); });
+  const refocus = () => { const n = $('#leg-q'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+  $('#leg-q') && ($('#leg-q').oninput = () => { S.legQ = $('#leg-q').value; S.legPick = null; clearTimeout(S.legT); S.legT = setTimeout(async () => { legRender(); refocus();
+    const q = S.legQ.trim(); if (looksLikeAddress(q) && !(S.addrSug && S.addrSug.q === q)) { S.addrLoading = true; try { const results = await fetchAddrSuggest(q); if (S.legQ.trim() === q) { S.addrSug = { q, results }; } } catch {} S.addrLoading = false; if (S.legQ.trim() === q) { legRender(); refocus(); } } }, 250); });
   document.querySelectorAll('[data-legsug]').forEach(el => el.onclick = async () => { const x = legSuggest(S.legQ)[Number(el.dataset.legsug)]; if (!x) return;
-    if (x.kind === 'address') { toast('Looking up the address…'); try { const r = await legLookupAddress(x.q); if (r) S.legPick = { label: 'Your legislators', ...r }; } catch { toast('Could not look that up. Try a town or district.', true); } }
+    if (x.kind === 'address' || x.kind === 'addr') { toast('Finding the districts…'); try { const r = await legLookupAddress(x.q || x.label, x.kind === 'addr' ? x : null); if (r) { S.legPick = { label: 'Your legislators', ...r, matched: x.kind === 'addr' ? x.label : r.matched }; S.legQ = x.label || x.q; } } catch { toast('Could not look that up. Try a town or district.', true); } }
     else if (x.kind === 'district') S.legPick = { label: x.label, ids: S.legislators.filter(l => l.chamber === x.chamber && l.district === x.district).map(l => l.id) };
     else { S.legPick = { label: x.kind === 'place' ? `Legislators for ${x.label}` : x.label, ids: x.ids }; S.legTown = x.kind === 'place' ? x.label : null; }
     legRender(); });

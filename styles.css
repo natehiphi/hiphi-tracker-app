@@ -1634,3 +1634,11 @@ details.actopen>summary:hover{background:#F7FAFB}
 .pwmembers{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0 18px}
 .pwmembers .pw{grid-template-columns:34px minmax(0,1fr) auto}
 @media (max-width:760px){ .legwrap{padding:4px 12px 30px} .leggrid{grid-template-columns:1fr} .pwmembers{grid-template-columns:1fr} .lhero{flex-direction:column} }
+.legbox{position:relative}
+.legbox .legsug{position:absolute;left:0;top:calc(100% + 4px);width:min(520px,100%);z-index:30;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(12,34,51,.14);overflow:hidden}
+.legbox .legsug button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #EEF2F5;padding:9px 12px;font:500 13px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
+.legbox .legsug button:last-child{border-bottom:none}
+.legbox .legsug button:hover:not(:disabled){background:#F2F6F8}
+.legbox .legsug small{color:var(--muted);margin-left:6px}
+.legpick{margin:14px 0}
+.legpick .ph{align-items:center}

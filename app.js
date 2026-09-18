@@ -2358,6 +2358,10 @@ const legMailto = (l, b) => { const ask = b && (b.public_action || '').trim(); c
   const body = b ? `Aloha ${legTitle(l)} ${l.name.split(' ').pop()},\n\nI am writing about ${b.bill_number.replace(/^(\D+)/, '$1 ')}, ${blurb(b, 120)}\n\n${ask ? ask + '\n\n' : ''}Mahalo,\nHawaiʻi Public Health Institute` : '';
   return `mailto:${l.email || ''}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`; };
 
+// Address lookup for staff too: suggestions from the proxy as you type, then the point -> districts.
+const looksLikeAddress = q => /\d/.test(q) && q.trim().length >= 4;
+async function geoSuggest(q) { const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?suggest=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } }); return (await r.json()).results || []; }
+async function geoDistricts(pt, q) { const r = await fetch(pt ? `${SUPABASE_URL}/functions/v1/geo-lookup?lat=${pt.lat}&lon=${pt.lon}` : `${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } }); return r.json(); }
 function renderLegislators() {
   const v = S.legView ??= { q: '', chamber: '', committee: '' };
   const q = plain(v.q.trim());
@@ -2367,16 +2371,23 @@ function renderLegislators() {
   const card = l => `<button class="lcardm" data-leg="${l.id}">${legPhoto(l)}<span class="lm"><b>${esc(legTitle(l))} ${esc(l.name)}${l.party ? ` <small>(${esc(l.party)})</small>` : ''}</b><span class="ld">${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}${l.title ? ` · ${esc(l.title)}` : ''}</span><span class="lp">${esc(l.places || '')}</span><span class="lc">${legChips(l)}</span></span></button>`;
   return `<div class="legwrap">
     <div class="dashhead"><h1>Legislators</h1><span class="sub">Every senator and representative, from the Capitol’s pages: district, the places it covers, committees, contact. Open one for their record on our bills and the team’s notes.</span></div>
-    <div class="ifilters"><input type="search" id="leg-q" placeholder="Name, town, district, committee…" value="${esc(v.q)}">
+    <div class="ifilters legbox"><input type="search" id="leg-q" placeholder="Name, town, district, or a street address…" value="${esc(v.q)}" autocomplete="off">
+      ${v.addr && v.addr.q === v.q.trim() && v.addr.results.length && !v.pick ? `<div class="legsug">${v.addr.results.map((x, i) => `<button data-addrpick="${i}"><span class="sk">📍</span>${esc(x.label)}${x.exact ? '' : ' <small>area</small>'}</button>`).join('')}</div>` : (looksLikeAddress(v.q) && v.addrLoading && !v.pick ? '<div class="legsug"><button disabled><span class="sk">…</span>Looking up addresses</button></div>' : '')}
       <select id="leg-ch"><option value="">Both chambers</option><option value="S" ${v.chamber === 'S' ? 'selected' : ''}>Senate</option><option value="H" ${v.chamber === 'H' ? 'selected' : ''}>House</option></select>
       <select id="leg-cm"><option value="">Any committee</option>${Object.values(S.committees || {}).filter(c => !v.chamber || c.chamber === v.chamber).sort((a, b) => a.code.localeCompare(b.code)).map(c => `<option value="${esc(c.code)}" ${v.committee === c.code ? 'selected' : ''}>${esc(c.code)} · ${esc(c.name)}</option>`).join('')}</select>
       <span class="tok">${rows.length} of ${(S.legislators || []).length}</span></div>
+    ${v.pick ? `<div class="panel legpick"><div class="ph"><span>📍 ${esc(v.pick.label)}</span><span class="psub">${esc(v.pick.matched || '')}</span><button class="linkbtn" id="leg-pickx" style="margin-left:auto">clear</button></div><div class="leggrid" style="padding:12px">${v.pick.ids.map(legById).filter(Boolean).map(card).join('') || '<div class="pempty">No match for that address.</div>'}</div></div>` : ''}
     <div class="leggrid">${rows.map(card).join('') || '<div class="pempty">No one matches.</div>'}</div>
   </div>`;
 }
 function wireLegislators() {
   const v = S.legView; const keepQ = () => { const y = scrollY; render(); scrollTo(0, y); const n = $('#leg-q'); if (n && document.activeElement !== n && v.focusQ) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
-  $('#leg-q') && ($('#leg-q').oninput = () => { v.q = $('#leg-q').value; v.focusQ = true; clearTimeout(v.t); v.t = setTimeout(keepQ, 200); });
+  $('#leg-q') && ($('#leg-q').oninput = () => { v.q = $('#leg-q').value; v.pick = null; v.focusQ = true; clearTimeout(v.t); v.t = setTimeout(async () => { keepQ();
+    const q = v.q.trim(); if (looksLikeAddress(q) && !(v.addr && v.addr.q === q)) { v.addrLoading = true; try { const results = await geoSuggest(q); if (v.q.trim() === q) v.addr = { q, results }; } catch {} v.addrLoading = false; if (v.q.trim() === q) keepQ(); } }, 200); });
+  document.querySelectorAll('[data-addrpick]').forEach(el => el.onclick = async () => { const x = v.addr.results[Number(el.dataset.addrpick)]; if (!x) return; toast('Finding the districts…');
+    try { const j = await geoDistricts(x, null); v.pick = { label: 'Legislators for this address', matched: x.label, ids: j.found ? (S.legislators || []).filter(l => (l.chamber === 'S' && l.district === j.senate) || (l.chamber === 'H' && l.district === j.house)).map(l => l.id) : [] }; v.focusQ = false; render(); }
+    catch (e) { toast('Could not look that up', true); } });
+  $('#leg-pickx') && ($('#leg-pickx').onclick = () => { v.pick = null; v.q = ''; render(); });
   $('#leg-ch') && ($('#leg-ch').onchange = () => { v.chamber = $('#leg-ch').value; v.focusQ = false; render(); });
   $('#leg-cm') && ($('#leg-cm').onchange = () => { v.committee = $('#leg-cm').value; v.focusQ = false; render(); });
 }
