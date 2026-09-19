@@ -1,0 +1,130 @@
+/* Today (#/) and review mode (#/review): plan 3.1 and 3.2. Every selector sits under .td-root or .td-rv.
+   Budget on a phone: sandbox band 28 + header 56 + subline 56 + group header 44 = the first card at 184px. */
+
+/* ---- the page ---- */
+.td-root { margin-top: calc(-1 * var(--s12)); }   /* the frame gives main 12px on top; the subline sits flush under the header */
+.td-root .td-sub { display: flex; align-items: center; gap: var(--s12); min-height: 56px; }
+.td-root .td-date { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.td-root .td-date > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .td-date > span:first-child { color: var(--n700); font-weight: 700; }
+.td-root .td-sep { display: none; }
+.td-root .td-sub .sv-seg { flex: none; }
+.td-root .td-sub .sv-seg button { min-height: 44px; padding: 0 14px; }   /* 44px targets on phones (the shared control is 40) */
+.td-root .sv-notice { margin: 0 0 var(--s8); }
+
+/* group headers are real h2s (for screen-reader navigation) drawn as the shared 44px group row */
+.td-root .td-h, .td-rv .td-h { margin: 0; font-size: var(--t16); letter-spacing: 0; }
+.td-root .td-h .sv-group { background: transparent; border: 0; padding: 0 var(--s4); border-radius: var(--r8); }
+.td-root .td-h .sv-group .ic.td-late { width: 18px; height: 18px; color: var(--bad-text); margin-right: 6px; vertical-align: -3px; }
+.td-root .td-h button.sv-group:hover { background: var(--n100); }
+.td-root .td-group + .td-group { margin-top: 0; }
+.td-root .td-list { display: flex; flex-direction: column; gap: var(--s8); }
+
+/* ---- a card: bill line, the task sentence, the reason, one button (plus one text button), then "Also" rows ---- */
+.td-root .td-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1);
+  padding: var(--s12) var(--s12) var(--s12) var(--s16); display: grid; grid-template-columns: minmax(0, 1fr); scroll-margin: calc(var(--header) + var(--s16)) 0 calc(var(--tabbar) + var(--s16)); }
+.td-root .td-card:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r12); }
+.td-root .td-top { display: flex; align-items: center; min-width: 0; gap: var(--s4); }
+/* the bill link and the ⋯ button are 44px targets that spill into the card's padding, so the line itself stays 24px */
+.td-root .td-bill { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s8); min-height: 44px; margin: -10px 0 -10px -8px; padding: 10px 8px;
+  border-radius: var(--r8); text-decoration: none; color: inherit; line-height: 24px; }
+.td-root a.td-bill:hover { background: var(--n50); }
+.td-root .td-num, .td-rv .td-num { font: 700 var(--t16)/24px var(--font-h); color: var(--n900); white-space: nowrap; letter-spacing: -.005em; }
+.td-root .td-bill .sv-p1 { align-self: center; flex: none; }
+.td-root .td-t { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .td-kind { align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.td-root .td-kind .ic { width: 18px; height: 18px; }
+.td-root .td-more { margin: -10px -6px -10px 0; }
+.td-root .td-s { margin-top: var(--s4); font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.td-root .td-why .sv-chip { margin-right: var(--s4); vertical-align: 1px; }
+.td-root .td-why { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.td-root .td-why .sv-count { vertical-align: -1px; }
+.td-root .td-part { white-space: nowrap; }
+.td-root .td-part.long { white-space: normal; }
+.td-root .td-note { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-q, .td-rv .td-q { margin: var(--s8) 0 0; padding: 2px 0 2px var(--s12); border-left: 3px solid var(--n200); font-size: var(--t14); line-height: 20px; color: var(--n700);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.td-root .td-acts { margin-top: var(--s8); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.td-root .td-acts .btn.primary { padding: 0 20px; }
+.td-root .td-acts .btn.text { padding: 0 8px; margin-left: -4px; }
+/* "Also: Reply to Kevin ›": a 44px row across the card's foot */
+.td-root .td-also { display: flex; align-items: center; gap: var(--s8); width: calc(100% + var(--s12) + var(--s16)); min-height: 44px; margin: var(--s8) calc(-1 * var(--s12)) calc(-1 * var(--s8)) calc(-1 * var(--s16));
+  padding: 0 var(--s12) 0 var(--s16); border-top: 1px solid var(--n100); font-size: var(--t14); color: var(--n700); text-decoration: none; text-align: left; }
+.td-root .td-also + .td-also { margin-top: var(--s8); }
+.td-root .td-also:last-child { border-radius: 0 0 var(--r12) var(--r12); }
+.td-root a.td-also:hover, .td-root button.td-also:hover { background: var(--n50); }
+.td-root .td-also-t { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .td-also-l { font-weight: 700; color: var(--n900); }
+.td-root .td-also .sv-count { flex: none; font-size: var(--t13); }
+.td-root .td-also .chev { width: 18px; height: 18px; color: var(--n400); flex: none; }
+/* read-only rows in Team view: somebody else's step */
+.td-root .td-card.td-wait { background: var(--n50); box-shadow: none; }
+.td-root .td-card.td-wait .td-s { font-size: var(--t14); line-height: 20px; color: var(--n700); }
+/* the review cluster */
+.td-root .td-cluster { border-color: var(--p100); }
+.td-root .td-cluster .td-s { margin-top: 0; font-weight: 700; display: flex; align-items: center; gap: var(--s8); }
+.td-root .td-cluster .td-s .ic { width: 20px; height: 20px; color: var(--p700); }
+
+/* ---- all clear ---- */
+.td-root .td-clear { display: flex; align-items: center; gap: var(--s12); padding: var(--s12) var(--s16); margin-bottom: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+.td-root .td-clear-t { font-weight: 700; color: var(--n900); }
+.td-root .td-empty .empty { padding-top: var(--s48); }
+.td-root .td-yay { display: inline-flex; color: var(--o600); animation: td-pop .5s var(--ease) both; }
+.td-root .td-yay .ic { width: 32px; height: 32px; }
+.td-root .td-clear .td-yay .ic { width: 28px; height: 28px; }
+@keyframes td-pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .td-root .td-yay { display: none; } }
+
+/* ---- what changed since yesterday ---- */
+.td-root .td-dig { margin-top: var(--s12); }
+.td-root .td-digrows .row { min-height: 48px; padding: var(--s8) var(--s16); }
+.td-root .td-digrows .title { font-weight: 400; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.td-root .td-digrows .td-num { margin-right: 6px; }
+.td-root .td-more-n { color: var(--n500); }
+.td-root .td-digrows .end { font-size: var(--t13); gap: 4px; }
+.td-root .td-digrows .end .ic { width: 16px; height: 16px; }
+.td-root .td-dmore { padding: var(--s12) var(--s16); border-top: 1px solid var(--n100); }
+
+/* ---- review mode ---- */
+.td-rv .td-rvbar { display: flex; align-items: center; gap: var(--s4); min-height: 56px; }
+.td-rv .td-rvx { display: none; margin-left: -10px; }
+.td-rv .td-rvh { flex: 1 1 auto; min-width: 0; font-size: var(--t18); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-rv .td-rvn { font-family: var(--font); font-weight: 700; color: var(--n500); }
+.td-rv .td-rvbar .btn.text { margin-right: -8px; }
+.td-rv .td-rvcard { display: flex; flex-direction: column; gap: var(--s8); }
+.td-rv .td-rveb { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.td-rv .td-rveb > .ic { width: 18px; height: 18px; }
+.td-rv .td-rvtitle { font: 700 var(--t16)/1.35 var(--font); color: var(--n900); letter-spacing: 0; }
+.td-rv .td-rvtitle .td-num { margin-right: 4px; }
+.td-rv .td-rvt { font-weight: 400; color: var(--n700); }
+.td-rv .td-rvline { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-rv .td-rvline > .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
+.td-rv .td-rvline .sv-count .ic { width: 18px; height: 18px; }
+.td-rv .sv-steps { margin: var(--s4) 0; }
+.td-rv .td-rvcard .notice { margin: 0; }
+.td-rv .td-rvcard .btn.secondary { margin-top: var(--s4); min-height: 52px; }
+.td-rv .td-rvmail { margin-top: var(--s4); min-width: 0; overflow-wrap: anywhere; }
+.td-rv .td-keys { display: none; margin-top: var(--s12); font-size: var(--t13); color: var(--n500); text-align: center; }
+.td-rv .td-rvlog { margin-top: var(--s8); }
+.td-rv .td-rvlog .row .lead { width: 32px; height: 32px; }
+.td-rv .td-rvlog .row .lead .ic { width: 18px; height: 18px; }
+.td-rv .td-rvlog .sub { color: var(--n700); }
+.td-rv .td-rvendbtns { margin-top: var(--s24); }
+.td-rv.td-rvend .empty { padding-bottom: var(--s8); }
+
+/* ---- desktop: a 720px column, the button on the sentence row, keys for hover-capable pointers ---- */
+@media (min-width: 900px) {
+  .td-root { margin-top: 0; }
+  .td-root .td-date { flex-direction: row; flex-wrap: wrap; }
+  .td-root .td-date > span { white-space: normal; }
+  .td-root .td-sep { display: inline; margin: 0 6px; }
+  .td-root .td-card { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s16); padding: var(--s12) var(--s16); }
+  .td-root .td-card > * { grid-column: 1 / -1; }
+  .td-root .td-card > .td-s, .td-root .td-card > .td-why, .td-root .td-card > .td-note { grid-column: 1; }
+  .td-root .td-card > .td-acts { grid-column: 2; grid-row: 2 / span 2; align-self: center; margin-top: 0; flex-direction: row-reverse; flex-wrap: nowrap; }
+  .td-root .td-acts .btn.text { margin-left: 0; }
+  .td-root .td-also { width: calc(100% + 2 * var(--s16)); margin-left: calc(-1 * var(--s16)); margin-right: calc(-1 * var(--s16)); padding: 0 var(--s16); }
+  .td-rv .td-rvx { display: inline-flex; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) { .td-rv .td-keys { display: block; } }
+@media (max-width: 359px) { .td-root .td-sub .sv-seg button { padding: 0 12px; } }

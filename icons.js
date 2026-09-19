@@ -146,7 +146,14 @@ export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "circle-user":"<circle cx=\"12\" cy=\"12\" r=\"10\"/> <circle cx=\"12\" cy=\"10\" r=\"3\"/> <path d=\"M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662\"/>",
 "move-up":"<path d=\"M8 6L12 2L16 6\"/> <path d=\"M12 2V22\"/>",
 "move-down":"<path d=\"M8 18L12 22L16 18\"/> <path d=\"M12 2V22\"/>",
-"message-circle":"<path d=\"M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719\"/>"};
+"message-circle":"<path d=\"M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719\"/>",
+"bold":"<path d=\"M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8\"/>",
+"italic":"<line x1=\"19\" x2=\"10\" y1=\"4\" y2=\"4\"/> <line x1=\"14\" x2=\"5\" y1=\"20\" y2=\"20\"/> <line x1=\"15\" x2=\"9\" y1=\"4\" y2=\"20\"/>",
+"underline":"<path d=\"M6 4v6a6 6 0 0 0 12 0V4\"/> <line x1=\"4\" x2=\"20\" y1=\"20\" y2=\"20\"/>",
+"list-ordered":"<path d=\"M11 5h10\"/> <path d=\"M11 12h10\"/> <path d=\"M11 19h10\"/> <path d=\"M4 4h1v5\"/> <path d=\"M4 9h2\"/> <path d=\"M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02\"/>",
+"heading":"<path d=\"M6 12h12\"/> <path d=\"M6 20V4\"/> <path d=\"M18 20V4\"/>",
+"remove-formatting":"<path d=\"M4 7V4h16v3\"/> <path d=\"M5 20h6\"/> <path d=\"M13 4 8 20\"/> <path d=\"m15 15 5 5\"/> <path d=\"m20 15-5 5\"/>",
+"code":"<path d=\"m16 18 6-6-6-6\"/> <path d=\"m8 6-6 6 6 6\"/>"};
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
   const p = ICONS[name] || ICONS['circle'] || '';

@@ -27,9 +27,9 @@ export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] |
 
 // ---- people ----
 export function avatar(adv, size = 24) {
-  if (!adv) return `<span class="sv-av" style="--av:${size}px" aria-hidden="true">?</span>`;
+  if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
   const me = S.me && adv.id === S.me.id;
-  return `<span class="sv-av${me ? ' me' : ''}" style="--av:${size}px" title="${esc(adv.full_name)}" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(me && size < 30 ? 'You' : (adv.initials || adv.full_name?.[0] || '?'))}</span>`;
+  return `<span class="sv-av${me ? ' me' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
 }
 export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 
@@ -106,13 +106,15 @@ export function friendly(e) {
 let cur = null;
 export const sheetOpen = () => !!cur;
 export function openSheet({ title, body, foot = '', size = 'half', onClose, wire } = {}) {
-  if (cur) closeSheet({ fromPop: false, silent: true });
-  const back = document.activeElement;
+  // A sheet opened from another sheet takes over its Back entry instead of undoing it and pushing a new one
+  // (a Back that lands late would otherwise undo the new sheet's entry).
+  let reuse = false, back = document.activeElement;
+  if (cur) { reuse = cur.pushed; back = cur.back; cur.d.close(); cur.d.remove(); cur = null; }
   const d = document.createElement('dialog'); d.className = `sv-sheet ${size}`; d.setAttribute('aria-labelledby', 'sv-sh-t');
   d.innerHTML = `<div class="sv-sh-grab" aria-hidden="true"></div><div class="sv-sh-head"><h2 id="sv-sh-t" tabindex="-1">${title}</h2>${iconBtn('x', 'Close', { 'data-shclose': '1' })}</div><div class="sv-sh-body">${body}</div>${foot ? `<div class="sv-sh-foot">${foot}</div>` : ''}`;
   document.body.appendChild(d);
   cur = { d, back, onClose, pushed: true };
-  history.pushState({ ...(history.state || {}), sheet: true }, '');
+  if (!reuse) history.pushState({ ...(history.state || {}), sheet: true }, '');
   d.addEventListener('cancel', e => { e.preventDefault(); closeSheet(); });
   d.addEventListener('click', e => { if (e.target === d) closeSheet(); });
   d.querySelector('[data-shclose]').onclick = () => closeSheet();
@@ -121,31 +123,37 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
   if (wire) wire(d);
   return d;
 }
-// closeSheet(): from a button (steps history back once) or from Back (fromPop: the entry is already gone).
+// closeSheet(): from a button (steps history back once) or from Back (fromPop: the entry is already gone). It returns
+// a promise that settles once that Back has landed, so whatever comes next (a page, another sheet) is not undone by it.
+let ignorePop = false, waiting = [];
 export function closeSheet({ fromPop = false, silent = false } = {}) {
-  if (!cur) return false;
+  if (!cur) return Promise.resolve(false);
   const { d, back, onClose, pushed } = cur; cur = null;
   d.close(); d.remove();
-  if (pushed && !fromPop) { ignorePop = true; history.back(); }
+  const done = new Promise(res => {
+    if (pushed && !fromPop) { ignorePop = true; waiting.push(res); setTimeout(() => res(true), 450); history.back(); } else res(true);
+  });
   if (!silent && onClose) onClose();
   if (back && back.isConnected) back.focus?.({ preventScroll: true });
-  return true;
+  return done;
 }
 // app.js calls this first on popstate; true means "that Back only closed a sheet".
-let ignorePop = false;
 export function popSheet() {
-  if (ignorePop) { ignorePop = false; return true; }
-  return closeSheet({ fromPop: true });
+  if (ignorePop) { ignorePop = false; const w = waiting; waiting = []; w.forEach(f => setTimeout(() => f(true), 0)); return true; }
+  if (!cur) return false;
+  closeSheet({ fromPop: true }); return true;
 }
+// For app.js: a page change while a sheet is open reuses the sheet's history entry (replace instead of push).
+export function takeSheetEntry() { if (!cur) return false; closeSheet({ fromPop: true, silent: true }); return true; }
 // A picker: one choice from a list, saves on tap. options: [[value, label, icon?, sub?]]
 export function pickerSheet({ title, options, value, onPick, help = '' }) {
   return openSheet({ title, body: `${help ? `<p class="small muted sv-sh-help">${help}</p>` : ''}<div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${options.map(([v, l, ic, sub]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`,
-    wire: d => d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { closeSheet({ silent: true }); await onPick(el.dataset.pv); }) });
+    wire: d => d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); await onPick(el.dataset.pv); }) });
 }
 // A menu of actions (the ⋯ menus). items: [{ label, icon, danger, disabled, reason, run }]
 export function menuSheet({ title = 'More', items }) {
   return openSheet({ title, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i) => `<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
-    wire: d => { const list = items.filter(Boolean); d.querySelectorAll('[data-mi]').forEach(el => el.onclick = async () => { const it = list[+el.dataset.mi]; if (it.disabled) { if (it.reason) toast(it.reason); return; } closeSheet({ silent: true }); await it.run(); }); } });
+    wire: d => { const list = items.filter(Boolean); d.querySelectorAll('[data-mi]').forEach(el => el.onclick = async () => { const it = list[+el.dataset.mi]; if (it.disabled) { if (it.reason) toast(it.reason); return; } await closeSheet({ silent: true }); await it.run(); }); } });
 }
 // Confirm in the app (never window.confirm): confirmSheet({ title, text, ok: 'Delete', danger: true }) -> Promise<boolean>
 export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
@@ -153,6 +161,6 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
     let done = false;
     openSheet({ title, size: 'auto', body: text ? `<p>${text}</p>` : '', foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn(ok, { kind: danger ? 'danger' : 'primary', attrs: { 'data-yes': '1' } })}`,
       onClose: () => { if (!done) res(false); },
-      wire: d => { d.querySelector('[data-yes]').onclick = () => { done = true; closeSheet({ silent: true }); res(true); }; d.querySelector('[data-no]').onclick = () => { done = true; closeSheet({ silent: true }); res(false); }; } });
+      wire: d => { d.querySelector('[data-yes]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(true); }; d.querySelector('[data-no]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(false); }; } });
   });
 }

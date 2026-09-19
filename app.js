@@ -3493,10 +3493,14 @@ const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').
 // Legislators' addresses follow one pattern: rep/sen + last name @capitol.hawaii.gov.
 // A joint stop gives every chair, comma-separated in one mailto, and "Rep. Takayama and Rep. Marten".
 function chairMail(code) {
+  // The committee roster knows who chairs it; the last word of the name broke on two-word surnames
+  // ("San Buenaventura", "Dela Cruz") and sent email to an address that does not exist (9/19).
   const out = codesOf(code).map(k => S.committees?.[k]).filter(c => c?.chair).map(c => {
+    const m = (S.committeeMembers || []).find(x => x.committee === c.code && x.role === 'chair'), lg = m && (S.legislators || []).find(l => l.id === m.legislator_id);
     const clean = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim();
-    const last = clean.split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '');
-    return { name: c.chair, last: clean.split(/\s+/).pop(), title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
+    const surname = lg?.sort_name ? lg.sort_name.split(',')[0] : clean.split(/\s+/).pop();
+    const last = surname.toLowerCase().replace(/[^a-z]/g, '');
+    return { name: c.chair, last: surname, title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: lg?.email || `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
   if (!out.length) return null;
   return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
 }

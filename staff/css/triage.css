@@ -1,0 +1,201 @@
+/* HIPHI Staff v2, module group M5: Sort new bills, My settings, Session setup, Help. Every selector starts with a
+   .st- class. Sizes only 13/14/16/18/22 (tokens), colours only tokens, every control 44px or taller. */
+
+/* ---- page frame shared by the four screens ---- */
+.st-page { padding-bottom: var(--s16); }
+.st-head { margin: var(--s4) 0 var(--s16); }
+.st-head h1 { font-size: var(--t22); }
+.st-lede { font-size: var(--t14); color: var(--n500); margin-top: var(--s4); }
+.st-status { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); margin-top: var(--s8); max-width: 65ch; }
+.st-status .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+.st-crumb { display: none; }
+/* On phones the header already shows the title of a top-level page, so the page's own h1 would repeat it. */
+@media (max-width: 899px) { .st-page .st-dup { display: none; } .st-page .st-head:has(> .st-dup:only-child) { display: none; } }
+@media (min-width: 900px) {
+  .st-page { padding-top: var(--s12); }
+  .st-crumb { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 8px; border-radius: var(--pill); color: var(--p700); font-weight: 700; font-size: var(--t14); text-decoration: none; }
+  .st-crumb:hover { background: var(--p50); }
+  .st-crumb .ic { width: 18px; height: 18px; }
+}
+.st-sec + .st-sec { margin-top: var(--s32); }
+.st-sec > h2, .st-page .st-h2 { margin: var(--s24) 0 var(--s12); }
+.st-sec > h2:first-child { margin-top: 0; }
+.st-sechead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); margin-bottom: var(--s8); min-height: 44px; }
+.st-sechead h2 { margin: 0; }
+.st-page .st-h3 { font-size: var(--t16); margin: var(--s24) 0 var(--s8); }
+.st-page .st-note { margin-top: var(--s8); max-width: 65ch; }
+.st-page .st-note .ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }
+.st-page .st-top { margin: 0 0 var(--s12); }
+.st-page .st-intro { margin: 0 0 var(--s16); max-width: 65ch; }
+.st-page .st-acts { margin-top: var(--s12); }
+.st-page .st-shp { margin-bottom: var(--s8); }
+/* The segmented control's options are 40px in staff.css; 44px here so every target on these screens is 44px. */
+.st-page .sv-seg button { min-height: 44px; }
+.st-page mark { background: var(--p100); color: var(--n900); border-radius: 3px; padding: 0 2px; }
+.st-meter { display: block; height: 6px; border-radius: 3px; background: var(--n200); overflow: hidden; }
+.st-meter i { display: block; height: 100%; background: var(--p700); border-radius: 3px; transition: width .2s var(--ease); }
+.st-sum { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); font-size: var(--t14); color: var(--n700); margin-bottom: var(--s12); }
+.st-sum .st-meter { flex: 0 0 120px; }
+
+/* forms: cards of fields, switch rows and chips */
+.st-page .st-form { padding: var(--s16); }
+.st-page .st-form + .st-form { margin-top: var(--s12); }
+.st-page .st-list { padding: var(--s4) var(--s16); }
+.st-page .st-list > .sv-switchrow + .sv-switchrow, .st-page .st-form > .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }
+.st-page .st-form > .sv-switchrow:first-child { padding-top: 0; }
+.st-page .st-form > .sv-switchrow + .field, .st-page .st-form > .field + .sv-switchrow, .st-page .st-form > .st-grid + .sv-switchrow { margin-top: var(--s8); }
+.st-page .sv-switchrow .title { font-size: var(--t16); }
+.st-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s16); margin: var(--s8) 0 var(--s16); }
+.st-grid > .field + .field { margin-top: 0; }
+.st-grid.st-times { padding: var(--s16); margin: 0; align-items: end; }
+.st-grid.st-grid-yr { grid-template-columns: minmax(96px, 120px) minmax(0, 1fr); }
+@media (max-width: 420px) { .st-grid.st-grid-yr { grid-template-columns: 1fr; } }
+.st-fs { border: 0; padding: 0; margin: var(--s16) 0 0; min-width: 0; }
+.st-fs legend, .st-fs .st-legend { font-size: var(--t14); font-weight: 700; color: var(--n900); padding: 0; margin-bottom: var(--s8); }
+.st-sec > .st-fs:first-of-type { margin-top: 0; }
+.st-fs .chips button.chip .ic { width: 16px; height: 16px; }
+.st-page .st-code { font-family: var(--font); font-size: var(--t14); line-height: 1.5; color: var(--n700); background: var(--n50); }
+.st-page .st-formwrap > .card:first-child { margin-top: 0; }
+
+/* radio rows (My settings: Nudges come by). Native radios, so arrow keys work; the dot is drawn. */
+.st-opts { padding: 0; overflow: hidden; }
+.st-opt { position: relative; display: flex; align-items: flex-start; gap: var(--s12); min-height: 56px; padding: var(--s12) var(--s16); cursor: pointer; }
+.st-opt + .st-opt { border-top: 1px solid var(--n100); }
+.st-opt:hover { background: var(--n50); }
+.st-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.st-opt .st-dot { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--n400); background: var(--n0); display: flex; align-items: center; justify-content: center; }
+.st-opt input:checked + .st-dot { border-color: var(--p700); }
+.st-opt input:checked + .st-dot::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--p700); }
+.st-opt input:focus-visible + .st-dot { outline: 2px solid var(--p700); outline-offset: 2px; }
+.st-opt:has(input:checked) { background: var(--p50); }
+.st-opt .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st-opt .title { font-weight: 700; color: var(--n900); }
+.st-opt .sub { font-size: var(--t14); color: var(--n500); }
+.st-opt .sub b { color: var(--n700); }
+.st-always { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); margin-bottom: var(--s16); max-width: 65ch; }
+.st-always .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+.st-acct { margin-top: var(--s16); }
+
+/* ---- Sort new bills ---- */
+.st-thead { margin-bottom: var(--s12); }
+.st-prog { margin-top: var(--s8); }
+.st-progt { font-size: var(--t14); color: var(--n700); margin-top: 6px; }
+.st-progt b { color: var(--n900); }
+.st-tfilters { display: flex; flex-wrap: wrap; gap: var(--s8); margin-bottom: var(--s12); }
+.st-tfilters .sv-pick { max-width: 100%; }
+.st-tfilters .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-how p { max-width: 65ch; }
+.st-how .btn { margin: var(--s4) 0 -8px -12px; }
+.st-tcard { padding: var(--s16); }
+.st-tl1 { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
+.st-tl1 h2 { font-size: var(--t22); }
+.st-tl1 h2:focus { outline: none; }
+.st-tl1 .st-cap { margin-left: auto; margin-right: -10px; color: var(--p700); }
+.st-ttitle { font-weight: 700; color: var(--n900); margin-top: var(--s4); }
+.st-tdesc { color: var(--n700); margin-top: var(--s8); max-width: 65ch; overflow-wrap: anywhere; }
+.st-tdesc.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.st-tcard [data-tmore] { margin: 0 0 -8px -12px; }
+.st-triage .st-how { margin: var(--s12) 0 0; }
+.st-whys { margin-top: var(--s12); display: flex; flex-direction: column; gap: 6px; }
+.st-why { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
+.st-why .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+.st-why.muted .ic { color: var(--n400); }
+.st-why b { color: var(--n900); }
+.st-tpick { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); display: flex; flex-direction: column; gap: var(--s16); }
+.st-pickrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); }
+.st-pickrow .st-lab { flex: 0 0 100%; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.st-pickrow .sv-seg { display: flex; width: 100%; max-width: 360px; }
+.st-pickrow .sv-seg button { flex: 1 1 0; padding: 0 8px; }
+@media (min-width: 600px) {
+  .st-tpick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s16) var(--s24); align-items: start; }
+  .st-pickrow .sv-seg { max-width: none; }
+}
+.st-keys { margin-top: var(--s12); }
+.st-keys kbd, .st-page kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
+.st-tfoot { margin-top: var(--s8); margin-left: -12px; }
+.st-done { padding: var(--s8) var(--s16) var(--s16); }
+.st-done .btncol { width: 100%; max-width: 320px; }
+.st-yay { width: 56px; height: 56px; border-radius: 50%; background: var(--o50); color: var(--o700); display: flex; align-items: center; justify-content: center; }
+.st-yay .ic { width: 28px; height: 28px; }
+
+/* bottom bars (triage decisions, a setup page's Save) */
+.st-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; }
+.st-bar .btn.primary, .st-bar .btn.secondary { flex: 1 1 0; min-width: 0; }
+.st-bar .btn.text { flex: none; }
+@media (min-width: 600px) {
+  .st-bar { justify-content: flex-end; }
+  .st-bar .btn.primary, .st-bar .btn.secondary { flex: 0 0 auto; min-width: 160px; }
+}
+
+/* ---- Session setup: readiness ---- */
+.st-ready .st-rrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--s12); padding: var(--s12) var(--s16); }
+.st-ready > * + .st-rrow, .st-ready > * + .st-fold { border-top: 1px solid var(--n100); }
+.st-ric { flex: none; display: flex; color: var(--n500); margin-top: 1px; }
+.st-ric .ic { width: 22px; height: 22px; }
+.st-rrow.ok .st-ric, .st-newrow.done .st-ric { color: var(--ok-text); }
+.st-rrow.bad .st-ric { color: var(--bad-text); }
+.st-rrow.warn .st-ric { color: var(--n700); }
+.st-rbody { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-rlab { font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+.st-rdet { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
+.st-rfix { font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+/* On phones the action sits under the text (lined up with it), so the sentence keeps the full width. */
+.st-ract { flex: 0 0 100%; padding-left: 34px; margin-top: var(--s4); }
+.st-ract .btn.text { margin-left: -12px; }
+@media (min-width: 600px) {
+  .st-ract { flex: none; align-self: center; padding-left: 0; margin: -6px 0; }
+  .st-ract .btn.text { margin: 0 -8px 0 0; padding: 0 8px; }
+}
+.st-fold { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 48px; padding: 0 var(--s16); text-align: left; font-size: var(--t14); font-weight: 700; color: var(--n700); background: var(--n0); }
+.st-fold:hover { background: var(--n50); }
+.st-fold > .ic:first-child { width: 22px; height: 22px; color: var(--ok-text); }
+.st-fold span { flex: 1 1 auto; }
+.st-fold .chev { width: 18px; height: 18px; color: var(--n500); }
+.st-advbox { margin-top: var(--s12); }
+.st-advbox .st-adv .chev { width: 20px; height: 20px; }
+.st-advbox #st-advlist > .row { border-top: 1px solid var(--n100); }
+.st-page .rows .row .sub { overflow-wrap: anywhere; }
+
+/* coalitions: one card each, opened in place */
+.st-coal { padding: 0; overflow: hidden; }
+.st-page .st-coal + .st-coal { margin-top: var(--s8); }
+.st-coalhead { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 64px; padding: var(--s12) var(--s16); text-align: left; background: var(--n0); }
+.st-coalhead:hover { background: var(--n50); }
+.st-coalhead .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-coalhead .title { font-weight: 700; color: var(--n900); }
+.st-coalhead .sub { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
+.st-coalhead .chev { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.st-coalic { width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; }
+.st-coalic .ic { width: 22px; height: 22px; }
+.st-page .st-coalbody { border-top: 1px solid var(--n100); }
+.st-coalbody .sv-pick { align-self: flex-start; }
+
+/* import summary, connections, keys */
+.st-sumcard { margin-top: var(--s12); background: var(--n50); border-radius: var(--r12); padding: var(--s12) var(--s16); }
+.st-sumcard .sv-notice, .st-sumcard .notice { margin-top: var(--s8); }
+.st-ul { margin: var(--s8) 0 0; padding-left: 20px; font-size: var(--t14); color: var(--n700); }
+.st-ul li + li { margin-top: 2px; }
+.st-page #st-import-preview > .notice { margin-top: var(--s12); }
+.st-conn + .st-conn { margin-top: var(--s12); }
+@media (max-width: 599px) { .st-conn .st-acts { flex-direction: column; align-items: flex-start; } .st-conn .st-acts .btn.text { margin-left: -12px; } }
+.st-connhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); flex-wrap: wrap; }
+.st-connhead .st-h3 { margin: 0; }
+.st-uri { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; margin-top: var(--s8); }
+.st-uri span { flex: 1 1 220px; min-width: 0; font-size: var(--t14); color: var(--n700); background: var(--n50); border-radius: var(--r8); padding: var(--s8) var(--s12); overflow-wrap: anywhere; }
+
+/* ---- Help ---- */
+.st-search { margin-bottom: var(--s16); }
+.st-search input { width: 100%; }
+.st-none { font-size: var(--t14); color: var(--n700); padding: var(--s12) 0; }
+#st-hres .rows { margin-bottom: var(--s16); }
+.st-wcard { padding: var(--s4) var(--s16); }
+.st-dl { margin: 0; }
+.st-dli { padding: var(--s12) 0; }
+.st-dli + .st-dli { border-top: 1px solid var(--n100); }
+.st-dl dt { font-weight: 700; color: var(--n900); }
+.st-dl dd { margin: 2px 0 0; font-size: var(--t14); color: var(--n700); max-width: 65ch; }
+.st-dl dd b { color: var(--n900); }
+.st-newrow .st-ric .ic { width: 22px; height: 22px; }
+.st-newrow.done .title { color: var(--n700); }
+.st-help .st-acts { margin-left: -12px; }
+.st-page .st-note + .card { margin-top: var(--s12); }

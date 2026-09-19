@@ -1,0 +1,173 @@
+/* Staff v2 · M4: the Legislators directory (.lg-dir), a legislator's page (.lg-page), the bill's Pathway tab (.lg-pw),
+   Search (.lg-search) and their two sheets (.lg-stsheet, .lg-logsheet). Tokens only; five type sizes; 44px targets. */
+
+/* ---- shared pieces ---- */
+.lg-ph { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; background: var(--n100); flex: none; }
+.lg-ph.s32 { width: 32px; height: 32px; }
+.lg-ph.s48 { width: 48px; height: 48px; }
+.lg-ph.none { display: inline-flex; align-items: center; justify-content: center; color: var(--n700); font: 700 var(--t16)/1 var(--font); }
+.lg-ph.s32.none { font-size: var(--t14); }
+.lg-dtitle { display: none; }
+.lg-dir .lg-sbox input::-webkit-search-cancel-button, .lg-search .lg-sbox input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.lg-dir .lg-sbox .clear { top: 2px; right: 2px; }
+.lg-spin { animation: spin 1s linear infinite; }
+.lg-n { font: 700 var(--t14)/1 var(--font); color: var(--n500); margin-left: 4px; }
+.lg-more { justify-content: center; gap: 6px; min-height: 44px; color: var(--p700); font-size: var(--t14); font-weight: 700; }
+.lg-more .ic { width: 18px; height: 18px; }
+.lg-empty { font-size: var(--t14); color: var(--n500); padding: var(--s4) 0; }
+.lg-skel { height: 56px; }
+
+/* ---- directory ---- */
+.lg-dir .lg-tools { display: flex; flex-direction: column; gap: var(--s12); }
+.lg-dir .lg-chips { gap: var(--s8); }
+.lg-dir .lg-chips .chip { min-height: 44px; }
+.lg-dir .lg-caption { font-size: var(--t14); color: var(--n500); margin: var(--s12) 0 var(--s8); }
+.lg-dir .lg-cap { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 var(--s8); }
+.lg-dir .lg-cap p { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); color: var(--n700); }
+.lg-dir .lg-cap p .ic { width: 18px; height: 18px; color: var(--n500); }
+.lg-dir .lg-cap b { color: var(--n900); }
+.lg-dir .lg-clear { flex: none; }
+.lg-row { min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.lg-row .title { display: flex; align-items: baseline; gap: var(--s8); min-width: 0; }
+.lg-row .lg-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-row .lg-pd { flex: none; font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.lg-row .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-row .end { gap: var(--s4); }
+.lg-ss { display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.lg-ss > span { display: inline-flex; align-items: center; gap: 2px; }
+.lg-ss .ic { width: 16px; height: 16px; }
+.lg-dir .lg-sug { margin-top: var(--s12); }
+.lg-sg { min-height: 56px; }
+.lg-sg .lead { width: 32px; height: 32px; background: var(--n100); color: var(--n700); }
+.lg-sg .lead .ic { width: 18px; height: 18px; }
+.lg-sg .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-sg .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-sg:focus-visible { outline-offset: -2px; }
+.lg-sgall .title { color: var(--p700); }
+.lg-sgnote, .lg-snote { gap: var(--s8); font-size: var(--t14); color: var(--n500); }
+.lg-sgnote .ic, .lg-snote .ic { width: 18px; height: 18px; flex: none; }
+
+/* ---- a legislator ---- */
+.lg-page .lg-deskback { display: none; }
+.lg-head { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s4) 0 var(--s12); }
+.lg-head .lg-hbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lg-head h1 { font-size: var(--t18); line-height: 1.2; }
+.lg-hsub, .lg-hcm { font-size: var(--t14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-hsub { color: var(--n700); }
+.lg-hcm { color: var(--n500); }
+.lg-acts { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.lg-acts .btn.sm { padding: 0 12px; gap: 6px; }
+.lg-acts .btn.primary { flex: 1 1 auto; }
+.lg-sec { margin-top: var(--s24); }
+.lg-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); margin-bottom: var(--s8); min-height: 32px; }
+.lg-sech h2 { font-size: var(--t18); }
+.lg-sech .btn.text { margin-right: -12px; }
+.lg-brow { gap: var(--s8); padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.lg-brow .lg-bbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; color: inherit; text-decoration: none; }
+.lg-brow .title { font-weight: 400; color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-brow .title b { color: var(--n900); font-weight: 700; }
+.lg-brow .sub { font-size: var(--t14); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-brow .lg-note, .lg-mem .lg-memnote { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lg-brow .sv-pick { flex: none; }
+.lg-brow.from { box-shadow: inset 3px 0 0 var(--p700); }
+div.lg-brow:hover { background: var(--n0); }
+.lg-brow .lg-bbody:hover .title b { text-decoration: underline; }
+.lg-noterow { align-items: flex-start; gap: var(--s8); padding-right: var(--s4); }
+.lg-noterow .body { gap: 4px; }
+.lg-nhead { font-size: var(--t14); color: var(--n500); }
+.lg-nhead b { color: var(--n900); }
+.lg-nbody { color: var(--n900); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lg-noterow .iconbtn { margin-top: -6px; color: var(--n500); }
+.lg-noterow .iconbtn .ic { width: 20px; height: 20px; }
+.lg-crow .sv-chip { flex: none; }
+.lg-page .rows .row .lead { width: 36px; height: 36px; }
+.lg-page .rows .row .lead .ic { width: 20px; height: 20px; }
+
+/* sheets */
+.lg-stsheet .sv-pickl { margin: var(--s4) 0 var(--s16); }
+.lg-stsheet > p { margin-bottom: var(--s8); }
+.lg-logsheet .lg-kinds { border: 0; padding: 0; margin: 0 0 var(--s16); min-width: 0; }
+.lg-logsheet legend { padding: 0; margin-bottom: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.lg-logsheet .chips .chip { min-height: 44px; }
+.lg-logsheet .field + p { margin-top: var(--s12); }
+.lg-logsheet select { text-overflow: ellipsis; }
+
+/* ---- pathway (inside the bill page's Pathway tab) ---- */
+.lg-pw .lg-pwhelp { font-size: var(--t14); color: var(--n500); }
+.lg-pw .lg-pwintro { font-size: var(--t14); color: var(--n700); margin-top: var(--s8); }
+.lg-pw .lg-pwnone { font-size: var(--t14); color: var(--n500); padding: var(--s12) var(--s16); }
+.lg-pw > .lg-pwnone { padding: var(--s12) 0; }
+.lg-pw .lg-pwpred { margin: var(--s16) 0 0; font: 700 var(--t14)/1.3 var(--font); color: var(--n700); display: flex; align-items: center; gap: var(--s8); }
+.lg-pw .lg-pwpred::after { content: ''; flex: 1 1 auto; border-top: 1px dashed var(--n300); }
+.lg-stop { margin-top: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.lg-stop.is-current { box-shadow: inset 3px 0 0 var(--p700), var(--sh1); }
+.lg-stop.is-predicted { border-style: dashed; box-shadow: none; }
+.lg-stoph { margin: 0; font-size: var(--t16); }
+.lg-stopbtn { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s8); row-gap: 2px; align-items: center; width: 100%; min-height: 56px; padding: var(--s12) var(--s12) var(--s12) var(--s16); text-align: left; }
+.lg-stopbtn:hover { background: var(--n50); }
+.lg-stopbtn:focus-visible { outline-offset: -2px; }
+.lg-l1 { grid-column: 1; display: flex; align-items: center; gap: var(--s8); min-width: 0; }
+.lg-l2 { grid-column: 1; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s12); row-gap: 2px; min-width: 0; }
+.lg-stopbtn .lg-chev { grid-column: 2; grid-row: 1 / span 2; width: 20px; height: 20px; color: var(--n500); }
+.lg-stopst { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 2px 8px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font: 700 var(--t13)/1.2 var(--font); }
+.lg-stopst .ic { width: 14px; height: 14px; }
+.is-current .lg-stopst { background: var(--p50); color: var(--p800); }
+.is-passed .lg-stopst, .is-predicted .lg-stopst { color: var(--n500); }
+.lg-stopname { min-width: 0; font: 700 var(--t16)/1.25 var(--font-h); color: var(--n900); letter-spacing: -.005em; }
+.lg-stopmeta { flex: 1 1 12em; min-width: 0; font: 400 var(--t13)/1.4 var(--font); color: var(--n500); }
+.lg-tally { margin-left: auto; font: 700 var(--t14)/1.4 var(--font); color: var(--n700); white-space: nowrap; }
+.lg-stopbody { border-top: 1px solid var(--n100); }
+.lg-mem { display: flex; align-items: center; gap: var(--s4); min-height: 56px; padding: 6px var(--s4) 6px var(--s16); }
+.lg-mem + .lg-mem { border-top: 1px solid var(--n100); }
+.lg-membody { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 2px; color: inherit; text-decoration: none; }
+.lg-membody .lg-nm { font-weight: 700; color: var(--n900); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; line-height: 1.3; }
+.lg-membody:hover .lg-nm { text-decoration-color: currentColor; }
+.lg-memsub { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 2px; font-size: var(--t13); color: var(--n500); }
+.lg-memsub .sv-chip { min-height: 20px; padding: 0 8px; line-height: 20px; }
+/* one width for every stance chip in a stop, so the column of stances lines up */
+.lg-mem .sv-pick, .lg-brow .sv-pick { flex: none; min-width: 136px; justify-content: space-between; }
+.lg-mem .lg-mail { flex: none; width: 44px; height: 44px; color: var(--n700); }
+.lg-mem .lg-mail .ic { width: 20px; height: 20px; }
+
+/* ---- search ---- */
+.lg-search .lg-sbox { margin-bottom: var(--s4); }
+.lg-search .lg-grp { margin-top: var(--s16); }
+.lg-search .lg-grp .sv-group { border-bottom: 1px solid var(--n200); }
+.lg-search .lg-subh { display: flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 var(--s16); margin: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n100); font: 700 var(--t14)/1.2 var(--font); color: var(--n700); letter-spacing: 0; }
+.lg-search .lg-subh + .row { border-top: 0; }
+.lg-urow { gap: var(--s8); padding-right: var(--s8); }
+.lg-urow .title { font-weight: 400; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lg-urow .title b { color: var(--n900); font-weight: 700; }
+.lg-urow .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-uacts { flex: none; display: flex; align-items: center; gap: 2px; }
+.lg-uacts .iconbtn .ic { width: 20px; height: 20px; color: var(--n500); }
+.lg-prow .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-prow .lead { width: 36px; height: 36px; background: var(--n100); color: var(--n700); }
+.lg-prow .lead .ic { width: 20px; height: 20px; }
+
+/* ---- phones: stance chips drop their icon in member rows (the word stays) so names keep room ---- */
+@media (max-width: 599px) {
+  .lg-mem .sv-pick, .lg-brow .sv-pick { padding: 0 8px 0 12px; min-width: 112px; }
+  .lg-mem .sv-pick .ic:not(.chev), .lg-brow .sv-pick .ic:not(.chev) { display: none; }
+  /* bill rows: the title may take two lines so the words survive next to the stance chip */
+  .lg-brow .title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+
+/* ---- desktop ---- */
+@media (min-width: 900px) {
+  .lg-dtitle { display: block; margin: var(--s8) 0 var(--s16); }
+  .lg-dir .lg-tools { flex-direction: row; align-items: center; gap: var(--s16); }
+  .lg-dir .lg-sbox { flex: 0 1 520px; }
+  .lg-dir .lg-sug { max-width: 560px; }
+  .lg-dir .lg-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lg-dir .lg-list > .row { border-top: 1px solid var(--n100); }
+  .lg-dir .lg-list > .row:nth-child(-n+2) { border-top: 0; }
+  .lg-dir .lg-list > .row:nth-child(odd) { border-right: 1px solid var(--n100); }
+  .lg-page .lg-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
+  .lg-page .lg-deskback:hover { background: var(--p50); }
+  .lg-page .lg-deskback .ic { width: 20px; height: 20px; }
+  .lg-head h1 { font-size: var(--t22); }
+  .lg-hsub, .lg-hcm { white-space: normal; }
+  .lg-acts .btn.primary { flex: 0 0 auto; }
+  .lg-search .lg-sphone { display: none; }
+}

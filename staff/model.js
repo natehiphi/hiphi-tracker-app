@@ -3,6 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
+import { CHAMBER_NAME } from '../stops.js';
 export const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
 export let FACTS = new Map();
 export function factsOf(b) {
@@ -406,10 +407,14 @@ export const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
 export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
 export const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
 export function chairMail(code) {
+  // The committee roster knows who chairs it; the last word of the name broke on two-word surnames
+  // ("San Buenaventura", "Dela Cruz") and sent email to an address that does not exist (9/19).
   const out = codesOf(code).map(k => S.committees?.[k]).filter(c => c?.chair).map(c => {
+    const m = (S.committeeMembers || []).find(x => x.committee === c.code && x.role === 'chair'), lg = m && (S.legislators || []).find(l => l.id === m.legislator_id);
     const clean = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim();
-    const last = clean.split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '');
-    return { name: c.chair, last: clean.split(/\s+/).pop(), title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
+    const surname = lg?.sort_name ? lg.sort_name.split(',')[0] : clean.split(/\s+/).pop();
+    const last = surname.toLowerCase().replace(/[^a-z]/g, '');
+    return { name: c.chair, last: surname, title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: lg?.email || `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
   if (!out.length) return null;
   return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
 }

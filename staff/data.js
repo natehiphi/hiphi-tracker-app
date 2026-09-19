@@ -875,6 +875,7 @@ export function applySessionDeadlines(rows) {
 // race the lateral (or triple, if 3X) filing date.
 export const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
 export const personById = id => (S.people || []).find(p => p.id === id);
+export const EMPTY_PF = () => ({ q: '', tags: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
 export function peopleMatch(p, f) {
   f = { ...EMPTY_PF(), ...(f || {}) };
   const q = f.q.trim().toLowerCase();

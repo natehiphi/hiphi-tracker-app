@@ -22,7 +22,8 @@ body.staff2.wide main { max-width: 1200px; }
 .sv-avbtn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); }
 .sv-avbtn:hover { background: var(--n100); }
 .sv-av { width: var(--av, 24px); height: var(--av, 24px); border-radius: 50%; background: var(--n100); color: var(--n700); display: inline-flex; align-items: center; justify-content: center;
-  font: 700 calc(var(--av, 24px) * .42)/1 var(--font); flex: none; letter-spacing: 0; }
+  font: 700 var(--t13)/1 var(--font); flex: none; letter-spacing: 0; }
+.sv-av.none { background: none; border: 1.5px dashed var(--n400); }
 .sv-av.me { background: var(--p50); color: var(--p800); }
 .sv-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--n0); border-top: 1px solid var(--n200); display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px 4px calc(4px + var(--safe-b)); }
 .sv-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; text-decoration: none; color: var(--n500); font-size: var(--t13); font-weight: 700; border-radius: var(--r12); }
@@ -64,7 +65,7 @@ body.staff2.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe
 .sv-group .chev { width: 18px; height: 18px; color: var(--n500); }
 button.sv-group:hover { background: var(--n100); }
 .sv-seg { display: inline-flex; background: var(--n100); border-radius: var(--pill); padding: 2px; gap: 2px; }
-.sv-seg button { min-height: 40px; padding: 0 16px; border-radius: var(--pill); font-weight: 700; font-size: var(--t14); color: var(--n700); }
+.sv-seg button { min-height: 44px; padding: 0 16px; border-radius: var(--pill); font-weight: 700; font-size: var(--t14); color: var(--n700); }
 .sv-seg button[aria-pressed="true"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
 .sv-switchrow { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) 0; cursor: pointer; position: relative; }
 .sv-switchrow .body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
@@ -117,7 +118,8 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
 @media (min-width: 900px) {
   .sv-hdr { padding: 0 var(--s24); gap: var(--s12); }
   .sv-hdr .sv-brand { display: inline-flex; }
-  .sv-hdr .sv-title, .sv-hdr .sv-back.phone { display: none; }
+  .sv-hdr .sv-back.phone { display: none; }
+  .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* still the page's h1 for screen readers */
   .sv-hdr .sv-nav { display: flex; gap: 4px; flex: 1 1 auto; }
   .sv-hdr .sv-nav a { position: relative; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: var(--pill); color: var(--n700); font-weight: 700; text-decoration: none; }
   .sv-hdr .sv-nav a[aria-current="page"] { background: var(--p50); color: var(--p700); }

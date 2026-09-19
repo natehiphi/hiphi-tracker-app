@@ -2,7 +2,7 @@
 // and stays untouched; this is option 2, a task-first, phone-first companion. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide? }.
 import { S, DB, DEMO, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
-import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, avatar } from './ui.js';
+import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar } from './ui.js';
 import { MARK } from '../pub/art.js';
 import today from './today.js';
 import review from './review.js';
@@ -55,7 +55,7 @@ const TABS = [['today', '#/', 'list-todo', 'Today'], ['bills', '#/bills', 'scrol
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
 export function go(path, { replace = false, keepScroll = false } = {}) {
-  if (sheetOpen()) closeSheet({ silent: true });
+  if (takeSheetEntry()) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
   if (replace) history.replaceState({ y: 0, d: depth }, '', path); else history.pushState({ y: 0, d: ++depth }, '', path);
   render();
@@ -71,7 +71,7 @@ try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 
 // ---- the frame ----
 export function badge() { try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
-function header(route, scr) {
+function header(route, scr, pageH1 = false) {
   const b = scr.back ? scr.back(route) : null, title = scr.title ? scr.title(route) : '';
   const bd = badge();
   const pill = bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
@@ -79,7 +79,7 @@ function header(route, scr) {
   <header class="sv-hdr">
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(b.label)}</span></a>` : ''}
     <a class="sv-brand" href="#/" aria-label="Today">${MARK}<span>Bill Tracker</span></a>
-    <h1 class="sv-title">${esc(b ? '' : title)}</h1>
+    ${pageH1 ? `<span class="sv-title" aria-hidden="true">${esc(b ? '' : title)}</span>` : `<h1 class="sv-title">${esc(title)}</h1>`}
     <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off"></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
@@ -103,7 +103,8 @@ export function render() {
   cls.add('staff2'); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
   const app = document.getElementById('app');
-  app.innerHTML = `<a class="skip" href="#main">Skip to content</a>${header(route, scr)}<main id="main" tabindex="-1">${main}</main>${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}${tabs ? tabbar(scr) : ''}`;
+  // One h1 per page: the page's own when it has one, else the frame's title (hidden visually on desktop).
+  app.innerHTML = `<a class="skip" href="#main">Skip to content</a>${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}</main>${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}${tabs ? tabbar(scr) : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); }
   wireFrame(app);
@@ -211,7 +212,7 @@ async function boot() {
 // (the snapshot has none): one submitted by Kevin waiting for approval, one sent, with its numbers.
 function sandboxExtras() {
   const as = new URLSearchParams(location.search).get('as');
-  if (as) { const a = S.advocates.find(x => (x.initials || '').toUpperCase() === as.toUpperCase()); if (a) S.me = a; }
+  if (as) { const a = S.advocates.find(x => (x.initials || '').toUpperCase() === as.toUpperCase()); if (a) { S.me = a; if (S.buildDemoInbox) S.inbox = S.buildDemoInbox(); } }
   if (!S.alertsSeeded) {
     S.alertsSeeded = true;
     const kev = S.advocates.find(x => /^KV$/i.test(x.initials)) || S.advocates.find(x => !x.is_admin);
