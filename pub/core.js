@@ -1,0 +1,767 @@
+// HIPHI public tracker: state, data and the plain-language layer (no screens here).
+// Screens live in pub/*.js and import from this module; pub/app.js owns routing and the page frame.
+// Moved out of track.js on 9/19 for the mobile-first redesign; the data code is unchanged unless a comment says so.
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from '../stops.js';
+import { ICONS, icon } from '../icons.js';
+export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, ICONS, icon };
+// Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
+export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
+export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
+export const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+export const DEMO = new URLSearchParams(location.search).has('demo');
+export const LOCAL_KEY = DEMO ? 'hiphi_watch_ids_demo' : 'hiphi_watch_ids';
+// Sandbox (?demo=1): the real 2026 session frozen at Monday March 16, 2026,
+// 9:00 HST, from demo/snapshot.json. Same file the staff sandbox uses; no
+// account, no network writes, the watchlist lives in this browser only.
+export const SEASON_OFF = DEMO && new URLSearchParams(location.search).get('season') === 'off';
+export const DEMO_ASOF = SEASON_OFF ? '2026-09-18T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
+if (DEMO) {
+  const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
+  window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
+}
+export const $ = s => document.querySelector(s);
+export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const HST = 'Pacific/Honolulu';
+export const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
+export const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
+export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+export const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
+// One message at a time, in one polite live region above the tab bar (a new one replaces the old). Errors are never
+// raw: friendly(e) turns them into a sentence. toast(msg, { undo }) adds an Undo button and stays 6 seconds.
+export function toast(m, opt = {}) {
+  if (opt === true) opt = { err: true };
+  const box = $('#toast'); if (!box) return;
+  box.innerHTML = '';
+  const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.yay ? ' yay' : '');
+  el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
+    + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '');
+  if (opt.undo) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await opt.undo(); } catch (e) { toast(e, true); } app.render(); };
+  box.appendChild(el); clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, opt.undo ? 6000 : 4000);
+}
+// Sentences, not error codes. Anything we do not recognise becomes the connection sentence.
+export function friendly(e) {
+  const m = String(e?.message || e || '');
+  if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
+  if (/invalid.*email|email.*invalid/i.test(m)) return 'That email address does not look right. Try one like name@example.com.';
+  if (/^[A-Z][^{}<>]{3,120}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token)/i.test(m)) return m;
+  return 'We could not do that. Check your connection and try again.';
+}
+export const blurb = (b, n = 110) => { const t = (b.hiphi_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
+export const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed'; const h = Math.round(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.ceil(ms / 864e5)}d`; };
+export const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
+export const STAGE_LABEL = { introduced: 'Introduced', first_triple: '1st Triple', first_lateral: '1st Lateral', first_decking: '1st Decking',
+  first_crossover: 'Crossed over', second_triple: '2nd Triple', second_lateral: '2nd Lateral', second_decking: '2nd Decking',
+  second_crossover: 'Passed both', conference: 'Conference', governor: 'Governor', enacted: 'Law', vetoed: 'Vetoed', dead: 'Dead' };
+// The same stages in plain language, for people who do not live at the Capitol.
+export const STAGE_PLAIN = { introduced: 'Introduced and waiting for its first committee hearing',
+  first_triple: 'In its first committee; a triple-referred bill that must be heard before the Triple Filing deadline',
+  first_lateral: 'In a committee of its first chamber; it must be heard before the Lateral deadline',
+  first_decking: 'In the money committee of its first chamber; it must be heard before the Decking deadline',
+  first_crossover: 'Passed its first chamber; now in the other chamber',
+  second_triple: 'In its first committee of the second chamber; it must be heard before the Triple Filing deadline',
+  second_lateral: 'In a committee of the second chamber; it must be heard before the Lateral deadline',
+  second_decking: 'In the money committee of the second chamber; it must be heard before the Decking deadline',
+  second_crossover: 'Passed both chambers; the two versions may need to be reconciled',
+  conference: 'House and Senate negotiators are reconciling their versions',
+  governor: 'On the Governor’s desk, waiting for signature or veto',
+  enacted: 'Signed into law', vetoed: 'Vetoed by the Governor', dead: 'Did not advance this session' };
+export const RAIL = [['introduced', 'Intro'], ['first_lateral', '1st Lat'], ['first_decking', '1st Deck'], ['first_crossover', 'Cross'],
+  ['second_lateral', '2nd Lat'], ['second_decking', '2nd Deck'], ['conference', 'Conf'], ['governor', 'Gov'], ['enacted', 'Law']];
+export const RAIL_IDX = { introduced: 0, first_triple: 1, first_lateral: 1, first_decking: 2, first_crossover: 3, second_triple: 4, second_lateral: 4,
+  second_decking: 5, second_crossover: 5, conference: 6, governor: 7, enacted: 8, vetoed: 7, dead: null };
+export const COMMITTEE_STAGES = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'second_triple', 'second_lateral', 'second_decking'];
+export const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of','on','or','the','to','via','with','nor','per','from']);
+export const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
+export const POS = { strongly_support: 'Strongly supports', support: 'Supports', support_amend: 'Supports with amendments', strongly_oppose: 'Strongly opposes', oppose: 'Opposes', neutral: 'Comments', monitor: 'Monitoring' };
+export const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
+export const OUTCOME_CLS = { passed: 'c-green', passed_amended: 'c-gold', deferred: 'c-red', recommitted: 'c-gray' };
+export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
+// Coalitions keep their internal name as the key; the public sees public_name.
+export const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_name || n;
+// Tiles are grouped by public name: two internal coalitions can share one tile.
+export function groups() {
+  const g = {};
+  for (const c of S.coalitions || []) { const k = c.public_name || c.name; const x = g[k] ??= { key: k, names: [], icon: c.icon, description: c.description, bills: 0, live: 0, sort_order: c.sort_order || 99 };
+    x.names.push(c.name); x.bills += c.bills || 0; x.live += c.live || 0; x.icon = x.icon || c.icon; x.description = x.description || c.description; x.sort_order = Math.min(x.sort_order, c.sort_order || 99); }
+  return Object.values(g);
+}
+export const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
+export const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
+  committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
+  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null };
+export const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
+export const CONSENT_KEY = 'hiphi_consent_pending';
+// ---------------- data ----------------
+export async function init() {
+  if (DEMO) { await demoLoad(); return; }
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const { data } = await S.supa.auth.getSession(); S.session = data.session;
+  S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
+}
+// ---------------- sandbox data ----------------
+export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [] };
+export async function demoLoad() {
+  const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
+  const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
+  const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
+  const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  // Shape tracked bills like public_all_bills; every tracked bill is public.
+  D.bills = snap.bills.map(b => ({ id: b.id, bill_number: b.bill_number, session_year: b.session_year, chamber: b.chamber, title: b.title, description: b.description,
+    committee: b.committee, referrals: b.referrals, stage: b.stage, last_action: b.last_action, last_action_date: b.last_action_date, state_url: b.state_url,
+    sponsors: b.sponsors, companions: b.companions, origin_stops: b.origin_stops, second_stops: b.second_stops, current_version: b.current_version,
+    died_deadline: b.died_deadline, died_at_stage: b.died_at_stage, hiphi_position: b.position, hiphi_summary: b.public_summary, hiphi_action: b.public_action,
+    hiphi_follows: true, coalitions: coalOf[b.id] || [], watchers: b.priority === 1 ? 12 + seed(b.id) % 40 : seed(b.id) % 9 }));
+  D.index = snap.index.map(b => ({ id: b.id, bill_number: b.bill_number, chamber: b.chamber, title: b.title, description: null, stage: 'introduced', referrals: [], sponsors: [], companions: [], coalitions: [], watchers: 0, hiphi_follows: false, sandbox_untracked: true }));
+  D.hearings = snap.hearings.map(h => ({ ...h, bill_number: snap.bills.find(b => b.id === h.bill_id)?.bill_number }));
+  D.activity = snap.activity.map(a => ({ bill_id: a.bill_id, title: a.title, details: a.details, occurred_at: a.occurred_at }));
+  D.outcomes = snap.outcomes;
+  if (SEASON_OFF) {
+    // An imagined end of the 2026 session: anything still moving stops, except strongly supported bills that got far
+    // (conference, or second-chamber decking), which become law. Only for previewing the between-sessions screens.
+    for (const b of D.bills) if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
+      b.stage = b.hiphi_position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage) ? 'enacted' : 'dead';
+      if (b.stage === 'dead' && !b.died_deadline) b.died_deadline = 'Sine die'; }
+  }
+  D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
+  S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
+  S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
+  S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
+  S.slots = snap.slots;
+  const counts = {}, live = {}; for (const b of D.bills) for (const n of b.coalitions) { counts[n] = (counts[n] || 0) + 1; if (alive(b)) live[n] = (live[n] || 0) + 1; }
+  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, public_name: c.public_name || c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0, sort_order: c.sort_order }));
+}
+export const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
+// "I did it" marks: in this browser until sign-in, then in public_actions.
+export const DONE_KEY = DEMO ? 'hiphi_done_demo' : 'hiphi_done';
+export function localDone() { try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); } catch { return new Set(); } }
+export function saveDone() { try { localStorage.setItem(DONE_KEY, JSON.stringify([...S.done])); } catch { /* ignore */ } }
+export const doneKey = (billId, hearingId, kind) => `${billId}|${hearingId || ''}|${kind}`;
+// When each mark was made (for the session weeks and the recap), in this browser; the account has created_at.
+export const DONE_AT_KEY = DEMO ? 'hiphi_done_at_demo' : 'hiphi_done_at';
+export function localDoneAt() { try { return JSON.parse(localStorage.getItem(DONE_AT_KEY) || '{}') || {}; } catch { return {}; } }
+export function saveDoneAt() { try { localStorage.setItem(DONE_AT_KEY, JSON.stringify(S.doneAt || {})); } catch { /* ignore */ } }
+export const KINDS = ['testimony', 'email', 'attend', 'share'];
+export async function loadActions(ids) {
+  S.done = localDone(); S.doneAt = localDoneAt();
+  if (DEMO) { if (new URLSearchParams(location.search).has('seed')) seedDemoActions();
+    for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; }
+    // sandbox community numbers, so the panel has something to show
+    S.voices = Object.fromEntries(D.hearings.map(h => [h.id, [...h.id].reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7) % 50]).filter(([, n]) => n >= 10));
+    S.totals = { 2026: { session_year: 2026, people: 214, actions: 486, testimonies: 301, bills: 41 } }; return; }
+  if (S.session && S.user) {
+    const { data } = await S.supa.from('public_actions').select('bill_id,hearing_id,kind,created_at');
+    const server = new Set();
+    (data || []).forEach(a => { const k = doneKey(a.bill_id, a.hearing_id, a.kind); server.add(k); S.doneAt[k] = a.created_at; });
+    // Marks made on this device before signing in join the account, so they count in the totals and follow the person.
+    const up = [...S.done].filter(k => !server.has(k)).map(k => { const [bill_id, hearing_id, kind] = k.split('|');
+      return { user_id: S.session.user.id, bill_id, hearing_id: hearing_id || null, kind, ...(S.doneAt[k] ? { created_at: S.doneAt[k] } : {}) }; }).filter(r => KINDS.includes(r.kind));
+    if (up.length) { const r = await S.supa.from('public_actions').upsert(up, { onConflict: 'user_id,bill_id,hearing_id,kind', ignoreDuplicates: true });
+      if (r.error) for (const row of up) await S.supa.from('public_actions').upsert(row, { onConflict: 'user_id,bill_id,hearing_id,kind', ignoreDuplicates: true }); }
+    server.forEach(k => S.done.add(k)); saveDone(); saveDoneAt();
+  }
+  const hids = [...new Set([...S.hearings, ...((S.featured || {}).hearings || [])].map(h => h.id))];
+  const [c, v, t] = await Promise.all([
+    ids.length ? S.supa.from('public_action_counts').select('*').in('bill_id', ids) : null,
+    hids.length ? S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', hids.slice(0, 300)) : null,
+    S.supa.from('public_session_totals').select('*')]);
+  (c?.data || []).forEach(r => { S.actionCounts[r.bill_id] = r; });
+  S.voices = Object.fromEntries((v?.data || []).map(r => [r.hearing_id, r.people]));
+  S.totals = Object.fromEntries((t?.data || []).map(r => [r.session_year, r]));
+}
+export async function markDone(billId, hearingId, kind, on = true, { quiet = false } = {}) {
+  const k = doneKey(billId, hearingId, kind);
+  const firstTestimony = on && kind === 'testimony' && ![...S.done].some(x => x.endsWith('|testimony'));   // across devices once signed in
+  if (on) { S.done.add(k); S.doneAt[k] = new Date().toISOString(); S.justDone = billId + '|' + (hearingId || ''); setTimeout(() => { S.justDone = null; }, 1200); }
+  else { S.done.delete(k); delete S.doneAt[k]; }
+  saveDone(); saveDoneAt();
+  if (on && !quiet) { celebrate(kind, firstTestimony); }
+  if (on && !S.session) nudge('action');
+  return { firstTestimony };
+  const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
+  const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
+  if (!DEMO && S.session && S.user) {
+    const r = on ? await S.supa.from('public_actions').insert({ user_id: S.session.user.id, bill_id: billId, hearing_id: hearingId || null, kind })
+                 : await S.supa.from('public_actions').delete().eq('user_id', S.session.user.id).eq('bill_id', billId).eq('kind', kind).is('hearing_id', hearingId || null);
+    if (r.error && !/duplicate/.test(r.error.message)) toast(r.error, true);
+  }
+}
+export function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
+export function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...S.watch])); } catch { /* private mode */ } }
+export async function loadUser() {
+  S.user = null;
+  if (DEMO || !S.session) { S.watch = localWatch(); return; }
+  const { data, error } = await S.supa.rpc('ensure_public_user');
+  if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut(); return; } throw error; }
+  S.user = data;
+  // Choices made on the sign-in page, before the account existed.
+  let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
+  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, action_alerts: !!pending.action_alerts, consent_at: new Date().toISOString() };
+    const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; try { localStorage.removeItem(CONSENT_KEY); } catch {} }
+  S.consentCard = !(S.user.prefs || {}).consent_at;
+  try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
+  // Lists followed on this device join the account (and stay in sync from here on).
+  const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
+  for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
+  try { localStorage.removeItem(LISTS_KEY); } catch {}
+  const wl = await S.supa.from('watchlist').select('bill_id');
+  const server = new Set((wl.data || []).map(r => r.bill_id));
+  // First sign-in: what was starred on this device joins the account.
+  const local = localWatch(); const missing = [...local].filter(id => !server.has(id));
+  if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id }))); missing.forEach(id => server.add(id)); }
+  S.watch = server; saveLocal();
+}
+// ---------------- curated lists ----------------
+// HIPHI staff curate lists of public bills. Following a list follows every
+// bill on it now and every bill added later (the database does that for
+// signed-in members; signed-out follows live in this browser and join the
+// account at sign-in).
+export function localListFollows() { try { return new Set(JSON.parse(localStorage.getItem(LISTS_KEY) || '[]')); } catch { return new Set(); } }
+export function saveListFollows() { try { localStorage.setItem(LISTS_KEY, JSON.stringify([...S.listFollows])); } catch {} }
+export async function loadLists() {
+  if (DEMO) { S.lists = D.lists.map(l => ({ ...l, bills: D.listBills.filter(x => x.list_id === l.id).length, followers: l.followers || 0, curated_by: 'HIPHI' })); }
+  else { const { data } = await S.supa.from('public_lists_v').select('*').order('featured', { ascending: false }).order('sort_order'); S.lists = data || []; }
+  if (!S.user) S.listFollows = localListFollows();
+}
+export async function listBillsFor(slug) {
+  if (S.listBills[slug]) return S.listBills[slug];
+  const l = S.lists.find(x => x.slug === slug); if (!l) return null;
+  let rows, bills;
+  if (DEMO) { rows = D.listBills.filter(x => x.list_id === l.id); bills = D.bills.filter(b => rows.some(r => r.bill_id === b.id)); }
+  else { const r = await S.supa.from('public_list_bills_v').select('*').eq('slug', slug); rows = r.data || [];
+    const ids = rows.map(x => x.bill_id); bills = ids.length ? (await S.supa.from('public_all_bills').select('*').in('id', ids)).data || [] : []; }
+  const out = rows.sort((a, b) => a.sort_order - b.sort_order || String(a.added_at).localeCompare(String(b.added_at))).map(x => ({ note: x.note, b: bills.find(b => b.id === x.bill_id) })).filter(x => x.b);
+  out.forEach(({ b }) => { S.extra[b.id] = b; });
+  S.listBills[slug] = out; return out;
+}
+export async function followList(slug, on) {
+  const l = S.lists.find(x => x.slug === slug); if (!l) return;
+  const rows = await listBillsFor(slug) || [];
+  if (on) S.listFollows.add(l.id); else S.listFollows.delete(l.id);
+  if (S.user && !DEMO) {
+    const r = on ? await S.supa.rpc('follow_list', { p_list: l.id }) : await S.supa.rpc('unfollow_list', { p_list: l.id });
+    if (r.error) { toast(r.error, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
+  } else saveListFollows();
+  if (on) { rows.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
+  l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
+  await loadBills();
+  if (on) nudge('follow');
+  app.render();
+  toast(on ? `Following ${rows.length} bill${rows.length === 1 ? '' : 's'} on “${l.title}” — new ones HIPHI adds will follow too` : `You no longer follow “${l.title}”; the bills stay in Your bills`);
+}
+export const POS_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes', strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting', monitor: 'HIPHI is watching' };
+// ---------------- legislators ----------------
+// Official profiles from the Capitol's pages. "Find my legislators" takes a
+// street address (sent to the U.S. Census geocoder through our proxy, not
+// stored), a district, a town, or a name; the box suggests as you type.
+export const plain = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʻ‘’`]/g, '').toLowerCase();
+export const legById = id => S.legislators.find(l => l.id === Number(id));
+export const legTitle = l => l.chamber === 'S' ? 'Sen.' : 'Rep.';
+// A joint referral ("HLT/HSH") is one hearing held by two committees together: both chairs decide, both
+// committees vote, and testimony is addressed to both. Every lookup by code goes through codesOf.
+export const codesOf = code => String(code || '').split('/').map(c => c.trim()).filter(Boolean);
+export const cmtesOf = code => codesOf(code).map(c => S.committees[c]).filter(Boolean);
+// "Health / Human Services & Homelessness" (not "and": the Senate has a Health and Human Services committee)
+export const cmteName = code => codesOf(code).map(c => S.committees[c]?.name || c).join(' / ');
+export const chairLast = c => (c.chair || '').replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
+export const chairEmail = c => `${c.chamber === 'S' ? 'sen' : 'rep'}${chairLast(c).toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov`;
+// every chair of a stop: emails comma-joined for one mailto, "Chair Takayama and Chair Marten" for the greeting
+export const chairsOf = code => { const cs = cmtesOf(code).filter(c => c.chair);
+  return cs.length ? { emails: cs.map(chairEmail).join(','), dear: cs.map(c => `Chair ${c.chair}`).join(' and '), names: cs.map(c => c.chair).join(' and '), n: cs.length } : null; };
+export const legsOf = code => { const cs = codesOf(code), rank = { chair: 0, vice_chair: 1, member: 2 }, by = new Map();
+  for (const m of S.committeeMembers) { if (!cs.includes(m.committee)) continue; const l = legById(m.legislator_id); if (!l) continue;
+    const x = by.get(l.id); if (!x) { by.set(l.id, { ...m, l, roles: { [m.committee]: m.role } }); continue; }
+    x.roles[m.committee] = m.role; if (rank[m.role] < rank[x.role]) { x.role = m.role; x.committee = m.committee; } }
+  return [...by.values()].sort((a, b) => rank[a.role] - rank[b.role] || cs.indexOf(a.committee) - cs.indexOf(b.committee) || a.l.sort_name.localeCompare(b.l.sort_name)); };
+export const legPhoto = (l, cls = 'lphoto') => l.photo_url ? `<img class="${cls}" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} none',textContent:'${esc((l.name || '?')[0])}'}))">` : `<span class="${cls} none">${esc((l.name || '?')[0])}</span>`;
+export const legChips = l => S.committeeMembers.filter(m => m.legislator_id === l.id).sort((a, b) => ({ chair: 0, vice_chair: 1, member: 2 }[a.role]) - ({ chair: 0, vice_chair: 1, member: 2 }[b.role])).map(m => `<span class="chipx ${m.role === 'chair' ? 'c-teal' : m.role === 'vice_chair' ? 'c-navy' : 'c-gray'}" title="${esc(S.committees[m.committee]?.name || m.committee)}">${esc(S.committees[m.committee]?.name || m.committee)}${m.role === 'chair' ? ' · Chair' : m.role === 'vice_chair' ? ' · Vice Chair' : ''}</span>`).join('');
+// the places a legislator's district covers, one name each
+export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/^(a )?portions? of\s+/i, '').trim()).filter(Boolean);
+// what the box suggests
+export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
+// Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
+export async function supa() { if (!S.supa) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY); } return S.supa; }
+export async function fetchAddrSuggest(q) {
+  const { data, error } = await (await supa()).rpc('address_suggest', { q, n: 8 }); if (error) throw error;
+  return (data || []).map(x => ({ label: x.label, lat: x.lat, lon: x.lon, sd: x.sd, hd: x.hd, exact: x.exact }));
+}
+export function legSuggest(q) {
+  const k = plain(q.trim()); if (k.length < 2) return [];
+  const out = [];
+  if (S.addrSug && S.addrSug.q === q.trim()) out.push(...S.addrSug.results.map(x => ({ kind: 'addr', ...x })));
+  if (/^\d/.test(k) && k.length >= 5 && !out.some(x => x.exact)) out.push({ kind: 'address', label: `Look up “${q.trim()}” as typed`, q: q.trim() });
+  const dm = /^(senate|house|sd|hd)?\s*(district)?\s*(\d{1,2})$/.exec(k);
+  if (dm) { const n = +dm[3]; if (!dm[1] || /^s/.test(dm[1])) out.push({ kind: 'district', label: `Senate District ${n}`, chamber: 'S', district: n }); if (!dm[1] || /^h/.test(dm[1])) out.push({ kind: 'district', label: `House District ${n}`, chamber: 'H', district: n }); }
+  const places = new Map();
+  for (const l of S.legislators) for (const pl of placesOf(l)) if (plain(pl).includes(k)) { const key = plain(pl); if (!places.has(key)) places.set(key, { kind: 'place', label: pl, ids: [] }); if (!places.get(key).ids.includes(l.id)) places.get(key).ids.push(l.id); }
+  out.push(...[...places.values()].sort((a, b) => a.label.localeCompare(b.label)).slice(0, 8));
+  out.push(...S.legislators.filter(l => plain(l.name).includes(k) || plain(l.sort_name).includes(k)).slice(0, 6).map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, ids: [l.id] })));
+  return out.slice(0, 12);
+}
+export async function legLookupAddress(q, pt) {
+  const byDistrict = (sd, hd) => S.legislators.filter(l => (l.chamber === 'S' && l.district === sd) || (l.chamber === 'H' && l.district === hd)).map(l => l.id);
+  if (pt && pt.sd && pt.hd) return { matched: pt.label, ids: byDistrict(pt.sd, pt.hd) };
+  if (pt) { const { data } = await (await supa()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; if (d?.sd || d?.hd) return { matched: pt.label, ids: byDistrict(d.sd, d.hd) }; }
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } });
+  const j = await r.json(); if (!j.found) return { none: true };
+  return { matched: j.matched || q, ids: byDistrict(j.senate, j.house) };
+}
+// mail draft for a legislator about a bill (or a general note)
+export function legDraft(l, b) {
+  const ask = b && (b.hiphi_action || '').trim();
+  const subject = b ? `${b.bill_number.replace(/^(\D+)/, '$1 ')}${b.hiphi_position ? ' — ' + ({ strongly_support: 'please support', support: 'please support', support_amend: 'please support with amendments', strongly_oppose: 'please oppose', oppose: 'please oppose', neutral: 'comments' }[b.hiphi_position] || '') : ''}` : `A constituent from ${S.legTown || 'your district'}`;
+  const surname = (l.sort_name || l.name).split(',')[0].trim();
+  const body = `Aloha ${legTitle(l)} ${surname},\n\nMy name is [your name] and I live in [your town].${b ? `\n\nI am writing about ${b.bill_number.replace(/^(\D+)/, '$1 ')}, ${blurb(b, 140)}${ask ? `\n\n${ask}` : ''}` : ''}\n\n[Why this matters to you, in a sentence or two.]\n\nMahalo,\n[your name]`;
+  return { subject, body, mailto: `mailto:${l.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` };
+}
+export async function loadBills() {
+  const ids = [...S.watch];
+  if (!S.featured) { try { await loadFeatured(); } catch { S.featured = { hearings: [], bills: [] }; } }
+  if (!S.pool) { try { await loadPool(); } catch { S.pool = { bills: [], hearings: [] }; } }
+  if (DEMO) {
+    const w = new Set(ids);
+    S.bills = D.bills.filter(b => w.has(b.id)); S.hearings = D.hearings.filter(h => w.has(h.bill_id));
+    S.activity = D.activity.filter(a => w.has(a.bill_id)).sort((x, y) => y.occurred_at.localeCompare(x.occurred_at));
+    S.outcomes = Object.fromEntries(D.outcomes.filter(o => w.has(o.bill_id)).map(o => [o.hearing_id, o]));
+    await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]);
+    return;
+  }
+  if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; S.outcomes = {}; }
+  else {
+    const [b, h, a, o] = await Promise.all([
+      S.supa.from('public_all_bills').select('*').in('id', ids),
+      S.supa.from('public_all_hearings').select('*').in('bill_id', ids),
+      S.supa.from('public_activity').select('*').in('bill_id', ids).order('occurred_at', { ascending: false }).limit(300),
+      S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ids),
+    ]);
+    S.bills = b.data || []; S.hearings = h.data || []; S.activity = a.data || [];
+    S.outcomes = Object.fromEntries((o.data || []).map(x => [x.hearing_id, x]));
+  }
+  try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
+  if (!S.deadlines.length) {
+    const [d, c, sl, co, lg, cm, cp] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
+      S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*'),
+      S.supa.from('public_legislators').select('*').order('chamber').order('district'), S.supa.from('public_committee_members').select('*'), S.supa.from('public_committee_counterparts').select('*')]);
+    S.legislators = lg.data || []; S.committeeMembers = cm.data || []; S.counterparts = cp.data || [];
+    S.slots = sl.data || [];
+    S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
+    S.committees = Object.fromEntries((c.data || []).map(x => [x.code, x]));
+    S.coalitions = (co.data || []).filter(x => x.bills > 0);
+  }
+}
+// This week at the Capitol: upcoming hearings on bills HIPHI has a position on,
+// so a first visit has something to watch in one tap.
+// The pool suggestions come from: every live bill HIPHI has a position on, with
+// hearings in the next two weeks. Loaded once per visit.
+export async function loadPool() {
+  const now = Date.now(), until = new Date(now + 15 * 864e5).toISOString();
+  if (DEMO) {
+    const bills = D.bills.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor');
+    const ids = new Set(bills.map(b => b.id));
+    S.pool = { bills, hearings: D.hearings.filter(h => ids.has(h.bill_id) && h.status === 'scheduled' && h.scheduled_at < until) }; return;
+  }
+  const { data: bills } = await S.supa.from('public_all_bills').select('*').not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').not('stage', 'in', '("dead","vetoed","enacted","governor")').limit(500);
+  const ids = (bills || []).map(b => b.id);
+  const { data: hs } = ids.length ? await S.supa.from('public_all_hearings').select('*').in('bill_id', ids).eq('status', 'scheduled').gt('scheduled_at', new Date(now - 864e5).toISOString()).lt('scheduled_at', until) : { data: [] };
+  S.pool = { bills: (bills || []).filter(alive), hearings: hs || [] };
+}
+export function dismissed() { try { return new Set(JSON.parse(localStorage.getItem('hiphi_dismiss') || '[]')); } catch { return new Set(); } }
+export function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } }
+// What this person seems to care about: coalitions of the bills they follow,
+// plus the issues they picked at the start.
+export function interests() {
+  const w = {}; const add = (n, k) => { if (n) w[n] = (w[n] || 0) + k; };
+  for (const b of S.bills) for (const n of (b.coalitions || [])) add(n, 2);
+  for (const n of (wiz().issues || [])) for (const m of groupNames(n)) add(m, 3);
+  return w;
+}
+// Ranked suggestions: something to do this week on a bill they do not follow yet.
+export function recommendations(limit) {
+  const pool = S.pool; if (!pool) return [];
+  const now = Date.now(), skip = dismissed(), likes = interests(), anyLikes = Object.keys(likes).length > 0;
+  const out = [];
+  for (const b of pool.bills) {
+    if (S.watch.has(b.id) || skip.has(b.id)) continue;
+    const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => { const d = S.deadlines.filter(x => x.key === k).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
+    let kind = null, when = null, score = 0, why = [];
+    if (st.hearingState === 'scheduled' && st.hearing) {
+      const due = st.hearing.testimony_deadline ? new Date(st.hearing.testimony_deadline).getTime() : new Date(st.hearing.scheduled_at).getTime();
+      if (due > now) { kind = 'testify'; when = due; score += 6 + Math.max(0, 5 - (due - now) / 864e5); }
+    } else if (st.column === 'a' && st.deadline && !st.deadline.missed && st.committee && st.deadline.days <= 21) {
+      kind = 'hearing'; when = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(); score += 3 + Math.max(0, 3 - st.deadline.days / 7); why.push('stuck in committee — the chair needs to hear from people');
+    }
+    if (!kind) continue;
+    const mine = (b.coalitions || []).filter(n => likes[n]);
+    if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${cname(mine[0])}`); }
+    else if (anyLikes) score -= 1;
+    if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
+    if (!why.length) why.push(kind === 'testify' ? 'testimony window is open' : 'needs a push');
+    if ((S.actionCounts[b.id] || {}).testimonies) score += 0.5;
+    out.push({ b, st, kind, when, score, why });
+  }
+  out.sort((x, y) => y.score - x.score || x.when - y.when);
+  return out.slice(0, limit);
+}
+export async function loadFeatured() {
+  const now = Date.now(), until = new Date(now + 8 * 864e5).toISOString();
+  if (DEMO) {
+    const hs = D.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now && h.scheduled_at < until);
+    const ids = new Set(hs.map(h => h.bill_id));
+    const bills = D.bills.filter(b => ids.has(b.id) && b.hiphi_position && b.hiphi_position !== 'monitor');
+    S.featured = { hearings: hs.filter(h => bills.some(b => b.id === h.bill_id)), bills }; return;
+  }
+  const { data: hs } = await S.supa.from('public_all_hearings').select('*').eq('status', 'scheduled').gt('scheduled_at', new Date(now).toISOString()).lt('scheduled_at', until).order('scheduled_at').limit(60);
+  const ids = [...new Set((hs || []).map(h => h.bill_id))];
+  const { data: bills } = ids.length ? await S.supa.from('public_all_bills').select('*').in('id', ids).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor') : { data: [] };
+  S.featured = { hearings: (hs || []).filter(h => (bills || []).some(b => b.id === h.bill_id)), bills: bills || [] };
+}
+// Onboarding state lives in this browser: which steps are done, nudges shown, tour seen.
+export function onb() { try { return JSON.parse(localStorage.getItem('hiphi_onb') || '{}'); } catch { return {}; } }
+export function onbSet(patch) { const o = { ...onb(), ...patch }; try { localStorage.setItem('hiphi_onb', JSON.stringify(o)); } catch { /* ignore */ } return o; }
+export async function toggleWatch(id) {
+  const on = S.watch.has(id);
+  if (on) S.watch.delete(id); else S.watch.add(id);
+  saveLocal();
+  if (S.user && !DEMO) {
+    const r = on ? await S.supa.from('watchlist').delete().eq('user_id', S.user.id).eq('bill_id', id)
+                 : await S.supa.from('watchlist').insert({ user_id: S.user.id, bill_id: id });
+    if (r.error) { toast(r.error, true); if (on) S.watch.add(id); else S.watch.delete(id); saveLocal(); return; }
+  }
+  await loadBills();
+  // Signed in, first bill followed, no districts yet: ask for a home address once (it is the field HIPHI needs most).
+  if (!on && S.user && !DEMO && S.watch.size >= 1 && !(S.profile || {}).senate_district && !onb().addrAsked) { S.addrCard = true; onbSet({ addrAsked: true }); }
+  // Sign-in nudge after the first and third Watch, never a modal, never before a Watch.
+  if (!on && S.watch.size && [1, 3].includes(S.watch.size)) nudge('follow');
+  app.render();
+}
+export async function search(q) {
+  if (DEMO) return [...D.bills.filter(b => dmatch(b, q)), ...D.index.filter(b => dmatch(b, q))].slice(0, 25);
+  const safe = q.replace(/[%,()]/g, ' ').trim();
+  const { data, error } = await S.supa.from('public_all_bills').select('*')
+    .or(`bill_number.ilike.%${safe.replace(/\s/g, '')}%,title.ilike.%${safe}%,description.ilike.%${safe}%`)
+    .order('bill_number').limit(25);
+  if (error) throw error; return data;
+}
+// Every public bill HIPHI has tagged with a coalition (public_all_bills.coalitions).
+export async function browseCoalition(name) {
+  const names = groupNames(name);
+  if (DEMO) { S.browse = { name: names[0], rows: D.bills.filter(b => b.coalitions.some(n => names.includes(n))) }; S.results = null; S.q = ''; return; }
+  const { data, error } = await S.supa.from('public_all_bills').select('*').overlaps('coalitions', names).order('bill_number').limit(300);
+  if (error) throw error;
+  S.browse = { name: names[0], rows: data || [] }; S.results = null; S.q = '';
+}
+// ---------------- helpers ----------------
+export const bill = id => S.bills.find(b => b.id === id);
+export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
+export const hearingsOf = b => [...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
+export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
+export function stopOf(b) {
+  return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
+    deadlineFor: key => { const d = S.deadlines.filter(x => x.key === key).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
+}
+// The referral path, one line per chamber, current stop marked (same as the staff app).
+export function referralPath(b) {
+  const refs = b.referrals || []; if (!refs.length) return esc(b.committee || '—');
+  const n = Math.min(b.origin_stops || refs.length, refs.length);
+  const st = stopOf(b), origin = b.chamber || (b.bill_number?.startsWith('S') ? 'S' : 'H'), otherCh = origin === 'H' ? 'S' : 'H';
+  // A dead bill stopped at the stop its death stage names: triple = first, decking = last, lateral = in between.
+  const ds = st.phase === 'dead' ? (b.died_at_stage || '') : '';
+  const deadLeg = /^first|^introduced/.test(ds) ? 'first' : /^second/.test(ds) ? 'second' : null;
+  const deadIdx = list => /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : 1;
+  const line = (ch, list, leg) => list.length ? `<span class="refline"><span class="refch">${CHAMBER_NAME[ch]}</span>${list.map((c, i) => {
+      if (ds) { const di = deadLeg === leg ? deadIdx(list) : -1; const cls = deadLeg === leg ? (i === di ? 'dead' : i < di ? 'past' : '') : (leg === 'first' && deadLeg === 'second' ? 'past' : ''); return `<span class="refstop ${cls}">${esc(c)}</span>`; }
+      const here = st.leg === leg && st.phase === 'committee' && st.stop === i + 1;
+      const past = st.leg !== leg ? (leg === 'first') : (st.phase !== 'committee' || st.stop > i + 1);
+      return `<span class="refstop ${here ? 'here' : past ? 'past' : ''}">${esc(c)}</span>`; }).join('<span class="refarrow">→</span>')}</span>` : '';
+  const second = refs.slice(n);
+  return line(origin, refs.slice(0, n), 'first') + (second.length ? line(otherCh, second, 'second') : (st.leg === 'second' && st.phase === 'committee' ? `<span class="refline"><span class="refch">${CHAMBER_NAME[otherCh]}</span><span class="refstop muted">awaiting referral</span></span>` : ''));
+}
+export function nextDeadline(b) { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; }
+export const alive = b => !['dead', 'vetoed', 'enacted', 'governor'].includes(b.stage || '') && !/deferred|failed to pass/i.test(b.last_action || '');
+export const posCls = b => ({ strongly_support: 'pos-support', support: 'pos-support', support_amend: 'pos-support', strongly_oppose: 'pos-oppose', oppose: 'pos-oppose', neutral: 'pos-neutral' }[b.hiphi_position] || 'pos-none');
+// "First Lateral 2/20/26" -> a sentence a neighbour would understand.
+export function whyDead(b) {
+  if (b.stage !== 'dead' && alive(b)) return '';
+  const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  if (m) return `Missed the ${m[1]} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
+  if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
+  if (/deferred/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
+  if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
+  return b.stage === 'vetoed' ? 'Vetoed by the Governor.' : 'Did not advance.';
+}
+// Last regular meeting slot of a committee on or before a date (from the
+// Capitol's published schedules, committee_slots), and the 48-hour notice
+// cutoff for it. A joint hearing is held in the lead (first) committee's slot. Null without a schedule.
+export function lastSlotBefore(code, dateStr, slots) {
+  const c = codesOf(code)[0];
+  const mine = (slots || []).filter(s => s.code === c);
+  if (!mine.length || !dateStr) return null;
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(dateStr + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - i);
+    const day = d.toISOString().slice(0, 10);
+    const dow = new Date(day + 'T12:00:00-10:00').getUTCDay();
+    const s = mine.filter(x => x.weekday === dow).sort((a, b) => b.start_time.localeCompare(a.start_time))[0];
+    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: new Date(at - 48 * 3600e3), room: s.room }; }
+  }
+  return null;
+}
+export const streamOf = h => hearingStream(h, S.committees[codesOf(h.committee)[0]]?.chamber);
+export const chairOf = code => { const cs = cmtesOf(code).filter(c => c.chair); if (!cs.length) return '';
+  return ` · ${cs.length > 1 ? 'Chairs' : 'Chair'} ${cs.map(c => `<a class="chairmail" href="mailto:${esc(chairEmail(c))}" onclick="event.stopPropagation()" title="Email the chair">${c.chamber === 'S' ? 'Sen.' : 'Rep.'} ${esc(chairLast(c))}</a>`).join(' and ')}`; };
+export const RAIL_SHORT = { introduced: 'Intro', first_triple: '1st Triple', first_lateral: '1st Lat', first_decking: '1st Deck', first_crossover: 'Cross',
+  second_triple: '2nd Triple', second_lateral: '2nd Lat', second_decking: '2nd Deck', conference: 'Conf', governor: 'Gov', enacted: 'Law' };
+// A triple-referred bill gets its Triple stop in that chamber, before Lateral.
+export const railFor = b => { const r = ['introduced']; if ((b.origin_stops || 0) >= 3) r.push('first_triple');
+  r.push('first_lateral', 'first_decking', 'first_crossover'); if ((b.second_stops || 0) >= 3) r.push('second_triple');
+  r.push('second_lateral', 'second_decking', 'conference', 'governor', 'enacted'); return r; };
+// ---------------- Do this now: one card per open opportunity ----------------
+export const POS_VERB = { strongly_support: 'support', support: 'support', support_amend: 'support with amendments', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'comment on' };
+export const POS_WORD = { strongly_support: 'SUPPORT', support: 'SUPPORT', support_amend: 'SUPPORT WITH AMENDMENTS', strongly_oppose: 'OPPOSITION', oppose: 'OPPOSITION', neutral: 'COMMENTS' };
+export function actionsList(bills, hearings) {
+  const now = Date.now();
+  return hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now)
+    .map(h => ({ h, b: bills.find(b => b.id === h.bill_id) }))
+    .filter(x => x.b && x.b.hiphi_position && x.b.hiphi_position !== 'monitor' && alive(x.b))
+    .sort((x, y) => (x.h.testimony_deadline || x.h.scheduled_at).localeCompare(y.h.testimony_deadline || y.h.scheduled_at));
+}
+// ---------------- progress: what you did, what it led to, the community ----------------
+// Nate, 9/18: a game-like page that stays positive. Best practice for civic tools: show what an action led to,
+// show the group's progress, never rank people, never guilt. So: no points, no leaderboard, no daily streak (the
+// legislature meets January to May, in bursts); every kind of action counts (testimony, a sent email, going to a
+// hearing, sharing); group totals appear only from 10 people; a small Hawaiʻi-flavoured celebration for real acts
+// only, and none at all for people who ask their device to reduce motion; between sessions, a recap.
+// No account is needed. Signing in is what makes an action count in the community totals.
+export const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+export const MAHALO = { testimony: 'Mahalo for testifying! Your voice is on the record.', email: 'Mahalo! Your email helps the chair see people care.',
+  attend: 'Mahalo! See you at the Capitol.', share: 'Mahalo for spreading the word.' };
+export function yay(msg) { toast(msg, { yay: true }); }
+// five-petal hibiscus, in the page's warm colours
+export const flowerSVG = (c, n = 24) => `<svg viewBox="-12 -12 24 24" width="${n}" height="${n}" aria-hidden="true"><g fill="${c}">${[0, 72, 144, 216, 288].map(r => `<ellipse cx="0" cy="-5.6" rx="4.1" ry="5.6" transform="rotate(${r})"/>`).join('')}</g><circle r="2.2" fill="#F9D56E"/></svg>`;
+// The one bigger moment: someone's first testimony ever. Twelve hibiscus drift out and fade in about 0.7 s, once.
+export function hibiscus() {
+  if (reduceMotion()) return;
+  const C = ['#E8505B', '#F28CA0', '#F4B942', '#E8505B', '#D9465F', '#F28CA0'];
+  const box = document.createElement('div'); box.className = 'burst'; box.setAttribute('aria-hidden', 'true');
+  box.innerHTML = [...Array(12)].map((_, i) => { const a = i / 12 * Math.PI * 2 + (i % 2) * 0.22, d = 80 + (i % 3) * 36;
+    return `<span class="fl" style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d)}px;--r:${(i % 2 ? 1 : -1) * (80 + i * 14)}deg;animation-delay:${(i % 4) * 35}ms">${flowerSVG(C[i % C.length])}</span>`; }).join('');
+  document.body.appendChild(box); setTimeout(() => box.remove(), 1200);
+}
+export function celebrate(kind, firstTestimony) {
+  if (firstTestimony) { hibiscus(); yay('Your first testimony! Imua: this is how laws get made in Hawaiʻi. Mahalo nui loa.'); return; }
+  yay(MAHALO[kind] || 'Mahalo!');
+}
+// ---- asking for an email, gently (research 9/18: ask after something worthwhile is done, name the benefit,
+// inline and never a pop-up, one ask per visit, and after "Not now" wait 14 days, then 60) ----
+export function nudgeOk() {
+  if (S.session || S.nudgedThisVisit) return false;
+  const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
+  return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
+}
+export function nudge(kind) { if (nudgeOk()) { S.nudge = kind; S.nudgedThisVisit = true; } }
+// ---- the session calendar: opens the third Wednesday of January, ends at sine die ----
+export const thirdWed = y => { const dow = new Date(Date.UTC(y, 0, 1)).getUTCDay(); return `${y}-01-${String(1 + ((3 - dow + 7) % 7) + 14).padStart(2, '0')}`; };
+export const hiT = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').getTime();
+export function sessionInfo() {
+  const sd = S.deadlines.find(d => d.key === 'sine_die') || S.deadlines[S.deadlines.length - 1];
+  const yr = sd ? +String(sd.deadline_date).slice(0, 4) : new Date().getFullYear(), end = sd ? String(sd.deadline_date).slice(0, 10) : `${yr}-05-08`, open = thirdWed(yr);
+  let phase = Date.now() < hiT(open) ? 'before' : Date.now() <= hiT(end) + 864e5 ? 'in' : 'after';
+  if (DEMO && new URLSearchParams(location.search).get('season') === 'off') phase = 'after';   // sandbox preview of the recap
+  return { yr, open, end, phase, recapYear: phase === 'before' ? yr - 1 : yr, nextOpen: phase === 'in' ? null : thirdWed(phase === 'before' ? yr : yr + 1) };
+}
+export function myActions() {
+  return [...S.done].map(k => { const [bill_id, hearing_id, kind] = k.split('|'), at = (S.doneAt || {})[k] || null;
+    return { k, bill_id, hearing_id: hearing_id || null, kind, at, year: at ? +hstDay(at).slice(0, 4) : null }; }).filter(a => KINDS.includes(a.kind));
+}
+export const anyBill = id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null);
+export const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat(), ...(DEMO ? D.hearings : [])].find(h => h.id === id) || null) : null;
+export const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
+// Milestones mark real acts, are shown only to the person, and never expire.
+export const MILESTONES = [
+  ['first', 'First step', 'your first action on a bill', a => a.length >= 1],
+  ['testimony', 'First testimony', 'testimony to a committee', a => a.some(x => x.kind === 'testimony')],
+  ['share', 'Spread the word', 'share a bill with someone', a => a.some(x => x.kind === 'share')],
+  ['attend', 'Showed up', 'go to a hearing in person', a => a.some(x => x.kind === 'attend')],
+  ['three', 'Three hearings', 'act on three different hearings', a => new Set(a.filter(x => x.hearing_id).map(x => x.hearing_id)).size >= 3],
+  ['ten', 'Ten actions', 'ten actions in all', a => a.length >= 10],
+  ['both', 'Both chambers', 'act on one bill in the House and in the Senate', a => { const m = {};
+    for (const x of a) { const h = anyHearing(x.hearing_id), ch = h && S.committees[codesOf(h.committee)[0]]?.chamber; if (ch) (m[x.bill_id] ??= new Set()).add(ch); }
+    return Object.values(m).some(v => v.size > 1); }],
+  ['law', 'Made it law', 'a bill you acted on becomes law', a => a.some(x => anyBill(x.bill_id)?.stage === 'enacted')],
+];
+// "You testified on HB 123 → the Health committee passed it": the result is the reward.
+export function impactRows(acts, limit = 5) {
+  const by = new Map();
+  for (const a of acts) { const key = a.bill_id + '|' + (a.hearing_id || ''), x = by.get(key) || { bill_id: a.bill_id, hearing_id: a.hearing_id, kinds: [], at: '' };
+    if (!x.kinds.includes(a.kind)) x.kinds.push(a.kind); if ((a.at || '') > x.at) x.at = a.at || ''; by.set(key, x); }
+  const WORD = { testimony: 'testified', email: 'emailed the chair', attend: 'went in person', share: 'shared it' };
+  return [...by.values()].sort((x, y) => y.at.localeCompare(x.at)).map(x => {
+    const b = anyBill(x.bill_id); if (!b) return null;
+    const h = anyHearing(x.hearing_id), o = h && outcomeOf(h), past = h && new Date(h.scheduled_at) < Date.now(), who = h ? cmteName(h.committee) : '';
+    const [tone, text] = b.stage === 'enacted' ? ['law', 'Became law. Mahalo for your part in it.']
+      : b.stage === 'vetoed' ? ['stop', 'Vetoed by the Governor.']
+      : o && /passed/.test(o.outcome || '') ? ['up', `${who} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`]
+      : o && o.outcome === 'deferred' ? ['stop', `${who} deferred it. Your testimony stays on the record for next time.`]
+      : h && !past ? ['wait', `${who} hears it ${fmtDT(h.scheduled_at)}.`]
+      : h ? ['wait', `Heard ${fmtDate(h.scheduled_at, { month: 'short' })}; waiting for the committee’s decision.`]
+      : !alive(b) ? ['stop', 'Did not advance this session.'] : ['wait', STAGE_PLAIN[b.stage] ? STAGE_PLAIN[b.stage] + '.' : ''];
+    return `<div class="imp imp-${tone}" data-open="${b.id}"><span class="impdot" aria-hidden="true"></span><div><b>${esc(billNum(b))}</b> <span class="impdid">You ${x.kinds.map(k => WORD[k]).join(', ')}</span><div class="impres">${esc(text)}</div></div></div>`;
+  }).filter(Boolean).slice(0, limit).join('');
+}
+// The community, this session: only from 10 people (the view hides smaller totals). The bar fills toward the
+// next round number; passing one since this device last looked gets a line of thanks, once.
+export const RUNGS = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000];
+export const COMM_KEY = DEMO ? 'hiphi_comm_rung_demo' : 'hiphi_comm_rung';
+// Sandbox: three real March hearings the committee passed, marked as if you had acted, so the panel shows.
+export function seedDemoActions() {
+  try { if (S.done.size || localStorage.getItem('hiphi_demo_seeded')) { S.demoSeeded = localStorage.getItem('hiphi_demo_seeded') === '1' && S.done.size > 0; return; } } catch { return; }
+  const now = Date.now(), hs = D.hearings.filter(h => new Date(h.scheduled_at) < now && new Date(h.scheduled_at) > now - 20 * 864e5 && D.outcomes.some(o => o.hearing_id === h.id && /passed/.test(o.outcome || '')))
+    .filter(h => D.bills.some(b => b.id === h.bill_id && b.hiphi_position && b.hiphi_position !== 'monitor')).slice(-3);
+  hs.forEach((h, i) => { const k = doneKey(h.bill_id, h.id, i === 1 ? 'email' : 'testimony'); S.done.add(k); S.doneAt[k] = new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(); });
+  if (hs.length) { saveDone(); saveDoneAt(); S.demoSeeded = true; try { localStorage.setItem('hiphi_demo_seeded', '1'); } catch { /* ignore */ } }
+}
+// HIPHI's picks for a coalition: strongly supported/opposed first, then bills
+// with a position and a hearing coming up, then the rest with a position. Dead
+// bills stay out. Capped so a first-timer sees a handful, not hundreds.
+export const POS_RANK = { strongly_support: 0, strongly_oppose: 0, support: 1, oppose: 1, support_amend: 2, neutral: 3 };
+export function curate(rows, cap = 6) {
+  const now = Date.now(), up = new Set([...S.hearings, ...((S.featured || {}).hearings || [])].filter(h => new Date(h.scheduled_at) > now).map(h => h.bill_id));
+  const live = rows.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor');
+  live.sort((a, b) => (POS_RANK[a.hiphi_position] ?? 9) - (POS_RANK[b.hiphi_position] ?? 9) || (up.has(b.id) - up.has(a.id)) || a.bill_number.localeCompare(b.bill_number));
+  return { picks: live.slice(0, cap), rest: rows.filter(b => !live.slice(0, cap).includes(b)) };
+}
+export async function billsForCoalitions(names) {
+  if (DEMO) return D.bills.filter(b => b.coalitions.some(n => names.includes(n)));
+  const { data, error } = await S.supa.from('public_all_bills').select('*').overlaps('coalitions', names).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').limit(400);
+  if (error) throw error; return data || [];
+}
+// ---------- the guided start: pick issues -> pick bills -> done ----------
+export function wiz() { try { return JSON.parse(localStorage.getItem('hiphi_wiz') || '{"step":1,"issues":[]}'); } catch { return { step: 1, issues: [] }; } }
+export function wizSet(patch) { const w = { ...wiz(), ...patch }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } return w; }
+// ---------------- plain language (redesign 9/19) ----------------
+// Newcomers never see Capitol shorthand ("2nd Lateral", "Decking", "HHS/CPN", "Rm 229") outside "More details".
+// Every screen words bills, hearings and deadlines through these helpers so the whole page says things one way.
+export const countOk = n => (Number(n) >= 10 ? Number(n) : 0);   // a group number is shown only from 10 people
+export const EMOJI_TO_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout',
+  '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby', '📋': 'heart-pulse', '☰': 'list-checks' };
+// Issue and list icons are Lucide names now; an emoji left in the data still maps to one.
+export function issueIcon(v, kind = 'issue') {
+  const x = String(v || '').trim();
+  return ICONS[x] ? x : EMOJI_TO_ICON[x] || EMOJI_TO_ICON[x.replace(/️/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse');
+}
+// Issues in the order a newcomer should see them: the most live bills first, the catch-all last.
+export function issues() {
+  return groups().map(g => ({ ...g, icon: issueIcon(g.icon), general: /general/i.test(g.key) }))
+    .sort((a, b) => a.general - b.general || (b.live > 0) - (a.live > 0) || (b.live || 0) - (a.live || 0) || a.sort_order - b.sort_order);
+}
+export function issueOf(b) {
+  const n = (b.coalitions || [])[0]; if (!n) return null;
+  const g = issues().find(x => x.names.includes(n));
+  return g || { key: cname(n), names: [n], icon: 'heart-pulse' };
+}
+// "HIPHI supports" with its icon; position is a chip with an icon, never a colour stripe.
+export function posInfo(b) {
+  const p = b?.hiphi_position;
+  if (/support/.test(p || '')) return { text: p === 'support_amend' ? 'HIPHI supports with changes' : 'HIPHI supports', icon: 'thumbs-up', verb: 'support' };
+  if (/oppose/.test(p || '')) return { text: 'HIPHI opposes', icon: 'thumbs-down', verb: 'oppose' };
+  if (p === 'neutral') return { text: 'HIPHI has comments', icon: 'message-square', verb: 'comment on' };
+  return null;
+}
+const DOW = { timeZone: HST, weekday: 'short' };
+export const dayWord = iso => {   // "today", "tomorrow (Tue)", "Thu", "Mon, Mar 30"
+  const d = hstDay(iso), today = hstDay(Date.now()), tmr = hstDay(Date.now() + 864e5), days = (new Date(d + 'T12:00:00-10:00') - new Date(today + 'T12:00:00-10:00')) / 864e5;
+  const wd = new Date(iso).toLocaleDateString('en-US', DOW);
+  return d === today ? 'today' : d === tmr ? `tomorrow (${wd})` : days > 0 && days < 7 ? wd : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
+};
+export const timeWord = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' });
+export const dateLong = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
+// "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees".
+export function cmteLabel(code, { short = false } = {}) {
+  const cs = codesOf(code).map(c => S.committees[c]).filter(Boolean);
+  if (!cs.length) return code ? `the ${code} committee` : 'a committee';
+  const ch = CHAMBER_NAME[cs[0].chamber] || '';
+  const names = cs.map(c => c.name);
+  const joined = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+  return short ? joined : `${ch} ${joined} ${names.length > 1 ? 'Committees' : 'Committee'}`.trim();
+}
+export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
+// Testimony deadline wording and urgency: danger under 24 hours, warning under 48.
+export function dueInfo(h) {
+  if (!h?.testimony_deadline) return null;
+  const t = new Date(h.testimony_deadline).getTime(), left = t - Date.now();
+  if (left <= 0) return { text: `Testimony deadline passed ${dateLong(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}`, tone: 'warn', late: true };
+  return { text: `Testimony due ${dayWord(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}`, tone: left < 864e5 ? 'danger' : left < 2 * 864e5 ? 'warn' : '', late: false };
+}
+export const hearingText = h => h ? `Hearing ${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}` : '';
+// One plain sentence for where a bill is and what happens next.
+export function plainStatus(b) {
+  const st = stopOf(b);
+  if (b.stage === 'enacted' || st.phase === 'law') return { text: 'Became law.', short: 'Became law', tone: 'ok' };
+  if (b.stage === 'vetoed' || st.phase === 'vetoed') return { text: 'Vetoed by the Governor.', short: 'Vetoed', tone: '' };
+  if (b.stage === 'governor' || st.phase === 'governor') return { text: 'Passed the House and Senate. It is on the Governor’s desk.', short: 'On the Governor’s desk', tone: 'info' };
+  if (!alive(b) || st.phase === 'dead') return { text: whyStopped(b), short: 'Stopped this session', tone: '' };
+  const ch = CHAMBER_NAME[st.chamber] || '';
+  if (st.phase === 'conference') return { text: 'The House and Senate passed different versions. They are working out one version now.', short: 'House and Senate working out one version', tone: 'info' };
+  if (st.phase === 'floor') return { text: `Through its ${ch} committees. Next is a vote of the full ${ch}.`, short: `Waiting for a ${ch} vote`, tone: 'info' };
+  const where = st.committee ? `the ${cmteLabel(st.committee)}` : `a ${ch} committee`;
+  const other = st.chamber === 'H' ? 'Senate' : 'House';
+  const passed = st.leg === 'second' ? `Passed the ${other}. ` : '';
+  if (st.hearingState === 'scheduled') {
+    const d = dueInfo(st.hearing);
+    return { text: `${passed}${cap(where)} hears it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d?.tone || 'info' };
+  }
+  if (st.hearingState === 'held') return { text: `${passed}${cap(where)} heard it ${dateLong(st.hearing.scheduled_at)}. Waiting for its decision.`, short: 'Heard, waiting for the decision', tone: 'info' };
+  if (!st.committee) return { text: `${passed}Waiting to be sent to a ${ch} committee.`, short: `Waiting for a ${ch} committee`, tone: '' };
+  const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
+  return { text: `${passed}Waiting for a hearing in ${where}.${dl ? ` If it is not heard by ${dateLong(dl.date + 'T12:00:00-10:00')}, it stops for this year.` : ''}`,
+    short: dl ? `Waiting for a hearing · ${dl.days} day${dl.days === 1 ? '' : 's'} left` : 'Waiting for a hearing', tone: dl && dl.days <= 7 ? 'warn' : '' };
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// Why a bill stopped, in words: "Put on hold by the Senate Education Committee, which usually stops it this year."
+export function whyStopped(b) {
+  if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
+  if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
+  if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
+  const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${m[2]}` : ''}, so it stopped for this session.`;
+  return 'It stopped for this session.';
+}
+export const OUTCOME_PLAIN = { passed: 'Passed', passed_amended: 'Passed with changes', deferred: 'Put on hold (usually stops it this year)', recommitted: 'Sent back to the committee' };
+// The chair's real address when the directory has it, else the Capitol pattern.
+export function chairContacts(code) {
+  return cmtesOf(code).filter(c => c.chair).map(c => {
+    const last = chairLast(c), leg = (S.legislators || []).find(l => l.chamber === c.chamber && (l.sort_name || '').split(',')[0].toLowerCase() === last.toLowerCase());
+    return { name: c.chair, last: leg ? (leg.sort_name || '').split(',')[0] : last, title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: leg?.email || chairEmail(c), phone: leg?.phone || '', committee: c.name, code: c.code, leg };
+  });
+}
+// Actions a person can take now: open testimony windows first (soonest deadline), then hearings whose written
+// deadline passed but which have not been held yet ("late": emailing the chair is the quick way to be heard).
+export function openActions(bills, hearings) {
+  const now = Date.now();
+  return hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now)
+    .map(h => ({ h, b: bills.find(b => b.id === h.bill_id) }))
+    .filter(x => x.b && posInfo(x.b) && alive(x.b))
+    .map(x => ({ ...x, late: !!(x.h.testimony_deadline && new Date(x.h.testimony_deadline) < now) }))
+    .sort((x, y) => x.late - y.late || (x.h.testimony_deadline || x.h.scheduled_at).localeCompare(y.h.testimony_deadline || y.h.scheduled_at));
+}
+// Every action counts: any kind done on a hearing means the card is done for "Do this now".
+export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id, k)));
+export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
+// A bill by number ("HB1563"), loaded with its hearings and outcomes even when nobody follows it (shared links, search).
+export async function ensureBill(num) {
+  const n = String(num || '').replace(/\s/g, '').toUpperCase();
+  let b = S.bills.find(x => x.bill_number === n) || Object.values(S.extra).find(x => x.bill_number === n) || (S.results || []).find(x => x.bill_number === n);
+  if (!b && DEMO) b = D.bills.find(x => x.bill_number === n) || D.index.find(x => x.bill_number === n);
+  if (!b && !DEMO) { const { data } = await S.supa.from('public_all_bills').select('*').eq('bill_number', n).limit(1); b = data?.[0]; }
+  if (!b) return null;
+  if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] = b;
+  if (DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
+  if (!DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) {
+    const [h, o] = await Promise.all([S.supa.from('public_all_hearings').select('*').eq('bill_id', b.id), S.supa.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
+    S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
+  }
+  return b;
+}
+// Where a person is in the guided start: a first visit is someone who has not finished or skipped it and follows nothing.
+export const firstVisit = () => !S.watch.size && !wiz().done && !wiz().skipped;
+export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');
+export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
