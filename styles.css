@@ -2337,3 +2337,106 @@ body.simple .teamgrid label,body.simple .dpane label.lbl,body.simple .pubgrid la
   .fbar .grpmenu,.fbar .mutemenu{position:static}
   .fbar .grpmenu .menu.gm,.fbar .mutemenu .menu.mm{left:0;right:0;width:auto;max-width:none;min-width:0}
 }
+
+/* ---- Bill window, simple look (9/18, after the hierarchy and spacing audit). The window follows the pages:
+   one focal point (the Next block), 24px between blocks and 16px inside them, one link colour, teal fill only
+   on the one button that does the next step, no box inside a box, labels in sentence case. ---- */
+body.simple .drawer.v2 .dhead{padding:24px 24px 16px}
+body.simple .drawer.v2 .dhead h2{font-size:24px;font-weight:600;padding-right:160px}
+body.simple .drawer.v2 .dhead h2 .pri{background:#EEF3F6;color:var(--ink);border:none}
+body.simple .drawer.v2 .dhead .sub{max-width:60ch;margin-top:8px}
+.dhtools{float:right;display:flex;align-items:center;gap:8px;margin:-4px -8px 0 0}
+.dtool{font:500 12.5px 'Lato',sans-serif;color:var(--muted);padding:8px 12px;border-radius:8px;background:none;min-height:32px}
+.dtool:hover{background:#EEF3F6;color:var(--ink)}
+.dtool.on{color:var(--ink);background:#EEF3F6}
+body.simple .drawer .dchips{margin-top:12px;gap:8px}
+body.simple .drawer .dchips .chipx{border:none;background:#EEF3F6;color:var(--ink);font-size:12.5px;font-weight:500;padding:4px 10px}
+body.simple .drawer .dchips .chipx.c-navy{color:var(--muted)}
+body.simple .drawer.v2 .dbody{padding:24px 24px 40px}
+/* status: the stage track names where the bill is; done and later stages step back */
+body.simple .drawer .stagecal{margin-top:0}
+body.simple .drawer .stagecal .stp b{font-size:11.5px;font-weight:400;color:var(--muted)}
+body.simple .drawer .stagecal .stp.now b,body.simple .drawer .stagecal .stp.dead b{color:var(--ink);font-weight:700}
+body.simple .drawer .stagecal .stp.todo i{background:#E3EBEF}
+body.simple .drawer .lastact{margin-top:8px;font-size:12.5px;color:var(--muted);max-width:60ch}
+body.simple .drawer .lastact .lal{font:700 12.5px 'Lato',sans-serif;letter-spacing:0;text-transform:none;color:var(--muted);margin-right:4px}
+body.simple .drawer .lastact.clamp{-webkit-line-clamp:2}
+/* Next: one flat block, one title */
+body.simple .drawer .next.v4{display:block;background:var(--frame);border:none;border-radius:12px;padding:16px;margin:24px 0 0}
+body.simple .drawer .next.v4+.next.v4{margin-top:8px}
+body.simple .drawer .next.v4 .nt{font:600 16px 'Poppins','Lato',sans-serif;color:var(--ink)}
+body.simple .drawer .next.v4 .nm{font-size:14px;color:var(--ink);margin-top:4px}
+body.simple .drawer .next.v4 .nm .code{font-size:12.5px;color:var(--muted);background:none;padding:0}
+body.simple .drawer .next.v4 .nm .streamlink{font-size:14px;font-weight:500;color:var(--teal-text)}
+body.simple .drawer .next.v4 .nextline{font-size:14px;margin-top:8px}
+body.simple .drawer .next.v4 .nextline.hot{color:var(--red);font-weight:700}
+body.simple .drawer .next.v4 .nextline.due{color:var(--amber-text);font-weight:600}
+body.simple .drawer .next.v4 .draftrow.nx{background:none;border:none;border-top:1px solid var(--frame-line);border-radius:0;padding:16px 0 0;margin:16px 0 0;gap:8px 12px;align-items:center}
+.drlabel{font:700 12.5px 'Lato',sans-serif;color:var(--ink)}
+body.simple .drawer .draftrow.nx .draftwho{flex:1 1 100%;order:3;font-size:12.5px;color:var(--muted)}
+body.simple .drawer .draftrow.nx .draftacts{order:4;margin-left:0;display:flex;gap:8px;flex-wrap:wrap}
+body.simple .drawer .draftrow.nx .dlinks{order:5;flex:1 1 auto;display:flex;gap:16px;align-items:center;font-size:12.5px}
+body.simple .drawer .draftrow.nx .draftnote,body.simple .drawer .draftrow.nx .draftform{order:6;flex-basis:100%}
+body.simple .drawer .draftlink{font-size:12.5px;font-weight:500;color:var(--teal-text)}
+/* the stepper in words: Write ✓ · Review ✓ · Approve ✓ · File */
+body.simple .drawer .journey{margin:0;font:400 12.5px 'Lato',sans-serif;letter-spacing:0;text-transform:none}
+body.simple .drawer .journey i{background:none;box-shadow:none;padding:0;border-radius:0;color:var(--muted);font-size:12.5px}
+body.simple .drawer .journey i.done::after{content:" ✓"}
+body.simple .drawer .journey i.cur{color:var(--ink);font-weight:700;background:none;box-shadow:none}
+body.simple .drawer .journey b{width:auto;height:auto;background:none}
+body.simple .drawer .journey b::before{content:"·";color:var(--muted);margin:0 6px}
+/* the one button that does the next step looks like the dashboard's; the rest are outlines */
+body.simple .drawer .draftbtn{margin-left:0;min-height:36px;padding:0 14px;border-radius:8px;font-size:12.5px;font-weight:500;background:#fff;border:1px solid #C9D6DD;color:var(--ink)}
+body.simple .drawer .draftbtn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+body.simple .drawer .pastheard{margin-top:16px;padding-top:0;border-top:none;font-size:12.5px;color:var(--muted)}
+body.simple .drawer .pastheard .nextline{font-size:12.5px}
+/* tabs stay in reach while a long pane scrolls */
+body.simple .drawer.v2 .dtabs{position:sticky;top:-24px;z-index:3;background:#fff;margin:24px 0 16px;padding-top:4px}
+body.simple .drawer .dtab.on{color:var(--teal-text);border-bottom-color:var(--teal-text)}
+body.simple .drawer .dtab .navn{background:#EEF3F6;color:var(--ink)}
+/* one link colour */
+body.simple .drawer a:not(.btn),body.simple .drawer .linkbtn{color:var(--teal-text)}
+/* Details, Timeline: reading columns */
+body.simple .drawer .dkv>span:not(.k),body.simple .drawer .tlcap,body.simple .drawer .pathway>p.tok,body.simple .drawer .msgtext{max-width:60ch}
+/* Pathway: only the stop that matters now gets a box; the rest are plain rows */
+body.simple .drawer .pwstop{border:none;border-bottom:1px solid var(--frame-line);border-radius:0;margin:0;background:none}
+body.simple .drawer .pwstop .pwh{background:none;padding:12px 0}
+body.simple .drawer .pwstop.pws-current{border:1px solid var(--line);border-radius:12px;margin:8px 0}
+body.simple .drawer .pwstop.pws-current .pwh{background:var(--frame);padding:12px 16px}
+body.simple .drawer .pwstop.pws-current .pwbody{padding:0 16px 8px}
+body.simple .drawer .pwstop.pws-passed{opacity:1}
+body.simple .drawer .pwstop.pws-passed .pwt b{font-weight:600;color:var(--muted)}
+/* Team: coalitions on one line; a chosen chip is neutral, not a teal fill */
+.coalline{font-size:14px;margin:16px 0 8px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.coalline .lbl{display:inline;margin:0;font-size:12.5px;font-weight:700;color:var(--muted)}
+body.simple .drawer .typechips button.on{background:#EEF3F6;border-color:#9DB0BA;color:var(--ink)}
+body.simple .drawer .pubfold{margin-top:16px;border-top:1px solid var(--frame-line);padding-top:12px}
+body.simple .drawer .pubfold>summary{cursor:pointer;font:600 14px 'Poppins','Lato',sans-serif;color:var(--ink);list-style:none}
+body.simple .drawer .pubfold>summary .tok{font:400 12.5px 'Lato',sans-serif;margin-left:8px}
+body.simple .drawer .pubfold[open]>summary{margin-bottom:12px}
+@media (max-width:599px){
+  body.simple .drawer.v2 .dhead{padding:16px 16px 12px}
+  body.simple .drawer.v2 .dhead h2{font-size:21px;padding-right:0}
+  .dhtools{margin:-8px -8px 0 0}
+  body.simple .drawer.v2 .dhead .sub{padding-right:0}
+  body.simple .drawer.v2 .dbody{padding:16px 16px 48px}
+  body.simple .drawer .next.v4{margin-top:16px}
+  body.simple .drawer.v2 .dtabs{top:-16px;margin:16px 0 12px}
+  body.simple .drawer .lastact.clamp{-webkit-line-clamp:1}
+}
+body.simple .drawer .stageline{display:none}
+body.simple .drawer .stageline.stopped{display:block;margin-top:8px;font-size:12.5px;color:var(--ink);font-weight:700}
+body.simple .drawer .lastact.clamp{-webkit-line-clamp:1}
+@media (max-width:599px){
+  body.simple .drawer .stageline{display:block;margin-top:8px;font-size:12.5px;font-weight:700;color:var(--ink)}
+  body.simple .drawer.v2 .dhead .dhtools{position:absolute;top:8px;right:8px;margin:0;float:none}
+  body.simple .drawer.v2 .dhead .dhtools .close{position:static}
+  body.simple .drawer.v2 .dhead h2{padding-right:120px}
+}
+body.simple .drawer .pwm a,body.simple .drawer .pwm a b{color:var(--ink)}
+body.simple .drawer .pwm a:hover{color:var(--teal-text)}
+body.simple .drawer .moredet{border:none;background:none;padding:0;margin-top:16px}
+body.simple .drawer .moredet>summary{font:600 14px 'Poppins','Lato',sans-serif;color:var(--ink);padding:0}
+body.simple .drawer .moredet>summary .tok{font:400 12.5px 'Lato',sans-serif;margin-left:8px}
+body.simple .drawer .pubfold>summary .tok.warn{color:var(--amber-text)}
+body.simple .drawer #d-savepub{justify-self:start;width:auto}

@@ -1453,7 +1453,7 @@ function renderPortfolio(list) {
       if (ATTEND_ASKS && !attendees(h).length) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'attend', h, dr, verb: 'Attend the hearing', why: `No one has said they are attending the ${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ' · ' + roomShort(h.room) : ''}`, btn: `<button class="btn sm pri" data-attend="${h.id}">I’m attending</button>` });
       if (!dr) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'nodraft', h, dr, verb: 'No draft yet', why: `The ${h.committee} hearing is ${fmtDT(h.scheduled_at)} and no testimony draft exists. It is created from the notice within the hour; if it does not appear, ask Nate.`, btn: `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` });
       else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', h, dr, verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
-      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', h, dr, verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
+      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', h, dr, verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Write the ask</button>` });
     }
     if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', st, verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.who : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair${m.n > 1 ? 's' : ''}</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
   }
@@ -2949,6 +2949,7 @@ function wireLegDrawer() {
   document.querySelectorAll('.legdrawer [data-bill], .legdrawer [data-bill-open]').forEach(el => el.onclick = e => { e.stopPropagation(); S.legOpen = null; openDrawer(el.dataset.bill || el.dataset.billOpen); });
   // stances on the pathway
   document.querySelectorAll('[data-stance]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stance.split('|'); try { await DB.setStance(bid, Number(lid), { stance: el.value }); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  document.querySelectorAll('[data-pwnote]').forEach(el => el.onclick = () => { (S.pwNoteOpen ??= new Set()).add(el.dataset.pwnote); rerenderKeep(); document.querySelector(`[data-stnote="${el.dataset.pwnote}"]`)?.focus(); });
   document.querySelectorAll('[data-stnote]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stnote.split('|'); try { await DB.setStance(bid, Number(lid), { note: el.value.trim() || null }); toast('Saved'); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-stcontact]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stcontact.split('|'); try { await DB.setStance(bid, Number(lid), { contact_id: el.value || null }); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-pwfold]').forEach(el => el.onclick = () => { (S.pwOpen ??= {})[el.dataset.pwfold] = el.getAttribute('aria-expanded') !== 'true'; rerenderKeep(); });
@@ -2972,8 +2973,8 @@ function pathwayHTML(b) {
   const person = (m, full, joint) => { const l = m.l, role = m.role, x = stanceOf(b.id, l.id), rt = roleText(m, joint); return `<div class="pw ${role} ${full ? 'full' : ''}">
       ${legPhoto(l, 'lphoto sm')}
       <div class="pwm"><a data-leg="${l.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${[rt, l.party, `${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}`].filter(Boolean).map(esc).join(' · ')}</span>
-        ${full ? `<div class="pwc">${l.email ? `<a class="linkbtn" href="${legMailto(l, b)}" title="${esc(l.email)}">Email</a>` : ''}${l.phone ? ` · <a class="linkbtn" href="tel:${esc(l.phone)}">${esc(l.phone)}</a>` : ''}</div>
-        <div class="pwn"><input data-stnote="${b.id}|${l.id}" value="${esc(x.note || '')}" placeholder="Note for this bill: what they said, what they want" maxlength="300"><select data-stcontact="${b.id}|${l.id}" title="Our contact"><option value="">contact…</option>${S.advocates.filter(a => a.is_active !== false).map(a => `<option value="${a.id}" ${x.contact_id === a.id ? 'selected' : ''}>${esc(a.initials)}</option>`).join('')}</select></div>` : (x.note ? `<div class="muted pwq">${esc(x.note)}</div>` : '')}
+        ${full ? `<div class="pwc">${l.email ? `<a class="linkbtn" href="${legMailto(l, b)}" title="${esc(l.email)}">Email</a>` : ''}${l.phone ? ` · <a class="linkbtn" href="tel:${esc(l.phone)}">${esc(l.phone)}</a>` : ''}${x.note || x.contact_id || S.pwNoteOpen?.has(b.id + '|' + l.id) ? '' : ` · <button class="linkbtn" data-pwnote="${b.id}|${l.id}">Add a note</button>`}</div>
+        ${x.note || x.contact_id || S.pwNoteOpen?.has(b.id + '|' + l.id) ? `<div class="pwn"><input data-stnote="${b.id}|${l.id}" value="${esc(x.note || '')}" placeholder="Note for this bill: what they said, what they want" maxlength="300"><select data-stcontact="${b.id}|${l.id}" title="Our contact"><option value="">contact…</option>${S.advocates.filter(a => a.is_active !== false).map(a => `<option value="${a.id}" ${x.contact_id === a.id ? 'selected' : ''}>${esc(a.initials)}</option>`).join('')}</select></div>` : ''}` : (x.note ? `<div class="muted pwq">${esc(x.note)}</div>` : '')}
       </div>
       ${stanceSel(l)}
     </div>`; };
@@ -3638,10 +3639,10 @@ function stageCalHTML(b) {
     return `<span class="stp ${k} gl" tabindex="0" data-gl="${esc(glossStage(s))}"><i></i><b>${esc(lab(s))}</b></span>`;
   }).join('');
   const cleared = DK_RAIL_STAGES.slice(0, idx).map(lab);
-  const line = dead
-    ? `Stopped at ${lab(DK_RAIL_STAGES[idx])}.`
-    : `${cleared.length ? 'Cleared ' + cleared.slice(-2).join(', ') + ' · ' : ''}Now ${lab(DK_RAIL_STAGES[idx])}`;
-  return `<div class="stagecal">${steps}</div><div class="stageline">${esc(line)}</div>`;
+  // Wide screens label every stage on the track, so the line under it only speaks when the bill stopped;
+  // phones show no labels on the track, so there it always names the current stage.
+  const line = dead ? `Stopped at ${lab(DK_RAIL_STAGES[idx])}.` : `Now: ${lab(DK_RAIL_STAGES[idx])}`;
+  return `<div class="stagecal">${steps}</div><div class="stageline${dead ? ' stopped' : ''}">${esc(line)}</div>`;
 }
 // The next stage after the current one, for the Next block when no hearing
 // is on the books.
@@ -3704,17 +3705,19 @@ function drawerHTML(b) {
   const owner = owners(b)[0];
   const coalitions = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean);
   const notesHead = (b.internal_notes || '').trim().split('\n')[0].slice(0, 70);
-  if (open.tab === 'notes') { open.tab = 'chat'; open.note = true; }          // old links and shortcuts land where the content moved
+  // old links and shortcuts land where the content moved (the Public tab folded into Team on 9/18)
+  if (open.tab === 'notes') { open.tab = 'chat'; open.note = true; }
+  if (open.tab === 'public') { open.tab = 'team'; open.pub = true; }
   const text = b.public_summary || b.description || '';
   const dead = diedish(b), st = effStage(b);
   const chips = [
     b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="chipx c-gray">no position</span>',
     owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
     ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
-    isOwner(b)
-      ? `<button class="chipx tool mute ${isMuted(b) ? 'on' : ''}" data-mute="${b.id}" aria-pressed="${isMuted(b)}" title="${isMuted(b) ? 'Muted: off your dashboard, no alerts. A hearing brings it back. Tap to unmute.' : 'Take it off your dashboard and stop its alerts. You stay the owner; a hearing brings it back.'}">${isMuted(b) ? '✓ Muted' : 'Mute'}</button>`
-      : `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}" aria-pressed="${!!S.follows?.has(b.id)}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
     ''].filter(Boolean).join('');
+  const followBtn = isOwner(b)
+      ? `<button class="dtool mute ${isMuted(b) ? 'on' : ''}" data-mute="${b.id}" aria-pressed="${isMuted(b)}" title="${isMuted(b) ? 'Muted: off your dashboard, no alerts. A hearing brings it back. Tap to unmute.' : 'Take it off your dashboard and stop its alerts. You stay the owner; a hearing brings it back.'}">${isMuted(b) ? '✓ Muted' : 'Mute'}</button>`
+      : `<button class="dtool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}" aria-pressed="${!!S.follows?.has(b.id)}">${S.follows?.has(b.id) ? '✓ Following' : 'Follow'}</button>`;
 
   // ---- Next: hearings ahead, each with its testimony row ----
   const ups = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > now)
@@ -3726,7 +3729,7 @@ function drawerHTML(b) {
       ? `<div class="draftform"><input class="dfnote" placeholder="What should change?" aria-label="What should change"><button class="draftbtn pri" data-act="request_changes">Send</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`
       : `<div class="draftform"><input class="dfurl" placeholder="Capitol confirmation link (optional)" aria-label="Confirmation link"><button class="draftbtn pri" data-act="file">Filed</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`) : '';
     return `<div class="draftrow nx" data-draft="${esc(d.id)}">
-      ${d.status === 'cancelled' ? `<span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>` : draftJourney(d)}
+      <span class="drlabel">Testimony</span>${d.status === 'cancelled' ? `<span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>` : draftJourney(d)}
       <span class="draftwho">${esc(draftWho(d))}${d.version || b.current_version ? ` · written for ${esc(d.version || 'the introduced bill')}` : ''}${d.version !== (b.current_version || null) && b.current_version && d.status !== 'filed' ? ` <span class="hot">— bill is now ${esc(b.current_version)}, check the draft</span>` : ''}</span>
       <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
       <span class="dlinks"><a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>
@@ -3751,10 +3754,11 @@ function drawerHTML(b) {
       const room = (h.room || '').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
       const row = (l, v, cls = '') => `<div class="nr ${cls}"><span class="nl">${l}</span><span class="nv">${v}</span></div>`;
       const v = streamOf(h);
-      return `<div class="next v3 slim">
-        <div class="nexthead"><span class="nextk">Next</span><b>${esc(cmteName(h.committee))}</b><span class="nhk">${known ? `<span class="code">${esc(h.committee)}</span> ` : ''}<span class="muted">${codesOf(h.committee).length > 1 ? 'joint hearing' : 'hearing'}</span></span></div>
-        <div class="nextline big">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
-        ${h.testimony_deadline ? `<div class="nextline ${dueSoon ? 'due' : ''}">Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
+      const overdue = duePast && dr && !['filed', 'cancelled'].includes(dr.status);
+      return `<div class="next v4">
+        <div class="nt">${esc(cmteName(h.committee))} ${codesOf(h.committee).length > 1 ? 'joint hearing' : 'hearing'}</div>
+        <div class="nm">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${known ? ` · <span class="code">${esc(h.committee)}</span>` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
+        ${h.testimony_deadline ? `<div class="nextline ${overdue ? 'hot' : dueSoon ? 'due' : ''}">${overdue ? `Overdue: testimony was due ${fmtDT(h.testimony_deadline)} and is not filed yet` : `Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}`}</div>` : ''}
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
         ${!ATTEND_ASKS && !att.length ? '' : `<div class="nextline attend"><span class="muted">Attending:</span> ${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></div>`}
       </div>`; }).join('');
@@ -3773,27 +3777,27 @@ function drawerHTML(b) {
   return `<div class="scrim" id="scrim"></div>
   <div class="drawer v2">
     <div class="dhead">
-      <button class="close" id="dclose">✕</button>
+      <div class="dhtools">${followBtn}<button class="close" id="dclose" aria-label="Close">✕</button></div>
       <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.current_version ? ` <span class="ver" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}${b.priority ? ` ${gl('P' + b.priority, PRI_GLOSS[b.priority], 'pri')}` : ''}</h2>
       <div class="sub">${esc(b.public_summary || titleCaseTitle(b.title || ''))}</div>
       <div class="dchips">${chips}</div>
     </div>
     <div class="dbody">
       ${stageCalHTML(b)}
-      ${b.last_action ? `<div class="lastact ${open.more ? '' : 'clamp'}" id="d-lastact" title="Click to expand"><span class="lal">Last action</span> ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span> · ` : ''}${esc(b.last_action)}</div>` : ''}
+      ${b.last_action ? `<div class="lastact ${open.more ? '' : 'clamp'}" id="d-lastact" title="Click to expand"><span class="lal">Last action${b.last_action_date ? ` ${fmtDate(b.last_action_date, { year: '2-digit' })}` : ''}:</span> ${esc(b.last_action)}</div>` : ''}
       ${nextHtml}
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
       ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''} ${streamLink(h)}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
-      <div class="dtabs" role="tablist">${tab('details', 'Details')}${tab('timeline', 'Timeline')}${tab('pathway', 'Pathway')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}${notesHead ? ' •' : ''}`)}</div>
+      <div class="dtabs" role="tablist">${tab('details', 'Details')}${tab('timeline', 'Timeline')}${tab('pathway', 'Pathway')}${tab('team', 'Team')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}${notesHead ? ' •' : ''}`)}</div>
       ${pane('chat', `<details class="pinnote" id="d-notefold" ${open.note || notesHead ? 'open' : ''}><summary>Team note <span class="tok">${notesHead ? 'never public' : 'none yet · never public · context that should outlive the chat'}</span></summary>
           <div class="notes"><textarea id="d-notes" placeholder="Never public. Context for the team.">${esc(b.internal_notes||'')}</textarea>
-          <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save note</button></div></details>
+          <button class="btn sm ghost" id="d-savenotes" style="margin-top:8px">Save note</button></div></details>
         ${todosHTML(b)}${chatHTML(b)}`)}
       ${pane('pathway', pathwayHTML(b))}
       ${pane('details', `<div class="kv dkv">
           <span class="k">Committee</span><span>${(st => st.committee ? `<b>${esc(cmteName(st.committee))}</b> <span class="code">${esc(st.committee)}</span>${chairOf(st.committee)}<span class="muted"> · ${CHAMBER_NAME[st.chamber]}${st.stops ? `, stop ${st.stop} of ${st.stops}` : ''}</span>` : st.phase === 'committee' ? `awaiting referral in the ${CHAMBER_NAME[st.chamber]}` : esc(st.says))(stopOf(b))}</span>
           <span class="k">Referrals</span><span>${referralPath(b)}</span>
-          ${(b.sponsors || []).length ? `<span class="k">Sponsors</span><span>${(b.sponsors || []).map((x, i) => i === 0 ? `<b>${esc(sponsorName(x.n))}</b>` : esc(sponsorName(x.n))).join(', ')} <span class="muted">· ${b.sponsors.length} in all, the first is the lead introducer</span></span>` : ''}
+          ${(b.sponsors || []).length ? `<span class="k">Sponsors</span><span>${(b.sponsors || []).slice(0, open.sponsAll ? 999 : 5).map((x, i) => i === 0 ? `<b>${esc(sponsorName(x.n))}</b>` : esc(sponsorName(x.n))).join(', ')}${b.sponsors.length > 5 && !open.sponsAll ? ` <button class="linkbtn" data-sponsall>and ${b.sponsors.length - 5} more</button>` : ''} <span class="muted">· the first is the lead introducer</span></span>` : ''}
           ${(b.companions || []).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions || []).map(esc).join(', ')}</span>` : ''}
           ${b.public_summary && b.title ? `<span class="k">Official title</span><span>${esc(titleCaseTitle(b.title))}</span>` : ''}
           ${b.description ? `<span class="k">Official description</span><span class="dlong">${esc(b.description)}</span>` : ''}
@@ -3816,15 +3820,15 @@ function drawerHTML(b) {
         </div>
         ${`<details class="moredet" id="d-teammore" ${b.stage_override || open.teamMore ? 'open' : ''}><summary>More <span class="tok">stage override${b.stage_override ? ' · set' : ''}</span></summary><div class="teamgrid"><div><label>Stage override</label><select id="d-so"><option value="">Auto</option>${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div></div></details>`}
         <p class="tok teamsave">Changes here save as you make them.${open.teamSaved && Date.now() - open.teamSaved < 6000 ? ' <span class="savedflash">✓ Saved</span>' : ''}</p>
-        <label class="lbl">Coalitions</label>
-        <div class="typechips">${S.campaigns.length
+        <div class="coalline"><span class="lbl">Coalitions</span> ${(S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean).map(esc).join(', ') || '<span class="muted">none</span>'} <button class="linkbtn" data-coaledit>${open.coalEdit ? 'Done' : 'Edit'}</button></div>
+        ${open.coalEdit ? `<div class="typechips">${S.campaigns.length
           ? S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
               return `<button data-campt="${c.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" title="${on ? 'Remove from' : 'Add to'} ${esc(c.name)}">${on ? '✓ ' : '+ '}${esc(c.name)}</button>`; }).join('')
-          : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>`)}
-      ${pane('public', `<div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
+          : '<span style="font-size:12px;color:var(--muted)">No coalitions set up yet — an admin can add them.</span>'}</div>` : ''}
+        <details class="pubfold" id="d-pubfold" ${open.pub ? 'open' : ''}><summary>Public page <span class="tok${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</span></summary>
         <div class="pubgrid">
           <label>Lists</label>
-          <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — Outreach → Lists.</span>'}</div>
+          <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — Outreach → Lists.</span>'}</div>
           <label>Email followers</label>
           <div class="typechips"><button data-alertnew="b:${b.id}" ${b.is_public && b.position !== 'monitor' ? '' : 'disabled title="Make the bill public first"'}>✉ Write an action alert</button><span class="tok" style="margin-left:8px">to the people following this bill who asked for action alerts · needs a second person’s approval</span></div>
           <label for="d-psum">Plain-language summary</label>
@@ -3836,7 +3840,9 @@ function drawerHTML(b) {
             <label class="pubchk"><input type="checkbox" id="d-ispub" ${b.is_public ? 'checked' : ''}> Show on public page</label>
           </div>
           <button class="btn sm" id="d-savepub">Save public copy</button>
-        </div>`)}
+        </div>
+        </details>`)}
+
     </div>
   </div>`;
 }
@@ -4147,13 +4153,15 @@ function wireDrawer() {
   $('#scrim').onclick = $('#dclose').onclick = () => { S.drawerBill = null; render(); };
   // render() rebuilds the drawer after every save; remember which editors
   // were open so a save does not fold the section the user is working in.
-  const ps = $('#d-pubsec'), ns = $('#d-notesec'), ds = $('#d-detsec');
+  const ps = $('#d-pubsec') || $('#d-pubfold'), ns = $('#d-notesec'), ds = $('#d-detsec');
   if (ps) ps.ontoggle = () => { S.drawerOpen.pub = ps.open; };
   if (ns) ns.ontoggle = () => { S.drawerOpen.notes = ns.open; };
   if (ds) ds.ontoggle = () => { S.drawerOpen.details = ds.open; };
   const ts = $('#d-teamsec'); if (ts) ts.ontoggle = () => { S.drawerOpen.team = ts.open; };
   const tp = $('#d-todoplus'); if (tp) tp.onclick = () => { S.drawerOpen.todo = true; render(); $('#d-tdnew')?.focus(); };
   const keep = fn => { const y = $('.dbody')?.scrollTop || 0; fn(); render(); const db = $('.dbody'); if (db) db.scrollTop = y; };
+  $('[data-sponsall]') && ($('[data-sponsall]').onclick = () => keep(() => { S.drawerOpen.sponsAll = true; }));
+  $('[data-coaledit]') && ($('[data-coaledit]').onclick = () => keep(() => { S.drawerOpen.coalEdit = !S.drawerOpen.coalEdit; }));
   document.querySelectorAll('[data-dtab]').forEach(el => el.onclick = () => keep(() => { S.drawerOpen.tab = el.dataset.dtab; }));
   $('#d-lastact') && ($('#d-lastact').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
   $('#d-teammore') && ($('#d-teammore').ontoggle = () => { S.drawerOpen.teamMore = $('#d-teammore').open; });
@@ -4376,7 +4384,7 @@ document.addEventListener('keydown', e => {
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
   if (S.drawerBill) {
     const b = S.bills.find(x => x.id === S.drawerBill);
-    if ('123456'.includes(k) && k) { const tab = ['details', 'timeline', 'pathway', 'team', 'public', 'chat'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
+    if ('12345'.includes(k) && k) { const tab = ['details', 'timeline', 'pathway', 'team', 'chat'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
     if (k === 'f') { document.querySelector('[data-follow]')?.click(); return; }
     if (k === 'a') { document.querySelector('[data-attend]')?.click(); return; }
     return;
