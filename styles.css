@@ -2015,3 +2015,71 @@ details.fold>.bstand{margin:0 32px}
 .bsrow .bsw{font-weight:500}
 body.simple details.fold#fold-board[open]>summary{margin-bottom:0;border-radius:12px 12px 0 0;border-bottom:1px solid #EEF2F5}
 @media (min-width:901px){ .bstand .bcol .ph{min-height:86px} }
+
+/* ======================================================================
+   Review fixes (9/18): contrast, touch targets, focus, emphasis, headers,
+   colour meaning, New bills density, phones.
+   ====================================================================== */
+:root{ --muted:#52636F; --teal-text:#0A6770; --amber-text:#8A5A0B; }
+/* contrast: text that fell under 4.5:1 */
+.awhen.warm b{color:var(--amber-text)}
+.tag.a{color:#52636F}
+.settings h3{color:var(--muted)}
+.c-teal{color:var(--teal-text)}
+.lsub .draft{color:var(--muted);font-weight:600}
+.seg button i{color:var(--muted)}
+a,.linkbtn,.pempty.boardmore,.bsmore,.morelink{color:var(--teal-text)}
+/* links look like links (text, underline on hover); buttons look like buttons (a box) */
+a:not(.btn):hover,.linkbtn:hover{text-decoration:underline;text-underline-offset:2px}
+.aask .abill{color:var(--ink)}
+/* emphasis: only work due within 24 hours (or overdue) gets the solid button; the rest are outlined */
+.arow:not(.urgent) .abtn .btn{background:#fff;color:var(--teal-text);border:1.5px solid #9CCFD3}
+.arow:not(.urgent) .abtn .btn:hover{background:var(--teal-soft)}
+/* touch targets: 32px everywhere, 40px for buttons on phones */
+.btn,.btn.sm,.fbtn,.fchip,.qchip,.segchip,.draftbtn,.pagetabs button,.seg button,.lens>summary{min-height:32px}
+.helpq{width:32px;height:32px;font-size:14px}
+.calnav button{min-width:32px;min-height:32px}
+.iread{min-width:32px;min-height:32px}
+@media (max-width:760px){ .btn,.btn.sm,.draftbtn{min-height:40px} .helpq{width:36px;height:36px} }
+/* focus: every control and every clickable row shows where the keyboard is */
+.top .topq:focus{outline:2px solid #6CCAD2;outline-offset:1px}
+[role="button"][tabindex]:focus-visible,tr[data-bill]:focus-visible,.lcardm:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;border-radius:8px}
+/* one title per page; the tabs sit right under it */
+.h1like{font:700 23px 'Space Grotesk','Inter',sans-serif;margin:0}
+.dashhead+.pagetabs,.settings h1+.pagetabs,p.tok+.pagetabs{margin-top:10px;margin-bottom:6px}
+.settings .pagetabs{margin-left:0}
+/* the Getting started line lines up with the panels under it */
+@media (min-width:761px){ .frwrap{margin:6px 34px 12px;max-width:none} }
+/* colour means one thing each: red overdue, amber soon, teal action, grey done */
+.bstand .bcol-b .ph{background:var(--teal-soft);color:var(--teal-text);border-bottom-color:#BFE0E2}
+.bstand .bcol-b{background:#F7FBFB}
+.bstand .bcol-c .ph{background:#EEF3F6;color:#33506B;border-bottom-color:#DCE4E9}
+.bstand .bcol-c{background:#FAFBFC}
+/* the Next line: "HHS hearing" stays together on phones */
+.nexthead .nhk{white-space:nowrap}
+/* New bills: two lines of description (tap to read the rest); Skip and ⋯ side by side under Track */
+.trow .tdesc{-webkit-line-clamp:2;cursor:pointer}
+.trow .tdesc.open{-webkit-line-clamp:unset;display:block}
+.tacts{display:grid;grid-template-columns:1fr 40px;gap:6px;min-width:170px}
+.tacts>.btn:first-child{grid-column:1 / -1}
+.tacts .tmore>summary{width:40px;min-width:40px;height:100%;min-height:32px}
+.tchips .tmatched{margin-left:6px}
+@media (max-width:760px){ .tacts{grid-template-columns:1fr 1fr 44px;min-width:0;width:100%} .tacts>.btn:first-child{grid-column:1 / 3} }
+/* People: the count and "more filters" sit with the filters, not at the far edge */
+.pfilters .fcount{margin-left:4px}
+/* phones: Getting started on one line */
+@media (max-width:760px){ .firstrun.slim .frbar{display:none} .firstrun.slim>summary b{font-size:14px} }
+/* contrast, second pass */
+.pri,.chip3 .pri,.panel.dead .prow .pri,table.bills th,.c-gray,.calrail .dom,.calnone,.calrail .dow{color:var(--muted)}
+.gtile.warn b,.bstat.a b,.bcol-a .ph{color:var(--amber-text)}
+.calrail .tod,.ifmin .linkbtn{color:var(--teal-text)}
+.tsel,.tmorebox select{min-height:32px}
+.selcell input,.psel,.prow2 .psel{width:20px;height:20px}
+.dkdraft,.chipx.dkdraft{color:#52636F}
+.c-gold,.chipx.c-gold{color:var(--amber-text)}
+.c-green,.chipx.c-green{color:#1C6B3E}
+.calday.nohear .calrail .dom,.calweek .calday .calrail .dom{color:var(--muted)}
+.calweek .calnone,.calnone{color:var(--muted)}
+.addbill .pagetabs,.triage .pagetabs{margin-left:0}
+.tchips .tmatched{display:inline-flex;flex-direction:row;align-items:center;gap:6px;white-space:nowrap}
+.tchips .tmatched input{width:18px;height:18px;margin:0}

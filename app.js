@@ -1448,7 +1448,7 @@ function renderPortfolio(list) {
     return `<div class="awhen ${ms < 0 ? 'over' : h < 24 ? 'hot' : h < 72 ? 'warm' : ''}" title="${fmtDT(new Date(t).toISOString())}"><b>${txt}</b><span>${ms < 0 ? 'overdue' : 'until ' + until}</span></div>`; };
   const topic = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 80) return t; const c = t.slice(0, 80); return c.slice(0, c.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
   const actRow = ({ mine, b, t, until, ask, ctx, note, btn, extra = '' }) => `
-    <div class="prow arow ${mine ? 'mine' : 'open srow'}" data-bill="${b.id}">
+    <div class="prow arow ${mine ? 'mine' : 'open srow'} ${t && t !== Infinity && t - now < 864e5 ? 'urgent' : ''}" data-bill="${b.id}">
       ${clock(t, until)}
       <div class="amain"><div class="aask">${ask}</div>
         ${note ? `<div class="anote">“${esc(note)}”</div>` : ''}
@@ -1470,14 +1470,14 @@ function renderPortfolio(list) {
   // Admins: action alerts waiting for a second pair of eyes are steps too.
   for (const a of alertsToReview()) merged.push({ mine: true, t: Infinity, pri: 0, html: `<div class="prow arow mine" data-alertopen="${a.id}"><div class="awhen none"><b>✉</b><span>to approve</span></div><div class="amain"><div class="aask">Approve ${esc(advocate(a.author_id)?.full_name?.split(' ')[0] || 'a teammate')}’s action alert to the followers of <b class="abill">${esc(alertTarget(a))}</b></div><div class="actx">“${esc(a.subject)}”</div></div><div class="abtn"><button class="btn sm">Review</button></div></div>` });
   for (const f of (S.followups || []).filter(f => !f.done_at && f.advocate_id === S.me?.id)) { const p = f.person || personById(f.person_id); if (!p) continue; const t = f.due ? new Date(f.due + 'T17:00:00-10:00').getTime() : Infinity;
-    merged.push({ mine: true, t, pri: 1, html: `<div class="prow arow mine" data-personopen="${p.id}">${clock(t, 'to do')}<div class="amain"><div class="aask">${esc(f.what)} · <b class="abill">${esc(personName(p))}</b></div><div class="actx">follow-up${p.phone ? ` · ${esc(p.phone)}` : ''} · ${esc(p.email)}</div></div><div class="abtn"><button class="btn sm">Open</button></div></div>` }); }
+    merged.push({ mine: true, t, pri: 1, html: `<div class="prow arow mine ${t !== Infinity && t - now < 864e5 ? 'urgent' : ''}" data-personopen="${p.id}">${clock(t, 'to do')}<div class="amain"><div class="aask">${esc(f.what)} · <b class="abill">${esc(personName(p))}</b></div><div class="actx">follow-up${p.phone ? ` · ${esc(p.phone)}` : ''} · ${esc(p.email)}</div></div><div class="abtn"><button class="btn sm">Open</button></div></div>` }); }
   const mineItems = merged.filter(x => x.mine).sort(byTime), openItems = merged.filter(x => !x.mine).sort(byTime);
   const waitingHtml = `<div class="actlist">
-      <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span><small>${subjectIsMe ? 'the next step on a draft is yours' : `the next step on a draft is ${esc((subject.full_name || '').split(' ')[0])}’s`}</small></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
-      <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>unclaimed · take it and it is yours · tap to ${(S.folds || {}).actopen ? 'hide' : 'show'}</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now. Things that anyone can pick up appear here: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask.')}</details>
+      <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
+      <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>anyone can take these</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now. Things that anyone can pick up appear here: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask.')}</details>
     </div>`;
   const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
-      <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team\u2019s open testimony steps · tap</span></summary>
+      <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team’s open testimony steps</span></summary>
       ${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : '';
 
   // ---------- this week: each bill once ----------
@@ -1579,7 +1579,7 @@ function renderPortfolio(list) {
   const wkLabel = wkOff === 0 ? 'This week' : wkOff === 1 ? 'Next week' : wkOff === -1 ? 'Last week'
     : 'Week of ' + new Date(hstDay(wkStart) + 'T12:00:00-10:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
-  const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'each bill once · hearing, deadline, and the draft’s next step', weekHtml,
+  const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'hearings on these bills', weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills this week. Hearings appear here as soon as the Capitol posts a notice, usually two days ahead; the draft and the Slack alert follow within the hour.');
   const cur = currentDeadline();
   const dlDays = cur ? Math.max(0, Math.floor((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5)) : null;
@@ -1589,8 +1589,8 @@ function renderPortfolio(list) {
   const todayHearings = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && hstDay(h.scheduled_at) === hstDay(now)).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const dueToday = hUp.filter(h => h.testimony_deadline && hstDay(h.testimony_deadline) === hstDay(now) && new Date(h.testimony_deadline) > now);
   const todayStrip = mobile && (todayHearings.length || dueToday.length) ? `<div class="todaystrip"><div class="th"><b>Today</b> · ${todayHearings.length} hearing${todayHearings.length === 1 ? '' : 's'}${dueToday.length ? ` · <span class="hot">${dueToday.length} testimony due</span>` : ''}</div>
-      ${todayHearings.map(h => { const b = bill(h.bill_id); if (!b) return ''; const att = attendees(h); return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> ${esc(h.committee)} · ${esc(roomShort(h.room))}${att.length ? ` · ${att.map(a => esc(a.initials)).join('/')} attending` : ATTEND_ASKS ? ' · <span class="hot">no one attending</span>' : ''}</span>${draftActionBtn(b, h.committee)}</div>`; }).join('')}
-      ${dueToday.filter(h => !todayHearings.includes(h)).map(h => { const b = bill(h.bill_id); if (!b) return ''; return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.testimony_deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> testimony due · ${esc(h.committee)} hearing tomorrow</span>${draftActionBtn(b, h.committee)}</div>`; }).join('')}
+      ${todayHearings.map(h => { const b = bill(h.bill_id); if (!b) return ''; const att = attendees(h); return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> ${esc(h.committee)} · ${esc(roomShort(h.room))}${att.length ? ` · ${att.map(a => esc(a.initials)).join('/')} attending` : ATTEND_ASKS ? ' · <span class="hot">no one attending</span>' : ''}</span></div>`; }).join('')}
+      ${dueToday.filter(h => !todayHearings.includes(h)).map(h => { const b = bill(h.bill_id); if (!b) return ''; return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.testimony_deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> testimony due · ${esc(h.committee)} hearing tomorrow</span></div>`; }).join('')}
     </div>` : '';
   // At a glance: the portfolio and the Inbox in numbers, each one a way in.
   const inb = S.inbox || [], inbNeeds = inb.filter(i => i.direct && i.unread), inbUpd = inb.filter(i => !i.direct && i.unread);
@@ -1620,7 +1620,7 @@ function renderPortfolio(list) {
       <div>${foldable('glance', '📊 At a glance' + (cur ? ` <span class="foldsub">next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span>` : ''), '', glance, false, true)}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
-    ${board.html ? foldable('board', `<span class="bsumtitle">Where every bill stands</span><span class="foldsub">${board.a.length} need a hearing · ${board.b.length} scheduled · ${board.c.length} through committee${cur ? ` · next deadline ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}` : ''}</span>`, '', board.simpleHtml, false, true) : ''}
+    ${board.html ? foldable('board', `<span class="bsumtitle">Where every bill stands</span><span class="foldsub">${board.a.length} need a hearing · ${board.b.length} scheduled · ${board.c.length} through committee</span>`, '', board.simpleHtml, false, true) : ''}
     ${recent.length ? foldable('recent', '⚡ Last 72 hours <span class="foldsub">official actions on these bills, newest first</span>', recent.length, recentHtml, false, true) : ''}
     ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
       ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')
@@ -1698,7 +1698,7 @@ function renderTable(list) {
   const elsewhere = q && S.owner !== 'all' ? (() => { const keep = S.owner; S.owner = 'all'; const n = barBase().filter(b => passes(b)).length; S.owner = keep; return n; })() : 0;
   const banner = q ? `<div class="qbanner">Showing bills that match <b>“${esc(q)}”</b> · ${list.length} found${elsewhere > list.length ? ` here, ${elsewhere} under Everyone <button class="linkbtn" data-scopeall="1">show everyone</button>` : ''} <button class="linkbtn qclear">clear the search</button></div>` : '';
   if (q && !list.length) return banner + `<div class="empty">Nothing ${S.owner === 'me' ? 'of yours' : S.owner === 'all' ? 'on the tracker' : 'of theirs'} matches “${esc(q)}”.${elsewhere ? ' It is there under Everyone.' : ' Bills that are not tracked yet are under New bills.'}</div>`;
-  return banner + bulkBar() + billTable(list, ['sel','bill','owner','status','position','pri','last','pulse']);
+  return `<div class="dashhead"><h1>Tracked bills</h1><span class="sub">${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}</span></div>` + banner + bulkBar() + billTable(list, ['sel','bill','owner','status','position','pri','last','pulse']);
 }
 
 // ---------------- Desk view ----------------
@@ -2111,8 +2111,8 @@ function renderSettings() {
       <div class="btns"><button class="btn ghost" id="st-save-slacktok">Save Slack token</button></div>
     </section>`;
   const SETUP_NAV = [['st-email', 'Email'], ['st-alerts', 'Hearing alerts'], ['st-ready', 'Session readiness'], ['st-coal', 'Coalitions'], ['st-counter', 'Committee map'], ['st-embed', 'Website embed'], ['st-import', 'Import'], ['st-conn', 'Connections']];
-  if (S.view === 'setup') return `<div class="setupwrap">${admin ? `<nav class="setupnav" aria-label="Sections">${SETUP_NAV.map(([id, l]) => `<a data-jump="${id}">${l}</a>`).join('')}</nav>` : ''}<div class="settings"><h1>Session setup</h1><p class="tok" style="margin:-6px 0 14px">Admin only. Everything that has to be true for the season: the calendar, the import, coalitions, connections, the public embed. Your own messages are under <a data-view="settings">My settings</a>.</p>${admin || '<div class="pempty">Admins only.</div>'}</div></div>`;
-  return `<div class="settings"><h1>My settings</h1><p class="tok" style="margin:-6px 0 14px">How the tracker reaches you. ${me.is_admin ? 'Session-wide setup lives under <a data-view="setup">Session setup</a>.' : ''}</p>${mine}</div>`;
+  if (S.view === 'setup') return `<div class="setupwrap">${admin ? `<nav class="setupnav" aria-label="Sections">${SETUP_NAV.map(([id, l]) => `<a data-jump="${id}">${l}</a>`).join('')}</nav>` : ''}<div class="settings"><h1>Session setup</h1><p class="tok" style="margin:-6px 0 14px">Admins only. Everything the season needs.</p>${admin || '<div class="pempty">Admins only.</div>'}</div></div>`;
+  return `<div class="settings"><h1>My settings</h1><p class="tok" style="margin:-6px 0 14px">How the tracker reaches you.</p>${mine}</div>`;
 }
 function wireSettings() {
   if (!['settings', 'setup'].includes(S.view)) return;
@@ -2308,7 +2308,7 @@ function renderPeople() {
     </div>`;
   const segChips = (S.segments || []).map(x => `<button class="segchip ${v.seg === x.id ? 'on' : ''}" data-seg="${x.id}" title="${esc(JSON.stringify(x.filter))}">${esc(x.name)} <small>${segmentPeople(x.id).length}</small></button>`).join('');
   return `<div class="peoplewrap">
-    <div class="dashhead"><h1>People</h1><span class="sub">Everyone HIPHI knows: accounts from the public page and contacts you import or add. What they follow, what they did, which emails they opened, where they live. Filter, save a segment, email it.</span></div>
+    <div class="dashhead"><h1>People</h1><span class="sub">Everyone HIPHI knows, and what they follow and do.</span></div>
     <div class="segstrip">${segChips}${(S.segments || []).length ? '' : '<span class="tok">No saved segments yet. Filter below, then Save as segment.</span>'}</div>
     <div class="ifilters pfilters ${v.more ? 'open' : ''}">
       <input type="search" id="pp-q" placeholder="Name, email or phone…" value="${esc(f.q)}" autocomplete="off">
@@ -2541,6 +2541,35 @@ function plainIcons() {
     const t = el.firstChild; if (t && t.nodeType === 3 && LEAD_EMOJI.test(t.nodeValue)) t.nodeValue = t.nodeValue.replace(LEAD_EMOJI, '');
   });
 }
+
+// Every page opens the same way: the title, then the page tabs, then the filters, then the content.
+function arrangeHeader() {
+  const app = document.getElementById('app');
+  const h1 = [...app.querySelectorAll('h1')].find(h => !h.closest('.rail, .top, .drawer, .scrim'));
+  if (!h1) return;
+  const head = h1.closest('.dashhead') || (h1.nextElementSibling?.matches('p.tok') ? h1.nextElementSibling : h1);
+  const controls = app.querySelector(':scope > .controls');
+  if (controls && h1.closest('.dashhead') && FILTER_VIEWS.includes(S.view)) controls.before(head);
+  const tabs = app.querySelector('.pagetabs');
+  if (tabs) head.after(tabs);
+}
+// Rows that open something on click can also be reached with Tab and opened with Enter or Space; fields without a
+// visible label get a spoken one.
+const ROW_SEL = '[data-bill]:not(a):not(button):not(select):not(input), [data-personopen]:not(button), [data-inbox], [data-idup], [data-alertopen]:not(button), [data-leg]:not(button), [data-view].frrow';
+const FIELD_NAMES = { 'leg-q': 'Search legislators by name, town, district or address', 'leg-ch': 'Chamber', 'leg-cm': 'Committee', 'pp-q': 'Search people', 'pp-island': 'Island', 'pp-sd': 'Senate district', 'pp-hd': 'House district', 'pp-camp': 'Coalition', 'pp-list': 'List', 'pp-tag': 'Tag', 'pp-int': 'Interest', 'pp-acct': 'Accounts or contacts', 'pp-active': 'Active in', 'pp-sort': 'Sort', 'addq': 'Search every introduced bill', 'help-q': 'Search Help', 'memo-who': 'Whose bills', 'memo-coal': 'Coalition', 'em-new': 'New alert about', 'inbox-q': 'Filter the Inbox', 'inbox-sort': 'Sort', 'st-mont': 'Morning reminder time', 'st-befh': 'Hours before the deadline', 'st-aftt': 'After-deadline reminder time', 'scopesel': 'Whose bills', 'stagef': 'Stage' };
+function a11yPass() {
+  document.querySelectorAll(ROW_SEL).forEach(el => { if (!el.hasAttribute('tabindex')) el.tabIndex = 0; if (!el.getAttribute('role') && el.tagName !== 'TR') el.setAttribute('role', 'button'); });
+  document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea').forEach(el => {
+    if ((el.labels && el.labels.length) || el.getAttribute('aria-label')) return;
+    const name = FIELD_NAMES[el.id] || el.placeholder || el.title || (el.tagName === 'SELECT' ? el.options[0]?.textContent : '');
+    if (name) el.setAttribute('aria-label', name.replace(/…$/, ''));
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target; if (!(el instanceof Element) || !el.matches(ROW_SEL)) return;
+  e.preventDefault(); e.stopImmediatePropagation(); el.click();
+});
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
   const def = (k, v) => `<div class="krow"><b>${k}</b><span>${v}</span></div>`;
@@ -2696,7 +2725,7 @@ function renderInbox() {
   // Simple: the filter row appears once the list is long enough to need it, or when a filter is on.
   const showFilters = v.showFilters || v.q || v.unreadOnly || v.kind || (v.sort && v.sort !== 'new') || rows.length > 15;
   return `<div class="inbox">
-    <div class="dashhead"><h1>Inbox</h1><span class="sub">“Needs you” is what the badge counts. Updates are news on your bills; they never count and clear themselves after a week.</span></div>
+    <div class="dashhead"><h1>Inbox</h1><span class="sub">What needs you, and news on your bills.</span></div>
     <div class="itabs">
       <button class="itab ${v.tab === 'needs' ? 'on' : ''}" data-inboxtab="needs">Needs you${nNeeds ? ` <span class="navn">${nNeeds}</span>` : ''}</button>
       <button class="itab ${v.tab === 'updates' ? 'on' : ''}" data-inboxtab="updates">Updates${nUpd ? ` <span class="navn quiet">${nUpd}</span>` : ''}</button>
@@ -2784,7 +2813,7 @@ const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.section
 function renderMemo() {
   const v = S.memoView ??= { who: 'me', coalition: '' }, m = memoData();
   return `<div class="memowrap">
-    <div class="dashhead"><h1>Weekly memo</h1><span class="sub">Writes itself from the records of the bills you own or follow. Switch to everyone for a team or board memo, narrow to a coalition, read it over, copy it. Nothing is sent from here.</span></div>
+    <div class="dashhead"><h1>Weekly memo</h1><span class="sub">A weekly summary of your bills, ready to copy.</span></div>
     <div class="ifilters"><select id="memo-who"><option value="me" ${v.who === 'me' ? 'selected' : ''}>My bills (own or follow)</option><option value="all" ${v.who !== 'me' ? 'selected' : ''}>Everyone’s bills</option></select>
       <select id="memo-coal"><option value="">Every coalition</option>${S.campaigns.map(c => `<option value="${c.id}" ${v.coalition === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       <button class="btn sm" id="memo-copy">Copy as text</button><button class="btn sm ghost" id="memo-copy-rich">Copy with formatting</button></div>
@@ -2833,7 +2862,7 @@ function renderLegislators() {
     .sort((a, b) => a.chamber.localeCompare(b.chamber) || a.district - b.district);
   const card = l => `<button class="lcardm" data-leg="${l.id}">${legPhoto(l)}<span class="lm"><b>${esc(legTitle(l))} ${esc(l.name)}${l.party ? ` <small>(${esc(l.party)})</small>` : ''}</b><span class="ld">${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}${l.title ? ` · ${esc(l.title)}` : ''}</span><span class="lp">${esc(l.places || '')}</span><span class="lc">${legChips(l)}</span></span></button>`;
   return `<div class="legwrap">
-    <div class="dashhead"><h1>Legislators</h1><span class="sub">Every senator and representative, from the Capitol’s pages: district, the places it covers, committees, contact. Open one for their record on our bills and the team’s notes.</span></div>
+    <div class="dashhead"><h1>Legislators</h1><span class="sub">Every senator and representative.</span></div>
     <div class="ifilters legbox"><input type="search" id="leg-q" placeholder="Name, town, district, or a street address…" value="${esc(v.q)}" autocomplete="off">
       ${v.addr && v.addr.q === v.q.trim() && v.addr.results.length && !v.pick ? `<div class="legsug">${v.addr.results.map((x, i) => `<button data-addrpick="${i}"><span class="sk">📍</span>${esc(x.label)}${x.exact ? '' : ' <small>area</small>'}</button>`).join('')}</div>` : (looksLikeAddress(v.q) && v.addrLoading && !v.pick ? '<div class="legsug"><button disabled><span class="sk">…</span>Looking up addresses</button></div>' : '')}
       <select id="leg-ch"><option value="">Both chambers</option><option value="S" ${v.chamber === 'S' ? 'selected' : ''}>Senate</option><option value="H" ${v.chamber === 'H' ? 'selected' : ''}>House</option></select>
@@ -3072,7 +3101,7 @@ function renderEmails() {
       <span class="am"><b>${esc(a.subject)}</b><span class="muted">to followers of ${esc(alertTarget(a))} · from ${esc(advocate(a.author_id)?.full_name || '')} · ${fmtDate(a.updated_at || a.created_at)}${a.sent_at ? ` · ${a.recipients} sent · ${a.opens} opened · ${a.clicks} clicked` : ''}</span></span></div>`;
   const hearingNote = `<div class="panel hnote"><div class="ph"><span>🔔 Hearing alerts run on their own</span></div><div class="pempty" style="text-align:left">Anyone who ticked “email me when a hearing is scheduled” gets one email a day listing every hearing on their bills, with HIPHI’s position and ask when the bill has them. Nothing to do here${S.emailCfg?.enabled === false ? ' — <b>email is paused in Session setup, so nothing is going out yet</b>' : ''}.</div></div>`;
   return `<div class="emailswrap">
-    <div class="dashhead"><h1>Emails to the public</h1><span class="sub">Action alerts go to the followers of a bill or a list who asked for them, from your own address, after a second person approves. Start one from a bill’s Public tab, a list, or here.</span></div>
+    <div class="dashhead"><h1>Emails to the public</h1><span class="sub">Action alerts to people who follow a bill or list.</span></div>
     ${cur ? composerHTML(cur) : `<div class="btns" style="margin-bottom:12px"><select id="em-new"><option value="">New alert about…</option><optgroup label="Bills you own or follow">${S.bills.filter(b => b.is_public && b.position !== 'monitor' && !diedish(b) && ((S.assignments[b.id] || []).includes(S.me?.id) || S.me?.is_admin)).sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)).slice(0, 200).map(b => `<option value="b:${b.id}">${esc(billNum(b))} · ${esc(blurb(b, 50))}</option>`).join('')}</optgroup><optgroup label="Lists">${(S.lists || []).filter(l => l.is_published).map(l => `<option value="l:${l.id}">${esc(l.title)}</option>`).join('')}</optgroup><optgroup label="Segments of people">${(S.segments || []).map(x => `<option value="s:${x.id}">${esc(x.name)}</option>`).join('')}</optgroup></select></div>`}
     ${hearingNote}
     <div class="panel"><div class="ph"><span>Action alerts</span><span class="psub">${rows.length ? `${alertsToReview().length} waiting for your approval` : 'none yet'}</span></div>
@@ -3140,7 +3169,7 @@ function renderLists() {
   const sup = v.supporters;
   const supRows = sup ? sup.filter(r => !v.supQ || (r.email + ' ' + (r.name || '') + ' ' + r.bills.join(' ')).toLowerCase().includes(v.supQ.toLowerCase())) : [];
   return `<div class="listswrap">
-    <div class="dashhead"><h1>Lists</h1><span class="sub">Curated sets of public bills the public can follow with one tap. A list is not tied to a coalition. When you add a bill later, everyone following the list gets it automatically.</span></div>
+    <div class="dashhead"><h1>Lists</h1><span class="sub">Sets of bills the public can follow.</span></div>
     <div class="panel lnew"><div class="ph"><span>＋ New list</span></div>
       <div class="lgrid"><label>Title<input id="ln-title" maxlength="80" placeholder="Keiki health 2027"></label><label>Icon<input id="ln-icon" maxlength="4" placeholder="🧒"></label>
         <label class="wide">One friendly sentence<input id="ln-desc" maxlength="200" placeholder="The bills that decide what kids eat, breathe and can get care for this year."></label></div>
@@ -3220,7 +3249,7 @@ function renderTriage(embedded = false) {
   const chips = `<div class="tchips">
       <button class="fchip ${!t.camp ? 'on' : ''}" data-tcamp="">All coalitions</button>
       ${S.campaigns.filter(x => (x.keywords || []).length).map(x => `<button class="fchip ${t.camp === x.id ? 'on' : ''}" data-tcamp="${x.id}">${esc(x.name)}${x.owner_id && advocate(x.owner_id) ? ` <span class="cnt">${esc(advocate(x.owner_id).initials)}</span>` : ''}</button>`).join('')}
-      <label class="row" style="margin-left:auto"><input type="checkbox" id="t-matched" ${t.matchedOnly ? 'checked' : ''}><span>suggestions only</span></label></div>`;
+      <label class="row tmatched"><input type="checkbox" id="t-matched" ${t.matchedOnly ? 'checked' : ''}><span>suggestions only</span></label></div>`;
   const hi = (text, terms) => { let out = esc(text || ''); for (const k of terms) { const re = new RegExp('(' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'); out = out.replace(re, '<mark>$1</mark>'); } return out; };
   const row = (r, i) => { const best = bestCampaign(r); const terms = (r.matches || []).flatMap(m => m.terms); return `
     <div class="trow ${i === t.focus ? 'kfocus' : ''}" data-tid="${r.id}" data-ti="${i}">
@@ -3246,7 +3275,7 @@ function renderTriage(embedded = false) {
     : t.rows.length ? t.rows.slice(0, t.show).map(row).join('') + (t.rows.length > t.show ? `<button class="pempty boardmore" id="t-more">Show ${Math.min(BATCH, t.rows.length - t.show)} more · ${t.rows.length - t.show} further down the queue</button>` : '')
     : `<div class="tdone"><div class="tdonebig">🤙 Done${t.camp ? ` for ${esc(campName)}` : ''}</div><p>${t.done ? `You decided ${t.done} bill${t.done === 1 ? '' : 's'} this sitting. ` : ''}Nothing is waiting${t.matchedOnly ? ' among the suggestions. New bills show up here as they are introduced; untick “suggestions only” to look through every undecided bill' : ''}.</p></div>`;
   return `<div class="triage">
-    <div class="dashhead ${embedded ? 'sub2' : ''}"><h1>${embedded ? 'Decide on the new ones' : 'New bills'}</h1><span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
+    <div class="dashhead ${embedded ? 'sub2' : ''}">${embedded ? '<h2 class="h1like">Decide on the new ones</h2>' : '<h1>New bills</h1>'}<span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
     ${triageSeen() && !t.how ? `<p class="boardhow short"><button class="linkbtn" id="t-how">How this works</button></p>` : `<p class="boardhow">`}${triageSeen() && !t.how ? '' : `Each row is a bill nobody has decided on. <b>Track</b> puts it on the tracker under that coalition with the coalition’s owner, Monitor, P2 — change any of that on the bill page later. <b>Skip</b> hides it for good (undo is one click). Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>t</kbd> track, <kbd>s</kbd> skip, <kbd>u</kbd> undo.</p>`}
     ${chips}
     ${progress}
@@ -3257,6 +3286,7 @@ function wireTriage() {
   const t = S.triage; if (!t) return;
   document.querySelectorAll('[data-tcamp]').forEach(el => el.onclick = () => { t.camp = el.dataset.tcamp || null; t.rows = null; t.focus = 0; t.show = 25; render(); });
   document.querySelectorAll('details.tmore').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('details.tmore[open]').forEach(o => { if (o !== d) o.open = false; }); }));
+  document.querySelectorAll('.trow .tdesc').forEach(el => el.onclick = e => { e.stopPropagation(); el.classList.toggle('open'); });
   $('#t-how') && ($('#t-how').onclick = () => { t.how = true; rerenderKeep(); });
   $('#t-more') && ($('#t-more').onclick = () => { t.show = (t.show || 25) + 25; rerenderKeep(); });
   $('#t-matched') && ($('#t-matched').onchange = () => { t.matchedOnly = $('#t-matched').checked; t.rows = null; render(); });
@@ -3274,7 +3304,7 @@ function renderAdd() {
   // One page for bringing bills in: search every introduced measure, and
   // below it the queue of new bills nobody has decided on yet (the old Triage).
   return `<div class="addbill">
-    <div class="dashhead"><h1>New bills</h1><span class="sub">Search any bill in the session and track it, or work through the new ones that match your coalitions’ keywords below.</span></div>
+    <div class="dashhead"><h1>New bills</h1><span class="sub">Find any bill, or decide on new ones.</span></div>
     <input type="search" id="addq" placeholder="Search every introduced bill: SB123, vaping, school meals…">
     <div class="results" id="addresults"></div>
   </div>
@@ -3681,7 +3711,7 @@ function drawerHTML(b) {
       const row = (l, v, cls = '') => `<div class="nr ${cls}"><span class="nl">${l}</span><span class="nv">${v}</span></div>`;
       const v = streamOf(h);
       return `<div class="next v3 slim">
-        <div class="nexthead"><span class="nextk">Next</span><b>${esc(c ? c.name : h.committee)}</b>${c ? `<span class="code">${esc(h.committee)}</span>` : ''}<span class="muted">hearing</span></div>
+        <div class="nexthead"><span class="nextk">Next</span><b>${esc(c ? c.name : h.committee)}</b><span class="nhk">${c ? `<span class="code">${esc(h.committee)}</span> ` : ''}<span class="muted">hearing</span></span></div>
         <div class="nextline big">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
         ${h.testimony_deadline ? `<div class="nextline ${dueSoon ? 'due' : ''}">Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
@@ -3706,7 +3736,6 @@ function drawerHTML(b) {
       <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.current_version ? ` <span class="ver" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}${b.priority ? ` ${gl('P' + b.priority, PRI_GLOSS[b.priority], 'pri')}` : ''}</h2>
       <div class="sub">${esc(b.public_summary || titleCaseTitle(b.title || ''))}</div>
       <div class="dchips">${chips}</div>
-      ${primary ? `<button class="btn sm dprimary" data-primary="${esc(primary.id)}" data-primaryact="${primary.act}">${primary.label}</button>` : ''}
     </div>
     <div class="dbody">
       ${stageCalHTML(b)}
@@ -3876,6 +3905,7 @@ function render() {
   const bodyHelp = pageTabs() + (HELP_FOR[S.view] ? body.replace('</h1>', ` <button class="helpq" data-helpgo="${HELP_FOR[S.view]}" title="What is this page? Opens Help at the right section" aria-label="Help for this page">?</button></h1>`) : body);
   const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
   $('#app').innerHTML = chrome(bodyHelp) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
+  arrangeHeader(); a11yPass();
   wire();
   foldSections(); plainIcons();
   if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (!el) return; el.innerHTML = timelineHTML(tl);
@@ -4108,8 +4138,6 @@ function wireDrawer() {
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); keep(() => {}); }); keep(() => {}); } catch (e) { toast(e.message, true); }
   });
-  $('.dprimary') && ($('.dprimary').onclick = () => { const row = document.querySelector(`[data-draft="${$('.dprimary').dataset.primary}"]`);
-    const btn = row?.querySelector(`[data-act="${$('.dprimary').dataset.primaryact}"]`); if (btn) { row.scrollIntoView({ block: 'center' }); btn.click(); } });
   const save = (patch, msg) => DB.updateBill(b.id, patch)
     .then(() => { S.drawerOpen.teamSaved = Date.now(); toast(msg || 'Saved'); render(); })
     .catch(e => toast(e.message, true));
