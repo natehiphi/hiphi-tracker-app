@@ -17,6 +17,19 @@ if (DEMO) {
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
 }
 const isMobile = () => matchMedia('(max-width:760px)').matches;
+// Two looks (Nate, 9/18). Classic is the tracker exactly as it stood on 9/18 (git tag classic-2026-09-18). Simple shows
+// the one thing each page is for and puts the rest one step away; nothing is removed, only moved. Precedence:
+// ?look=simple|classic for this visit, then this device's choice, then the person's saved choice (My settings),
+// then the default: Simple in the sandbox, Classic for staff until Nate decides.
+const LOOK_KEY = 'hiphi_look';
+let LOOK_URL = (l => l === 'simple' || l === 'classic' ? l : null)(new URLSearchParams(location.search).get('look'));
+function lookNow() {
+  if (LOOK_URL) return LOOK_URL;
+  try { const l = localStorage.getItem(LOOK_KEY); if (l === 'simple' || l === 'classic') return l; } catch {}
+  const p = (typeof S !== 'undefined' && S.me?.prefs?.look) || null; if (p === 'simple' || p === 'classic') return p;
+  return DEMO ? 'simple' : 'classic';
+}
+const simple = () => lookNow() === 'simple';
 // Auth email links (password recovery, magic link) come back with their payload
 // in the URL hash. supabase-js clears that hash the instant the client is
 // created, so read what we need synchronously, before DB.init() runs.
@@ -409,6 +422,14 @@ const DB = {
       .or(`bill_number.ilike.%${safe.replace(/\s/g,'')}%,title.ilike.%${safe}%`)
       .limit(15);
     if (error) throw error; return data;
+  },
+  async saveLook(look) {
+    S.me.prefs = { ...(S.me.prefs || {}), look };
+    if (DEMO) return;
+    const { data, error: e1 } = await S.supa.from('advocates').select('prefs').eq('id', S.me.id).single(); if (e1) throw e1;
+    const prefs = { ...(data?.prefs || {}), look };
+    const { error } = await S.supa.from('advocates').update({ prefs }).eq('id', S.me.id); if (error) throw error;
+    S.me.prefs = prefs;
   },
   async saveMyPrefs({ slack_dm, prefs }) {
     Object.assign(S.me, { slack_dm, prefs });
@@ -921,6 +942,23 @@ function filterSummary() {
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
 const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['people', '☺\ufe0e', 'People', 'People'], ['lists', '☰', 'Lists', 'Lists'], ['emails', '✉', 'Emails', 'Emails'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
+// Simple: the pages used every day, then an Outreach group (People, Lists, Emails, Weekly memo) that stays folded for
+// people who own no coalition and are not admins, then settings and help at the foot. Sign out lives in the top bar.
+const RAIL_DAILY = ['portfolio', 'inbox', 'add', 'table', 'legislators'], RAIL_OUTREACH = ['people', 'lists', 'emails', 'memo'];
+const railBtns = (views, count) => RAIL_ITEMS.filter(([v]) => views.includes(v) && (v !== 'setup' || S.me?.is_admin)).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('');
+function outreachOpen() {
+  let saved = null; try { saved = localStorage.getItem('hiphi_outreach'); } catch {}
+  if (RAIL_OUTREACH.includes(S.view) || alertsToReview().length) return true;
+  if (saved) return saved === '1';
+  return !!(S.me?.is_admin || S.campaigns.some(c => c.owner_id === S.me?.id));
+}
+function railSimpleNav(count) {
+  const open = outreachOpen(), n = count('emails');
+  const here = RAIL_OUTREACH.includes(S.view);   // the group stays open while you are on one of its pages
+  return `<div class="rscroll"><nav>${railBtns(RAIL_DAILY, count)}</nav>
+    <div class="rgroup ${open ? 'open' : ''}"><button class="rgh" id="rail-outreach" aria-expanded="${open}" ${here ? 'aria-disabled="true"' : ''} title="${here ? 'Outreach: stays open while you are on one of its pages' : 'Outreach: people, lists, emails, the weekly memo'}"><span class="ri" aria-hidden="true">${open ? '▾' : '▸'}<small class="rs">Outreach</small></span><span class="rl">Outreach</span>${!open && n ? `<span class="rn">${n}</span>` : ''}</button>
+      ${open ? `<nav>${railBtns(RAIL_OUTREACH, count)}</nav>` : ''}</div></div>`;
+}
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
@@ -929,11 +967,12 @@ function railHTML(freshTxt, stale) {
   const ld = legislativeDay();
   return `<aside class="rail ${S.railQuiet ? 'quiet' : ''}" aria-label="Sections">
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
-    <nav>${RAIL_ITEMS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>
+    ${simple() ? railSimpleNav(count) : `<nav>${RAIL_ITEMS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>`}
     <div class="rfoot">
+      ${simple() ? `<div class="rfootnav">${railBtns(['settings', 'setup', 'help'], count)}</div>` : ''}
       <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
       <button id="railpin" title="${pinned ? 'Collapse the menu' : 'Keep the menu open'}"><span class="ri" aria-hidden="true">${pinned ? '«' : '»'}</span><span class="rl">${pinned ? 'Collapse' : 'Keep open'}</span></button>
-      <button id="logout3" title="Sign out"><span class="ri" aria-hidden="true">⎋</span><span class="rl">Sign out</span></button>
+      ${simple() ? '' : `<button id="logout3" title="Sign out"><span class="ri" aria-hidden="true">⎋</span><span class="rl">Sign out</span></button>`}
     </div>
   </aside>`;
 }
@@ -961,6 +1000,7 @@ function filterBarHTML() {
           ${quick.map(([spec, label, tip, test, key, tone]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip t-${tone} ${on ? 'on' : ''}" data-ft="${spec}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}"><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span>${label}<i>${c}</i></button>`; }).join('')}
         </div>
         ${S.view === 'table' && !S.q && monitorCount() ? `<button class="qchip t-mon ${S.showMonitor ? 'on' : ''}" id="monchip" aria-pressed="${!!S.showMonitor}" title="Monitor bills are tracked without a position. They are left out of every count unless you include them here."><span class="qdot" aria-hidden="true">${S.showMonitor ? '✓' : '＋'}</span>${S.showMonitor ? 'including' : ''} monitor bills<i>${monitorCount()}</i></button>` : ''}
+        ${S.view === 'table' && simple() ? `<button class="fbtn ${S.tableEdit ? 'on' : ''}" id="tedit" aria-pressed="${!!S.tableEdit}" title="Change owner, position and priority right in the table">${S.tableEdit ? '✓ Done editing' : '✎ Edit'}</button>` : ''}
         ${S.view==='table' ? '<button class="fbtn" id="csv">⬇ Export CSV</button>' : ''}
       </div>
     </div>`;
@@ -1021,7 +1061,8 @@ function chrome(inner) {
         <details class="more">
           <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}"><span class="ti" aria-hidden="true">☰</span>${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'}<span class="lg"> ▾</span></summary>
           <div class="menu">
-            ${MORE_VIEWS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
+            ${simple() ? [['Bills', ['table', 'legislators']], ['Outreach', RAIL_OUTREACH], ['You', ['settings', 'setup', 'help']]].map(([g, vs]) => `<div class="mgh">${g}</div>` + MORE_VIEWS.filter(([v]) => vs.includes(v) && (v !== 'setup' || S.me?.is_admin)).map(([v, l]) => `<button data-view="${v}" class="${S.view === v ? 'on' : ''}">${l}</button>`).join('')).join('')
+              : MORE_VIEWS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
             <button id="logout2">Sign out</button>
           </div>
         </details>
@@ -1412,7 +1453,7 @@ function renderPortfolio(list) {
       ${clock(t, until)}
       <div class="amain"><div class="aask">${ask}</div>
         ${note ? `<div class="anote">“${esc(note)}”</div>` : ''}
-        <div class="actx">${esc(topic(b))}</div></div>
+        <div class="actx sdesc">${esc(topic(b))}</div></div>
       <div class="abtn">${btn}</div>
     </div>`;
   const merged = [...waitingMine.map(x => ({ mine: true, t: x.t, pri: x.b.priority || 9, html: actRow({ mine: true, b: x.b, t: x.t, until: x.h?.testimony_deadline ? 'it’s due' : 'the hearing',
@@ -1577,7 +1618,7 @@ function renderPortfolio(list) {
   return head(dashTitle(), `${today} · ${stripShort}`) + firstRunHTML() + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
-      <div>${foldable('glance', '📊 At a glance', '', glance, false)}${recentHearingsHtml}</div>
+      <div>${foldable('glance', '📊 At a glance' + (simple() && cur ? ` <span class="foldsub">next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span>` : ''), '', glance, false, simple())}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${board.html ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
@@ -1597,17 +1638,20 @@ function cell(b, c) {
   switch (c) {
     case 'sel': return `<td class="selcell"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id)?'checked':''}></td>`;
     case 'bill': return `<td><div class="bno">${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</div>
-      <div class="bti">${esc(b.title||'')}<div class="bsub">${esc(b.committee||'')}${b.referrals?.length?' · '+esc(b.referrals.join(', ')):''}</div></div></td>`;
+      <div class="bti">${simple() ? `<span class="btt">${esc(b.public_summary || titleCaseSmart(b.title || ''))}</span>` : esc(b.title||'')}<div class="bsub">${esc(b.committee||'')}${b.referrals?.length?' · '+esc(b.referrals.join(', ')):''}</div></div></td>`;
     case 'status': return `<td>${statusChip(b)}</td>`;
     case 'coal': return `<td style="font-size:11.5px;color:var(--muted)">${(S.billCampaigns[b.id]||[])
       .map(cid => esc(S.campaigns.find(x=>x.id===cid)?.name||'')).join(', ')}</td>`;
-    case 'owner': return `<td><select data-own="${b.id}"><option value="">—</option>
+    case 'owner': if (simple() && !S.tableEdit) { const o = advocate((S.assignments[b.id] || [])[0]); return `<td class="plain">${o ? esc(o.full_name) : '<span class="muted">—</span>'}</td>`; }
+      return `<td><select data-own="${b.id}"><option value="">—</option>
       ${S.advocates.map(a=>`<option value="${a.id}" ${(S.assignments[b.id]||[])[0]===a.id?'selected':''}>${esc(a.full_name)}</option>`).join('')}</select></td>`;
-    case 'position': return `<td><select data-pos="${b.id}">
+    case 'position': if (simple() && !S.tableEdit) return `<td class="plain">${b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="muted">—</span>'}</td>`;
+      return `<td><select data-pos="${b.id}">
       ${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></td>`;
-    case 'pri': return `<td><select data-pri="${b.id}"><option value="">—</option>
+    case 'pri': if (simple() && !S.tableEdit) return `<td class="plain">${b.priority ? `P${b.priority}` : '<span class="muted">—</span>'}</td>`;
+      return `<td><select data-pri="${b.id}"><option value="">—</option>
       ${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></td>`;
-    case 'last': return `<td style="font-size:12px;max-width:220px">${esc(b.last_action||'—')}
+    case 'last': return `<td class="lastc" style="font-size:12px;max-width:220px"><span class="lat"${simple() ? ` title="${esc(b.last_action || '')}"` : ''}>${esc(b.last_action||'—')}</span>
       <div class="bsub">${fmtDate(b.last_action_date,{year:'2-digit'})}</div></td>`;
     case 'pulse': return `<td>${pulseCell(b)}</td>`;
   }
@@ -1661,7 +1705,7 @@ function renderTable(list) {
   const elsewhere = q && S.owner !== 'all' ? (() => { const keep = S.owner; S.owner = 'all'; const n = barBase().filter(b => passes(b)).length; S.owner = keep; return n; })() : 0;
   const banner = q ? `<div class="qbanner">Showing bills that match <b>“${esc(q)}”</b> · ${list.length} found${elsewhere > list.length ? ` here, ${elsewhere} under Everyone <button class="linkbtn" data-scopeall="1">show everyone</button>` : ''} <button class="linkbtn qclear">clear the search</button></div>` : '';
   if (q && !list.length) return banner + `<div class="empty">Nothing ${S.owner === 'me' ? 'of yours' : S.owner === 'all' ? 'on the tracker' : 'of theirs'} matches “${esc(q)}”.${elsewhere ? ' It is there under Everyone.' : ' Bills that are not tracked yet are under New bills.'}</div>`;
-  return banner + bulkBar() + billTable(list, ['sel','bill','coal','owner','status','position','pri','last','pulse']);
+  return banner + bulkBar() + billTable(list, simple() ? ['sel','bill','owner','status','position','pri','last','pulse'] : ['sel','bill','coal','owner','status','position','pri','last','pulse']);
 }
 
 // ---------------- Desk view ----------------
@@ -1946,6 +1990,12 @@ function renderSettings() {
   const chk = (id, on, label, hint) => `<label class="row"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}${hint ? `<span class="tok"> · ${hint}</span>` : ''}</span></label>`;
   const slackState = DEMO ? 'sandbox' : me.slack_user_id ? 'connected' : 'not matched yet - matched by email on the first message';
   const mine = `
+    <section id="st-look">
+      <h2>Layout</h2>
+      <label class="row lookrow"><input type="radio" name="st-look" value="simple" ${simple() ? 'checked' : ''}><span><b>Simple</b> <span class="tok">· the essentials first; everything else is one tap away</span></span></label>
+      <label class="row lookrow"><input type="radio" name="st-look" value="classic" ${simple() ? '' : 'checked'}><span><b>Classic</b> <span class="tok">· every panel and control shown, as the tracker looked on September 18</span></span></label>
+      ${LOOK_URL ? `<p class="tok">This visit is showing ${LOOK_URL === 'simple' ? 'Simple' : 'Classic'} because the web address asks for it.</p>` : ''}
+    </section>
     <section>
       <h2>How the tracker reaches you</h2>
       <div class="chan"><b>📥 Inbox</b><span>Always on. Everything that needs you lands there, whatever you choose below, and the red number counts it.</span></div>
@@ -2079,6 +2129,16 @@ function renderSettings() {
 }
 function wireSettings() {
   if (!['settings', 'setup'].includes(S.view)) return;
+  document.querySelectorAll('input[name="st-look"]').forEach(el => el.onchange = async () => {
+    const look = el.value; try { localStorage.setItem(LOOK_KEY, look); } catch {}
+    if (LOOK_URL) { LOOK_URL = null; const u = new URL(location.href); u.searchParams.delete('look'); history.replaceState(null, '', u); }   // the choice wins over the address from now on
+    // keep anything typed but not yet saved on this page across the re-render
+    const kept = [...document.querySelectorAll('.settings input[id], .settings select[id], .settings textarea[id]')].filter(x => x.name !== 'st-look').map(x => [x.id, x.type === 'checkbox' || x.type === 'radio' ? x.checked : x.value, x.type]);
+    render();
+    for (const [id, v, t] of kept) { const x = document.getElementById(id); if (!x) continue; if (t === 'checkbox' || t === 'radio') x.checked = v; else x.value = v; }
+    toast(look === 'simple' ? 'Simple layout on' : 'Classic layout on');
+    if (!DEMO && S.me) DB.saveLook(look).catch(() => {});   // follows them to their other devices
+  });
   if ($('#st-save-me')) $('#st-save-me').onclick = async () => {
     const prefs = { ...(S.me.prefs || {}),
       reminders: { morning_on: $('#st-mon').checked, morning: $('#st-mont').value || '08:35',
@@ -2337,7 +2397,7 @@ function wirePeople() {
   $('#pb-fupadd') && ($('#pb-fupadd').onclick = async () => { const what = $('#pb-fup').value.trim(); if (!what) return; if (!confirm(`Add “${what}” as a follow-up on ${v.sel.size} people for ${$('#pb-fupwho').selectedOptions[0].textContent}?`)) return; try { const n = await DB.bulkFollowup(ids(), $('#pb-fupwho').value, what, $('#pb-fupdue').value || null); toast(`${n} follow-ups added`); v.sel.clear(); keep(); } catch (e) { toast(e.message, true); } });
   $('#pp-clear') && ($('#pp-clear').onclick = () => { v.f = EMPTY_PF(); v.seg = null; keep(); });
   $('#pp-more') && ($('#pp-more').onclick = () => { v.more = !v.more; keep(); });
-  document.querySelectorAll('[data-seg]').forEach(el => el.onclick = () => { const sg = S.segments.find(x => x.id === el.dataset.seg); if (v.seg === sg.id) { v.seg = null; v.f = EMPTY_PF(); } else { v.seg = sg.id; v.f = { ...EMPTY_PF(), ...JSON.parse(JSON.stringify(sg.filter)) }; } keep(); });
+  document.querySelectorAll('[data-seg]').forEach(el => el.onclick = () => { const sg = S.segments.find(x => x.id === el.dataset.seg); if (v.seg === sg.id) { v.seg = null; v.f = EMPTY_PF(); } else { v.seg = sg.id; v.f = { ...EMPTY_PF(), ...JSON.parse(JSON.stringify(sg.filter)) }; if (Object.keys(pfClean(v.f)).some(k => !['q', 'islands'].includes(k))) v.more = true; } keep(); });
   $('#pp-segsave') && ($('#pp-segsave').onclick = async () => { const name = prompt('Name this segment (it shows on the Emails page too)'); if (!name || name.trim().length < 2) return; try { const sg = await DB.saveSegment({ name: name.trim(), filter: pfClean(f) }); v.seg = sg.id; toast('Segment saved'); keep(); } catch (e) { toast(e.message, true); } });
   $('#pp-segupdate') && ($('#pp-segupdate').onclick = async () => { const sg = S.segments.find(x => x.id === v.seg); try { await DB.saveSegment({ id: sg.id, name: sg.name, filter: pfClean(f) }); toast('Segment updated'); keep(); } catch (e) { toast(e.message, true); } });
   $('#pp-segdel') && ($('#pp-segdel').onclick = async () => { const sg = S.segments.find(x => x.id === v.seg); if (!confirm(`Delete the segment “${sg.name}”? People are not affected.`)) return; try { await DB.deleteSegment(sg.id); v.seg = null; keep(); } catch (e) { toast(e.message, true); } });
@@ -2473,8 +2533,37 @@ function firstRunHTML() {
     [!!o.help, 'Read “Owning vs following” in Help', 'two minutes; it explains who is asked to do what', 'help'],
   ];
   const done = steps.filter(x => x[0]).length; if (done === steps.length) { frSet({ dismissed: 1 }); return ''; }
+  const rowsHtml = steps.map(([ok, t, hint, view]) => `<div class="frrow ${ok ? 'ok' : ''}" ${view && !ok ? `data-view="${view}"` : ''}><span class="frc">${ok ? '✓' : ''}</span><span><b>${esc(t)}</b><small>${esc(hint)}</small></span></div>`).join('');
+  if (simple()) return `<div class="frwrap"><details class="firstrun slim" id="firstrun" ${S.frOpen ? 'open' : ''}><summary><b>Getting started</b><span class="frbar" aria-hidden="true"><i style="width:${Math.round(done / steps.length * 100)}%"></i></span><span class="tok">${done} of ${steps.length} done</span></summary>${rowsHtml}</details><button class="linkbtn frhide" id="fr-dismiss" aria-label="Hide the getting started checklist">hide</button></div>`;
   return `<section class="firstrun"><div class="frh"><b>Getting started</b><span class="tok">${done} of ${steps.length} done</span><button class="linkbtn" id="fr-dismiss">hide this</button></div>
     ${steps.map(([ok, t, hint, view]) => `<div class="frrow ${ok ? 'ok' : ''}" ${view && !ok ? `data-view="${view}"` : ''}><span class="frc">${ok ? '✓' : ''}</span><span><b>${esc(t)}</b><small>${esc(hint)}</small></span></div>`).join('')}</section>`;
+}
+// Simple: Session setup and Help open as a list of section titles; a title opens its section. The open ones are
+// remembered for the visit. Jump links, Help search and the page "?" buttons open what they point at.
+const secKey = sec => sec.id || (sec.querySelector('h2')?.textContent || '').trim().slice(0, 40);
+const syncSecAria = sec => { const b = sec.querySelector(':scope > h2 > .sfbtn'); if (b) b.setAttribute('aria-expanded', sec.classList.contains('open')); };
+function foldSections() {
+  if (!simple() || !['setup', 'help'].includes(S.view)) return;
+  S.secOpen ??= new Set();
+  document.querySelectorAll('.setupwrap .settings > section, .settings.help > section').forEach(sec => {
+    const h = sec.querySelector(':scope > h2'); if (!h) return;
+    const q = S.view === 'help' && (S.helpQ || '').trim();
+    const key = secKey(sec);   // read before the heading is rewrapped
+    sec.classList.add('sfold'); sec.classList.toggle('open', q ? !sec.hidden : S.secOpen.has(key));
+    let btn = h.querySelector(':scope > .sfbtn');
+    if (!btn) { btn = document.createElement('button'); btn.type = 'button'; btn.className = 'sfbtn'; while (h.firstChild) btn.appendChild(h.firstChild); h.appendChild(btn); }
+    btn.setAttribute('aria-expanded', sec.classList.contains('open'));
+    btn.onclick = () => { const now = !sec.classList.contains('open'); if (now) S.secOpen.add(key); else S.secOpen.delete(key); sec.classList.toggle('open', now); btn.setAttribute('aria-expanded', now); };
+  });
+}
+const openSection = el => { const sec = el?.closest('section.sfold') || (el?.matches?.('section.sfold') ? el : null); if (!sec) return; (S.secOpen ??= new Set()).add(secKey(sec)); sec.classList.add('open'); syncSecAria(sec); };
+// Simple: panel and fold headings drop their colour emoji, so the page speaks with one icon style (the menu glyphs).
+const LEAD_EMOJI = /^\s*(?:[\p{Extended_Pictographic}←-⇿⌀-⏿■-◿☀-➿](?:️|︎|‍[\p{Extended_Pictographic}])*\s*)+/u;
+function plainIcons() {
+  if (!simple()) return;
+  document.querySelectorAll('.ph > span:first-child, .bsumtitle, details.fold > summary > span:first-child, .pinnote > summary, .chan > b').forEach(el => {
+    const t = el.firstChild; if (t && t.nodeType === 3 && LEAD_EMOJI.test(t.nodeValue)) t.nodeValue = t.nodeValue.replace(LEAD_EMOJI, '');
+  });
 }
 function renderHelp() {
   const row = (k, v) => `<div class="krow"><kbd>${esc(k)}</kbd><span>${esc(v)}</span></div>`;
@@ -2484,7 +2573,7 @@ function renderHelp() {
   return `<div class="settings help"><h1>Help</h1>
     <input type="search" id="help-q" placeholder="Search Help: a word, a page, a stage…" autocomplete="off" value="${esc(S.helpQ || '')}">
     <p class="tok" id="help-none" hidden>Nothing in Help mentions that. Try a shorter word.</p>
-    <p class="helpnav">${nav.map(([id, l]) => `<a data-jump="help-${id}">${l}</a>`).join(' · ')}</p>
+    <p class="helpnav" ${simple() ? 'hidden' : ''}>${nav.map(([id, l]) => `<a data-jump="help-${id}">${l}</a>`).join(' · ')}</p>
     ${sec('pages', 'What each page is for', `
       ${def('Dashboard', 'Your day: what is waiting on you, this week’s hearings, and where every bill stands.')}
       ${def('Inbox', 'Messages, testimony steps and reminders that need you (the badge counts only these), plus official updates on your bills.')}
@@ -2495,7 +2584,7 @@ function renderHelp() {
       ${def('Lists', 'Curated sets of public bills the public can follow with one tap.')}
       ${def('Emails', 'Action alerts to the public: written by an admin or the coalition owner about a bill or a list, sent from their own address to the followers who asked for them, after a second person approves. Hearing alerts need nobody: one email a day per person, bundled.')}
       ${def('Weekly memo', 'A memo that writes itself from the bills you own or follow (or everyone’s, or one coalition): hearings, movement, risk, how to help. Copy it; nothing is sent.')}
-      ${def('My settings', 'How the tracker reaches you: Slack DMs and testimony reminders.')}
+      ${def('My settings', 'How the tracker reaches you (Slack DMs, email, testimony reminders) and the layout: Simple shows the essentials first, Classic shows every panel.')}
       ${def('Session setup', 'Admins: the session calendar, the import, coalitions, connections, session days, the website embed.')}`)}
     ${sec('dash', 'The dashboard', `
       <p><b>Whose bills</b> (My bills, Everyone, a teammate) and the <b>filters</b> narrow every section on the page. Counts on the chips tell you what you would get before you click. What is on shows as tags under the bar; each × removes one.</p>
@@ -2612,8 +2701,25 @@ function renderInbox() {
   else if (grouped) { const by = new Map(); for (const i of rows) { const k = i.bill_id || 'none'; if (!by.has(k)) by.set(k, []); by.get(k).push(i); }
     body = [...by.entries()].map(([k, list]) => { const b = k !== 'none' && billById(k); const un = list.filter(i => i.unread).length; return `
       <div class="igroup"><div class="ighead" ${b ? `data-bill="${b.id}"` : ''}><span><b>${esc(list[0].bill_number || 'General')}</b> ${b ? esc(blurb(b, 80)) : ''}</span><span class="igacts">${un ? `<span class="chipx c-teal">${un} new</span><button class="linkbtn" data-inboxgroup="${esc(k)}">mark read</button>` : ''}</span></div>${list.slice(0, 4).map(item).join('')}${list.length > 4 ? `<div class="igmore">${list.length - 4} earlier on this bill · open the Timeline tab</div>` : ''}</div>`; }).join(''); }
+  else if (simple()) {
+    const seen = new Map(), out = [];
+    for (const i of rows.slice(0, 150)) { const k = `${i.kind}|${unslack(i.title || '')}|${unslack(i.body || '')}`; if (!seen.has(k)) { seen.set(k, [i]); out.push(k); } else seen.get(k).push(i); }
+    body = out.map(k => { const list = seen.get(k); if (list.length < 3) return list.map(item).join('');
+      const i = list[0], un = list.filter(x => x.unread), openG = (S.inboxOpenDup || new Set()).has(k);
+      return `<div class="idup ${openG ? 'open' : ''}"><div class="irow ${un.length ? 'unread' : ''}" data-idup="${esc(k)}">
+          <span class="iicon">${INBOX_ICON[i.kind] || '•'}</span>
+          <div class="imain"><div class="il1"><b>${list.length} bills</b> ${esc(unslack(i.title))}</div>
+            ${i.body ? `<div class="ibody">${esc(unslack(i.body).slice(0, 200))}</div>` : ''}
+            <div class="ibills">${list.map(x => esc(x.bill_number || '')).join(' · ')}</div></div>
+          <span class="iacts"><button class="btn sm ghost" data-idupopen="${esc(k)}">${openG ? 'Hide' : 'Show each'}</button></span>
+          <span class="iwhen">${ago(i.at)}</span>
+          <button class="iread" data-iduptoggle="${esc(k)}" title="${un.length ? 'Mark all read' : 'Marked read'}">${un.length ? '✓' : '↺'}</button>
+        </div>${openG ? `<div class="idupitems">${list.map(item).join('')}</div>` : ''}</div>`; }).join('');
+  }
   else body = rows.slice(0, 150).map(item).join('');
   const unreadHere = rows.filter(i => i.unread).length;
+  // Simple: the filter row appears once the list is long enough to need it, or when a filter is on.
+  const showFilters = !simple() || v.showFilters || v.q || v.unreadOnly || v.kind || (v.sort && v.sort !== 'new') || rows.length > 15;
   return `<div class="inbox">
     <div class="dashhead"><h1>Inbox</h1><span class="sub">“Needs you” is what the badge counts. Updates are news on your bills; they never count and clear themselves after a week.</span></div>
     <div class="itabs">
@@ -2622,7 +2728,8 @@ function renderInbox() {
       <button class="itab ${v.tab === 'all' ? 'on' : ''}" data-inboxtab="all">Everything</button>
       <span class="itools"><button class="btn sm ${unreadHere ? '' : 'ghost'}" id="inbox-readall" ${unreadHere ? '' : 'disabled'}>Mark ${unreadHere || ''} read</button></span>
     </div>
-    <div class="ifilters">
+    ${showFilters ? '' : `<div class="ifmin"><span class="tok">${rows.length} shown</span><button class="linkbtn" id="inbox-showf">Filter or sort</button></div>`}
+    <div class="ifilters" ${showFilters ? '' : 'hidden'}>
       <input type="search" id="inbox-q" placeholder="Filter by bill or words…" value="${esc(v.q)}">
       <label class="row"><input type="checkbox" id="inbox-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
       <select id="inbox-sort" title="Sort"><option value="new" ${v.sort === 'new' ? 'selected' : ''}>Unread first, then newest</option><option value="pri" ${v.sort === 'pri' ? 'selected' : ''}>Priority (P1 first)</option><option value="bill" ${v.sort === 'bill' ? 'selected' : ''}>By bill</option></select>
@@ -2637,6 +2744,10 @@ function wireInbox() {
   const v = S.inboxView;
   document.querySelectorAll('[data-inboxtab]').forEach(el => el.onclick = () => { v.tab = el.dataset.inboxtab; v.kind = ''; render(); });
   document.querySelectorAll('[data-inboxf]').forEach(el => el.onclick = () => { v.kind = v.kind === el.dataset.inboxf ? '' : el.dataset.inboxf; render(); });
+  $('#inbox-showf') && ($('#inbox-showf').onclick = () => { v.showFilters = true; render(); $('#inbox-q')?.focus(); });
+  const dupKeys = k => inboxRows().filter(i => `${i.kind}|${unslack(i.title || '')}|${unslack(i.body || '')}` === k);
+  document.querySelectorAll('[data-idupopen], [data-idup]').forEach(el => el.onclick = e => { if (e.target.closest('[data-iduptoggle]')) return; e.stopPropagation(); const k = el.dataset.idupopen || el.dataset.idup; S.inboxOpenDup ??= new Set(); if (S.inboxOpenDup.has(k)) S.inboxOpenDup.delete(k); else S.inboxOpenDup.add(k); render(); });
+  document.querySelectorAll('[data-iduptoggle]').forEach(el => el.onclick = async e => { e.stopPropagation(); const list = dupKeys(el.dataset.iduptoggle); const un = list.filter(i => i.unread).map(i => i.key); try { if (un.length) { await DB.inboxMark(un); toast(`${un.length} marked read`); } else { await DB.inboxUnmark(list.map(i => i.key)); toast(`${list.length} marked unread`); } render(); } catch (er) { toast(er.message, true); } });
   $('#inbox-clear') && ($('#inbox-clear').onclick = () => { v.q = ''; v.unreadOnly = false; v.kind = ''; render(); });
   $('#inbox-unread') && ($('#inbox-unread').onchange = () => { v.unreadOnly = $('#inbox-unread').checked; render(); });
   $('#inbox-sort') && ($('#inbox-sort').onchange = () => { v.sort = $('#inbox-sort').value; render(); });
@@ -3121,7 +3232,13 @@ function bestCampaign(r) {
   if (r.matches?.length) { const c = S.campaigns.find(x => x.id === r.matches[0].campaign_id); if (c) return c; }
   return S.campaigns.find(c => c.name === 'General HIPHI') || S.campaigns[0];
 }
+// Simple: the New bills instructions show on the first visit, then fold into a "How this works" link.
+const triageSeen = () => { if (S.triageFirstVisit) return false; try { return !!localStorage.getItem('hiphi_triage_seen'); } catch { return true; } };
+// close any open New bills "⋯" menu on an outside click or Escape
+document.addEventListener('click', e => { if (!e.target.closest('details.tmore')) document.querySelectorAll('details.tmore[open]').forEach(d => { d.open = false; }); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('details.tmore[open]').forEach(d => { d.open = false; d.querySelector('summary')?.focus(); }); });
 function renderTriage(embedded = false) {
+  if (simple() && S.triageFirstVisit === undefined) { S.triageFirstVisit = !triageSeen(); try { localStorage.setItem('hiphi_triage_seen', '1'); } catch {} }
   const t = S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
   if (t.rows === null) loadTriage();
   const c = t.counts || {};
@@ -3141,9 +3258,10 @@ function renderTriage(embedded = false) {
       </div>
       <div class="tacts">
         <button class="btn sm" data-ttrack="${r.id}" data-tcampid="${best.id}">Track as ${esc(best.name)}</button>
-        <select class="tsel" data-tsel="${r.id}" title="Track as another coalition"><option value="">other…</option>${S.campaigns.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        ${simple() ? `<button class="btn sm ghost" data-tskip="${r.id}">Skip</button>
+        <details class="tmore"><summary title="Track as another coalition, or read it at the Capitol" aria-label="More choices for ${esc(r.bill_number)}">⋯</summary><div class="tmorebox"><select class="tsel" data-tsel="${r.id}" title="Track as another coalition"><option value="">other…</option>${S.campaigns.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><a class="btn sm ghost" href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${esc(r.bill_number.replace(/\d+/, ''))}&billnumber=${esc(r.bill_number.replace(/\D+/, ''))}&year=${SESSION_YEAR}" target="_blank" rel="noopener">Capitol ↗</a></div></details>` : `<select class="tsel" data-tsel="${r.id}" title="Track as another coalition"><option value="">other…</option>${S.campaigns.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
         <button class="btn sm ghost" data-tskip="${r.id}">Skip</button>
-        <a class="btn sm ghost" href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${esc(r.bill_number.replace(/\d+/, ''))}&billnumber=${esc(r.bill_number.replace(/\D+/, ''))}&year=${SESSION_YEAR}" target="_blank" rel="noopener">Capitol ↗</a>
+        <a class="btn sm ghost" href="https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${esc(r.bill_number.replace(/\d+/, ''))}&billnumber=${esc(r.bill_number.replace(/\D+/, ''))}&year=${SESSION_YEAR}" target="_blank" rel="noopener">Capitol ↗</a>`}
       </div>
     </div>`; };
   const BATCH = 25; t.show ??= BATCH; t.done ??= 0;
@@ -3156,7 +3274,7 @@ function renderTriage(embedded = false) {
     : `<div class="tdone"><div class="tdonebig">🤙 Done${t.camp ? ` for ${esc(campName)}` : ''}</div><p>${t.done ? `You decided ${t.done} bill${t.done === 1 ? '' : 's'} this sitting. ` : ''}Nothing is waiting${t.matchedOnly ? ' among the suggestions. New bills show up here as they are introduced; untick “suggestions only” to look through every undecided bill' : ''}.</p></div>`;
   return `<div class="triage">
     <div class="dashhead ${embedded ? 'sub2' : ''}"><h1>${embedded ? 'Decide on the new ones' : 'New bills'}</h1><span class="sub">${c.introduced != null ? `${c.introduced} bills introduced in ${c.year} · <b>${c.undecided}</b> undecided · ${c.suggested} suggested · ${c.tracked} tracked` : 'every introduced bill gets one decision: track it or skip it'}${t.last ? ` · <a data-tundo="${t.last.id}">undo ${esc(t.last.bill_number)}</a>` : ''}</span></div>
-    <p class="boardhow">Each row is a bill nobody has decided on. <b>Track</b> puts it on the tracker under that coalition with the coalition’s owner, Monitor, P2 — change any of that on the bill page later. <b>Skip</b> hides it for good (undo is one click). Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>t</kbd> track, <kbd>s</kbd> skip, <kbd>u</kbd> undo.</p>
+    ${simple() && triageSeen() && !t.how ? `<p class="boardhow short"><button class="linkbtn" id="t-how">How this works</button></p>` : `<p class="boardhow">`}${simple() && triageSeen() && !t.how ? '' : `Each row is a bill nobody has decided on. <b>Track</b> puts it on the tracker under that coalition with the coalition’s owner, Monitor, P2 — change any of that on the bill page later. <b>Skip</b> hides it for good (undo is one click). Keys: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>t</kbd> track, <kbd>s</kbd> skip, <kbd>u</kbd> undo.</p>`}
     ${chips}
     ${progress}
     <div class="tlist">${rows}</div>
@@ -3165,6 +3283,8 @@ function renderTriage(embedded = false) {
 function wireTriage() {
   const t = S.triage; if (!t) return;
   document.querySelectorAll('[data-tcamp]').forEach(el => el.onclick = () => { t.camp = el.dataset.tcamp || null; t.rows = null; t.focus = 0; t.show = 25; render(); });
+  document.querySelectorAll('details.tmore').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('details.tmore[open]').forEach(o => { if (o !== d) o.open = false; }); }));
+  $('#t-how') && ($('#t-how').onclick = () => { t.how = true; rerenderKeep(); });
   $('#t-more') && ($('#t-more').onclick = () => { t.show = (t.show || 25) + 25; rerenderKeep(); });
   $('#t-matched') && ($('#t-matched').onchange = () => { t.matchedOnly = $('#t-matched').checked; t.rows = null; render(); });
   const act = async (id, fn) => { const r = (t.rows || []).find(x => x.id === id); if (!r) return;
@@ -3519,6 +3639,10 @@ function nextHTML(b) {
     </div></div>`;
 }
 
+// Simple's table titles: "RELATING TO THE UNIVERSITY OF HAWAII." -> "Relating to the University of Hawaiʻi."
+// Every word capitalised (so names like Medicaid and Red Hill survive), the small words lower-case.
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'into', 'of', 'on', 'or', 'the', 'to', 'with']);
+const titleCaseSmart = t => t !== t.toUpperCase() ? t : t.toLowerCase().replace(/[a-z][a-z'’]*/g, (w, i) => i > 0 && SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).replace(/\bHawaii\b/g, 'Hawaiʻi');
 const titleCaseTitle = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase().replace(/\bhawaii\b/gi, 'Hawaii') : t;
 // Write → Review → Approve → File: where a draft is, without a status word.
 const DRAFT_STEPS = [['draft', 'Write'], ['review', 'Review'], ['approved', 'Approve'], ['filed', 'File']];
@@ -3546,7 +3670,7 @@ function drawerHTML(b) {
     owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
     ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
     `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
-    `<button class="chipx tool" data-copylink="${esc(b.bill_number)}" title="Copy a link to this bill">🔗 Copy link</button>`,
+    simple() ? '' : `<button class="chipx tool" data-copylink="${esc(b.bill_number)}" title="Copy a link to this bill">🔗 Copy link</button>`,
   ].filter(Boolean).join('');
 
   // ---- Next: hearings ahead, each with its testimony row ----
@@ -3589,7 +3713,7 @@ function drawerHTML(b) {
         <div class="nextline big">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
         ${h.testimony_deadline ? `<div class="nextline ${dueSoon ? 'due' : ''}">Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
-        <div class="nextline attend"><span class="muted">Attending:</span> ${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></div>
+        ${simple() && !ATTEND_ASKS && !att.length ? '' : `<div class="nextline attend"><span class="muted">Attending:</span> ${att.length ? att.map(a => esc(a.full_name)).join(', ') : '<span class="muted">no one yet</span>'}<button class="draftbtn ${meIn ? '' : 'pri'}" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></div>`}
       </div>`; }).join('');
   } else {
     const stp = stopOf(b); const dl = stp.deadline && !stp.deadline.missed ? stp.deadline : null;
@@ -3630,10 +3754,18 @@ function drawerHTML(b) {
           ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
           ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
           ${b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}
-          ${b.public_summary ? `<span class="k">Official title</span><span>${esc(b.title || '')}</span>` : ''}
+          ${simple() ? '' : `          ${b.public_summary ? `<span class="k">Official title</span><span>${esc(b.title || '')}</span>` : ''}
+          ${(h => { const v = h && streamOf(h); return v ? `<span class="k">Video</span><span>${streamLink(h)}<span class="muted"> · ${v.auto ? 'this hearing’s video, found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel; the exact video is added automatically once it is posted'}</span> <button class="draftbtn" data-setstream="${h.id}">${v.exact ? 'Change' : 'Paste a link'}</button></span>` : ''; })(ups[0])}
+          <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>`}
+        </div>
+        ${simple() ? `<details class="moredet" id="d-moredet" ${open.more2 ? 'open' : ''}><summary>More details <span class="tok">${[b.public_summary ? 'official title' : '', (b.sponsors || []).length > 6 ? 'every sponsor' : '', ups[0] && streamOf(ups[0]) ? 'video' : '', 'source', 'link', ups.length ? 'attendance' : ''].filter(Boolean).join(', ')}</span></summary><div class="kv">
+          ${(b.sponsors || []).length > 6 ? `<span class="k">All sponsors</span><span>${(b.sponsors || []).map((x, i) => i === 0 ? `<b>${esc(x.n)}</b>` : esc(x.n)).join(', ')}</span>` : ''}
+                    ${b.public_summary ? `<span class="k">Official title</span><span>${esc(b.title || '')}</span>` : ''}
           ${(h => { const v = h && streamOf(h); return v ? `<span class="k">Video</span><span>${streamLink(h)}<span class="muted"> · ${v.auto ? 'this hearing’s video, found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel; the exact video is added automatically once it is posted'}</span> <button class="draftbtn" data-setstream="${h.id}">${v.exact ? 'Change' : 'Paste a link'}</button></span>` : ''; })(ups[0])}
           <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
-        </div>
+          <span class="k">Link</span><span><button class="draftbtn" data-copylink="${esc(b.bill_number)}">🔗 Copy a link to this bill</button></span>
+          ${ups.map(h => { const a = attendees(h), meIn = a.some(x => x.id === S.me?.id); return `<span class="k">${esc(h.committee)} hearing</span><span>${a.length ? `Attending: ${a.map(x => esc(x.full_name)).join(', ')} ` : ''}<button class="draftbtn" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></span>`; }).join('')}
+        </div></details>` : ''}
         <details class="tlfold" id="d-tlfold" ${open.tl || open.log ? 'open' : ''}><summary>Timeline <span class="tok">every official action, and what the team logged</span></summary>
         ${open.log ? `<div class="logform">
           <div class="typechips">${LOG_TYPES.map(([v,l]) => `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
@@ -3646,8 +3778,9 @@ function drawerHTML(b) {
           <div><label>Position</label><select id="d-pos">${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
           <div><label>Priority</label><select id="d-pri"><option value="">—</option>${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
           <div><label>Owner</label><select id="d-own"><option value="">—</option>${S.advocates.map(a=>`<option value="${a.id}" ${(S.assignments[b.id]||[])[0]===a.id?'selected':''}>${esc(a.full_name)}</option>`).join('')}</select></div>
-          <div><label>Stage override</label><select id="d-so"><option value="">Auto</option>${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>
+          ${simple() ? '' : `<div><label>Stage override</label><select id="d-so"><option value="">Auto</option>${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div>`}
         </div>
+        ${simple() ? `<details class="moredet" id="d-teammore" ${b.stage_override || open.teamMore ? 'open' : ''}><summary>More <span class="tok">stage override${b.stage_override ? ' · set' : ''}</span></summary><div class="teamgrid"><div><label>Stage override</label><select id="d-so"><option value="">Auto</option>${STAGES.map(([v,l])=>`<option value="${v}" ${b.stage_override===v?'selected':''}>${l}</option>`).join('')}</select></div></div></details>` : ''}
         <p class="tok teamsave">Changes here save as you make them.${open.teamSaved && Date.now() - open.teamSaved < 6000 ? ' <span class="savedflash">✓ Saved</span>' : ''}</p>
         <label class="lbl">Coalitions</label>
         <div class="typechips">${S.campaigns.length
@@ -3755,6 +3888,7 @@ function render() {
   FACTS = new Map();
   document.body.classList.add('staffapp');
   if (isMobile() && S.view === 'table') S.view = 'portfolio';
+  document.body.classList.toggle('simple', simple()); document.body.dataset.page = S.view;   // not data-view: that attribute means "a menu button" to the click wiring
   const list = visibleBills();
   const body = S.view === 'portfolio' ? renderPortfolio(list)
     : S.view === 'settings' || S.view === 'setup' ? renderSettings()
@@ -3773,6 +3907,7 @@ function render() {
   const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
   $('#app').innerHTML = chrome(bodyHelp) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
   wire();
+  foldSections(); plainIcons();
   if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (!el) return; el.innerHTML = timelineHTML(tl);
       const m = $('#d-tlmore'); if (m) m.onclick = () => { S.drawerOpen.tlAll = true; el.innerHTML = timelineHTML(tl); }; })
     .catch(()=>{});
@@ -3790,6 +3925,7 @@ function wire() {
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); rerenderKeep(); }); rerenderKeep(); } catch (e) { toast(e.message, true); } });
+  $('#rail-outreach') && ($('#rail-outreach').onclick = () => { if (RAIL_OUTREACH.includes(S.view)) return; const open = !outreachOpen(); try { localStorage.setItem('hiphi_outreach', open ? '1' : '0'); } catch {} render(); });
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null;
     S.q = '';   // a search belongs to the page it was typed on; carrying it along silently emptied other pages
@@ -3824,15 +3960,18 @@ function wire() {
     S.boardMore[k] = !S.boardMore[k]; rerenderKeep(isMobile() ? '#fold-board' : null, 'pf-board-' + k);
   });
   document.querySelectorAll('[data-browse]').forEach(el => el.onclick = () => { S.q = ''; clearFilters(); S.camps = new Set([el.dataset.browse]); saveFilters(); S.owner = 'all'; render(); });
-  $('#fr-dismiss') && ($('#fr-dismiss').onclick = () => { frSet({ dismissed: 1 }); render(); });
-  document.querySelectorAll('[data-helpgo]').forEach(el => el.onclick = e => { e.stopPropagation(); S.view = 'help'; S.q = ''; S.drawerBill = null; S.helpQ = ''; render(); document.getElementById(el.dataset.helpgo)?.scrollIntoView({ block: 'start' }); });
+  $('#fr-dismiss') && ($('#fr-dismiss').onclick = e => { e.preventDefault(); e.stopPropagation(); frSet({ dismissed: 1 }); render(); });
+  $('#firstrun') && ($('#firstrun').ontoggle = () => { S.frOpen = $('#firstrun').open; });
+  document.querySelectorAll('[data-helpgo]').forEach(el => el.onclick = e => { e.stopPropagation(); S.view = 'help'; S.q = ''; S.drawerBill = null; S.helpQ = ''; (S.secOpen ??= new Set()).add(el.dataset.helpgo); render(); setTimeout(() => document.getElementById(el.dataset.helpgo)?.scrollIntoView({ block: 'start' }), 0); });
   const helpFilter = () => { const q = (S.helpQ || '').trim().toLowerCase(); let any = false;
     document.querySelectorAll('.settings.help section').forEach(sec => { const titleHit = !q || sec.querySelector('h2')?.textContent.toLowerCase().includes(q); let hit = false;
       sec.querySelectorAll('.krow, p, li').forEach(el => { const on = !q || titleHit || el.textContent.toLowerCase().includes(q); el.hidden = !on; if (on) hit = true; });
-      sec.hidden = !(hit || titleHit); if (!sec.hidden) any = true; });
+      sec.hidden = !(hit || titleHit); if (!sec.hidden) any = true;
+      if (sec.classList.contains('sfold')) { sec.classList.toggle('open', q ? !sec.hidden : (S.secOpen || new Set()).has(secKey(sec))); syncSecAria(sec); } });
     const none = $('#help-none'); if (none) none.hidden = any; };
   if ($('#help-q')) { $('#help-q').oninput = () => { S.helpQ = $('#help-q').value; helpFilter(); }; if (S.helpQ) helpFilter(); }
   document.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => { const t = document.getElementById(el.dataset.jump); if (!t) return;
+    openSection(t);
     for (let d = t.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
     if (t.tagName === 'DETAILS') t.open = true;
     t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
@@ -3867,6 +4006,7 @@ function wire() {
   document.querySelectorAll('.qbox').forEach(el => el.oninput = e => { S.q = e.target.value; S.qFocus = el.classList.contains('topq') ? 'topq' : 'rowq'; rerenderBody(); });
   document.querySelectorAll('[data-owner]').forEach(el =>
     el.onclick = () => { S.owner = el.dataset.owner; render(); });
+  $('#tedit') && ($('#tedit').onclick = () => { S.tableEdit = !S.tableEdit; rerenderKeep(); });
   $('#monchip') && ($('#monchip').onclick = () => { S.showMonitor = !S.showMonitor; try { localStorage.setItem('hiphi_showmon', S.showMonitor ? '1' : ''); } catch {} render(); });
   $('#scopesel') && ($('#scopesel').onchange = () => { S.owner = $('#scopesel').value; render(); });
   // Filters: every chip, option and pill is a toggle; the panel stays open and keeps its scroll.
@@ -3980,6 +4120,8 @@ function wireDrawer() {
   document.querySelectorAll('[data-dtab]').forEach(el => el.onclick = () => keep(() => { S.drawerOpen.tab = el.dataset.dtab; }));
   $('#d-lastact') && ($('#d-lastact').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
   $('#d-tlfold') && ($('#d-tlfold').ontoggle = () => { S.drawerOpen.tl = $('#d-tlfold').open; });
+  $('#d-teammore') && ($('#d-teammore').ontoggle = () => { S.drawerOpen.teamMore = $('#d-teammore').open; });
+  $('#d-moredet') && ($('#d-moredet').ontoggle = () => { S.drawerOpen.more2 = $('#d-moredet').open; });
   $('#d-notefold') && ($('#d-notefold').ontoggle = () => { S.drawerOpen.note = $('#d-notefold').open; });
   $('#d-logopen') && ($('#d-logopen').onclick = () => { keep(() => { S.drawerOpen.log = true; }); $('#d-ltitle')?.focus(); });
   $('#d-logclose') && ($('#d-logclose').onclick = () => keep(() => { S.drawerOpen.log = false; }));
@@ -4210,7 +4352,7 @@ document.addEventListener('keydown', e => {
   if (S.view === 'inbox' && !S.drawerBill) {
     const rows = [...document.querySelectorAll('.irow')];
     if (k === 'j' || k === 'k') { e.preventDefault(); const cur = rows.findIndex(r => r.classList.contains('kfocus')); const nx = Math.max(0, Math.min(rows.length - 1, cur + (k === 'j' ? 1 : -1))); rows.forEach(r => r.classList.remove('kfocus')); rows[nx]?.classList.add('kfocus'); rows[nx]?.scrollIntoView({ block: 'nearest' }); return; }
-    if (k === 'e') { document.querySelector('.irow.kfocus [data-inboxtoggle]')?.click(); return; }
+    if (k === 'e') { document.querySelector('.irow.kfocus [data-inboxtoggle], .irow.kfocus [data-iduptoggle]')?.click(); return; }
     if (k === 'A') { document.querySelector('#inbox-readall')?.click(); return; }
     if (k === 'Enter') { document.querySelector('.irow.kfocus')?.click(); return; }
   }

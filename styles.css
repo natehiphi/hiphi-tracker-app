@@ -1836,3 +1836,170 @@ body.has-rail .top .who{margin-left:auto}
 .chan span{color:var(--muted)}
 
 .settings input[type=radio]{width:16px;height:16px;flex:none;margin:0}
+
+/* ======================================================================
+   SIMPLE LAYOUT (body.simple) — Nate, 9/18. Classic is untouched: every rule
+   below is scoped to body.simple, so switching back restores the 9/18 look.
+   ====================================================================== */
+.ifilters[hidden]{display:none}
+/* menu: daily pages, an Outreach group, settings and help at the foot */
+.rgroup{border-top:1px solid #1B3A47;margin-top:8px;padding-top:8px}
+.rgroup nav{display:flex;flex-direction:column;gap:2px}
+.rail .rgh .ri{font-size:12px;color:#9DB4C0}
+.rail .rgh .rl{font:600 11px 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#9DB4C0}
+.rfootnav{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.viewtabs .menu .mgh{font:600 10.5px 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 10px 2px}
+.viewtabs .menu .mgh:first-child{padding-top:2px}
+/* dashboard: the list leads; the four number tiles repeat its header */
+body.simple .sec-wait .shead .bsum{display:none}
+body.simple .sec-wait .shead{padding-bottom:4px}
+body.simple .dash.home{grid-template-columns:minmax(0,1fr)}
+body.simple .dash.home details.fold>summary{margin:12px 0 0}
+body.simple .dash.home details.fold[open]>.panel{margin:0}
+body.simple details.fold>summary .foldsub{font:400 13px 'Inter',sans-serif;color:var(--muted);letter-spacing:0}
+body.simple details.fold>summary .foldsub b{color:var(--ink);font-weight:600}
+/* one scope control and Filters; the quick chips live inside Filters */
+body.simple[data-page="portfolio"] .fbar .seg{display:none}
+body.simple[data-page="portfolio"] .fbar .scopesel{display:block;width:auto;padding:6px 28px 6px 10px;font:600 13px 'Inter',sans-serif;border-radius:9px;height:32px}
+body.simple[data-page="portfolio"] .qchips{display:none}
+/* action rows: when, the ask, the button (the reviewer's note stays) */
+body.simple .actx.sdesc,body.simple .wrow .pdesc{display:none}
+/* getting started: one line until opened */
+.firstrun.slim{padding:0;margin:6px 20px 12px;max-width:1280px}
+.firstrun.slim>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 14px;font-size:13.5px}
+.firstrun.slim>summary::-webkit-details-marker{display:none}
+.firstrun.slim>summary::after{content:'▾';color:var(--muted)}
+.firstrun.slim[open]>summary::after{content:'▴'}
+.firstrun.slim>summary .linkbtn{margin-left:auto}
+.firstrun.slim .frbar{flex:0 0 120px;height:6px;border-radius:4px;background:#E3EAEE;overflow:hidden}
+.firstrun.slim .frbar i{display:block;height:100%;background:var(--teal);border-radius:4px}
+.firstrun.slim .frrow{padding:6px 14px}
+/* bill sheet: the rest one tap away */
+.moredet{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:14px 0 0;background:#fff}
+.moredet>summary{cursor:pointer;font:600 13px 'Inter',sans-serif;list-style:none}
+.moredet>summary::-webkit-details-marker{display:none}
+.moredet>summary::after{content:'▾';float:right;color:var(--muted)}
+.moredet[open]>summary{margin-bottom:8px}
+.moredet .teamgrid{margin-top:6px}
+/* All bills: plain text until you ask to edit; one line of last action */
+body.simple table.bills td.plain{font-size:13px;white-space:nowrap}
+body.simple table.bills .bti .btt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+body.simple table.bills .bti .bsub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+body.simple table.bills td.lastc .lat{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+body.simple table.bills td.lastc{max-width:260px}
+.fbtn.on{border-color:var(--teal);color:#fff;background:var(--teal)}
+/* New bills: Track and Skip; the rest behind ⋯ */
+.tmore{position:relative}
+.tmore>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);font-weight:700}
+.tmore>summary::-webkit-details-marker{display:none}
+.tmore[open]>summary{border-color:var(--teal);color:var(--teal)}
+.tmorebox{position:absolute;right:0;top:calc(100% + 4px);z-index:20;display:flex;flex-direction:column;gap:6px;width:200px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(12,34,51,.14)}
+.tmorebox select,.tmorebox .btn{width:100%}
+.boardhow.short{margin:2px 0 8px}
+/* Inbox: the same message across bills, once */
+.idup .ibills{margin-top:3px;font-size:12px;color:var(--muted)}
+.idupitems{background:#FAFCFD;border-left:3px solid var(--line)}
+.idupitems .irow{padding-left:28px}
+/* People: search, island and sort; the rest behind "more filters" on every screen */
+body.simple .pfilters:not(.open) .sec2{display:none}
+body.simple .pfmore{display:inline}
+/* Session setup and Help: a list of titles; a title opens its section */
+body.simple section.sfold{padding:0;margin:8px 0;overflow:hidden}
+body.simple section.sfold>h2{margin:0;padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:15px}
+body.simple section.sfold>h2::after{content:'▾';margin-left:auto;color:var(--muted);font-size:13px}
+body.simple section.sfold.open>h2::after{content:'▴'}
+body.simple section.sfold>h2:hover{background:#F6F9FA}
+body.simple section.sfold:not(.open)>:not(h2){display:none}
+body.simple section.sfold.open{padding:0 18px 16px}
+body.simple section.sfold.open>h2{margin:0 -18px 8px;border-bottom:1px solid #EEF2F5}
+
+/* Simple: one type scale — 11.5 labels and counts · 12.5 secondary · 14 body · 16 section titles · 23–24 page titles —
+   and one grey for secondary text. Classic keeps its own sizes. */
+body.simple .awhen span,body.simple .cnt,body.simple .chipx,body.simple .psub,body.simple .tag,body.simple .navn,
+body.simple .lal,body.simple .nextk,body.simple .acth,body.simple .stagecal b,body.simple .gl.pri,body.simple .iwhen,body.simple .refch{font-size:11.5px}
+body.simple .btn.sm,body.simple a.btn.sm,body.simple .fbtn,body.simple .helpq,body.simple .draftbtn,body.simple .anote,body.simple .actx,
+body.simple .pempty,body.simple .boardmore,body.simple .dashhead .sub,body.simple .stageline,body.simple .draftwho,body.simple .draftlink,
+body.simple .tlcap,body.simple .lastact,body.simple .when,body.simple .refstop,body.simple .morelink,body.simple .kv .k,body.simple .muted,
+body.simple .ibody,body.simple .ibills,body.simple .tok,body.simple small{font-size:12.5px}
+body.simple .aask,body.simple .abill,body.simple .linkbtn,body.simple .il1,body.simple .itab,body.simple .dtab,body.simple .nextline,
+body.simple .streamlink,body.simple .kv>span:not(.k),body.simple .drawer .sub,body.simple .iicon,body.simple .iread,body.simple .code{font-size:14px}
+body.simple .bsumtitle,body.simple .ph>span:first-child,body.simple details.fold>summary>span:first-child,body.simple .nextline.big,
+body.simple .nexthead b,body.simple .firstrun.slim>summary>b{font-size:16px}
+body.simple .dashhead h1,body.simple .settings h1{font-size:23px}
+body.simple .lal,body.simple .refch,body.simple .dashhead .sub,body.simple .tok,body.simple .kv .k,body.simple .acth,body.simple .psub{color:var(--muted)}
+body.simple .frc,body.simple .drawer .journey i,body.simple .drawer.v2 .dhead h2 .pri,body.simple .refarrow{font-size:11.5px}
+body.simple details.fold>summary .foldsub{font-size:12.5px}
+body.simple .drawer .next.v3 .nextline,body.simple .drawer .next.v3 .nextline.big .streamlink,body.simple .moredet>summary,body.simple .tlfold>summary{font-size:14px}
+body.simple .awhen b,body.simple .drawer .next.v3 .nextline.big,body.simple .drawer .nexthead b{font-size:16px}
+body.simple summary span>b{font-size:inherit}
+
+/* Simple: 13 menu rows instead of 12 plus a group heading, so rows are a little shorter to keep Collapse on a 900px screen */
+@media (min-width:1000px){
+  body.simple .rail button,body.simple .rail:hover button,body.simple .rail:focus-within button,body.simple.rail-pinned .rail button,body.simple:not(.rail-pinned) .rail.quiet:hover button{height:44px}
+  body.simple .rail .ri,body.simple .rail:hover .ri,body.simple .rail:focus-within .ri,body.simple.rail-pinned .rail .ri,body.simple:not(.rail-pinned) .rail.quiet:hover .ri{height:44px}
+  body.simple .rail .rgroup{margin-top:6px;padding-top:6px}
+  body.simple .rail .rgh .rl{transform:none}
+}
+body.simple .dash.home{row-gap:0}
+body.simple .dash.home details.fold>summary{margin:10px 0 0}
+
+/* the Layout choice: radio and label on one line at every width */
+.settings label.row.lookrow{flex-wrap:nowrap;align-items:flex-start}
+.settings label.row.lookrow>input{margin-top:3px}
+.settings label.row.lookrow>span{flex:1;min-width:0}
+
+/* ---- Simple, round 2 fixes (verification 9/18) ---- */
+/* folded sections: the heading keeps its role; a full-width button inside it opens and closes */
+body.simple section.sfold>h2{padding:0;cursor:default}
+body.simple section.sfold>h2::after{content:none}
+body.simple section.sfold>h2:hover{background:none}
+.sfbtn{display:flex;align-items:center;gap:8px;width:100%;padding:14px 18px;background:none;border:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px}
+.sfbtn:hover{background:#F6F9FA}
+.sfbtn:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.sfbtn::after{content:'▾';margin-left:auto;color:var(--muted);font-size:13px}
+body.simple section.sfold.open .sfbtn::after{content:'▴'}
+body.simple section.sfold.open>h2{margin:0 -18px 8px}
+/* getting started: "hide" sits beside the line, not inside it */
+.frwrap{position:relative;margin:6px 20px 12px;max-width:1280px}
+.frwrap .firstrun.slim{margin:0}
+.frwrap .firstrun.slim>summary{padding-right:92px}
+.frwrap .frhide{position:absolute;right:40px;top:6px;min-height:30px;padding:0 6px}
+@media (max-width:760px){ .frwrap{margin:6px 12px 12px} .firstrun.slim .frbar{flex-basis:48px} .firstrun.slim>summary{gap:8px;font-size:13px} .frwrap .firstrun.slim>summary{padding-right:78px} .frwrap .frhide{right:30px} }
+/* Inbox: the small filter line, group dividers, tap targets */
+.ifmin{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 8px}
+.ifmin .linkbtn{min-height:32px;color:var(--teal);font-weight:600}
+.idup{border-bottom:1px solid #EEF2F5}
+.ilist>.idup:last-child{border-bottom:none}
+.idup>.irow{border-bottom:none}
+body.simple .iread{min-width:32px;min-height:32px}
+body.simple .iacts .btn.sm{min-height:30px}
+@media (max-width:760px){ body.simple .itab{padding:9px 9px 8px} body.simple .drawer.v2 .dtab{padding:8px 9px} }
+/* New bills: a real tap target for ⋯, and a link that looks like one */
+.tmore>summary{min-width:36px;height:32px}
+.boardhow.short .linkbtn{color:var(--teal);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+/* menu: the middle scrolls on short screens so Collapse is always reachable */
+@media (min-width:1000px){
+  body.simple .rail .rscroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+  body.simple .rail .rfoot{flex:none}
+}
+.rail .rgh[aria-disabled="true"]{cursor:default}
+/* All bills in Simple: quick chips live in Filters, as on the dashboard */
+body.simple[data-page="table"] .qchips{display:none}
+body.simple .fbar{flex-wrap:wrap}
+/* type scale, second pass: calendar, board, Filters panel, Inbox updates, All bills cells, the other bill tabs */
+body.simple .calrail .tod,body.simple .pri,body.simple .gh>span,body.simple .calrail .dow,body.simple .calrail .cnt,body.simple table.bills th,
+body.simple .fgroup h4,body.simple .dpane .sec,body.simple .rail .rgh .rl,body.simple .stline .stnow,body.simple .tlts,body.simple .fopt i,
+body.simple .teamgrid label,body.simple .dpane label.lbl,body.simple .pubgrid label,body.simple .msgh .msgt,body.simple .msgh .msgdel{font-size:11.5px}
+body.simple .psmall,body.simple .psmall b,body.simple table.bills .bsub,body.simple .gh a,body.simple .gsub,body.simple .caltime,body.simple .pdesc,
+body.simple .calnone,body.simple .sthead span,body.simple .ldl,body.simple .fphead span,body.simple .fchip,body.simple .igmore,
+body.simple table.bills td.lastc .lat,body.simple .pwcount,body.simple .msgh b,body.simple .calnav button,body.simple .chip3 .lnext{font-size:12.5px}
+body.simple .wrow .pmain,body.simple .calhead b,body.simple .bstat>span,body.simple .fopt,body.simple table.bills td.plain,
+body.simple .ifilters label.row span,body.simple .ighead span,body.simple .pwintro,body.simple .pwintro b,body.simple .pwintro a,
+body.simple .pinnote>summary,body.simple .todoline,body.simple .msgtext,body.simple .stcol b,body.simple .l1 b,
+body.simple .pwh b,body.simple .pwh .pwst,body.simple .pwh .lchev,body.simple .pathway a b{font-size:14px}
+body.simple .fphead b,body.simple .gtile b,body.simple .bstat b,body.simple .calrail .dom{font-size:16px}
+body.simple .bstat>span small{font-size:12.5px}
+body.simple .chip3.min .l1 b,body.simple .calweek .pmain b,body.simple .pw.chair .pwm b,body.simple .pmain>b{font-size:14px}
+body.simple .chip3.min .ldl,body.simple .chip3 .ldl{font-size:12.5px}
+body.simple .pmain .pri,body.simple .bsum .cnt,body.simple span>.cnt{font-size:11.5px}
+body.simple .panel.dead .prow .pri,body.simple .bcol .ph .cnt{font-size:11.5px}
