@@ -2259,3 +2259,81 @@ body[data-page="dead"] .qchips{display:none}
 .tdesc,.settings p,.settings .krow>span,.memo li,.memo p,.drawer .kv>span:not(.k),.boardhow,.anote,.pempty,.dashhead .sub,.persondrawer .pdfacts span,.ibody,.inbox>p.tok,.help section p{max-width:60ch}
 /* Help and Setup sections: more space between the titles than inside them */
 body.simple section.sfold{margin:var(--s2) 0}
+
+/* ---- Bill window (9/18): one Details list, Timeline as its own tab, a calmer timeline, joint stops.
+   Same rules as the pages: one type scale, labels 12.5 muted, body 14 ink, bold only for what you scan for,
+   teal fill only on the primary button. ---- */
+body.simple .drawer .dkv{grid-template-columns:136px minmax(0,1fr);gap:var(--s1) var(--s2);align-items:baseline}
+body.simple .drawer .dkv>span:not(.k){line-height:1.5}
+body.simple .drawer .dkv .code{font-size:12.5px;color:var(--muted);background:#EEF3F6;border-radius:4px;padding:0 4px}
+.dlinks2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s1) var(--s2)}
+.tlmount{min-height:40px;color:var(--muted)}
+body.simple .drawer .tl{gap:var(--s2);margin-top:var(--s1)}
+body.simple .drawer .tl .ev .when{font-size:12.5px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted)}
+body.simple .drawer .tl .ev .when b{font-weight:700;color:var(--ink)}
+body.simple .drawer .tl .ev .what{font-size:14px;font-weight:400;line-height:1.5;margin:2px 0 0;max-width:60ch}
+body.simple .drawer .tl .ev .who{font-size:12.5px;max-width:60ch}
+body.simple .drawer .tl .ev.team{background:var(--frame);border-radius:8px;padding:var(--s1) 12px;margin-left:-12px}
+body.simple .drawer .tlcap{margin-top:var(--s1)}
+/* pathway: name and facts on the left, the tally and the fold arrow on the right, never an arrow on a line of its own */
+.pwh{flex-wrap:nowrap;align-items:flex-start;gap:var(--s1) 12px}
+.pwh .pwst{line-height:22px}
+.pwh .pwt{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.pwh .pwmeta{font-size:12.5px;color:var(--muted)}
+.pwh .pwmeta .code{margin-right:2px}
+.pwh .pwtally{flex:0 0 auto;display:flex;align-items:center;gap:var(--s1);line-height:22px}
+.pwh .pwtally .pwcount{margin-left:0}
+.pwh .lchev{flex:0 0 auto;line-height:22px}
+@media (max-width:599px){ .pwh{flex-wrap:wrap} .pwh .pwt{flex-basis:calc(100% - 56px)} .pwh .pwtally{order:3;flex-basis:100%;padding-left:24px} }
+/* the testimony step: the step waiting to happen is outlined, so the only filled teal is the button that does it */
+body.simple .drawer .journey i.cur{background:#fff;color:var(--teal-text);box-shadow:inset 0 0 0 1.5px var(--teal)}
+/* headings inside the window read like the other headings, not like a caption */
+body.simple .drawer .sec{font:600 14px 'Poppins',sans-serif;letter-spacing:0;text-transform:none;color:var(--ink);margin:var(--s3) 0 var(--s1)}
+body.simple .drawer .sec .tok{font-family:'Lato',sans-serif;font-weight:400}
+/* form labels: readable, one size */
+body.simple .teamgrid label,body.simple .dpane label.lbl,body.simple .pubgrid label{font-size:12.5px;font-weight:700}
+.pubgrid .pubchk{white-space:nowrap}
+/* phones: all six tabs in one row, labels above values, and a full-width note under each chair */
+@media (max-width:599px){
+  body.simple .drawer.v2 .dtabs{gap:0}
+  body.simple .drawer.v2 .dtab{flex:1 1 auto;padding:8px 4px;text-align:center}
+  body.simple .drawer .dkv{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  body.simple .drawer .dkv .k{margin-top:12px}
+  body.simple .drawer .dkv .k:first-child{margin-top:0}
+  .pw.full{grid-template-columns:34px minmax(0,1fr)}
+  .pw.full>.stsel{grid-column:2;justify-self:start}
+  .pw.full .pwn{flex-wrap:wrap}
+  .pw.full .pwn input{flex:1 1 100%}
+}
+.dlinks2 .draftbtn{margin-left:0}
+/* Coalitions & lists: the two groupings side by side, one tap from the filter bar */
+.grpmenu>summary.fbtn{display:inline-flex;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grpmenu .menu.gm{flex-direction:row;align-items:flex-start;gap:var(--s2);min-width:0;width:max-content;max-width:min(560px,calc(100vw - 32px));max-height:min(420px,70vh);overflow:auto}
+.grpmenu .gmcol{display:flex;flex-direction:column;min-width:200px;flex:1 1 0}
+.grpmenu .gmcol button{justify-content:flex-start}
+.grpmenu .gmcol button .gml{flex:1 1 auto}
+.grpmenu .gmcol button i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.grpmenu .gmcol button .qdot{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1.5px solid #9DB0BA;font-size:10px;color:#fff;flex:none}
+.grpmenu .gmcol button.on .qdot{background:var(--teal);border-color:var(--teal)}
+.grpmenu .gmcol button:disabled{opacity:.5;cursor:default}
+.grpmenu .gmempty{font-size:12.5px;color:var(--muted);padding:8px}
+@media (max-width:599px){ .grpmenu .menu.gm{flex-direction:column;width:calc(100vw - 32px)} .grpmenu .gmcol{min-width:0;width:100%} }
+.qchip.t-alive .qdot{background:var(--green)}
+/* Muted: the hidden bills, one menu away */
+.mutemenu .menu.mm{min-width:300px;max-width:min(420px,calc(100vw - 32px));max-height:min(420px,70vh);overflow:auto}
+.mutemenu .mh{text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--muted);font-weight:400;padding:4px 8px 8px}
+.mutemenu .mmrow{display:flex;align-items:center;gap:8px}
+.mutemenu .mmrow .mmbill{flex:1 1 auto;min-width:0;display:block;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mutemenu .mmrow .mmbill span{color:var(--muted)}
+.chipx.tool.mute.on{background:#EEF3F6;color:var(--ink);border-color:#9DB0BA}
+/* phones: the filter row wraps rather than running off the screen, and the group menus open to the right */
+@media (max-width:599px){
+  .fbar .qwrap{flex-wrap:wrap;row-gap:var(--s1)}
+  .grpmenu .menu.gm,.mutemenu .menu.mm{left:0;right:auto}
+  .grpmenu>summary.fbtn{max-width:calc(100vw - 32px)}
+}
+@media (max-width:599px){
+  .fbar{position:relative}
+  .fbar .grpmenu,.fbar .mutemenu{position:static}
+  .fbar .grpmenu .menu.gm,.fbar .mutemenu .menu.mm{left:0;right:0;width:auto;max-width:none;min-width:0}
+}

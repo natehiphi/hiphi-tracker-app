@@ -228,8 +228,22 @@ async function openList(slug) {
 const plain = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʻ‘’`]/g, '').toLowerCase();
 const legById = id => S.legislators.find(l => l.id === Number(id));
 const legTitle = l => l.chamber === 'S' ? 'Sen.' : 'Rep.';
-const legsOf = code => { const c = String(code || '').split('/')[0], rank = { chair: 0, vice_chair: 1, member: 2 };
-  return S.committeeMembers.filter(m => m.committee === c).map(m => ({ ...m, l: legById(m.legislator_id) })).filter(m => m.l).sort((a, b) => rank[a.role] - rank[b.role] || a.l.sort_name.localeCompare(b.l.sort_name)); };
+// A joint referral ("HLT/HSH") is one hearing held by two committees together: both chairs decide, both
+// committees vote, and testimony is addressed to both. Every lookup by code goes through codesOf.
+const codesOf = code => String(code || '').split('/').map(c => c.trim()).filter(Boolean);
+const cmtesOf = code => codesOf(code).map(c => S.committees[c]).filter(Boolean);
+// "Health / Human Services & Homelessness" (not "and": the Senate has a Health and Human Services committee)
+const cmteName = code => codesOf(code).map(c => S.committees[c]?.name || c).join(' / ');
+const chairLast = c => (c.chair || '').replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
+const chairEmail = c => `${c.chamber === 'S' ? 'sen' : 'rep'}${chairLast(c).toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov`;
+// every chair of a stop: emails comma-joined for one mailto, "Chair Takayama and Chair Marten" for the greeting
+const chairsOf = code => { const cs = cmtesOf(code).filter(c => c.chair);
+  return cs.length ? { emails: cs.map(chairEmail).join(','), dear: cs.map(c => `Chair ${c.chair}`).join(' and '), names: cs.map(c => c.chair).join(' and '), n: cs.length } : null; };
+const legsOf = code => { const cs = codesOf(code), rank = { chair: 0, vice_chair: 1, member: 2 }, by = new Map();
+  for (const m of S.committeeMembers) { if (!cs.includes(m.committee)) continue; const l = legById(m.legislator_id); if (!l) continue;
+    const x = by.get(l.id); if (!x) { by.set(l.id, { ...m, l, roles: { [m.committee]: m.role } }); continue; }
+    x.roles[m.committee] = m.role; if (rank[m.role] < rank[x.role]) { x.role = m.role; x.committee = m.committee; } }
+  return [...by.values()].sort((a, b) => rank[a.role] - rank[b.role] || cs.indexOf(a.committee) - cs.indexOf(b.committee) || a.l.sort_name.localeCompare(b.l.sort_name)); };
 const legPhoto = (l, cls = 'lphoto') => l.photo_url ? `<img class="${cls}" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} none',textContent:'${esc((l.name || '?')[0])}'}))">` : `<span class="${cls} none">${esc((l.name || '?')[0])}</span>`;
 const legChips = l => S.committeeMembers.filter(m => m.legislator_id === l.id).sort((a, b) => ({ chair: 0, vice_chair: 1, member: 2 }[a.role]) - ({ chair: 0, vice_chair: 1, member: 2 }[b.role])).map(m => `<span class="chipx ${m.role === 'chair' ? 'c-teal' : m.role === 'vice_chair' ? 'c-navy' : 'c-gray'}" title="${esc(S.committees[m.committee]?.name || m.committee)}">${esc(S.committees[m.committee]?.name || m.committee)}${m.role === 'chair' ? ' · Chair' : m.role === 'vice_chair' ? ' · Vice Chair' : ''}</span>`).join('');
 // the places a legislator's district covers, one name each
@@ -315,14 +329,14 @@ function whoDecidesHTML(b) {
   const st = stopOf(b);
   const stops = pathwayStops(b, st, S.counterparts, null).filter(s => s.state !== 'passed');
   if (!stops.length || !alive(b)) return '';
-  const person = (l, role) => `<div class="wd ${role}">${legPhoto(l, 'lphoto sm')}<div class="wdm"><a data-legopen="${l.id}" data-frombill="${b.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${role === 'chair' ? 'Chair' : role === 'vice_chair' ? 'Vice Chair' : ''} · ${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}</span><div class="lacts">${mailBoxHTML(l, b)}</div></div></div>`;
+  const person = (l, role, cm) => `<div class="wd ${role}">${legPhoto(l, 'lphoto sm')}<div class="wdm"><a data-legopen="${l.id}" data-frombill="${b.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${role === 'chair' ? 'Chair' : role === 'vice_chair' ? 'Vice Chair' : ''}${cm ? ', ' + esc(S.committees[cm]?.name || cm) : ''} · ${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}</span><div class="lacts">${mailBoxHTML(l, b)}</div></div></div>`;
   return `<div class="sec">Who decides next</div>
     <p class="desc">The chair decides whether a bill gets a hearing; members vote. A short, polite email from a constituent counts.</p>
-    ${stops.slice(0, 4).map((s, i) => { const members = legsOf(s.committee), cm = S.committees[String(s.committee).split('/')[0]];
+    ${stops.slice(0, 4).map((s, i) => { const members = legsOf(s.committee), joint = codesOf(s.committee).length > 1;
       const chairs = members.filter(m => m.role === 'chair'), vices = members.filter(m => m.role === 'vice_chair'), rest = members.filter(m => m.role === 'member');
       const label = { current: 'now', next: 'next', predicted: 'likely, once it crosses over' }[s.state];
-      return `<div class="wdstop pws-${s.state}"><div class="wdh"><b>${esc(cm?.name || s.committee)}</b> <span class="muted">· ${CHAMBER_NAME[s.chamber]} · ${label}</span></div>
-        ${i === 0 || s.state === 'current' ? `${chairs.map(m => person(m.l, 'chair')).join('')}${vices.map(m => person(m.l, 'vice_chair')).join('')}${rest.length ? `<div class="wdmembers">${rest.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}">${esc(legTitle(m.l))} ${esc(m.l.name.split(' ').pop())}</a>`).join(' · ')}</div>` : ''}` : `<div class="wdmembers">${chairs.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}"><b>${esc(legTitle(m.l))} ${esc(m.l.name)}</b>, chair</a>`).join(' · ') || '<span class="muted">roster not loaded</span>'}</div>`}
+      return `<div class="wdstop pws-${s.state}"><div class="wdh"><b>${esc(cmteName(s.committee))}</b> <span class="muted">· ${CHAMBER_NAME[s.chamber]}${joint ? ' · joint hearing' : ''} · ${label}</span></div>
+        ${i === 0 || s.state === 'current' ? `${chairs.map(m => person(m.l, 'chair', joint && m.committee)).join('')}${vices.map(m => person(m.l, 'vice_chair', joint && m.committee)).join('')}${rest.length ? `<div class="wdmembers">${rest.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}">${esc(legTitle(m.l))} ${esc(m.l.name.split(' ').pop())}</a>`).join(' · ')}</div>` : ''}` : `<div class="wdmembers">${chairs.map(m => `<a data-legopen="${m.l.id}" data-frombill="${b.id}"><b>${esc(legTitle(m.l))} ${esc(m.l.name)}</b>, chair</a>`).join(' · ') || '<span class="muted">roster not loaded</span>'}</div>`}
       </div>`; }).join('')}`;
 }
 async function loadBills() {
@@ -414,15 +428,14 @@ function recommendations(limit) {
   return out.slice(0, limit);
 }
 function recoCard({ b, st, kind, why }) {
-  const h = st.hearing, c = S.committees[String(st.committee || h?.committee || '').split('/')[0]];
-  const chairMail = c && c.chair ? `${c.chamber === 'S' ? 'sen' : 'rep'}${c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov` : null;
-  const ask = kind === 'hearing' && chairMail ? `mailto:${chairMail}?subject=${encodeURIComponent(`Please schedule a hearing for ${b.bill_number}`)}&body=${encodeURIComponent(`Dear Chair ${c.chair},\n\nI am writing to ask that ${st.committee} schedule a hearing for ${b.bill_number}, ${titleCase(b.title)}, before the ${st.deadline?.label || ''} deadline${st.deadline ? ' on ' + fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'long' }) : ''}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[One sentence on why this matters to you.]\n\nMahalo,\n`)}` : null;
+  const h = st.hearing, ch = chairsOf(st.committee || h?.committee);
+  const ask = kind === 'hearing' && ch ? `mailto:${ch.emails}?subject=${encodeURIComponent(`Please schedule a hearing for ${b.bill_number}`)}&body=${encodeURIComponent(`Dear ${ch.dear},\n\nI am writing to ask that ${st.committee} schedule a hearing for ${b.bill_number}, ${titleCase(b.title)}, before the ${st.deadline?.label || ''} deadline${st.deadline ? ' on ' + fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'long' }) : ''}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[One sentence on why this matters to you.]\n\nMahalo,\n`)}` : null;
   return `<div class="acard reco ${posCls(b)}" data-acard="${b.id}">
     <div class="ahead"><span class="apos">HIPHI ${esc(POS[b.hiphi_position] || '')}</span><b data-open="${b.id}">${esc(billNum(b))}</b> <span class="atitle">${esc(b.hiphi_summary || titleCase(b.title))}</span></div>
     <div class="awhy">${why.map(esc).join(' · ')}</div>
-    <div class="awhen">${kind === 'testify' ? `${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''}` : `Waiting in ${esc(st.committee)} · needs a hearing by ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'short' })}${c?.chair ? ` · Chair ${esc(c.chair)}` : ''}`}</div>
+    <div class="awhen">${kind === 'testify' ? `${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)}${h.testimony_deadline ? ` · testimony due ${inWhen(h.testimony_deadline)}` : ''}` : `Waiting in ${esc(st.committee)} · needs a hearing by ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { month: 'short' })}${ch ? ` · ${ch.n > 1 ? 'Chairs' : 'Chair'} ${esc(ch.names)}` : ''}`}</div>
     <div class="abtns">
-      ${kind === 'testify' ? `<button class="btn" data-helper="${h.id}">Submit testimony</button>` : ask ? `<a class="btn" href="${ask}" data-did="${b.id}||email">Ask the chair for a hearing</a>` : ''}
+      ${kind === 'testify' ? `<button class="btn" data-helper="${h.id}">Submit testimony</button>` : ask ? `<a class="btn" href="${ask}" data-did="${b.id}||email">Ask the chair${ch?.n > 1 ? 's' : ''} for a hearing</a>` : ''}
       ${watchBtn(b)}
       <button class="btn sm ghost" data-dismiss="${b.id}" title="Do not suggest this bill again">Not for me</button>
     </div></div>`;
@@ -558,9 +571,9 @@ function whyDead(b) {
 }
 // Last regular meeting slot of a committee on or before a date (from the
 // Capitol's published schedules, committee_slots), and the 48-hour notice
-// cutoff for it. Joint committees use the first code. Null without a schedule.
+// cutoff for it. A joint hearing is held in the lead (first) committee's slot. Null without a schedule.
 function lastSlotBefore(code, dateStr, slots) {
-  const c = String(code || '').split('/')[0];
+  const c = codesOf(code)[0];
   const mine = (slots || []).filter(s => s.code === c);
   if (!mine.length || !dateStr) return null;
   for (let i = 0; i <= 6; i++) {
@@ -572,11 +585,9 @@ function lastSlotBefore(code, dateStr, slots) {
   }
   return null;
 }
-const streamOf = h => hearingStream(h, S.committees[String(h.committee || '').split('/')[0]]?.chamber);
-const chairOf = code => { const c = S.committees[String(code || '').split('/')[0]]; if (!c?.chair) return '';
-  const last = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
-  const title = c.chamber === 'S' ? 'Sen.' : 'Rep.';
-  return ` · Chair <a class="chairmail" href="mailto:${c.chamber === 'S' ? 'sen' : 'rep'}${esc(last.toLowerCase().replace(/[^a-z]/g, ''))}@capitol.hawaii.gov" onclick="event.stopPropagation()" title="Email the chair">${title} ${esc(last)}</a>`; };
+const streamOf = h => hearingStream(h, S.committees[codesOf(h.committee)[0]]?.chamber);
+const chairOf = code => { const cs = cmtesOf(code).filter(c => c.chair); if (!cs.length) return '';
+  return ` · ${cs.length > 1 ? 'Chairs' : 'Chair'} ${cs.map(c => `<a class="chairmail" href="mailto:${esc(chairEmail(c))}" onclick="event.stopPropagation()" title="Email the chair">${c.chamber === 'S' ? 'Sen.' : 'Rep.'} ${esc(chairLast(c))}</a>`).join(' and ')}`; };
 const RAIL_SHORT = { introduced: 'Intro', first_triple: '1st Triple', first_lateral: '1st Lat', first_decking: '1st Deck', first_crossover: 'Cross',
   second_triple: '2nd Triple', second_lateral: '2nd Lat', second_decking: '2nd Deck', conference: 'Conf', governor: 'Gov', enacted: 'Law' };
 // A triple-referred bill gets its Triple stop in that chamber, before Lateral.
@@ -655,10 +666,10 @@ function actionsList(bills, hearings) {
 function actionCard(b, h) {
   const now = Date.now(), due = h.testimony_deadline, duePast = due && new Date(due) < now, dueSoon = due && !duePast && new Date(due) - now < 48 * 3600e3;
   const did = k => S.done.has(doneKey(b.id, h.id, k));
-  const c = S.committees[String(h.committee).split('/')[0]], m = c ? { email: `${c.chamber === 'S' ? 'sen' : 'rep'}${(c.chair || '').replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '')}@capitol.hawaii.gov` } : null;
+  const ch = chairsOf(h.committee), m = ch ? { email: ch.emails } : null;
   const cnt = S.actionCounts[b.id] || {};
   const proof = cnt.testimonies ? `<span class="proof">${cnt.testimonies} ${cnt.testimonies === 1 ? 'person has' : 'people have'} submitted testimony through HIPHI</span>` : '';
-  const mail = m ? `mailto:${m.email}?subject=${encodeURIComponent(`${b.bill_number} — please ${POS_VERB[b.hiphi_position] || 'consider'} (hearing ${fmtDT(h.scheduled_at)})`)}&body=${encodeURIComponent(`Dear Chair ${c.chair || ''},\n\nI am writing in ${POS_WORD[b.hiphi_position] || 'regard'} of ${b.bill_number}, ${titleCase(b.title)}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[Add a sentence about why this matters to you.]\n\nMahalo,\n`)}` : null;
+  const mail = m ? `mailto:${m.email}?subject=${encodeURIComponent(`${b.bill_number} — please ${POS_VERB[b.hiphi_position] || 'consider'} (hearing ${fmtDT(h.scheduled_at)})`)}&body=${encodeURIComponent(`Dear ${ch.dear},\n\nI am writing in ${POS_WORD[b.hiphi_position] || 'regard'} of ${b.bill_number}, ${titleCase(b.title)}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[Add a sentence about why this matters to you.]\n\nMahalo,\n`)}` : null;
   const doneAll = did('testimony');
   return `<div class="acard ${posCls(b)} ${doneAll ? 'done' : ''}" data-acard="${b.id}">
     <div class="ahead"><span class="apos">HIPHI ${esc(POS[b.hiphi_position] || '')}</span><b data-open="${b.id}">${esc(billNum(b))}</b> <span class="atitle">${esc(titleCase(b.title))}</span></div>
@@ -666,7 +677,7 @@ function actionCard(b, h) {
     <div class="awhen">${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${due ? ` · <span class="${dueSoon ? 'hot' : ''}">testimony ${duePast ? 'deadline passed' : 'due ' + inWhen(due)}</span>` : ''}</div>
     <div class="abtns">
       ${doneAll ? `<span class="adone">✓ You submitted testimony</span><button class="linkbtn" data-undo="${b.id}|${h.id}|testimony">undo</button>` : `<button class="btn" data-helper="${h.id}" ${duePast ? 'title="The written deadline has passed; late testimony is still posted"' : ''}>Submit testimony</button>`}
-      ${mail ? `<a class="btn sm ghost" href="${mail}" data-did="${b.id}|${h.id}|email">${did('email') ? '✓ Emailed the chair' : 'Email the chair'}</a>` : ''}
+      ${mail ? `<a class="btn sm ghost" href="${mail}" data-did="${b.id}|${h.id}|email">${did('email') ? `✓ Emailed the chair${ch.n > 1 ? 's' : ''}` : `Email the chair${ch.n > 1 ? 's' : ''}`}</a>` : ''}
       ${calLinks(b, h)}
       <button class="btn sm ghost" data-share="${esc(b.bill_number)}">${did('share') ? '✓ Shared' : 'Share'}</button>
     </div>
@@ -686,14 +697,15 @@ function doNowHTML(bills, hearings, title, waiting = 0) {
 // ---------------- the testimony helper ----------------
 function helperHTML() {
   const { b, h } = S.helper; let me = {}; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); } catch { /* ignore */ }
-  const c = S.committees[String(h.committee).split('/')[0]];
+  // A joint hearing is one hearing before both committees, so the testimony is addressed to both.
+  const cs = cmtesOf(h.committee), joint = codesOf(h.committee).length > 1;
   const word = POS_WORD[b.hiphi_position] || 'COMMENTS', verb = POS_VERB[b.hiphi_position] || 'comment on';
   const text = (name, town, why, speak) => [
     `Testimony in ${word} of ${b.bill_number}${b.current_version ? ' ' + b.current_version : ''}`,
     titleCase(b.title),
-    `${c ? c.name + ' (' + h.committee + ')' : 'Committee on ' + h.committee} · Hearing ${fmtDT(h.scheduled_at)} · ${clean(h.room)}`,
+    `${cs.length ? cs.map(c => 'Committee on ' + c.name).join(' and ') + ' (' + h.committee + ')' : 'Committee on ' + h.committee} · Hearing ${fmtDT(h.scheduled_at)} · ${clean(h.room)}`,
     '',
-    `Dear Chair ${c?.chair || ''}${c?.vice_chair ? ', Vice Chair ' + c.vice_chair : ''}, and members of the committee,`,
+    `Dear ${[...cs.filter(c => c.chair).map(c => 'Chair ' + c.chair), ...cs.filter(c => c.vice_chair).map(c => 'Vice Chair ' + c.vice_chair)].join(', ') || 'Chair'}, and members of the committee${joint ? 's' : ''},`,
     '',
     `My name is ${name || '[your name]'} and I live in ${town || '[your town]'}. I ${verb} ${b.bill_number}${b.hiphi_summary ? ', which ' + b.hiphi_summary.replace(/^[A-Z]/, m => m.toLowerCase()).replace(/\.?$/, '.') : '.'}`,
     b.hiphi_action ? `\n${b.hiphi_action}` : '',
@@ -724,7 +736,7 @@ function helperHTML() {
         <a class="btn ghost" id="h-dl" download="${esc(b.bill_number)}-testimony.txt">Download instead</a>
         ${b.state_url ? `<a class="btn ghost" id="h-capitol" href="${esc(b.state_url)}" target="_blank" rel="noopener">Open the Capitol page ↗</a>` : ''}
       </div>
-      <div class="hdone"><button class="btn sm ghost" id="h-did">✓ I submitted it</button><span class="tok">Marks it done here${S.session ? '' : ' on this device'}; HIPHI only ever sees a count.</span></div>
+      <div class="hdone"><button class="btn sm ghost" id="h-did">✓ I submitted it</button><span class="tok">${S.session ? 'Marks it done on your account; HIPHI staff can see it, as the Privacy note says.' : 'Marks it done on this device only; it is not sent to HIPHI.'}</span></div>
     </div></div>`;
 }
 function wireHelper() {

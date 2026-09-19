@@ -77,13 +77,15 @@ export function billStop(b, ctx) {
   if (out.phase === 'committee' && list.length) {
     let idx = /triple/.test(stage) ? 0 : /decking/.test(stage) ? list.length - 1 : list.length <= 2 ? 0 : 1;
     if (stage === 'first_crossover') idx = 0;
-    const at = c => list.findIndex(x => x === c || x.split('/').includes(c));
+    // A stop matches when any committee code is shared: the Capitol writes one joint stop both
+    // ways round (JDC/WAM on the referral, WAM/JDC on the hearing) and sometimes names one of the two.
+    const at = c => { const want = String(c).split('/'); return list.findIndex(x => x === c || x.split('/').some(k => want.includes(k))); };
     const mRef = /referred to (?:the committee\(s\) on )?([A-Z][A-Z\/]*(?:,\s*[A-Z][A-Z\/]*)*)/i.exec(la);
     const mRep = /committee\(s\)? on\s+([A-Z][A-Z\/]*)\s+recommend\(?s?\)? that the measure be (PASSED|DEFERRED|RECOMMITTED)/i.exec(la) || /Reported from ([A-Z][A-Z\/]*)/i.exec(la);
     if (mRef) { const i = at(mRef[1].split(/\s*,\s*/)[0].toUpperCase()); if (i >= 0) idx = i; }
     else if (mRep) { const i = at(mRep[1].toUpperCase()); if (i >= 0) idx = /DEFERRED|RECOMMITTED/i.test(mRep[2] || '') ? i : i + 1; }
     for (const h of hearingsHere) {
-      const i = at(h.committee.split('/')[0]);
+      const i = at(h.committee);
       if (i < 0) continue;
       const o = (ctx.outcomes || {})[h.id]?.outcome;
       if (new Date(h.scheduled_at).getTime() > now) idx = i;                                 // scheduled: the bill is there

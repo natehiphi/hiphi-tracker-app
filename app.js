@@ -60,7 +60,7 @@ const S = {
   // at an empty page. Unknown names fall back.
   view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails','people','dead'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
-  owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
+  owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), lsts: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, aliveF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
   drafts: {},  // bill_id -> [testimony draft]
@@ -143,7 +143,7 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
       S.supa.from('bill_assignments').select('bill_id,advocate_id'),
@@ -179,6 +179,7 @@ const DB = {
       S.supa.from('action_alerts').select('*').order('created_at', { ascending: false }).limit(200),
       S.supa.from('people_segments').select('*').order('name'),
       S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }),
+      S.supa.from('bill_mutes').select('advocate_id,bill_id').is('unmuted_at', null),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -225,6 +226,7 @@ const DB = {
     S.me = S.advocates.find(a => a.id === myId) ||
            S.advocates.find(a => a.email === S.session?.user?.email) || null;
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => S.me && ids.includes(S.me.id)).map(([id]) => id));
+    S.mutes = new Set((mut?.data || []).filter(r => S.me && r.advocate_id === S.me.id).map(r => r.bill_id));
     // Nothing owned or followed yet: the empty "My bills" page helps nobody.
     if (S.me && S.owner === 'me' && !S.bills.some(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id))) S.owner = 'all';
     // Freshness indicator data - never let this block the app
@@ -291,6 +293,14 @@ const DB = {
     const r = on ? await S.supa.from('bill_follows').insert({ advocate_id: S.me.id, bill_id: billId })
                  : await S.supa.from('bill_follows').delete().eq('advocate_id', S.me.id).eq('bill_id', billId);
     if (r.error) { if (on) S.follows.delete(billId); else S.follows.add(billId); throw r.error; }
+  },
+  // Mute (migration 052): off my dashboard and out of my alerts until a hearing is scheduled. The server
+  // refuses while a hearing is still ahead, and says so.
+  async mute(billId, on) {
+    S.mutes ??= new Set(); if (on) S.mutes.add(billId); else S.mutes.delete(billId);
+    if (DEMO) return;
+    const { error } = await S.supa.rpc('set_bill_mute', { p_bill: billId, p_muted: on });
+    if (error) { if (on) S.mutes.delete(billId); else S.mutes.add(billId); throw error; }
   },
   async attend(hearingId, on) {
     S.attend ??= {}; const cur = S.attend[hearingId] || [];
@@ -731,7 +741,7 @@ async function demoInit() {
   S.alerts = [];
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
-  S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
+  S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); loadFilters(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -782,10 +792,10 @@ async function demoInit() {
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.
-  S.follows = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
+  S.follows = new Set(); S.mutes = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
   S.demoTriaged = new Set();
   // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
-  S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id)).map(b => b.id)); const out = [];
+  S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(isMine).map(b => b.id)); const out = [];
     for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
       if (d.status === 'review') out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
@@ -849,7 +859,8 @@ let FACTS = new Map();
 function factsOf(b) {
   let f = FACTS.get(b.id); if (f) return f;
   const now = Date.now(), dead = diedish(b), st = dead ? null : stopOf(b);
-  f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
+  f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', posx: b.position || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
+    lsts: (S.listBills || []).filter(x => x.bill_id === b.id).map(x => x.list_id),
     stand: dead ? 'dead' : st.column || (['governor', 'enacted'].includes(effStage(b)) ? 'done' : 'c'),
     risk: !!st && !SESSION_OVER && b.position !== 'monitor' && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
     hear: S.hearings.some(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * 864e5) };
@@ -857,21 +868,31 @@ function factsOf(b) {
 }
 const facets = () => [
   { key: 'pris', label: 'Priority', opts: [[1, 'P1'], [2, 'P2'], [3, 'P3']], has: (f, v) => f.pri === v },
-  { key: 'poss', label: 'Our position', opts: [['support', 'Support'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']], has: (f, v) => f.pos === v },
+  // every position the team can take, strongest first (Nate, 9/18: Strongly support and Strongly oppose were missing)
+  { key: 'poss', label: 'Our position', opts: [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']], has: (f, v) => f.posx === v },
   { key: 'stands', label: 'Where it stands', opts: [['a', 'Needs a hearing'], ['b', 'Hearing scheduled'], ['c', 'Through committee'], ['done', 'Governor or law'], ['dead', 'Did not advance']], has: (f, v) => f.stand === v },
   { key: 'camps', label: 'Coalition', opts: S.campaigns.map(c => [c.id, c.name]), has: (f, v) => f.camps.includes(v) },
+  { key: 'lsts', label: 'List', opts: (S.lists || []).map(l => [l.id, l.title]), has: (f, v) => f.lsts.includes(v) },
 ];
-const FLAGS = [['riskF', 'At risk', 'no hearing yet and the deadline is a week away or less', f => f.risk], ['hearF', 'Hearing this week', 'a hearing in the next 7 days', f => f.hear], ['tripleF', 'Triple-referred', 'three committees in one chamber', f => f.triple]];
+const FLAGS = [['riskF', 'At risk', 'no hearing yet and the deadline is a week away or less', f => f.risk], ['hearF', 'Hearing this week', 'a hearing in the next 7 days', f => f.hear], ['tripleF', 'Triple-referred', 'three committees in one chamber', f => f.triple],
+  // Named for what stays, not what goes. Off by default: dead bills already sort to the bottom, so nothing vanishes unasked.
+  ['aliveF', 'Still alive', 'leave out bills that died, were vetoed or missed a deadline', f => f.stand !== 'dead']];
 function passes(b, skip) {
   const f = factsOf(b);
   for (const g of facets()) if (g.key !== skip && S[g.key].size && ![...S[g.key]].some(v => g.has(f, v))) return false;
-  for (const [k, , , test] of FLAGS) if (k !== skip && S[k] && !test(f)) return false;
+  for (const [k, , , test] of FLAGS) if (k !== skip && S[k] && !(k === 'aliveF' && S.view === 'dead') && !test(f)) return false;
   return !S.stageF || effStage(b) === S.stageF;
 }
+// My bills: the ones I own or follow, less the ones I muted (a hearing unmutes them on the server).
+const isOwner = b => !!S.me && (S.assignments[b.id] || []).includes(S.me.id);
+const isMuted = b => !!S.mutes?.has(b.id);
+const isMine = b => !!S.me && (isOwner(b) || !!S.follows?.has(b.id)) && !isMuted(b);
+// The first hearing still ahead, which is what keeps a bill from being muted.
+const hearingAhead = b => S.hearings.filter(h => h.bill_id === b.id && h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
 // The lens (whose bills) and the search box; the facets narrow this.
 function lensBills(owner = S.owner) {
   let list = S.bills;
-  if (owner === 'me' && S.me) list = list.filter(b => (S.assignments[b.id]||[]).includes(S.me.id) || (S.follows || new Set()).has(b.id));
+  if (owner === 'me' && S.me) list = list.filter(isMine);
   else if (owner && owner !== 'all' && owner !== 'me') list = list.filter(b => (S.assignments[b.id]||[]).includes(owner));
   if (S.q) { const q = S.q.toLowerCase(), qn = q.replace(/\s/g,'');
     list = list.filter(b => b.bill_number.toLowerCase().includes(qn) || (b.title||'').toLowerCase().includes(q)); }
@@ -884,18 +905,23 @@ const barBase = (owner = S.owner) => { const l = lensBills(owner); return monito
 const monitorCount = () => lensBills().filter(b => b.position === 'monitor').length;
 const facetCount = (base, key, test) => base.filter(b => passes(b, key) && test(factsOf(b))).length;
 const FILTER_KEY = DEMO ? 'hiphi_filters_demo' : 'hiphi_filters';
-function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify({ pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], riskF: S.riskF, hearF: S.hearF, tripleF: S.tripleF })); } catch {} }
+function saveFilters() { try { localStorage.setItem(FILTER_KEY, JSON.stringify({ v: 2, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts], riskF: S.riskF, hearF: S.hearF, tripleF: S.tripleF, aliveF: S.aliveF })); } catch {} }
 function loadFilters() { try { S.showMonitor = !!localStorage.getItem('hiphi_showmon'); } catch {} try { const f = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); if (!f) return;
-  S.pris = new Set(f.pris || []); S.poss = new Set(f.poss || []); S.stands = new Set(f.stands || []); S.camps = new Set((f.camps || []).filter(id => S.campaigns.some(c => c.id === id)));
-  S.riskF = !!f.riskF; S.hearF = !!f.hearF; S.tripleF = !!f.tripleF; } catch {} }
+  // before v2 the position filter had four grouped choices; "Support" meant every kind of support
+  const GROUPED = { support: ['strongly_support', 'support', 'support_amend'], oppose: ['strongly_oppose', 'oppose'] };
+  S.pris = new Set(f.pris || []); S.poss = new Set((f.poss || []).flatMap(v => f.v >= 2 ? [v] : GROUPED[v] || [v])); S.stands = new Set(f.stands || []); S.camps = new Set((f.camps || []).filter(id => S.campaigns.some(c => c.id === id)));
+  S.lsts = new Set((f.lsts || []).filter(id => !S.lists || S.lists.some(l => l.id === id)));
+  S.riskF = !!f.riskF; S.hearF = !!f.hearF; S.tripleF = !!f.tripleF; S.aliveF = !!f.aliveF; } catch {} }
 function toggleFilter(spec) { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (FLAGS.some(([x]) => x === k)) S[k] = !S[k]; else if (k === 'stageF') S.stageF = ''; else { const v = k === 'pris' ? Number(raw) : raw; S[k].has(v) ? S[k].delete(v) : S[k].add(v); }
   saveFilters(); }
-function clearFilters() { S.pris = new Set(); S.camps = new Set(); S.poss = new Set(); S.stands = new Set(); S.tripleF = false; S.riskF = false; S.hearF = false; S.stageF = ''; saveFilters(); }
+function clearFilters() { S.pris = new Set(); S.camps = new Set(); S.lsts = new Set(); S.poss = new Set(); S.stands = new Set(); S.tripleF = false; S.riskF = false; S.hearF = false; S.aliveF = false; S.stageF = ''; saveFilters(); }
 function visibleBills() {
   const list = barBase().filter(b => passes(b));
   const [key, dir] = S.sort;
+  // Dead bills always sort to the bottom, whichever column and direction (Nate, 9/18).
   return [...list].sort((a,b) => {
+    const da = diedish(a) ? 1 : 0, db = diedish(b) ? 1 : 0; if (da !== db) return da - db;
     const va = key==='owner' ? (owners(a)[0]?.full_name||'') : key==='pulse'
       ? (S.pulse[a.id]?.last_team_touch||'') : (a[key] ?? '');
     const vb = key==='owner' ? (owners(b)[0]?.full_name||'') : key==='pulse'
@@ -909,8 +935,8 @@ function visibleBills() {
 // under "More" (Table is desktop-only: it never worked at phone width).
 const MORE_VIEWS = [['table','All bills'],['legislators','Legislators'],['people','People'],['lists','Lists'],['emails','Emails'],['memo','Weekly memo'],['settings','My settings'],['setup','Session setup'],['help','Help']];
 const lensName = () => S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'Everyone' : (advocate(S.owner)?.full_name || 'My bills');
-const filterCount = () => S.pris.size + S.camps.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.stageF ? 1 : 0);
-const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k]).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
+const filterCount = () => S.pris.size + S.camps.size + S.lsts.size + S.poss.size + S.stands.size + (S.tripleF ? 1 : 0) + (S.riskF ? 1 : 0) + (S.hearF ? 1 : 0) + (S.aliveF && S.view !== 'dead' ? 1 : 0) + (S.stageF ? 1 : 0);
+const activeFilters = () => [...facets().flatMap(g => g.opts.filter(([v]) => S[g.key].has(v)).map(([v, l]) => [`${g.key}:${v}`, g.label, l])), ...FLAGS.filter(([k]) => S[k] && !(k === 'aliveF' && S.view === 'dead')).map(([k, l]) => [k, '', l]), ...(S.stageF ? [['stageF', 'Stage', STAGE_LABEL[S.stageF] || S.stageF]] : [])];
 const filterLabel = () => activeFilters().map(([, , l]) => l).join(' · ');
 function filterSummary() {
   const who = S.owner === 'me' ? 'My bills' : S.owner === 'all' ? 'All tracked' : (advocate(S.owner)?.full_name || '');
@@ -925,8 +951,10 @@ const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 
 // Simple (Nate, 9/18: "too many menus", and the menu must never need to scroll): seven fixed items. Pages that
 // belong together become tabs at the top of the page instead of separate menu items.
 const PAGE_GROUPS = [
-  { key: 'bills', label: 'Bills', icon: '▤', short: 'Bills', views: [['table', 'Tracked bills'], ['add', 'New bills'], ['dead', 'Did not advance']] },
-  { key: 'outreach', label: 'Outreach', icon: '☺︎', short: 'Reach', views: [['people', 'People'], ['lists', 'Lists'], ['emails', 'Emails'], ['memo', 'Weekly memo']] },
+  // Outreach is what the public sees and receives: the people, the lists they follow, the emails they get.
+  // The weekly memo is the team's own report on its bills, so it lives with the bills (Nate, 9/18).
+  { key: 'bills', label: 'Bills', icon: '▤', short: 'Bills', views: [['table', 'Tracked bills'], ['add', 'New bills'], ['dead', 'Did not advance'], ['memo', 'Weekly memo']] },
+  { key: 'outreach', label: 'Outreach', icon: '☺︎', short: 'Reach', views: [['people', 'People'], ['lists', 'Lists'], ['emails', 'Emails']] },
   { key: 'settings', label: 'Settings', icon: '⚙', short: 'Settings', views: [['settings', 'My settings'], ['setup', 'Session setup']] },
 ];
 const groupOf = v => PAGE_GROUPS.find(g => g.views.some(([x]) => x === v));
@@ -972,7 +1000,7 @@ const FILTER_VIEWS = ['portfolio', 'table', 'dead'];
 function filterBarHTML() {
   if (!FILTER_VIEWS.includes(S.view)) return '';
   const base = barBase(), person = !['me', 'all'].includes(S.owner) ? advocate(S.owner) : null, n = filterCount();
-  const quick = [['pris:1', 'P1', 'top priority', f => f.pri === 1, 'pris', 'p1'], ...FLAGS.slice(0, 2).map(([k, l, tip, test], i) => [k, l, tip, test, k, i ? 'hear' : 'risk']), ['stands:a', 'Needs a hearing', 'in committee with nothing scheduled', f => f.stand === 'a', 'stands', 'need']];
+  const quick = [...(S.view === 'table' ? [['aliveF', 'Still alive', FLAGS[3][2], FLAGS[3][3], 'aliveF', 'alive']] : []), ['pris:1', 'P1', 'top priority', f => f.pri === 1, 'pris', 'p1'], ...FLAGS.slice(0, 2).map(([k, l, tip, test], i) => [k, l, tip, test, k, i ? 'hear' : 'risk']), ['stands:a', 'Needs a hearing', 'in committee with nothing scheduled', f => f.stand === 'a', 'stands', 'need']];
   const isOn = spec => { const [k, v] = spec.split(':'); return v === undefined ? !!S[k] : S[k].has(k === 'pris' ? Number(v) : v); };
   return `<div class="fbar">
       <select class="scopesel" id="scopesel" aria-label="Whose bills"><option value="me" ${S.owner === 'me' ? 'selected' : ''}>My bills · ${barBase('me').length}</option><option value="all" ${S.owner === 'all' ? 'selected' : ''}>Everyone · ${barBase('all').length}</option>${S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id).map(a => `<option value="${a.id}" ${S.owner === a.id ? 'selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select>
@@ -984,6 +1012,7 @@ function filterBarHTML() {
       </div>
       <div class="qwrap">
         <button class="fbtn ${S.filterOpen ? 'open' : ''} ${n ? 'has' : ''}" id="fopen" aria-expanded="${S.filterOpen}"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4.5 8h7M7 12h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>Filters${n ? `<i>${n}</i>` : ''}</button>
+        ${groupMenuHTML(base)}${mutedMenuHTML()}
         <div class="qchips" role="group" aria-label="Quick filters">
           ${quick.map(([spec, label, tip, test, key, tone]) => { const on = isOn(spec), c = facetCount(base, key, test); return `<button class="qchip t-${tone} ${on ? 'on' : ''}" data-ft="${spec}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''} title="${esc(tip)}"><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span>${label}<i>${c}</i></button>`; }).join('')}
         </div>
@@ -992,6 +1021,29 @@ function filterBarHTML() {
         ${S.view==='table' ? '<button class="fbtn" id="csv">⬇ Export CSV</button>' : ''}
       </div>
     </div>`;
+}
+// Coalitions and lists, one tap from the bar (Nate, 9/18): the two ways the team groups bills, side by side.
+// Each choice shows how many bills it leaves, and the menu stays open so several can be picked.
+function groupMenuHTML(base) {
+  const camps = S.campaigns.filter(c => S.camps.has(c.id) || base.some(b => (S.billCampaigns[b.id] || []).includes(c.id)));
+  const lists = (S.lists || []).filter(l => S.lsts.has(l.id) || base.some(b => factsOf(b).lsts.includes(l.id)));
+  if (!camps.length && !lists.length) return '';
+  const picked = [...camps.filter(c => S.camps.has(c.id)).map(c => c.name), ...lists.filter(l => S.lsts.has(l.id)).map(l => l.title)];
+  const opt = (key, id, label) => { const on = S[key].has(id), c = facetCount(base, key, f => f[key].includes(id));
+    return `<button data-ft="${key}:${esc(id)}" data-keepmenu="1" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''}><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span><span class="gml">${esc(label)}</span><i>${c}</i></button>`; };
+  const col = (title, key, rows, label, empty) => `<div class="gmcol"><div class="mh">${title}</div>${rows.length ? rows.map(r => opt(key, r.id, label(r))).join('') : `<div class="gmempty">${empty}</div>`}</div>`;
+  return `<details class="pillmenu grpmenu" ${S.grpMenuOpen ? 'open' : ''}><summary class="fbtn ${picked.length ? 'has' : ''}">${picked.length === 1 ? esc(picked[0]) : picked.length ? `Coalitions &amp; lists<i>${picked.length}</i>` : 'Coalitions &amp; lists'} ▾</summary>
+    <div class="menu gm">${col('Coalitions', 'camps', camps, c => c.name, 'None on these bills')}${col('Lists', 'lsts', lists, l => (l.icon ? l.icon + ' ' : '') + l.title, 'No bills here are on a list')}</div></details>`;
+}
+// Muted bills are hidden from My bills, never lost: one menu lists them with a way back.
+function mutedMenuHTML() {
+  if (S.owner !== 'me' || !S.mutes?.size) return '';
+  const rows = S.bills.filter(b => S.mutes.has(b.id)).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
+  if (!rows.length) return '';
+  return `<details class="pillmenu mutemenu"><summary class="fbtn">🔕\ufe0e Muted<i>${rows.length}</i> ▾</summary>
+    <div class="menu mm"><div class="mh">Off your dashboard, no alerts. A hearing brings a bill back.</div>
+      ${rows.map(b => `<div class="mmrow"><button class="mmbill" data-bill-open="${b.id}"><b>${esc(billNum(b))}</b> <span>${esc(blurb(b, 60))}</span></button><button class="draftbtn" data-mute="${b.id}">Unmute</button></div>`).join('')}
+    </div></details>`;
 }
 function filterPillsHTML() {
   if (!FILTER_VIEWS.includes(S.view)) return '';
@@ -1014,8 +1066,13 @@ function filterPanelHTML() {
       <div class="fpfoot"><button class="btn sm ghost" id="clearf" ${filterCount() ? '' : 'disabled'}>Clear all</button><button class="btn sm" id="fdone">Show ${shown} bill${shown === 1 ? '' : 's'}</button></div>
     </div></div>`;
 }
-// ▶ the hearing's video: exact link if someone saved one, else the chamber's YouTube channel.
-const streamOf = h => hearingStream(h, S.committees?.[String(h.committee || '').split('/')[0]]?.chamber);
+// A joint referral ("HLT/HSH") is one stop heard by two committees at once: both chairs must agree to a
+// hearing and both committees vote. Every lookup by committee code goes through codesOf so none is dropped.
+const codesOf = code => String(code || '').split('/').map(c => c.trim()).filter(Boolean);
+// "Health / Human Services & Homelessness". Not "and": the Senate has a committee called Health and Human Services.
+const cmteName = code => codesOf(code).map(c => S.committees?.[c]?.name || c).join(' / ');
+// ▶ the hearing's video: exact link if someone saved one, else the chamber's YouTube channel (joint committees share a chamber).
+const streamOf = h => hearingStream(h, S.committees?.[codesOf(h.committee)[0]]?.chamber);
 const streamLink = (h, cls = 'streamlink') => { const v = streamOf(h); return v ? `<a class="${cls}${v.state === 'live' ? ' live' : ''}" href="${esc(v.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(v.hint || v.channel)}">▶ ${v.label}</a>` : ''; };
 const loadFolds = () => { try { return JSON.parse(localStorage.getItem('hiphi_folds') || '{}') || {}; } catch { return {}; } };
 function chrome(inner) {
@@ -1112,9 +1169,9 @@ function billDeadline(b) {
 }
 // Last regular meeting slot of a committee on or before a date (from the
 // Capitol's published schedules, committee_slots), and the 48-hour notice
-// cutoff for it. Joint committees use the first code. Null without a schedule.
+// cutoff for it. A joint hearing is held in the lead (first) committee's slot. Null without a schedule.
 function lastSlotBefore(code, dateStr, slots) {
-  const c = String(code || '').split('/')[0];
+  const c = codesOf(code)[0];
   const mine = (slots || []).filter(s => s.code === c);
   if (!mine.length || !dateStr) return null;
   for (let i = 0; i <= 6; i++) {
@@ -1127,14 +1184,16 @@ function lastSlotBefore(code, dateStr, slots) {
   return null;
 }
 
-// "waiting in HHS · Chair Rep. Takayama": the person to call when a bill is stuck.
+// "waiting in HHS · Chair Rep. Takayama": the person to call when a bill is stuck. A joint stop has a chair
+// per committee and either one can hold the bill, so both are named.
 function chairOf(code) {
-  const c = S.committees?.[String(code || '').split('/')[0]];
-  if (!c?.chair) return '';
-  const lg = legsOf(code).find(m => m.role === 'chair')?.l;
-  if (lg) return ` · Chair <a class="chairmail" data-leg="${lg.id}" onclick="event.stopPropagation()" title="Open the profile">${esc(legTitle(lg))} ${esc(lg.name.split(' ').pop())}</a>`;
-  const m = chairMail(code);
-  return ` · Chair <a class="chairmail" href="mailto:${esc(m.email)}" onclick="event.stopPropagation()" title="${esc(m.email)}">${esc(m.title)} ${esc(m.last)}</a>`;
+  const cs = codesOf(code), legs = legsOf(code);
+  const one = c => { const lg = legs.find(m => m.roles[c] === 'chair')?.l;
+    if (lg) return `<a class="chairmail" data-leg="${lg.id}" onclick="event.stopPropagation()" title="Open the profile">${esc(legTitle(lg))} ${esc((lg.sort_name || '').split(',')[0] || lg.name.split(' ').pop())}</a>`;
+    const m = chairMail(c); return m ? `<a class="chairmail" href="mailto:${esc(m.email)}" onclick="event.stopPropagation()" title="${esc(m.email)}">${esc(m.who)}</a>` : ''; };
+  const found = cs.map(c => [c, one(c)]).filter(([, x]) => x);
+  if (!found.length) return '';
+  return cs.length === 1 ? ` · Chair ${found[0][1]}` : ` · Chairs ${found.map(([c, x]) => `${x} (${esc(c)})`).join(' and ')}`;
 }
 // The session on one line: every deadline as a gate, today's marker, and
 // under each gate still ahead how many of these bills are racing it, how many
@@ -1396,7 +1455,7 @@ function renderPortfolio(list) {
       else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) situations.push({ b, t: +new Date(h.testimony_deadline || h.scheduled_at), kind: 'stale', h, dr, verb: 'Check the draft', why: `Written for ${dr.version || 'the introduced bill'}; the bill is now ${b.current_version}. Make sure the testimony still fits before it goes in.`, btn: `<a class="btn sm pri" href="${esc(dr.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>` });
       if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) situations.push({ b, t: +new Date(h.scheduled_at), kind: 'ask', h, dr, verb: 'Write the public ask', why: `Hearing ${fmtDT(h.scheduled_at)} and the public page has no ask on this bill — supporters see the official title instead of what to say.`, btn: `<button class="btn sm pri" data-opentab="${b.id}" data-tab="public">Open Public tab</button>` });
     }
-    if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', st, verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.title + ' ' + m.last : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
+    if (!ups.length && b.priority === 1) { const st = stopOf(b); if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) { const m = chairMail(st.committee); situations.push({ b, t: +new Date(st.deadline.date + 'T23:59:59-10:00'), kind: 'chair', st, verb: 'Call the chair', why: `P1 stuck in ${st.committee} — needs a hearing by ${fmtDate(st.deadline.date)} (${st.deadline.days}d)${m ? ' · ' + m.who : ''}`, btn: m ? `<a class="btn sm pri" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}">Email the chair${m.n > 1 ? 's' : ''}</a>` : `<button class="btn sm ghost" data-bill-open="${b.id}">Open bill</button>` }); } }
   }
   situations.sort((x, y) => byPri(x, y) || x.t - y.t);
   const SIT_CAP = 8, sitMore = (S.boardMore || {}).situations;
@@ -2516,7 +2575,7 @@ function arrangeHeader() {
 }
 // Rows that open something on click can also be reached with Tab and opened with Enter or Space; fields without a
 // visible label get a spoken one.
-const ROW_SEL = '[data-bill]:not(a):not(button):not(select):not(input), [data-personopen]:not(button), [data-inbox], [data-idup], [data-alertopen]:not(button), [data-leg]:not(button), [data-view].frrow';
+const ROW_SEL = '[data-bill]:not(a):not(button):not(select):not(input), [data-personopen]:not(button), [data-inbox], [data-idup], [data-alertopen]:not(button), [data-leg]:not(button), [data-view].frrow, [data-pwfold]';
 const FIELD_NAMES = { 'leg-q': 'Search legislators by name, town, district or address', 'leg-ch': 'Chamber', 'leg-cm': 'Committee', 'pp-q': 'Search people', 'pp-island': 'Island', 'pp-sd': 'Senate district', 'pp-hd': 'House district', 'pp-camp': 'Coalition', 'pp-list': 'List', 'pp-tag': 'Tag', 'pp-int': 'Interest', 'pp-acct': 'Accounts or contacts', 'pp-active': 'Active in', 'pp-sort': 'Sort', 'addq': 'Search every introduced bill', 'help-q': 'Search Help', 'memo-who': 'Whose bills', 'memo-coal': 'Coalition', 'em-new': 'New alert about', 'inbox-q': 'Filter the Inbox', 'inbox-sort': 'Sort', 'st-mont': 'Morning reminder time', 'st-befh': 'Hours before the deadline', 'st-aftt': 'After-deadline reminder time', 'scopesel': 'Whose bills', 'stagef': 'Stage' };
 function a11yPass() {
   document.querySelectorAll(ROW_SEL).forEach(el => { if (!el.hasAttribute('tabindex')) el.tabIndex = 0; if (!el.getAttribute('role') && el.tagName !== 'TR') el.setAttribute('role', 'button'); });
@@ -2733,7 +2792,7 @@ function wireInbox() {
 function memoData() {
   const v = S.memoView ??= { who: 'me', coalition: '' }, now = Date.now(), wk = 7 * 864e5;
   // The memo is about the reader's bills: the ones they own or follow. "Everyone" is one choice away for a team or board memo.
-  const mineB = b => !!S.me && ((S.assignments[b.id] || []).includes(S.me.id) || (S.follows || new Set()).has(b.id));
+  const mineB = isMine;
   const inScope = b => b.position !== 'monitor' && (v.who !== 'me' || mineB(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
   const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
@@ -2796,8 +2855,13 @@ const STANCES = [['yes', 'Yes', 'st-yes'], ['leaning_yes', 'Leaning yes', 'st-le
 const plain = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ʻ‘’`]/g, '').toLowerCase();
 const legById = id => (S.legislators || []).find(l => l.id === Number(id));
 const legTitle = l => l.chamber === 'S' ? 'Sen.' : 'Rep.';
-const legsOf = code => { const c = String(code || '').split('/')[0]; const rank = { chair: 0, vice_chair: 1, member: 2 };
-  return (S.committeeMembers || []).filter(m => m.committee === c).map(m => ({ ...m, l: legById(m.legislator_id) })).filter(m => m.l).sort((a, b) => rank[a.role] - rank[b.role] || a.l.sort_name.localeCompare(b.l.sort_name)); };
+// Everyone who votes at a stop. On a joint stop a legislator on both committees is listed once, with a role
+// per committee (roles) and their highest role (role, committee) for sorting.
+const legsOf = code => { const cs = codesOf(code), rank = { chair: 0, vice_chair: 1, member: 2 }, by = new Map();
+  for (const m of S.committeeMembers || []) { if (!cs.includes(m.committee)) continue; const l = legById(m.legislator_id); if (!l) continue;
+    const x = by.get(l.id); if (!x) { by.set(l.id, { ...m, l, roles: { [m.committee]: m.role } }); continue; }
+    x.roles[m.committee] = m.role; if (rank[m.role] < rank[x.role]) { x.role = m.role; x.committee = m.committee; } }
+  return [...by.values()].sort((a, b) => rank[a.role] - rank[b.role] || cs.indexOf(a.committee) - cs.indexOf(b.committee) || a.l.sort_name.localeCompare(b.l.sort_name)); };
 const stanceOf = (billId, legId) => (S.stances || []).find(x => x.bill_id === billId && x.legislator_id === legId) || { stance: 'unknown', note: null, contact_id: null };
 // Sponsor names on a bill ("SAN BUENAVENTURA", "Tarnas") matched to legislators by surname.
 const legsForSponsors = b => { const out = []; for (const sp of b.sponsors || []) { const raw = String(sp.n || sp.name || sp).replace(/\(.*?\)/g, '').trim(); if (!raw) continue;
@@ -2852,7 +2916,7 @@ function legDrawerHTML(l) {
   const notes = S.legNotes[l.id];
   if (!notes) DB.legNotes(l.id).then(() => rerenderKeep()).catch(() => {});
   const mine = (S.committeeMembers || []).filter(m => m.legislator_id === l.id);
-  const inCommittee = S.bills.filter(b => b.tracked !== false && b.position !== 'monitor' && !diedish(b) && (() => { const st = stopOf(b); return st.phase === 'committee' && st.committee && mine.some(m => m.committee === String(st.committee).split('/')[0]); })()).slice(0, 12);
+  const inCommittee = S.bills.filter(b => b.tracked !== false && b.position !== 'monitor' && !diedish(b) && (() => { const st = stopOf(b); return st.phase === 'committee' && st.committee && mine.some(m => codesOf(st.committee).includes(m.committee)); })()).slice(0, 12);
   const sponsored = S.bills.filter(b => b.tracked !== false && legsForSponsors(b).some(x => x.id === l.id)).slice(0, 12);
   const stances = (S.stances || []).filter(x => x.legislator_id === l.id && x.stance !== 'unknown').map(x => ({ ...x, b: billById(x.bill_id) })).filter(x => x.b);
   const billLine = b => `<div class="lbill" data-bill="${b.id}"><b>${esc(billNum(b))}</b> <span class="muted">${esc(blurb(b, 80))}</span>${(st => st ? ` <span class="chipx ${STANCES.find(x => x[0] === st.stance)[2]}">${STANCES.find(x => x[0] === st.stance)[1]}</span>` : '')(stances.find(x => x.bill_id === b.id))}</div>`;
@@ -2887,7 +2951,7 @@ function wireLegDrawer() {
   document.querySelectorAll('[data-stance]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stance.split('|'); try { await DB.setStance(bid, Number(lid), { stance: el.value }); rerenderKeep(); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-stnote]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stnote.split('|'); try { await DB.setStance(bid, Number(lid), { note: el.value.trim() || null }); toast('Saved'); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-stcontact]').forEach(el => el.onchange = async () => { const [bid, lid] = el.dataset.stcontact.split('|'); try { await DB.setStance(bid, Number(lid), { contact_id: el.value || null }); } catch (e) { toast(e.message, true); } });
-  document.querySelectorAll('[data-pwfold]').forEach(el => el.onclick = () => { (S.pwOpen ??= {})[el.dataset.pwfold] = !(S.pwOpen || {})[el.dataset.pwfold]; rerenderKeep(); });
+  document.querySelectorAll('[data-pwfold]').forEach(el => el.onclick = () => { (S.pwOpen ??= {})[el.dataset.pwfold] = el.getAttribute('aria-expanded') !== 'true'; rerenderKeep(); });
 }
 
 // The pathway to victory on a bill: every committee stop with its chair,
@@ -2899,9 +2963,15 @@ function pathwayHTML(b) {
   const stops = pathwayStops(b, st, S.counterparts || [], compRefs);
   if (!stops.length) return '<p class="muted">No committee referral yet, so no one to work on until the Capitol posts one.</p>';
   const stanceSel = l => { const x = stanceOf(b.id, l.id); return `<select class="stsel ${STANCES.find(y => y[0] === x.stance)[2]}" data-stance="${b.id}|${l.id}">${STANCES.map(([v, lab]) => `<option value="${v}" ${x.stance === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>`; };
-  const person = (l, role, full) => { const x = stanceOf(b.id, l.id); return `<div class="pw ${role} ${full ? 'full' : ''}">
+  // On a joint stop a leadership role names its committee ("Chair, HLT"), and someone on only one of the
+  // two committees says which ("HSH only"); sitting on both is the normal case and needs no words.
+  const roleText = (m, joint) => { const word = r => r === 'chair' ? 'Chair' : 'Vice Chair';
+    if (!joint) return m.role === 'member' ? '' : word(m.role);
+    const lead = Object.entries(m.roles).filter(([, r]) => r !== 'member').map(([c, r]) => `${word(r)}, ${c}`);
+    return lead.length ? lead.join(' · ') : Object.keys(m.roles).length === 1 ? `${Object.keys(m.roles)[0]} only` : ''; };
+  const person = (m, full, joint) => { const l = m.l, role = m.role, x = stanceOf(b.id, l.id), rt = roleText(m, joint); return `<div class="pw ${role} ${full ? 'full' : ''}">
       ${legPhoto(l, 'lphoto sm')}
-      <div class="pwm"><a data-leg="${l.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${role === 'chair' ? 'Chair' : role === 'vice_chair' ? 'Vice Chair' : ''}${l.party ? ` · ${esc(l.party)}` : ''} · ${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}</span>
+      <div class="pwm"><a data-leg="${l.id}"><b>${esc(legTitle(l))} ${esc(l.name)}</b></a> <span class="muted">${[rt, l.party, `${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}`].filter(Boolean).map(esc).join(' · ')}</span>
         ${full ? `<div class="pwc">${l.email ? `<a class="linkbtn" href="${legMailto(l, b)}" title="${esc(l.email)}">Email</a>` : ''}${l.phone ? ` · <a class="linkbtn" href="tel:${esc(l.phone)}">${esc(l.phone)}</a>` : ''}</div>
         <div class="pwn"><input data-stnote="${b.id}|${l.id}" value="${esc(x.note || '')}" placeholder="Note for this bill: what they said, what they want" maxlength="300"><select data-stcontact="${b.id}|${l.id}" title="Our contact"><option value="">contact…</option>${S.advocates.filter(a => a.is_active !== false).map(a => `<option value="${a.id}" ${x.contact_id === a.id ? 'selected' : ''}>${esc(a.initials)}</option>`).join('')}</select></div>` : (x.note ? `<div class="muted pwq">${esc(x.note)}</div>` : '')}
       </div>
@@ -2909,17 +2979,19 @@ function pathwayHTML(b) {
     </div>`; };
   const count = members => { const c = { yes: 0, lean: 0, unk: 0, leanno: 0, no: 0 }; for (const m of members) { const x = stanceOf(b.id, m.l.id).stance; c[{ yes: 'yes', leaning_yes: 'lean', unknown: 'unk', leaning_no: 'leanno', no: 'no' }[x]]++; }
     const n = members.length; return `<span class="pwcount" title="Yes ${c.yes} · leaning yes ${c.lean} · unknown ${c.unk} · leaning no ${c.leanno} · no ${c.no}">${c.yes + c.lean} for · ${c.leanno + c.no} against · ${c.unk} unknown of ${n}</span><span class="pwbar">${['yes', 'lean', 'unk', 'leanno', 'no'].map(k => `<i class="${k}" style="flex:${c[k]}"></i>`).join('')}</span>`; };
-  const stopBlock = (s, i) => { const members = legsOf(s.committee), cm = S.committees?.[String(s.committee).split('/')[0]];
+  const stopBlock = (s, i) => { const members = legsOf(s.committee), joint = codesOf(s.committee).length > 1;
     const chairs = members.filter(m => m.role === 'chair'), vices = members.filter(m => m.role === 'vice_chair'), rest = members.filter(m => m.role === 'member');
     const key = `${b.id}|${s.chamber}${s.stop}`, open = (S.pwOpen || {})[key] ?? (s.state === 'current' || s.state === 'next' && i === stops.findIndex(x => x.state === 'next'));
     const label = { passed: 'passed', current: 'now', next: 'next', predicted: s.from === 'companion' ? 'likely (from the companion bill)' : 'likely (mapped)' }[s.state];
     return `<div class="pwstop pws-${s.state}">
-      <div class="pwh" data-pwfold="${key}"><span class="pwst">${s.state === 'passed' ? '✓' : s.state === 'current' ? '●' : '○'}</span><b>${esc(cm?.name || s.committee)}</b> <span class="code">${esc(s.committee)}</span><span class="muted">· ${CHAMBER_NAME[s.chamber]} stop ${s.stop} of ${s.of} · ${label}</span>${members.length && s.state !== 'passed' ? count(members) : ''}<span class="lchev">${open ? '▴' : '▾'}</span></div>
-      ${s.state === 'passed' && !open ? `<div class="pwpassed">${chairs.map(m => `<a data-leg="${m.l.id}">${esc(legTitle(m.l))} ${esc(m.l.name)}</a>, chair`).join('; ') || ''}</div>` : ''}
+      <div class="pwh" data-pwfold="${key}" role="button" tabindex="0" aria-expanded="${open}"><span class="pwst" aria-hidden="true">${s.state === 'passed' ? '✓' : s.state === 'current' ? '●' : '○'}</span>
+        <span class="pwt"><b>${esc(cmteName(s.committee))}</b><span class="pwmeta"><span class="code">${esc(s.committee)}</span>${joint ? ' · joint hearing' : ''} · ${CHAMBER_NAME[s.chamber]} stop ${s.stop} of ${s.of} · ${label}</span></span>
+        ${members.length && s.state !== 'passed' ? `<span class="pwtally">${count(members)}</span>` : ''}<span class="lchev" aria-hidden="true">${open ? '▴' : '▾'}</span></div>
+      ${s.state === 'passed' && !open ? `<div class="pwpassed">${chairs.map(m => `<a data-leg="${m.l.id}">${esc(legTitle(m.l))} ${esc(m.l.name)}</a>, chair${joint ? ` of ${esc(m.committee)}` : ''}`).join('; ') || ''}</div>` : ''}
       ${open ? `<div class="pwbody">
-        ${chairs.map(m => person(m.l, 'chair', true)).join('')}
-        ${vices.map(m => person(m.l, 'vice_chair', true)).join('')}
-        ${rest.length ? `<div class="pwmembers">${rest.map(m => person(m.l, 'member', false)).join('')}</div>` : ''}
+        ${chairs.map(m => person(m, true, joint)).join('')}
+        ${vices.map(m => person(m, true, joint)).join('')}
+        ${rest.length ? `<div class="pwmembers">${rest.map(m => person(m, false, joint)).join('')}</div>` : ''}
         ${!members.length ? '<p class="muted">No roster loaded for this committee yet.</p>' : ''}
       </div>` : ''}
     </div>`; };
@@ -3307,13 +3379,16 @@ function timelineHTML(tlIn) {
   // action already tells the story, so they stay out of the timeline.
   const shown = tl.filter(ev => !(ev.type === 'hearing_auto' && /^Hearing notice posted/.test(ev.title || '')));
   tl = shown;
-  return `<div class="tlcap">${tl.length} action${tl.length === 1 ? '' : 's'} · newest first${DEMO ? ` · sandbox is frozen at ${fmtDate(DEMO_ASOF, { year: 'numeric' })}, later actions are not here` : ''}</div>` +
+  return `<div class="tlcap">${tl.length} entr${tl.length === 1 ? 'y' : 'ies'}, newest first. Entries the team logged show who wrote them.${DEMO ? ` · sandbox is frozen at ${fmtDate(DEMO_ASOF, { year: 'numeric' })}, later actions are not here` : ''}</div>` +
     `<div class="tl">${shown.map(ev => {
     const team = ev.source === 'team', a = advocate(ev.advocate_id);
+    // The Capitol dates its actions but gives no time (they arrive stamped 8:00 AM), and every one says
+    // "Official action - House"; the date and the chamber are the facts, on one line.
+    const ch = !team && /^Official action\s*-\s*(House|Senate)$/i.exec(ev.details || '');
     return `<div class="ev ${team?'team':''}">
-      <div class="when">${fmtDT(ev.occurred_at)}</div>
-      <div class="what">${esc(ev.title)}<span class="tag ${team?'t':'a'}">${team?'team':'auto'}</span></div>
-      <div class="who">${team && a ? esc(a.full_name)+' · ' : ''}${esc(ev.details||'')}</div>
+      <div class="when">${team ? `${fmtDT(ev.occurred_at)} · <b>${esc(a ? a.full_name : 'Team')}</b>` : `${fmtDate(ev.occurred_at, { weekday: 'short', year: '2-digit' }).replace(/^(\w{3}),/, '$1')}${ch ? ` · ${ch[1]}` : ''}`}</div>
+      <div class="what">${esc(ev.title)}</div>
+      ${ev.details && !ch ? `<div class="who">${esc(ev.details)}</div>` : ''}
     </div>`; }).join('')}</div>`;
 }
 // What the public page is actually showing for this bill right now.
@@ -3404,12 +3479,14 @@ const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
 const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
 const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
 // Legislators' addresses follow one pattern: rep/sen + last name @capitol.hawaii.gov.
+// A joint stop gives every chair, comma-separated in one mailto, and "Rep. Takayama and Rep. Marten".
 function chairMail(code) {
-  const c = S.committees?.[String(code || '').split('/')[0]];
-  if (!c?.chair) return null;
-  const clean = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim();
-  const last = clean.split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '');
-  return { name: c.chair, last: clean.split(/\s+/).pop(), title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` };
+  const out = codesOf(code).map(k => S.committees?.[k]).filter(c => c?.chair).map(c => {
+    const clean = c.chair.replace(/^(rep\.|sen\.|representative|senator)\s+/i, '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim();
+    const last = clean.split(/\s+/).pop().toLowerCase().replace(/[^a-z]/g, '');
+    return { name: c.chair, last: clean.split(/\s+/).pop(), title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
+  if (!out.length) return null;
+  return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
 }
 const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(Boolean);
 const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
@@ -3610,9 +3687,12 @@ const titleCaseTitle = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toL
 // Write → Review → Approve → File: where a draft is, without a status word.
 const DRAFT_STEPS = [['draft', 'Write'], ['review', 'Review'], ['approved', 'Approve'], ['filed', 'File']];
 function draftJourney(d) {
-  const idx = { draft: 0, review: 1, second_review: 1, approved: 2, filed: 3 }[d.status] ?? 0, done = d.status === 'filed';
+  // the highlighted step is the one waiting to happen: an approved draft waits to be filed
+  const idx = { draft: 0, review: 1, second_review: 1, approved: 3, filed: 4 }[d.status] ?? 0, done = d.status === 'filed';
   return `<span class="journey" title="${esc(DRAFT_LABEL[d.status] || d.status)}">${DRAFT_STEPS.map(([k, l], i) => `<i class="${done || i < idx ? 'done' : i === idx ? 'cur' : ''}">${l}${i === idx && d.status === 'second_review' ? ' 2/2' : ''}</i>`).join('<b></b>')}</span>`;
 }
+// "SAN BUENAVENTURA" -> "San Buenaventura", "LEE, M." -> "Lee, M.": capitals are hard to scan in a long list.
+const sponsorName = n => String(n || '').toLowerCase().replace(/(^|[\s\-'.(])([a-z])/g, (m, a, c) => a + c.toUpperCase());
 function drawerHTML(b) {
   // Four blocks and a tab row. Header: the one-second facts. Next: the
   // hearing, the deadline, and the testimony step with its button. Summary.
@@ -3625,14 +3705,15 @@ function drawerHTML(b) {
   const coalitions = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean);
   const notesHead = (b.internal_notes || '').trim().split('\n')[0].slice(0, 70);
   if (open.tab === 'notes') { open.tab = 'chat'; open.note = true; }          // old links and shortcuts land where the content moved
-  if (open.tab === 'timeline') { open.tab = 'details'; open.tl = true; }
   const text = b.public_summary || b.description || '';
   const dead = diedish(b), st = effStage(b);
   const chips = [
     b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="chipx c-gray">no position</span>',
     owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
     ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
-    `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
+    isOwner(b)
+      ? `<button class="chipx tool mute ${isMuted(b) ? 'on' : ''}" data-mute="${b.id}" aria-pressed="${isMuted(b)}" title="${isMuted(b) ? 'Muted: off your dashboard, no alerts. A hearing brings it back. Tap to unmute.' : 'Take it off your dashboard and stop its alerts. You stay the owner; a hearing brings it back.'}">${isMuted(b) ? '🔕\ufe0e Muted' : '🔔\ufe0e Mute'}</button>`
+      : `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}" aria-pressed="${!!S.follows?.has(b.id)}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
     ''].filter(Boolean).join('');
 
   // ---- Next: hearings ahead, each with its testimony row ----
@@ -3645,7 +3726,7 @@ function drawerHTML(b) {
       ? `<div class="draftform"><input class="dfnote" placeholder="What should change?" aria-label="What should change"><button class="draftbtn pri" data-act="request_changes">Send</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`
       : `<div class="draftform"><input class="dfurl" placeholder="Capitol confirmation link (optional)" aria-label="Confirmation link"><button class="draftbtn pri" data-act="file">Filed</button><button class="draftbtn" data-act="cancelui">Cancel</button></div>`) : '';
     return `<div class="draftrow nx" data-draft="${esc(d.id)}">
-      ${draftJourney(d)}<span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>
+      ${d.status === 'cancelled' ? `<span class="tag ${DRAFT_TAG[d.status] || 'a'}">${DRAFT_LABEL[d.status] || esc(d.status)}</span>` : draftJourney(d)}
       <span class="draftwho">${esc(draftWho(d))}${d.version || b.current_version ? ` · written for ${esc(d.version || 'the introduced bill')}` : ''}${d.version !== (b.current_version || null) && b.current_version && d.status !== 'filed' ? ` <span class="hot">— bill is now ${esc(b.current_version)}, check the draft</span>` : ''}</span>
       <span class="draftacts">${acts.map(([a, l, c]) => `<button class="draftbtn${c ? ' ' + c : ''}" data-act="${a}">${l}</button>`).join('')}</span>
       <span class="dlinks"><a class="draftlink" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Google Doc ↗</a>
@@ -3663,7 +3744,7 @@ function drawerHTML(b) {
     nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${st === 'enacted' ? 'Signed into law' : 'With the Governor'}</b>
       <div class="nextline">${esc(b.last_action || '')} ${b.last_action_date ? `<span class="when">${fmtDate(b.last_action_date, { year: '2-digit' })}</span>` : ''}</div></div></div>`;
   } else if (ups.length) {
-    nextHtml = ups.map(h => { const c = S.committees[h.committee]; const dr = draftFor(b.id, h.committee); if (dr) seen.add(dr.id);
+    nextHtml = ups.map(h => { const known = codesOf(h.committee).some(k => S.committees?.[k]); const dr = draftFor(b.id, h.committee); if (dr) seen.add(dr.id);
       const dueSoon = h.testimony_deadline && new Date(h.testimony_deadline) - now < 48 * 3600e3 && new Date(h.testimony_deadline) > now;
       const duePast = h.testimony_deadline && inWhen(h.testimony_deadline) === 'passed';
       const att = attendees(h), meIn = att.some(a => a.id === S.me?.id), m = chairMail(h.committee);
@@ -3671,7 +3752,7 @@ function drawerHTML(b) {
       const row = (l, v, cls = '') => `<div class="nr ${cls}"><span class="nl">${l}</span><span class="nv">${v}</span></div>`;
       const v = streamOf(h);
       return `<div class="next v3 slim">
-        <div class="nexthead"><span class="nextk">Next</span><b>${esc(c ? c.name : h.committee)}</b><span class="nhk">${c ? `<span class="code">${esc(h.committee)}</span> ` : ''}<span class="muted">hearing</span></span></div>
+        <div class="nexthead"><span class="nextk">Next</span><b>${esc(cmteName(h.committee))}</b><span class="nhk">${known ? `<span class="code">${esc(h.committee)}</span> ` : ''}<span class="muted">${codesOf(h.committee).length > 1 ? 'joint hearing' : 'hearing'}</span></span></div>
         <div class="nextline big">${fmtDT(h.scheduled_at)}${room ? ` · ${esc(room)}` : ''}${v ? ` · ${streamLink(h)}` : ''}</div>
         ${h.testimony_deadline ? `<div class="nextline ${dueSoon ? 'due' : ''}">Testimony ${duePast ? `was due ${fmtDT(h.testimony_deadline)}` : `due ${fmtDT(h.testimony_deadline)} · <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`}</div>` : ''}
         ${dr ? draftRow(dr) : `<div class="nextline muted">No testimony draft yet${b.position && b.position !== 'monitor' ? ' — it is created automatically from the notice' : ' — Monitor bills get no draft'}</div>`}
@@ -3687,7 +3768,7 @@ function drawerHTML(b) {
   }
   const otherDrafts = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && d.status !== 'cancelled');
   const primary = (() => { const d = ups.map(h => draftFor(b.id, h.committee)).find(Boolean); if (!d) return null; const a = draftActions(d)[0]; return a ? { id: d.id, act: a[0], label: a[1] } : null; })();
-  const tab = (k, l) => `<button class="dtab ${open.tab === k ? 'on' : ''}" data-dtab="${k}">${l}</button>`;
+  const tab = (k, l) => `<button class="dtab ${open.tab === k ? 'on' : ''}" data-dtab="${k}" role="tab" aria-selected="${open.tab === k}">${l}</button>`;
   const pane = (k, inner) => `<div class="dpane" data-pane="${k}" ${open.tab === k ? '' : 'hidden'}>${inner}</div>`;
   return `<div class="scrim" id="scrim"></div>
   <div class="drawer v2">
@@ -3703,36 +3784,30 @@ function drawerHTML(b) {
       ${nextHtml}
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
       ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''} ${streamLink(h)}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
-      <div class="dtabs">${tab('details', 'Details')}${tab('pathway', 'Pathway')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}${notesHead ? ' •' : ''}`)}</div>
+      <div class="dtabs" role="tablist">${tab('details', 'Details')}${tab('timeline', 'Timeline')}${tab('pathway', 'Pathway')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}${notesHead ? ' •' : ''}`)}</div>
       ${pane('chat', `<details class="pinnote" id="d-notefold" ${open.note || notesHead ? 'open' : ''}><summary>Team note <span class="tok">${notesHead ? 'never public' : 'none yet · never public · context that should outlive the chat'}</span></summary>
           <div class="notes"><textarea id="d-notes" placeholder="Never public. Context for the team.">${esc(b.internal_notes||'')}</textarea>
           <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save note</button></div></details>
         ${todosHTML(b)}${chatHTML(b)}`)}
       ${pane('pathway', pathwayHTML(b))}
-      ${pane('details', `<div class="kv">
-          <span class="k">Committee</span><span>${(st => st.committee ? `${esc(st.committee)}${chairOf(st.committee)} · ${CHAMBER_NAME[st.chamber]}${st.stops ? `, stop ${st.stop} of ${st.stops}` : ''}` : st.phase === 'committee' ? `awaiting referral in the ${CHAMBER_NAME[st.chamber]}` : esc(st.says))(stopOf(b))}</span>
+      ${pane('details', `<div class="kv dkv">
+          <span class="k">Committee</span><span>${(st => st.committee ? `<b>${esc(cmteName(st.committee))}</b> <span class="code">${esc(st.committee)}</span>${chairOf(st.committee)}<span class="muted"> · ${CHAMBER_NAME[st.chamber]}${st.stops ? `, stop ${st.stop} of ${st.stops}` : ''}</span>` : st.phase === 'committee' ? `awaiting referral in the ${CHAMBER_NAME[st.chamber]}` : esc(st.says))(stopOf(b))}</span>
           <span class="k">Referrals</span><span>${referralPath(b)}</span>
-          ${(b.sponsors||[]).length ? `<span class="k">Sponsors</span><span title="${esc((b.sponsors||[]).map(s=>s.n).join(', '))}">${sponsorText(b)}</span>` : ''}
-          ${(b.companions||[]).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions||[]).map(esc).join(', ')}</span>` : ''}
-          ${b.description ? `<span class="k">Official description</span><span>${esc(b.description)}</span>` : ''}
-          ${''}
-        </div>
-        ${`<details class="moredet" id="d-moredet" ${open.more2 ? 'open' : ''}><summary>More details <span class="tok">${[b.public_summary ? 'official title' : '', (b.sponsors || []).length > 6 ? 'every sponsor' : '', ups[0] && streamOf(ups[0]) ? 'video' : '', 'source', 'link', ups.length ? 'attendance' : ''].filter(Boolean).join(', ')}</span></summary><div class="kv">
-          ${(b.sponsors || []).length > 6 ? `<span class="k">All sponsors</span><span>${(b.sponsors || []).map((x, i) => i === 0 ? `<b>${esc(x.n)}</b>` : esc(x.n)).join(', ')}</span>` : ''}
-                    ${b.public_summary ? `<span class="k">Official title</span><span>${esc(b.title || '')}</span>` : ''}
-          ${(h => { const v = h && streamOf(h); return v ? `<span class="k">Video</span><span>${streamLink(h)}<span class="muted"> · ${v.auto ? 'this hearing’s video, found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel; the exact video is added automatically once it is posted'}</span> <button class="draftbtn" data-setstream="${h.id}">${v.exact ? 'Change' : 'Paste a link'}</button></span>` : ''; })(ups[0])}
-          <span class="k">Source</span><span><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">capitol.hawaii.gov ↗</a></span>
-          <span class="k">Link</span><span><button class="draftbtn" data-copylink="${esc(b.bill_number)}">🔗 Copy a link to this bill</button></span>
-          ${ups.map(h => { const a = attendees(h), meIn = a.some(x => x.id === S.me?.id); return `<span class="k">${esc(h.committee)} hearing</span><span>${a.length ? `Attending: ${a.map(x => esc(x.full_name)).join(', ')} ` : ''}<button class="draftbtn" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></span>`; }).join('')}
-        </div></details>`}
-        <details class="tlfold" id="d-tlfold" ${open.tl || open.log ? 'open' : ''}><summary>Timeline <span class="tok">every official action, and what the team logged</span></summary>
-        ${open.log ? `<div class="logform">
+          ${(b.sponsors || []).length ? `<span class="k">Sponsors</span><span>${(b.sponsors || []).map((x, i) => i === 0 ? `<b>${esc(sponsorName(x.n))}</b>` : esc(sponsorName(x.n))).join(', ')} <span class="muted">· ${b.sponsors.length} in all, the first is the lead introducer</span></span>` : ''}
+          ${(b.companions || []).length ? `<span class="k">Companion</span><span class="complist" id="compmount">${(b.companions || []).map(esc).join(', ')}</span>` : ''}
+          ${b.public_summary && b.title ? `<span class="k">Official title</span><span>${esc(titleCaseTitle(b.title))}</span>` : ''}
+          ${b.description ? `<span class="k">Official description</span><span class="dlong">${esc(b.description)}</span>` : ''}
+          ${(h => { const v = h && streamOf(h); return v ? `<span class="k">Hearing video</span><span>${streamLink(h)}<span class="muted"> · ${v.auto ? 'found automatically' : v.exact ? 'link set by staff' : esc(v.channel) + ' channel until the exact video is posted'}</span> <button class="draftbtn" data-setstream="${h.id}">${v.exact ? 'Change' : 'Paste a link'}</button></span>` : ''; })(ups[0])}
+          ${ups.map(h => { const a = attendees(h), meIn = a.some(x => x.id === S.me?.id); return `<span class="k">Attending ${esc(h.committee)}</span><span>${a.length ? esc(a.map(x => x.full_name).join(', ')) + ' ' : '<span class="muted">No one yet </span>'}<button class="draftbtn" data-attend="${h.id}">${meIn ? 'Not attending' : 'I\u2019m attending'}</button></span>`; }).join('')}
+          <span class="k">Links</span><span class="dlinks2"><a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page ↗</a><button class="draftbtn" data-copylink="${esc(b.bill_number)}">Copy a link to this bill</button></span>
+        </div>`)}
+      ${pane('timeline', `${open.log ? `<div class="logform">
           <div class="typechips">${LOG_TYPES.map(([v,l]) => `<button data-lt="${v}" class="${S.logType===v?'on':''}">${l}</button>`).join('')}</div>
-          <input id="d-ltitle" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'What happened?'}">
-          <textarea id="d-ldetails" placeholder="Details (optional)"></textarea>
+          <input id="d-ltitle" aria-label="What happened" placeholder="${S.logType==='testimony'?'e.g. Testimony submitted — Support (written + oral)':'What happened?'}">
+          <textarea id="d-ldetails" aria-label="Details" placeholder="Details (optional)"></textarea>
           <button class="btn sm" id="d-log">Add to timeline</button> <button class="draftbtn" id="d-logclose">Cancel</button>
-        </div>` : `<button class="morelink" id="d-logopen">+ Add a note or log an action</button>`}
-        <div id="tlmount" style="min-height:40px;color:var(--muted);font-size:12.5px">Loading…</div></details>`)}
+        </div>` : `<button class="morelink" id="d-logopen">+ Log an action or add a note</button>`}
+        <div id="tlmount" class="tlmount">Loading…</div>`)}
       ${pane('team', `<div class="teamgrid">
           <div><label>Position</label><select id="d-pos">${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
           <div><label>Priority</label><select id="d-pri"><option value="">—</option>${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
@@ -3749,7 +3824,7 @@ function drawerHTML(b) {
       ${pane('public', `<div class="pubnote${pubStateCls(b).includes('warn') ? ' warn' : ''}">${esc(pubStateText(b))}</div>
         <div class="pubgrid">
           <label>Lists</label>
-          <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — More → Lists.</span>'}</div>
+          <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.icon ? l.icon + ' ' : '')}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — Outreach → Lists.</span>'}</div>
           <label>Email followers</label>
           <div class="typechips"><button data-alertnew="b:${b.id}" ${b.is_public && b.position !== 'monitor' ? '' : 'disabled title="Make the bill public first"'}>✉ Write an action alert</button><span class="tok" style="margin-left:8px">to the people following this bill who asked for action alerts · needs a second person’s approval</span></div>
           <label for="d-psum">Plain-language summary</label>
@@ -3966,7 +4041,8 @@ function wire() {
   $('#scopesel') && ($('#scopesel').onchange = () => { S.owner = $('#scopesel').value; render(); });
   // Filters: every chip, option and pill is a toggle; the panel stays open and keeps its scroll.
   const filterRender = () => { const y = $('.fpbody')?.scrollTop || 0; render(); const el = $('.fpbody'); if (el) el.scrollTop = y; };
-  document.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggleFilter(el.dataset.ft); filterRender(); });
+  document.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { S.grpMenuOpen = !!el.dataset.keepmenu; toggleFilter(el.dataset.ft); filterRender(); });
+  $('.grpmenu') && $('.grpmenu').addEventListener('toggle', e => { S.grpMenuOpen = e.target.open; });
   document.querySelectorAll('[data-fclear]').forEach(el => el.onclick = () => { S[el.dataset.fclear] = new Set(); saveFilters(); filterRender(); });
   $('#fopen') && ($('#fopen').onclick = () => { S.filterOpen = !S.filterOpen; render(); });
   ['#fclose', '#fclose2', '#fdone'].forEach(id => $(id) && ($(id).onclick = () => { S.filterOpen = false; render(); }));
@@ -4061,6 +4137,12 @@ function wireDrawer() {
   $('#d-chatnew') && ($('#d-chatnew').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } });
   document.querySelectorAll('[data-msgdel]').forEach(el => el.onclick = async () => { const m = (S.messages[chatBill] || []).find(x => String(x.id) === el.dataset.msgdel); if (!m) return; try { await DB.deleteMessage(m); keep(() => {}); } catch (e) { toast(e.message, true); } });
   document.querySelectorAll('[data-jumpbill]').forEach(el => el.onclick = () => { const b = S.bills.find(x => x.bill_number === el.dataset.jumpbill); if (b) openDrawer(b.id); });
+  // Mute works from the bill header and from the Muted menu in the filter bar, so it is wired with no bill open too.
+  document.querySelectorAll('[data-mute]').forEach(el => el.onclick = async () => { const b = billById(el.dataset.mute); if (!b) return;
+    const on = !isMuted(b), h = on && hearingAhead(b);
+    if (h) { toast(`${billNum(b)} has a ${h.committee} hearing ${fmtDT(h.scheduled_at)}. You can mute it once that hearing is over.`, true); return; }
+    try { await DB.mute(b.id, on); on ? toastUndo(`Muted ${billNum(b)}: off your dashboard and no alerts until it gets a hearing`, async () => { await DB.mute(b.id, false); rerenderKeep(); }) : toast(`${billNum(b)} is back on your dashboard`); rerenderKeep(); }
+    catch (e) { toast(e.message, true); } });
   const b = S.bills.find(x => x.id === S.drawerBill); if (!b) return;
   $('#scrim').onclick = $('#dclose').onclick = () => { S.drawerBill = null; render(); };
   // render() rebuilds the drawer after every save; remember which editors
@@ -4074,9 +4156,7 @@ function wireDrawer() {
   const keep = fn => { const y = $('.dbody')?.scrollTop || 0; fn(); render(); const db = $('.dbody'); if (db) db.scrollTop = y; };
   document.querySelectorAll('[data-dtab]').forEach(el => el.onclick = () => keep(() => { S.drawerOpen.tab = el.dataset.dtab; }));
   $('#d-lastact') && ($('#d-lastact').onclick = () => keep(() => { S.drawerOpen.more = !S.drawerOpen.more; }));
-  $('#d-tlfold') && ($('#d-tlfold').ontoggle = () => { S.drawerOpen.tl = $('#d-tlfold').open; });
   $('#d-teammore') && ($('#d-teammore').ontoggle = () => { S.drawerOpen.teamMore = $('#d-teammore').open; });
-  $('#d-moredet') && ($('#d-moredet').ontoggle = () => { S.drawerOpen.more2 = $('#d-moredet').open; });
   $('#d-notefold') && ($('#d-notefold').ontoggle = () => { S.drawerOpen.note = $('#d-notefold').open; });
   $('#d-logopen') && ($('#d-logopen').onclick = () => { keep(() => { S.drawerOpen.log = true; }); $('#d-ltitle')?.focus(); });
   $('#d-logclose') && ($('#d-logclose').onclick = () => keep(() => { S.drawerOpen.log = false; }));
@@ -4296,7 +4376,7 @@ document.addEventListener('keydown', e => {
   if (k === '?') { e.preventDefault(); S.view = 'help'; S.drawerBill = null; render(); return; }
   if (S.drawerBill) {
     const b = S.bills.find(x => x.id === S.drawerBill);
-    if ('12345'.includes(k) && k) { const tab = ['details', 'pathway', 'team', 'public', 'chat'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
+    if ('123456'.includes(k) && k) { const tab = ['details', 'timeline', 'pathway', 'team', 'public', 'chat'][Number(k) - 1]; document.querySelector(`[data-dtab="${tab}"]`)?.click(); return; }
     if (k === 'f') { document.querySelector('[data-follow]')?.click(); return; }
     if (k === 'a') { document.querySelector('[data-attend]')?.click(); return; }
     return;
