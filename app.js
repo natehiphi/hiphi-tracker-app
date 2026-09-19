@@ -16,7 +16,7 @@ if (DEMO) {
   const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
 }
-const isMobile = () => matchMedia('(max-width:760px)').matches;
+const isMobile = () => matchMedia('(max-width:599px)').matches;
 // One layout since 9/18 (Nate chose the Simple look). The pre-Simple tracker is git tag classic-2026-09-18.
 // Auth email links (password recovery, magic link) come back with their payload
 // in the URL hash. supabase-js clears that hash the instant the client is
@@ -58,7 +58,7 @@ const S = {
   // Validated on read: a view name persisted by an older build (or by a
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
-  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails','people'].includes(v)
+  view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails','people','dead'].includes(v)
               ? v : 'portfolio')(localStorage.getItem('view')),
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
@@ -925,7 +925,7 @@ const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 
 // Simple (Nate, 9/18: "too many menus", and the menu must never need to scroll): seven fixed items. Pages that
 // belong together become tabs at the top of the page instead of separate menu items.
 const PAGE_GROUPS = [
-  { key: 'bills', label: 'Bills', icon: '▤', short: 'Bills', views: [['table', 'Tracked bills'], ['add', 'New bills']] },
+  { key: 'bills', label: 'Bills', icon: '▤', short: 'Bills', views: [['table', 'Tracked bills'], ['add', 'New bills'], ['dead', 'Did not advance']] },
   { key: 'outreach', label: 'Outreach', icon: '☺︎', short: 'Reach', views: [['people', 'People'], ['lists', 'Lists'], ['emails', 'Emails'], ['memo', 'Weekly memo']] },
   { key: 'settings', label: 'Settings', icon: '⚙', short: 'Settings', views: [['settings', 'My settings'], ['setup', 'Session setup']] },
 ];
@@ -968,7 +968,7 @@ function railHTML(freshTxt, stale) {
 // live counts, and a Filters button for the rest. What is switched on shows
 // underneath as pills that come off one at a time. Only on the pages that
 // list bills.
-const FILTER_VIEWS = ['portfolio', 'table'];
+const FILTER_VIEWS = ['portfolio', 'table', 'dead'];
 function filterBarHTML() {
   if (!FILTER_VIEWS.includes(S.view)) return '';
   const base = barBase(), person = !['me', 'all'].includes(S.owner) ? advocate(S.owner) : null, n = filterCount();
@@ -1474,10 +1474,8 @@ function renderPortfolio(list) {
   const waitingHtml = `<div class="actlist">
       <div class="acth">${subjectName} <span class="cnt">${mineItems.length}</span></div>${colHtml('mine', mineItems, 'Nothing is waiting on you. 🤙 Steps land here on their own: a draft is created about an hour after the Capitol posts a hearing notice, then it moves through review, approval and filing.')}
       <details class="actopen" id="fold-actopen" ${(S.folds ??= loadFolds()).actopen ? 'open' : ''}><summary class="acth open">Open to anyone <span class="cnt">${openItems.length}</span><small>anyone can take these</small></summary>${colHtml('open', openItems, 'Nothing unclaimed right now. Things that anyone can pick up appear here: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask.')}</details>
+      ${waitingOthers.length ? `<details class="actopen actothers" id="fold-actothers" ${(S.folds || {}).actothers ? 'open' : ''}><summary class="acth open">Waiting on others <span class="cnt">${waitingOthers.length}</span><small>the team’s open testimony steps</small></summary>${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : ''}
     </div>`;
-  const othersHtml = waitingOthers.length ? `<details class="panel sincefold" id="pf-others" ${(S.folds || {}).others ? 'open' : ''}>
-      <summary class="ph"><span>👥 Waiting on others <span class="chipx c-gray">${waitingOthers.length}</span></span><span class="psub">the team’s open testimony steps</span></summary>
-      ${waitingOthers.slice(0, 12).map(waitRow).join('')}${waitingOthers.length > 12 ? `<div class="pempty">…and ${waitingOthers.length - 12} more</div>` : ''}</details>` : '';
 
   // ---------- this week: each bill once ----------
   const hUp = S.hearings.filter(h => ids.has(h.bill_id) && new Date(h.scheduled_at) > new Date())
@@ -1532,25 +1530,6 @@ function renderPortfolio(list) {
           <div class="psmall">${esc(o?.report ? o.report.slice(0, 110) : blurb(b, 90))}</div></div>
         ${owners(b)[0] ? av(owners(b)[0]) : ''}</div>`; }).join(''), '') : '';
 
-  // ---------- last 72 hours: everything that happened, newest first ----------
-  const seen = new Set();
-  const recent = (S.recentEvents || []).filter(ev => ids.has(ev.bill_id) && bill(ev.bill_id) &&
-    now - new Date(ev.occurred_at) < 72 * 3600e3 &&
-    !seen.has(ev.bill_id + '|' + ev.title + '|' + ev.occurred_at) && seen.add(ev.bill_id + '|' + ev.title + '|' + ev.occurred_at));
-  const REC_CAP = 12, recMore = (S.boardMore || {}).recent;
-  const ago = iso => { const h = Math.round((now - new Date(iso)) / 36e5); return h < 1 ? 'just now' : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`; };
-  const evKind = ev => ev.advocate_id ? 'team' : /hearing notice|hearing/i.test(ev.title || '') ? 'notice'
-    : /third reading|final reading|passed|failed to pass|vetoed|signed|act \d+/i.test(ev.title || '') ? 'vote' : 'ref';
-  const tlStamp = iso => new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(', ', ' ');
-  const recentHtml = recent.length ? `
-    <div class="panel sec-feed" id="pf-recent"><div class="ph"><span>⚡ Last 72 hours <span class="chipx c-gray">${recent.length}</span></span><span class="psub">newest first</span></div>
-      <div class="tl72">${(recMore ? recent : recent.slice(0, REC_CAP)).map(ev => { const b = bill(ev.bill_id), a = ev.advocate_id ? advocate(ev.advocate_id) : null; return `
-      <div class="tlrow ${evKind(ev)}${priCls(b)}" data-bill="${b.id}">
-        <span class="tldot"></span><span class="tlts">${tlStamp(ev.occurred_at)}</span>
-        <div class="tltext"><b>${esc(b.bill_number)}</b> ${esc((ev.title || '').slice(0, 90))}${a ? ` <span class="tlwho">${esc(a.full_name)}</span>` : ''}<span class="tltitle">${esc(blurb(b, 120))}</span></div>
-      </div>`; }).join('')}</div>
-      ${recent.length > REC_CAP ? `<button class="pempty boardmore" data-boardmore="recent">${recMore ? 'Show fewer' : `…and ${recent.length - REC_CAP} more`}</button>` : ''}
-    </div>` : '';
 
   const board = pfBoard(list);
 
@@ -1567,7 +1546,7 @@ function renderPortfolio(list) {
         <span class="bstat dl ${due24 ? 'soon' : ''}"><b>${due24}</b><span>due in 24h<small>${overdue ? `${overdue} overdue` : 'none overdue'}</small></span></span>
         <span class="bstat done"><b>${filedToday}</b><span>filed today<small>by anyone</small></span></span>
       </span></div>`;
-  const waitPanel = `<div class="panel sec-wait" id="pf-wait">${waitHead}${waitingHtml}</div>` + othersHtml;
+  const waitPanel = `<div class="panel sec-wait" id="pf-wait">${waitHead}${waitingHtml}</div>`;
   // Layout adapts: a short feed sits under the checklist instead of beside it.
   const stacked = false;
   const foldable = (id, title, count, inner, openByDefault, always = false) => !mobile && !always ? inner : `
@@ -1577,7 +1556,7 @@ function renderPortfolio(list) {
   const wkLabel = wkOff === 0 ? 'This week' : wkOff === 1 ? 'Next week' : wkOff === -1 ? 'Last week'
     : 'Week of ' + new Date(hstDay(wkStart) + 'T12:00:00-10:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
-  const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, 'hearings on these bills', weekHtml,
+  const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, `${week.length} hearing${week.length === 1 ? '' : 's'}${(n => n ? ` · ${n} testimony due within 48 hours` : '')(hUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) > now && new Date(h.testimony_deadline) - now < 48 * 36e5).length)}`, weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills this week. Hearings appear here as soon as the Capitol posts a notice, usually two days ahead; the draft and the Slack alert follow within the hour.');
   const cur = currentDeadline();
   const dlDays = cur ? Math.max(0, Math.floor((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5)) : null;
@@ -1590,41 +1569,25 @@ function renderPortfolio(list) {
       ${todayHearings.map(h => { const b = bill(h.bill_id); if (!b) return ''; const att = attendees(h); return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> ${esc(h.committee)} · ${esc(roomShort(h.room))}${att.length ? ` · ${att.map(a => esc(a.initials)).join('/')} attending` : ATTEND_ASKS ? ' · <span class="hot">no one attending</span>' : ''}</span></div>`; }).join('')}
       ${dueToday.filter(h => !todayHearings.includes(h)).map(h => { const b = bill(h.bill_id); if (!b) return ''; return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.testimony_deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> testimony due · ${esc(h.committee)} hearing tomorrow</span></div>`; }).join('')}
     </div>` : '';
-  // At a glance: the portfolio and the Inbox in numbers, each one a way in.
-  const inb = S.inbox || [], inbNeeds = inb.filter(i => i.direct && i.unread), inbUpd = inb.filter(i => !i.direct && i.unread);
-  const agoShort = iso => { const h = (now - new Date(iso)) / 36e5; return h < 1 ? 'now' : h < 24 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`; };
-  const live = list.filter(b => !diedish(b)), deadN = list.filter(b => diedish(b) && b.position !== 'monitor').length;
-  const posN = k => live.filter(b => k.includes(b.position || 'monitor')).length;
-  const tile = (n, label, attr, cls = '') => `<button class="gtile ${cls}" ${attr}><b>${n}</b><span>${label}</span></button>`;
-  const glance = `
-    <div class="panel glance" id="pf-glance"><div class="ph"><span>📊 At a glance</span><span class="psub">${esc(today)}</span></div>
-      <div class="gsec"><div class="gh"><span>Inbox</span><a data-view="inbox">open ›</a></div>
-        <div class="gtiles two">${tile(inbNeeds.length, inbNeeds.length === 1 ? 'needs you' : 'need you', 'data-view="inbox"', inbNeeds.length ? 'hotn' : '')}${tile(inbUpd.length, 'updates on your bills', 'data-view="inbox" data-inboxgo="updates"')}</div>
-      </div>
-      <div class="gsec"><div class="gh"><span>This week</span></div>
-        <div class="gtiles">${tile(todayHearings.length, todayHearings.length === 1 ? 'hearing today' : 'hearings today', 'data-jump="pf-week"')}${tile(week.length, week.length === 1 ? 'hearing this week' : 'hearings this week', 'data-jump="pf-week"')}${tile(due.length, 'testimony due in 48h', 'data-jump="pf-week"', due.length ? 'hotn' : '')}</div>
-        ${cur ? `<div class="gdead"><span>Next deadline</span><b>${esc(cur.label)}</b><span class="${dlDays <= 3 ? 'hot' : ''}">${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span></div>` : ''}
-      </div>
-      <div class="gsec"><div class="gh"><span>Bills</span><span class="gsub">${live.length} live${deadN ? ` · <a data-jump="pf-dead">${deadN} did not advance</a>` : ''}</span></div>
-        <div class="gtiles">${tile(board.a.length, 'need a hearing', 'data-jump="pf-board-a"', board.a.length ? 'warn' : '')}${tile(board.b.length, 'hearing scheduled', 'data-jump="pf-board-a"')}${tile(board.c.length, 'through committee', 'data-jump="pf-board-a"')}</div>
-        <div class="gbar" title="Positions on live bills">${[['s', ['strongly_support', 'support'], 'support'], ['o', ['strongly_oppose', 'oppose'], 'oppose'], ['n', ['neutral'], 'comments'], ['m', ['monitor'], 'monitor']].map(([c, k, l]) => { const n = posN(k); return n ? `<i class="${c}" style="flex:${n}" title="${n} ${l}"></i>` : ''; }).join('')}</div>
-        <div class="glegend"><span><i class="s"></i>${posN(['strongly_support', 'support'])} support</span><span><i class="o"></i>${posN(['strongly_oppose', 'oppose'])} oppose</span><span><i class="n"></i>${posN(['neutral'])} comment${posN(['neutral']) === 1 ? '' : 's'}</span><span><i class="m"></i>${posN(['monitor'])} monitor</span><span class="gp1">${live.filter(b => b.priority === 1).length} P1</span></div>
-      </div>
-    </div>`;
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
-  return head(dashTitle(), `${today} · ${stripShort}`) + firstRunHTML() + banner + todayStrip + `
+  const nextDl = cur ? ` · next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}` : '';
+  return head(dashTitle(), `${today} · ${stripShort}${nextDl}`) + firstRunHTML() + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
-      <div>${foldable('glance', '📊 At a glance' + (cur ? ` <span class="foldsub">next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span>` : ''), '', glance, false, true)}${recentHearingsHtml}</div>
+      ${recentHearingsHtml ? `<div>${recentHearingsHtml}</div>` : ''}
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
     ${board.html ? foldable('board', `<span class="bsumtitle">Where every bill stands</span><span class="foldsub">${board.a.length} need a hearing · ${board.b.length} scheduled · ${board.c.length} through committee</span>`, '', board.simpleHtml, false, true) : ''}
-    ${recent.length ? foldable('recent', '⚡ Last 72 hours <span class="foldsub">official actions on these bills, newest first</span>', recent.length, recentHtml, false, true) : ''}
-    ${(dead => dead.length ? `<div class="calwrap"><details class="panel dead fold" id="pf-dead"><summary class="ph"><span>🪦 Did not advance <span class="chipx c-gray">${dead.length}</span></span><span class="psub">why each one stopped</span></summary>
-      ${dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('')}</details></div>` : '')
-      (list.filter(b => diedish(b) && b.position !== 'monitor').sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number)))}`;
+`;
 }
 
+// Bills > Did not advance (moved off the home page, 9/18): the bills that missed a deadline, were deferred or failed
+// a vote this session, with why each one stopped. Follows the scope and filters like Tracked bills.
+function renderDead(list) {
+  const dead = list.filter(b => diedish(b)).sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number));
+  return `<div class="dashhead"><h1>Did not advance</h1><span class="sub">${dead.length} bill${dead.length === 1 ? '' : 's'} stopped this session, and why</span></div>
+    <div class="deadwrap"><div class="panel dead">${dead.length ? dead.map(b => `<div class="prow ${posCls(b)}" data-bill="${b.id}"><div class="pmain"><b>${esc(billNum(b))}</b> ${b.priority ? `<span class="pri">P${b.priority}</span>` : ''} <span class="chipx c-gray">${esc(b.died_at_stage ? (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : STAGE_LABEL[effStage(b)] || '')}</span><div class="pdesc">${esc(blurb(b, 120))}</div><div class="psmall">${whyDead(b)}</div></div>${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</div>`).join('') : '<div class="pempty">No bill in this view has stopped. 🤙</div>'}</div></div>`;
+}
 function cell(b, c) {
   switch (c) {
     case 'sel': return `<td class="selcell"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id)?'checked':''}></td>`;
@@ -2591,12 +2554,11 @@ function renderHelp() {
       ${def('Session setup', 'Admins: the session calendar, the import, coalitions, connections, session days, the website embed.')}`)}
     ${sec('dash', 'The dashboard', `
       <p><b>Whose bills</b> (My bills, Everyone, a teammate) and the <b>filters</b> narrow every section on the page. Counts on the chips tell you what you would get before you click. What is on shows as tags under the bar; each × removes one.</p>
-      ${def('Action needed', '<b>Yours</b> is the next step on a draft that belongs to you (write, revise, approve, file). <b>Open to anyone</b> is unclaimed: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask. Take one and it is yours. Five rows show, plus anything due within 24 hours; the clock on the left says how long until it is due or the hearing starts.')}
-      ${def('At a glance', 'The Inbox, this week and the board in numbers. Every number is a link.')}
+      ${def('Action needed', '<b>Yours</b> is the next step on a draft that belongs to you (write, revise, approve, file). <b>Open to anyone</b> is unclaimed: a bill with no draft, a draft written for an older version, a P1 stuck without a hearing, a hearing with no public ask. Take one and it is yours. Five rows show, plus anything due within 24 hours; the clock on the left says how long until it is due or the hearing starts. <b>Waiting on others</b> is the team’s open testimony steps, folded until you open it.')}
       ${def('This week', 'Hearings on these bills, Monday to Sunday, one card per bill: time, room, the draft’s state, who is attending, when testimony is due. Arrows page by week; n and p do too.')}
       ${def('Where every bill stands', 'Closed, it shows four figures: bills that need a hearing, bills with a hearing scheduled, bills through committee, and days to the next deadline with how many bills must be heard by then. Open, it adds the session steps (one per deadline, Today marked) and three columns of cards: bill, what it is about, what is needed next, and the date. Green edge = support, red = oppose, gold = comments.')}
-      ${def('Last 72 hours', 'Official actions on these bills, newest first.')}
-      ${def('Did not advance', 'Bills that missed a deadline, were deferred or failed a vote, with why.')}`)}
+      ${def('News on your bills', 'Official actions (referrals, votes, hearings posted) are in the Inbox under Updates.')}
+      ${def('Did not advance', 'Bills that missed a deadline, were deferred or failed a vote, with why: Bills, then the Did not advance tab.')}`)}
     ${sec('bill', 'A bill’s page', `
       <p>Top: the plain summary, position, owner, coalition, Follow and Copy link. Then the stage rail, the last official action (click to read all of it) and the <b>Next</b> card: the hearing with time, room and video link, when testimony is due, the draft with its next step, and who is attending.</p>
       ${def('Details', 'Committee and chair, referrals in both chambers, sponsors, companion, the official description and title, the video link, the Capitol source. At the bottom, the <b>Timeline</b> fold: every official action and everything the team logged.')}
@@ -3897,9 +3859,10 @@ function render() {
     : S.view === 'emails' ? renderEmails()
     : S.view === 'people' ? renderPeople()
     : S.view === 'help' ? renderHelp()
-    : S.view === 'add' ? renderAdd() : renderTable(list);
+    : S.view === 'add' ? renderAdd()
+    : S.view === 'dead' ? renderDead(list) : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
-  const HELP_FOR = { portfolio: 'help-dash', inbox: 'help-pages', add: 'help-pages', triage: 'help-pages', table: 'help-pages', legislators: 'help-pages', people: 'help-pages', lists: 'help-public', emails: 'help-public', memo: 'help-pages', settings: 'help-auto', setup: 'help-where' };
+  const HELP_FOR = { portfolio: 'help-dash', inbox: 'help-pages', add: 'help-pages', dead: 'help-pages', triage: 'help-pages', table: 'help-pages', legislators: 'help-pages', people: 'help-pages', lists: 'help-public', emails: 'help-public', memo: 'help-pages', settings: 'help-auto', setup: 'help-where' };
   const bodyHelp = pageTabs() + (HELP_FOR[S.view] ? body.replace('</h1>', ` <button class="helpq" data-helpgo="${HELP_FOR[S.view]}" title="What is this page? Opens Help at the right section" aria-label="Help for this page">?</button></h1>`) : body);
   const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
   $('#app').innerHTML = chrome(bodyHelp) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
@@ -3931,11 +3894,6 @@ function wire() {
     render();
     if (S.view === 'add') $('#addq')?.focus();
   });
-  // At a glance: an Inbox line opens its bill where the item lives, and marks it read.
-  document.querySelectorAll('.glance [data-inbox]').forEach(el => el.onclick = async () => { const i = (S.inbox || []).find(x => x.key === el.dataset.inbox); if (!i) return;
-    DB.inboxMark([i.key]).catch(() => {});
-    if (!i.bill_id || !billById(i.bill_id)) { render(); return; }
-    await openDrawer(i.bill_id); if (i.tab === 'chat') { S.drawerOpen.chat = true; S.drawerOpen.tab = 'chat'; } else if (i.tab) S.drawerOpen.tab = i.tab; render(); });
   $('#logout') && ($('#logout').onclick = () => DB.logout());
   $('#logout2') && ($('#logout2').onclick = () => DB.logout());
   $('#logout3') && ($('#logout3').onclick = () => DB.logout());
