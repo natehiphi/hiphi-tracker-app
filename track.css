@@ -71,7 +71,7 @@
 .tile{text-align:left;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:transform .12s,box-shadow .12s}
 .tile:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(20,40,50,.08);border-color:#BFDCDF}
 .ticon{font-size:22px;line-height:1}
-.tname{font-family:'Space Grotesk';font-weight:700;font-size:15px;margin-top:2px}
+.tname{font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;margin-top:2px}
 .tdesc{font-size:12.5px;color:var(--ink);line-height:1.4}
 .tcount{font-size:11.5px;color:var(--muted);margin-top:4px}
 .tcount b{color:var(--teal)}
@@ -137,7 +137,7 @@
 .wizn{color:var(--muted);font-size:13px;margin-right:auto}
 .wizfoot .btn[disabled]{opacity:.5}
 .wizgroup{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 12px 8px;margin-bottom:10px}
-.wizg{display:flex;justify-content:space-between;align-items:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;padding:6px 0}
+.wizg{display:flex;justify-content:space-between;align-items:center;font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;padding:6px 0}
 .pick{display:flex;gap:10px;align-items:flex-start;padding:9px 6px;border-top:1px solid #EEF2F5;cursor:pointer}
 .pick input{margin-top:3px;width:18px;height:18px}
 .pick.on{background:#F1F8F9}
@@ -154,7 +154,7 @@
 .drawer .headline{font-size:16px;line-height:1.4;color:var(--ink);margin:4px 0 2px;font-weight:500}
 .drawer .dhead .sub{font-size:12px;color:var(--muted)}
 .drawer .plain.lead{font-size:14.5px;line-height:1.5;margin:0 0 8px;font-weight:500}
-.pv-rail.plain .sl{font-family:'Inter';font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
+.pv-rail.plain .sl{font-family:'Lato',sans-serif;font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
 .browsefold{margin:0 0 12px}
 .browsefold summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--teal);padding:8px 0;list-style:none}
 .browsefold summary::before{content:"▸ "}
@@ -245,7 +245,7 @@
 .legfind{position:relative;margin:0 0 16px}
 .legfind input{width:100%;padding:12px 14px;font-size:15px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .legsug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(12,34,51,.14);overflow:hidden}
-.legsug button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #EEF2F5;padding:10px 14px;font:500 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
+.legsug button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #EEF2F5;padding:10px 14px;font:500 14px 'Lato',sans-serif;color:var(--ink);cursor:pointer}
 .legsug button:last-child{border-bottom:none}
 .legsug button:hover{background:#F2F6F8}
 .legsug .sk{width:20px;text-align:center}
@@ -254,7 +254,7 @@
 .legcard{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
 .legcard.big{padding:18px;margin-bottom:12px}
 .lphoto{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none;background:#E3EBEF}
-.lphoto.none{display:inline-flex;align-items:center;justify-content:center;font:700 20px 'Inter',sans-serif;color:#5B7180}
+.lphoto.none{display:inline-flex;align-items:center;justify-content:center;font:700 20px 'Lato',sans-serif;color:#5B7180}
 .lphoto.big{width:92px;height:92px;border-radius:16px}
 .lphoto.sm{width:36px;height:36px;border-radius:9px}
 .legcard .lm{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
@@ -267,7 +267,7 @@
 .mailbox{background:#F7FAFB;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;width:100%}
 .mbrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
 .mbrow code{background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:12.5px}
-.mbdraft{width:100%;font:13px/1.5 'Inter',sans-serif;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;color:var(--ink)}
+.mbdraft{width:100%;font:13px/1.5 'Lato',sans-serif;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;color:var(--ink)}
 .legresult{margin-bottom:18px}
 .wdstop{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:#fff}
 .wdstop.pws-current{border-color:var(--teal)}
@@ -286,3 +286,60 @@
 .profile .consent{gap:8px}
 .profile .consent input{width:18px;height:18px}
 @media (max-width:640px){.profile label.row{flex-direction:column;align-items:stretch;gap:4px}.profile label.row>span:first-child{min-width:0 !important}.profile #pf-dist{margin-left:0 !important}}
+
+/* ---- Progress and celebration (9/18). Motion only after a real action, short, and none at all when the
+   device asks to reduce motion. Warm Hawaiʻi colours: hibiscus red, plumeria yellow. ---- */
+.toastmsg.yay{display:flex;align-items:center;gap:8px;background:#fff;color:var(--ink);border:1px solid #CFE3D6;box-shadow:0 8px 24px rgba(12,34,51,.14)}
+.toastmsg.yay svg{flex:none}
+.toastmsg.yay .ck{stroke-dasharray:16;stroke-dashoffset:16;animation:ckdraw .3s ease-out .08s forwards}
+@keyframes ckdraw{to{stroke-dashoffset:0}}
+.acard.justdone{animation:settle .3s ease-out}
+@keyframes settle{from{transform:scale(.98);box-shadow:0 0 0 3px #CFE3D6}to{transform:none;box-shadow:none}}
+.burst{position:fixed;left:50%;top:42%;width:0;height:0;pointer-events:none;z-index:90}
+.burst .fl{position:absolute;left:-12px;top:-12px;opacity:0;animation:fly .72s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes fly{0%{opacity:0;transform:translate(0,0) scale(.3) rotate(0)}18%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(var(--r))}}
+.proof{display:inline-flex;align-items:center;gap:6px}
+.sentq{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink);padding:2px 0}
+
+/* Your session */
+.panel.yours .ph>span:first-child{display:inline-flex;align-items:center;gap:8px}
+.ybody{padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.ystats{font-size:14px}
+.ystats b{font-size:16px}
+.weeks{display:flex;flex-wrap:wrap;gap:6px}
+.weeks i{width:14px;height:14px;border-radius:50%;background:#E3EBEF;display:block}
+.weeks i.on{background:#E8505B}
+.weeks i.ahead{background:#F1F5F7;box-shadow:inset 0 0 0 1px #E3EBEF}
+.weeks i.now{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--teal)}
+.wkcap{font-size:12.5px;color:var(--muted);margin-top:-4px}
+.miles{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mile{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;background:#FFF1F2;color:#8E2A36;border-radius:999px;padding:4px 10px 4px 6px}
+.milenext{font-size:12.5px;color:var(--muted)}
+.sech{font:600 14px 'Poppins',sans-serif;color:var(--ink);margin-top:4px}
+.imps{display:flex;flex-direction:column;gap:8px}
+.imp{display:flex;gap:10px;align-items:flex-start;cursor:pointer;padding:8px 10px;border-radius:10px;background:#F7F9FA}
+.imp:hover{background:#EEF3F6}
+.impdot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:#9DB0BA}
+.imp-up .impdot{background:#2E7D4F}.imp-law .impdot{background:#E8505B}.imp-stop .impdot{background:#9DB0BA}.imp-wait .impdot{background:#F4B942}
+.impdid{font-size:12.5px;color:var(--muted)}
+.impres{font-size:14px;line-height:1.45;margin-top:2px}
+.imp-law .impres{font-weight:700}
+.commbar,.commline{border-top:1px solid #EEF2F5;padding-top:12px;font-size:13.5px}
+.commline{display:flex;gap:8px;align-items:flex-start}
+.commline svg,.cbtext svg{flex:none;margin-top:2px}
+.cbtext{display:flex;gap:8px;align-items:flex-start}
+.cbtrack{height:8px;border-radius:4px;background:#F1E4E6;margin:8px 0 4px;overflow:hidden}
+.cbtrack i{display:block;height:100%;width:var(--pct);border-radius:4px;background:linear-gradient(90deg,#F28CA0,#E8505B)}
+.commbar.grow .cbtrack i{animation:cbfill .6s ease-out .2s both}
+@keyframes cbfill{from{width:var(--from)}to{width:var(--pct)}}
+.cbnext{font-size:12.5px;color:var(--muted)}
+.recapline{font-size:15px;line-height:1.5;margin:0}
+.nextopen{margin:0;font-size:14px;background:#FFF8E6;border-radius:10px;padding:10px 12px}
+.nudge.inpanel{margin:0}
+
+@media (prefers-reduced-motion: reduce){
+  .burst{display:none}
+  .toastmsg.yay .ck{animation:none;stroke-dashoffset:0}
+  .acard.justdone,.commbar.grow .cbtrack i{animation:none}
+  .btn.livebtn::before{animation:none}
+}

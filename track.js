@@ -119,18 +119,45 @@ const DONE_KEY = DEMO ? 'hiphi_done_demo' : 'hiphi_done';
 function localDone() { try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); } catch { return new Set(); } }
 function saveDone() { try { localStorage.setItem(DONE_KEY, JSON.stringify([...S.done])); } catch { /* ignore */ } }
 const doneKey = (billId, hearingId, kind) => `${billId}|${hearingId || ''}|${kind}`;
+// When each mark was made (for the session weeks and the recap), in this browser; the account has created_at.
+const DONE_AT_KEY = DEMO ? 'hiphi_done_at_demo' : 'hiphi_done_at';
+function localDoneAt() { try { return JSON.parse(localStorage.getItem(DONE_AT_KEY) || '{}') || {}; } catch { return {}; } }
+function saveDoneAt() { try { localStorage.setItem(DONE_AT_KEY, JSON.stringify(S.doneAt || {})); } catch { /* ignore */ } }
+const KINDS = ['testimony', 'email', 'attend', 'share'];
 async function loadActions(ids) {
-  S.done = localDone();
-  if (DEMO) { for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; } return; }
+  S.done = localDone(); S.doneAt = localDoneAt();
+  if (DEMO) { seedDemoActions();
+    for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; }
+    // sandbox community numbers, so the panel has something to show
+    S.voices = Object.fromEntries(D.hearings.map(h => [h.id, [...h.id].reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7) % 50]).filter(([, n]) => n >= 10));
+    S.totals = { 2026: { session_year: 2026, people: 214, actions: 486, testimonies: 301, bills: 41 } }; return; }
   if (S.session && S.user) {
-    const { data } = await S.supa.from('public_actions').select('bill_id,hearing_id,kind');
-    (data || []).forEach(a => S.done.add(doneKey(a.bill_id, a.hearing_id, a.kind)));
+    const { data } = await S.supa.from('public_actions').select('bill_id,hearing_id,kind,created_at');
+    const server = new Set();
+    (data || []).forEach(a => { const k = doneKey(a.bill_id, a.hearing_id, a.kind); server.add(k); S.doneAt[k] = a.created_at; });
+    // Marks made on this device before signing in join the account, so they count in the totals and follow the person.
+    const up = [...S.done].filter(k => !server.has(k)).map(k => { const [bill_id, hearing_id, kind] = k.split('|');
+      return { user_id: S.session.user.id, bill_id, hearing_id: hearing_id || null, kind, ...(S.doneAt[k] ? { created_at: S.doneAt[k] } : {}) }; }).filter(r => KINDS.includes(r.kind));
+    if (up.length) { const r = await S.supa.from('public_actions').upsert(up, { onConflict: 'user_id,bill_id,hearing_id,kind', ignoreDuplicates: true });
+      if (r.error) for (const row of up) await S.supa.from('public_actions').upsert(row, { onConflict: 'user_id,bill_id,hearing_id,kind', ignoreDuplicates: true }); }
+    server.forEach(k => S.done.add(k)); saveDone(); saveDoneAt();
   }
-  if (ids.length) { const { data } = await S.supa.from('public_action_counts').select('*').in('bill_id', ids); (data || []).forEach(r => { S.actionCounts[r.bill_id] = r; }); }
+  const hids = [...new Set([...S.hearings, ...((S.featured || {}).hearings || [])].map(h => h.id))];
+  const [c, v, t] = await Promise.all([
+    ids.length ? S.supa.from('public_action_counts').select('*').in('bill_id', ids) : null,
+    hids.length ? S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', hids.slice(0, 300)) : null,
+    S.supa.from('public_session_totals').select('*')]);
+  (c?.data || []).forEach(r => { S.actionCounts[r.bill_id] = r; });
+  S.voices = Object.fromEntries((v?.data || []).map(r => [r.hearing_id, r.people]));
+  S.totals = Object.fromEntries((t?.data || []).map(r => [r.session_year, r]));
 }
 async function markDone(billId, hearingId, kind, on = true) {
   const k = doneKey(billId, hearingId, kind);
-  if (on) S.done.add(k); else S.done.delete(k); saveDone();
+  const firstTestimony = on && kind === 'testimony' && ![...S.done].some(x => x.endsWith('|testimony'));   // across devices once signed in
+  if (on) { S.done.add(k); S.doneAt[k] = new Date().toISOString(); S.justDone = billId + '|' + (hearingId || ''); setTimeout(() => { S.justDone = null; }, 1200); }
+  else { S.done.delete(k); delete S.doneAt[k]; }
+  saveDone(); saveDoneAt();
+  if (on) { celebrate(kind, firstTestimony); if (!S.session) nudge('action'); }
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
   const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
   if (!DEMO && S.session && S.user) {
@@ -198,7 +225,7 @@ async function followList(slug, on) {
   if (on) { rows.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
   l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
   await loadBills();
-  if (on && !S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+  if (on) nudge('follow');
   render();
   toast(on ? `Following ${rows.length} bill${rows.length === 1 ? '' : 's'} on “${l.title}” — new ones HIPHI adds will follow too` : `You no longer follow “${l.title}”; the bills stay in Your bills`);
 }
@@ -480,7 +507,7 @@ async function toggleWatch(id) {
   // Signed in, first bill followed, no districts yet: ask for a home address once (it is the field HIPHI needs most).
   if (!on && S.user && !DEMO && S.watch.size >= 1 && !(S.profile || {}).senate_district && !onb().addrAsked) { S.addrCard = true; onbSet({ addrAsked: true }); }
   // Sign-in nudge after the first and third Watch, never a modal, never before a Watch.
-  if (!on && !S.session && S.watch.size && [1, 3].includes(S.watch.size) && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+  if (!on && S.watch.size && [1, 3].includes(S.watch.size)) nudge('follow');
   render();
 }
 async function search(q) {
@@ -667,11 +694,13 @@ function actionCard(b, h) {
   const now = Date.now(), due = h.testimony_deadline, duePast = due && new Date(due) < now, dueSoon = due && !duePast && new Date(due) - now < 48 * 3600e3;
   const did = k => S.done.has(doneKey(b.id, h.id, k));
   const ch = chairsOf(h.committee), m = ch ? { email: ch.emails } : null;
-  const cnt = S.actionCounts[b.id] || {};
-  const proof = cnt.testimonies ? `<span class="proof">${cnt.testimonies} ${cnt.testimonies === 1 ? 'person has' : 'people have'} submitted testimony through HIPHI</span>` : '';
+  // group numbers only from 10 (the views return nothing smaller): this hearing first, else the bill
+  const cnt = S.actionCounts[b.id] || {}, voices = (S.voices || {})[h.id] || 0;
+  const proof = voices >= 10 ? `<span class="proof">${flowerSVG('#E8505B', 14)} ${voices} people have acted on this hearing through HIPHI</span>`
+    : cnt.testimonies >= 10 ? `<span class="proof">${flowerSVG('#E8505B', 14)} ${cnt.testimonies} people have submitted testimony on this bill through HIPHI</span>` : '';
   const mail = m ? `mailto:${m.email}?subject=${encodeURIComponent(`${b.bill_number} — please ${POS_VERB[b.hiphi_position] || 'consider'} (hearing ${fmtDT(h.scheduled_at)})`)}&body=${encodeURIComponent(`Dear ${ch.dear},\n\nI am writing in ${POS_WORD[b.hiphi_position] || 'regard'} of ${b.bill_number}, ${titleCase(b.title)}.\n\n${b.hiphi_action || b.hiphi_summary || ''}\n\n[Add a sentence about why this matters to you.]\n\nMahalo,\n`)}` : null;
   const doneAll = did('testimony');
-  return `<div class="acard ${posCls(b)} ${doneAll ? 'done' : ''}" data-acard="${b.id}">
+  return `<div class="acard ${posCls(b)} ${doneAll ? 'done' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-acard="${b.id}">
     <div class="ahead"><span class="apos">HIPHI ${esc(POS[b.hiphi_position] || '')}</span><b data-open="${b.id}">${esc(billNum(b))}</b> <span class="atitle">${esc(titleCase(b.title))}</span></div>
     <div class="aask">${esc(b.hiphi_action || blurb(b, 140))}</div>
     <div class="awhen">${esc(h.committee)} hearing ${fmtDT(h.scheduled_at)} · ${esc(clean(h.room))}${due ? ` · <span class="${dueSoon ? 'hot' : ''}">testimony ${duePast ? 'deadline passed' : 'due ' + inWhen(due)}</span>` : ''}</div>
@@ -679,7 +708,8 @@ function actionCard(b, h) {
       ${doneAll ? `<span class="adone">✓ You submitted testimony</span><button class="linkbtn" data-undo="${b.id}|${h.id}|testimony">undo</button>` : `<button class="btn" data-helper="${h.id}" ${duePast ? 'title="The written deadline has passed; late testimony is still posted"' : ''}>Submit testimony</button>`}
       ${mail ? `<a class="btn sm ghost" href="${mail}" data-did="${b.id}|${h.id}|email">${did('email') ? `✓ Emailed the chair${ch.n > 1 ? 's' : ''}` : `Email the chair${ch.n > 1 ? 's' : ''}`}</a>` : ''}
       ${calLinks(b, h)}
-      <button class="btn sm ghost" data-share="${esc(b.bill_number)}">${did('share') ? '✓ Shared' : 'Share'}</button>
+      <button class="btn sm ghost" data-attendq="${b.id}|${h.id}" aria-pressed="${did('attend')}">${did('attend') ? '✓ You’re going' : 'I’ll go in person'}</button>
+      <button class="btn sm ghost" data-share="${esc(b.bill_number)}" data-sharekey="${b.id}|${h.id}">${did('share') ? '✓ Shared' : 'Share'}</button>
     </div>
     ${proof}
   </div>`;
@@ -694,6 +724,168 @@ function doNowHTML(bills, hearings, title, waiting = 0) {
     ${done.length ? `<details class="adonefold"><summary>${done.length} done this week</summary>${done.map(x => actionCard(x.b, x.h)).join('')}</details>` : ''}
   </div>`;
 }
+// ---------------- progress: what you did, what it led to, the community ----------------
+// Nate, 9/18: a game-like page that stays positive. Best practice for civic tools: show what an action led to,
+// show the group's progress, never rank people, never guilt. So: no points, no leaderboard, no daily streak (the
+// legislature meets January to May, in bursts); every kind of action counts (testimony, a sent email, going to a
+// hearing, sharing); group totals appear only from 10 people; a small Hawaiʻi-flavoured celebration for real acts
+// only, and none at all for people who ask their device to reduce motion; between sessions, a recap.
+// No account is needed. Signing in is what makes an action count in the community totals.
+const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const MAHALO = { testimony: 'Mahalo for testifying! Your voice is on the record.', email: 'Mahalo! The chair hears from you.',
+  attend: 'Mahalo for showing up. See you at the Capitol.', share: 'Mahalo for spreading the word.' };
+function yay(msg) {
+  const el = document.createElement('div'); el.className = 'toastmsg yay'; el.setAttribute('role', 'status');
+  el.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="#2E7D4F"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${esc(msg)}</span>`;
+  $('#toast').appendChild(el); setTimeout(() => el.remove(), 4600);
+}
+// five-petal hibiscus, in the page's warm colours
+const flowerSVG = (c, n = 24) => `<svg viewBox="-12 -12 24 24" width="${n}" height="${n}" aria-hidden="true"><g fill="${c}">${[0, 72, 144, 216, 288].map(r => `<ellipse cx="0" cy="-5.6" rx="4.1" ry="5.6" transform="rotate(${r})"/>`).join('')}</g><circle r="2.2" fill="#F9D56E"/></svg>`;
+// The one bigger moment: someone's first testimony ever. Twelve hibiscus drift out and fade in about 0.7 s, once.
+function hibiscus() {
+  if (reduceMotion()) return;
+  const C = ['#E8505B', '#F28CA0', '#F4B942', '#E8505B', '#D9465F', '#F28CA0'];
+  const box = document.createElement('div'); box.className = 'burst'; box.setAttribute('aria-hidden', 'true');
+  box.innerHTML = [...Array(12)].map((_, i) => { const a = i / 12 * Math.PI * 2 + (i % 2) * 0.22, d = 80 + (i % 3) * 36;
+    return `<span class="fl" style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d)}px;--r:${(i % 2 ? 1 : -1) * (80 + i * 14)}deg;animation-delay:${(i % 4) * 35}ms">${flowerSVG(C[i % C.length])}</span>`; }).join('');
+  document.body.appendChild(box); setTimeout(() => box.remove(), 1200);
+}
+function celebrate(kind, firstTestimony) {
+  if (firstTestimony) { hibiscus(); yay('Your first testimony! Imua: this is how laws get made in Hawaiʻi. Mahalo nui loa.'); return; }
+  yay(MAHALO[kind] || 'Mahalo!');
+}
+
+// ---- asking for an email, gently (research 9/18: ask after something worthwhile is done, name the benefit,
+// inline and never a pop-up, one ask per visit, and after "Not now" wait 14 days, then 60) ----
+function nudgeOk() {
+  if (S.session || S.nudgedThisVisit) return false;
+  const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
+  return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
+}
+function nudge(kind) { if (nudgeOk()) { S.nudge = kind; S.nudgedThisVisit = true; } }
+
+// ---- the session calendar: opens the third Wednesday of January, ends at sine die ----
+const thirdWed = y => { const dow = new Date(Date.UTC(y, 0, 1)).getUTCDay(); return `${y}-01-${String(1 + ((3 - dow + 7) % 7) + 14).padStart(2, '0')}`; };
+const hiT = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').getTime();
+function sessionInfo() {
+  const sd = S.deadlines.find(d => d.key === 'sine_die') || S.deadlines[S.deadlines.length - 1];
+  const yr = sd ? +String(sd.deadline_date).slice(0, 4) : new Date().getFullYear(), end = sd ? String(sd.deadline_date).slice(0, 10) : `${yr}-05-08`, open = thirdWed(yr);
+  let phase = Date.now() < hiT(open) ? 'before' : Date.now() <= hiT(end) + 864e5 ? 'in' : 'after';
+  if (DEMO && new URLSearchParams(location.search).get('season') === 'off') phase = 'after';   // sandbox preview of the recap
+  return { yr, open, end, phase, recapYear: phase === 'before' ? yr - 1 : yr, nextOpen: phase === 'in' ? null : thirdWed(phase === 'before' ? yr : yr + 1) };
+}
+function myActions() {
+  return [...S.done].map(k => { const [bill_id, hearing_id, kind] = k.split('|'), at = (S.doneAt || {})[k] || null;
+    return { k, bill_id, hearing_id: hearing_id || null, kind, at, year: at ? +hstDay(at).slice(0, 4) : null }; }).filter(a => KINDS.includes(a.kind));
+}
+const anyBill = id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null);
+const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat(), ...(DEMO ? D.hearings : [])].find(h => h.id === id) || null) : null;
+const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
+
+// Milestones mark real acts, are shown only to the person, and never expire.
+const MILESTONES = [
+  ['first', 'First step', 'your first action on a bill', a => a.length >= 1],
+  ['testimony', 'First testimony', 'testimony to a committee', a => a.some(x => x.kind === 'testimony')],
+  ['share', 'Spread the word', 'share a bill with someone', a => a.some(x => x.kind === 'share')],
+  ['attend', 'Showed up', 'go to a hearing in person', a => a.some(x => x.kind === 'attend')],
+  ['three', 'Three hearings', 'act on three different hearings', a => new Set(a.filter(x => x.hearing_id).map(x => x.hearing_id)).size >= 3],
+  ['ten', 'Ten actions', 'ten actions in all', a => a.length >= 10],
+  ['both', 'Both chambers', 'act on one bill in the House and in the Senate', a => { const m = {};
+    for (const x of a) { const h = anyHearing(x.hearing_id), ch = h && S.committees[codesOf(h.committee)[0]]?.chamber; if (ch) (m[x.bill_id] ??= new Set()).add(ch); }
+    return Object.values(m).some(v => v.size > 1); }],
+  ['law', 'Made it law', 'a bill you acted on becomes law', a => a.some(x => anyBill(x.bill_id)?.stage === 'enacted')],
+];
+function milestonesHTML(acts) {
+  const got = MILESTONES.filter(m => m[3](acts)), next = MILESTONES.find(m => m[0] !== 'law' && !m[3](acts));
+  if (!got.length) return '';
+  return `<div class="miles">${got.map(([, t, d]) => `<span class="mile" title="${esc(d)}">${flowerSVG('#E8505B', 16)}${esc(t)}</span>`).join('')}${next ? `<span class="milenext">Next: <b>${esc(next[1])}</b>, ${esc(next[2])}</span>` : ''}</div>`;
+}
+// One dot per week of the session, filled when you acted that week. Empty weeks just stay empty: nothing
+// resets and nothing warns, because hearings come in bursts and nobody owes the legislature a streak.
+function weeksHTML(si, acts) {
+  const mon = t => { const d = hstDay(t), dow = new Date(d + 'T12:00:00-10:00').getUTCDay(); return hiT(d) - ((dow + 6) % 7) * 864e5; };
+  const out = [], now = Date.now(); let n = 0, past = 0;
+  for (let w = mon(hiT(si.open)); w <= hiT(si.end); w += 7 * 864e5) {
+    const acted = acts.some(a => a.at && new Date(a.at).getTime() >= w - 12 * 36e5 && new Date(a.at).getTime() < w + 7 * 864e5 - 12 * 36e5), cur = now >= w - 12 * 36e5 && now < w + 7 * 864e5 - 12 * 36e5;
+    if (acted) n++; if (w <= now) past++;
+    out.push(`<i class="${acted ? 'on' : ''}${cur ? ' now' : ''}${w > now ? ' ahead' : ''}" title="Week of ${fmtDate(new Date(w).toISOString(), { month: 'short' })}${acted ? ': you took action' : ''}"></i>`);
+  }
+  return `<div class="weeks" role="img" aria-label="You took action in ${n} week${n === 1 ? '' : 's'} of the session so far">${out.join('')}</div>
+    <div class="wkcap">Each dot is a week of the ${si.yr} session. Filled: a week you took action. ${n ? `${n} so far.` : ''}</div>`;
+}
+// "You testified on HB 123 → the Health committee passed it": the result is the reward.
+function impactRows(acts, limit = 5) {
+  const by = new Map();
+  for (const a of acts) { const key = a.bill_id + '|' + (a.hearing_id || ''), x = by.get(key) || { bill_id: a.bill_id, hearing_id: a.hearing_id, kinds: [], at: '' };
+    if (!x.kinds.includes(a.kind)) x.kinds.push(a.kind); if ((a.at || '') > x.at) x.at = a.at || ''; by.set(key, x); }
+  const WORD = { testimony: 'testified', email: 'emailed the chair', attend: 'went in person', share: 'shared it' };
+  return [...by.values()].sort((x, y) => y.at.localeCompare(x.at)).map(x => {
+    const b = anyBill(x.bill_id); if (!b) return null;
+    const h = anyHearing(x.hearing_id), o = h && outcomeOf(h), past = h && new Date(h.scheduled_at) < Date.now(), who = h ? cmteName(h.committee) : '';
+    const [tone, text] = b.stage === 'enacted' ? ['law', 'Became law. Mahalo for your part in it.']
+      : b.stage === 'vetoed' ? ['stop', 'Vetoed by the Governor.']
+      : o && /passed/.test(o.outcome || '') ? ['up', `${who} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`]
+      : o && o.outcome === 'deferred' ? ['stop', `${who} deferred it. Your testimony stays on the record for next time.`]
+      : h && !past ? ['wait', `${who} hears it ${fmtDT(h.scheduled_at)}.`]
+      : h ? ['wait', `Heard ${fmtDate(h.scheduled_at, { month: 'short' })}; waiting for the committee’s decision.`]
+      : !alive(b) ? ['stop', 'Did not advance this session.'] : ['wait', STAGE_PLAIN[b.stage] ? STAGE_PLAIN[b.stage] + '.' : ''];
+    return `<div class="imp imp-${tone}" data-open="${b.id}"><span class="impdot" aria-hidden="true"></span><div><b>${esc(billNum(b))}</b> <span class="impdid">You ${x.kinds.map(k => WORD[k]).join(', ')}</span><div class="impres">${esc(text)}</div></div></div>`;
+  }).filter(Boolean).slice(0, limit).join('');
+}
+// The community, this session: only from 10 people (the view hides smaller totals). The bar fills toward the
+// next round number; passing one since this device last looked gets a line of thanks, once.
+const RUNGS = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000];
+const COMM_KEY = DEMO ? 'hiphi_comm_rung_demo' : 'hiphi_comm_rung';
+function communityHTML(yr, recap) {
+  const t = (S.totals || {})[yr]; if (!t) return '';
+  if (recap) return `<div class="commline">${flowerSVG('#E8505B', 16)} <span>Together, <b>${t.people.toLocaleString()}</b> people took <b>${t.actions.toLocaleString()}</b> actions on <b>${t.bills}</b> bills through HIPHI in ${yr}.</span></div>`;
+  const next = RUNGS.find(r => r > t.actions) || t.actions, prev = [...RUNGS].reverse().find(r => r <= t.actions) || 0;
+  let seen = 0; try { seen = +localStorage.getItem(COMM_KEY) || 0; localStorage.setItem(COMM_KEY, String(prev)); } catch { /* ignore */ }
+  const crossed = seen > 0 && prev > seen;
+  if (crossed) setTimeout(() => yay(`Our community just passed ${prev.toLocaleString()} actions this session. Imua!`), 500);
+  const pct = Math.max(2, Math.min(100, Math.round(t.actions / next * 100))), from = crossed ? Math.round(seen / next * 100) : pct;
+  return `<div class="commbar${crossed ? ' grow' : ''}" style="--pct:${pct}%;--from:${from}%">
+    <div class="cbtext">${flowerSVG('#E8505B', 16)} <span><b>HIPHI community, ${yr} session:</b> ${t.actions.toLocaleString()} actions by ${t.people.toLocaleString()} people on ${t.bills} bills</span></div>
+    <div class="cbtrack" role="img" aria-label="${t.actions} actions toward ${next}"><i></i></div>
+    <div class="cbnext">Next milestone: ${next.toLocaleString()} actions${S.session ? '' : ' · your actions join the count when you add your email'}</div></div>`;
+}
+function sessionPanelHTML() {
+  const si = sessionInfo(), acts = myActions();
+  const whereSaved = S.session ? 'saved to your account' : 'saved on this device';
+  if (si.phase === 'in') {
+    const mine = acts.filter(a => !a.year || a.year === si.yr);
+    if (!mine.length && !(S.totals || {})[si.yr]) return '';
+    const bills = new Set(mine.map(a => a.bill_id)).size, hs = new Set(mine.filter(a => a.hearing_id).map(a => a.hearing_id)).size, imp = impactRows(mine);
+    return `<div class="panel yours" id="pf-yours"><div class="ph"><span>${flowerSVG('#E8505B', 18)} Your ${si.yr} session</span><span class="psub">${whereSaved}</span></div><div class="ybody">
+      ${mine.length ? `<div class="ystats"><b>${mine.length}</b> action${mine.length === 1 ? '' : 's'} on <b>${bills}</b> bill${bills === 1 ? '' : 's'}${hs ? ` · <b>${hs}</b> hearing${hs === 1 ? '' : 's'}` : ''}</div>${weeksHTML(si, mine)}${milestonesHTML(acts)}` : '<p class="tok">Your first action shows up here, with what happened after it.</p>'}
+      ${S.nudge === 'action' ? nudgeHTML(true) : ''}
+      ${imp ? `<div class="sech">What happened after you acted</div><div class="imps">${imp}</div>` : ''}
+      ${communityHTML(si.yr)}
+      ${DEMO && S.demoSeeded ? '<p class="tok">Sandbox: three sample actions are filled in so this panel has something to show.</p>' : ''}
+    </div></div>`;
+  }
+  // Between sessions: the recap, then the date it all starts again.
+  const yr = si.recapYear, mine = acts.filter(a => a.year === yr || (!a.year && anyBill(a.bill_id)?.session_year === yr));
+  const opens = si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : '';
+  const bills = [...new Set(mine.map(a => a.bill_id))].map(anyBill).filter(Boolean);
+  const law = bills.filter(b => b.stage === 'enacted').length, moved = bills.filter(b => !['introduced', 'first_triple', 'first_lateral', 'dead'].includes(b.stage)).length;
+  if (!mine.length && !(S.totals || {})[yr]) return opens ? `<div class="panel yours recap" id="pf-yours"><div class="ph"><span>${flowerSVG('#E8505B', 18)} Between sessions</span></div><div class="ybody"><p class="tok">The ${yr + 1} session opens <b>${esc(opens)}</b>. Follow bills now and your first five-minute action will be ready when hearings start.</p></div></div>` : '';
+  return `<div class="panel yours recap" id="pf-yours"><div class="ph"><span>${flowerSVG('#E8505B', 18)} Your ${yr} session, looking back</span><span class="psub">${whereSaved}</span></div><div class="ybody">
+    ${mine.length ? `<p class="recapline">You took <b>${mine.length}</b> action${mine.length === 1 ? '' : 's'} on <b>${bills.length}</b> bill${bills.length === 1 ? '' : 's'}.${moved ? ` <b>${moved}</b> of them moved forward${law ? `, and <b>${law}</b> became law` : ''}.` : ''} Mahalo for speaking up.</p>${milestonesHTML(acts)}<div class="sech">What happened</div><div class="imps">${impactRows(mine, 8)}</div>` : ''}
+    ${communityHTML(yr, true)}
+    ${opens ? `<p class="nextopen">The ${yr + 1} session opens <b>${esc(opens)}</b>. Imua! Your bills and lists will be ready.</p>` : ''}
+    ${S.nudge === 'action' ? nudgeHTML(true) : ''}
+  </div></div>`;
+}
+// Sandbox: three real March hearings the committee passed, marked as if you had acted, so the panel shows.
+function seedDemoActions() {
+  try { if (S.done.size || localStorage.getItem('hiphi_demo_seeded')) { S.demoSeeded = localStorage.getItem('hiphi_demo_seeded') === '1' && S.done.size > 0; return; } } catch { return; }
+  const now = Date.now(), hs = D.hearings.filter(h => new Date(h.scheduled_at) < now && new Date(h.scheduled_at) > now - 20 * 864e5 && D.outcomes.some(o => o.hearing_id === h.id && /passed/.test(o.outcome || '')))
+    .filter(h => D.bills.some(b => b.id === h.bill_id && b.hiphi_position && b.hiphi_position !== 'monitor')).slice(-3);
+  hs.forEach((h, i) => { const k = doneKey(h.bill_id, h.id, i === 1 ? 'email' : 'testimony'); S.done.add(k); S.doneAt[k] = new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(); });
+  if (hs.length) { saveDone(); saveDoneAt(); S.demoSeeded = true; try { localStorage.setItem('hiphi_demo_seeded', '1'); } catch { /* ignore */ } }
+}
+
 // ---------------- the testimony helper ----------------
 function helperHTML() {
   const { b, h } = S.helper; let me = {}; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); } catch { /* ignore */ }
@@ -763,7 +955,7 @@ function wireHelper() {
   ['#h-name', '#h-town', '#h-why', '#h-speak'].forEach(id => { $(id).oninput = () => { S.helper.copied = false; regen(); }; $(id).onchange = () => { S.helper.copied = false; regen(); }; });
   $('#h-text').oninput = () => { S.helper.copied = false; refreshDl(); }; refreshDl();
   $('#h-copy').onclick = async () => { if (!ready()) { $('#h-name').focus(); return; } try { await navigator.clipboard.writeText($('#h-text').value); S.helper.copied = true; showStep(); toast('Copied — now open the Capitol page and paste'); $('#h-capitol')?.focus(); } catch { $('#h-text').select(); toast('Select all and copy', true); } };
-  $('#h-did').onclick = async () => { await markDone(b.id, h.id, 'testimony'); toast('Marked done. Mahalo for testifying!'); close(); };
+  $('#h-did').onclick = async () => { close(); await markDone(b.id, h.id, 'testimony'); render(); };
 }
 // HIPHI's picks for a coalition: strongly supported/opposed first, then bills
 // with a position and a hearing coming up, then the rest with a position. Dead
@@ -820,11 +1012,15 @@ function stripHTML() {
   const steps = [['Pick your issues', 'one or more'], ['Follow bills', 'HIPHI’s picks, or your own'], ['Take action', 'testimony, or a note to a chair, in five minutes']];
   return `<div class="onbstrip">${steps.map(([t, h], i) => `<div class="onbstep ${done[i] ? 'done' : i === cur ? 'now' : ''}"><span class="onbn">${done[i] ? '✓' : i + 1}</span><span class="onbt">${t}<small>${h}</small></span></div>`).join('<span class="onbsep"></span>')}<button class="onbx" data-onbdismiss title="Hide">✕</button></div>`;
 }
-function nudgeHTML() {
-  if (!S.nudge || S.session) return '';
-  return `<div class="nudge"><div><b>Saved on this device.</b> Enter your email to keep your list on every device and get an email when one of your bills gets a hearing.</div>
+function nudgeHTML(inPanel) {
+  if (!S.nudge || S.session || (S.nudge === 'action') !== !!inPanel) return '';
+  const nb = S.watch.size, na = S.done.size;
+  const msg = S.nudge === 'action' ? '<b>Mahalo! That’s saved on this device only.</b> Add your email and your actions count toward the community total and follow you to any phone or computer.'
+    : S.nudge === 'back' ? `<b>Welcome back.</b> Your ${nb} bill${nb === 1 ? '' : 's'}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only. Add your email to keep them if you switch phones or clear your browser.`
+    : '<b>Saved on this device.</b> Enter your email to keep your list on every device and get an email when one of your bills gets a hearing.';
+  return `<div class="nudge${inPanel ? ' inpanel' : ''}"><div>${msg} <span class="tok">No password: we email you a link.</span></div>
     ${DEMO ? '<span class="tok">Sign-in is off in the sandbox.</span>' : `<form class="nudgeform" id="nudge-form"><input type="email" id="nudge-email" placeholder="you@example.com" autocomplete="email" required><button class="btn sm">Send me a link</button></form>`}
-    <button class="nudgex" data-nudgex>Later</button></div>`;
+    <button class="nudgex" data-nudgex>Not now</button></div>`;
 }
 function landing() {
   const now = Date.now();
@@ -933,7 +1129,8 @@ function home() {
   return `
     ${stripHTML()}${nudgeHTML()}
     <div class="pubhead"><h1>Your bills and actions</h1><span class="sub">${today} · ${strip}</span></div>
-    ${(open => `${open ? doNowHTML(S.bills, S.hearings, 'Do this now', waitingN) : ''}${recoHTML(!open)}${open ? '' : doNowHTML(S.bills, S.hearings, 'Do this now', waitingN)}`)(actionsList(S.bills, S.hearings).some(x => !S.done.has(doneKey(x.b.id, x.h.id, 'testimony'))))}
+    ${sessionInfo().phase !== 'in' ? sessionPanelHTML() : ''}
+    ${(open => `${open ? doNowHTML(S.bills, S.hearings, 'Do this now', waitingN) : ''}${sessionInfo().phase === 'in' ? sessionPanelHTML() : ''}${recoHTML(!open)}${open ? '' : doNowHTML(S.bills, S.hearings, 'Do this now', waitingN)}`)(actionsList(S.bills, S.hearings).some(x => !S.done.has(doneKey(x.b.id, x.h.id, 'testimony'))))}
     ${browse}
     ${dashPanels.length ? `<div class="dash${dashPanels.length === 1 ? ' one' : ''}">${dashPanels.map(p => `<div>${p}</div>`).join('')}</div>` : ''}
     ${(fold => fold ? `<details class="panel sec-cal foldp" id="pf-week"><summary class="ph"><span>◷ ${wkLabel}</span><span class="psub">no hearings on your bills this week · tap to page through weeks</span></summary>${calNav}${calHtml}</details>`
@@ -1106,17 +1303,23 @@ function wire() {
   document.querySelectorAll('[data-watchall]').forEach(el => el.onclick = async () => { const rows = (S.browse?.rows || []).filter(b => alive(b) && !S.watch.has(b.id)); el.disabled = true;
     for (const b of rows) { S.watch.add(b.id); } saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
-    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+    await loadBills(); S.browse = null; nudge('follow'); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-dismiss]').forEach(el => el.onclick = () => { dismiss(el.dataset.dismiss); render(); toast('Okay, not that one'); });
   $('[data-showhidden]') && ($('[data-showhidden]').onclick = () => { S.showHidden = !S.showHidden; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-unhide]').forEach(el => el.onclick = () => { const d = dismissed(); d.delete(el.dataset.unhide); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } const y = window.scrollY; render(); window.scrollTo(0, y); });
   $('[data-recomore]') && ($('[data-recomore]').onclick = () => { S.recoN = (S.recoN || 3) + 3; const y = window.scrollY; render(); window.scrollTo(0, y); });
   document.querySelectorAll('[data-helper]').forEach(el => el.onclick = () => { const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh).flat()].find(x => x.id === el.dataset.helper); const b = h && findBill(h.bill_id); if (b) { S.helper = { b, h }; render(); } });
-  document.querySelectorAll('[data-did]').forEach(el => el.addEventListener('click', () => { const [bid, hid, kind] = el.dataset.did.split('|'); setTimeout(() => markDone(bid, hid, kind).then(() => render()), 400); }));
+  // Opening a mail app is not sending: ask once the app has had a moment to open, and count only a yes.
+  document.querySelectorAll('[data-did]').forEach(el => el.addEventListener('click', () => { const [bid, hid, kind] = el.dataset.did.split('|'); if (S.done.has(doneKey(bid, hid, kind))) return;
+    setTimeout(() => { if (el.nextElementSibling?.classList.contains('sentq')) return;
+      el.insertAdjacentHTML('afterend', '<span class="sentq" role="group" aria-label="Did you send it?">Sent it? <button class="btn sm" data-sentyes>Yes, sent</button><button class="btn sm ghost" data-sentno>Not yet</button></span>');
+      const q = el.nextElementSibling; q.querySelector('[data-sentyes]').onclick = async () => { await markDone(bid, hid, kind); render(); }; q.querySelector('[data-sentno]').onclick = () => q.remove(); }, 700); }));
+  document.querySelectorAll('[data-attendq]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attendq.split('|'); await markDone(bid, hid, 'attend', !S.done.has(doneKey(bid, hid, 'attend'))); render(); });
   document.querySelectorAll('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|'); await markDone(bid, hid, kind, false); render(); });
   document.querySelectorAll('[data-share]').forEach(el => el.onclick = async () => { const num = el.dataset.share, url = `${location.origin}${location.pathname}#bill=${num}`; const b = S.bills.find(x => x.bill_number === num) || ((S.featured || {}).bills || []).find(x => x.bill_number === num) || ((S.pool || {}).bills || []).find(x => x.bill_number === num);
     const text = b ? `${num}: ${titleCase(b.title)} — HIPHI ${POS[b.hiphi_position] || 'is following it'}. Hearing coming up; testimony takes five minutes: ${url}` : url;
-    try { if (navigator.share) await navigator.share({ title: num, text, url }); else { await navigator.clipboard.writeText(text); toast('Copied a ready-to-post line'); } } catch { /* cancelled */ } });
+    let shared = false; try { if (navigator.share) { await navigator.share({ title: num, text, url }); shared = true; } else { await navigator.clipboard.writeText(text); toast('Copied a ready-to-post line'); shared = true; } } catch { /* cancelled */ }
+    if (shared && el.dataset.sharekey) { const [bid, hid] = el.dataset.sharekey.split('|'); if (!S.done.has(doneKey(bid, hid, 'share'))) { await markDone(bid, hid, 'share'); render(); } } });
   // guided start
   document.querySelectorAll('[data-wizissue]').forEach(el => el.onchange = () => { const w = wiz(); const set = new Set(w.issues || []); if (el.checked) set.add(el.dataset.wizissue); else set.delete(el.dataset.wizissue); wizSet({ issues: [...set] }); onbSet({ issues: set.size > 0 }); S.wizRows = null; render(); });
   $('[data-wiznext]') && ($('[data-wiznext]').onclick = () => { wizSet({ step: 2 }); S.wizRows = null; S.wizPick = []; render(); window.scrollTo(0, 0); });
@@ -1129,16 +1332,16 @@ function wire() {
   $('[data-wizdone]') && ($('[data-wizdone]').onclick = async () => { const ids = S.wizPick || []; if (!ids.length) return; $('[data-wizdone]').disabled = true;
     ids.forEach(id => S.watch.add(id)); saveLocal();
     if (S.user && !DEMO) { const r = await S.supa.from('watchlist').insert(ids.map(bill_id => ({ user_id: S.user.id, bill_id }))); if (r.error) toast(r.error.message, true); }
-    wizSet({ step: 1, done: true, skipped: true }); onbSet({ issues: true }); S.view = 'home'; await loadBills(); if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); }
+    wizSet({ step: 1, done: true, skipped: true }); onbSet({ issues: true }); S.view = 'home'; await loadBills(); nudge('follow');
     render(); window.scrollTo(0, 0); toast(`You’re following ${ids.length} bill${ids.length === 1 ? '' : 's'}`); });
   document.querySelectorAll('[data-watchpicks]').forEach(el => el.onclick = async () => { const { picks } = curate(S.browse?.rows || [], 8); const rows = picks.filter(b => !S.watch.has(b.id)); el.disabled = true; rows.forEach(b => S.watch.add(b.id)); saveLocal();
     if (S.user && !DEMO && rows.length) { const r = await S.supa.from('watchlist').insert(rows.map(b => ({ user_id: S.user.id, bill_id: b.id }))); if (r.error) toast(r.error.message, true); }
-    await loadBills(); S.browse = null; if (!S.session && (onb().nudges || 0) < 2) { S.nudge = true; onbSet({ nudges: (onb().nudges || 0) + 1 }); } render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
+    await loadBills(); S.browse = null; nudge('follow'); render(); toast(`Following ${rows.length} more bill${rows.length === 1 ? '' : 's'}`); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-onbdismiss]').forEach(el => el.onclick = () => { onbSet({ dismissed: true }); render(); });
-  document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { S.nudge = false; render(); });
+  document.querySelectorAll('[data-nudgex]').forEach(el => el.onclick = () => { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; render(); });
   $('#nudge-form') && ($('#nudge-form').onsubmit = async e => { e.preventDefault(); const email = $('#nudge-email').value.trim(); if (!email) return;
     const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (error) toast(error.message, true); else { toast('Check your email for the link'); S.nudge = false; render(); } });
+    if (error) toast(error.message, true); else { toast('Check your email on this device and open the link here, so your bills and actions come with you.'); S.nudge = false; render(); } });
   document.querySelectorAll('[data-explain]').forEach(el => el.onclick = e => { e.stopPropagation(); const old = document.querySelector('.expl'); const was = old && old.previousElementSibling === el; old?.remove(); if (was) return; const p = document.createElement('span'); p.className = 'expl'; p.textContent = el.dataset.explain; el.after(p); });
 
 
@@ -1219,8 +1422,14 @@ document.addEventListener('keydown', e => {
   }
   if (k === 'Enter' || k === 'o') { const r = document.querySelector('.kfocus[data-open]'); if (r) { e.preventDefault(); openBill(r.dataset.open); } }
 });
+// Back after a month with things saved only in this browser: the one moment their loss is a real risk.
+function welcomeBack() {
+  const o = onb(), last = o.lastVisit ? Date.parse(o.lastVisit) : 0;
+  if (last && Date.now() - last > 30 * 864e5 && (S.watch.size >= 3 || S.done.size)) nudge('back');
+  onbSet({ lastVisit: new Date().toISOString() });
+}
 async function boot() {
-  try { await loadUser(); await loadLists(); await loadBills(); render(); await openFromHash(); }
+  try { await loadUser(); await loadLists(); await loadBills(); welcomeBack(); render(); await openFromHash(); }
   catch (e) { $('#app').innerHTML = `<div class="boot">Something went wrong: ${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Retry</button></div>`; }
 }
 window.addEventListener('hashchange', openFromHash);
