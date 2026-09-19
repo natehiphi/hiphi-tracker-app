@@ -43,7 +43,7 @@ const STAGES = [
 const STAGE_LABEL = Object.fromEntries(STAGES);
 const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
   ['oppose','Oppose'],['monitor','Monitor'],['neutral','Comments (neutral)']];
-const POS_CLS = { strongly_support: 'c-green', support: 'c-green', support_amend: 'c-green', strongly_oppose: 'c-red', oppose: 'c-red', monitor: 'c-gray', neutral: 'c-gold' };
+const POS_CLS = { strongly_support: 'c-pos ps', support: 'c-pos ps', support_amend: 'c-pos ps', strongly_oppose: 'c-pos po', oppose: 'c-pos po', monitor: 'c-pos pm', neutral: 'c-pos pn' };
 const LOG_TYPES = [['testimony','Testimony'],['coalition','Coalition'],['meeting','Meeting'],
   ['action_alert','Action alert'],['note','Note']];
 const COLORS = ['#0E7C86','#5B7FBF','#B9713A','#7E5BA6','#3E8E63','#A65B7E'];
@@ -1071,12 +1071,11 @@ function statusChip(b) {
   const h = S.hearings.find(h => h.bill_id === b.id && new Date(h.scheduled_at) > new Date());
   if (h) {
     const urgent = h.testimony_deadline && new Date(h.testimony_deadline) - Date.now() < 48*3600e3;
-    return `<span class="chipx ${urgent?'c-red':'c-gold'}">◷ Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</span>`;
+    return `<span class="chipx c-hear">◷ Hearing ${fmtDT(h.scheduled_at)} · ${esc(h.committee)}</span>`;
   }
   const rk = riskOf(b);
   if (rk) return `<span class="chipx c-red" title="In committee with no hearing scheduled">⚠ At risk · needs ${esc(rk.committee || 'a')} hearing by ${fmtDate(rk.deadline.date)} (${rk.deadline.days}d)</span>`;
-  const cls = st==='enacted' ? 'c-green' : (st==='dead'||st==='vetoed') ? 'c-gray' :
-              st==='governor' ? 'c-navy' : 'c-teal';
+  const cls = st==='enacted' ? 'c-green' : 'c-gray';
   return `<span class="chipx ${cls}">${STAGE_LABEL[st]}</span>`;
 }
 function pulseCell(b) {
@@ -1509,10 +1508,9 @@ function renderPortfolio(list) {
     const past = h.testimony_deadline && new Date(h.testimony_deadline) < now;
     return `
     <div class="prow calrow ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
-      <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}<span class="calwho">${isNew(h) ? '<span class="tag n">NEW</span>' : ''}${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</span></span>
-      <div class="pmain"><div class="calhead"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span></div><div class="tagline">${draftChip(b)}${(att => att.length ? `<span class="attend">${att.map(a => av(a, 'avatar sm')).join('')}<span>attending</span></span>` : (ATTEND_ASKS && draftFor(b.id, h.committee) && new Date(h.scheduled_at) - now < 7 * 864e5) ? '<span class="tag n red">NO ONE ATTENDING</span>' : '')(attendees(h))}</div>
-        <div class="pdesc">${esc(blurb(b, 70))}</div>
-        <div class="psmall">${h.testimony_deadline ? (past ? 'testimony deadline passed' : `testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b>`) : ''}${hstDay(h.scheduled_at) === hstDay(now) ? ' ' + streamLink(h) : ''}</div></div>
+      <span class="caltime">${new Date(h.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}<span class="calwho">${owners(b)[0] ? av(owners(b)[0], 'avatar sm') : ''}</span></span>
+      <div class="pmain"><div class="calhead"><b>${esc(billNum(b))}</b> <span class="cm">${esc(h.committee)} · ${esc(clean(h.room))}</span></div>
+        <div class="calstatus">${draftChipBase(b)}${h.testimony_deadline ? (past ? '<span class="muted">testimony deadline passed</span>' : `<span>testimony due <b${dueSoon ? ' class="hot"' : ''}>${inWhen(h.testimony_deadline)}</b></span>`) : ''}</div></div>
     </div>`; };
   const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
   const railParts = iso => { const dt = new Date(iso + 'T12:00:00-10:00');
@@ -2659,8 +2657,8 @@ function parseTrackerCsv(text) {
 // your bills, grouped by bill, never counted, and they clear themselves after
 // a week. Anything can be marked read or unread; "Mark all read" clears the
 // pile you are looking at, never the other one.
-const INBOX_KINDS = [['message', '💬 Messages'], ['testimony', '📝 Testimony'], ['deadline', '⏰ Deadlines'], ['hearing', '🏛 Hearings'], ['status', '📈 Status'], ['system', '⚙️ System']];
-const INBOX_ICON = { message: '💬', testimony: '📝', hearing: '🏛', status: '📈', deadline: '⏰', system: '⚙️' };
+const INBOX_KINDS = [['message', 'Messages'], ['testimony', 'Testimony'], ['deadline', 'Deadlines'], ['hearing', 'Hearings'], ['status', 'Status'], ['system', 'System']];
+const INBOX_ICON = { message: '✉\ufe0e', testimony: '✎\ufe0e', hearing: '⚖\ufe0e', status: '↗\ufe0e', deadline: '◷\ufe0e', system: '⚙\ufe0e' };
 const unslack = t => String(t || '').replace(/<([^|>]+)\|([^>]+)>/g, '$2').replace(/<([^>]+)>/g, '$1').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
 const billById = id => S.bills.find(b => b.id === id);
 const inboxCount = () => (S.inbox || []).filter(i => i.direct && i.unread).length;
@@ -2730,7 +2728,7 @@ function renderInbox() {
       <button class="itab ${v.tab === 'needs' ? 'on' : ''}" data-inboxtab="needs">Needs you${nNeeds ? ` <span class="navn">${nNeeds}</span>` : ''}</button>
       <button class="itab ${v.tab === 'updates' ? 'on' : ''}" data-inboxtab="updates">Updates${nUpd ? ` <span class="navn quiet">${nUpd}</span>` : ''}</button>
       <button class="itab ${v.tab === 'all' ? 'on' : ''}" data-inboxtab="all">Everything</button>
-      <span class="itools"><button class="btn sm ${unreadHere ? '' : 'ghost'}" id="inbox-readall" ${unreadHere ? '' : 'disabled'}>Mark ${unreadHere || ''} read</button></span>
+      <span class="itools"><button class="btn sm ghost" id="inbox-readall" ${unreadHere ? '' : 'disabled'}>Mark ${unreadHere || ''} read</button></span>
     </div>
     ${showFilters ? '' : `<div class="ifmin"><span class="tok">${rows.length} shown</span><button class="linkbtn" id="inbox-showf">Filter or sort</button></div>`}
     <div class="ifilters" ${showFilters ? '' : 'hidden'}>
@@ -3460,7 +3458,7 @@ const posCls = b => ({ strongly_support: 'pos-support', support: 'pos-support', 
 // Status priority for the one chip a Desk row can afford.
 const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
 const unreadCount = b => (S.messages?.[b.id] || []).filter(m => m.advocate_id !== S.me?.id && (!S.chatSeen?.[b.id] || m.created_at > S.chatSeen[b.id])).length;
-const chatChip = b => { const n = unreadCount(b); return n ? `<span class="chipx c-gold chatchip" title="${n} new message${n === 1 ? '' : 's'} in the chat">💬 ${n}</span>` : ''; };
+const chatChip = b => { const n = unreadCount(b); return n ? `<span class="chipx c-gold chatchip" title="${n} new message${n === 1 ? '' : 's'} in the chat">✉\ufe0e ${n} new</span>` : ''; };
 function draftChip(b) { return draftChipBase(b) + chatChip(b); }
 function draftChipBase(b) {
   const d = (S.drafts[b.id] || []).filter(x => x.status !== 'cancelled')
@@ -3744,7 +3742,7 @@ function drawerHTML(b) {
       ${otherDrafts.length ? `<div class="drafts other">${otherDrafts.map(draftRow).join('')}</div>` : ''}
       ${(past => past.length ? `<div class="pastheard">${past.map(h => { const o = S.outcomes?.[h.id]; return `<div class="nextline"><b>${esc(h.committee)}</b> heard ${fmtDT(h.scheduled_at)} · ${o?.outcome ? `<span class="chipx ${OUTCOME_CLS[o.outcome] || 'c-gray'}">${OUTCOME_LABEL[o.outcome] || o.outcome}</span>` : '<span class="chipx c-gray">no report yet</span>'}${o?.report ? ` <span class="muted">${esc(o.report.slice(0, 90))}</span>` : ''} ${streamLink(h)}</div>`; }).join('')}</div>` : '')(S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)))}
       <div class="dtabs">${tab('details', 'Details')}${tab('pathway', 'Pathway')}${tab('team', 'Team')}${tab('public', 'Public')}${tab('chat', `Chat${(n => n ? ` <span class="navn">${n}</span>` : '')(unreadCount(b))}${notesHead ? ' •' : ''}`)}</div>
-      ${pane('chat', `<details class="pinnote" id="d-notefold" ${open.note || notesHead ? 'open' : ''}><summary>📌 Team note <span class="tok">${notesHead ? 'never public' : 'none yet · never public · context that should outlive the chat'}</span></summary>
+      ${pane('chat', `<details class="pinnote" id="d-notefold" ${open.note || notesHead ? 'open' : ''}><summary>Team note <span class="tok">${notesHead ? 'never public' : 'none yet · never public · context that should outlive the chat'}</span></summary>
           <div class="notes"><textarea id="d-notes" placeholder="Never public. Context for the team.">${esc(b.internal_notes||'')}</textarea>
           <button class="btn sm" id="d-savenotes" style="margin-top:6px">Save note</button></div></details>
         ${todosHTML(b)}${chatHTML(b)}`)}
