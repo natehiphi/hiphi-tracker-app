@@ -1,0 +1,44 @@
+/* HIPHI public tracker on wide screens (9/19). The page was designed phone-first; this file makes a laptop or desktop
+   a first-class view instead of a widened phone: a roomier header with a real search box, a 1120px frame with two
+   columns where a screen has a natural main/side split, buttons side by side instead of stacked full-width pills,
+   and hover states. Screens add their own wide rules in their own CSS under the same breakpoints:
+     900px  = header navigation replaces the tab bar (base.css)      1100px = two-column layouts                   */
+
+@media (min-width: 900px) {
+  :root { --header: 64px; --t36: 2.25rem; }
+  .hdr { height: var(--header); padding: 0 var(--s24); }
+  .hdr .hdrin { max-width: 1120px; margin: 0 auto; gap: var(--s12); }
+  .hdr .brand svg { width: 34px; height: 34px; }
+  .hdr .hnav { margin-left: var(--s16); }
+  .hdr .hsearchbtn { display: none; }
+  .hdr .hsearch { display: block; position: relative; width: clamp(200px, 24vw, 320px); }
+  .hdr .hsearch .ic { position: absolute; left: 14px; top: 12px; width: 18px; height: 18px; color: var(--n500); pointer-events: none; }
+  .hdr .hsearch input { width: 100%; height: 42px; padding: 0 14px 0 40px; border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n50); font-size: var(--t16); }   /* 16px: a tablet in landscape would zoom a smaller field */
+  .hdr .hsearch input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); background: var(--n0); }
+  .hdr .hbtn.hacct { display: inline-flex; font-size: var(--t14); text-decoration: none; white-space: nowrap; }
+  main { padding-top: var(--s32); }
+  /* buttons sit side by side, sized to their label */
+  .acard .btncol { flex-direction: row; flex-wrap: wrap; }
+  .acard .btncol .btn, .acard .btncol .btn.full { width: auto; flex: 0 0 auto; }
+  .composer .btncol { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .composer .btncol .btn.full { width: auto; }
+  .row, .mwrow { transition: background .12s; }
+  .card { transition: box-shadow .15s, border-color .15s; }
+}
+
+@media (min-width: 1100px) {
+  /* screens with a main/side split get the wide frame; reading pages (help, privacy, settings, sign in) stay at 720px */
+  body[data-screen="home"] main, body[data-screen="bill"] main, body[data-screen="bills"] main, body[data-screen="find"] main,
+  body[data-screen="issue"] main, body[data-screen="list"] main, body[data-screen="legislators"] main, body[data-screen="legislator"] main,
+  body[data-screen="start"] main, body[data-screen="more"] main { max-width: 1120px; }
+  /* .cols: main column + a 380px side column that stays in view */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s32); align-items: start; }
+  .cols > .side { position: sticky; top: calc(var(--header) + var(--s24)); display: flex; flex-direction: column; gap: var(--s16); }
+  .cols > .side > .sechead:first-child { margin-top: 0; }
+  .cols.even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s16); align-items: start; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s16); align-items: start; }
+  .grid2 > .card + .card, .grid3 > .card + .card { margin-top: 0; }
+  h1.hero { font-size: var(--t36); letter-spacing: -.025em; }
+  #toast { left: auto; right: var(--s24); justify-content: flex-end; }
+}

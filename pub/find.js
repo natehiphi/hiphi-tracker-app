@@ -4,17 +4,22 @@
 // Search covers HIPHI's plain summary as well as the official title and description, and knows the words people
 // actually type: "vaping" finds the e-cigarette bills even when the summary says "flavored vapes", "keiki" finds
 // bills about children, "lunch" finds school meals, "soda" finds sugary drinks (walkthrough 9/18: "vaping" found one
-// dead bill and missed the three live ones). Bills still moving come first; stopped ones wait in a fold.
-import { S, D, DEMO, app, esc, icon, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations,
+// dead bill and missed the three live ones). It also covers the bill's nickname ("Disposable vape ban"), which is
+// what people will have seen everywhere else (9/19). Bills still moving come first; stopped ones wait in a fold.
+//
+// On a wide screen (1100px and up) the page stops being a phone column: the issues are a grid of tiles, HIPHI's
+// lists are cards side by side, bills are table rows (mybills.js), a list's Follow button sits beside its title, and
+// the suggestion card shares its row with the other bills that have a hearing this week.
+import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK } from './core.js';
 import { btn, row, skeleton, notice, inlineErr } from './ui.js';
 import { actionCard, wireActions } from './actions.js';
-import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency } from './mybills.js';
+import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear } from './mybills.js';
 
 // Find's own state, kept across renders: the query being searched, its results, a small cache, and which lists
 // and issues have loaded.
 const F = S.fd ??= { cur: '', key: null, res: null, busy: false, pending: false, err: false, seq: 0, shown: null, cache: new Map(),
-  issues: {}, lists: {}, more: {}, recsAll: false, t: 0 };
+  issues: {}, lists: {}, more: {}, recs: null, t: 0 };
 const HST = 'Pacific/Honolulu';
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const offSeason = () => sessionInfo().phase !== 'in';
@@ -46,10 +51,11 @@ function parse(q) {
   const uniq = [...new Set(words)];
   return { key: 'w:' + uniq.join(' '), words: uniq.map(w => ({ w, re: new RegExp(`(?:^|[^a-z0-9])(?:${termsFor(w).map(reEsc).join('|')})`), terms: termsFor(w) })) };
 }
-// Where a word is found decides how high the bill ranks: HIPHI's summary and ask first, the official title last.
-const FIELDS = [['hiphi_summary', 6], ['hiphi_action', 4], ['description', 3], ['title', 2]];
+// Where a word is found decides how high the bill ranks: the nickname first (it is the name people have seen), then
+// HIPHI's summary and ask, the official title last.
+const FIELDS = [['hiphi_nickname', 8], ['hiphi_summary', 6], ['hiphi_action', 4], ['description', 3], ['title', 2]];
 const hay = new WeakMap();
-const fieldsOf = b => { let f = hay.get(b); if (!f) { f = FIELDS.map(([k, w]) => [plain(b[k] || ''), w]); hay.set(b, f); } return f; };
+const fieldsOf = b => { let f = hay.get(b); if (!f) { f = FIELDS.map(([k, w]) => [plain(k === 'hiphi_nickname' ? nick(b) : b[k] || ''), w]); hay.set(b, f); } return f; };
 function score(b, P) {
   if (P.num) {
     const m = /^([A-Z]+)\s*(\d+)/.exec(String(b.bill_number).toUpperCase()); if (!m) return null;
@@ -72,17 +78,21 @@ function rank(cands, P) {
   if (!out.length && need > 1) { const top = Math.max(0, ...all.map(x => x.hits)); out = all.filter(x => x.hits === top); }
   return out.sort((x, y) => y.pts - x.pts || numCmp(x.b, y.b)).slice(0, 80).map(x => x.b);
 }
-// The live page asks the database for candidates (every word, with its synonyms, in any of the three text columns),
-// then ranks them here with the same rules as the sandbox. HIPHI's bills are fetched separately so a common word
-// ("school") cannot push them past the row limit.
+// The live page asks the database for candidates (every word, with its synonyms, in any of the text columns), then
+// ranks them here with the same rules as the sandbox. HIPHI's bills are fetched separately so a common word
+// ("school") cannot push them past the row limit. The nickname column arrived with migration 056; if a database
+// does not have it, the search quietly carries on without it rather than failing.
+let NICK_COL = true;
 async function serverSearch(P, any = false) {
-  const sb = await supa(), cols = ['hiphi_summary', 'description', 'title'];
+  const sb = await supa(), cols = [...(NICK_COL ? ['hiphi_nickname'] : []), 'hiphi_summary', 'description', 'title'];
   const clean = t => t.replace(/[^a-z0-9 -]/g, '').trim();
   const inner = w => w.terms.map(clean).filter(Boolean).flatMap(t => cols.map(c => `${c}.ilike."*${t}*"`)).join(',');
   const filter = P.num ? `bill_number.ilike.${P.num.pre}*${P.num.n}*` : any ? P.words.map(inner).join(',') : `and(${P.words.map(w => `or(${inner(w)})`).join(',')})`;
   const q = () => sb.from('public_all_bills').select('*').or(filter);
   const [a, b] = await Promise.all([q().not('hiphi_position', 'is', null).limit(150), q().order('bill_number').limit(80)]);
-  if (a.error) throw a.error; if (b.error) throw b.error;
+  const bad = a.error || b.error;
+  if (bad && NICK_COL && !P.num && /hiphi_nickname/.test(bad.message || '')) { NICK_COL = false; return serverSearch(P, any); }
+  if (bad) throw bad;
   return [...(a.data || []), ...(b.data || [])];
 }
 // Bills nobody here follows arrive without their hearings, and a status chip without the hearing would say
@@ -123,6 +133,7 @@ function startSearch(q) {
 function runQuery(v) {
   const q = v.trim();
   F.cur = q;
+  const hq = document.getElementById('hq'); if (hq && hq !== document.activeElement) hq.value = q;   // the header's box on wide screens
   try { history.replaceState(history.state, '', q ? `#/find?q=${encodeURIComponent(q)}` : '#/find'); } catch { /* ignore */ }
   document.title = (q ? `“${q}” · ` : 'Find bills · ') + 'HIPHI Bill Tracker';
   if (q) startSearch(q); else { F.seq++; F.busy = false; F.key = null; }
@@ -152,7 +163,8 @@ function issueBySlug(slug) {
 const listBySlug = slug => (S.lists || []).find(l => l.slug === slug) || null;
 const back = (href, label) => `<a class="fd-back" href="${href}">${icon('arrow-left')}<span>${label}</span></a>`;
 
-// The count sits in a narrow column (number over word) so the issue's name keeps the width of the row.
+// One issue: a row on a phone, a tile in a grid on a wide screen (.mb-tiles). The count is a number over a word
+// (bills, not people, so it is always shown) and keeps to a narrow column so the issue's name gets the width.
 function issueRow(g) {
   const off = offSeason();
   const end = off ? `<span class="fd-count"><b>${g.bills}</b><span>${g.bills === 1 ? 'bill' : 'bills'}</span></span>`
@@ -161,8 +173,7 @@ function issueRow(g) {
 }
 // Between sessions nothing is moving, so the issues HIPHI worked on most come first (the catch-all still last).
 const issueOrder = () => offSeason() ? issues().slice().sort((a, b) => a.general - b.general || b.bills - a.bills) : issues();
-const listRow = l => row({ leadHtml: `<span class="lead">${icon(issueIcon(l.icon, 'list'))}</span>`, title: esc(l.title),
-  sub: `${l.description ? `<span class="mb-clamp">${esc(l.description)}</span>` : ''}${S.listFollows.has(l.id) ? `<span class="fd-on">${icon('check')}You follow this list</span>` : ''}`, href: `#/list/${encodeURIComponent(l.slug)}` });
+const issueTiles = () => `<div class="rows fd-rows mb-tiles grid3">${issueOrder().map(issueRow).join('')}</div>`;
 const sechead = (id, title, meta = '') => `<div class="sechead"><h2 id="${id}">${title}</h2>${meta ? `<span class="meta">${meta}</span>` : ''}</div>`;
 // Long groups show 10, then "Show all".
 function capped(key, bills, opt, n = 10) {
@@ -177,16 +188,27 @@ function reason(b) {
   if (/strongly/.test(b.hiphi_position || '')) return 'One of HIPHI’s top priorities';
   return 'Testimony is open this week';
 }
+// Bills to suggest: a hearing this week on a bill the person does not follow. The picks are made once per visit to
+// this page and kept while the person is on it, so following one (from its card or its star) leaves it in place,
+// now marked as followed, instead of making it vanish from under the pointer. "Not for me" does remove it, and the
+// next suggestion moves up.
+function suggestions() {
+  const skip = dismissed(), ok = r => r.kind === 'testify' && r.st.hearing && !skip.has(r.b.id);
+  const list = (F.recs || []).filter(ok), have = new Set(list.map(r => r.b.id));
+  for (const r of recommendations(20)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) list.push(r); }
+  return F.recs = list;
+}
 
 // ---------------- the Find page ----------------
 function findPage(q) {
   q = (q || '').trim();
   if (q !== F.cur) { F.cur = q; }
   if (q) startSearch(q);
+  if (!document.querySelector('.fd[data-page="find"]')) F.recs = null;   // arriving afresh: choose the suggestions again
   const busy = !!(q && F.busy);
-  return `<div class="fd">
+  return `<div class="fd" data-page="find">
     <form class="fd-search" role="search" action="#" novalidate>
-      <h1 class="fd-h1"><label for="q">Find bills</label></h1>
+      <h1 class="fd-h1 hero"><label for="q">Find bills</label></h1>
       <div class="searchbox fd-box${busy ? ' busy' : ''}">${icon('search')}<span class="fd-spin" aria-hidden="true">${icon('loader-circle')}</span>
         <input id="q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
           placeholder="Try vaping, school meals or HB 1563" value="${esc(q)}">
@@ -205,28 +227,29 @@ function resultsHTML(q) {
 }
 function resultsBody(q, res) {
   if (!res.length) return `${emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, or a word like vaping.' })}
-    <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse by issue')}<div class="rows">${issueOrder().map(issueRow).join('')}</div></section>`;
+    <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse by issue')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
   return `${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
     ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
     ${gone.length ? fold('fd-q-' + key, `Stopped this session (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
 }
-// Nothing typed yet: HIPHI's lists, the issues, and bills that need voices this week.
+// Nothing typed yet: HIPHI's lists, the issues, and bills that need voices this week. The page keeps one main
+// button: the first suggestion is a full action card, and the others are plain bill rows beside it (under it on a
+// phone), each a press away from its own page.
 function browseHTML() {
   const si = sessionInfo(), off = si.phase !== 'in', lists = S.lists || [];
-  const recs = off ? [] : recommendations(20).filter(r => r.kind === 'testify' && r.st.hearing);
-  // One card until asked for more: the search box is this page's focal point, and each card carries a main button.
-  const nRecs = F.recsAll ? Math.min(recs.length, 4) : Math.min(recs.length, 1);
+  const [first, ...rest] = off ? [] : suggestions();
   return `${off ? `<div class="fd-offnote">${notice('info', 'calendar', `The Legislature is on break until <b>${esc(openWords(si))}</b>. You can still look up any ${si.recapYear} bill and see what happened to it.`)}</div>` : ''}
     ${lists.length ? `<section aria-labelledby="fd-lists-h">${sechead('fd-lists-h', 'Lists from HIPHI')}
-      <p class="small muted fd-sub">Follow a list to follow its bills, plus any HIPHI adds later.</p>
-      <div class="rows fd-rows">${lists.map(listRow).join('')}</div></section>` : ''}
-    <section aria-labelledby="fd-iss-h">${sechead('fd-iss-h', 'Browse by issue')}<div class="rows fd-rows">${issueOrder().map(issueRow).join('')}</div></section>
-    ${recs.length ? `<section aria-labelledby="fd-voices-h">${sechead('fd-voices-h', 'Bills that need voices this week')}
-      <p class="small muted fd-sub">Each one has a hearing coming up. Sending testimony takes about 5 minutes.</p>
-      <div class="fd-cards">${recs.slice(0, nRecs).map(r => actionCard(r.b, r.st.hearing, { suggest: reason(r.b) })).join('')}</div>
-      ${recs.length > nRecs && !F.recsAll ? `<div class="fd-more">${btn(`Show ${Math.min(recs.length, 4) - nRecs} more`, { kind: 'text', iconEnd: 'chevron-down', attrs: { 'data-recsall': '1' } })}</div>` : ''}</section>` : ''}`;
+      <p class="small muted fd-sub">${off ? `Follow a list now and its ${nextYear(si)} bills will appear in My bills as HIPHI adds them.` : 'Follow a list to follow its bills, plus any HIPHI adds later.'}</p>
+      ${listCards(lists)}</section>` : ''}
+    <section aria-labelledby="fd-iss-h">${sechead('fd-iss-h', 'Browse by issue')}${issueTiles()}</section>
+    ${first ? `<section aria-labelledby="fd-voices-h">${sechead('fd-voices-h', 'Bills that need voices this week')}
+      <p class="small muted fd-sub">Each one has a hearing coming up. Speaking up takes a few minutes.</p>
+      <div class="cols fd-voices"><div class="fd-cards">${actionCard(first.b, first.st.hearing, { suggest: reason(first.b) })}</div>
+        ${rest.length ? `<div class="side"><h3 class="fd-sideh" id="fd-also-h">More bills with a hearing this week</h3>
+          ${billList(rest.map(r => r.b), b => ({ pos: true, hearing: rest.find(r => r.b.id === b.id)?.st.hearing }), { compact: true })}</div>` : ''}</div></section>` : ''}`;
 }
 
 // ---------------- an issue's page ----------------
@@ -238,14 +261,18 @@ function loadIssue(g) {
 }
 function issuePage(slug) {
   const g = issueBySlug(slug);
-  if (!g) return `<div class="fd">${back('#/find', 'Find')}${emptyBox({ title: 'We couldn’t find that issue', text: 'It may have a new name. Here are all of HIPHI’s issues.', action: btn('See all issues', { kind: 'primary', href: '#/find' }) })}</div>`;
+  if (!g) return `<div class="fd" data-page="issue">${back('#/find', 'Find')}${emptyBox({ h: 'h1', title: 'We couldn’t find that issue', text: 'It may have a new name. Here are all of HIPHI’s issues.', action: btn('See all issues', { kind: 'primary', href: '#/find' }) })}</div>`;
   const data = F.issues[g.key];
   if (data === undefined) loadIssue(g);
-  const head = `${back('#/find', 'All issues')}<header class="fd-ihead"><span class="fd-icon">${icon(g.icon)}</span><h1>${esc(g.key)}</h1>${g.description ? `<p class="lede">${esc(g.description)}</p>` : ''}</header>`;
-  if (!Array.isArray(data)) return `<div class="fd">${head}${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load these bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissue': g.key } })}</div>` : skeleton(3)}</div>`;
-  const si = sessionInfo(), off = si.phase !== 'in';
-  const { picks } = curate(data, 3);
-  const mv = data.filter(moving), others = mv.filter(b => !picks.includes(b)), law = data.filter(becameLaw).sort(numCmp), gone = data.filter(stopped).sort(numCmp);
+  const si = sessionInfo(), off = si.phase !== 'in', ready = Array.isArray(data);
+  const mv = ready ? data.filter(moving) : [], law = ready ? data.filter(becameLaw).sort(numCmp) : [], gone = ready ? data.filter(stopped).sort(numCmp) : [];
+  // Where the issue stands, in one line (bills, not people, so small numbers are fine). The recap card says it between sessions.
+  const tally = ready && !off ? [mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} stopped this session` : ''].filter(Boolean).join(' · ') : '';
+  const head = `${back('#/find', 'All issues')}<header class="fd-ihead"><span class="fd-icon">${icon(g.icon)}</span><h1 class="hero">${esc(g.key)}</h1>${g.description ? `<p class="lede">${esc(g.description)}</p>` : ''}${tally ? `<p class="meta">${esc(tally)}</p>` : ''}</header>`;
+  if (!ready) return `<div class="fd" data-page="issue">${head}${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load these bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissue': g.key } })}</div>` : skeleton(3)}</div>`;
+  // HIPHI's picks are its strongest positions; among them, the one with the soonest hearing or deadline leads.
+  const picks = byUrgency(curate(data, 3).picks);
+  const others = mv.filter(b => !picks.includes(b));
   const othersSorted = [...byUrgency(others.filter(b => posInfo(b))).sort((a, b) => (POS_RANK[a.hiphi_position] ?? 9) - (POS_RANK[b.hiphi_position] ?? 9)), ...byUrgency(others.filter(b => !posInfo(b)))];
   const todo = picks.filter(b => !S.watch.has(b.id));
   let top = '';
@@ -265,7 +292,7 @@ function issuePage(slug) {
   const otherSec = othersSorted.length ? `<section aria-labelledby="fd-oth-h">${sechead('fd-oth-h', picks.length ? 'Other bills moving' : 'Bills moving', plural(othersSorted.length, 'bill'))}${capped('i:' + g.key, othersSorted, { pos: true })}</section>` : '';
   const lawSec = law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : '';
   const goneSec = gone.length ? fold('fd-i-' + g.key, `Stopped this session (${gone.length})`, billList(gone, { why: true })) : '';
-  return `<div class="fd">${head}${top}${otherSec}${lawSec}${goneSec}</div>`;
+  return `<div class="fd" data-page="issue">${head}${top}${otherSec}${lawSec}${goneSec}</div>`;
 }
 
 // ---------------- a HIPHI list's page ----------------
@@ -277,27 +304,30 @@ function loadList(slug) {
 }
 function listPage(slug) {
   const l = listBySlug(slug);
-  if (!l) return `<div class="fd">${back('#/find', 'Find')}${emptyBox({ title: 'We couldn’t find that list', text: 'HIPHI may have retired it. Here are the lists and issues you can follow now.', action: btn('See all lists', { kind: 'primary', href: '#/find' }) })}</div>`;
+  if (!l) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${emptyBox({ h: 'h1', title: 'We couldn’t find that list', text: 'HIPHI may have retired it. Here are the lists and issues you can follow now.', action: btn('See all lists', { kind: 'primary', href: '#/find' }) })}</div>`;
   if (F.lists[slug] === undefined) loadList(slug);
   const rows = F.lists[slug] === 'ready' ? S.listBills[slug] || [] : null;
-  const fans = countOk(l.followers);
-  const head = `${back('#/find', 'All lists')}<header class="fd-ihead"><span class="fd-icon">${icon(issueIcon(l.icon, 'list'))}</span><h1>${esc(l.title)}</h1>
+  const fans = countOk(l.followers);   // people: only from 10
+  const header = `<header class="fd-ihead"><span class="fd-icon">${icon(issueIcon(l.icon, 'list'))}</span><h1 class="hero">${esc(l.title)}</h1>
     ${l.description ? `<p class="lede">${esc(l.description)}</p>` : ''}
     <p class="meta">Picked by ${esc(l.curated_by || 'HIPHI')}${rows ? ` · ${plural(rows.length, 'bill')}` : ''}${fans ? ` · ${fans} people follow it` : ''}</p></header>`;
-  if (!rows) return `<div class="fd">${head}${F.lists[slug] === 'err' ? `<div class="fd-err">${inlineErr('fd-lerr', 'We couldn’t load this list. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-relist': slug } })}</div>` : skeleton(3)}</div>`;
+  if (!rows) return `<div class="fd" data-page="list">${back('#/find', 'All lists')}${header}${F.lists[slug] === 'err' ? `<div class="fd-err">${inlineErr('fd-lerr', 'We couldn’t load this list. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-relist': slug } })}</div>` : skeleton(3)}</div>`;
   const note = Object.fromEntries(rows.map(r => [r.b.id, r.note || '']));
   const mv = byUrgency(rows.map(r => r.b).filter(moving)), law = rows.map(r => r.b).filter(becameLaw), gone = rows.map(r => r.b).filter(stopped);
-  const on = S.listFollows.has(l.id), account = !!(S.user && !DEMO);
+  const si = sessionInfo(), off = si.phase !== 'in', on = S.listFollows.has(l.id), account = !!(S.user && !DEMO);
   let cta;
   if (on) {
-    cta = `<div class="card fd-follow on"><p class="okmsg" id="fd-listok" tabindex="-1">${icon('circle-check')}You follow this list</p>
-      <p class="small">When HIPHI adds a bill to it, the bill shows up in My bills.</p>
+    // A list with nothing moving (always the case between sessions) has added no bills, so the card says what will
+    // happen instead of cheering a follow of nothing (assessment 9/19: "Following 0 bills" with a green check).
+    const promise = listPromise(l);
+    cta = `<div class="card fd-follow on"><p class="okmsg" id="fd-listok" tabindex="-1">${icon('circle-check')}<span>${promise ? esc(promise.lead.replace(/\.$/, '')) : 'You follow this list'}</span></p>
+      <p class="small">${promise ? esc(promise.rest) : 'When HIPHI adds a bill to it, the bill shows up in My bills.'}</p>
       <div>${btn('Stop following this list', { kind: 'text', sm: true, attrs: { 'data-unfollowlist': slug } })}</div></div>`;
   } else {
     // Following a list follows only what can still be acted on (walkthrough 9/18: following "Keiki health" added
-    // four stopped bills). A signed-in account follows through the database, which adds the whole list.
-    const [label, sub] = account ? ['Follow this list', 'Its bills join My bills, and so will any bill HIPHI adds later.']
-      : !mv.length ? ['Follow this list', 'Nothing on it is moving right now. Bills HIPHI adds later will follow too.']
+    // four stopped bills).
+    const [label, sub] = !mv.length ? ['Follow this list', off ? `The ${si.recapYear} session is over, so nothing on it is moving. Follow it now and its ${nextYear(si)} bills will appear in My bills as HIPHI adds them.` : 'Nothing on it is moving right now. Bills HIPHI adds later will follow too.']
+      : account ? ['Follow this list', 'Its moving bills join My bills, and so will any bill HIPHI adds later.']
       : mv.length === rows.length ? [mv.length === 1 ? 'Follow this bill' : `Follow all ${mv.length} bills`, 'New bills HIPHI adds to this list will follow too.']
       : [`Follow the ${plural(mv.length, 'bill')} still moving`, `New bills HIPHI adds will follow too. The ${gone.length + law.length} that finished stay listed below.`];
     cta = `<div class="fd-cta fd-follow">${btn(esc(label), { kind: 'primary', icon: 'star', full: true, attrs: { 'data-followlist': slug } })}<p class="small muted">${esc(sub)}</p></div>`;
@@ -306,32 +336,38 @@ function listPage(slug) {
   const mvSec = mv.length ? `<section aria-labelledby="fd-lmv-h">${sechead('fd-lmv-h', 'Still moving', plural(mv.length, 'bill'))}${billList(mv, opt)}</section>`
     : rows.length ? '' : `<p class="fd-none">Nothing on this list yet. HIPHI adds bills as the session goes.</p>`;
   const lawSec = law.length ? `<section aria-labelledby="fd-llaw-h">${sechead('fd-llaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, opt)}</section>` : '';
-  const goneSec = gone.length ? fold('fd-l-' + slug, `Stopped this session (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true }))) : '';
-  return `<div class="fd">${head}${cta}${mvSec}${lawSec}${goneSec}</div>`;
+  const goneSec = gone.length ? fold('fd-l-' + slug, `Stopped this session (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true })), { open: !mv.length && !law.length }) : '';
+  return `<div class="fd" data-page="list">${back('#/find', 'All lists')}<div class="fd-lhead">${header}${cta}</div>${mvSec}${lawSec}${goneSec}</div>`;
 }
+// Following a list. One message at most, and it has to be true: with bills still moving a toast says how many were
+// added (with Undo where this browser holds the follows); with none, nothing pops up over the page and the card
+// that replaces the button says what will happen.
 async function followListNow(slug) {
   const l = listBySlug(slug); if (!l) return;
-  const rows = await listBillsFor(slug) || [];
+  const rows = await listBillsFor(slug) || [], live = rows.filter(r => moving(r.b));
   S.fdFocus = '#fd-listok';
-  if (S.user && !DEMO) {   // signed in: the database follows the list and its bills, and keeps adding new ones
-    await followList(slug, true);
-    if (S.listFollows.has(l.id)) toast(`Following “${l.title}”`, { yay: true });
+  if (S.user && !DEMO) {   // signed in: the database follows the list and its moving bills, and keeps adding new ones
+    await followList(slug, true);   // core says "Following n bills on …" itself
+    if (!S.listFollows.has(l.id)) { S.fdFocus = '[data-followlist]'; app.render(); return; }   // it did not work (core said why): give the button back
+    if (!live.length) { const box = document.getElementById('toast'); if (box) box.innerHTML = ''; }   // …but never "Following 0 bills"
     return;
   }
-  const add = rows.filter(r => moving(r.b) && !S.watch.has(r.b.id)).map(r => r.b.id);
+  const add = live.filter(r => !S.watch.has(r.b.id)).map(r => r.b.id);
   S.listFollows.add(l.id); saveListFollows();
   add.forEach(id => S.watch.add(id)); saveLocal();
   try { await loadBills(); } catch (e) { console.error(e); }
   nudge('follow');
   app.render();
-  toast(add.length ? `Following ${plural(add.length, 'bill')} from “${l.title}”` : `Following “${l.title}”`, { yay: true,
-    undo: async () => { S.listFollows.delete(l.id); saveListFollows(); add.forEach(id => S.watch.delete(id)); saveLocal(); await loadBills(); } });
+  if (add.length) toast(`Following ${plural(add.length, 'bill')} from “${l.title}”. Any HIPHI adds later will follow too.`, { yay: true,
+    undo: async () => { S.listFollows.delete(l.id); saveListFollows(); add.forEach(id => S.watch.delete(id)); saveLocal(); S.fdFocus = '[data-followlist]'; await loadBills(); } });
 }
 async function unfollowListNow(slug) {
   const l = listBySlug(slug); if (!l) return;
-  if (S.user && !DEMO) await followList(slug, false);
-  else { S.listFollows.delete(l.id); saveListFollows(); app.render(); }
-  if (!S.listFollows.has(l.id)) toast(`You stopped following “${l.title}”. Its bills stay in My bills.`);
+  S.fdFocus = '[data-followlist]';   // the button that takes this one's place
+  if (S.user && !DEMO) { await followList(slug, false); return; }   // core says "You no longer follow …" itself
+  S.listFollows.delete(l.id); saveListFollows(); app.render();
+  const kept = (S.listBills[slug] || []).some(r => S.watch.has(r.b.id));
+  toast(`You stopped following “${l.title}”.${kept ? ' Its bills stay in My bills.' : ''}`);
 }
 
 // ---------------- wiring ----------------
@@ -347,8 +383,11 @@ function wireRegion(root, links) {
     // Keep the place: focus the first bill that was just revealed.
     document.querySelector(`[data-grp="${CSS.escape(k)}"] .mb-row:nth-child(${from + 1}) .mb-main`)?.focus({ preventScroll: true });
   });
-  root.querySelectorAll('[data-recsall]').forEach(el => el.onclick = () => { F.recsAll = true; document.getElementById('fd-results') ? paint() : app.render(); });
   root.querySelectorAll('[data-retry]').forEach(el => el.onclick = () => { F.cache.delete(F.key); F.key = null; if (F.cur) startSearch(F.cur); paint(); });
+  // "Not for me" swaps the card for the next suggestion, and the button that was pressed is gone with it. Put
+  // keyboard focus on the new card's headline (after the shared handler has redrawn the page), not at the top.
+  root.querySelectorAll('.fd-cards [data-notforme]').forEach(el => el.addEventListener('click', () => setTimeout(() => {
+    (document.querySelector('.fd-cards .achead a') || document.getElementById('fd-iss-h')?.closest('section')?.querySelector('a') || document.getElementById('main'))?.focus({ preventScroll: true }); }, 0)));
 }
 function wirePage(root) {
   wireRows(root);
@@ -363,7 +402,7 @@ function wirePage(root) {
     for (const id of ids) { await toggleWatch(id); if (S.watch.has(id)) done.push(id); }
     if (!done.length) return;   // toggleWatch already said what went wrong
     S.fdFocus = '#fd-picksok'; app.render();
-    toast(`Following ${plural(done.length, 'bill')}. Mahalo!`, { yay: true, undo: async () => { for (const id of done) if (S.watch.has(id)) await toggleWatch(id); } });
+    toast(`Following ${plural(done.length, 'bill')}. Mahalo!`, { yay: true, undo: async () => { S.fdFocus = '[data-followpicks]'; for (const id of done) if (S.watch.has(id)) await toggleWatch(id); } });
   });
   root.querySelectorAll('[data-followlist]').forEach(el => el.onclick = async () => {
     el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}<span>Following…</span>`;
@@ -375,11 +414,16 @@ function wirePage(root) {
 function wireSearch() {
   const inp = document.getElementById('q'), form = document.querySelector('.fd-search'), clr = document.querySelector('.fd-clear');
   if (!inp || !form) return;
-  inp.addEventListener('input', () => {
+  const typed = () => {
     clr.hidden = !inp.value;
     F.pending = !!inp.value.trim(); setBusy();
     clearTimeout(F.t); F.t = setTimeout(() => { F.pending = false; runQuery(inp.value); }, 300);
-  });
+  };
+  inp.addEventListener('input', typed);
+  // Wide screens also have a search box in the header. On this page the two are one search: typing in either
+  // fills the other and updates the results underneath.
+  const hq = document.getElementById('hq');
+  if (hq) { if (hq.value !== inp.value && hq !== document.activeElement) hq.value = inp.value; hq.addEventListener('input', () => { inp.value = hq.value; typed(); }); }
   // Search on the keyboard closes the keyboard so the results are in view.
   form.addEventListener('submit', e => { e.preventDefault(); clearTimeout(F.t); F.pending = false; inp.blur(); runQuery(inp.value); });
   clr.onclick = () => { inp.value = ''; clr.hidden = true; clearTimeout(F.t); F.pending = false; runQuery(''); inp.focus(); };

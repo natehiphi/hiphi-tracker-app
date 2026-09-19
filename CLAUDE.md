@@ -12,14 +12,24 @@ first** in any session that touches this repo.
   grown into the single consolidated page (see `../backend/docs/`).
 - `track.html` + `pub/` — public tracker, rebuilt mobile-first on 9/19
   (reads only `public_*` views; no account needed, magic-link sign-in).
-  `pub/app.js` is the frame and router (hash routes `#/`, `#/start/1-3`,
+  `pub/app.js` is the frame and router (hash routes `#/`, `#/start/1-4`,
   `#/bills`, `#/find`, `#/bill/HB1563`, `#/legislators`, `#/more`…; old
   `#bill=` / `#list=` links still work), `pub/core.js` the data and
   plain-language layer, `pub/ui.js` + `pub/actions.js` shared parts, one
   module + CSS file per screen (`start`, `home`, `mybills`, `find`, `bill`,
   `people`, `more`, `helper`), `pub/base.css` the design system (HIPHI blue,
-  Roboto/Lato, 6 sizes, 44px targets). Icons: `icons.js` (Lucide, ISC),
-  regenerate with `node tools/icons.mjs name1,name2`. No emoji in the UI.
+  Roboto/Lato, 6 sizes, 44px targets), `pub/wide.css` (loaded last) the
+  desktop frame: 900px and 1100px breakpoints, `.cols` + sticky `.side`,
+  `.grid2/.grid3`; each screen keeps its own desktop rules in its own CSS.
+  Icons: `icons.js` (Lucide, ISC), regenerate with
+  `node tools/icons.mjs name1,name2`. No emoji in the UI.
+  Rules Nate set on 9/19: a first visit is follow + stance only (no action
+  pushed); later visits prompt actions easiest first (`actionCard` ladder:
+  quick email until the first action, then testimony); the email ask is a
+  step in the flow (`sendEmailLink`), one ask per visit; progress shown is
+  the person's own, and community numbers appear only inside one bill or
+  hearing, from 10 people; name a bill by `nick(b)` first (`bills.nickname`,
+  about 40 characters), then `blurb(b)`, and always show the number.
 - `public.html` + `public.js` — login-free public page. Reads only the
   `public_bills` / `public_hearings` views. **Out of scope until the staff
   consolidation lands.**

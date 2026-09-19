@@ -2,8 +2,9 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
-  roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
+  roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
+  nick, myActions, agrees, sendEmailLink, validEmail } from './core.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -18,35 +19,47 @@ function doneLabel(b, h, k) {
 
 // suggest: show the Follow / Not for me bar; why: the reason line (defaults to suggest when that is a sentence);
 // compact: the bill page already shows the headline, chips and its own main button.
+// The ladder (Nate, 9/19): a first visit never pushes an action. After that the easiest real step leads: until
+// someone has taken any action the main button is the two-minute email to the chair, and testimony (the strongest
+// step, but it needs a letter and a one-time Capitol account) is the first row under "More ways to help". Once they
+// have acted, testimony leads. HIPHI's scripted email and letter are offered only when the person's own stance
+// matches HIPHI's or they have not said; someone who disagrees is pointed to the Capitol's own form instead.
+export const newToActing = () => myActions().length === 0;
 export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
-  if (due && didKind(b, h, 'testimony')) due.tone = '';   // sent: the deadline is no longer a warning
+  if (due && done) due.tone = '';   // acted: the deadline is no longer a warning
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
-  const doneKinds = KINDS.filter(x => didKind(b, h, x));
-  const primary = late
-    ? btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-compose': k } })
-    : didKind(b, h, 'testimony') ? '' : btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
+  const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
+  const differs = agrees(b) === false, emailFirst = late || (newToActing() && !didKind(b, h, 'email')), composing = S.compose === k;
+  const testimonyBtn = btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
+  const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-compose': k } });
+  const primary = differs ? (b.state_url ? btn('Testify at the Capitol site', { kind: 'secondary', iconEnd: 'external-link', full: true, href: b.state_url, attrs: { target: '_blank', rel: 'noopener' } }) : '')
+    : composing ? '' : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rows = [
-    late ? moreRow('notebook-pen', 'Send late testimony', 'It will be marked late and may not be read before the vote.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
-    late ? '' : moreRow('mail', 'Email the chair · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
+    differs ? '' : emailFirst
+      ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent')
+      : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
     moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
     S.goOpen.has(k) ? goPanel(b, h, k) : '',
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
+  const name = nick(b);
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
     ${compact ? '' : `<div class="acrow">${issueLine(iss)}${posChip(b)}</div>
-    <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(blurb(b, 120))}</a></${heading}>`}
+    <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(name || blurb(b, 120))}</a></${heading}>
+    ${name ? `<p class="acwhat">${esc(blurb(b, 160))}</p>` : ''}`}
     <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
-    ${b.hiphi_action ? `<p class="ask">${esc(b.hiphi_action)}</p>` : ''}
+    ${b.hiphi_action && !differs ? `<p class="ask">${esc(b.hiphi_action)}</p>` : ''}
     ${why ? `<p class="why">${icon('sparkles')}${esc(why)}</p>` : ''}
     ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
     <p class="meta hearing">${esc(hearingText(h))}</p>
-    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${doneKinds.includes('testimony') ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|testimony">Undo</button>` : ''}</div>` : ''}
+    ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
+    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    ${S.compose === k ? composer(b, h, k) : ''}
+    ${composing ? composer(b, h, k) : ''}
     <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
@@ -71,7 +84,7 @@ export function chairMessage(b, h) {
   const who = m.name ? `My name is ${m.name}${m.town ? ` and I live in ${m.town}` : ''}. ` : '';
   const why = (m.why || '').trim();
   const ask = b.hiphi_action ? b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') + ' ' : '';
-  const body = `Dear ${dear},\n\n${who}I am writing to ${p?.verb || 'comment on'} ${spaced(b.bill_number)}. ${blurb(b, 400).replace(/[.…\s]+$/, '')}.\n\n${why ? why.replace(/([^.!?])$/, '$1.') + '\n\n' : ''}${ask}Please ${p?.verb || 'consider'} this bill at the hearing on ${dateLong(h.scheduled_at)}.\n\nMahalo,\n${m.name || '[your name]'}${m.town ? '\n' + m.town : ''}`;
+  const body = `Dear ${dear},\n\n${who}I am writing to ${p?.verb || 'comment on'} ${spaced(b.bill_number)}. ${asSentence(blurb(b, 400).replace(/[.…\s]+$/, '') + '.')}\n\n${why ? why.replace(/([^.!?])$/, '$1.') + '\n\n' : ''}${ask}Please ${p?.verb || 'consider'} this bill at the hearing on ${dateLong(h.scheduled_at)}.\n\nMahalo,\n${m.name || '[your name]'}${m.town ? '\n' + m.town : ''}`;
   const subject = `${spaced(b.bill_number)}: please ${p?.verb || 'consider'} (hearing ${dateLong(h.scheduled_at)})`;
   return { to: chairs.map(c => c.email).join(','), chairs, subject, body };
 }
@@ -93,7 +106,7 @@ function composer(b, h, k) {
 function icsFor(b, h) {
   const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-  const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`, short = blurb(b, 60);
+  const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`, short = nick(b) || blurb(b, 60);
   const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
     `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2('Hawaiʻi State Capitol, 415 S Beretania St, Honolulu, HI 96813, ' + roomLabel(h.room))}`, `URL:${url}`,
     ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, 'TRIGGER:-PT2H', 'END:VALARM'] : []), 'END:VEVENT'];
@@ -104,7 +117,8 @@ function icsFor(b, h) {
 }
 export function shareText(b, h) {
   const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`;
-  return { url, text: `${spaced(b.bill_number)}: ${blurb(b, 110)} ${h ? `Hearing ${dayWord(h.scheduled_at)}. ` : ''}You can add your voice in 5 minutes: ${url}` };
+  const what = nick(b) ? `${nick(b)} (${spaced(b.bill_number)}). ${blurb(b, 110)}` : `${spaced(b.bill_number)}: ${blurb(b, 110)}`;
+  return { url, text: `${what.replace(/([^.!?…])$/, '$1.')} ${h ? `Hearing ${dayWord(h.scheduled_at)}. ` : ''}You can add your voice in a few minutes: ${url}` };
 }
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
   const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
@@ -146,31 +160,34 @@ export function wireActions(root = document) {
   $$('[data-notforme]').forEach(el => el.onclick = () => { dismiss(el.dataset.notforme); toast('Okay, we won’t suggest that one again'); app.render(); });
 }
 
-// ---- the email ask (one component everywhere): after an action, after follows, welcome back.
-// Research 9/18: ask right after something worthwhile, name the benefit, never a pop-up, one ask per visit,
-// "Not now" quiets it for 14 days, then 60 (nudgeOk in core). Placement is the screen's choice.
+// ---- the email ask (one component everywhere): after follows, after an action, welcome back.
+// Nate, 9/19: the process should ask for an email naturally and warmly, and the ask is about the person (their
+// alerts, their record on any device), never about making their actions "count". The card says exactly what the
+// email is for, so giving it IS the consent for hearing alerts (HIPHI's own action alerts stay a separate, unticked
+// choice in Settings). One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
-  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this phone so your bills and actions come with you.</p></div></div>`;
-  const nb = S.watch.size, na = S.done.size;
-  const [title, text] = kind === 'action' ? ['Keep this on any phone', 'Add your email so your actions count toward the community total and stay with you. No password.']
-    : kind === 'back' ? ['Welcome back', `Your ${nb} bill${nb === 1 ? '' : 's'}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only. Add your email to keep them. No password.`]
-    : ['Save your bills', 'Add your email to keep your list on any phone and hear when a hearing is set. No password.'];
+  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your bills come with you. Hearing alerts start once you do.</p></div></div>`;
+  const nb = S.watch.size, na = myActions().length;
+  const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when your bills get a hearing. It also keeps your record on any device.'
+    : kind === 'back' ? `Welcome back. Your ${nb} bill${nb === 1 ? '' : 's'}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only. Add your email to keep them, and to hear when a hearing is set.`
+    : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your bills on any device.';
   return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon('mail-check')}<div class="ngbody">
-    <p class="strong" id="ng-t">${title}</p><p class="small">${text}</p>
+    <p class="strong" id="ng-t">Get an email when your bills have a hearing</p><p class="small">${text}</p>
     ${DEMO ? '<p class="small muted">Sign-in is off in the sandbox.</p>' : `<form class="ngform" novalidate><div class="field"><label for="ng-email">Your email</label><input id="ng-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required></div>
-      <div class="btnrow">${btn('Email me a link', { kind: 'primary', sm: true, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div></form>`}
+      <div class="btnrow">${btn('Send me alerts', { kind: 'primary', sm: true, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>
+      <p class="meta">No password. We email you a link to confirm. Unsubscribe any time.</p></form>`}
     ${DEMO ? `<div class="btnrow">${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>` : ''}</div></section>`;
 }
 export function wireNudge(root = document) {
   root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; app.render(); });
   const f = root.querySelector('.ngform'); if (!f) return;
   f.onsubmit = async e => { e.preventDefault(); const inp = f.querySelector('input[type=email]'), email = inp.value.trim();
-    const bad = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const bad = !validEmail(email);
     inp.setAttribute('aria-invalid', bad ? 'true' : 'false'); f.querySelector('.err')?.remove();
     if (bad) { inp.insertAdjacentHTML('afterend', `<span class="err" id="ng-err">${icon('circle-alert')}Enter an email like name@example.com</span>`); inp.setAttribute('aria-describedby', 'ng-err'); inp.focus(); return; }
     const b = f.querySelector('button[type=submit]'); b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>Sending…</span>`;
-    const { error } = await S.supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (error) { b.removeAttribute('aria-busy'); b.innerHTML = '<span>Email me a link</span>'; toast(error, true); return; }
+    try { await sendEmailLink(email, { hearing_alerts: true }); }
+    catch (error) { b.removeAttribute('aria-busy'); b.innerHTML = '<span>Send me alerts</span>'; toast(error, true); return; }
     S.nudgeSent = email; app.render(); };
 }

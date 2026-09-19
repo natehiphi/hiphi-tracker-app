@@ -27,7 +27,7 @@ export const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZon
 export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 export const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
 // One message at a time, in one polite live region above the tab bar (a new one replaces the old). Errors are never
-// raw: friendly(e) turns them into a sentence. toast(msg, { undo }) adds an Undo button and stays 6 seconds.
+// raw: friendly(e) turns them into a sentence. toast(msg, { undo }) adds an Undo button and stays 10 seconds.
 export function toast(m, opt = {}) {
   if (opt === true) opt = { err: true };
   const box = $('#toast'); if (!box) return;
@@ -36,7 +36,13 @@ export function toast(m, opt = {}) {
   el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
     + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '');
   if (opt.undo) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await opt.undo(); } catch (e) { toast(e, true); } app.render(); };
-  box.appendChild(el); clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, opt.undo ? 6000 : 4000);
+  box.appendChild(el);
+  // A toast someone is reading or reaching for stays put; its clock starts again when they leave it. One with Undo gets
+  // 10 seconds. (Undo is never only here: the star and the done card both undo in place.)
+  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, opt.undo ? 10000 : 4000); };
+  const hold = () => clearTimeout(toast.t);
+  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
+  arm();
 }
 // Sentences, not error codes. Anything we do not recognise becomes the connection sentence.
 export function friendly(e) {
@@ -46,7 +52,33 @@ export function friendly(e) {
   if (/^[A-Z][^{}<>]{3,120}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token)/i.test(m)) return m;
   return 'We could not do that. Check your connection and try again.';
 }
-export const blurb = (b, n = 110) => { const t = (b.hiphi_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
+// Official descriptions end with drafting notes ("Effective 7/1/3000.  (HD1)") that mean nothing to a neighbour and
+// look wrong in a letter sent under their name. Strip them wherever a description is shown or quoted.
+export function cleanDesc(t) {
+  let x = String(t || '').replace(/\s+/g, ' ').trim(), prev;
+  do { prev = x;
+    x = x.replace(/\s*\((?:[HSC]D\s?\d+[\s,]*)+\)\s*$/i, '')                              // (HD1), (HD2 SD1)
+      .replace(/\s*(?:Effective|Takes effect|Sunsets?)\b[^.]*?\d{4}\.?\s*$/i, '')          // Effective 7/1/3000.
+      .replace(/([.!?])\s*\d{1,2}\/\d{1,2}\/\d{4}\.?\s*$/, '$1').trim();                   // a bare trailing date after a sentence
+  } while (x !== prev);
+  return x;
+}
+// A bill's short everyday name ("Disposable vape ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
+export const nick = b => (b && (b.hiphi_nickname || b.nickname)) || '';
+// What the bill does, in a sentence or two: HIPHI's plain summary, else the cleaned official description. Cut at the
+// end of a sentence when one fits, never mid-word.
+export function blurb(b, n = 110) {
+  const t = (b.hiphi_summary || cleanDesc(b.description) || b.title || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= n) return t;
+  const cut = t.slice(0, n + 1), stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
+  if (stop >= 40) return cut.slice(0, stop + 1).replace(/;$/, '.');
+  return t.slice(0, n - 1).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…';
+}
+// The name a card or page leads with: the nickname when there is one, else the plain summary.
+export const headline = (b, n = 110) => nick(b) || blurb(b, n);
+// "Bans the sale of…" reads as a fragment inside a letter; "It bans the sale of…" is a sentence. Only when the text
+// clearly starts with a verb (a summary that starts with a noun, "Counties may…", is left alone).
+export const asSentence = t => /^[A-Z][a-z]+s,? (?!(?:may|must|shall|will|can|are|is|who|that|and|or|of|with|in|on|under|for|from|at|by) )/.test(t) ? 'It ' + t[0].toLowerCase() + t.slice(1) : t;
 export const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed'; const h = Math.round(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.ceil(ms / 864e5)}d`; };
 export const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
 export const STAGE_LABEL = { introduced: 'Introduced', first_triple: '1st Triple', first_lateral: '1st Lateral', first_decking: '1st Decking',
@@ -103,6 +135,8 @@ export async function init() {
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [] };
 export async function demoLoad() {
   const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
+  // Draft nicknames for review show in the sandbox until the snapshot carries bills.nickname itself.
+  let nicks = {}; try { nicks = await (await fetch('demo/nicknames.json', { cache: 'no-cache' })).json(); } catch { /* none yet */ }
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -111,6 +145,7 @@ export async function demoLoad() {
     committee: b.committee, referrals: b.referrals, stage: b.stage, last_action: b.last_action, last_action_date: b.last_action_date, state_url: b.state_url,
     sponsors: b.sponsors, companions: b.companions, origin_stops: b.origin_stops, second_stops: b.second_stops, current_version: b.current_version,
     died_deadline: b.died_deadline, died_at_stage: b.died_at_stage, hiphi_position: b.position, hiphi_summary: b.public_summary, hiphi_action: b.public_action,
+    hiphi_nickname: b.nickname || nicks[b.bill_number] || null,
     hiphi_follows: true, coalitions: coalOf[b.id] || [], watchers: b.priority === 1 ? 12 + seed(b.id) % 40 : seed(b.id) % 9 }));
   D.index = snap.index.map(b => ({ id: b.id, bill_number: b.bill_number, chamber: b.chamber, title: b.title, description: null, stage: 'introduced', referrals: [], sponsors: [], companions: [], coalitions: [], watchers: 0, hiphi_follows: false, sandbox_untracked: true }));
   D.hearings = snap.hearings.map(h => ({ ...h, bill_number: snap.bills.find(b => b.id === h.bill_id)?.bill_number }));
@@ -146,9 +181,10 @@ export async function loadActions(ids) {
   S.done = localDone(); S.doneAt = localDoneAt();
   if (DEMO) { if (new URLSearchParams(location.search).has('seed')) seedDemoActions();
     for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; }
-    // sandbox community numbers, so the panel has something to show
+    // sandbox numbers for one hearing and one bill, so those lines have something to show
     S.voices = Object.fromEntries(D.hearings.map(h => [h.id, [...h.id].reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7) % 50]).filter(([, n]) => n >= 10));
-    S.totals = { 2026: { session_year: 2026, people: 214, actions: 486, testimonies: 301, bills: 41 } }; return; }
+    S.billStances = Object.fromEntries(ids.map(id => { const n = [...id].reduce((a, ch) => (a * 29 + ch.charCodeAt(0)) >>> 0, 5) % 90; return [id, { bill_id: id, people: n, support: Math.round(n * 0.86), oppose: n - Math.round(n * 0.86) }]; }).filter(([, r]) => r.people >= 10));
+    S.totals = {}; return; }
   if (S.session && S.user) {
     const { data } = await S.supa.from('public_actions').select('bill_id,hearing_id,kind,created_at');
     const server = new Set();
@@ -161,13 +197,14 @@ export async function loadActions(ids) {
     server.forEach(k => S.done.add(k)); saveDone(); saveDoneAt();
   }
   const hids = [...new Set([...S.hearings, ...((S.featured || {}).hearings || [])].map(h => h.id))];
-  const [c, v, t] = await Promise.all([
+  const [c, v, st] = await Promise.all([
     ids.length ? S.supa.from('public_action_counts').select('*').in('bill_id', ids) : null,
     hids.length ? S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', hids.slice(0, 300)) : null,
-    S.supa.from('public_session_totals').select('*')]);
+    ids.length ? S.supa.from('public_bill_stances').select('*').in('bill_id', ids) : null]);
   (c?.data || []).forEach(r => { S.actionCounts[r.bill_id] = r; });
   S.voices = Object.fromEntries((v?.data || []).map(r => [r.hearing_id, r.people]));
-  S.totals = Object.fromEntries((t?.data || []).map(r => [r.session_year, r]));
+  S.billStances = { ...(S.billStances || {}), ...Object.fromEntries((st?.data || []).map(r => [r.bill_id, r])) };
+  S.totals = {};   // community-wide totals are no longer shown (9/19); numbers live inside one bill or one hearing
 }
 export async function markDone(billId, hearingId, kind, on = true, { quiet = false } = {}) {
   const k = doneKey(billId, hearingId, kind);
@@ -186,29 +223,70 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   }
   return { firstTestimony };
 }
+// Where the person stands on a bill: 'support' | 'oppose' | 'unsure'. Kept in this browser; for a signed-in person it
+// also rides on their follow (watchlist.stance, migration 056). A first visit is "follow a few bills and say where
+// you stand" (Nate, 9/19); the asks to act come on later visits.
+export const STANCE_KEY = DEMO ? 'hiphi_stances_demo' : 'hiphi_stances';
+export function localStances() { try { return JSON.parse(localStorage.getItem(STANCE_KEY) || '{}') || {}; } catch { return {}; } }
+export function saveStances() { try { localStorage.setItem(STANCE_KEY, JSON.stringify(S.stances || {})); } catch { /* ignore */ } }
+export const myStance = id => (S.stances || {})[id] || null;
+export async function setStance(id, stance) {
+  S.stances ??= {};
+  if (stance) S.stances[id] = stance; else delete S.stances[id];
+  saveStances();
+  if (!DEMO && S.session && S.user && S.watch.has(id)) {
+    const r = await S.supa.from('watchlist').update({ stance: stance || null }).eq('user_id', S.user.id).eq('bill_id', id);
+    if (r.error) toast(r.error, true);
+  }
+}
+// Does the person's stance match HIPHI's? null when either side has none. HIPHI's scripted letters and emails are
+// offered only when it matches or the person has not said; someone who disagrees is pointed to the Capitol's own form.
+export function agrees(b) {
+  const mine = myStance(b.id), p = b.hiphi_position || '';
+  if (!mine || mine === 'unsure' || !/support|oppose/.test(p)) return null;
+  return (mine === 'support') === /support/.test(p);
+}
 export function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
 export function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...S.watch])); } catch { /* private mode */ } }
 export async function loadUser() {
   S.user = null;
+  S.stances = localStances();
   if (DEMO || !S.session) { S.watch = localWatch(); return; }
   const { data, error } = await S.supa.rpc('ensure_public_user');
   if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut(); return; } throw error; }
   S.user = data;
   // Choices made on the sign-in page, before the account existed.
   let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
-  if (pending) { const prefs = { ...(S.user.prefs || {}), hearing_alerts: !!pending.hearing_alerts, action_alerts: !!pending.action_alerts, consent_at: new Date().toISOString() };
-    const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; try { localStorage.removeItem(CONSENT_KEY); } catch {} }
+  // A new account takes them as given. An account that already recorded its choices (a returning person adding their
+  // email on a second device) only ever gains what was asked for here: every email ask sends action_alerts false by
+  // default, and that default must never switch off something the person chose earlier (9/19).
+  if (pending) {
+    const had = S.user.prefs || {}, first = !had.consent_at;
+    const hearing_alerts = first ? !!pending.hearing_alerts : !!(had.hearing_alerts || pending.hearing_alerts);
+    const action_alerts = first ? !!pending.action_alerts : !!(had.action_alerts || pending.action_alerts);
+    const changed = first || hearing_alerts !== !!had.hearing_alerts || action_alerts !== !!had.action_alerts;
+    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, consent_at: new Date().toISOString() };
+      const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; }
+    try { localStorage.removeItem(CONSENT_KEY); } catch {}
+  }
   S.consentCard = !(S.user.prefs || {}).consent_at;
+  // Issues: this device's picks join an account that has none; otherwise the account's picks come to this device.
+  { const mine = wiz().issues || [], theirs = (S.user.prefs || {}).issues || [];
+    if (mine.length && !theirs.length) saveIssues(mine);
+    else if (theirs.length && JSON.stringify(mine) !== JSON.stringify(theirs)) { const w = { ...wiz(), issues: theirs }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } } }
   try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
   // Lists followed on this device join the account (and stay in sync from here on).
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
   for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
   try { localStorage.removeItem(LISTS_KEY); } catch {}
-  const wl = await S.supa.from('watchlist').select('bill_id');
+  const wl = await S.supa.from('watchlist').select('bill_id,stance');
   const server = new Set((wl.data || []).map(r => r.bill_id));
-  // First sign-in: what was starred on this device joins the account.
+  // First sign-in: what was starred on this device joins the account, with the stance taken on it.
   const local = localWatch(); const missing = [...local].filter(id => !server.has(id));
-  if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id }))); missing.forEach(id => server.add(id)); }
+  if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id, stance: S.stances[bill_id] || null }))); missing.forEach(id => server.add(id)); }
+  // Stances: the account wins where it has one; a stance taken on this device for a bill already followed is sent up.
+  for (const r of wl.data || []) { if (r.stance) S.stances[r.bill_id] = r.stance; else if (S.stances[r.bill_id]) await S.supa.from('watchlist').update({ stance: S.stances[r.bill_id] }).eq('user_id', S.user.id).eq('bill_id', r.bill_id); }
+  saveStances();
   S.watch = server; saveLocal();
 }
 // ---------------- curated lists ----------------
@@ -234,7 +312,8 @@ export async function listBillsFor(slug) {
   out.forEach(({ b }) => { S.extra[b.id] = b; });
   S.listBills[slug] = out; return out;
 }
-export async function followList(slug, on) {
+// { quiet: true }: no toast, for a screen that states the result itself (the guided start's list rows).
+export async function followList(slug, on, { quiet = false } = {}) {
   const l = S.lists.find(x => x.slug === slug); if (!l) return;
   const rows = await listBillsFor(slug) || [];
   if (on) S.listFollows.add(l.id); else S.listFollows.delete(l.id);
@@ -248,7 +327,11 @@ export async function followList(slug, on) {
   await loadBills();
   if (on) nudge('follow');
   app.render();
-  toast(on ? `Following ${live.length} bill${live.length === 1 ? '' : 's'} on ${l.title}. Any HIPHI adds later will follow too.` : `You no longer follow ${l.title}. Its bills stay in My bills.`, on ? { yay: true } : {});
+  if (quiet) return;
+  // Between sessions a list has no bills still moving: never cheer "Following 0 bills" (assessment, 9/19).
+  toast(!on ? `You no longer follow ${l.title}. Its bills stay in My bills.`
+    : live.length ? `Following ${live.length} bill${live.length === 1 ? '' : 's'} on ${l.title}. Any HIPHI adds later will follow too.`
+    : `You follow ${l.title}. HIPHI’s bills will show up in My bills when the next session opens.`, on ? { yay: true } : {});
 }
 export const POS_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes', strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting', monitor: 'HIPHI is watching' };
 // ---------------- legislators ----------------
@@ -425,7 +508,7 @@ export async function toggleWatch(id) {
   saveLocal();
   if (S.user && !DEMO) {
     const r = on ? await S.supa.from('watchlist').delete().eq('user_id', S.user.id).eq('bill_id', id)
-                 : await S.supa.from('watchlist').insert({ user_id: S.user.id, bill_id: id });
+                 : await S.supa.from('watchlist').insert({ user_id: S.user.id, bill_id: id, stance: (S.stances || {})[id] || null });
     if (r.error) { toast(r.error, true); if (on) S.watch.add(id); else S.watch.delete(id); saveLocal(); return; }
   }
   await loadBills();
@@ -578,7 +661,9 @@ export const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hea
 export const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
 // Milestones mark real acts, are shown only to the person, and never expire.
 export const MILESTONES = [
-  ['first', 'First step', 'your first action on a bill', a => a.length >= 1],
+  ['follow', 'Following along', 'follow your first bill', () => S.watch.size >= 1],
+  ['stance', 'Took a stand', 'say where you stand on a bill', () => Object.values(S.stances || {}).some(v => v === 'support' || v === 'oppose')],
+  ['first', 'First action', 'your first action on a bill', a => a.length >= 1],
   ['testimony', 'First testimony', 'testimony to a committee', a => a.some(x => x.kind === 'testimony')],
   ['share', 'Spread the word', 'share a bill with someone', a => a.some(x => x.kind === 'share')],
   ['attend', 'Showed up', 'go to a hearing in person', a => a.some(x => x.kind === 'attend')],
@@ -637,7 +722,18 @@ export async function billsForCoalitions(names) {
 }
 // ---------- the guided start: pick issues -> pick bills -> done ----------
 export function wiz() { try { return JSON.parse(localStorage.getItem('hiphi_wiz') || '{"step":1,"issues":[]}'); } catch { return { step: 1, issues: [] }; } }
-export function wizSet(patch) { const w = { ...wiz(), ...patch }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } return w; }
+export function wizSet(patch) { const w = { ...wiz(), ...patch }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ }
+  if ('issues' in patch) saveIssues(w.issues);
+  return w; }
+// Picked issues ride along with the account (public_users.prefs.issues), so "we saved your issues" is true on any
+// device. Signed out, they live in this browser only. A failed save is silent: the local copy still works.
+function saveIssues(list) {
+  if (DEMO || !S.user) return;
+  const issues = [...new Set(list || [])].slice(0, 20), had = (S.user.prefs || {}).issues || [];
+  if (JSON.stringify(had) === JSON.stringify(issues)) return;
+  const prefs = { ...(S.user.prefs || {}), issues }; S.user.prefs = prefs;
+  S.supa.from('public_users').update({ prefs }).eq('id', S.user.id).then(r => { if (r.error) console.error(r.error); });
+}
 // ---------------- plain language (redesign 9/19) ----------------
 // Newcomers never see Capitol shorthand ("2nd Lateral", "Decking", "HHS/CPN", "Rm 229") outside "More details".
 // Every screen words bills, hearings and deadlines through these helpers so the whole page says things one way.
@@ -722,9 +818,11 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // Why a bill stopped, in words: "Put on hold by the Senate Education Committee, which usually stops it this year."
 export function whyStopped(b) {
   if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
+  const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now()).pop();
   if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  if ((m || b.died_deadline) && heard) return `It was heard on ${dateLong(heard.scheduled_at)} but did not move forward before the next deadline, so it stopped for this session.`;
   if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${new Date(m[2].replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' })}` : ''}, so it stopped for this session.`;
   return 'It stopped for this session.';
 }
@@ -755,12 +853,15 @@ export async function ensureBill(num) {
   const n = String(num || '').replace(/\s/g, '').toUpperCase();
   let b = S.bills.find(x => x.bill_number === n) || Object.values(S.extra).find(x => x.bill_number === n) || (S.results || []).find(x => x.bill_number === n);
   if (!b && DEMO) b = D.bills.find(x => x.bill_number === n) || D.index.find(x => x.bill_number === n);
-  if (!b && !DEMO) { const { data } = await S.supa.from('public_all_bills').select('*').eq('bill_number', n).limit(1); b = data?.[0]; }
+  // The Supabase client hands back a dropped connection as an error value, not a throw. Throw it, so a caller can tell
+  // "no such bill" (null) from "could not ask" (an error) and never blames the person for a weak signal.
+  if (!b && !DEMO) { const { data, error } = await S.supa.from('public_all_bills').select('*').eq('bill_number', n).limit(1); if (error) throw error; b = data?.[0]; }
   if (!b) return null;
   if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] = b;
   if (DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
   if (!DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) {
     const [h, o] = await Promise.all([S.supa.from('public_all_hearings').select('*').eq('bill_id', b.id), S.supa.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
+    if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
     S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
   }
   return b;
@@ -771,3 +872,32 @@ export const firstVisit = () => !S.watch.size && ((!wiz().done && !wiz().skipped
 export const readyForSession = () => !!wiz().ready && !S.watch.size && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
 export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');
 export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
+// Asking a chair for a hearing is remembered per committee, so a bill asked about in its House committee is offered
+// again when it later waits in the Senate. The email itself is still the person's action under the usual key
+// (<bill id>||email): that is what is counted and what reaches their account. The committee mark,
+// <bill id>|<committee code as referred, e.g. HHS/EIG>|ask, lives in this browser only: 'ask' is not an action kind, so
+// it is neither counted nor uploaded. A mark from before 9/19 (the usual key, with no committee mark on the bill at
+// all) still counts, for every committee.
+export const askMark = (b, code) => `${b.id}|${code}|ask`;
+export const askedChair = (b, code) => S.done.has(askMark(b, code))
+  || (S.done.has(doneKey(b.id, '', 'email')) && ![...S.done].some(k => k.startsWith(b.id + '|') && k.endsWith('|ask')));
+// Bills waiting for a hearing, soonest deadline first: on Home these become a lighter "ask the chair" card, so a
+// follower is never told "all caught up" while a bill of theirs is running out of time (assessment, 9/19).
+export function waitingBills(bills) {
+  return bills.filter(b => alive(b) && posInfo(b)).map(b => ({ b, st: stopOf(b) }))
+    .filter(x => x.st.phase === 'committee' && x.st.hearingState === 'none' && x.st.committee && x.st.deadline && !x.st.deadline.missed)
+    .sort((x, y) => x.st.deadline.days - y.st.deadline.days);
+}
+// The email step (Nate, 9/19): asking for an email is part of the flow, and a step that says "email me when my bills
+// get a hearing" IS the consent for hearing alerts. HIPHI's own action alerts stay a separate, unticked choice.
+// The choices wait in this browser until the link is opened (loadUser applies them), exactly like the sign-in page.
+export async function sendEmailLink(email, { hearing_alerts = true, action_alerts = false } = {}) {
+  if (DEMO) return { demo: true };   // before anything is stored: sandbox play must not leave a consent the live page would apply
+  try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ }
+  const sb = await supa();
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+  if (error) throw error;
+  try { sessionStorage.setItem('hiphi_link_sent', email); } catch { /* ignore */ }
+  return { sent: true };
+}
+export const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());

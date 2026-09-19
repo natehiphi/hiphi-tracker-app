@@ -1,41 +1,61 @@
-/* The guided start (pub/start.js): S1–S3 in session, O1–O3 between sessions. Mobile first at 390px.
-   The first screen must show the heading, "Step 1 of 3", four whole issue rows and the button without scrolling,
-   so vertical space here is budgeted: a short drawing, tight heading gaps, 8px between rows. */
+/* The guided start (pub/start.js): issues, bills, where you stand, the email step; between sessions issues, the recap,
+   the email step. Mobile first at 390px. Every step is a story (.st-intro: step bar, heading, a sentence) and the
+   choices (.st-main). On phones they stack and the one primary button lives in the sticky bottom bar. From 900px they
+   become two columns and the bar sits at the end of the choices (see the wide section at the end).
+   The first screen must show the heading, the step, four whole issue rows and the button without scrolling at
+   390x844, and more than one row at 320x640, so vertical space is budgeted: a short drawing that small or short
+   screens drop, tight heading gaps, 8px between rows. */
 
 .st { display: flex; flex-direction: column; gap: var(--s12); }
+.st-intro, .st-main { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
 .st h1 { margin-top: var(--s4); }
 .st .lede { margin-top: -4px; }
 .st .note { margin-top: var(--s4); }
+.st-errh { font-size: var(--t22); }
 
-/* the Capitol and the neighbours: decorative, never a card of their own */
-.st-art { display: flex; justify-content: center; margin-top: -4px; }
+/* the Capitol, the neighbours, the islands: decorative, never a card of their own. Phones show one only on the
+   first screen, and not at all when the screen is short or narrow (at 320x640 it cost a whole issue row). */
+.st-art { display: none; justify-content: center; margin-top: -4px; }
+.st1 .st-art { display: flex; }
 .st-art svg { width: 100%; height: 64px; }
-.st-voices svg { height: 88px; }
+@media (max-width: 359px), (max-width: 899px) and (max-height: 700px) { .st1 .st-art { display: none; } }
+/* the in-session email step is short, so a tall phone has room for the islands (an open keyboard shrinks the screen on Android and drops them) */
+@media (min-width: 360px) and (max-width: 899px) and (min-height: 760px) { .st4 .st-art { display: flex; } .st4 .st-art svg { height: 80px; } }
 
 /* step bar, with Back on steps that have one */
 .st-steps { min-height: 24px; }
 .st-steps .btn.st-back { margin: -10px 0 -10px -12px; padding: 0 12px 0 8px; gap: 4px; }
 .st-steps .btn.st-back + .bar { margin-left: var(--s4); }
 
-.st-proof { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
-.st-proof .ic { width: 18px; height: 18px; color: var(--o600); margin-top: 1px; }
+/* one line above the choices: a reassurance; "pick at least one" takes its place, so nothing below it moves */
+.st-say { display: flex; align-items: flex-start; min-height: 22px; }
+.st-sure, .st-alert { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); line-height: 1.5; }
+.st-sure { color: var(--n700); }
+.st-sure .ic { width: 18px; height: 18px; color: var(--p700); margin-top: 2px; }
+.st-alert { gap: 6px; font-weight: 700; color: var(--bad-text); }
+.st-alert .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.st-alert:empty, .st-alerting .st-sure, .st-surewide { display: none; }
 
-/* ---- S1 issue rows: one column, whole row is the toggle ---- */
-.st-issues { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
+/* ---- step 1 issue rows: one column, whole row is the toggle ---- */
+.st-issues { display: flex; flex-direction: column; gap: var(--s8); }
 .st-issue, .st-list { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 72px; padding: 10px 14px; text-align: left;
   background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
   transition: background .15s, border-color .15s, box-shadow .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
-.st-issue:hover, .st-list:hover { border-color: var(--n300); }
 .st-issue:active, .st-list:active { transform: scale(.99); }
 .st-issue[aria-pressed="true"], .st-list[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
 .st-ilead { width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
 .st-ilead .ic { width: 22px; height: 22px; }
+.st-ilead .ic-loader-circle { animation: spin 1s linear infinite; }
 .st-issue[aria-pressed="true"] .st-ilead, .st-list[aria-pressed="true"] .st-ilead { background: var(--n0); }
-.st-ibody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* the name, then "Quiet right now" or last session's bill count beside it when there is room (under it when not),
+   then the description on its own line */
+.st-ibody { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); }
 .st-iname { font-weight: 700; color: var(--n900); line-height: 1.3; }
-.st-idesc { font-size: var(--t14); line-height: 1.4; color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.st-icount { font-size: var(--t13); font-weight: 700; color: var(--n700); margin-top: 2px; }
-.st-issue .chip { align-self: flex-start; margin-top: 4px; }
+.st-idesc { flex: 1 0 100%; font-size: var(--t14); line-height: 1.4; color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.st-icount { font-size: var(--t13); font-weight: 700; color: var(--n700); }
+.st-issue .chip { min-height: 24px; padding: 2px 10px; }
+/* a 320px phone: the names carry the choice, so the description keeps to one line and a second row fits on screen */
+@media (max-width: 359px) { .st-issue { padding: var(--s8) var(--s12); gap: 10px; } .st-idesc { -webkit-line-clamp: 1; } }
 
 /* the check circle (issues and bills): an outline until picked, then filled with a drawn check */
 .st-tick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--n400); background: var(--n0); color: transparent; flex: none;
@@ -45,62 +65,168 @@
 .st-tick.st-draw .ic path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: st-draw .3s ease-out forwards; }
 @keyframes st-draw { to { stroke-dashoffset: 0; } }
 
-/* ---- S2 bill cards: whole card is the toggle, tick on the left like a checklist ---- */
-.st-picks { list-style: none; margin: var(--s4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
-.st-pick { display: flex; align-items: flex-start; gap: var(--s12); width: 100%; padding: 14px var(--s16) var(--s16) 14px; text-align: left;
-  background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
-  transition: background .15s, border-color .15s, box-shadow .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
-.st-pick:hover { border-color: var(--n300); }
+/* ---- step 2 bill cards: the card is a checklist toggle; "What it does" rides on its bottom edge ----
+   The text is cut by lines (2 of what-it-does under a nickname, 3 of a summary headline), so wider screens show
+   more. Only a card whose text is really cut gets the small button (start.js measures): the toggle then leaves 48px
+   of room at its foot and the button is pulled up into it, so the two are siblings (a button cannot hold a button)
+   yet read as one card. Opening it lets the text run in full, in place. */
+.st-picks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.st-pcard { display: flex; flex-direction: column; align-items: stretch; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
+  transition: background .15s, border-color .15s, box-shadow .15s; }
+.st-pcard.on { background: var(--p50); border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
+.st-pick { display: flex; align-items: flex-start; gap: var(--s12); width: 100%; padding: 14px var(--s16) var(--s16) 14px; text-align: left; border-radius: var(--r16);
+  transition: transform .15s; -webkit-tap-highlight-color: transparent; }
+.st-haswhat .st-pick { padding-bottom: 52px; }
 .st-pick:active { transform: scale(.99); }
-.st-pick[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
 .st-pick .st-tick { margin-top: 1px; }
 .st-pbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.st-ptop { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 28px; flex-wrap: wrap; }
-.st-ptop .issueline { flex: 1 1 auto; }
-.st-phead { font: 700 var(--t16)/1.35 var(--font-h); color: var(--n900); letter-spacing: -.005em; }
-.st-pmeta { font-size: var(--t13); color: var(--n500); }
-.st-pick[aria-pressed="true"] .chip.info { background: var(--n0); }
+/* the hearing chip keeps its place at the top right; a long issue name wraps beside it instead of pushing it down */
+.st-ptop { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s8); min-height: 28px; }
+.st-ptop .issueline { flex: 1 1 auto; align-items: flex-start; padding-top: 5px; line-height: 1.35; }
+.st-ptop .issueline .ic { margin-top: -1px; }
+.st-ptop .chip { flex: none; }
+/* a 320px phone has no room for both side by side: the name takes the line and the chip sits under it */
+@media (max-width: 359px) { .st-ptop { flex-wrap: wrap; gap: 4px var(--s8); } .st-ptop .issueline { flex-basis: 100%; } }
+.st-phead, .st-shead { font: 700 var(--t16)/1.35 var(--font-h); color: var(--n900); letter-spacing: -.005em; }
+.st-pwhat, .st-rwhat { font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+.st-clamp, .st-rwhat { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.st-phead.st-clamp, .st-rhead.st-clamp { -webkit-line-clamp: 3; }
+.st-open .st-clamp { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.st-pmeta { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
+.st-pcard.on .chip.info { background: var(--n0); }
+.st-what { position: relative; z-index: 1; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: -48px 0 4px 40px; padding: 0 12px;
+  border-radius: var(--pill); font-size: var(--t14); font-weight: 700; color: var(--p700); -webkit-tap-highlight-color: transparent; }
+.st-what:active { background: var(--p100); }
+.st-what .ic { width: 18px; height: 18px; transition: transform .15s; }
+.st-what[aria-expanded="true"] .ic { transform: rotate(180deg); }
 .st-subh { font-size: var(--t18); margin-top: var(--s16); }
 .st-more { display: flex; flex-direction: column; align-items: flex-start; margin: 0 0 0 -12px; }
 .st-more .btn { white-space: normal; text-align: left; line-height: 1.3; padding-top: 10px; padding-bottom: 10px; }
 
-/* ---- S3 ---- */
-.st-ok { display: flex; gap: var(--s8); align-items: center; font-weight: 700; color: var(--ok-text); background: var(--ok-wash); border-radius: var(--r12); padding: 10px 14px; }
-.st-ok .ic { width: 22px; height: 22px; flex: none; }
-.st-card { margin-top: var(--s4); }
+/* ---- the green "this worked" line (step 3: following N bills; off-season step 3: the saved issues) ---- */
+.st-ok { display: flex; gap: var(--s8); align-items: flex-start; font-weight: 700; color: var(--ok-text); background: var(--ok-wash); border-radius: var(--r12); padding: 10px 14px; }
+.st-ok .ic { width: 22px; height: 22px; flex: none; margin-top: 1px; }
+.st-ok .strong { color: inherit; }
+.st-ok a { color: inherit; white-space: nowrap; }
 
-/* ---- O2 recap cards ---- */
+/* ---- step 3: where do you stand? One compact card per bill, three toggle chips ---- */
+.st-stands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.st-stand { display: flex; flex-direction: column; gap: var(--s12); }
+.st-stand + .st-stand { margin-top: 0; }
+.st-sbody { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-smeta { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
+.st-chips { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.st-chips .chip { flex: 1 1 auto; justify-content: center; padding: 8px 12px; border: 1px solid var(--n400); transition: background .15s, border-color .15s, color .15s; }
+/* the chosen stand is filled, like a segmented control: clear without relying on a thin border or on colour alone */
+.st-chips .chip[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); padding: 8px 12px; }
+.st-chips .chip:active { transform: scale(.98); }
+.st-mile { animation: st-pop .25s var(--ease); }
+.st-mile .flower { width: 16px; height: 16px; }
+@keyframes st-pop { from { transform: scale(.8); opacity: 0; } }
+
+/* ---- the email step: a labelled field, its own buttons next to it, the small print ---- */
+.st-form { display: flex; flex-direction: column; gap: var(--s16); }
+.st-form .err:empty { display: none; }
+.st-form .meta { max-width: 65ch; }
+.st-formbtns { display: flex; flex-direction: column; gap: var(--s4); }
+.st-formbtns .btn { width: 100%; }
+.st-sent { display: flex; gap: var(--s12); align-items: flex-start; }
+.st-sentbody { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; flex: 1 1 auto; }
+.st-sentbody h2 { font-size: var(--t18); line-height: 1.3; margin-top: 8px; }
+.st-sentbody h2:focus { outline: none; }
+.st-sentbody .st-formbtns { margin-top: var(--s8); }
+.st-break { overflow-wrap: anywhere; }
+.st-alsoh { margin-top: var(--s12); }
+
+/* ---- off-season step 2: recap cards; each bill row opens its page ---- */
 .st-recap { display: flex; flex-direction: column; gap: var(--s12); }
 .st-recap + .st-recap { margin-top: 0; }
 .st-recap h2 { display: flex; align-items: center; gap: var(--s12); font-size: var(--t18); }
 .st-rrows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--n100); }
-.st-rrow { display: flex; flex-direction: column; gap: 6px; padding: var(--s12) 0; border-bottom: 1px solid var(--n100); }
+.st-rrows li + li { border-top: 1px solid var(--n100); }
+.st-rrow { display: flex; align-items: center; gap: var(--s8); min-height: 56px; margin: 0 -8px; padding: var(--s12) 8px; border-radius: var(--r8); text-decoration: none; color: inherit; transition: background .12s; }
+.st-rrow:active { background: var(--n100); }
+.st-rbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .st-rhead { font-weight: 700; color: var(--n900); }
-.st-rmeta { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
+.st-rmeta { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
+.st-rrow .chev { width: 20px; height: 20px; color: var(--n400); }
 .st-list { min-height: 64px; box-shadow: none; }
 
-/* ---- O3 ---- */
-.st-ready { display: flex; gap: var(--s12); align-items: flex-start; }
-.st-ready + .st-ready { margin-top: 0; }
-.st-ready.st-main { border: 2px solid var(--p700); box-shadow: var(--sh2); }
-.st-rbody { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; flex: 1 1 auto; }
-.st-rbody h2 { font-size: var(--t18); margin-top: 8px; }
-.st-rbody .btn { align-self: flex-start; margin-top: var(--s4); }
-
 /* ---- the sticky bar: Skip about one column of four, the primary about three ---- */
-.st-bar { width: 100%; display: flex; flex-direction: column; gap: var(--s8); }
-.st-alert { display: flex; gap: 6px; align-items: center; font-size: var(--t14); font-weight: 700; color: var(--bad-text); }
-.st-alert:empty { display: none; }
-.st-alert .ic { width: 18px; height: 18px; flex: none; }
+.st-bar { width: 100%; }
 .st-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--s16); align-items: center; }
 .st-btns .btn { width: 100%; padding: 0 12px; }
-.st-one { align-items: center; }
-.st-one .btn.text { width: 100%; }
+.st-one { display: flex; }
+.st-one .btn { width: 100%; }
 
+/* a pointer that can hover gets a wash on everything selectable (never on touch, where hover sticks after a tap
+   and would make an unticked row look ticked) */
+@media (hover: hover) and (pointer: fine) {
+  .st-issue:hover, .st-list:hover, .st-pcard:hover { background: var(--p50); border-color: var(--p300); box-shadow: var(--sh2); }
+  .st-issue[aria-pressed="true"]:hover, .st-list[aria-pressed="true"]:hover, .st-pcard.on:hover { border-color: var(--p800); box-shadow: 0 0 0 1px var(--p800), var(--sh2); }
+  .st-what:hover { background: var(--p100); }
+  .st-chips .chip:hover { background: var(--p50); border-color: var(--p700); color: var(--p800); }
+  .st-chips .chip[aria-pressed="true"]:hover { background: var(--p800); border-color: var(--p800); color: var(--n0); }
+  .st-rrow:hover { background: var(--n50); }
+  .st-rrow:hover .chev { color: var(--p700); }
+}
+
+@media (min-width: 600px) {
+  .st-formbtns { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+  .st-formbtns .btn { width: auto; }
+  .st-chips .chip { flex: 0 0 auto; padding: 8px 16px; }
+  .st-chips .chip[aria-pressed="true"] { padding: 8px 16px; }
+}
 @media (min-width: 720px) {
   .st-art svg { height: 88px; }
   .st-btns { grid-template-columns: auto minmax(260px, auto); justify-content: space-between; }
   .st-btns .btn.primary { padding: 0 32px; }
-  .st-one .btn.text { width: auto; }
-  .st-one .btn.primary { width: auto; min-width: 260px; }
+  .st-one { justify-content: flex-end; }
+  .st-one .btn { width: auto; min-width: 260px; }
+}
+
+/* ================= wide screens: designed for a big screen, not a widened phone =================
+   Two columns inside the wide frame. Left: the drawing, the step, the heading and the sentence, which stay in view
+   while the choices scroll. Right: the choices, with Skip and the primary at their end instead of a bar fixed across
+   the bottom of the window. app.js renders the bar as the last child of <main>, so <main> is the grid and .st gives
+   its two children to it (display: contents). */
+@media (min-width: 900px) {
+  body[data-screen="start"] main { max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--s48); align-items: start; padding-top: 40px; }
+  body[data-screen="start"].hasbar main { padding-bottom: var(--s48); }
+  body[data-screen="start"] main > .empty { grid-column: 1 / -1; }
+  .st-err { align-items: flex-start; text-align: left; padding: var(--s24) 0 0; }
+  .st { display: contents; }
+  .st-intro { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: calc(var(--header) + var(--s32)); gap: var(--s16); }
+  .st-main { grid-column: 2; grid-row: 1; }
+  .st-intro h1 { margin-top: 0; }
+  .st-intro .lede { margin-top: 0; }
+  .st-art, .st1 .st-art { display: flex; justify-content: flex-start; margin: 0 0 var(--s8); }
+  .st-art svg { width: auto; height: 120px; max-width: 100%; }
+  .st-surewide { display: flex; }
+  .st-say .st-sure { display: none; }
+  .st-say { min-height: 0; }
+  /* one roomy list (a description fits on a line here); rows a little shorter so the button stays near the fold */
+  .st-issue, .st-list { min-height: 60px; padding: var(--s8) var(--s16); }
+  .st-ibody { column-gap: var(--s12); }
+  .st-clamp, .st-rwhat { -webkit-line-clamp: 3; }
+  .st-pick { padding-left: var(--s16); }
+  .st-what { margin-left: 42px; }
+  .st-pwhat, .st-phead { max-width: 68ch; }
+  /* a short form reads better level with the heading than pinned to the top of a tall empty column */
+  .st4 .st-main, .st-off.st3 .st-main { grid-row: 1 / span 2; align-self: center; }
+  .st-form, .st-sent { padding: var(--s24); }
+  .st-form .field { max-width: 420px; }
+  /* the bar, no longer a bar: Skip and the primary sized to their labels, at the end of the choices */
+  body[data-screen="start"] .actionbar { position: static; grid-column: 2; grid-row: 2; z-index: auto; background: none; border: 0; box-shadow: none; padding: var(--s24) 0 0; }
+  body[data-screen="start"] .actionbar .inner { max-width: none; margin: 0; }
+  body[data-screen="start"] .actionbar .btn { flex: 0 0 auto; }
+  .st-btns { display: flex; justify-content: flex-end; align-items: center; gap: var(--s8); }
+  .st-btns .btn { width: auto; padding: 0 var(--s16); }
+  .st-btns .btn.primary { min-width: 200px; padding: 0 var(--s32); }
+  .st-one .btn { min-width: 200px; }
+}
+@media (min-width: 1100px) {
+  body[data-screen="start"] main { column-gap: 64px; }
+  .st-intro .lede { font-size: var(--t18); line-height: 1.55; }
+  .st-art svg { height: 140px; }
 }

@@ -7,8 +7,18 @@
 <meta name="theme-color" content="#FFFFFF">
 <title>HIPHI Bill Tracker · speak up for a healthier Hawaiʻi</title>
 <meta name="description" content="Follow Hawaiʻi health bills and speak up in five minutes. From the Hawaiʻi Public Health Institute.">
-<link rel="icon" href="pub/icon-192.png">
-<link rel="apple-touch-icon" href="pub/icon-192.png">
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="icon" href="pub/icon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="pub/icon-180.png">
+<link rel="manifest" href="pub/manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hawaiʻi Public Health Institute">
+<meta property="og:title" content="HIPHI Bill Tracker: speak up for a healthier Hawaiʻi">
+<meta property="og:description" content="Follow the health bills you care about at the Hawaiʻi Legislature and speak up in a few minutes. No account needed.">
+<meta property="og:image" content="https://natehiphi.github.io/hiphi-tracker-app/pub/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Roboto:wght@700&display=swap" rel="stylesheet">
@@ -22,9 +32,32 @@
 <link rel="stylesheet" href="pub/people.css">
 <link rel="stylesheet" href="pub/more.css">
 <link rel="stylesheet" href="pub/helper.css">
+<link rel="stylesheet" href="pub/wide.css">
+<link rel="modulepreload" href="pub/app.js">
+<link rel="modulepreload" href="pub/core.js">
+<link rel="modulepreload" href="pub/ui.js">
+<link rel="modulepreload" href="pub/actions.js">
+<link rel="modulepreload" href="pub/art.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="modulepreload" href="stops.js">
+<link rel="modulepreload" href="pub/start.js">
+<link rel="modulepreload" href="pub/home.js">
+<link rel="modulepreload" href="pub/mybills.js">
+<link rel="modulepreload" href="pub/find.js">
+<link rel="modulepreload" href="pub/bill.js">
+<link rel="modulepreload" href="pub/people.js">
+<link rel="modulepreload" href="pub/more.js">
+<link rel="modulepreload" href="pub/helper.js">
+<style>
+/* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
+.boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.boot0 i { display: block; height: 64px; border-radius: 12px; background: #EAEFF2; }
+.boot0 i:first-child { height: 96px; }
+.boot0top { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #DBE3E7; }
+</style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><div class="boot0top"></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="pub/app.js"></script>
 </body>

@@ -6,14 +6,19 @@
 // (fetchAddrSuggest, which carries the districts), and legLookupAddress for anything typed in full. What changed:
 // towns rank above street addresses when there are no digits, address suggestions name their town or island,
 // a ZIP code offers its towns, and "Browse all" is a short list grouped by island instead of 77 cards.
-import { S, app, esc, icon, blurb, spaced, billPath, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
+// 9/19, after Nate's review: a real desktop view (the two result cards side by side across the wide frame, the
+// directory as a grid under an island picker drawn with the new island chain, a legislator page with a contact
+// panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
+// person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
+import { S, app, esc, icon, blurb, nick, spaced, billPath, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
   ensureBill, legById, legTitle, legPhoto, looksLikeAddress, fetchAddrSuggest, legLookupAddress, markDone, yay } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
+import { islands } from './art.js';
 
 const KEY = 'hiphi_districts';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
 const P = { q: '', addr: null, loading: false, pick: null, finding: null, err: '', changing: false, remember: true,
-  mail: null, text: {}, copied: null, sent: {}, browse: false, isl: null, bills: {}, from: '' };
+  mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '' };
 
 // ---------------- places and islands (Hawaiʻi-specific) ----------------
 // Hawaiʻi's 2022 district maps, in use until the 2032 redistricting: Senate 1-4 and House 1-8 are on Hawaiʻi
@@ -23,6 +28,20 @@ const ISLANDS = [['O', 'Oʻahu', ''], ['H', 'Hawaiʻi Island', ''], ['M', 'Maui 
 const ISLAND_NAME = Object.fromEntries(ISLANDS.map(([c, n]) => [c, n]));
 const islandOfSeat = (ch, d) => ch === 'S' ? (d <= 4 ? 'H' : d <= 7 ? 'M' : d === 8 ? 'K' : 'O') : (d <= 8 ? 'H' : d <= 14 ? 'M' : d <= 17 ? 'K' : 'O');
 const islandOf = l => islandOfSeat(l.chamber, l.district);
+// The island chain drawing (pub/art.js) names eight islands; a group of districts lights up its main one (Maui
+// County is drawn as Maui, Kauaʻi's group as Kauaʻi).
+const ART_KEY = { O: 'oahu', H: 'hawaii', M: 'maui', K: 'kauai' };
+// The person's own island, for hiphi_districts.island: one of hawaii, maui, kahoolawe, lanai, molokai, oahu, kauai,
+// niihau. Districts cannot tell Molokaʻi or Lānaʻi from Maui (one Senate and one House district cover all three),
+// and Niʻihau shares Kauaʻi's, so the town decides when we know it.
+export function islandKey(senate, house, town = '') {
+  const code = +senate ? islandOfSeat('S', +senate) : +house ? islandOfSeat('H', +house) : '';
+  const t = String(town || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ʻ‘’`']/g, '').toLowerCase();
+  if (code === 'M' && /molokai|kaunakakai|hoolehua|kualapuu|maunaloa|kalaupapa/.test(t)) return 'molokai';
+  if (code === 'M' && /lanai/.test(t)) return 'lanai';
+  if (code === 'K' && /niihau/.test(t)) return 'niihau';
+  return ART_KEY[code] || '';
+}
 const CHAMBER_WORD = { S: 'Senate', H: 'House' };
 const PARTY = { D: 'Democrat', R: 'Republican' };
 // Place names arrive with a mix of ʻokina, curly quotes, straight quotes and macrons; match without any of them.
@@ -117,14 +136,16 @@ function zipTowns(zip) {
 
 // ---------------- remembered districts ----------------
 function saved() {
-  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && +d.senate && +d.house) return { senate: +d.senate, house: +d.house, label: String(d.label || '') }; } catch { /* private mode */ }
+  // Districts saved before 9/19 have no island yet: it is worked out from them here, so nothing needs re-saving.
+  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && +d.senate && +d.house) return { senate: +d.senate, house: +d.house, label: String(d.label || ''), island: d.island || islandKey(d.senate, d.house, d.label) }; } catch { /* private mode */ }
   const p = S.profile || {};   // signed in, with a home address saved on the account
-  if (p.senate_district && p.house_district) return { senate: +p.senate_district, house: +p.house_district, label: 'Your saved address', account: true };
+  if (p.senate_district && p.house_district) return { senate: +p.senate_district, house: +p.house_district, label: 'Your saved address', account: true, island: islandKey(p.senate_district, p.house_district) };
   return null;
 }
 function remember(pick) {
   const s = pick.ids.map(legById).find(l => l?.chamber === 'S'), h = pick.ids.map(legById).find(l => l?.chamber === 'H');
-  try { if (s && h) localStorage.setItem(KEY, JSON.stringify({ senate: s.district, house: h.district, label: pick.label })); } catch { /* private mode */ }
+  // The island rides along (never the street) so Home, the recap and the guided start can highlight it in their art.
+  try { if (s && h) localStorage.setItem(KEY, JSON.stringify({ senate: s.district, house: h.district, label: pick.label, island: islandKey(s.district, h.district, pick.town || pick.label) })); } catch { /* private mode */ }
 }
 function forget() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
 const mine = (l, d = saved()) => !!d && ((l.chamber === 'S' && l.district === d.senate) || (l.chamber === 'H' && l.district === d.house));
@@ -164,7 +185,8 @@ function suggest(q) {
 }
 // "445 N Kainalu Dr, Kailua 96734" -> street, and the town as the directory spells it; no town -> the island.
 function addrSug(x) {
-  const [street, rest = ''] = String(x.label || '').replace(/\s+/g, ' ').trim().split(/,\s*/);
+  let [street, rest = ''] = String(x.label || '').replace(/\s+/g, ' ').trim().split(/,\s*/);
+  if (street && street === street.toUpperCase()) street = titleWords(street);   // the address table shouts some streets: "445 N KAINALU DR"
   const isl = x.sd ? islandOfSeat('S', x.sd) : x.hd ? islandOfSeat('H', x.hd) : '';
   const town0 = rest.replace(/\s*\d{5}$/, '').trim(), town = town0 ? (placeIndex().get(norm(town0) + '|' + isl)?.label || titleWords(town0)) : '';
   const sub = [town || ISLAND_NAME[isl] || '', x.exact === false ? 'closest match' : ''].filter(Boolean).join(' · ');
@@ -191,9 +213,11 @@ function draft(l, b, where) {
   const verb = !p ? 'consider' : p.verb === 'comment on' ? 'consider' : p.verb;
   const lines = [`Aloha ${legTitle(l)} ${surname(l)},`,
     `My name is ${m.name || '[your name]'} and I live in ${town || '[your town]'}${mine(l) ? ', in your district' : ''}.`];
-  // Without a HIPHI summary the official description ends in Capitol bookkeeping ("Effective 3/22/2075. (SD1)"): drop it.
-  const about = b && blurb(b, 320).replace(/\s*Effective [^.]*\d{4}\.?/gi, '').replace(/\s*\((HD|SD|CD)\d+\)\.?/g, '').replace(/[.…\s]+$/, '');
-  if (b) lines.push(`I am writing about ${spaced(b.bill_number)}. ${about}.${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
+  // core's blurb() drops the Capitol's drafting notes ("Effective 3/22/2075. (SD1)") and ends at a sentence. Summaries
+  // start with a verb ("Requires free school bus passes…"), so they read on after the bill number: "HB 1780, which requires…".
+  const about = b && blurb(b, 320).split(/(?<=\.)\s+(?=[A-Z])/)[0].replace(/[.…\s]+$/, '');
+  const says = !about ? '' : /^[A-Z][a-z]+s\b/.test(about) && !/^(This|These|The|A|An)\b/.test(about) ? `, which ${about.charAt(0).toLowerCase()}${about.slice(1)}.` : `. ${about}.`;
+  if (b) lines.push(`I am writing about ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
   else lines.push('I am writing to introduce myself. I care about the health of our community, and I would like to share my views with you as bills come up.');
   lines.push((m.why || '').trim() ? m.why.trim().replace(/([^.!?])$/, '$1.') : '[Why this matters to you, in a sentence or two.]');
   lines.push(`Mahalo,\n${m.name || '[your name]'}`);
@@ -242,15 +266,15 @@ const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)
 function finderPage(route) {
   const from = billNum(route), b = fromBill(from), sv = saved();
   if (!seated().length) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(from)}`) : ''}
-    <div class="pagehead"><h1>Your legislators</h1></div>${notice('bad', 'circle-alert', 'We couldn’t load the list of legislators. Check your connection and try again.')}
+    <div class="pagehead"><h1 class="hero">Your legislators</h1></div>${notice('bad', 'circle-alert', 'We couldn’t load the list of legislators. Check your connection and try again.')}
     <div class="pp-retry">${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-pp-reload': '' } })}</div></div>`;
   const pick = P.pick || (!P.changing && sv ? savedPick(sv) : null);
   return `<div class="pp pp-finder">
     ${from ? backLink('#/bill/' + from, `Back to ${spaced(from)}`) : ''}
-    <div class="pagehead"><h1>Your legislators</h1>
+    <div class="pagehead"><h1 class="hero">Your legislators</h1>
       <p class="lede">Find the two people who represent you: one senator and one representative.</p></div>
     ${P.finding ? findingHTML() : pick ? resultHTML(pick, b, from) : searchHTML(sv)}
-    ${browseHTML(from)}
+    ${browseHTML(from, pick)}
   </div>`;
 }
 const savedPick = sv => ({ kind: 'saved', label: sv.label, ids: forDistricts(sv.senate, sv.house).map(l => l.id) });
@@ -269,7 +293,7 @@ function searchHTML(sv) {
     ${sv && P.changing ? `<p class="pp-savedline">${icon('map-pin')}<span>Saved on this device: <span class="strong">${esc(sv.label || 'your districts')}</span></span>${btn('Show', { kind: 'text', sm: true, attrs: { 'data-pp-show': '' } })}</p>` : ''}`;
 }
 const findingHTML = () => `<div class="pp-finding" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding the districts for <span class="strong">${esc(P.finding)}</span>…</span></div>
-  <div class="pp-skel" aria-hidden="true"><div class="skel"></div><div class="skel"></div></div>`;
+  <div class="pp-skel grid2" aria-hidden="true"><div class="skel"></div><div class="skel"></div></div>`;
 
 // Two slots, always: Senator and Representative. An address fills both. A town can fill one, both, or neither
 // (district lines split towns, and neighbour-island Senate districts name regions, not towns), and then we ask
@@ -298,7 +322,7 @@ function resultHTML(pick, b, from) {
       ${btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pp-change': '' } })}</div>
     ${exact ? `<p class="pp-intro">They work for you. A short, friendly note from someone in their district gets read.</p>`
       : `<div class="pp-notice">${notice('info', 'info', `<p>${why}</p>`)}${btn('Use my street address', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-pp-street': '' } })}</div>`}
-    <div class="pp-slots">${slot(sen, 'S')}${slot(rep, 'H')}</div>
+    <div class="pp-slots grid2${P.mail ? ' pp-writing' : ''}">${slot(sen, 'S')}${slot(rep, 'H')}</div>
     ${exact ? `<label class="check pp-remember"><input type="checkbox" id="pp-remember"${P.remember ? ' checked' : ''} aria-describedby="pp-remhelp">
       <span><span class="strong">Remember on this device</span><span class="help" id="pp-remhelp">Bill pages will point out your senator and representative. Saved only on this device.</span></span></label>` : ''}
     ${exact && pick.kind === 'place' ? `<p class="pp-fine">${icon('info')}<span>Found by town. District lines can split a town, so your street address is the surest way.</span></p>` : ''}
@@ -320,22 +344,35 @@ function bigCard(l, { eyebrow, b, from, where }) {
 const lrow = (l, from, sv) => row({ leadHtml: legPhoto(l, 'pp-photo sm'), title: `${esc(legTitle(l))} ${esc(l.name)}`,
   sub: `District ${l.district}${l.places ? ' · ' + esc(okina(l.places)) : ''}`, end: mine(l, sv) ? chip('Yours', 'info') : '', href: legHref(l.id, from), cls: 'pp-lrow' });
 
-// Browse: short, by island, one island open at a time (a native accordion), so the list never runs to 18,000px.
-function browseHTML(from) {
+// Browse: an island picker drawn with the island chain (each button lights up its own island), then that island's
+// senators and representatives. One island at a time, so the list never runs to 18,000px. On a phone the picker is
+// four rows and the list is one column; on a wide screen the picker is four cards and the list a three-column grid.
+function browseHTML(from, pick) {
   const sv = saved();
-  const isl = ISLANDS.map(([c, name, sub]) => {
-    const ls = seated().filter(l => islandOf(l) === c), sen = ls.filter(l => l.chamber === 'S').sort(bySeat), rep = ls.filter(l => l.chamber === 'H').sort(bySeat);
-    return `<details class="pp-isl" name="pp-isl" data-pp-isl="${c}"${P.isl === c ? ' open' : ''}>
-      <summary><span class="pp-sumtext"><span class="pp-sumtitle">${name}</span>${sub ? `<span class="pp-sumsub">${sub}</span>` : ''}</span>${icon('chevron-down', { cls: 'pp-chev' })}</summary>
-      <p class="pp-ch">Senators</p><div class="pp-list">${sen.map(l => lrow(l, from, sv)).join('')}</div>
-      <p class="pp-ch">Representatives</p><div class="pp-list">${rep.map(l => lrow(l, from, sv)).join('')}</div>
-    </details>`;
+  // The person's island, when we know it: from the districts they saved, or from the result on screen.
+  const leg0 = pick && pick.ids.map(legById).find(Boolean), home = sv ? ART_KEY_CODE[sv.island] || '' : leg0 && pick.ids.length <= 2 ? islandOf(leg0) : '';
+  const cards = ISLANDS.map(([c, name, sub]) => {
+    const ls = seated().filter(l => islandOf(l) === c), ns = ls.filter(l => l.chamber === 'S').length, nr = ls.length - ns, on = P.isl === c;
+    return `<button type="button" class="pp-isle${on ? ' on' : ''}" data-pp-isl="${c}" aria-expanded="${on}" aria-controls="pp-islbody">
+      <span class="pp-isleart">${islands(c === 'M' ? 'mauicounty' : c === 'K' ? 'kauaicounty' : ART_KEY[c])}</span>
+      <span class="pp-isletext"><span class="pp-isletitle">${name}${home === c ? ` ${chip('Your island', 'info')}` : ''}</span>
+        <span class="pp-islesub">${sub ? sub + ' · ' : ''}${ns} senator${ns === 1 ? '' : 's'}, ${nr} representative${nr === 1 ? '' : 's'}</span></span>
+      ${icon('chevron-down', { cls: 'pp-chev' })}</button>`;
   }).join('');
-  return `<details class="pp-browse" data-pp-browse${P.browse ? ' open' : ''}>
-    <summary><span class="pp-lead">${icon('users')}</span><span class="pp-sumtext"><span class="pp-sumtitle">Browse all legislators</span><span class="pp-sumsub">Every senator and representative, by island</span></span>${icon('chevron-down', { cls: 'pp-chev' })}</summary>
-    <div class="pp-islands">${isl}</div>
-  </details>`;
+  let body = '';
+  if (P.isl) {
+    const ls = seated().filter(l => islandOf(l) === P.isl), sen = ls.filter(l => l.chamber === 'S').sort(bySeat), rep = ls.filter(l => l.chamber === 'H').sort(bySeat);
+    body = `<h3 class="pp-islname" id="pp-islname" tabindex="-1">${ISLAND_NAME[P.isl]}</h3>
+      <h4 class="pp-ch">Senators</h4><div class="pp-list pp-grid">${sen.map(l => lrow(l, from, sv)).join('')}</div>
+      <h4 class="pp-ch">Representatives</h4><div class="pp-list pp-grid">${rep.map(l => lrow(l, from, sv)).join('')}</div>`;
+  }
+  return `<section class="pp-browse" aria-labelledby="pp-br-t">
+    <div class="sechead"><h2 id="pp-br-t">Browse all legislators</h2><span class="meta">Choose an island</span></div>
+    <div class="pp-isles" role="group" aria-label="Islands">${cards}</div>
+    <div class="pp-islbody" id="pp-islbody">${body}</div>
+  </section>`;
 }
+const ART_KEY_CODE = { oahu: 'O', hawaii: 'H', maui: 'M', molokai: 'M', lanai: 'M', kahoolawe: 'M', kauai: 'K', niihau: 'K' };
 
 // ---------------- one legislator ----------------
 const ROLE = { chair: 0, vice_chair: 1, member: 2 };
@@ -358,25 +395,46 @@ function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
   if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
   const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), follow = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
-  const onBill = b && billAt(b, roles);
+  const onBill = b && billAt(b, roles), yours = mine(l) ? chip(yoursWord(l), 'info', 'user-check') : '';
   const chamber = l.chamber === 'S' ? 'Senate' : 'House';
+  const billName = b ? `${esc(spaced(b.bill_number))}${nick(b) ? ` (${esc(nick(b))})` : ''}` : '';
+  // A bill leads with its everyday name when staff have written one; what it does is the second line.
+  const billRow = ({ b: x, r, when }) => {
+    const meta = `${esc(spaced(x.bill_number))} · ${when === 'now' ? esc(plainStatus(x).short) : 'Comes to their committee next'}${r.role === 'chair' ? ` · ${when === 'now' ? 'they chair it' : 'they chair that committee'}` : ''}`;
+    return row({ title: esc(nick(x) || blurb(x, 160)), sub: nick(x) ? `<span class="pp-what">${esc(blurb(x, 160))}</span><span>${meta}</span>` : meta, href: billPath(x), cls: 'pp-billrow' });
+  };
+  // One page, two layouts. On a phone everything stacks: who they are, how to reach them, then their committees.
+  // From 1100px the contact panel moves to the side and stays in view (wide.css .cols + .side), with "Your senator"
+  // on it, and the email opens in the wide column where there is room to write.
   return `<div class="pp pp-person">
     ${backLink(from ? '#/bill/' + from : '#/legislators', from ? `Back to ${spaced(from)}` : 'All legislators')}
-    <header class="pp-prof">${legPhoto(l, 'pp-photo xl')}
-      <div class="pp-proftext">${mine(l) ? chip(yoursWord(l), 'info', 'user-check') : ''}
-        <h1>${esc(legTitle(l))} ${esc(l.name)}</h1>
-        <p class="pp-role">${chamber} District ${l.district}${PARTY[l.party] ? ' · ' + PARTY[l.party] : ''}${l.title ? ' · ' + esc(l.title) : ''}</p></div></header>
-    ${l.places ? `<p class="pp-covers">Covers ${esc(cover(l))}</p>` : ''}
-    ${b && l.email ? `<div class="pp-about">${notice('info', 'mail', `<p>${onBill ? `${esc(last)} is ${roleThe(onBill.r)} of the committee ${onBill.when === 'now' ? `that has ${esc(spaced(b.bill_number))} now` : `${esc(spaced(b.bill_number))} goes to next`}. ` : ''}The email below is about ${esc(spaced(b.bill_number))}.</p>`)}</div>` : ''}
-    <div class="pp-actions">${contact(l, k, { primary: true })}</div>
-    ${P.mail === k ? composer(l, b, k, mine(l, sv) ? townOf(sv) : '') : ''}
-    ${l.room || l.phone ? `<p class="pp-office">${icon('landmark')}<span>Office: ${l.room ? `Room ${esc(l.room)}, ` : ''}Hawaiʻi State Capitol${l.phone ? `, ${esc(l.phone)}` : ''}</span></p>` : ''}
-    ${roles.length ? `<section class="pp-sec" aria-labelledby="pp-cm"><h2 id="pp-cm">Committees</h2>
-      <p class="pp-explain">Committees look at bills before the full ${chamber} votes. The chair decides which bills get a hearing.</p>
-      <ul class="pp-cmtes">${roles.map(r => `<li>${icon(r.role === 'member' ? 'users' : 'landmark')}<span><span class="strong">${roleWord(r.role)}</span> of the ${esc(cmteLabel(r.committee))}</span></li>`).join('')}</ul></section>` : ''}
-    ${follow.length ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Your bills in their committees</h2>
-      <div class="rows">${follow.map(({ b: x, r, when }) => row({ title: esc(blurb(x, 90)), sub: `${esc(spaced(x.bill_number))} · ${when === 'now' ? esc(plainStatus(x).short) : 'Comes to their committee next'}${r.role === 'chair' ? ` · ${when === 'now' ? 'they chair it' : 'they chair that committee'}` : ''}`, href: billPath(x), cls: 'pp-billrow' })).join('')}</div></section>` : ''}
-    ${l.capitol_url ? `<p class="pp-ext">${btn('Their page on the Capitol website', { kind: 'text', icon: 'external-link', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } })}</p>` : ''}
+    <div class="cols pp-cols">
+      <div class="pp-main">
+        <header class="pp-prof">${legPhoto(l, 'pp-photo xl')}
+          <div class="pp-proftext">${yours ? `<span class="pp-yours-top">${yours}</span>` : ''}
+            <h1 class="hero">${esc(legTitle(l))} ${esc(l.name)}</h1>
+            <p class="pp-role">${chamber} District ${l.district}${PARTY[l.party] ? ' · ' + PARTY[l.party] : ''}${l.title ? ' · ' + esc(l.title) : ''}</p></div></header>
+        ${l.places ? `<p class="pp-covers">Covers ${esc(cover(l))}</p>` : ''}
+        ${b && l.email ? `<div class="pp-about">${notice('info', 'mail', `<p>${onBill ? `${esc(last)} is ${roleThe(onBill.r)} of the committee ${onBill.when === 'now' ? `that has ${esc(spaced(b.bill_number))} now` : `${esc(spaced(b.bill_number))} goes to next`}. ` : ''}The email is about ${billName}.</p>`)}</div>` : ''}
+      </div>
+      <aside class="side pp-side" aria-label="Contact ${esc(last)}">
+        <div class="pp-sidecard">
+          ${yours ? `<span class="pp-yours-side">${yours}</span>` : ''}
+          <h2 class="pp-sidehead">Get in touch</h2>
+          <div class="pp-actions">${contact(l, k, { primary: true })}</div>
+          ${l.room || l.phone ? `<p class="pp-office">${icon('landmark')}<span>Office: ${l.room ? `Room ${esc(l.room)}, ` : ''}Hawaiʻi State Capitol${l.phone ? `, ${esc(l.phone)}` : ''}</span></p>` : ''}
+          ${l.capitol_url ? `<p class="pp-ext">${btn('Their page on the Capitol website', { kind: 'text', sm: true, icon: 'external-link', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } })}</p>` : ''}
+        </div>
+      </aside>
+      <div class="pp-rest">
+        ${P.mail === k ? composer(l, b, k, mine(l, sv) ? townOf(sv) : '') : ''}
+        ${roles.length ? `<section class="pp-sec" aria-labelledby="pp-cm"><h2 id="pp-cm">Committees</h2>
+          <p class="pp-explain">Committees look at bills before the full ${chamber} votes. The chair decides which bills get a hearing.</p>
+          <ul class="pp-cmtes">${roles.map(r => `<li>${icon(r.role === 'member' ? 'users' : 'landmark')}<span><span class="strong">${roleWord(r.role)}</span> of the ${esc(cmteLabel(r.committee))}</span></li>`).join('')}</ul></section>` : ''}
+        ${follow.length ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Your bills in their committees</h2>
+          <div class="rows">${follow.map(billRow).join('')}</div></section>` : ''}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -504,9 +562,17 @@ function wire(route) {
     app.render();
   });
   root.querySelectorAll('[data-pp-sentno]').forEach(el => el.onclick = () => { P.sent[el.dataset.ppSentno] = false; app.render(); });
-  // Keep the folds as the person left them when the page re-renders.
-  const br = root.querySelector('[data-pp-browse]'); if (br) br.ontoggle = () => { P.browse = br.open; };
-  root.querySelectorAll('[data-pp-isl]').forEach(d => d.ontoggle = () => { if (d.open) P.isl = d.dataset.ppIsl; else if (P.isl === d.dataset.ppIsl) P.isl = null; });
+  // The island picker: one island open at a time; choosing the open one again closes it. The button keeps keyboard
+  // focus (app.js puts it back after the redraw). If the list opened out of sight, the picker moves to the top of
+  // the screen so the island's name and first rows show under it.
+  root.querySelectorAll('[data-pp-isl]').forEach(el => el.onclick = () => {
+    const c = el.dataset.ppIsl; P.isl = P.isl === c ? null : c; app.render();
+    if (!P.isl) return;
+    requestAnimationFrame(() => {
+      const body = document.getElementById('pp-islbody'), sec = body?.closest('.pp-browse'); if (!body) return;
+      if (body.getBoundingClientRect().top > window.innerHeight - 260) sec.querySelector('.pp-isles').scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+  });
 }
 
 export default {

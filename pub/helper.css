@@ -11,11 +11,13 @@
   padding: var(--safe-t) var(--s16) 0 var(--s4); background: var(--n0); }
 .hp-dlg .hp-title { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hp-dlg .hp-count { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.hp-dlg .hp-count { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
 .hp-dlg .hp-prog { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 var(--s16) var(--s4); background: var(--n0); }
 .hp-dlg .hp-prog i { height: 4px; border-radius: 2px; background: var(--n200); transition: background .3s; }
 .hp-dlg .hp-prog i.on { background: var(--p700); }
 .hp-dlg .hp-prog.done i { background: var(--ok-text); }
+/* the "in your own words" screen has no parts to count: a hairline keeps the header's height and edge */
+.hp-dlg .hp-prog.hp-noprog { display: block; height: 1px; padding: 0; margin: 0 0 var(--s4); background: var(--n200); }
 /* headings that receive focus when a screen changes: the screen reader hears them, no ring is drawn */
 .hp-dlg .hp-title:focus, .hp-dlg .hp-h:focus, .hp-dlg .hp-mahalo:focus, .hp-dlg .hp-chip:focus, .hp-dlg .chip[tabindex]:focus { outline: none; }
 
@@ -25,6 +27,7 @@
 .hp-dlg .hp-top { display: flex; flex-direction: column; gap: var(--s8); }
 .hp-dlg .hp-h { font-size: var(--t22); }
 .hp-dlg .hp-sub { color: var(--n700); max-width: 65ch; }
+.hp-dlg .hp-nick { font-weight: 700; color: var(--n900); }   /* the bill's everyday name, when staff have written one */
 .hp-dlg .hp-ctx { font-size: var(--t14); color: var(--n700); }
 .hp-dlg .hp-due { display: flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
 .hp-dlg .hp-due .ic { width: 18px; height: 18px; color: var(--p700); }
@@ -32,6 +35,10 @@
 .hp-dlg .hp-due.danger, .hp-dlg .hp-due.danger .ic { color: var(--bad-text); }
 .hp-dlg .notice p + .btn, .hp-dlg .notice .hp-inl { margin: var(--s4) 0 0 -12px; }
 .hp-dlg .hp-opt { font-weight: 400; color: var(--n500); }
+/* a quiet line, never an alarm: the email link is a bonus and must not get in the way of the letter */
+.hp-dlg .hp-quiet { display: flex; gap: 6px; align-items: flex-start; font-size: var(--t14); color: var(--n700); }
+.hp-dlg .hp-quiet .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); }
+.hp-dlg .hp-break { overflow-wrap: anywhere; }
 
 /* screen 2: the letter reads like a letter (Lato 16px), grows with its text, and shows it is editable on focus */
 .hp-dlg .hp-letter { display: block; width: 100%; min-height: 280px; padding: var(--s16); border: 1px solid var(--n400); border-radius: var(--r12);
@@ -48,6 +55,7 @@
   font: 700 var(--t14)/28px var(--font); text-align: center; }
 .hp-dlg .hp-stxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding-top: 2px; }
 .hp-dlg .hp-stxt b { color: var(--n900); }
+.hp-dlg .hp-stxt .hp-nw { white-space: nowrap; }   /* a date never breaks between "Mar" and "17" */
 .hp-dlg .hp-stxt .hp-inl { margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)) -12px; }
 .hp-dlg .hp-stxt .chip { min-height: 44px; }
 .hp-dlg .hp-notes { display: flex; flex-direction: column; gap: var(--s12); }
@@ -65,6 +73,13 @@
 .hp-dlg .hp-next { display: flex; flex-direction: column; gap: var(--s8); }
 .hp-dlg .hp-watch { align-self: flex-start; margin-left: -12px; }
 .hp-dlg .hp-watch .ic-external-link { width: 16px; height: 16px; }
+/* "check your inbox": shown instead of the email ask when the person gave their email on screen 1 */
+.hp-dlg .hp-inbox { display: flex; gap: var(--s12); align-items: flex-start; }
+.hp-dlg .hp-inbox:focus { outline: none; }
+.hp-dlg .hp-inbox > .ic { flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--p700); }
+.hp-dlg .hp-inbox > div { min-width: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.hp-dlg .hp-linkfail { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); }
+.hp-dlg .hp-linkfail .hp-inl { margin-left: -12px; }
 
 /* footer: the one main button, sometimes with Back or a quieter button beside it */
 .hp-dlg .hp-foot { flex: none; background: var(--n0); border-top: 1px solid var(--n200); box-shadow: var(--sh2);
@@ -75,6 +90,10 @@
 .hp-dlg .hp-footin .btn.text { flex: none; padding: 0 var(--s12) 0 var(--s4); }
 .hp-dlg .hp-chip { min-height: 48px; justify-content: center; font-size: var(--t16); padding: 0 var(--s16); }
 .hp-dlg .hp-chip .ic { width: 20px; height: 20px; }
+/* screen 3's quiet second row ("I already sent it", "I'll finish later"): always in view, never competing */
+.hp-dlg .hp-footmore { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s8); max-width: 560px; margin: var(--s4) auto calc(-1 * var(--s8)); }
+.hp-dlg .hp-footmore .btn { white-space: normal; text-align: center; }
+.hp-dlg .hp-steps .hp-inl .ic-external-link { width: 16px; height: 16px; }
 
 /* narrow phones: Back keeps its icon and its name for screen readers */
 @media (max-width: 379px) {
@@ -89,4 +108,12 @@
   .hp-dlg .hp-prog { padding: 0 var(--s24) var(--s4); }
   .hp-dlg .hp-in { padding: var(--s24) var(--s24) var(--s32); }
   .hp-dlg .hp-foot { padding: var(--s12) var(--s24); box-shadow: none; }
+  /* with a mouse the buttons are sized to their label: Back on the left, the main button on the right */
+  .hp-dlg .hp-footin { justify-content: flex-end; }
+  .hp-dlg .hp-footin .hp-back { margin-right: auto; }
+  .hp-dlg .hp-footin .btn.primary, .hp-dlg .hp-footin .btn.secondary, .hp-dlg .hp-chip { flex: 0 0 auto; min-width: 200px; padding: 0 var(--s24); }
+  .hp-dlg .hp-footin .btn.primary.full { width: auto; }
+  .hp-dlg .hp-footmore { justify-content: flex-end; }
+  .hp-dlg .btn.text:hover, .hp-dlg .hp-tel:hover { background: var(--p50); text-decoration: none; }
+  .hp-dlg .hp-tel { border-radius: var(--r8); }
 }

@@ -1,4 +1,5 @@
-/* Find, issue pages and HIPHI's lists (pub/find.js). Bill rows and folds come from mybills.css (.mb-list, .mb-fold). */
+/* Find, issue pages and HIPHI's lists (pub/find.js). Bill rows, folds and tiles come from mybills.css
+   (.mb-list, .mb-fold, .mb-tiles). Phone first; the wide-screen layout is at the end of this file. */
 
 /* ---- the search box: 48px, a clear button, and a spinner in place of the magnifier while searching ---- */
 .fd-search { display: flex; flex-direction: column; gap: var(--s12); margin: var(--s8) 0 var(--s8); }
@@ -6,6 +7,7 @@
 .fd-box input { -webkit-appearance: none; appearance: none; height: 48px; }
 .fd-box input::-webkit-search-cancel-button, .fd-box input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .fd-box input::placeholder { color: var(--n500); opacity: 1; }
+.fd-box input:hover { border-color: var(--n500); }
 .fd-box .fd-spin { display: none; position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--p700); pointer-events: none; }
 .fd-box .fd-spin .ic { width: 20px; height: 20px; animation: spin 1s linear infinite; }
 .fd-box.busy .ic-search { visibility: hidden; }
@@ -14,24 +16,23 @@
 
 /* ---- sections ---- */
 .fd .sechead { margin-top: var(--s24); }
-.fd-sub { margin: calc(-1 * var(--s4)) 0 var(--s12); max-width: 60ch; }
-.fd-rows .row .sub { max-width: 60ch; }
+.fd-sub { margin: calc(-1 * var(--s4)) 0 var(--s12); max-width: 65ch; }
 .fd-count { display: flex; flex-direction: column; align-items: flex-end; min-width: 48px; line-height: 1.15; font-size: var(--t13); color: var(--n500); }
 .fd-count b { font-size: var(--t16); color: var(--n900); }
 .fd-count.quiet { color: var(--n500); font-weight: 700; }
-.fd-on { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: var(--t13); font-weight: 700; color: var(--ok-text); }
-.fd-on .ic { width: 16px; height: 16px; }
 .fd-more { display: flex; justify-content: center; margin-top: var(--s8); }
 .fd-cards .acard + .acard { margin-top: var(--s16); }
-.fd-offnote { margin-top: var(--s16); }
+.fd-sideh { margin: var(--s24) 0 var(--s12); font-size: var(--t16); }
+.fd-offnote { margin-top: var(--s16); max-width: 720px; }
 .fd-none { margin: var(--s24) 0 0; color: var(--n700); }
 .fd-err { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); margin-top: var(--s24); }
 .fd-stale { opacity: .55; transition: opacity .15s; }
 .fd .skelpage { padding-top: var(--s24); }
 
 /* ---- issue and list pages ---- */
-.fd-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: -4px; padding: 0 8px 0 4px; font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; border-radius: var(--pill); }
-.fd-back:hover { text-decoration: underline; }
+.fd-back { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; margin-left: -12px; padding: 0 var(--s16) 0 var(--s12); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; border-radius: var(--pill); transition: background .15s; }
+.fd-back:hover { background: var(--p50); }
+.fd-back:active { background: var(--p100); }
 .fd-back .ic { width: 20px; height: 20px; }
 .fd-ihead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 var(--s16); }
 .fd-ihead .fd-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; margin-bottom: var(--s4); }
@@ -43,8 +44,51 @@
 .fd-follow.on { background: var(--ok-wash); border-color: var(--ok-wash); box-shadow: none; gap: var(--s4); }
 .fd-follow.on > .small { text-align: left; color: var(--n700); }
 .fd-follow.on .btn.text { margin-left: -12px; }
-.fd .okmsg { font-size: var(--t16); }
-.fd .okmsg .ic { width: 20px; height: 20px; }
-.fd-recap { margin-top: var(--s8); display: flex; flex-direction: column; gap: var(--s8); }
+.fd .okmsg { font-size: var(--t16); align-items: flex-start; }
+.fd .okmsg .ic { width: 20px; height: 20px; margin-top: 2px; }
+.fd .okmsg:focus { outline: none; }   /* focus is sent here only so a screen reader says the new state; it is not a control */
+.fd-recap { margin-top: var(--s8); display: flex; flex-direction: column; gap: var(--s8); max-width: 720px; }
 .fd-recap b { color: var(--n900); }
-.fd-quiet { margin-top: var(--s8); }
+.fd-quiet { margin-top: var(--s8); max-width: 720px; }
+
+/* text buttons get a wash on hover, like everything else that can be pressed */
+.fd .btn.text:hover { background: var(--p50); text-decoration: none; }
+
+/* ---- wide screens ---- */
+@media (min-width: 900px) {
+  /* buttons are sized to their label; a full-width pill is a phone pattern */
+  .fd-cta .btn.full { width: auto; }
+  .fd-follow { align-items: flex-start; }   /* a column of flex items stretches its button unless told not to */
+  .fd-follow > .small { text-align: left; }
+  .fd-more { justify-content: flex-start; }
+}
+@media (min-width: 1100px) {
+  /* the search box is the page's focal point: generous, but not the full 1120px */
+  .fd-search { max-width: 720px; gap: var(--s16); margin-bottom: var(--s16); }
+  .fd-box input { height: 56px; border-radius: var(--r16); padding-left: 52px; }
+  .fd-box .ic-search, .fd-box .fd-spin { left: 18px; top: 18px; }
+  .fd-box .fd-clear { top: calc((56px - 44px) / 2); right: calc((56px - 44px) / 2); }
+  .fd .sechead { margin-top: var(--s32); }
+
+  /* an issue tile: icon and count on top, then the name and what it covers */
+  .fd-rows.mb-tiles > .row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: 'lead . end' 'body body body'; row-gap: var(--s12); column-gap: var(--s12); }
+  .fd-rows.mb-tiles > .row .lead { grid-area: lead; }
+  .fd-rows.mb-tiles > .row .body { grid-area: body; }
+  .fd-rows.mb-tiles > .row .end { grid-area: end; }
+
+  /* the suggestion: the action card in the main column, the week's other hearings beside it */
+  .fd-voices .fd-sideh { margin: 0 0 calc(-1 * var(--s4)); }
+  .fd-voices > .side { top: calc(var(--header) + var(--s24)); }
+
+  /* an issue's or a list's header: the icon sits beside the title instead of on a line of its own */
+  .fd-ihead { display: grid; grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--s16); row-gap: var(--s8); align-items: center; margin-bottom: var(--s24); }
+  .fd-ihead .fd-icon { margin: 0; }
+  .fd-ihead > :not(.fd-icon):not(h1) { grid-column: 2; }
+
+  /* a list's page: its Follow button sits beside the title, in view, sized to its label */
+  .fd-lhead { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s32); align-items: end; }
+  .fd-lhead .fd-ihead { margin-bottom: var(--s16); }
+  .fd-lhead .fd-cta { margin: 0 0 var(--s16); }
+  .fd-lhead .fd-follow:not(.on) { align-items: flex-start; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
+  .fd-lhead .fd-follow.on { margin: 0 0 var(--s16); }
+}

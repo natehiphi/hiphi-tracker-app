@@ -5,7 +5,7 @@
 .issueline { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t13); font-weight: 700; color: var(--n500); min-width: 0; }
 .issueline .ic { width: 18px; height: 18px; color: var(--p700); }
 .acard .achead { font-size: var(--t18); line-height: 1.3; margin-top: 2px; }
-.acard .achead a { color: var(--n900); text-decoration: none; }
+.acard .achead a { color: var(--n900); text-decoration: none; display: inline-block; padding: 11px 0; margin: -11px 0; }   /* a one-line name is still a 44px target */
 .acard .achead a:hover { text-decoration: underline; }
 .acard .ask { font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s12); }
 .acard .why { display: flex; gap: 6px; align-items: center; font-size: var(--t14); color: var(--p800); }
@@ -18,7 +18,7 @@
 .acard .proof { display: flex; gap: 6px; align-items: center; font-size: var(--t14); color: var(--n500); }
 .acard .proof .ic { width: 16px; height: 16px; color: var(--o600); }
 .acard .btncol { margin-top: var(--s8); }
-.acard.focus { border: 2px solid var(--p700); box-shadow: var(--sh2); }
+.acard.focus { border-color: var(--p300); box-shadow: var(--sh2); }   /* lifted, not ringed: a 2px blue border read as keyboard focus */
 .acard.done { background: var(--ok-wash); border-color: #BFE8C8; }
 .donebox { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-weight: 700; color: var(--ok-text); font-size: var(--t14); }
 .donebox .ic { width: 20px; height: 20px; }
@@ -46,3 +46,5 @@
 .nudgecard .ngbody { display: flex; flex-direction: column; gap: var(--s8); flex: 1 1 auto; min-width: 0; }
 .nudgecard .ngform { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
 .acard .btn { white-space: normal; text-align: center; }
+.acard .acwhat { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.acard .note { margin-top: var(--s4); }

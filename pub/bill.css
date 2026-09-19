@@ -1,7 +1,9 @@
-/* The bill page (pub/bill.js). Everything sits under .bl-page, except .bl-barq and .bl-barbtn, which live in the
-   sticky bottom action bar that app.js draws outside <main>. Colours only through the tokens in base.css. */
+/* The bill page (pub/bill.js). Everything sits under .bl-page, except the few rules at the end for the page frame on
+   this screen (the site header on phones, the sticky bottom bar and what bill.js puts in it). Colours only through
+   the tokens in base.css. Phone first; the tablet and desktop rules are at the end. bill.js draws the page for the
+   layout in use: .bl-wide (from 1100px) is the two-column page with the actions in a side panel. */
 
-/* ---- sticky top bar: Back, the number, follow star, overflow menu ---- */
+/* ---- top bar: Back, the number, follow star, overflow menu ---- */
 /* Full-bleed white on wide screens without horizontal scroll: a spread shadow on a layer behind the bar paints the
    sides, and clip-path keeps it to the bar's height plus the 1px line under it. The clip sits on that layer, not on the
    bar, so the overflow menu can drop below it. */
@@ -9,11 +11,11 @@
   height: 56px; margin: calc(-1 * var(--s16)) calc(-1 * var(--gutter)) 0; padding: 0 var(--s4); }
 .bl-page .bl-top::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--n0);
   box-shadow: 0 0 0 100vmax var(--n0), 0 1px 0 100vmax var(--n200); clip-path: inset(0 -100vmax -1px); }
-.bl-page .bl-back { flex: none; min-width: 96px; justify-content: flex-start; gap: 6px; padding: 0 12px 0 8px; }
+.bl-page .bl-back { flex: none; min-width: 96px; justify-content: flex-start; gap: var(--s8); padding: 0 var(--s12) 0 var(--s8); }
 .bl-page .bl-back:hover { text-decoration: none; background: var(--p50); }
 .bl-page .bl-num { flex: 1 1 auto; min-width: 0; text-align: center; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; }
 .bl-page .bl-tools { flex: none; min-width: 96px; display: flex; align-items: center; justify-content: flex-end; }
-.bl-page .bl-tools .iconbtn[aria-busy="true"] { opacity: .6; }
+.bl-page .bl-tools .iconbtn[aria-busy="true"], .bl-page .bl-stools .btn[aria-busy="true"] { opacity: .6; }
 .bl-page .bl-menuwrap { position: relative; }
 .bl-page .bl-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 236px; display: flex; flex-direction: column;
   padding: var(--s4); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
@@ -25,22 +27,34 @@
 .bl-page .bl-mi .bl-ext { width: 16px; height: 16px; margin-left: auto; color: var(--n500); }
 
 /* ---- "New here?" ---- */
-.bl-page .bl-new { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); padding: 2px 4px 2px var(--s12);
+.bl-page .bl-new { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); padding: 0 var(--s4) 0 var(--s12);
   background: var(--p50); border-radius: var(--r12); font-size: var(--t14); color: var(--p900); }
 .bl-page .bl-new p { flex: 1 1 auto; }
 .bl-page .bl-new .btn { flex: none; }
 
-/* ---- top of the page ---- */
+/* ---- top of the page: the everyday name (or, without one, what the bill does), then the chips ---- */
 .bl-page .bl-head { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s24); }
-.bl-page .bl-head h1 { font-size: var(--t22); line-height: 1.25; max-width: 32ch; }
+.bl-page .bl-head h1 { font-size: var(--t22); line-height: 1.25; max-width: 65ch; overflow-wrap: anywhere; }
+.bl-page .bl-head h1.bl-nick { font-size: var(--t28); line-height: 1.15; }
+.bl-page .bl-lede { margin-top: calc(-1 * var(--s4)); }
 .bl-page .bl-head .chips .chip { white-space: normal; }
-.bl-page .bl-fol { display: flex; align-items: center; gap: 6px; font-size: var(--t14); color: var(--n500); }
-.bl-page .bl-fol .ic { width: 18px; height: 18px; color: var(--p700); }
 .bl-page .bl-note { margin-top: var(--s16); }
 .bl-page .bl-skel { margin-top: var(--s8); }
+/* text buttons on this page get a wash on hover, not only an underline */
+.bl-page .btn.text:hover { background: var(--p50); }
+
+/* ---- where do you stand? ---- */
+.bl-page .bl-stance, .bl-page .bl-you { display: flex; flex-direction: column; gap: var(--s8); }
+.bl-page .bl-stance { margin-top: var(--s16); padding: var(--s12) var(--s16); }
+.bl-page .bl-stance h2, .bl-page .bl-you h2 { font-size: var(--t16); letter-spacing: -.01em; }
+.bl-page .bl-stance .chip, .bl-page .bl-you .chip { flex: 1 1 auto; justify-content: center; transition: background .12s, border-color .12s; }
+.bl-page .bl-stance .chip:hover, .bl-page .bl-you .chip:hover { background: var(--p50); border-color: var(--p700); }
+.bl-page .bl-stance .chip .ic, .bl-page .bl-you .chip .ic { stroke-width: 3; }
+.bl-page .bl-stnote { font-size: var(--t13); color: var(--n500); }
+.bl-page .bl-stance .note, .bl-page .bl-you .note { margin-top: var(--s4); }
 
 /* ---- status card and the seven-dot rail ---- */
-.bl-page .bl-status { display: flex; flex-direction: column; gap: var(--s16); margin-top: var(--s24); }
+.bl-page .bl-status { display: flex; flex-direction: column; gap: var(--s16); margin-top: var(--s16); }
 .bl-page .bl-say { display: flex; gap: var(--s8); align-items: flex-start; color: var(--n900); }
 .bl-page .bl-say .flower { flex: none; margin-top: 1px; }
 .bl-page .bl-ask { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s12); }
@@ -49,7 +63,8 @@
 
 .bl-page .bl-rail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--s8); padding-top: 4px; }
 .bl-page .bl-dots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
-.bl-page .bl-dots li { position: relative; display: flex; align-items: center; justify-content: center; height: 32px; }
+.bl-page .bl-dots li { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.bl-page .bl-dw { display: flex; align-items: center; justify-content: center; height: 32px; }
 /* the line that joins each dot to the one before it: solid where the bill has been */
 .bl-page .bl-dots li::before { content: ''; position: absolute; top: 15px; left: -50%; right: 50%; height: 2px; background: var(--n200); }
 .bl-page .bl-dots li:first-child::before { display: none; }
@@ -62,6 +77,14 @@
 .bl-page .bl-next .bl-dot { width: 16px; height: 16px; background: var(--n0); border: 2px solid var(--n300); }
 .bl-page .bl-stop .bl-dot { width: 24px; height: 24px; background: var(--n500); }
 .bl-page .bl-raillaw .bl-dots li:last-child .bl-dot { width: 26px; height: 26px; background: var(--ok-text); box-shadow: 0 0 0 5px var(--ok-wash); }
+/* a name under every dot, where there is room for seven of them (see the 700px rule below) */
+.bl-page .bl-dlbl { display: none; margin-top: var(--s4); padding: 0 var(--s4); text-align: center; font-size: var(--t13); line-height: 1.3; color: var(--n500); }
+.bl-page .bl-dlbl b { display: block; }
+.bl-page .bl-done .bl-dlbl { color: var(--n700); }
+.bl-page .bl-now .bl-dlbl { color: var(--n900); font-weight: 700; }
+.bl-page .bl-now .bl-dlbl b { color: var(--p700); }
+.bl-page .bl-stop .bl-dlbl { color: var(--n700); font-weight: 700; }
+.bl-page .bl-raillaw .bl-dots li:last-child .bl-dlbl { color: var(--ok-text); font-weight: 700; }
 .bl-page .bl-nowlbl { font-size: var(--t14); color: var(--n900); line-height: 1.35; }
 .bl-page .bl-nowlbl b { color: var(--p700); }
 .bl-page .bl-railstop .bl-nowlbl { color: var(--n700); font-weight: 700; }
@@ -75,8 +98,10 @@
 .bl-page .bl-nowlbl.bl-r { text-align: right; }
 
 /* disclosures on this page share one look: a 48px summary row with a turning chevron */
-.bl-page details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s8); min-height: 48px; color: var(--p700); font-weight: 700; }
+.bl-page details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s8); min-height: 48px; color: var(--p700); font-weight: 700;
+  margin: 0 calc(-1 * var(--s8)); padding: 0 var(--s8); border-radius: var(--r8); transition: background .12s; }
 .bl-page details > summary::-webkit-details-marker { display: none; }
+.bl-page details > summary:hover { background: var(--p50); }
 .bl-page details > summary .bl-chev { width: 20px; height: 20px; flex: none; transition: transform .2s var(--ease); }
 .bl-page details[open] > summary .bl-chev { transform: rotate(180deg); }
 .bl-page .bl-steps { margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)); border-top: 1px solid var(--n100); }
@@ -99,21 +124,43 @@
 .bl-page .bl-sdesc { font-size: var(--t14); color: var(--n500); }
 
 /* ---- the action card on this page ---- */
-/* The page's headline, position and issue are already at the top, and the sticky bar carries the main action, so the
-   card here shows only the hearing, the deadline and the other ways to help. */
-.bl-page .bl-act .acard > .acrow, .bl-page .bl-act .acard > .achead, .bl-page .bl-act .acard > p.meta:not(.hearing),
-.bl-page .bl-act .acard > .btncol > .btn.primary { display: none; }
+/* The page already shows the name, the position and the number, so the card here (drawn compact) keeps to the hearing,
+   the deadline and the ways to help. bill.js moves .bl-slot (the page's main button on a wide screen, and testimony as
+   the bigger step for someone new) into the card's button column, above "More ways to help". */
+.bl-page .bl-act .acard > p.meta:not(.hearing) { display: none; }
 .bl-page .bl-act .acard .due { margin-top: 0; }
 .bl-page .bl-act .acard > .btncol { margin-top: var(--s4); }
+.bl-page .bl-slot { display: flex; flex-direction: column; gap: var(--s8); width: 100%; margin-top: var(--s8); }
+.bl-page .acard .bl-slot { margin-top: 0; }
+.bl-page .bl-slot .bl-bigstep { border: 1px solid var(--n300); border-radius: var(--r12); background: var(--n0); padding: var(--s12); transition: background .12s, border-color .12s; }
+.bl-page .bl-slot .bl-bigstep:hover { background: var(--p50); border-color: var(--p700); }
+/* testimony is already offered as the bigger step, so its row under "More ways to help" would say it twice */
+.bl-page .bl-hasbig .moreways > .mwrow[data-helper] { display: none; }
+.bl-page .bl-hasbig .moreways > .mwrow[data-helper] + .mwrow { border-top: 0; }
 .bl-page .bl-nudge { margin-top: var(--s12); }
+
+/* ---- others following this bill: one sentence, a thin two-tone bar, the counts ---- */
+.bl-page .bl-others { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s16); }
+.bl-page .bl-others h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); letter-spacing: -.01em; }
+.bl-page .bl-others h2 .ic { width: 20px; height: 20px; color: var(--p700); }
+.bl-page .bl-osay { color: var(--n900); }
+.bl-page .bl-split { display: flex; gap: 2px; height: 8px; border-radius: var(--pill); overflow: hidden; }
+.bl-page .bl-split i { display: block; flex: 0 1 0; min-width: 0; }
+.bl-page .bl-split .bl-sup, .bl-page .bl-key.bl-sup::before { background: var(--p700); }
+.bl-page .bl-split .bl-opp, .bl-page .bl-key.bl-opp::before { background: var(--n400); }
+.bl-page .bl-keys { display: flex; gap: var(--s16); font-size: var(--t13); color: var(--n500); }
+.bl-page .bl-key { display: inline-flex; align-items: center; gap: var(--s4); }
+.bl-page .bl-key::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+.bl-page .bl-ocount { font-size: var(--t14); color: var(--n700); }
 
 /* ---- who decides next ---- */
 .bl-page .bl-whocard { display: flex; flex-direction: column; gap: var(--s12); }
-.bl-page .bl-intro { color: var(--n700); }
+.bl-page .bl-intro { color: var(--n700); max-width: 65ch; }
 .bl-page .bl-chairs { list-style: none; margin: 0; padding: 0; }
 .bl-page .bl-chair { display: flex; flex-direction: column; gap: var(--s8); }
 .bl-page .bl-chair + .bl-chair { border-top: 1px solid var(--n100); margin-top: var(--s12); padding-top: var(--s12); }
-.bl-page .bl-who { display: flex; align-items: center; gap: var(--s12); min-height: 56px; color: inherit; text-decoration: none; border-radius: var(--r12); }
+.bl-page .bl-who { display: flex; align-items: center; gap: var(--s12); min-height: 56px; margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8); color: inherit; text-decoration: none; border-radius: var(--r12); transition: background .12s; }
+.bl-page a.bl-who:hover { background: var(--n50); }
 .bl-page a.bl-who:hover .bl-name { text-decoration: underline; }
 .bl-page .bl-whot { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .bl-page .bl-name { font-weight: 700; color: var(--n900); }
@@ -128,7 +175,7 @@
 .bl-page .bl-members > summary { font-size: var(--t14); }
 .bl-page .bl-inc { font-weight: 400; color: var(--n700); }
 .bl-page .bl-memlist { list-style: none; margin: 0 calc(-1 * var(--s16)); padding: 0 0 var(--s8); }
-.bl-page .bl-mem { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: inherit; text-decoration: none; }
+.bl-page .bl-mem { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: inherit; text-decoration: none; transition: background .12s; }
 .bl-page .bl-mem:hover { background: var(--n50); }
 .bl-page .bl-memlist li + li .bl-mem { border-top: 1px solid var(--n100); }
 .bl-page .bl-findme { margin-top: var(--s8); }
@@ -144,7 +191,7 @@
 .bl-page .bl-hbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .bl-page .bl-htitle { font-weight: 700; color: var(--n900); }
 .bl-page .bl-hwhen { font-size: var(--t14); color: var(--n500); }
-.bl-page .bl-hdue { display: flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.bl-page .bl-hdue { display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
 .bl-page .bl-hdue .ic { width: 18px; height: 18px; color: var(--p700); }
 .bl-page .bl-hdue.warn, .bl-page .bl-hdue.warn .ic { color: var(--warn-text); }
 .bl-page .bl-hdue.danger, .bl-page .bl-hdue.danger .ic { color: var(--bad-text); }
@@ -155,17 +202,20 @@
 /* ---- more details ---- */
 .bl-page .bl-more { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
 .bl-page .bl-more > summary { min-height: 56px; color: var(--n900); justify-content: space-between; }
+.bl-page .bl-more > summary:hover { background: var(--n50); }
 .bl-page .bl-more > summary .bl-chev { color: var(--n500); }
 .bl-page .bl-more dl { margin: 0; padding: var(--s4) 0 0; border-top: 1px solid var(--n100); }
 .bl-page .bl-kv { padding: var(--s12) 0; }
 .bl-page .bl-kv + .bl-kv { border-top: 1px solid var(--n100); }
 .bl-page .bl-kv dt { font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 4px; }
-.bl-page .bl-kv dd { margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+.bl-page .bl-kv dd { margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; max-width: 75ch; }
 .bl-page .bl-kv dd a { font-weight: 700; }
-.bl-page .bl-date { display: block; margin-top: 2px; color: var(--n500); }
+/* the companion bill link sits in a short line of its own, so give it a full-size target */
+.bl-page .bl-kv dd a[href^="#/bill/"] { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+.bl-page .bl-date { display: block; margin-top: var(--s4); color: var(--n500); }
 .bl-page .bl-pch + .bl-pch { margin-top: var(--s12); }
 .bl-page .bl-pchn { font-weight: 700; color: var(--n700); margin-bottom: 4px; }
-.bl-page .bl-path { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bl-page .bl-path { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
 .bl-page .bl-path li { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
 .bl-page .bl-path li .ic { width: 18px; height: 18px; flex: none; }
 .bl-page .bl-path li > span:first-of-type { flex: 1 1 0; min-width: 0; }
@@ -183,21 +233,90 @@
 .bl-page .bl-empty > .ic { color: var(--p700); }
 .bl-page .bl-empty h1 { font-size: var(--t22); }
 
-/* ---- sticky bottom bar content ---- */
+/* ---- the main button's companions: "Did you send it?" and a long label that may wrap ---- */
 .bl-barq { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); width: 100%; }
 .bl-barq .bl-barq-t { flex: 1 1 auto; font-size: var(--t14); font-weight: 700; color: var(--n900); }
 .bl-barq .btn { flex: 0 0 auto; }
-.bl-barbtn { white-space: normal; text-align: center; line-height: 1.2; padding-top: 6px; padding-bottom: 6px; }
+.bl-barbtn { white-space: normal; text-align: center; line-height: 1.2; padding-top: var(--s4); padding-bottom: var(--s4); }
 
-@media (min-width: 900px) {
-  .bl-page .bl-top { top: var(--header); }
-  .bl-page .bl-chair .btnrow .btn { flex: 0 0 auto; min-width: 140px; }
+/* ---- phones and small tablets: fewer bars ---- */
+/* Three stacked bars (site header, this page's bar, the bottom action bar) took 185px: 47% of a phone held sideways.
+   Here the site header scrolls away with the page and this page's bar, which has Back, stays at the very top. */
+@media (max-width: 899px) {
+  body[data-screen="bill"] .hdr { position: static; }
+  .bl-page .bl-top { top: 0; }
 }
-/* the companion bill link sits in a short line of its own, so give it a full-size target */
-.bl-page .bl-kv a[href^="#/bill/"], .bl-page dd a[href^="#/bill/"] { display: inline-flex; align-items: center; min-height: 44px; }
-/* 200% zoom on a phone (about 195px wide): the top bar sheds its fixed side widths */
+/* small phones: the bigger-step row drops its chevron so "Write testimony · 5 min" stays on one line */
+@media (max-width: 360px) {
+  .bl-page .bl-slot .bl-bigstep .chev { display: none; }
+}
+/* 200% zoom on a phone (about 195px wide): the bar sheds its fixed side widths and the word "Back", and the number may
+   wrap onto two lines, so the star never sits on top of it */
 @media (max-width: 280px) {
+  .bl-page .bl-top { gap: 0; }
   .bl-page .bl-back, .bl-page .bl-tools { min-width: 0; }
+  .bl-page .bl-back { min-width: 44px; padding: 0; justify-content: center; }
   .bl-page .bl-back span { display: none; }
+  .bl-page .bl-num { white-space: normal; font-size: var(--t16); line-height: 1.1; }
+  .bl-page .bl-menu { min-width: 0; width: calc(100vw - 2 * var(--s8)); right: calc(-1 * var(--s4)); }
   .bl-page .bl-name { overflow-wrap: anywhere; }
 }
+
+/* ---- from 700px there is room for a name under every dot, so the single "Now" label steps aside ---- */
+@media (min-width: 700px) {
+  .bl-page .bl-dlbl { display: block; }
+  .bl-page .bl-nowlbl { display: none; }
+}
+
+/* ---- from 900px: the header has the navigation and stays; the page is still one column with the bottom bar ---- */
+@media (min-width: 900px) {
+  .bl-page .bl-top { top: var(--header); margin-top: calc(-1 * var(--s32)); }
+  /* clamp by lines, not characters: the whole summary is under More details */
+  .bl-page .bl-head h1 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .bl-page .bl-stance .chip { flex: 0 1 auto; }
+  /* a joint hearing has two chairs: side by side */
+  .bl-page .bl-chairs.bl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s24); }
+  .bl-page .bl-two .bl-chair { justify-content: space-between; }   /* a long name wraps: the buttons still line up */
+  .bl-page .bl-two .bl-chair + .bl-chair { border-top: 0; margin-top: 0; padding-top: 0; }
+  .bl-page .bl-chair .btnrow .btn { flex: 0 0 auto; min-width: 140px; }
+  .bl-page .bl-kv { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: var(--s16); }
+  .bl-page .bl-kv dt { margin-bottom: 0; }
+  /* the card's buttons run in a row at this width (wide.css); the page's own slot keeps a row to itself */
+  .bl-page .acard .btncol > .bl-slot { flex: 1 1 100%; }
+  body[data-screen="bill"] .actionbar .inner { justify-content: center; }
+  body[data-screen="bill"] .actionbar .btn.primary { flex: 0 1 auto; width: auto; min-width: 320px; }
+}
+
+/* ---- from 1100px (.bl-wide): two columns. The story of the bill on the left; what a person does on the right, in a
+   panel that stays in view, so the fixed bottom bar is not needed ---- */
+@media (min-width: 1100px) {
+  body[data-screen="bill"] .actionbar { display: none; }
+}
+.bl-page.bl-wide .bl-topw { position: static; height: 44px; margin: calc(-1 * var(--s8)) 0 var(--s8) calc(-1 * var(--s8)); padding: 0; gap: var(--s12); }
+.bl-page.bl-wide .bl-topw::before { display: none; }
+.bl-page.bl-wide .bl-topw .bl-back { min-width: 0; }
+.bl-page.bl-wide .bl-topw .bl-num { flex: none; text-align: left; padding-left: var(--s12); border-left: 1px solid var(--n300); }
+.bl-page.bl-wide .bl-main > :first-child { margin-top: 0; }
+.bl-page.bl-wide .bl-head h1.bl-nick { font-size: var(--t36); letter-spacing: -.025em; line-height: 1.1; }
+.bl-page.bl-wide .bl-lede { font-size: var(--t18); margin-top: 0; }
+.bl-page.bl-wide .bl-status { margin-top: var(--s24); padding: var(--s24); }
+.bl-page.bl-wide .bl-side { gap: var(--s16); }
+.bl-page.bl-wide .bl-sidenum { font: 700 var(--t14)/1.2 var(--font-h); color: var(--n500); margin-bottom: calc(-1 * var(--s8)); }
+.bl-page.bl-wide .bl-side .bl-sec .sechead { margin: 0 0 var(--s8); }
+/* the panel spaces its cards with its own gap (base.css adds a margin between neighbouring cards) */
+.bl-page.bl-wide .bl-side > .card { margin-top: 0; }
+/* "Others following this bill" sits in the story column here: the panel has to fit a laptop window to stay in view */
+.bl-page.bl-wide .bl-others { margin-top: var(--s16); padding: var(--s16) var(--s24); }
+.bl-page.bl-wide .bl-osay, .bl-page.bl-wide .bl-ocount { max-width: 65ch; }
+.bl-page.bl-wide .bl-do { display: flex; flex-direction: column; gap: var(--s8); }
+.bl-page.bl-wide .bl-do h2 { font-size: var(--t18); }
+.bl-page.bl-wide .bl-do .btn, .bl-page.bl-wide .bl-do .bl-barq { margin-top: var(--s4); }
+/* in the 380px panel the card's buttons stack again, full width (wide.css lays them in a row for wide cards) */
+.bl-page.bl-wide .bl-side .acard .btncol { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+.bl-page.bl-wide .bl-side .acard .btncol > .btn, .bl-page.bl-wide .bl-side .acard .bl-slot > .btn { width: 100%; flex: 0 0 auto; }
+.bl-page.bl-wide .bl-side .acard .btnrow .btn { width: auto; }
+.bl-page.bl-wide .bl-stools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+.bl-page.bl-wide .bl-you h2 + .chips, .bl-page.bl-wide .bl-you .bl-stnote { margin: 0; }
+.bl-page.bl-wide .bl-you .bl-stnote + .bl-stools, .bl-page.bl-wide .bl-you .note + .bl-stools { border-top: 1px solid var(--n100); margin-top: var(--s4); padding-top: var(--s12); }
+.bl-page.bl-wide .bl-stools .btn.secondary.on .ic { fill: currentColor; }
+.bl-page.bl-wide .bl-stools .btn.text { padding: 0 var(--s8); }

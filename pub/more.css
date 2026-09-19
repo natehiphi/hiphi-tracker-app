@@ -12,8 +12,9 @@
 .mr .mr-ext .btn { margin-left: calc(-1 * var(--s12)); white-space: normal; text-align: left; }
 .mr > .mr-ext { margin-top: var(--s8); }
 
-/* ---- More: three short groups of 56px rows ---- */
-.mr .rows + .rows { margin-top: var(--s16); }
+/* ---- More: three short groups of 56px rows (link cards in a grid on a wide screen, below) ---- */
+.mr .rows + .rows, .mr .mr-grouphead + .rows { margin-top: var(--s16); }
+.mr .mr-grouphead { display: none; }   /* the groups get titles only when they are grids of cards */
 .mr .mr-mark { background: var(--n0); box-shadow: inset 0 0 0 1px var(--n200); }
 .mr .mr-mark svg { width: 26px; height: 26px; }
 .mr .row[aria-busy="true"] { cursor: progress; opacity: .7; }
@@ -49,7 +50,9 @@
   background: var(--n50); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: var(--r8); }
 .mr .mr-after { margin-top: var(--s8); }
 
-/* ---- Sign in ---- */
+/* ---- Add your email ---- */
+.mr .mr-send .btn { width: 100%; }
+.mr .mr-returning { max-width: 65ch; }
 .mr .mr-form { display: flex; flex-direction: column; gap: var(--s16); }
 .mr .mr-form > * { margin: 0; }
 .mr .mr-form .inlinemsg { margin-top: 0; }
@@ -66,6 +69,8 @@
 .mr .mr-disc .mr-discc { width: 20px; height: 20px; transition: transform .2s var(--ease); }
 .mr .mr-disc[open] .mr-discc { transform: rotate(180deg); }
 .mr .mr-discb { display: flex; flex-direction: column; gap: var(--s8); font-size: var(--t14); color: var(--n700); padding-bottom: var(--s8); max-width: 65ch; }
+/* a link on a line of its own is a tap target: 44px tall, with the text where it was */
+.mr .mr-discb p > a:only-child { display: inline-flex; align-items: center; min-height: 44px; margin: -8px 0; font-weight: 700; }
 .mr .mr-sent { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .mr .mr-sent h2 { margin: var(--s4) 0 0; }
 .mr .mr-sent h2:focus { outline: none; }
@@ -137,3 +142,33 @@
 .mr-acct .inlinemsg { margin-top: 0; }
 .mr-acct .btnrow { margin-top: var(--s4); }
 .mr-addr .mr-dist:focus { outline: none; }
+
+/* ---- a wide window (9/19): More is a grid of link cards; the reading pages stay one 720px column, but each section
+   is a roomy card with lines of a comfortable length, buttons are sized to their label, and hover is a wash ---- */
+@media (min-width: 900px) {
+  .mr > * + * { margin-top: var(--s32); }
+  .mr > .pagehead + * { margin-top: var(--s24); }
+  .mr p, .mr li, .mr dd { max-width: 65ch; }
+  .mr .card, .mr .mr-panel { padding: var(--s24); }
+  .mr .mr-panel { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
+  .mr .mr-words, .mr .mr-keys, .mr .mr-facts { padding: var(--s8) var(--s24); }
+  .mr .mr-words > div { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: var(--s16); padding: var(--s12) 0; }
+  .mr .mr-words dd { margin: 0; }
+  .mr .mr-send .btn, .mr .mr-save .btn { width: auto; min-width: 200px; }
+  .mr .btn.text:hover, .mr .mr-disc > summary:hover { background: var(--p50); text-decoration: none; }
+  .mr .mr-disc > summary { padding: 0 var(--s12); margin-left: calc(-1 * var(--s12)); border-radius: var(--pill); }
+  .mr .rows > .row:hover, .mr .mr-fold > summary:hover { background: var(--p50); }
+  .mr-check:hover .mr-ctitle { color: var(--p800); }
+  /* More: every link is a card; the three groups get a title */
+  .mr .mr-grouphead { display: block; margin: var(--s32) 0 0; }
+  .mr .mr-grouphead + .rows { margin-top: var(--s12); }
+  .mr .mr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s16); align-items: stretch;
+    background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .mr .mr-grid > .row, .mr .mr-grid > .row + .row { min-height: 88px; padding: var(--s16); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
+  .mr .mr-grid > .row:hover { background: var(--p50); border-color: var(--p200); }
+  .mr .mr-grid > .row .lead { width: 44px; height: 44px; }
+  .mr .mr-foot { margin-top: var(--s32); }
+}
+@media (min-width: 1100px) {
+  .mr .mr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

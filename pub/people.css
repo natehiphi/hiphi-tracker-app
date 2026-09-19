@@ -42,6 +42,11 @@
 .pp .pp-notice .notice p { font-size: var(--t14); }
 .pp .pp-slots { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); }
 .pp .pp-slots .card + .card { margin-top: 0; }
+/* side by side (from 640px) the two cards share a height, with "See their committees" along the bottom of both;
+   while an email is open in one of them they go back to their own heights, so the other does not stretch */
+.pp .pp-slots { align-items: stretch; }
+.pp .pp-slots.pp-writing { align-items: start; }
+.pp .pp-card .pp-more { margin-top: auto; }
 
 .pp .pp-card { display: flex; flex-direction: column; gap: var(--s12); }
 .pp .pp-who { display: flex; align-items: center; gap: var(--s16); }
@@ -83,25 +88,27 @@
 .pp .pp-copied { display: inline-flex; min-height: 28px; align-items: center; }
 .pp .pp-sentq { display: flex; flex-direction: column; gap: var(--s8); background: var(--p50); border-radius: var(--r12); padding: var(--s12); }
 
-/* ---- browse: one fold, then one island at a time ---- */
-.pp .pp-browse { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
-.pp .pp-browse summary, .pp .pp-isl summary { display: flex; align-items: center; gap: var(--s12); list-style: none; cursor: pointer; padding: var(--s12) var(--s16); }
-.pp .pp-browse summary::-webkit-details-marker, .pp .pp-isl summary::-webkit-details-marker { display: none; }
-.pp .pp-browse > summary { min-height: 64px; }
-.pp .pp-browse summary:hover, .pp .pp-isl summary:hover { background: var(--n50); }
-.pp .pp-browse summary:focus-visible, .pp .pp-isl summary:focus-visible { outline-offset: -2px; }
-.pp .pp-lead { width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
-.pp .pp-lead .ic { width: 22px; height: 22px; }
-.pp .pp-sumtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
-.pp .pp-sumtitle { font-weight: 700; color: var(--n900); }
-.pp .pp-sumsub { font-size: var(--t14); color: var(--n500); }
-.pp .pp-chev { width: 20px; height: 20px; color: var(--n500); transition: transform .2s var(--ease); }
-.pp details[open] > summary > .pp-chev { transform: rotate(180deg); }
-.pp .pp-islands { border-top: 1px solid var(--n100); }
-.pp .pp-isl + .pp-isl { border-top: 1px solid var(--n100); }
-.pp .pp-isl > summary { min-height: 56px; }
-.pp .pp-isl[open] > summary { background: var(--n50); }
-.pp .pp-ch { font-size: var(--t14); font-weight: 700; color: var(--n700); padding: var(--s12) var(--s16) var(--s4); border-top: 1px solid var(--n100); line-height: 1.3; }
+/* ---- browse: an island picker (each button lights up its own island in the chain), then that island's list ---- */
+.pp .pp-browse { margin-top: var(--s32); }
+.pp .pp-browse .sechead { margin-top: 0; }
+.pp .pp-isles { display: flex; flex-direction: column; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.pp .pp-isle { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 72px; padding: var(--s8) var(--s16); text-align: left; background: var(--n0); transition: background .12s, border-color .12s; }
+.pp .pp-isle + .pp-isle { border-top: 1px solid var(--n100); }
+.pp .pp-isle:hover { background: var(--n50); }
+.pp .pp-isle.on, .pp .pp-isle.on:hover { background: var(--p50); }
+.pp .pp-isle:focus-visible { outline-offset: -2px; }
+.pp .pp-isleart { flex: none; width: 80px; }
+.pp .pp-isleart svg { width: 100%; height: auto; }
+.pp .pp-isletext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+.pp .pp-isletitle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); font-weight: 700; color: var(--n900); }
+.pp .pp-islesub { font-size: var(--t14); color: var(--n500); }
+.pp .pp-chev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .2s var(--ease); }
+.pp .pp-isle.on .pp-chev { transform: rotate(180deg); color: var(--p700); }
+.pp .pp-islbody:empty { display: none; }
+.pp .pp-islname { margin-top: var(--s24); font-size: var(--t22); }
+.pp .pp-islname:focus { outline: none; }
+.pp .pp-ch { margin: var(--s16) 0 var(--s8); font: 700 var(--t14)/1.3 var(--font); letter-spacing: 0; color: var(--n700); }
+.pp .pp-grid { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
 .pp .pp-list > .row + .row { border-top: 1px solid var(--n100); }
 /* compact rows: Oʻahu alone has 51 legislators, so each row is as short as a comfortable tap allows */
 .pp .pp-lrow { min-height: 48px; padding: 4px var(--s16); gap: var(--s12); }
@@ -132,9 +139,71 @@
 .pp .pp-ext { margin: var(--s24) 0 0 -12px; }
 .pp .pp-retry { margin-top: var(--s16); }
 
+/* a bill with a nickname: what it does is the second line (two lines at most), then the number and where it stands */
+.pp .pp-billrow .sub > span { display: block; }
+.pp .pp-billrow .sub > .pp-what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--n700); margin-bottom: 2px; }
+/* the contact block: plain on a phone, a panel at the side on a wide screen (below) */
+.pp .pp-yours-side, .pp .pp-sidehead { display: none; }
+.pp .pp-side .pp-ext { margin: var(--s4) 0 0 -12px; }
+/* on a legislator's page the email sits on the page itself (not inside a card), so it gets a card of its own */
+.pp .pp-rest > .pp-cmp { margin-top: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
+
 /* wider screens: the senator and representative side by side */
 @media (min-width: 640px) {
-  .pp .pp-slots { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .pp .pp-slots, .pp .pp-skel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); }
   .pp .pp-actions .btncol { flex-direction: row; }
   .pp .pp-actions .btncol .btn { width: auto; flex: 1 1 0; }
+}
+
+/* ---- a mouse and a wide window (9/19): buttons sized to their label, a wash on hover, grids instead of one column ---- */
+@media (min-width: 900px) {
+  .pp .pp-search { max-width: 720px; }
+  .pp .pp-for { justify-content: flex-start; }
+  .pp .pp-for h2 { flex: 0 1 auto; font-size: var(--t22); }
+  .pp .pp-for .btn { margin-right: 0; }
+  .pp .pp-contact .btn, .pp .pp-actions .btncol .btn { flex: 0 0 auto; min-width: 128px; }
+  .pp .pp-cmp .btncol { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .pp .pp-cmp .btncol .btn.full { width: auto; }
+  .pp .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .pp .pp-name a:hover { color: var(--p700); }
+  /* the island picker becomes cards: two by two in the reading column (the drawing beside the name, so the list
+     stays close), four across with the drawing on top from 1100px */
+  .pp .pp-isles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .pp .pp-isle, .pp .pp-isle + .pp-isle { padding: var(--s12) var(--s16); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
+  .pp .pp-isle:hover { background: var(--p50); border-color: var(--p200); }
+  .pp .pp-isle.on, .pp .pp-isle.on:hover { border-color: var(--p700); box-shadow: inset 0 0 0 1px var(--p700); }
+  .pp .pp-isle:focus-visible { outline-offset: 2px; }
+  .pp .pp-isle .pp-chev { display: none; }
+  /* the directory: a grid of small cards instead of one long list */
+  .pp .pp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .pp .pp-grid > .row, .pp .pp-grid > .row + .row { min-height: 64px; padding: var(--s8) var(--s12); border: 1px solid var(--n200); border-radius: var(--r12); }
+  .pp .pp-grid > .row:hover { background: var(--p50); border-color: var(--p200); }
+  .pp .pp-grid .pp-lrow .sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .pp .pp-grid .chev { display: none; }
+  .pp .pp-billrow:hover, .pp .pp-slot .row:hover { background: var(--p50); }
+}
+@media (min-width: 1100px) {
+  .pp .pp-isles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s16); }
+  .pp .pp-isle, .pp .pp-isle + .pp-isle { flex-direction: column; align-items: flex-start; gap: var(--s8); padding: var(--s16); }
+  .pp .pp-isleart { width: 100%; max-width: 200px; align-self: center; }
+  .pp .pp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pp .pp-slots, .pp .pp-skel { gap: var(--s16); }
+  .pp .pp-card { padding: var(--s24); gap: var(--s16); }
+  .pp .pp-card .pp-more { margin: auto calc(-1 * var(--s24)) calc(-1 * var(--s24)); padding: 0 var(--s24); }
+  /* one legislator: who they are and their committees in the wide column, how to reach them in a panel that stays in view */
+  .pp .pp-cols { row-gap: 0; }
+  .pp .pp-cols > .pp-main, .pp .pp-cols > .pp-rest { grid-column: 1; min-width: 0; }
+  .pp .pp-cols > .pp-side { grid-column: 2; grid-row: 1 / span 2; }
+  .pp .pp-sidecard { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s24); }
+  .pp .pp-yours-top { display: none; }
+  .pp .pp-yours-side, .pp .pp-sidehead { display: block; }
+  .pp .pp-sidehead { font-size: var(--t18); letter-spacing: -.01em; }
+  .pp .pp-sidecard .pp-actions, .pp .pp-sidecard .pp-office { margin-top: 0; }
+  .pp .pp-sidecard .pp-actions .btncol { flex-wrap: wrap; }
+  .pp .pp-sidecard .pp-actions .btncol .btn { white-space: normal; text-align: left; min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
+  .pp .pp-prof { margin-top: 0; }
+  .pp .pp-photo.xl { width: 112px; height: 112px; }
+  .pp .pp-covers { max-width: 65ch; }
+  .pp .pp-rest > .pp-sec:first-child { margin-top: var(--s24); }
+  .pp .pp-rest > .pp-cmp { padding: var(--s24); }
 }
