@@ -1,23 +1,23 @@
-// HIPHI Staff v2 · Bill > Public (plan 3.3). What the public page says about this bill: the plain summary, the ask and
-// the date it stops showing, and whether the bill is on the public page at all. These fields save together with ONE
-// button, the same four fields the current app saves. Lists and the email to supporters act on their own, since each
+// HIPHI Staff v2 · Bill > Public (plan 3.3). What the public page says about this bill: the nickname, the plain summary, the ask
+// and the date it stops showing, and whether the bill is on the public page at all. These fields save together with ONE
+// button, the same fields the current app saves. Lists and the email to supporters act on their own, since each
 // is its own thing (a list is a page the public follows; an email goes through approval).
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
 import { icon, btn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf } from './bill.js';
 
-const FIELDS = ['is_public', 'public_summary', 'public_action', 'public_action_until'];
+const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
 const saved = (b, k) => k === 'is_public' ? !!b.is_public : (b[k] || '');
 // Typed but unsaved values survive the re-render a list change causes; they live here until Save.
 const draftOf = b => drafts.get(b.id + ':pub') || {};
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
 const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
-const count = (n, id) => `<span class="help bw-count" id="${id}" aria-live="polite">${n} of 280 characters</span>`;
+const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria-live="polite">${n} of ${max} characters</span>`;
 
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
-  const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action');
+  const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
   const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + b.bill_number)}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const lists = S.lists || [];
   const emailOk = b.is_public && b.position !== 'monitor';
@@ -26,6 +26,9 @@ export function renderPublic(b) {
     ${notice(live ? 'ok' : warn ? 'warn' : 'info', live ? 'globe' : warn ? 'triangle-alert' : 'eye-off', `<b>Now:</b> ${esc(pubStateText(b))}${pubLink}`)}
     <form class="bw-pubform" data-pubform novalidate>
       ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'), 'Anyone can find it, follow it and get its hearing alerts.')}
+      <div class="field"><label for="bw-nick">Nickname</label>
+        <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable vape ban">
+        <span class="help" id="bw-nick-h">A short everyday name people can say. It names the bill everywhere on the public page.</span>${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       <div class="field"><label for="bw-pact">The ask</label>
@@ -53,15 +56,16 @@ export function renderPublic(b) {
 
 export function wirePublic(pnl, b) {
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
-  const f = { is_public: form.querySelector('#bw-ispub'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
+  const f = { is_public: form.querySelector('#bw-ispub'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = k === 'is_public' ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) drafts.set(key, d); else drafts.delete(key);
     const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.small');
     if (Object.keys(d).length && !hint) s.insertAdjacentHTML('beforeend', '<span class="small muted">Not saved yet</span>'); else if (!Object.keys(d).length && hint) hint.remove(); };
   for (const [k, el] of Object.entries(f)) el.addEventListener(k === 'is_public' ? 'change' : 'input', () => {
-    note(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid');
+    note(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
+    if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
   });
   form.onsubmit = async e => {
     e.preventDefault();
@@ -70,10 +74,13 @@ export function wirePublic(pnl, b) {
     // Refuse rather than save something that looks published and is not.
     const bad = action && !until ? 'An ask needs a date, or it never shows. Pick the last day it should show.'
       : action && until < hiToday() ? `That date has passed (${dayOf(until)}), so the ask would not show. Pick a later one.` : '';
+    // The database wants a nickname of 3 to 60 characters; the field stops at 40 so it fits one line on a phone.
+    const nickname = f.nickname.value.trim().replace(/\s+/g, ' ');
+    if (nickname && nickname.length < 3) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}A nickname needs at least 3 characters.</p>`; f.nickname.setAttribute('aria-invalid', 'true'); f.nickname.focus(); return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     try {
-      await DB.updateBill(b.id, { public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked });
+      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked });
       drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
       toast('Public page saved.', { ok: true });
     } catch (x) { sub.removeAttribute('aria-busy'); toast(x, { err: true }); }

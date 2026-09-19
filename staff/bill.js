@@ -697,7 +697,7 @@ export default {
       ${topBar(b, route)}
       <header class="bw-head">
         <h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>
-        <p class="bw-title">${esc(plainTitle(b))}</p>
+        <p class="bw-title">${esc(b.nickname || plainTitle(b))}</p>
         <p class="bw-status">${statusSentence(b)}</p>
         ${teamChips(b)}
       </header>

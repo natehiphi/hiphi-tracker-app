@@ -51,7 +51,7 @@ export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href
 // A bill row (64px on phones): number + plain title, a status sentence, and position / P1 / owner at the right.
 export function billRow(b, { sub = '', href, attrs: a, selectable = false, selected = false, cls = '' } = {}) {
   const num = (b.bill_number || '').replace(/^([A-Z]+)(\d)/, '$1$2') + (b.current_version ? ' ' + b.current_version : '');
-  const title = b.public_summary || b.description || b.title || '';
+  const title = b.nickname || b.public_summary || b.description || b.title || '';   // the nickname names the bill when it has one
   const pos = b.position || '';
   const end = `<span class="sv-posic" title="${esc(POS_WORD[pos] || pos)}" aria-label="${esc(POS_WORD[pos] || pos)}">${icon(POS_ICON[pos] || 'circle-dashed')}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${avatar(ownerOf(b))}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';

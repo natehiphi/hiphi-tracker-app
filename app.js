@@ -1389,7 +1389,7 @@ function renderPortfolio(list) {
   if (q.length >= 2) {
     const ql = q.toLowerCase(), qn = ql.replace(/\s/g,'');
     // Number, title, summary, description, committee/referrals, owner, coalition, sponsor, position or stage.
-    const hay = b => [b.bill_number, b.title, b.public_summary, b.description, b.committee, (b.referrals || []).join(' '),
+    const hay = b => [b.bill_number, b.nickname, b.title, b.public_summary, b.description, b.committee, (b.referrals || []).join(' '),
       owners(b).map(a => a.full_name + ' ' + a.initials).join(' '), (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).join(' '),
       (b.sponsors || []).map(x => typeof x === 'string' ? x : x.n || x.name || '').join(' '), POSITIONS.find(p => p[0] === b.position)?.[1], STAGE_LABEL[effStage(b)]].join(' | ').toLowerCase();
     const terms = ql.split(/\s+/).filter(Boolean);
@@ -1662,7 +1662,7 @@ function cell(b, c) {
   switch (c) {
     case 'sel': return `<td class="selcell"><input type="checkbox" data-selb="${b.id}" ${S.selected.has(b.id)?'checked':''}></td>`;
     case 'bill': return `<td><div class="bno">${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}</div>
-      <div class="bti">${`<span class="btt">${esc(b.public_summary || titleCaseSmart(b.title || ''))}</span>`}<div class="bsub">${esc(b.committee||'')}${b.referrals?.length?' · '+esc(b.referrals.join(', ')):''}</div></div></td>`;
+      <div class="bti">${`<span class="btt">${esc(b.nickname || b.public_summary || titleCaseSmart(b.title || ''))}</span>`}<div class="bsub">${esc(b.committee||'')}${b.referrals?.length?' · '+esc(b.referrals.join(', ')):''}</div></div></td>`;
     case 'status': return `<td>${statusChip(b)}</td>`;
     case 'coal': return `<td style="font-size:11.5px;color:var(--muted)">${(S.billCampaigns[b.id]||[])
       .map(cid => esc(S.campaigns.find(x=>x.id===cid)?.name||'')).join(', ')}</td>`;
@@ -3794,7 +3794,7 @@ function drawerHTML(b) {
     <div class="dhead">
       <div class="dhtools">${followBtn}<button class="close" id="dclose" aria-label="Close">✕</button></div>
       <h2>${esc(b.bill_number.replace(/^(\D+)/,'$1 '))}${b.current_version ? ` <span class="ver" title="The draft the bill is currently on">${esc(b.current_version)}</span>` : ''}${b.priority ? ` ${gl('P' + b.priority, PRI_GLOSS[b.priority], 'pri')}` : ''}</h2>
-      <div class="sub">${esc(b.public_summary || titleCaseTitle(b.title || ''))}</div>
+      <div class="sub">${esc(b.nickname || b.public_summary || titleCaseTitle(b.title || ''))}</div>
       <div class="dchips">${chips}</div>
     </div>
     <div class="dbody">
@@ -3846,6 +3846,8 @@ function drawerHTML(b) {
           <div class="typechips listchips">${(S.lists || []).length ? S.lists.map(l => { const on = S.listBills.some(x => x.list_id === l.id && x.bill_id === b.id); return `<button data-listt="${l.id}" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !(b.is_public && b.tracked !== false) ? 'disabled title="Make the bill public first"' : ''}>${on ? '✓ ' : '+ '}${esc(l.title)}${l.is_published ? '' : ' <small>draft</small>'}</button>`; }).join('') : '<span style="font-size:12px;color:var(--muted)">No lists yet — Outreach → Lists.</span>'}</div>
           <label>Email followers</label>
           <div class="typechips"><button data-alertnew="b:${b.id}" ${b.is_public && b.position !== 'monitor' ? '' : 'disabled title="Make the bill public first"'}>✉ Write an action alert</button><span class="tok" style="margin-left:8px">to the people following this bill who asked for action alerts · needs a second person’s approval</span></div>
+          <label for="d-nick">Nickname <span class="tok" id="d-nick-n" style="margin-left:6px;font-weight:400">${(b.nickname || '').length} of 40</span></label>
+          <input type="text" id="d-nick" maxlength="40" autocomplete="off" placeholder="A short everyday name people can say, like: Disposable vape ban" value="${esc(b.nickname || '')}">
           <label for="d-psum">Plain-language summary</label>
           <textarea id="d-psum" maxlength="280" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(b.public_summary || '')}</textarea>
           <label for="d-pact">Take Action ask</label>
@@ -4206,6 +4208,7 @@ function wireDrawer() {
   $('#d-own').onchange = e => DB.setOwner(b.id, e.target.value || null)
     .then(() => { S.drawerOpen.teamSaved = Date.now(); toast('Owner updated'); render(); }).catch(er => toast(er.message, true));
   $('#d-savenotes').onclick = () => save({ internal_notes: $('#d-notes').value || null }, 'Notes saved');
+  if ($('#d-nick')) $('#d-nick').oninput = e => { $('#d-nick-n').textContent = `${e.target.value.length} of 40`; };
   $('#d-savepub').onclick = () => {
     const action = $('#d-pact').value.trim(), until = $('#d-puntil').value;
     // An ask without an expiry never renders — public_bills requires
@@ -4215,7 +4218,11 @@ function wireDrawer() {
       return toast('An action ask needs an expiry date, or it will never show', true);
     if (action && until < hiToday())
       return toast('That expiry date has passed — the ask would not be shown', true);
+    // The nickname names the bill everywhere on the public page; the database wants 3 to 60 characters.
+    const nickname = $('#d-nick').value.trim().replace(/\s+/g, ' ');
+    if (nickname && nickname.length < 3) return toast('A nickname needs at least 3 characters', true);
     save({
+      nickname: nickname || null,
       public_summary: $('#d-psum').value.trim() || null,
       public_action: action || null,
       public_action_until: until || null,

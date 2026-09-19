@@ -116,7 +116,7 @@ function nextCell(b) {
   return [d, `${s.deadline.label} deadline`];
 }
 const pulseText = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 'Never' : d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`; };
-const titleOf = b => b.public_summary || b.description || b.title || '';
+const titleOf = b => b.nickname || b.public_summary || b.description || b.title || '';
 
 // ---- the page ----
 function controls(wide) {

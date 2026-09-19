@@ -104,7 +104,7 @@ export function render() {
   document.body.dataset.screen = route.name;
   const app = document.getElementById('app');
   // One h1 per page: the page's own when it has one, else the frame's title (hidden visually on desktop).
-  app.innerHTML = `<a class="skip" href="#main">Skip to content</a>${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}</main>${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}${tabs ? tabbar(scr) : ''}`;
+  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}</main>${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}${tabs ? tabbar(scr) : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); }
   wireFrame(app);
@@ -123,6 +123,9 @@ function wireFrame(app) {
     go(a.getAttribute('href'));
   }));
   app.querySelector('[data-avatar]')?.addEventListener('click', avatarMenu);
+  // "Skip to content" moves focus into the page. As a #main link the router read it as a page name and went to Today.
+  const skip = app.querySelector('[data-skip]');
+  if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
   if (f) f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); go('#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
 }

@@ -53,7 +53,7 @@ export function save() {
 // ---- the list ----
 export const cmtesOf = b => [...new Set([...(b.referrals || []), b.committee].flatMap(codesOf))];
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
-  return b.bill_number.toLowerCase().includes(n) || [b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
+  return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
 // Whose bills: Mine = owned or followed and not muted (the current app's isMine); Everyone = every tracked bill.
 // Monitor bills that died stay out (234 of Nate's 289 monitor bills are dead clerical noise); a search finds them.
 export function baseBills(scope = bl().scope) {
