@@ -942,23 +942,32 @@ function filterSummary() {
 // pinned; wide screens only. The top bar keeps search; phones keep the tab bar.
 const SIDE_RAIL = DEMO || new URLSearchParams(location.search).has('rail');
 const RAIL_ITEMS = [['portfolio', '⌂', 'Dashboard', 'Home'], ['inbox', '✉', 'Inbox', 'Inbox'], ['add', '＋', 'New bills', 'New'], ['table', '▤', 'All bills', 'All'], ['legislators', '⚖', 'Legislators', 'Members'], ['people', '☺\ufe0e', 'People', 'People'], ['lists', '☰', 'Lists', 'Lists'], ['emails', '✉', 'Emails', 'Emails'], ['memo', '✎', 'Weekly memo', 'Memo'], ['settings', '⚙', 'My settings', 'Me'], ['setup', '⚒\ufe0e', 'Session setup', 'Setup'], ['help', '?', 'Help', 'Help']];
-// Simple: the pages used every day, then an Outreach group (People, Lists, Emails, Weekly memo) that stays folded for
-// people who own no coalition and are not admins, then settings and help at the foot. Sign out lives in the top bar.
-const RAIL_DAILY = ['portfolio', 'inbox', 'add', 'table', 'legislators'], RAIL_OUTREACH = ['people', 'lists', 'emails', 'memo'];
+// Simple (Nate, 9/18: "too many menus", and the menu must never need to scroll): seven fixed items. Pages that
+// belong together become tabs at the top of the page instead of separate menu items.
+const PAGE_GROUPS = [
+  { key: 'bills', label: 'Bills', icon: '▤', short: 'Bills', views: [['table', 'Tracked bills'], ['add', 'New bills']] },
+  { key: 'outreach', label: 'Outreach', icon: '☺︎', short: 'Reach', views: [['people', 'People'], ['lists', 'Lists'], ['emails', 'Emails'], ['memo', 'Weekly memo']] },
+  { key: 'settings', label: 'Settings', icon: '⚙', short: 'Settings', views: [['settings', 'My settings'], ['setup', 'Session setup']] },
+];
+const groupOf = v => PAGE_GROUPS.find(g => g.views.some(([x]) => x === v));
+const groupViews = g => g.views.filter(([v]) => (v !== 'setup' || S.me?.is_admin) && !(v === 'table' && isMobile()));
+// the tabs above a grouped page (only when the group has more than one page to show)
+function pageTabs() {
+  if (!simple()) return '';
+  const g = groupOf(S.view); if (!g) return '';
+  const vs = groupViews(g); if (vs.length < 2) return '';
+  const n = v => v === 'emails' ? alertsToReview().length : 0;
+  return `<nav class="pagetabs" aria-label="${esc(g.label)}">${vs.map(([v, l]) => `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" ${S.view === v ? 'aria-current="page"' : ''}>${esc(l)}${n(v) ? ` <span class="navn">${n(v)}</span>` : ''}</button>`).join('')}</nav>`;
+}
+const SIMPLE_MENU = [['portfolio'], ['inbox'], ['bills'], ['legislators'], ['outreach']], SIMPLE_FOOT = [['settings'], ['help']];
+function railSimpleBtn(key, count) {
+  const g = PAGE_GROUPS.find(x => x.key === key);
+  if (!g) { const it = RAIL_ITEMS.find(([v]) => v === key); return it ? railBtns([key], count) : ''; }
+  const first = groupViews(g)[0]?.[0] || g.views[0][0], on = g.views.some(([v]) => v === S.view), n = g.views.reduce((t, [v]) => t + count(v), 0);
+  return `<button data-view="${first}" class="${on ? 'on' : ''}" title="${esc(g.label)}"><span class="ri" aria-hidden="true">${g.icon}<small class="rs">${esc(g.short)}</small></span><span class="rl">${esc(g.label)}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
+}
 const railBtns = (views, count) => RAIL_ITEMS.filter(([v]) => views.includes(v) && (v !== 'setup' || S.me?.is_admin)).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('');
-function outreachOpen() {
-  let saved = null; try { saved = localStorage.getItem('hiphi_outreach'); } catch {}
-  if (RAIL_OUTREACH.includes(S.view) || alertsToReview().length) return true;
-  if (saved) return saved === '1';
-  return !!(S.me?.is_admin || S.campaigns.some(c => c.owner_id === S.me?.id));
-}
-function railSimpleNav(count) {
-  const open = outreachOpen(), n = count('emails');
-  const here = RAIL_OUTREACH.includes(S.view);   // the group stays open while you are on one of its pages
-  return `<div class="rscroll"><nav>${railBtns(RAIL_DAILY, count)}</nav>
-    <div class="rgroup ${open ? 'open' : ''}"><button class="rgh" id="rail-outreach" aria-expanded="${open}" ${here ? 'aria-disabled="true"' : ''} title="${here ? 'Outreach: stays open while you are on one of its pages' : 'Outreach: people, lists, emails, the weekly memo'}"><span class="ri" aria-hidden="true">${open ? '▾' : '▸'}<small class="rs">Outreach</small></span><span class="rl">Outreach</span>${!open && n ? `<span class="rn">${n}</span>` : ''}</button>
-      ${open ? `<nav>${railBtns(RAIL_OUTREACH, count)}</nav>` : ''}</div></div>`;
-}
+const railSimpleNav = count => `<nav>${SIMPLE_MENU.map(([k]) => railSimpleBtn(k, count)).join('')}</nav>`;
 function railHTML(freshTxt, stale) {
   if (!SIDE_RAIL) return '';
   const pinned = (localStorage.getItem('railPinned') ?? '1') === '1';   // open until someone collapses it
@@ -969,8 +978,8 @@ function railHTML(freshTxt, stale) {
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
     ${simple() ? railSimpleNav(count) : `<nav>${RAIL_ITEMS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v, ic, l, short]) => { const n = count(v); return `<button data-view="${v}" class="${S.view === v ? 'on' : ''}" title="${l}"><span class="ri" aria-hidden="true">${ic}<small class="rs">${short}</small></span><span class="rl">${l}</span>${n ? `<span class="rn">${n > 99 ? '99+' : n}</span>` : ''}</button>`; }).join('')}</nav>`}
     <div class="rfoot">
-      ${simple() ? `<div class="rfootnav">${railBtns(['settings', 'setup', 'help'], count)}</div>` : ''}
       <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
+      ${simple() ? `<div class="rfootnav">${SIMPLE_FOOT.map(([k]) => railSimpleBtn(k, count)).join('')}</div>` : ''}
       <button id="railpin" title="${pinned ? 'Collapse the menu' : 'Keep the menu open'}"><span class="ri" aria-hidden="true">${pinned ? '«' : '»'}</span><span class="rl">${pinned ? 'Collapse' : 'Keep open'}</span></button>
       ${simple() ? '' : `<button id="logout3" title="Sign out"><span class="ri" aria-hidden="true">⎋</span><span class="rl">Sign out</span></button>`}
     </div>
@@ -1061,7 +1070,7 @@ function chrome(inner) {
         <details class="more">
           <summary class="${MORE_VIEWS.some(([v]) => v === S.view) ? 'on' : ''}"><span class="ti" aria-hidden="true">☰</span>${MORE_VIEWS.find(([v]) => v === S.view)?.[1] || 'More'}<span class="lg"> ▾</span></summary>
           <div class="menu">
-            ${simple() ? [['Bills', ['table', 'legislators']], ['Outreach', RAIL_OUTREACH], ['You', ['settings', 'setup', 'help']]].map(([g, vs]) => `<div class="mgh">${g}</div>` + MORE_VIEWS.filter(([v]) => vs.includes(v) && (v !== 'setup' || S.me?.is_admin)).map(([v, l]) => `<button data-view="${v}" class="${S.view === v ? 'on' : ''}">${l}</button>`).join('')).join('')
+            ${simple() ? [['bills'], ['legislators', 'Legislators'], ['outreach'], ['settings'], ['help', 'Help']].map(([k, l]) => { const g = PAGE_GROUPS.find(x => x.key === k); if (!g) return `<button data-view="${k}" class="${S.view === k ? 'on' : ''}">${l}</button>`; const v = groupViews(g)[0]?.[0] || g.views[0][0]; return `<button data-view="${v}" class="${g.views.some(([x]) => x === S.view) ? 'on' : ''}">${g.label}</button>`; }).join('')
               : MORE_VIEWS.filter(([v]) => v !== 'setup' || S.me?.is_admin).map(([v,l]) => `<button data-view="${v}" class="${S.view===v?'on':''}">${l}</button>`).join('')}
             <button id="logout2">Sign out</button>
           </div>
@@ -1250,7 +1259,27 @@ function pfBoard(list) {
           <span class="ldl">${st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${fmtDate(st.deadline.date)} · ${st.deadline.days <= 0 ? 'today' : st.deadline.days + 'd'}` : ''}</span>
         </div>`, 'Nothing is through committee yet.')}
     </div>`;
-  return { html, a, b: bcol, c, gates };
+  // Simple (Nate, 9/18: "disjointed and not easy to follow"): one list, read top to bottom. What each bill needs,
+  // soonest deadline first; the next deadlines in one line above it. No tiles, no separate timeline, no columns.
+  const when = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' });
+  const inDays = n => n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+  const srow = (b, what, at, hot) => `<div class="prow bsrow ${posCls(b)}" data-bill="${b.id}"><b class="bsn">${esc(billNum(b))}</b><span class="bsd">${esc(blurb(b, 90))}</span><span class="bsw">${what}</span><span class="bst ${hot ? 'hot' : ''}">${at}</span></div>`;
+  const SCAP = 6;
+  const sgroup = (key, title, sub, rows, empty) => `<div class="bsgroup"><div class="bsgh"><b>${title}</b><span class="cnt">${rows.length}</span><span class="tok">${sub}</span></div>
+      ${rows.length ? (more[key] ? rows : rows.slice(0, SCAP)).join('') : `<div class="bsnone">${empty}</div>`}
+      ${rows.length > SCAP ? `<button class="linkbtn bsmore" data-boardmore="${key}">${more[key] ? 'Show fewer' : `Show all ${rows.length}`}</button>` : ''}</div>`;
+  const aS = [...a].sort((x, y) => (x.dl ? x.dl.days : 999) - (y.dl ? y.dl.days : 999) || byPri(x, y) || x.b.bill_number.localeCompare(y.b.bill_number));
+  const bS = [...bcol].sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+  const coming = gates.filter(g => !g.past && g.racing && g.racing.length).slice(0, 3);
+  const simpleHtml = `<div class="bstand">
+    ${coming.length ? `<div class="bscoming"><span class="tok">Coming deadlines</span>${coming.map(g => `<span class="bsdl ${g.days <= RISK_DAYS ? 'hot' : ''}"><b>${esc(g.name)}</b> ${when(g.date)} · ${inDays(g.days)} · ${g.racing.length} bill${g.racing.length === 1 ? '' : 's'} must be heard${g.noHearing.length ? `, ${g.noHearing.length} with no hearing yet` : ''}</span>`).join('')}</div>` : ''}
+    ${sgroup('a', 'Needs a hearing', 'in committee with nothing scheduled · soonest deadline first',
+      aS.map(({ b, st, dl }) => srow(b, `Needs a ${st.committee ? esc(st.committee) + ' hearing' : 'committee referral'}`, dl ? `by ${when(dl.date)} · ${inDays(dl.days)}` : 'no deadline yet', dl && dl.days <= RISK_DAYS)),
+      'Every live bill in committee has a hearing on the books.')}
+    ${sgroup('b', 'Hearing scheduled', 'soonest first', bS.map(({ b, st, h }) => srow(b, st.hearingState === 'held' ? `${esc(h.committee)} heard it, waiting for the report` : `${esc(h.committee)} hearing`, st.hearingState === 'held' ? `held ${when(hstDayOf(h.scheduled_at))}` : fmtDT(h.scheduled_at), false)), 'No hearings on the books.')}
+    ${sgroup('c', 'Through committee', 'waiting for a floor vote or conference', c.map(({ b, st }) => srow(b, `Waiting for ${st.phase === 'conference' ? 'conference' : `the ${CHAMBER_NAME[st.chamber]} floor vote`}`, st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${when(st.deadline.date)}` : '', false)), 'Nothing is through committee yet.')}
+  </div>`;
+  return { html, simpleHtml, a, b: bcol, c, gates };
 }
 
 // The home page. In session: what is waiting on you, this week's hearings
@@ -1621,7 +1650,8 @@ function renderPortfolio(list) {
       <div>${foldable('glance', '📊 At a glance' + (simple() && cur ? ` <span class="foldsub">next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}</span>` : ''), '', glance, false, simple())}${recentHearingsHtml}</div>
     </div>
     <div class="calwrap">${foldable('week', '◷ ' + wkLabel + ' ' + calNav, week.length, calPanel, false)}</div>
-    ${board.html ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
+    ${board.html && simple() ? foldable('board', `<span class="bsumtitle">Where every bill stands</span><span class="foldsub">${board.a.length} need a hearing · ${board.b.length} scheduled · ${board.c.length} through committee${cur ? ` · next deadline ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}` : ''}</span>`, '', board.simpleHtml, false, true) : ''}
+    ${board.html && !simple() ? foldable('board', `<span class="bsumtitle">🗂 Where every bill stands</span>
       <span class="bsum">
         <span class="bstat a"><b>${board.a.length}</b><span>need a hearing<small>in committee, nothing scheduled</small></span></span>
         <span class="bstat b"><b>${board.b.length}</b><span>hearing scheduled<small>or held, awaiting the report</small></span></span>
@@ -3903,7 +3933,7 @@ function render() {
     : S.view === 'add' ? renderAdd() : renderTable(list);
   const b = S.bills.find(x => x.id === S.drawerBill);
   const HELP_FOR = { portfolio: 'help-dash', inbox: 'help-pages', add: 'help-pages', triage: 'help-pages', table: 'help-pages', legislators: 'help-pages', people: 'help-pages', lists: 'help-public', emails: 'help-public', memo: 'help-pages', settings: 'help-auto', setup: 'help-where' };
-  const bodyHelp = HELP_FOR[S.view] ? body.replace('</h1>', ` <button class="helpq" data-helpgo="${HELP_FOR[S.view]}" title="What is this page? Opens Help at the right section" aria-label="Help for this page">?</button></h1>`) : body;
+  const bodyHelp = pageTabs() + (HELP_FOR[S.view] ? body.replace('</h1>', ` <button class="helpq" data-helpgo="${HELP_FOR[S.view]}" title="What is this page? Opens Help at the right section" aria-label="Help for this page">?</button></h1>`) : body);
   const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
   $('#app').innerHTML = chrome(bodyHelp) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
   wire();
@@ -3925,7 +3955,6 @@ function wire() {
   document.querySelectorAll('.srow [data-attend], .todaystrip [data-attend]').forEach(el => el.onclick = async e => { e.stopPropagation();
     const on = !(S.attend?.[el.dataset.attend] || []).includes(S.me?.id);
     try { await DB.attend(el.dataset.attend, on); toastUndo(on ? 'Marked as attending' : 'No longer attending', async () => { await DB.attend(el.dataset.attend, !on); rerenderKeep(); }); rerenderKeep(); } catch (e) { toast(e.message, true); } });
-  $('#rail-outreach') && ($('#rail-outreach').onclick = () => { if (RAIL_OUTREACH.includes(S.view)) return; const open = !outreachOpen(); try { localStorage.setItem('hiphi_outreach', open ? '1' : '0'); } catch {} render(); });
   document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     S.view = el.dataset.view; localStorage.setItem('view', S.view); S.drawerBill = null;
     S.q = '';   // a search belongs to the page it was typed on; carrying it along silently emptied other pages
