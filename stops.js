@@ -154,25 +154,36 @@ export const BOARD_EXPLAINER = 'A bill walks left to right in each chamber: it n
 // ---- Video ----
 // The Capitol streams every committee hearing on its chamber's YouTube
 // channel and keeps the recording there; hearing notices link to the channel,
-// never to one video. So the link is the channel's Live tab (upcoming, live
-// and past streams, newest first) until the exact video is known: the sync
-// matches it from the channel's feed (hearings.stream_auto_url), or a staff
-// member pastes it (hearings.stream_url, which wins).
+// never to one video. The exact video, when known, wins: a staff member's
+// link (hearings.stream_url), else the one the sync matched
+// (hearings.stream_auto_url). Otherwise, once the hearing has started, the link
+// is a search of the chamber's channel for the committee code(s) and the date,
+// which is how both chambers title their streams ("HHS Public Hearing
+// 03-16-2026", "HLT-HSH Joint Public Hearing - Fri Feb 6, 2026 @ 9:00 AM HST");
+// tested 9/18: the hearing's video is the first result. Before the start it is
+// the Live tab, where the scheduled stream appears.
 export const STREAM_CHANNELS = {
   S: { name: 'Hawaiʻi State Senate', url: 'https://www.youtube.com/channel/UCekvvdL_uyq2DUyj1GjlrOA' },
   H: { name: 'Hawaiʻi House of Representatives', url: 'https://www.youtube.com/channel/UCvoLAX1ww3e63K8qQ5of0bw' },
 };
+// "HHS 03-16-2026" (Senate titles) or "HLT HSH Feb 6, 2026" (House titles), in Hawaiʻi time.
+function streamQuery(h, chamber) {
+  const codes = String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).join(' ');
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Pacific/Honolulu', year: 'numeric', month: chamber === 'S' ? '2-digit' : 'short', day: chamber === 'S' ? '2-digit' : 'numeric' })
+    .formatToParts(new Date(h.scheduled_at)).map(x => [x.type, x.value]));
+  return chamber === 'S' ? `${codes} ${p.month}-${p.day}-${p.year}` : `${codes} ${p.month} ${p.day}, ${p.year}`;
+}
 export function hearingStream(h, chamber, now = Date.now()) {
   const ch = STREAM_CHANNELS[chamber]; if (!h || (!ch && !h.stream_url)) return null;
   const link = h.stream_url || h.stream_auto_url || null;   // staff's link, else the one the sync matched from the channel feed
   const start = new Date(h.scheduled_at).getTime(), exact = !!link;
   const state = h.status === 'cancelled' ? 'off' : now < start - 15 * 6e4 ? 'before' : now < start + 4 * 36e5 ? 'live' : 'after';
   if (state === 'off') return null;
-  return { url: exact ? link : ch.url + '/streams', exact, auto: !h.stream_url && !!h.stream_auto_url, state, channel: ch?.name || 'YouTube',
+  const search = !exact && state !== 'before';
+  return { url: exact ? link : search ? `${ch.url}/search?query=${encodeURIComponent(streamQuery(h, chamber))}` : ch.url + '/streams', exact, search, auto: !h.stream_url && !!h.stream_auto_url, state, channel: ch?.name || 'YouTube',
     label: state === 'live' ? 'Watch live' : state === 'after' ? 'Watch the recording' : 'Watch on YouTube',
     hint: exact ? '' : state === 'before' ? `Streams on the ${ch.name} channel; the video appears shortly before the start time.`
-      : state === 'live' ? `On the ${ch.name} channel: pick the stream with this committee’s name.`
-      : `On the ${ch.name} channel: past streams are listed by date and committee.` };
+      : `Searches the ${ch.name} channel for this hearing; its video is the first result.` };
 }
 
 // ---- Pathway to victory ----
