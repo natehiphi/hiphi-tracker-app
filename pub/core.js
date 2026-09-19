@@ -177,7 +177,6 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   saveDone(); saveDoneAt();
   if (on && !quiet) { celebrate(kind, firstTestimony); }
   if (on && !S.session) nudge('action');
-  return { firstTestimony };
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
   const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
   if (!DEMO && S.session && S.user) {
@@ -185,6 +184,7 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
                  : await S.supa.from('public_actions').delete().eq('user_id', S.session.user.id).eq('bill_id', billId).eq('kind', kind).is('hearing_id', hearingId || null);
     if (r.error && !/duplicate/.test(r.error.message)) toast(r.error, true);
   }
+  return { firstTestimony };
 }
 export function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
 export function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...S.watch])); } catch { /* private mode */ } }
@@ -242,12 +242,13 @@ export async function followList(slug, on) {
     const r = on ? await S.supa.rpc('follow_list', { p_list: l.id }) : await S.supa.rpc('unfollow_list', { p_list: l.id });
     if (r.error) { toast(r.error, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
   } else saveListFollows();
-  if (on) { rows.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
+  const live = rows.filter(({ b }) => alive(b) || b.stage === 'governor');
+  if (on) { live.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
   l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
   await loadBills();
   if (on) nudge('follow');
   app.render();
-  toast(on ? `Following ${rows.length} bill${rows.length === 1 ? '' : 's'} on “${l.title}” — new ones HIPHI adds will follow too` : `You no longer follow “${l.title}”; the bills stay in Your bills`);
+  toast(on ? `Following ${live.length} bill${live.length === 1 ? '' : 's'} on ${l.title}. Any HIPHI adds later will follow too.` : `You no longer follow ${l.title}. Its bills stay in My bills.`, on ? { yay: true } : {});
 }
 export const POS_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes', strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting', monitor: 'HIPHI is watching' };
 // ---------------- legislators ----------------
@@ -322,11 +323,11 @@ export async function loadBills() {
     const w = new Set(ids);
     S.bills = D.bills.filter(b => w.has(b.id)); S.hearings = D.hearings.filter(h => w.has(h.bill_id));
     S.activity = D.activity.filter(a => w.has(a.bill_id)).sort((x, y) => y.occurred_at.localeCompare(x.occurred_at));
-    S.outcomes = Object.fromEntries(D.outcomes.filter(o => w.has(o.bill_id)).map(o => [o.hearing_id, o]));
+    Object.assign(S.outcomes, Object.fromEntries(D.outcomes.filter(o => w.has(o.bill_id)).map(o => [o.hearing_id, o])));
     await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]);
     return;
   }
-  if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; S.outcomes = {}; }
+  if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; }
   else {
     const [b, h, a, o] = await Promise.all([
       S.supa.from('public_all_bills').select('*').in('id', ids),
@@ -335,7 +336,7 @@ export async function loadBills() {
       S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ids),
     ]);
     S.bills = b.data || []; S.hearings = h.data || []; S.activity = a.data || [];
-    S.outcomes = Object.fromEntries((o.data || []).map(x => [x.hearing_id, x]));
+    Object.assign(S.outcomes, Object.fromEntries((o.data || []).map(x => [x.hearing_id, x])));
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length) {
@@ -453,7 +454,7 @@ export async function browseCoalition(name) {
 // ---------------- helpers ----------------
 export const bill = id => S.bills.find(b => b.id === id);
 export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
-export const hearingsOf = b => [...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
+export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
@@ -680,8 +681,10 @@ export function cmteLabel(code, { short = false } = {}) {
   if (!cs.length) return code ? `the ${code} committee` : 'a committee';
   const ch = CHAMBER_NAME[cs[0].chamber] || '';
   const names = cs.map(c => c.name);
-  const joined = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
-  return short ? joined : `${ch} ${joined} ${names.length > 1 ? 'Committees' : 'Committee'}`.trim();
+  // Committee names often contain "and" themselves, so a joint pair repeats "Committee" to keep the two apart:
+  // "Senate Health and Human Services Committee and Commerce and Consumer Protection Committee".
+  if (names.length > 1) return short ? names.join(' / ') : `${ch} ${names.map(n => n + ' Committee').join(' and ')}`.trim();
+  return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
 export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
 // Testimony deadline wording and urgency: danger under 24 hours, warning under 48.
@@ -707,9 +710,9 @@ export function plainStatus(b) {
   const passed = st.leg === 'second' ? `Passed the ${other}. ` : '';
   if (st.hearingState === 'scheduled') {
     const d = dueInfo(st.hearing);
-    return { text: `${passed}${cap(where)} hears it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d?.tone || 'info' };
+    return { text: `${passed}${cap(where)} ${codesOf(st.committee).length > 1 ? 'hear' : 'hears'} it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d?.tone || 'info' };
   }
-  if (st.hearingState === 'held') return { text: `${passed}${cap(where)} heard it ${dateLong(st.hearing.scheduled_at)}. Waiting for its decision.`, short: 'Heard, waiting for the decision', tone: 'info' };
+  if (st.hearingState === 'held') return { text: `${passed}${cap(where)} heard it ${dateLong(st.hearing.scheduled_at)}. Waiting for ${codesOf(st.committee).length > 1 ? 'their' : 'its'} decision.`, short: 'Heard, waiting for the decision', tone: 'info' };
   if (!st.committee) return { text: `${passed}Waiting to be sent to a ${ch} committee.`, short: `Waiting for a ${ch} committee`, tone: '' };
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
   return { text: `${passed}Waiting for a hearing in ${where}.${dl ? ` If it is not heard by ${dateLong(dl.date + 'T12:00:00-10:00')}, it stops for this year.` : ''}`,
@@ -722,14 +725,15 @@ export function whyStopped(b) {
   if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
-  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${m[2]}` : ''}, so it stopped for this session.`;
+  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${new Date(m[2].replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' })}` : ''}, so it stopped for this session.`;
   return 'It stopped for this session.';
 }
 export const OUTCOME_PLAIN = { passed: 'Passed', passed_amended: 'Passed with changes', deferred: 'Put on hold (usually stops it this year)', recommitted: 'Sent back to the committee' };
 // The chair's real address when the directory has it, else the Capitol pattern.
 export function chairContacts(code) {
   return cmtesOf(code).filter(c => c.chair).map(c => {
-    const last = chairLast(c), leg = (S.legislators || []).find(l => l.chamber === c.chamber && (l.sort_name || '').split(',')[0].toLowerCase() === last.toLowerCase());
+    const m = (S.committeeMembers || []).find(x => x.committee === c.code && x.role === 'chair');
+    const last = chairLast(c), leg = (m && legById(m.legislator_id)) || (S.legislators || []).find(l => l.chamber === c.chamber && (l.sort_name || '').split(',')[0].toLowerCase() === last.toLowerCase());
     return { name: c.chair, last: leg ? (leg.sort_name || '').split(',')[0] : last, title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: leg?.email || chairEmail(c), phone: leg?.phone || '', committee: c.name, code: c.code, leg };
   });
 }
@@ -762,6 +766,8 @@ export async function ensureBill(num) {
   return b;
 }
 // Where a person is in the guided start: a first visit is someone who has not finished or skipped it and follows nothing.
-export const firstVisit = () => !S.watch.size && !wiz().done && !wiz().skipped;
+export const firstVisit = () => !S.watch.size && ((!wiz().done && !wiz().skipped) || readyForSession());
+// Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
+export const readyForSession = () => !!wiz().ready && !S.watch.size && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
 export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');
 export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"

@@ -6,6 +6,17 @@
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from './stops.js';
+import { ICONS, icon as lucide } from './icons.js';
+// Issue and list icons (9/19): the public page shows Lucide icons, not emoji, so staff pick from a short list of
+// names. Old emoji values still display (mapped) until they are re-saved.
+const ICON_CHOICES = [['salad', 'Healthy food'], ['apple', 'Apple'], ['bike', 'Active living'], ['utensils', 'Meals'], ['thermometer-sun', 'Heat and climate'],
+  ['waves', 'Ocean'], ['sun', 'Sun'], ['leaf', 'Leaf'], ['shield-check', 'Protection'], ['wine-off', 'No alcohol'], ['cigarette-off', 'No tobacco'], ['pill', 'Medicine'],
+  ['smile', 'Smile (oral health)'], ['sprout', 'Sprout (farm to school)'], ['school', 'School'], ['baby', 'Keiki'], ['syringe', 'Vaccines'], ['stethoscope', 'Health care'],
+  ['heart-pulse', 'Public health'], ['heart-handshake', 'Community care'], ['handshake', 'Partnership'], ['users', 'People'], ['house', 'Housing'], ['megaphone', 'Advocacy']];
+const EMOJI_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout', '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby' };
+const iconName = (v, kind) => { const x = String(v || '').trim(); return ICONS[x] ? x : EMOJI_ICON[x] || EMOJI_ICON[x.replace(/\ufe0f/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse'); };
+const iconSvg = (v, kind) => lucide(iconName(v, kind), { size: '1.1em' });
+const iconPick = (attr, v, kind) => `<select ${attr} title="Icon on the public page">${ICON_CHOICES.map(([n, l]) => `<option value="${n}" ${iconName(v, kind) === n ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
 const DEMO = new URLSearchParams(location.search).has('demo');
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
@@ -1033,7 +1044,7 @@ function groupMenuHTML(base) {
     return `<button data-ft="${key}:${esc(id)}" data-keepmenu="1" class="${on ? 'on' : ''}" aria-pressed="${on}" ${!on && !c ? 'disabled' : ''}><span class="qdot" aria-hidden="true">${on ? '✓' : ''}</span><span class="gml">${esc(label)}</span><i>${c}</i></button>`; };
   const col = (title, key, rows, label, empty) => `<div class="gmcol"><div class="mh">${title}</div>${rows.length ? rows.map(r => opt(key, r.id, label(r))).join('') : `<div class="gmempty">${empty}</div>`}</div>`;
   return `<details class="pillmenu grpmenu" ${S.grpMenuOpen ? 'open' : ''}><summary class="fbtn ${picked.length ? 'has' : ''}">${picked.length === 1 ? esc(picked[0]) : picked.length ? `Coalitions &amp; lists<i>${picked.length}</i>` : 'Coalitions &amp; lists'} ▾</summary>
-    <div class="menu gm">${col('Coalitions', 'camps', camps, c => c.name, 'None on these bills')}${col('Lists', 'lsts', lists, l => (l.icon ? l.icon + ' ' : '') + l.title, 'No bills here are on a list')}</div></details>`;
+    <div class="menu gm">${col('Coalitions', 'camps', camps, c => c.name, 'None on these bills')}${col('Lists', 'lsts', lists, l => l.title, 'No bills here are on a list')}</div></details>`;
 }
 // Muted bills are hidden from My bills, never lost: one menu lists them with a way back.
 function mutedMenuHTML() {
@@ -2084,7 +2095,7 @@ function renderSettings() {
         <input data-cchan value="${esc(c.slack_channel || '')}" placeholder="#slack-channel">
         <input data-ckw value="${esc((c.keywords || []).join(', '))}" placeholder="keywords, comma-separated">
         <input data-cpub value="${esc(c.public_name || '')}" placeholder="public name (what visitors see)">
-        <input data-cicon value="${esc(c.icon || '')}" placeholder="icon" title="One emoji for the public page tile" maxlength="4">
+        <label class="iconpick">${iconSvg(c.icon)}${iconPick('data-cicon', c.icon)}</label>
         <input data-cdesc value="${esc(c.description || '')}" placeholder="one friendly sentence for the public page tile"></div>`).join('')}</div>
       <div class="btns"><button class="btn" id="st-save-coal">Save coalitions</button></div>
     </section>
@@ -3177,7 +3188,7 @@ function renderLists() {
     const hits = q.length >= 2 ? S.bills.filter(b => b.is_public && b.tracked !== false && !rows.some(r => r.b.id === b.id) && (b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(q) || (b.public_summary || '').toLowerCase().includes(q))).slice(0, 8) : [];
     return `<div class="panel lcard ${l.is_published ? '' : 'draft'}" id="list-${l.id}">
       <div class="lhead" data-lopen="${l.id}">
-        <span class="licon">${esc(l.icon || '☰')}</span>
+        <span class="licon">${iconSvg(l.icon, 'list')}</span>
         <span class="ltitle"><b>${esc(l.title)}</b><span class="lsub">${rows.length} bill${rows.length === 1 ? '' : 's'} · ${followers} following · ${l.is_published ? '<span class="live">published</span>' : '<span class="draft">draft, not visible yet</span>'}</span></span>
         <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" data-lpub="${l.id}" ${l.is_published ? 'checked' : ''}><span>${l.is_published ? 'Published' : 'Publish'}</span></label>
         <span class="lchev">${open ? '▴' : '▾'}</span>
@@ -3185,7 +3196,7 @@ function renderLists() {
       ${open ? `<div class="lbody">
         <div class="lgrid">
           <label>Title<input data-lfield="title" data-list="${l.id}" value="${esc(l.title)}" maxlength="80"></label>
-          <label>Icon<input data-lfield="icon" data-list="${l.id}" value="${esc(l.icon || '')}" maxlength="4" placeholder="one emoji"></label>
+          <label>Icon${iconPick(`data-lfield="icon" data-list="${l.id}"`, l.icon, 'list')}</label>
           <label class="wide">One friendly sentence<input data-lfield="description" data-list="${l.id}" value="${esc(l.description || '')}" maxlength="200" placeholder="What this list is for, in the public’s words"></label>
         </div>
         <div class="lshare"><span class="tok">Link: <a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></span><button class="btn sm ghost" data-lcopy="${esc(link)}">Copy link</button><button class="btn sm ghost" data-lembed="${esc(l.slug)}">Copy embed code</button>${l.is_published ? `<button class="btn sm ghost" data-alertnew="l:${l.id}">✉ Email followers</button>` : ''}${l.is_published ? '' : '<span class="tok warn">Publish to make the link work.</span>'}</div>
@@ -3204,7 +3215,7 @@ function renderLists() {
   return `<div class="listswrap">
     <div class="dashhead"><h1>Lists</h1><span class="sub">Sets of bills the public can follow.</span></div>
     <div class="panel lnew"><div class="ph"><span>＋ New list</span></div>
-      <div class="lgrid"><label>Title<input id="ln-title" maxlength="80" placeholder="Keiki health 2027"></label><label>Icon<input id="ln-icon" maxlength="4" placeholder="🧒"></label>
+      <div class="lgrid"><label>Title<input id="ln-title" maxlength="80" placeholder="Keiki health 2027"></label><label>Icon${iconPick('id="ln-icon"', 'baby', 'list')}</label>
         <label class="wide">One friendly sentence<input id="ln-desc" maxlength="200" placeholder="The bills that decide what kids eat, breathe and can get care for this year."></label></div>
       <div class="btns"><button class="btn sm" id="ln-create">Create as a draft</button></div></div>
     ${lists.length ? lists.map(card).join('') : '<div class="pempty">No lists yet.</div>'}

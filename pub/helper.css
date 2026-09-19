@@ -1,0 +1,92 @@
+/* The testimony helper (pub/helper.js). A full-screen dialog on phones (base.css dialog.sheet), a centred card from
+   720px. Layout: a header (close, title, "1 of 3") over a 3-part progress line, a scrolling body, and a footer that
+   holds the one main button so it never scrolls out of reach. Every selector starts with .hp- (this module only). */
+
+.hp-lock { overflow: hidden; }   /* on <body> while the helper is open: the page behind does not scroll */
+.hp-dlg { overflow: hidden; overscroll-behavior: contain; }
+.hp-dlg .hp-frame { display: flex; flex-direction: column; height: 100%; }
+
+/* header */
+.hp-dlg .hp-head { flex: none; display: flex; align-items: center; gap: var(--s4); min-height: var(--header);
+  padding: var(--safe-t) var(--s16) 0 var(--s4); background: var(--n0); }
+.hp-dlg .hp-title { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-dlg .hp-count { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.hp-dlg .hp-prog { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 var(--s16) var(--s4); background: var(--n0); }
+.hp-dlg .hp-prog i { height: 4px; border-radius: 2px; background: var(--n200); transition: background .3s; }
+.hp-dlg .hp-prog i.on { background: var(--p700); }
+.hp-dlg .hp-prog.done i { background: var(--ok-text); }
+/* headings that receive focus when a screen changes: the screen reader hears them, no ring is drawn */
+.hp-dlg .hp-title:focus, .hp-dlg .hp-h:focus, .hp-dlg .hp-mahalo:focus, .hp-dlg .hp-chip:focus, .hp-dlg .chip[tabindex]:focus { outline: none; }
+
+/* body */
+.hp-dlg .hp-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.hp-dlg .hp-in { max-width: 560px; margin: 0 auto; padding: var(--s16) var(--s16) var(--s32); display: flex; flex-direction: column; gap: var(--s16); }
+.hp-dlg .hp-top { display: flex; flex-direction: column; gap: var(--s8); }
+.hp-dlg .hp-h { font-size: var(--t22); }
+.hp-dlg .hp-sub { color: var(--n700); max-width: 65ch; }
+.hp-dlg .hp-ctx { font-size: var(--t14); color: var(--n700); }
+.hp-dlg .hp-due { display: flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.hp-dlg .hp-due .ic { width: 18px; height: 18px; color: var(--p700); }
+.hp-dlg .hp-due.warn, .hp-dlg .hp-due.warn .ic { color: var(--warn-text); }
+.hp-dlg .hp-due.danger, .hp-dlg .hp-due.danger .ic { color: var(--bad-text); }
+.hp-dlg .notice p + .btn, .hp-dlg .notice .hp-inl { margin: var(--s4) 0 0 -12px; }
+.hp-dlg .hp-opt { font-weight: 400; color: var(--n500); }
+
+/* screen 2: the letter reads like a letter (Lato 16px), grows with its text, and shows it is editable on focus */
+.hp-dlg .hp-letter { display: block; width: 100%; min-height: 280px; padding: var(--s16); border: 1px solid var(--n400); border-radius: var(--r12);
+  background: var(--n0); box-shadow: var(--sh1); font: 400 var(--t16)/1.5 var(--font); color: var(--n900); resize: none; overflow: hidden; }
+.hp-dlg .hp-letter:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.hp-dlg .hp-under { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); margin: calc(-1 * var(--s8)) 0 0 -12px; }
+.hp-dlg .hp-offscreen { position: fixed; left: -9999px; top: 0; opacity: 0; }
+
+/* screen 3: the Capitol's steps */
+.hp-dlg .hp-steps { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
+.hp-dlg .hp-steps li { display: flex; gap: var(--s12); padding: var(--s12) 0; }
+.hp-dlg .hp-steps li + li { border-top: 1px solid var(--n100); }
+.hp-dlg .hp-n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--p50); color: var(--p800);
+  font: 700 var(--t14)/28px var(--font); text-align: center; }
+.hp-dlg .hp-stxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding-top: 2px; }
+.hp-dlg .hp-stxt b { color: var(--n900); }
+.hp-dlg .hp-stxt .hp-inl { margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)) -12px; }
+.hp-dlg .hp-stxt .chip { min-height: 44px; }
+.hp-dlg .hp-notes { display: flex; flex-direction: column; gap: var(--s12); }
+.hp-dlg .hp-notes .note { align-items: flex-start; }
+/* the phone number is inside a sentence; the padding gives it a thumb-sized target without moving the text */
+.hp-dlg .hp-tel { display: inline-block; padding: 12px 2px; margin: -12px -2px; font-weight: 700; white-space: nowrap; }
+
+/* confirmation */
+.hp-dlg .hp-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s12); padding: var(--s16) 0 var(--s8); }
+.hp-dlg .hp-badge { width: 88px; height: 88px; border-radius: 50%; background: var(--o50); display: flex; align-items: center; justify-content: center; }
+.hp-dlg .hp-mahalo { font-size: var(--t28); position: relative; z-index: 91; }   /* above the burst (z 90), so flowers come from behind it */
+.hp-dlg .hp-lede { max-width: 34ch; }
+.hp-dlg .hp-miles { justify-content: center; }
+.hp-dlg .hp-miles .flower { flex: none; }
+.hp-dlg .hp-next { display: flex; flex-direction: column; gap: var(--s8); }
+.hp-dlg .hp-watch { align-self: flex-start; margin-left: -12px; }
+.hp-dlg .hp-watch .ic-external-link { width: 16px; height: 16px; }
+
+/* footer: the one main button, sometimes with Back or a quieter button beside it */
+.hp-dlg .hp-foot { flex: none; background: var(--n0); border-top: 1px solid var(--n200); box-shadow: var(--sh2);
+  padding: var(--s12) var(--s16) calc(var(--s12) + var(--safe-b)); }
+.hp-dlg .hp-footin { display: flex; align-items: center; gap: var(--s8); max-width: 560px; margin: 0 auto; min-height: 48px; }
+.hp-dlg .hp-footin .btn { padding: 0 var(--s16); white-space: normal; text-align: center; }
+.hp-dlg .hp-footin .btn.primary, .hp-dlg .hp-footin .btn.secondary, .hp-dlg .hp-chip { flex: 1 1 auto; }
+.hp-dlg .hp-footin .btn.text { flex: none; padding: 0 var(--s12) 0 var(--s4); }
+.hp-dlg .hp-chip { min-height: 48px; justify-content: center; font-size: var(--t16); padding: 0 var(--s16); }
+.hp-dlg .hp-chip .ic { width: 20px; height: 20px; }
+
+/* narrow phones: Back keeps its icon and its name for screen readers */
+@media (max-width: 379px) {
+  .hp-dlg .hp-back { min-width: 44px; padding: 0; }
+  .hp-dlg .hp-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+/* tablets and computers: a centred card of fixed height, so screens do not jump in size */
+@media (min-width: 720px) {
+  /* base.css stretches the dialog to the window; the helper reads better as a card of letter-page height */
+  .hp-dlg.sheet { height: min(780px, calc(100% - 48px)); }
+  .hp-dlg .hp-head { padding-top: 0; padding-left: var(--s8); }
+  .hp-dlg .hp-prog { padding: 0 var(--s24) var(--s4); }
+  .hp-dlg .hp-in { padding: var(--s24) var(--s24) var(--s32); }
+  .hp-dlg .hp-foot { padding: var(--s12) var(--s24); box-shadow: none; }
+}

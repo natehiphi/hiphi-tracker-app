@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, ensureBill, listBillsFor, sessionInfo } from './core.js';
+  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import start from './start.js';
@@ -74,7 +74,7 @@ let lastRouteKey = '';
 export function render() {
   let route = parseRoute();
   // A first visit to the home page starts the guided start where the person left it.
-  if (route.name === 'home' && firstVisit()) { history.replaceState({ y: 0 }, '', `#/start/${wiz().step || 1}`); route = parseRoute(); }
+  if (route.name === 'home' && firstVisit()) { history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : wiz().step || 1}`); route = parseRoute(); }
   const scr = SCREENS[route.name] || home;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';

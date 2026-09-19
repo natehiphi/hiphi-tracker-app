@@ -1,0 +1,203 @@
+/* The bill page (pub/bill.js). Everything sits under .bl-page, except .bl-barq and .bl-barbtn, which live in the
+   sticky bottom action bar that app.js draws outside <main>. Colours only through the tokens in base.css. */
+
+/* ---- sticky top bar: Back, the number, follow star, overflow menu ---- */
+/* Full-bleed white on wide screens without horizontal scroll: a spread shadow on a layer behind the bar paints the
+   sides, and clip-path keeps it to the bar's height plus the 1px line under it. The clip sits on that layer, not on the
+   bar, so the overflow menu can drop below it. */
+.bl-page .bl-top { position: sticky; top: var(--header); z-index: 30; display: flex; align-items: center; gap: var(--s4);
+  height: 56px; margin: calc(-1 * var(--s16)) calc(-1 * var(--gutter)) 0; padding: 0 var(--s4); }
+.bl-page .bl-top::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--n0);
+  box-shadow: 0 0 0 100vmax var(--n0), 0 1px 0 100vmax var(--n200); clip-path: inset(0 -100vmax -1px); }
+.bl-page .bl-back { flex: none; min-width: 96px; justify-content: flex-start; gap: 6px; padding: 0 12px 0 8px; }
+.bl-page .bl-back:hover { text-decoration: none; background: var(--p50); }
+.bl-page .bl-num { flex: 1 1 auto; min-width: 0; text-align: center; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; }
+.bl-page .bl-tools { flex: none; min-width: 96px; display: flex; align-items: center; justify-content: flex-end; }
+.bl-page .bl-tools .iconbtn[aria-busy="true"] { opacity: .6; }
+.bl-page .bl-menuwrap { position: relative; }
+.bl-page .bl-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 236px; display: flex; flex-direction: column;
+  padding: var(--s4); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+.bl-page .bl-mi { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 48px; padding: 0 var(--s12); border-radius: var(--r8);
+  color: var(--n900); font-weight: 700; text-align: left; text-decoration: none; }
+.bl-page .bl-mi:hover { background: var(--n50); color: var(--n900); }
+.bl-page .bl-mi:active { background: var(--p50); }
+.bl-page .bl-mi .ic { width: 20px; height: 20px; color: var(--p700); }
+.bl-page .bl-mi .bl-ext { width: 16px; height: 16px; margin-left: auto; color: var(--n500); }
+
+/* ---- "New here?" ---- */
+.bl-page .bl-new { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); padding: 2px 4px 2px var(--s12);
+  background: var(--p50); border-radius: var(--r12); font-size: var(--t14); color: var(--p900); }
+.bl-page .bl-new p { flex: 1 1 auto; }
+.bl-page .bl-new .btn { flex: none; }
+
+/* ---- top of the page ---- */
+.bl-page .bl-head { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s24); }
+.bl-page .bl-head h1 { font-size: var(--t22); line-height: 1.25; max-width: 32ch; }
+.bl-page .bl-head .chips .chip { white-space: normal; }
+.bl-page .bl-fol { display: flex; align-items: center; gap: 6px; font-size: var(--t14); color: var(--n500); }
+.bl-page .bl-fol .ic { width: 18px; height: 18px; color: var(--p700); }
+.bl-page .bl-note { margin-top: var(--s16); }
+.bl-page .bl-skel { margin-top: var(--s8); }
+
+/* ---- status card and the seven-dot rail ---- */
+.bl-page .bl-status { display: flex; flex-direction: column; gap: var(--s16); margin-top: var(--s24); }
+.bl-page .bl-say { display: flex; gap: var(--s8); align-items: flex-start; color: var(--n900); }
+.bl-page .bl-say .flower { flex: none; margin-top: 1px; }
+.bl-page .bl-ask { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s12); }
+.bl-page .bl-ask .ic { width: 18px; height: 18px; color: var(--p700); margin-top: 1px; flex: none; }
+.bl-page .bl-ask b { color: var(--n900); }
+
+.bl-page .bl-rail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--s8); padding-top: 4px; }
+.bl-page .bl-dots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.bl-page .bl-dots li { position: relative; display: flex; align-items: center; justify-content: center; height: 32px; }
+/* the line that joins each dot to the one before it: solid where the bill has been */
+.bl-page .bl-dots li::before { content: ''; position: absolute; top: 15px; left: -50%; right: 50%; height: 2px; background: var(--n200); }
+.bl-page .bl-dots li:first-child::before { display: none; }
+.bl-page .bl-dots li.bl-done::before, .bl-page .bl-dots li.bl-now::before, .bl-page .bl-dots li.bl-stop::before { background: var(--p700); }
+.bl-page .bl-dot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--n0); }
+.bl-page .bl-dot .ic { width: 14px; height: 14px; stroke-width: 3; }
+.bl-page .bl-done .bl-dot { width: 22px; height: 22px; background: var(--p700); }
+.bl-page .bl-now .bl-dot { width: 24px; height: 24px; background: var(--p700); box-shadow: 0 0 0 5px var(--p100); }
+.bl-page .bl-now .bl-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--n0); }
+.bl-page .bl-next .bl-dot { width: 16px; height: 16px; background: var(--n0); border: 2px solid var(--n300); }
+.bl-page .bl-stop .bl-dot { width: 24px; height: 24px; background: var(--n500); }
+.bl-page .bl-raillaw .bl-dots li:last-child .bl-dot { width: 26px; height: 26px; background: var(--ok-text); box-shadow: 0 0 0 5px var(--ok-wash); }
+.bl-page .bl-nowlbl { font-size: var(--t14); color: var(--n900); line-height: 1.35; }
+.bl-page .bl-nowlbl b { color: var(--p700); }
+.bl-page .bl-railstop .bl-nowlbl { color: var(--n700); font-weight: 700; }
+.bl-page .bl-raillaw .bl-nowlbl b { color: var(--ok-text); }
+/* the label sits under the current dot, kept inside the card at the two ends */
+.bl-page .bl-at0, .bl-page .bl-at1, .bl-page .bl-at2 { grid-column: 1 / span 5; }
+.bl-page .bl-at3 { grid-column: 2 / span 5; }
+.bl-page .bl-at4, .bl-page .bl-at5, .bl-page .bl-at6 { grid-column: 3 / span 5; }
+.bl-page .bl-nowlbl.bl-l { text-align: left; }
+.bl-page .bl-nowlbl.bl-c { text-align: center; }
+.bl-page .bl-nowlbl.bl-r { text-align: right; }
+
+/* disclosures on this page share one look: a 48px summary row with a turning chevron */
+.bl-page details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s8); min-height: 48px; color: var(--p700); font-weight: 700; }
+.bl-page details > summary::-webkit-details-marker { display: none; }
+.bl-page details > summary .bl-chev { width: 20px; height: 20px; flex: none; transition: transform .2s var(--ease); }
+.bl-page details[open] > summary .bl-chev { transform: rotate(180deg); }
+.bl-page .bl-steps { margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)); border-top: 1px solid var(--n100); }
+.bl-page .bl-steps > summary { font-size: var(--t14); }
+.bl-page .bl-steplist { list-style: none; margin: 0 0 var(--s8); padding: 0; display: flex; flex-direction: column; }
+.bl-page .bl-steplist li { position: relative; display: flex; gap: var(--s12); padding-bottom: var(--s12); }
+.bl-page .bl-steplist li:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 26px; bottom: 2px; width: 2px; background: var(--n200); }
+.bl-page .bl-steplist li.bl-s-done::before { background: var(--p700); }
+.bl-page .bl-sdot { flex: none; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--n0); border: 2px solid var(--n300); background: var(--n0); }
+.bl-page .bl-sdot .ic { width: 14px; height: 14px; stroke-width: 3; }
+.bl-page .bl-s-done .bl-sdot { background: var(--p700); border-color: var(--p700); }
+.bl-page .bl-s-now .bl-sdot { background: var(--p700); border-color: var(--p700); box-shadow: 0 0 0 3px var(--p100); }
+.bl-page .bl-s-now .bl-sdot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--n0); }
+.bl-page .bl-s-stop .bl-sdot { background: var(--n500); border-color: var(--n500); }
+.bl-page .bl-sname { font-weight: 700; color: var(--n900); }
+.bl-page .bl-s-next .bl-sname { color: var(--n700); }
+.bl-page .bl-stag { font-size: var(--t13); font-weight: 700; color: var(--p700); margin-left: 4px; }
+.bl-page .bl-s-done .bl-stag { color: var(--n500); }
+.bl-page .bl-s-stop .bl-stag { color: var(--n700); }
+.bl-page .bl-sdesc { font-size: var(--t14); color: var(--n500); }
+
+/* ---- the action card on this page ---- */
+/* The page's headline, position and issue are already at the top, and the sticky bar carries the main action, so the
+   card here shows only the hearing, the deadline and the other ways to help. */
+.bl-page .bl-act .acard > .acrow, .bl-page .bl-act .acard > .achead, .bl-page .bl-act .acard > p.meta:not(.hearing),
+.bl-page .bl-act .acard > .btncol > .btn.primary { display: none; }
+.bl-page .bl-act .acard .due { margin-top: 0; }
+.bl-page .bl-act .acard > .btncol { margin-top: var(--s4); }
+.bl-page .bl-nudge { margin-top: var(--s12); }
+
+/* ---- who decides next ---- */
+.bl-page .bl-whocard { display: flex; flex-direction: column; gap: var(--s12); }
+.bl-page .bl-intro { color: var(--n700); }
+.bl-page .bl-chairs { list-style: none; margin: 0; padding: 0; }
+.bl-page .bl-chair { display: flex; flex-direction: column; gap: var(--s8); }
+.bl-page .bl-chair + .bl-chair { border-top: 1px solid var(--n100); margin-top: var(--s12); padding-top: var(--s12); }
+.bl-page .bl-who { display: flex; align-items: center; gap: var(--s12); min-height: 56px; color: inherit; text-decoration: none; border-radius: var(--r12); }
+.bl-page a.bl-who:hover .bl-name { text-decoration: underline; }
+.bl-page .bl-whot { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.bl-page .bl-name { font-weight: 700; color: var(--n900); }
+.bl-page .bl-role { font-size: var(--t14); color: var(--n500); }
+.bl-page .bl-mine { margin-top: 4px; }
+.bl-page .bl-chevr { width: 20px; height: 20px; color: var(--n400); flex: none; }
+.bl-page .bl-photo { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; object-position: 50% 15%; background: var(--n100); }
+.bl-page .bl-photo.sm { width: 40px; height: 40px; }
+.bl-page .bl-photo.none { display: flex; align-items: center; justify-content: center; background: var(--p50); color: var(--p700); font: 700 var(--t18)/1 var(--font-h); }
+.bl-page .bl-chair .btnrow .btn { flex: 1 1 0; }
+.bl-page .bl-members { border-top: 1px solid var(--n100); margin: 0 calc(-1 * var(--s16)) calc(-1 * var(--s8)); padding: 0 var(--s16); }
+.bl-page .bl-members > summary { font-size: var(--t14); }
+.bl-page .bl-inc { font-weight: 400; color: var(--n700); }
+.bl-page .bl-memlist { list-style: none; margin: 0 calc(-1 * var(--s16)); padding: 0 0 var(--s8); }
+.bl-page .bl-mem { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: inherit; text-decoration: none; }
+.bl-page .bl-mem:hover { background: var(--n50); }
+.bl-page .bl-memlist li + li .bl-mem { border-top: 1px solid var(--n100); }
+.bl-page .bl-findme { margin-top: var(--s8); }
+.bl-page .bl-findme .btn { padding-left: 4px; white-space: normal; text-align: left; }
+
+/* ---- hearings ---- */
+.bl-page .bl-hlist { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
+.bl-page .bl-hr { display: flex; gap: var(--s12); padding: var(--s16); }
+.bl-page .bl-hr + .bl-hr { border-top: 1px solid var(--n100); }
+.bl-page .bl-hico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--p50); color: var(--p700); }
+.bl-page .bl-past .bl-hico { background: var(--n100); color: var(--n500); }
+.bl-page .bl-hico .ic { width: 20px; height: 20px; }
+.bl-page .bl-hbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bl-page .bl-htitle { font-weight: 700; color: var(--n900); }
+.bl-page .bl-hwhen { font-size: var(--t14); color: var(--n500); }
+.bl-page .bl-hdue { display: flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.bl-page .bl-hdue .ic { width: 18px; height: 18px; color: var(--p700); }
+.bl-page .bl-hdue.warn, .bl-page .bl-hdue.warn .ic { color: var(--warn-text); }
+.bl-page .bl-hdue.danger, .bl-page .bl-hdue.danger .ic { color: var(--bad-text); }
+.bl-page .bl-hr .chips { margin-top: 4px; }
+.bl-page .bl-hr .chip { white-space: normal; }
+.bl-page .bl-hacts { margin: 0 0 -8px -12px; gap: 0; }
+
+/* ---- more details ---- */
+.bl-page .bl-more { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
+.bl-page .bl-more > summary { min-height: 56px; color: var(--n900); justify-content: space-between; }
+.bl-page .bl-more > summary .bl-chev { color: var(--n500); }
+.bl-page .bl-more dl { margin: 0; padding: var(--s4) 0 0; border-top: 1px solid var(--n100); }
+.bl-page .bl-kv { padding: var(--s12) 0; }
+.bl-page .bl-kv + .bl-kv { border-top: 1px solid var(--n100); }
+.bl-page .bl-kv dt { font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 4px; }
+.bl-page .bl-kv dd { margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+.bl-page .bl-kv dd a { font-weight: 700; }
+.bl-page .bl-date { display: block; margin-top: 2px; color: var(--n500); }
+.bl-page .bl-pch + .bl-pch { margin-top: var(--s12); }
+.bl-page .bl-pchn { font-weight: 700; color: var(--n700); margin-bottom: 4px; }
+.bl-page .bl-path { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bl-page .bl-path li { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
+.bl-page .bl-path li .ic { width: 18px; height: 18px; flex: none; }
+.bl-page .bl-path li > span:first-of-type { flex: 1 1 0; min-width: 0; }
+.bl-page .bl-p-past .ic { color: var(--ok-text); }
+.bl-page .bl-p-here .ic { color: var(--p700); }
+.bl-page .bl-p-here > span:first-of-type { font-weight: 700; color: var(--n900); }
+.bl-page .bl-p-dead .ic { color: var(--n500); }
+.bl-page .bl-p-next, .bl-page .bl-p-plain { color: var(--n700); }
+.bl-page .bl-p-next .ic, .bl-page .bl-p-plain .ic { color: var(--n300); }
+.bl-page .bl-pnone { color: var(--n500); }
+.bl-page .bl-cap { margin: 0 0 var(--s8) -12px; }
+
+/* ---- empty and error ---- */
+.bl-page .bl-empty { padding-top: var(--s48); }
+.bl-page .bl-empty > .ic { color: var(--p700); }
+.bl-page .bl-empty h1 { font-size: var(--t22); }
+
+/* ---- sticky bottom bar content ---- */
+.bl-barq { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); width: 100%; }
+.bl-barq .bl-barq-t { flex: 1 1 auto; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.bl-barq .btn { flex: 0 0 auto; }
+.bl-barbtn { white-space: normal; text-align: center; line-height: 1.2; padding-top: 6px; padding-bottom: 6px; }
+
+@media (min-width: 900px) {
+  .bl-page .bl-top { top: var(--header); }
+  .bl-page .bl-chair .btnrow .btn { flex: 0 0 auto; min-width: 140px; }
+}
+/* the companion bill link sits in a short line of its own, so give it a full-size target */
+.bl-page .bl-kv a[href^="#/bill/"], .bl-page dd a[href^="#/bill/"] { display: inline-flex; align-items: center; min-height: 44px; }
+/* 200% zoom on a phone (about 195px wide): the top bar sheds its fixed side widths */
+@media (max-width: 280px) {
+  .bl-page .bl-back, .bl-page .bl-tools { min-width: 0; }
+  .bl-page .bl-back span { display: none; }
+  .bl-page .bl-name { overflow-wrap: anywhere; }
+}

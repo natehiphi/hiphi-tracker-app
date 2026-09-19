@@ -57,7 +57,7 @@ img, svg { display: block; }
 .band { background: var(--n700); color: #fff; font-size: var(--t13); font-weight: 700; text-align: center; padding: 6px var(--gutter); line-height: 16px; }
 .hdr { position: sticky; top: 0; z-index: 40; height: var(--header); background: var(--n0); border-bottom: 1px solid var(--n200);
   display: flex; align-items: center; gap: var(--s8); padding: 0 var(--s8) 0 var(--gutter); }
-.hdr .brand { display: flex; align-items: center; gap: var(--s8); min-width: 0; flex: 1 1 auto; text-decoration: none; color: inherit; }
+.hdr .brand { display: flex; align-items: center; gap: var(--s8); min-width: 0; min-height: 44px; flex: 1 1 auto; text-decoration: none; color: inherit; }
 .hdr .brand svg { width: 30px; height: 30px; flex: none; }
 .hdr .bname { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
 .hdr .bname b { font: 700 var(--t18)/1.1 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; }
@@ -71,7 +71,7 @@ body.hasbar main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + 88px); }
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--n0); border-top: 1px solid var(--n200); box-shadow: 0 -2px 8px rgba(20,43,53,.05);
   display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px 4px calc(4px + var(--safe-b)); }
 .tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; text-decoration: none; color: var(--n500); font-size: var(--t13); font-weight: 700; border-radius: var(--r12); }
-.tabs a .pill { display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; border-radius: var(--pill); transition: background .15s; }
+.tabs a .pill { display: flex; align-items: center; justify-content: center; width: min(56px, 100%); height: 30px; border-radius: var(--pill); transition: background .15s; }
 .tabs a[aria-current="page"] { color: var(--p700); }
 .tabs a[aria-current="page"] .pill { background: var(--p50); }
 .tabs a .ic { width: 24px; height: 24px; }
@@ -226,7 +226,7 @@ body.hasbar #toast { bottom: calc(var(--safe-b) + 96px); }
 /* ---- dialog (the testimony helper) ---- */
 dialog.sheet { border: 0; padding: 0; margin: 0; width: 100%; max-width: 100%; height: 100%; max-height: 100%; background: var(--n0); color: var(--n700); }
 dialog.sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35), rgba(9,53,70,.6)); }
-@media (min-width: 720px) { dialog.sheet { width: 640px; height: auto; max-height: calc(100% - 48px); margin: auto; border-radius: var(--r16); box-shadow: var(--sh3); } }
+@media (min-width: 720px) { dialog.sheet { width: 640px; height: fit-content; max-height: calc(100% - 48px); margin: auto; border-radius: var(--r16); box-shadow: var(--sh3); } }
 
 /* ---- celebration ---- */
 .burst { position: fixed; left: 50%; top: 32%; width: 0; height: 0; pointer-events: none; z-index: 90; }
@@ -256,3 +256,10 @@ dialog.sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35), 
   .skel { animation: none; }
 }
 main:focus { outline: none; }
+/* 200% zoom on a phone (about 195px wide): labels wrap instead of pushing the page sideways */
+@media (max-width: 280px) {
+  .btn { white-space: normal; min-width: 0; padding: 0 12px; text-align: center; }
+  .actionbar .inner { flex-wrap: wrap; }
+  .actionbar .btn { flex: 1 1 100%; }
+  .chip { white-space: normal; max-width: 100%; }
+}

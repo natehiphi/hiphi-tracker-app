@@ -16,8 +16,12 @@ function doneLabel(b, h, k) {
   return { testimony: 'Testimony sent', email: 'Emailed the chair', share: 'Shared', attend: held ? 'You went' : 'You plan to go' }[k];
 }
 
-export function actionCard(b, h, { focus = false, suggest = null, heading = 'h3' } = {}) {
+// suggest: show the Follow / Not for me bar; why: the reason line (defaults to suggest when that is a sentence);
+// compact: the bill page already shows the headline, chips and its own main button.
+export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false } = {}) {
+  if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
+  if (due && didKind(b, h, 'testimony')) due.tone = '';   // sent: the deadline is no longer a warning
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
   const doneKinds = KINDS.filter(x => didKind(b, h, x));
@@ -33,18 +37,17 @@ export function actionCard(b, h, { focus = false, suggest = null, heading = 'h3'
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
-    <div class="acrow">${issueLine(iss)}${posChip(b)}</div>
-    <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(blurb(b, 120))}</a></${heading}>
-    <p class="meta">${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
+    ${compact ? '' : `<div class="acrow">${issueLine(iss)}${posChip(b)}</div>
+    <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(blurb(b, 120))}</a></${heading}>`}
+    <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
     ${b.hiphi_action ? `<p class="ask">${esc(b.hiphi_action)}</p>` : ''}
-    ${suggest ? `<p class="why">${icon('sparkles')}${esc(suggest)}</p>` : ''}
+    ${why ? `<p class="why">${icon('sparkles')}${esc(why)}</p>` : ''}
     ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
     <p class="meta hearing">${esc(hearingText(h))}</p>
-    ${late ? `<div class="chips">${chip('Testimony deadline passed', 'warn', 'triangle-alert')}</div>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${doneKinds.includes('testimony') ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|testimony">Undo</button>` : ''}</div>` : ''}
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
     ${S.compose === k ? composer(b, h, k) : ''}
-    <div class="btncol">${primary}
+    <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
     ${suggest ? `<div class="suggestbar">${btn(S.watch.has(b.id) ? 'Following' : 'Follow', { kind: 'text', icon: 'star', attrs: { 'data-follow': b.id, 'aria-pressed': S.watch.has(b.id) ? 'true' : 'false' }, cls: S.watch.has(b.id) ? 'on' : '' })}${btn('Not for me', { kind: 'text', attrs: { 'data-notforme': b.id } })}</div>` : ''}

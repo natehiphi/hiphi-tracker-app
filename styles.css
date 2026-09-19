@@ -2440,3 +2440,6 @@ body.simple .drawer .moredet>summary{font:600 14px 'Poppins','Lato',sans-serif;c
 body.simple .drawer .moredet>summary .tok{font:400 12.5px 'Lato',sans-serif;margin-left:8px}
 body.simple .drawer .pubfold>summary .tok.warn{color:var(--amber-text)}
 body.simple .drawer #d-savepub{justify-self:start;width:auto}
+.iconpick{display:inline-flex;align-items:center;gap:6px}
+.iconpick select{width:auto}
+.licon svg{width:1.1em;height:1.1em}

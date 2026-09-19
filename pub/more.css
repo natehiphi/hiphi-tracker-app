@@ -1,0 +1,139 @@
+/* More and its pages (pub/more.js): More, How it works, Sign in, Settings, Privacy, and the two account cards
+   Home shows after sign in. Page selectors hang off .mr (the screen root); the cards and the address field also
+   appear on Home, so they carry their own .mr- class instead. Type stays on the six tokens; colours are tokens only. */
+
+.mr > * + * { margin-top: var(--s24); }
+.mr > .pagehead { margin-bottom: 0; }
+.mr h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.25; margin-bottom: var(--s12); }
+.mr .mr-break { overflow-wrap: anywhere; }
+.mr .mr-narrow { max-width: 360px; }
+.mr .mr-under { margin: calc(-1 * var(--s8)) 0 var(--s12); }
+.mr .mr-ext { margin-top: var(--s8); }
+.mr .mr-ext .btn { margin-left: calc(-1 * var(--s12)); white-space: normal; text-align: left; }
+.mr > .mr-ext { margin-top: var(--s8); }
+
+/* ---- More: three short groups of 56px rows ---- */
+.mr .rows + .rows { margin-top: var(--s16); }
+.mr .mr-mark { background: var(--n0); box-shadow: inset 0 0 0 1px var(--n200); }
+.mr .mr-mark svg { width: 26px; height: 26px; }
+.mr .row[aria-busy="true"] { cursor: progress; opacity: .7; }
+.mr .mr-fold { border-top: 1px solid var(--n100); }
+.mr .mr-fold > summary { list-style: none; cursor: pointer; }
+.mr .mr-fold > summary::-webkit-details-marker { display: none; }
+.mr .mr-fold > summary:hover { background: var(--n50); }
+.mr .mr-fold .mr-foldc { transition: transform .2s var(--ease); }
+.mr .mr-fold[open] .mr-foldc { transform: rotate(180deg); }
+.mr .mr-fold[open] > summary { border-bottom: 1px solid var(--n100); }
+/* the four hiphi.org links sit one step in, so they read as part of "More from HIPHI" */
+.mr .mr-foldb > .row { padding-left: var(--s32); }
+.mr .mr-foldb > .row + .row { border-top: 1px solid var(--n100); }
+.mr .mr-foldb .lead { background: var(--n100); color: var(--n700); }
+.mr .mr-foot { font-size: var(--t13); color: var(--n500); max-width: 60ch; }
+
+/* ---- How it works ---- */
+.mr .mr-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+.mr .mr-steps li { display: flex; gap: var(--s12); align-items: flex-start; }
+.mr .mr-steps li p + p { margin-top: 2px; }
+.mr .mr-num { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--p700); color: var(--n0);
+  font: 700 var(--t16)/32px var(--font); text-align: center; }
+.mr .mr-cta { margin-top: var(--s24); }
+.mr .mr-words { margin: 0; padding: 0 var(--s16); }
+.mr .mr-words > div { padding: var(--s12) 0; }
+.mr .mr-words > div + div { border-top: 1px solid var(--n100); }
+.mr .mr-words dt { font-weight: 700; color: var(--n900); }
+.mr .mr-words dd { margin: 2px 0 0; }
+.mr .mr-keys { padding: 0 var(--s16); }
+.mr .mr-keys > div { display: flex; align-items: center; gap: var(--s12); min-height: 52px; }
+.mr .mr-keys > div + div { border-top: 1px solid var(--n100); }
+.mr kbd { flex: none; min-width: 44px; padding: 6px 10px; text-align: center; font: 700 var(--t14)/1.2 var(--font); color: var(--n900);
+  background: var(--n50); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: var(--r8); }
+.mr .mr-after { margin-top: var(--s8); }
+
+/* ---- Sign in ---- */
+.mr .mr-form { display: flex; flex-direction: column; gap: var(--s16); }
+.mr .mr-form > * { margin: 0; }
+.mr .mr-form .inlinemsg { margin-top: 0; }
+.mr .mr-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.mr .mr-set legend { padding: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.mr .mr-set > p { margin: 2px 0 var(--s4); }
+.mr .mr-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); font-size: var(--t14); color: var(--n700); }
+.mr .mr-bullets li { display: flex; gap: var(--s8); align-items: flex-start; }
+.mr .mr-bullets .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
+.mr .mr-disc { margin-top: var(--s8); }
+.mr .mr-disc > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; cursor: pointer; }
+.mr .mr-disc > summary::-webkit-details-marker { display: none; }
+.mr .mr-disc > summary:hover { text-decoration: underline; }
+.mr .mr-disc .mr-discc { width: 20px; height: 20px; transition: transform .2s var(--ease); }
+.mr .mr-disc[open] .mr-discc { transform: rotate(180deg); }
+.mr .mr-discb { display: flex; flex-direction: column; gap: var(--s8); font-size: var(--t14); color: var(--n700); padding-bottom: var(--s8); max-width: 65ch; }
+.mr .mr-sent { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
+.mr .mr-sent h2 { margin: var(--s4) 0 0; }
+.mr .mr-sent h2:focus { outline: none; }
+.mr .mr-sent-ic { width: 48px; height: 48px; border-radius: 50%; background: var(--ok-wash); color: var(--ok-text); display: flex; align-items: center; justify-content: center; }
+.mr .mr-sent-ic .ic { width: 26px; height: 26px; }
+.mr .mr-sent .btnrow { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+
+/* ---- Settings ---- */
+.mr #mr-st > section + section { margin-top: var(--s24); }
+.mr .mr-opt { font-weight: 400; color: var(--n500); }
+.mr .mr-checks > .small { margin-top: var(--s8); }
+.mr .card .mr-set { margin-top: var(--s16); }
+.mr .mr-save { margin-top: var(--s24); display: flex; flex-direction: column; gap: var(--s12); }
+.mr .mr-save .btn { width: 100%; }
+.mr .mr-save .inlinemsg { margin-top: 0; }
+.mr .mr-delrow { margin-top: var(--s16); }
+.mr .mr-confirm { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s12); }
+.mr .mr-confirm .notice p + p { margin-top: var(--s4); }
+.mr .mr-confirm .notice p:focus { outline: none; }
+.mr .mr-confirm .btnrow .btn.danger { flex: 1 1 auto; }
+@media (min-width: 600px) {
+  .mr .mr-save { flex-direction: row; align-items: center; }
+  .mr .mr-save .btn { width: auto; min-width: 200px; }
+  .mr .mr-confirm .btnrow .btn.danger { flex: 0 0 auto; }
+}
+
+/* ---- Privacy and accessibility ---- */
+.mr .mr-facts { padding: 0 var(--s16); }
+.mr .mr-facts > section { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16) 0; }
+.mr .mr-facts > section + section { border-top: 1px solid var(--n100); }
+.mr .mr-facts h2 { font-size: var(--t16); margin: 0 0 var(--s4); line-height: 1.3; }
+.mr .mr-factic { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; }
+.mr .mr-factic .ic { width: 22px; height: 22px; }
+.mr .mr-access > p + p { margin-top: var(--s8); }
+.mr .mr-access h2:focus { outline: none; }
+
+/* ---- checkboxes with a title and a line of help (sign in, settings, the card on Home) ---- */
+.mr-check { padding: var(--s8) 0; }
+.mr-check .mr-ctext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mr-check .mr-ctitle { color: var(--n900); }
+.mr-check .mr-chelp { font-size: var(--t14); color: var(--n500); }
+
+/* ---- home address with suggestions (Settings and the card on Home) ---- */
+.mr-addr .mr-sugs { border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n0); box-shadow: var(--sh2); overflow: hidden; }
+.mr-addr .mr-sug { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 52px; padding: var(--s8) var(--s12); text-align: left; background: var(--n0); }
+.mr-addr .mr-sug + .mr-sug { border-top: 1px solid var(--n100); }
+.mr-addr .mr-sug:hover, .mr-addr .mr-sug:focus-visible { background: var(--p50); }
+.mr-addr .mr-sug:focus-visible { outline-offset: -2px; }
+.mr-addr .mr-sug > .ic { width: 20px; height: 20px; color: var(--p700); }
+.mr-addr .mr-sugtext { display: flex; flex-direction: column; min-width: 0; }
+.mr-addr .mr-sugt { font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+.mr-addr .mr-sugs2 { font-size: var(--t14); color: var(--n500); }
+.mr-addr .mr-sugnote { display: flex; gap: var(--s8); align-items: center; padding: var(--s12); font-size: var(--t14); color: var(--n500); }
+.mr-addr .mr-sugnote .ic { width: 18px; height: 18px; }
+.mr-addr .mr-spin { animation: spin 1s linear infinite; }
+.mr-addr .mr-dist { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
+.mr-addr .mr-dist:empty { display: none; }
+.mr-addr .mr-dist .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--p700); }
+.mr-addr .mr-distlines { display: flex; flex-direction: column; }
+
+/* ---- the account cards on Home ---- */
+.mr-acct { display: flex; flex-direction: column; gap: var(--s8); }
+.mr-acct > * { margin: 0; }
+.mr-acct .mr-accthead { display: flex; align-items: center; gap: var(--s12); }
+.mr-acct .mr-acctic { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; }
+.mr-acct .mr-acctic .ic { width: 20px; height: 20px; }
+.mr-acct .mr-accthead .strong { font-size: var(--t16); }
+.mr-acct .mr-addr { margin-top: var(--s4); }
+.mr-acct .inlinemsg { margin-top: 0; }
+.mr-acct .btnrow { margin-top: var(--s4); }
+.mr-addr .mr-dist:focus { outline: none; }

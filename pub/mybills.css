@@ -1,0 +1,45 @@
+/* My bills (pub/mybills.js). The bill row (.mb-list, .mb-row) and the fold (.mb-fold) are shared with Find, so they
+   carry the .mb- prefix on their own class rather than hanging off the screen root. */
+
+.mb-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin: var(--s8) 0 var(--s16); }
+.mb-count { font-size: var(--t14); font-weight: 700; color: var(--n500); white-space: nowrap; }
+.mb-sub { margin: calc(-1 * var(--s4)) 0 var(--s12); }
+.mb-emptybtns { width: 100%; max-width: 320px; margin-top: var(--s4); }
+.mb-empty h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.25; }
+.mb-empty .art { max-width: 220px; }
+
+/* ---- the bill row: headline (2 lines), then the number and a plain status chip; a 44px star in the top corner
+   (it floats, so the status chip gets the full width of the row and stays on one line) ---- */
+.mb-list { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.mb-row { position: relative; background: var(--n0); transition: background .15s; }
+.mb-row + .mb-row { border-top: 1px solid var(--n100); }
+.mb-row:hover { background: var(--n50); }
+.mb-row .mb-main { display: flex; flex-direction: column; gap: var(--s8); padding: var(--s12) var(--s16); min-height: 56px; text-decoration: none; color: inherit; }
+.mb-row .mb-main:active { background: var(--n100); }
+.mb-row .mb-head { padding-right: 40px; font-weight: 700; color: var(--n900); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mb-row .mb-note { margin-right: 40px; font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s8); }
+.mb-row .mb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s8); font-size: var(--t13); color: var(--n500); }
+.mb-row .mb-num { font-weight: 700; color: var(--n700); white-space: nowrap; }
+.mb-row .mb-why { color: var(--n500); }
+.mb-row .chip { white-space: normal; text-align: left; }
+.mb-row .mb-new { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p700); }
+.mb-row .mb-new::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--p700); }
+.mb-row .mb-star { position: absolute; top: 4px; right: 4px; color: var(--n500); }
+.mb-row .mb-star.on { color: var(--p700); }
+.mb-row .mb-star[aria-busy="true"] { opacity: .6; }
+
+/* ---- the fold: "Stopped this session (4)" with the archive icon ---- */
+.mb-fold { margin-top: var(--s24); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.mb-fold > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); cursor: pointer; font-weight: 700; color: var(--n900); }
+.mb-fold > summary::-webkit-details-marker { display: none; }
+.mb-fold > summary:hover { background: var(--n50); }
+.mb-fold .mb-flead { width: 40px; height: 40px; border-radius: 50%; background: var(--n100); color: var(--n700); display: flex; align-items: center; justify-content: center; flex: none; }
+.mb-fold .mb-flead .ic { width: 22px; height: 22px; }
+.mb-fold .mb-ftitle { flex: 1 1 auto; min-width: 0; }
+.mb-fold .mb-chev { width: 20px; height: 20px; color: var(--n500); transition: transform .2s var(--ease); }
+.mb-fold[open] > summary .mb-chev { transform: rotate(180deg); }
+.mb-fold[open] > summary { border-bottom: 1px solid var(--n100); }
+.mb-fold > .mb-list { border: 0; border-radius: 0; box-shadow: none; }
+
+/* shared two-line clamp for row subtitles (list descriptions) */
+.mb-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

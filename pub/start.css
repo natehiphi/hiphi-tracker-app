@@ -1,0 +1,106 @@
+/* The guided start (pub/start.js): S1–S3 in session, O1–O3 between sessions. Mobile first at 390px.
+   The first screen must show the heading, "Step 1 of 3", four whole issue rows and the button without scrolling,
+   so vertical space here is budgeted: a short drawing, tight heading gaps, 8px between rows. */
+
+.st { display: flex; flex-direction: column; gap: var(--s12); }
+.st h1 { margin-top: var(--s4); }
+.st .lede { margin-top: -4px; }
+.st .note { margin-top: var(--s4); }
+
+/* the Capitol and the neighbours: decorative, never a card of their own */
+.st-art { display: flex; justify-content: center; margin-top: -4px; }
+.st-art svg { width: 100%; height: 64px; }
+.st-voices svg { height: 88px; }
+
+/* step bar, with Back on steps that have one */
+.st-steps { min-height: 24px; }
+.st-steps .btn.st-back { margin: -10px 0 -10px -12px; padding: 0 12px 0 8px; gap: 4px; }
+.st-steps .btn.st-back + .bar { margin-left: var(--s4); }
+
+.st-proof { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
+.st-proof .ic { width: 18px; height: 18px; color: var(--o600); margin-top: 1px; }
+
+/* ---- S1 issue rows: one column, whole row is the toggle ---- */
+.st-issues { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
+.st-issue, .st-list { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 72px; padding: 10px 14px; text-align: left;
+  background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
+.st-issue:hover, .st-list:hover { border-color: var(--n300); }
+.st-issue:active, .st-list:active { transform: scale(.99); }
+.st-issue[aria-pressed="true"], .st-list[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
+.st-ilead { width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
+.st-ilead .ic { width: 22px; height: 22px; }
+.st-issue[aria-pressed="true"] .st-ilead, .st-list[aria-pressed="true"] .st-ilead { background: var(--n0); }
+.st-ibody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-iname { font-weight: 700; color: var(--n900); line-height: 1.3; }
+.st-idesc { font-size: var(--t14); line-height: 1.4; color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.st-icount { font-size: var(--t13); font-weight: 700; color: var(--n700); margin-top: 2px; }
+.st-issue .chip { align-self: flex-start; margin-top: 4px; }
+
+/* the check circle (issues and bills): an outline until picked, then filled with a drawn check */
+.st-tick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--n400); background: var(--n0); color: transparent; flex: none;
+  display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+.st-tick .ic { width: 16px; height: 16px; stroke-width: 3; }
+.st-issue[aria-pressed="true"] .st-tick, .st-pick[aria-pressed="true"] .st-tick { background: var(--p700); border-color: var(--p700); color: var(--n0); }
+.st-tick.st-draw .ic path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: st-draw .3s ease-out forwards; }
+@keyframes st-draw { to { stroke-dashoffset: 0; } }
+
+/* ---- S2 bill cards: whole card is the toggle, tick on the left like a checklist ---- */
+.st-picks { list-style: none; margin: var(--s4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.st-pick { display: flex; align-items: flex-start; gap: var(--s12); width: 100%; padding: 14px var(--s16) var(--s16) 14px; text-align: left;
+  background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
+.st-pick:hover { border-color: var(--n300); }
+.st-pick:active { transform: scale(.99); }
+.st-pick[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
+.st-pick .st-tick { margin-top: 1px; }
+.st-pbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-ptop { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 28px; flex-wrap: wrap; }
+.st-ptop .issueline { flex: 1 1 auto; }
+.st-phead { font: 700 var(--t16)/1.35 var(--font-h); color: var(--n900); letter-spacing: -.005em; }
+.st-pmeta { font-size: var(--t13); color: var(--n500); }
+.st-pick[aria-pressed="true"] .chip.info { background: var(--n0); }
+.st-subh { font-size: var(--t18); margin-top: var(--s16); }
+.st-more { display: flex; flex-direction: column; align-items: flex-start; margin: 0 0 0 -12px; }
+.st-more .btn { white-space: normal; text-align: left; line-height: 1.3; padding-top: 10px; padding-bottom: 10px; }
+
+/* ---- S3 ---- */
+.st-ok { display: flex; gap: var(--s8); align-items: center; font-weight: 700; color: var(--ok-text); background: var(--ok-wash); border-radius: var(--r12); padding: 10px 14px; }
+.st-ok .ic { width: 22px; height: 22px; flex: none; }
+.st-card { margin-top: var(--s4); }
+
+/* ---- O2 recap cards ---- */
+.st-recap { display: flex; flex-direction: column; gap: var(--s12); }
+.st-recap + .st-recap { margin-top: 0; }
+.st-recap h2 { display: flex; align-items: center; gap: var(--s12); font-size: var(--t18); }
+.st-rrows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--n100); }
+.st-rrow { display: flex; flex-direction: column; gap: 6px; padding: var(--s12) 0; border-bottom: 1px solid var(--n100); }
+.st-rhead { font-weight: 700; color: var(--n900); }
+.st-rmeta { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
+.st-list { min-height: 64px; box-shadow: none; }
+
+/* ---- O3 ---- */
+.st-ready { display: flex; gap: var(--s12); align-items: flex-start; }
+.st-ready + .st-ready { margin-top: 0; }
+.st-ready.st-main { border: 2px solid var(--p700); box-shadow: var(--sh2); }
+.st-rbody { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; flex: 1 1 auto; }
+.st-rbody h2 { font-size: var(--t18); margin-top: 8px; }
+.st-rbody .btn { align-self: flex-start; margin-top: var(--s4); }
+
+/* ---- the sticky bar: Skip about one column of four, the primary about three ---- */
+.st-bar { width: 100%; display: flex; flex-direction: column; gap: var(--s8); }
+.st-alert { display: flex; gap: 6px; align-items: center; font-size: var(--t14); font-weight: 700; color: var(--bad-text); }
+.st-alert:empty { display: none; }
+.st-alert .ic { width: 18px; height: 18px; flex: none; }
+.st-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--s16); align-items: center; }
+.st-btns .btn { width: 100%; padding: 0 12px; }
+.st-one { align-items: center; }
+.st-one .btn.text { width: 100%; }
+
+@media (min-width: 720px) {
+  .st-art svg { height: 88px; }
+  .st-btns { grid-template-columns: auto minmax(260px, auto); justify-content: space-between; }
+  .st-btns .btn.primary { padding: 0 32px; }
+  .st-one .btn.text { width: auto; }
+  .st-one .btn.primary { width: auto; min-width: 260px; }
+}

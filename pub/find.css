@@ -1,0 +1,50 @@
+/* Find, issue pages and HIPHI's lists (pub/find.js). Bill rows and folds come from mybills.css (.mb-list, .mb-fold). */
+
+/* ---- the search box: 48px, a clear button, and a spinner in place of the magnifier while searching ---- */
+.fd-search { display: flex; flex-direction: column; gap: var(--s12); margin: var(--s8) 0 var(--s8); }
+.fd-h1 label { cursor: default; }
+.fd-box input { -webkit-appearance: none; appearance: none; height: 48px; }
+.fd-box input::-webkit-search-cancel-button, .fd-box input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.fd-box input::placeholder { color: var(--n500); opacity: 1; }
+.fd-box .fd-spin { display: none; position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--p700); pointer-events: none; }
+.fd-box .fd-spin .ic { width: 20px; height: 20px; animation: spin 1s linear infinite; }
+.fd-box.busy .ic-search { visibility: hidden; }
+.fd-box.busy .fd-spin { display: block; }
+.fd-box .fd-clear { color: var(--n500); }
+
+/* ---- sections ---- */
+.fd .sechead { margin-top: var(--s24); }
+.fd-sub { margin: calc(-1 * var(--s4)) 0 var(--s12); max-width: 60ch; }
+.fd-rows .row .sub { max-width: 60ch; }
+.fd-count { display: flex; flex-direction: column; align-items: flex-end; min-width: 48px; line-height: 1.15; font-size: var(--t13); color: var(--n500); }
+.fd-count b { font-size: var(--t16); color: var(--n900); }
+.fd-count.quiet { color: var(--n500); font-weight: 700; }
+.fd-on { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: var(--t13); font-weight: 700; color: var(--ok-text); }
+.fd-on .ic { width: 16px; height: 16px; }
+.fd-more { display: flex; justify-content: center; margin-top: var(--s8); }
+.fd-cards .acard + .acard { margin-top: var(--s16); }
+.fd-offnote { margin-top: var(--s16); }
+.fd-none { margin: var(--s24) 0 0; color: var(--n700); }
+.fd-err { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); margin-top: var(--s24); }
+.fd-stale { opacity: .55; transition: opacity .15s; }
+.fd .skelpage { padding-top: var(--s24); }
+
+/* ---- issue and list pages ---- */
+.fd-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: -4px; padding: 0 8px 0 4px; font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; border-radius: var(--pill); }
+.fd-back:hover { text-decoration: underline; }
+.fd-back .ic { width: 20px; height: 20px; }
+.fd-ihead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 var(--s16); }
+.fd-ihead .fd-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; margin-bottom: var(--s4); }
+.fd-ihead .fd-icon .ic { width: 28px; height: 28px; }
+.fd-ihead .meta { font-size: var(--t14); }
+.fd-cta { margin-top: var(--s16); }
+.fd-follow { display: flex; flex-direction: column; gap: var(--s8); }
+.fd-follow > .small { text-align: center; }
+.fd-follow.on { background: var(--ok-wash); border-color: var(--ok-wash); box-shadow: none; gap: var(--s4); }
+.fd-follow.on > .small { text-align: left; color: var(--n700); }
+.fd-follow.on .btn.text { margin-left: -12px; }
+.fd .okmsg { font-size: var(--t16); }
+.fd .okmsg .ic { width: 20px; height: 20px; }
+.fd-recap { margin-top: var(--s8); display: flex; flex-direction: column; gap: var(--s8); }
+.fd-recap b { color: var(--n900); }
+.fd-quiet { margin-top: var(--s8); }

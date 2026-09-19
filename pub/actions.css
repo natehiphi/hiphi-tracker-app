@@ -45,3 +45,4 @@
 .nudgecard > .ic { width: 24px; height: 24px; color: var(--p700); margin-top: 2px; }
 .nudgecard .ngbody { display: flex; flex-direction: column; gap: var(--s8); flex: 1 1 auto; min-width: 0; }
 .nudgecard .ngform { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
+.acard .btn { white-space: normal; text-align: center; }

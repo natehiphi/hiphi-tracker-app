@@ -1,0 +1,140 @@
+/* Your legislators: the finder and one legislator's page (pub/people.js). Every selector starts with .pp,
+   the class on the screen root. Tokens only (base.css); 6 type sizes; every control 44px or taller. */
+
+.pp .pp-back { margin: 0 0 var(--s4) -12px; }
+.pp .pagehead { margin-bottom: var(--s16); }
+
+/* ---- the search box and its suggestions ---- */
+.pp .pp-search { display: flex; flex-direction: column; }
+/* .field input sets 14px side padding; the search icon and the clear button need room on both sides */
+.pp .pp-search .searchbox input { min-height: 48px; padding-left: 44px; padding-right: 44px; }
+.pp .pp-sugs { margin-top: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh2); overflow: hidden; }
+.pp .pp-sugrow { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 56px; padding: var(--s8) var(--s12); text-align: left; background: var(--n0); }
+.pp .pp-sugrow + .pp-sugrow { border-top: 1px solid var(--n100); }
+.pp .pp-sugrow:hover, .pp .pp-sugrow:focus-visible { background: var(--p50); }
+.pp .pp-sugrow:focus-visible { outline-offset: -2px; }
+.pp .pp-sugic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
+.pp .pp-sugic .ic { width: 20px; height: 20px; }
+.pp .pp-sugtext { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.pp .pp-sugtitle { font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+.pp .pp-sugsub { font-size: var(--t14); color: var(--n500); }
+.pp .pp-sugnote { display: flex; align-items: center; gap: var(--s8); padding: var(--s12); font-size: var(--t14); color: var(--n500); }
+.pp .pp-sugs .pp-sugnote { border-top: 1px solid var(--n100); }
+.pp .pp-sugs .pp-sugnote:first-child { border-top: 0; }
+.pp .pp-sugnote .ic { width: 18px; height: 18px; color: var(--p700); }
+.pp .pp-spin { animation: spin 1s linear infinite; }
+.pp .pp-savedline { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; margin-top: var(--s16); font-size: var(--t14); color: var(--n700); }
+.pp .pp-savedline > .ic { width: 18px; height: 18px; color: var(--p700); }
+.pp .pp-savedline .btn { margin-left: -4px; }
+
+/* ---- finding, then the two people ---- */
+.pp .pp-finding { display: flex; align-items: center; gap: var(--s8); color: var(--n700); padding: var(--s8) 0 var(--s12); }
+.pp .pp-finding .ic { width: 20px; height: 20px; color: var(--p700); }
+.pp .pp-skel { display: flex; flex-direction: column; gap: var(--s12); }
+.pp .pp-skel .skel { height: 188px; border-radius: var(--r16); }
+.pp .pp-for { display: flex; align-items: center; gap: var(--s8); min-height: 44px; }
+.pp .pp-for > .ic { width: 20px; height: 20px; color: var(--p700); }
+.pp .pp-for h2 { flex: 1 1 auto; min-width: 0; font-size: var(--t18); overflow-wrap: anywhere; }
+.pp .pp-for h2:focus { outline: none; }
+.pp .pp-for .btn { margin-right: -12px; }
+.pp .pp-intro { font-size: var(--t14); color: var(--n700); margin: var(--s4) 0 0; max-width: 65ch; }
+.pp .pp-notice { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s8); }
+.pp .pp-notice .notice p { font-size: var(--t14); }
+.pp .pp-slots { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); }
+.pp .pp-slots .card + .card { margin-top: 0; }
+
+.pp .pp-card { display: flex; flex-direction: column; gap: var(--s12); }
+.pp .pp-who { display: flex; align-items: center; gap: var(--s16); }
+.pp .pp-whotext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pp .pp-eyebrow { font-size: var(--t13); font-weight: 700; color: var(--p800); }
+.pp .pp-name { font-size: var(--t18); line-height: 1.25; }
+.pp .pp-name a { color: var(--n900); text-decoration: none; display: inline-block; padding: 11px 0; margin: -11px 0; }   /* a 44px tap area, same layout */
+.pp .pp-name a:hover { text-decoration: underline; }
+.pp .pp-covers { font-size: var(--t14); color: var(--n700); max-width: 65ch; }
+.pp .pp-contact { display: flex; gap: var(--s8); }
+.pp .pp-contact .btn { flex: 1 1 0; min-width: 0; }
+.pp .pp-more { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 48px; margin: 0 calc(-1 * var(--s16)) calc(-1 * var(--s16));
+  padding: 0 var(--s16); border-top: 1px solid var(--n100); color: var(--p700); font-weight: 700; text-decoration: none; border-radius: 0 0 var(--r16) var(--r16); }
+.pp .pp-more:hover { background: var(--p50); }
+.pp .pp-more .ic { width: 20px; height: 20px; }
+
+.pp .pp-slot { display: flex; flex-direction: column; gap: var(--s8); overflow: hidden; }
+.pp .pp-slot .pp-list { margin: var(--s4) calc(-1 * var(--s16)) calc(-1 * var(--s16)); border-top: 1px solid var(--n100); }
+
+.pp .pp-remember { margin-top: var(--s16); }
+.pp .pp-remember > span { display: flex; flex-direction: column; gap: 2px; }
+.pp .pp-remember .help { font-size: var(--t14); color: var(--n500); }
+.pp .pp-fine { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s8); font-size: var(--t14); color: var(--n500); max-width: 65ch; }
+.pp .pp-fine .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); }
+
+/* ---- photos (the Capitol's portraits are head-and-shoulders, so keep the top) ---- */
+.pp .pp-photo { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; object-position: 50% 18%; background: var(--n100); border: 1px solid var(--n200); flex: none; }
+.pp .pp-photo.sm { width: 40px; height: 40px; }
+.pp .pp-photo.xl { width: 88px; height: 88px; }
+.pp .pp-photo.none { display: flex; align-items: center; justify-content: center; background: var(--p50); color: var(--p700); font: 700 var(--t22)/1 var(--font-h); }
+.pp .pp-photo.sm.none { font-size: var(--t16); }
+
+/* ---- the email ---- */
+.pp .pp-cmp { display: flex; flex-direction: column; gap: var(--s12); background: var(--n50); border-radius: var(--r12); padding: var(--s12); }
+.pp .pp-email { overflow-wrap: anywhere; }
+.pp .pp-cmp textarea { min-height: 220px; resize: vertical; overflow: hidden; }
+.pp .pp-copies { gap: var(--s4); }
+.pp .pp-copies .btn { width: auto; }
+.pp .pp-copied { display: inline-flex; min-height: 28px; align-items: center; }
+.pp .pp-sentq { display: flex; flex-direction: column; gap: var(--s8); background: var(--p50); border-radius: var(--r12); padding: var(--s12); }
+
+/* ---- browse: one fold, then one island at a time ---- */
+.pp .pp-browse { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.pp .pp-browse summary, .pp .pp-isl summary { display: flex; align-items: center; gap: var(--s12); list-style: none; cursor: pointer; padding: var(--s12) var(--s16); }
+.pp .pp-browse summary::-webkit-details-marker, .pp .pp-isl summary::-webkit-details-marker { display: none; }
+.pp .pp-browse > summary { min-height: 64px; }
+.pp .pp-browse summary:hover, .pp .pp-isl summary:hover { background: var(--n50); }
+.pp .pp-browse summary:focus-visible, .pp .pp-isl summary:focus-visible { outline-offset: -2px; }
+.pp .pp-lead { width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
+.pp .pp-lead .ic { width: 22px; height: 22px; }
+.pp .pp-sumtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+.pp .pp-sumtitle { font-weight: 700; color: var(--n900); }
+.pp .pp-sumsub { font-size: var(--t14); color: var(--n500); }
+.pp .pp-chev { width: 20px; height: 20px; color: var(--n500); transition: transform .2s var(--ease); }
+.pp details[open] > summary > .pp-chev { transform: rotate(180deg); }
+.pp .pp-islands { border-top: 1px solid var(--n100); }
+.pp .pp-isl + .pp-isl { border-top: 1px solid var(--n100); }
+.pp .pp-isl > summary { min-height: 56px; }
+.pp .pp-isl[open] > summary { background: var(--n50); }
+.pp .pp-ch { font-size: var(--t14); font-weight: 700; color: var(--n700); padding: var(--s12) var(--s16) var(--s4); border-top: 1px solid var(--n100); line-height: 1.3; }
+.pp .pp-list > .row + .row { border-top: 1px solid var(--n100); }
+/* compact rows: Oʻahu alone has 51 legislators, so each row is as short as a comfortable tap allows */
+.pp .pp-lrow { min-height: 48px; padding: 4px var(--s16); gap: var(--s12); }
+.pp .pp-lrow .body { gap: 1px; }
+.pp .pp-lrow .title, .pp .pp-lrow .sub { line-height: 1.25; }
+.pp .pp-lrow .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- one legislator ---- */
+.pp .pp-prof { display: flex; align-items: center; gap: var(--s16); margin: var(--s8) 0 var(--s12); }
+.pp .pp-proftext { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.pp .pp-proftext h1 { overflow-wrap: anywhere; }
+.pp .pp-role { font-size: var(--t14); color: var(--n700); }
+.pp .pp-about { margin-top: var(--s16); }
+.pp .pp-about .notice p { font-size: var(--t14); }
+.pp .pp-actions { margin-top: var(--s16); }
+.pp .pp-actions + .pp-cmp { margin-top: var(--s12); }
+.pp .pp-office { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s12); font-size: var(--t14); color: var(--n500); }
+.pp .pp-office .ic { width: 18px; height: 18px; margin-top: 2px; }
+.pp .pp-sec { margin-top: var(--s32); }
+.pp .pp-sec h2 { font-size: var(--t22); }
+.pp .pp-explain { font-size: var(--t14); color: var(--n500); margin: var(--s8) 0 var(--s12); max-width: 65ch; }
+.pp .pp-cmtes { list-style: none; margin: 0; padding: 0 var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
+.pp .pp-cmtes li { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s12) 0; }
+.pp .pp-cmtes li + li { border-top: 1px solid var(--n100); }
+.pp .pp-cmtes .ic { width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
+.pp .pp-sec .rows { margin-top: var(--s12); }
+.pp .pp-billrow .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+.pp .pp-ext { margin: var(--s24) 0 0 -12px; }
+.pp .pp-retry { margin-top: var(--s16); }
+
+/* wider screens: the senator and representative side by side */
+@media (min-width: 640px) {
+  .pp .pp-slots { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .pp .pp-actions .btncol { flex-direction: row; }
+  .pp .pp-actions .btncol .btn { width: auto; flex: 1 1 0; }
+}
