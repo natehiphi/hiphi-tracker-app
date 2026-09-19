@@ -1991,24 +1991,15 @@ body.simple .chip3.min .l1 b,body.simple .calweek .pmain b,body.simple .pw.chair
 body.simple .chip3.min .ldl,body.simple .chip3 .ldl{font-size:12.5px}
 body.simple .pmain .pri,body.simple .bsum .cnt,body.simple span>.cnt{font-size:11.5px}
 body.simple .panel.dead .prow .pri,body.simple .bcol .ph .cnt{font-size:11.5px}
-/* Where every bill stands, Simple: one list read top to bottom */
-.bstand{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 12px 12px;padding:4px 0 8px}
-.bscoming{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding:10px 18px 12px;border-bottom:1px solid #EEF2F5;font-size:12.5px}
+/* Where every bill stands, Simple: one panel — the coming deadlines on one line, then the cards left to right */
+.bstand{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 12px 12px;padding:0 0 4px}
+.bscoming{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding:12px 18px;border-bottom:1px solid #EEF2F5;font-size:12.5px}
 .bsdl{color:var(--muted)}.bsdl b{color:var(--ink);font-weight:600}.bsdl.hot,.bsdl.hot b{color:var(--red)}
-.bsgroup{padding:6px 0 4px}
-.bsgroup+.bsgroup{border-top:1px solid #EEF2F5}
-.bsgh{display:flex;align-items:baseline;gap:8px;padding:10px 18px 6px}
-.bsgh b{font-size:14px;color:var(--ink)}
-.bsgh .cnt{font:700 11.5px 'Inter',sans-serif;background:#EEF3F6;color:var(--muted);border-radius:9px;padding:1px 7px}
-.prow.bsrow{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(170px,auto) 150px;gap:4px 14px;align-items:baseline;padding:8px 18px;border:none;border-left:3px solid transparent;background:none;cursor:pointer;font-size:14px}
-.prow.bsrow:hover{background:#F6F9FA}
-.bsrow .bsn{color:var(--teal);font-weight:700;white-space:nowrap}
-.bsrow .bsd{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bsrow .bsw{color:var(--ink);font-weight:500}
-.bsrow .bst{color:var(--muted);font-size:12.5px;white-space:nowrap;text-align:right}
-.bsrow .bst.hot{color:var(--red);font-weight:600}
-.bsnone{padding:4px 18px 10px;color:var(--muted);font-size:12.5px}
-.bsmore{margin:2px 18px 6px;color:var(--teal);font-weight:600}
+.bstand .board3{padding:14px 18px 16px;gap:12px}
+.bstand .bcol .ph{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;min-height:64px;padding:10px 14px}
+.bstand .bcol .ph>span:first-child{white-space:nowrap;font-size:16px}
+.bstand .bcol .ph .psub{font-size:12.5px;line-height:1.35}
+@media (max-width:760px){ .bscoming{padding:10px 14px} .bstand .board3{padding:12px 12px 14px} }
 body.simple details.fold#fold-board>summary .foldsub{margin-left:4px}
 @media (max-width:760px){
   .prow.bsrow{grid-template-columns:minmax(0,1fr) auto;padding:10px 14px}
@@ -2023,3 +2014,4 @@ details.fold>.bstand{margin:0 32px}
 .bsrow .bsd,.bsrow .bst{font-weight:400}
 .bsrow .bsw{font-weight:500}
 body.simple details.fold#fold-board[open]>summary{margin-bottom:0;border-radius:12px 12px 0 0;border-bottom:1px solid #EEF2F5}
+@media (min-width:901px){ .bstand .bcol .ph{min-height:86px} }

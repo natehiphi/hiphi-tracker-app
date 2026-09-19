@@ -1231,11 +1231,7 @@ function pfBoard(list) {
   const pri = b => b.priority ? `<span class="pri">P${b.priority}</span>` : '';
   const stopn = st => st.stops ? `<span class="stopn">${CHAMBER_NAME[st.chamber]} · stop ${st.stop} of ${st.stops}</span>` : `<span class="stopn">${CHAMBER_NAME[st.chamber]}</span>`;
   const phaseLabel = st => st.phase === 'conference' ? 'Conference' : `${CHAMBER_NAME[st.chamber]} floor`;
-  const html = `
-    <div class="dashhead boardhead"><h1>Where every bill stands</h1>
-      <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it has to meet; bills re-sort as dates pass.</span></div>
-    ${sessionTrack(gates)}
-    <details class="boardhow"><summary>How to read this</summary><p>${BOARD_EXPLAINER}</p></details>
+  const board3 = `
     <div class="board3">
       ${col('a', a, ({ b, st, dl }) => `
         <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
@@ -1259,25 +1255,21 @@ function pfBoard(list) {
           <span class="ldl">${st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${fmtDate(st.deadline.date)} · ${st.deadline.days <= 0 ? 'today' : st.deadline.days + 'd'}` : ''}</span>
         </div>`, 'Nothing is through committee yet.')}
     </div>`;
-  // Simple (Nate, 9/18: "disjointed and not easy to follow"): one list, read top to bottom. What each bill needs,
-  // soonest deadline first; the next deadlines in one line above it. No tiles, no separate timeline, no columns.
+  const html = `
+    <div class="dashhead boardhead"><h1>Where every bill stands</h1>
+      <span class="sub">Next deadline: <b>${esc(cur.label)}</b> · ${fmtDate(cur.date)} · <b>${days(cur.date)}d</b> away. Each bill shows the deadline it has to meet; bills re-sort as dates pass.</span></div>
+    ${sessionTrack(gates)}
+    <details class="boardhow"><summary>How to read this</summary><p>${BOARD_EXPLAINER}</p></details>
+    ${board3}`;
+  // Simple (Nate, 9/18): keep the cards moving left to right, and give the part above them one clear order:
+  // the summary line (in the fold's title), one line of coming deadlines, then the three columns. No repeated tiles,
+  // no separate timeline card, no loose "How to read this" link.
   const when = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' });
   const inDays = n => n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
-  const srow = (b, what, at, hot) => `<div class="prow bsrow ${posCls(b)}" data-bill="${b.id}"><b class="bsn">${esc(billNum(b))}</b><span class="bsd">${esc(blurb(b, 90))}</span><span class="bsw">${what}</span><span class="bst ${hot ? 'hot' : ''}">${at}</span></div>`;
-  const SCAP = 6;
-  const sgroup = (key, title, sub, rows, empty) => `<div class="bsgroup"><div class="bsgh"><b>${title}</b><span class="cnt">${rows.length}</span><span class="tok">${sub}</span></div>
-      ${rows.length ? (more[key] ? rows : rows.slice(0, SCAP)).join('') : `<div class="bsnone">${empty}</div>`}
-      ${rows.length > SCAP ? `<button class="linkbtn bsmore" data-boardmore="${key}">${more[key] ? 'Show fewer' : `Show all ${rows.length}`}</button>` : ''}</div>`;
-  const aS = [...a].sort((x, y) => (x.dl ? x.dl.days : 999) - (y.dl ? y.dl.days : 999) || byPri(x, y) || x.b.bill_number.localeCompare(y.b.bill_number));
-  const bS = [...bcol].sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
   const coming = gates.filter(g => !g.past && g.racing && g.racing.length).slice(0, 3);
   const simpleHtml = `<div class="bstand">
     ${coming.length ? `<div class="bscoming"><span class="tok">Coming deadlines</span>${coming.map(g => `<span class="bsdl ${g.days <= RISK_DAYS ? 'hot' : ''}"><b>${esc(g.name)}</b> ${when(g.date)} · ${inDays(g.days)} · ${g.racing.length} bill${g.racing.length === 1 ? '' : 's'} must be heard${g.noHearing.length ? `, ${g.noHearing.length} with no hearing yet` : ''}</span>`).join('')}</div>` : ''}
-    ${sgroup('a', 'Needs a hearing', 'in committee with nothing scheduled · soonest deadline first',
-      aS.map(({ b, st, dl }) => srow(b, `Needs a ${st.committee ? esc(st.committee) + ' hearing' : 'committee referral'}`, dl ? `by ${when(dl.date)} · ${inDays(dl.days)}` : 'no deadline yet', dl && dl.days <= RISK_DAYS)),
-      'Every live bill in committee has a hearing on the books.')}
-    ${sgroup('b', 'Hearing scheduled', 'soonest first', bS.map(({ b, st, h }) => srow(b, st.hearingState === 'held' ? `${esc(h.committee)} heard it, waiting for the report` : `${esc(h.committee)} hearing`, st.hearingState === 'held' ? `held ${when(hstDayOf(h.scheduled_at))}` : fmtDT(h.scheduled_at), false)), 'No hearings on the books.')}
-    ${sgroup('c', 'Through committee', 'waiting for a floor vote or conference', c.map(({ b, st }) => srow(b, `Waiting for ${st.phase === 'conference' ? 'conference' : `the ${CHAMBER_NAME[st.chamber]} floor vote`}`, st.deadline && !st.deadline.missed ? `${esc(st.deadline.label)} ${when(st.deadline.date)}` : '', false)), 'Nothing is through committee yet.')}
+    ${board3}
   </div>`;
   return { html, simpleHtml, a, b: bcol, c, gates };
 }
