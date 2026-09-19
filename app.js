@@ -1040,7 +1040,7 @@ function mutedMenuHTML() {
   if (S.owner !== 'me' || !S.mutes?.size) return '';
   const rows = S.bills.filter(b => S.mutes.has(b.id)).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
   if (!rows.length) return '';
-  return `<details class="pillmenu mutemenu"><summary class="fbtn">🔕\ufe0e Muted<i>${rows.length}</i> ▾</summary>
+  return `<details class="pillmenu mutemenu"><summary class="fbtn">Muted<i>${rows.length}</i> ▾</summary>
     <div class="menu mm"><div class="mh">Off your dashboard, no alerts. A hearing brings a bill back.</div>
       ${rows.map(b => `<div class="mmrow"><button class="mmbill" data-bill-open="${b.id}"><b>${esc(billNum(b))}</b> <span>${esc(blurb(b, 60))}</span></button><button class="draftbtn" data-mute="${b.id}">Unmute</button></div>`).join('')}
     </div></details>`;
@@ -3712,7 +3712,7 @@ function drawerHTML(b) {
     owner ? `<span class="chipx c-gray who">${av(owner, 'avatar sm')}${esc(owner.full_name)}</span>` : '<span class="chipx c-gray">no owner</span>',
     ...coalitions.map(c => `<span class="chipx c-navy">${esc(c)}</span>`),
     isOwner(b)
-      ? `<button class="chipx tool mute ${isMuted(b) ? 'on' : ''}" data-mute="${b.id}" aria-pressed="${isMuted(b)}" title="${isMuted(b) ? 'Muted: off your dashboard, no alerts. A hearing brings it back. Tap to unmute.' : 'Take it off your dashboard and stop its alerts. You stay the owner; a hearing brings it back.'}">${isMuted(b) ? '🔕\ufe0e Muted' : '🔔\ufe0e Mute'}</button>`
+      ? `<button class="chipx tool mute ${isMuted(b) ? 'on' : ''}" data-mute="${b.id}" aria-pressed="${isMuted(b)}" title="${isMuted(b) ? 'Muted: off your dashboard, no alerts. A hearing brings it back. Tap to unmute.' : 'Take it off your dashboard and stop its alerts. You stay the owner; a hearing brings it back.'}">${isMuted(b) ? '✓ Muted' : 'Mute'}</button>`
       : `<button class="chipx tool ${S.follows?.has(b.id) ? 'on' : ''}" data-follow="${b.id}" aria-pressed="${!!S.follows?.has(b.id)}">${S.follows?.has(b.id) ? '★ Following' : '☆ Follow'}</button>`,
     ''].filter(Boolean).join('');
 
