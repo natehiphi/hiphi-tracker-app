@@ -207,7 +207,7 @@
   body[data-screen="start"] main > .empty { grid-column: 1 / -1; }
   .st-err { align-items: flex-start; text-align: left; padding: var(--s24) 0 0; }
   .st { display: contents; }
-  .st-intro { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: calc(var(--header) + var(--s32)); gap: var(--s16); }
+  .st-intro { grid-column: 1; grid-row: 1 / span 3; position: sticky; top: calc(var(--header) + var(--s32)); gap: var(--s16); }
   .st-main { grid-column: 2; grid-row: 1; }
   .st-intro h1 { margin-top: 0; }
   .st-intro .lede { margin-top: 0; }
@@ -223,13 +223,16 @@
   .st-pick { padding-left: var(--s16); }
   .st-what { margin-left: 42px; }
   .st-pwhat, .st-phead { max-width: 68ch; }
-  /* a short form reads better level with the heading than pinned to the top of a tall empty column */
-  /* in-session step 3 was missed here, leaving ~450px of blank page under two stance cards */
+  /* A short form reads better level with the heading than pinned to the top of a tall empty
+     column. The span covers rows 1-2 ONLY: the action bar owns row 3, so however tall the
+     content grows it can never be painted over the bar. It could before - adding .st3 here
+     on 9/19 put the stance step's long card list into the bar's row and covered Skip/Next
+     from two bills upward on any screen 900px or wider. */
   .st4 .st-main, .st-off.st3 .st-main, .st3 .st-main { grid-row: 1 / span 2; align-self: center; }
   .st-form, .st-sent { padding: var(--s24); }
   .st-form .field { max-width: 420px; }
   /* the bar, no longer a bar: Skip and the primary sized to their labels, at the end of the choices */
-  body[data-screen="start"] .actionbar { position: static; grid-column: 2; grid-row: 2; z-index: auto; background: none; border: 0; box-shadow: none; padding: var(--s24) 0 0; }
+  body[data-screen="start"] .actionbar { position: static; grid-column: 2; grid-row: 3; z-index: auto; background: none; border: 0; box-shadow: none; padding: var(--s24) 0 0; }
   body[data-screen="start"] .actionbar .inner { max-width: none; margin: 0; }
   body[data-screen="start"] .actionbar .btn { flex: 0 0 auto; }
   .st-btns { display: flex; justify-content: flex-end; align-items: center; gap: var(--s8); }
