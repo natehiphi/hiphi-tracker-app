@@ -39,7 +39,7 @@ with sync_playwright() as pw:
             p.screenshot(path=f'{OUT}/{tag}_{name}.png', full_page=False)
             rep = checks.page_report(p, name)
             fs = set(rep['font_sizes']) - ALLOWED
-            glyph = p.evaluate(GLYPH); fam = [f for f in p.evaluate(FAMS) if f not in ('Lato', 'Roboto')]
+            glyph = p.evaluate(GLYPH); fam = [f for f in p.evaluate(FAMS) if f not in ('Lato', 'Poppins')]
             ok(not rep['overflow'], f'{tag} {name}: no sideways scroll')
             if W < 600: ok(not rep['small_targets'], f'{tag} {name}: targets {rep["small_targets"][:3]}')
             ok(not fs, f'{tag} {name}: font sizes {sorted(fs)}')

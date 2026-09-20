@@ -42,6 +42,8 @@ the order of precedence.
 | **Apple Human Interface Guidelines** | iOS conventions: navigation, sheets, back, touch | Nate and the team review on iPhones. |
 | **Material Design 3** | Android conventions, filter chips, bottom navigation | 360px is the most common Android viewport in the world; the public page must be right there. |
 | **Hick's law; Fitts's law** | The choice budget (A-2) and target sizes (A-6) | The two places where "overwhelming" and "fiddly" have actual arithmetic behind them. |
+| **UI/UX Design Fundamentals** (Nate, 2026-09-19) | Signifiers, hierarchy, component states, shadows, micro-interactions | Brought in by Nate. Rules A-12 to A-22 come from it. |
+| **Turning a Vibe-Coded App Into Professional Software** (Nate, 2026-09-19) | Repetition, secondary-action cleanup, form and navigation discipline, first-impression quality | Brought in by Nate. Its central warning - that generated software repeats itself and never decides what matters - is the one most worth guarding against here, because these apps were built fast. |
 
 ---
 
@@ -56,6 +58,12 @@ Everything else is these three made specific. When two rules collide, the promis
   head. Competing choices, competing colours and competing urgencies are all the same failure.
 - **P-3 — Nothing is a trap.** Every step can be undone, skipped, or left. Nobody is ever stuck, and
   nobody is ever punished for trying something.
+- **P-4 — Nobody should need the manual.** There is a Help screen and there is onboarding, and a person
+  who never opens either should still be able to do everything. Every control says what it does by how
+  it looks and what it is called; every screen teaches itself by being used. If a screen needs a
+  sentence of instruction to be usable, the screen is wrong, not the reader. **A tooltip, a help link
+  or an explanatory paragraph is evidence of a design problem, not a solution to one** — write it if it
+  helps today, but record what it was covering for.
 
 ---
 
@@ -163,6 +171,112 @@ Icons are Lucide via `icons.js`. Every icon that carries meaning also has a text
 *Reason.* Emoji render differently on every platform, are read aloud in full by screen readers, and
 set a register wrong for a health institute talking about law.
 
+### A-12 Every control looks like what it does
+
+A thing that can be pressed looks pressable; a thing that cannot, does not. Buttons look like
+buttons and links look like links — never a link styled as a button to borrow its weight. Selected,
+active and current states are visible without comparison (`aria-current`, `aria-pressed`, a filled
+chip, a coloured tab). Disabled controls look disabled and say why when it is not obvious.
+
+*Reason.* Signifiers are how an interface explains itself. This is the load-bearing rule for P-4: an
+app nobody needs a tutorial for is an app where every control is self-evident.
+
+### A-13 One focal point per screen
+
+Size, weight, position and colour together decide what the eye lands on first, and every screen has
+exactly one answer. The most important thing is largest, boldest and highest; supporting detail is
+smaller and below it. Two things fighting to be first is the same failure as no hierarchy at all.
+
+*Reason.* Contrast is what creates hierarchy — not decoration, not borders. It is also the cheapest
+way to make a dense screen feel calm without removing anything from it.
+
+### A-14 Say it once
+
+The same fact appears once on a screen. A count, a status, a date or a name repeated in two places is
+not reinforcement — it is two things to read, two things to maintain, and eventually two things that
+disagree.
+
+*Reason.* Generated software repeats itself, because each part is written without looking at the
+others, and these apps were built fast. This has already happened here: the Bills screen carried "At
+risk" as a quick chip and again in the stand counts (HANDOFF 3.1y). Before adding a number to a
+screen, search the screen for it.
+
+### A-15 Every component has all of its states
+
+Buttons: default, hover, active/pressed, focus-visible, disabled, and loading where an action takes
+time. Inputs: default, focus, error (a red border **and** a message), and disabled. Rows and cards
+that can be pressed: hover and focus. No state is left to the browser's default.
+
+*Reason.* A control with no pressed state leaves a person unsure whether the tap registered, and on a
+slow phone on Capitol wifi that is where double-submissions come from. Focus-visible is also WCAG
+2.4.7 and the only way the keyboard works.
+
+### A-16 An action that did something says so
+
+Every action gets a response within 100ms — a state change, a toast, a row moving, a count ticking.
+Where the response is not otherwise visible, confirm it explicitly (the existing `toast` and the
+10-second Undo are the house pattern). Keep it small and quick; this is confirmation, not celebration,
+which is C-7's job and happens almost nowhere.
+
+*Reason.* NN/g heuristic 1. Silence after a tap is indistinguishable from a bug.
+
+### A-17 Shadows: if you notice the shadow first, it is too strong
+
+Three levels, already in the tokens: `--sh1` for a card resting on the page, `--sh2` for something
+lifted (action bar, sticky header), `--sh3` for something over the page (sheet, popover, dialog).
+Strength scales with how far off the page a thing is meant to be. Never invent a fourth.
+
+*Reason.* Depth is a hint about layering, not an effect. An over-strong shadow reads as a mistake even
+to people who could not say why — which is exactly Nate's "disharmony".
+
+### A-18 Icons are sized to the text beside them
+
+An icon that sits with text matches that text's line height — 20px beside 14–16px text, 24px beside
+18px, 16px for a dense table. An icon-only control is 44px of target around a 20–24px glyph, and
+always carries an `aria-label` naming the action. Buttons are about twice as wide as they are tall
+before their label stretches them.
+
+*Reason.* Mismatched icon and text sizes are the most common reason a row looks subtly wrong. The
+label requirement is P-4 again: an icon alone is a guess unless it is universally understood.
+
+### A-19 Headings are Poppins, set tight
+
+`--font-h` is **Poppins** (600 and 700); body and everything else is Lato. Headings at 22px and above
+take `letter-spacing: -.02em` and `line-height: 1.15`; 16–18px headings take `-.01em` and 1.2. Body
+text keeps normal spacing and 1.4–1.5 line height.
+
+*Reason.* Large type set at default spacing looks loose and unfinished; tightening it is most of the
+difference between a heading that looks designed and one that looks typed. Poppins is HIPHI's heading
+face — `index.html` and `public.html` have always used it, and the newer `track.html` and `staff.html`
+had drifted to Roboto (corrected 2026-09-19 on Nate's instruction).
+
+### A-20 Secondary actions collapse into one menu
+
+A row or card shows at most two actions: the one almost everybody wants, and at most one more.
+Everything else goes behind a single `…` menu (`menuSheet`, which opens against its button). The same
+applies to a screen's toolbar.
+
+*Reason.* This is the direct fix for a screen carrying thirty different controls (gap G-4). Actions
+laid out flat all look equally likely, so none of them reads as the obvious next step — which breaks
+A-13 as well as A-2.
+
+### A-21 Dark mode — the rules, for when it is built
+
+Not built, and out of scope as of 2026-09-19. When it is: soften borders rather than lightening them;
+there are no shadows in dark mode, so show elevation by making the raised surface **lighter** than the
+page; reduce saturation on washes and chips, which glow at full strength on a dark background; and
+re-verify every pair in the contrast table, because inverting is not symmetrical. Every token needs a
+dark value — do not special-case screens.
+
+### A-22 Images and overlays
+
+Text over an image sits on a linear gradient that fades into a readable background, never a flat scrim
+across the whole image. Prefer a real illustration to a generic icon where the point is warmth — the
+island drawings in `pub/art.js` are the house example and should be reached for before another icon.
+
+*Reason.* A flat overlay ruins the image and still under-serves the text. Real graphics are also the
+single biggest lever on whether a first-time visitor trusts what they are looking at (C-11).
+
 ---
 
 ## Part B — Flow
@@ -261,6 +375,36 @@ links (`#/bill/HB1563`) that work from Slack and email, and a URL for every scre
 *Reason.* Expert and novice use the same app. The novice needs the path; the expert needs the shortcut;
 neither should cost the other anything.
 
+### B-11 A core journey needs no instruction
+
+Somebody who has never seen the app, and who never opens Help or reads onboarding, can still complete
+every journey in B-2. Test it that way: clear storage, open the screen cold, and do the task without
+reading anything that is not part of the task.
+
+*Reason.* P-4. Help and onboarding should be there for reassurance, not required for function — and
+the moment they become load-bearing, nobody reads them anyway and the app is simply broken for
+everyone who skipped.
+
+### B-12 Forms ask for the least, and hide the rest
+
+Only fields needed right now. Optional and advanced settings are collapsed by default behind one
+clearly-named control. A form of two or three fields belongs in a modal or an inline block, not a
+full-height flyout with a screen of empty space under it. Every field that is genuinely needed says
+why, if the reason is not obvious.
+
+*Reason.* Every field is a place to stop. A sparse flyout also reads as "something is missing here",
+which makes people hesitate before a form they were going to complete.
+
+### B-13 Navigation earns its place
+
+A destination in the tab bar or sidebar is something people go to often. Anything reached rarely, or
+reached from inside the thing it belongs to, lives there instead — not in the permanent furniture.
+Reviewed whenever a destination is added.
+
+*Reason.* Permanent navigation is the most expensive space in the app: it costs attention on every
+screen, not just its own. Rarely-used entries dilute the ones that matter and push real content down,
+which is A-1 again.
+
 ---
 
 ## Part C — First visit and the email ask
@@ -347,6 +491,16 @@ the bill number. No jargon without its plain equivalent first — not "referral"
 *Reason.* Grade 8 is the GOV.UK/NHS standard for public information, and Hawaiʻi's legislative
 vocabulary is a second language even for people who vote in every election.
 
+### C-11 The first screen is the whole argument
+
+A stranger decides whether this is trustworthy before reading a word of it. Presentation carries that,
+not feature count: real drawings rather than generic icons, the same spacing and colour discipline as
+everywhere else, no decorative element that does nothing, and nothing that looks like a placeholder.
+
+*Reason.* The public tracker's entry screens are its landing page, and a public-health body asking for
+an email address is asking for trust it has about four seconds to earn. Better presentation moves this
+far more than more features do.
+
 ---
 
 ## The review checklist
@@ -364,7 +518,11 @@ vocabulary is a second language even for people who vote in every election.
 8. **Touch.** Every target 44px; nothing important behind hover. (A-6, B-9)
 9. **Colour and type.** Sizes and colours in budget; nothing by colour alone. (A-4, A-5, A-7)
 10. **Read it aloud.** Grade 8 or below on anything public. (C-10)
-11. **Look at the screenshots.** Phone and desktop, both. Several bad screens shipped when this
+11. **The cold-start test.** Clear storage and do the whole task without reading Help, onboarding or
+    any explanatory text. Anything you had to be told is a design defect. (P-4, B-11)
+12. **Say it once.** Search the screen for every number and status on it. Is any of it twice? (A-14)
+13. **States.** Press, hover, focus, disable and load every control you added. (A-15, A-16)
+14. **Look at the screenshots.** Phone and desktop, both. Several bad screens shipped when this
     step was skipped.
 
 ## Budgets, in one place
@@ -381,6 +539,8 @@ vocabulary is a second language even for people who vote in every election.
 | Breakpoints (A-9) | 360/900/1100 | — | grep |
 | Journey steps (B-2) | per table | — | by hand (gap G-1) |
 | Public reading grade (C-10) | 8 | 8 | `tests/checks.py` |
+| Actions shown on a row or card (A-20) | 2 | 2 | review |
+| Instructions needed for a core journey (B-11) | 0 | 0 | cold-start test |
 
 ## Changing this document
 

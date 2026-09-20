@@ -17,7 +17,7 @@
   --warn-wash: #FFF5E8; --warn-fill: #F4B223; --warn-text: #906106;
   --bad-wash: #FFEFED; --bad-text: #C52C2A; --bad-press: #A51F1E;
   /* type */
-  --font-h: 'Roboto', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-h: 'Poppins', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --t13: .8125rem; --t14: .875rem; --t16: 1rem; --t18: 1.125rem; --t22: 1.375rem; --t28: 1.75rem;
   /* space */
