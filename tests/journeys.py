@@ -45,7 +45,7 @@ JOURNEYS = [
    dict(what='type the address', do="(()=>{const i=document.querySelector('input[type=email]'); if(!i)return false;"
         "i.value='someone@example.com'; i.dispatchEvent(new Event('input',{bubbles:true})); return true;})()",
         reach="(()=>{const i=document.querySelector('input[type=email]'); return !!i && i.value.includes('@');})()"),
-   dict(what='send it', do=click_text('.btn,button', 'Send me alerts'), reach="(()=>true)()"),
+   dict(what='send it', do=click_text('.btn,button', 'Yes, email me a heads-up|Send me alerts'), reach="(()=>true)()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

@@ -11,7 +11,7 @@
 // on the right) and the bar sits at the end of the choices (start.css).
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, sessionInfo, billsForCoalitions, recommendations,
   loadBills, saveLocal, wiz, wizSet, followList, listBillsFor, HST, anyBill, myStance, setStance, sendEmailLink, validEmail,
-  friendly, toast } from './core.js';
+  friendly, toast, nudge } from './core.js';
 import { btn, chip, posChip, row, steps } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 
@@ -274,9 +274,9 @@ function step3() {
   const bills = followedBills(), n = bills.length;
   if (!n) return skel(3, false);
   return shell('st3', `${artFor(3, false)}${stepRow(3, false)}
-    <p class="st-ok" role="status">${icon('circle-check')}<span>You’re following ${plural(n, 'bill')}. Mahalo!</span></p>
-    <h1 class="hero" id="st-h">Where do you stand?</h1>
-    <p class="lede">Optional, and private: we never show your answer publicly. It helps us suggest the right ways to help later, and you can change it any time.</p>`,
+    <p class="st-won st-mile" role="status">${flower(30)}<span>You’re following ${plural(n, 'bill')}. Mahalo!</span></p>
+    <h2 class="st-ask" id="st-h">Where do you stand? <span class="st-opt">(optional)</span></h2>
+    <p class="lede">Private — we never show your answer publicly, and you can change it any time.</p>`,
     `<ul class="st-stands" role="list" aria-labelledby="st-h">${bills.map(standCard).join('')}</ul>
     <p class="sr" role="status" id="st-live"></p>`);
 }
@@ -284,7 +284,7 @@ function step3() {
 // ================= Step 4 (in session) and step 3 (off-season): the email step =================
 // S.stMail: this visit's email step. The typed address survives a trip to the privacy page and back.
 S.stMail ??= { email: '', sent: '', demo: false };
-const SMALL_PRINT = 'No password: we email you a link to confirm. Unsubscribe any time. HIPHI staff can see the bills that signed-in people follow.';
+const SMALL_PRINT = 'No password — we send a link to sign in, which can take a minute. It also keeps your bills on any device. HIPHI staff can see which bills people follow, so they know what the community cares about.';
 function emailCard() {
   const M = S.stMail;
   // A real link was sent earlier in this visit (core notes the address): a reload still says "check your inbox".
@@ -300,7 +300,8 @@ function emailCard() {
     <div class="field"><label for="st-email">Your email</label>
       <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
       <span class="err" id="st-email-err" role="alert"></span></div>
-    <div class="st-formbtns">${btn('Send me alerts', { kind: 'primary', icon: 'bell', attrs: { type: 'submit', id: 'st-send' } })}${btn('Skip for now', { kind: 'text', attrs: { 'data-stdone': '1' } })}</div>
+    <p class="st-promise">We’ll only email you when one of your bills gets a hearing. Unsubscribe in one tap.</p>
+    <div class="st-formbtns">${btn('Yes, email me a heads-up', { kind: 'primary', icon: 'bell', attrs: { type: 'submit', id: 'st-send' } })}${btn('Skip for now', { kind: 'text', attrs: { 'data-stdone': '1' } })}</div>
     <p class="meta">${SMALL_PRINT} <a href="#/privacy">Read about privacy</a></p>
   </form>`;
 }
@@ -308,7 +309,7 @@ function step4() {
   const n = S.watch.size;
   return shell('st4', `${artFor(4, false)}${stepRow(4, false)}
     <h1 class="hero" id="st-h">Want a heads-up when a hearing is set?</h1>
-    <p class="lede">Hearings are posted about two days ahead. Add your email and we’ll tell you in time when ${n === 1 ? 'your bill has' : `one of your ${n} bills has`} one. It also keeps your bills on any device.</p>`,
+    <p class="lede">Hearings are posted about two days ahead. Add your email and we’ll tell you in time when ${n === 1 ? 'your bill has' : `one of your ${n} bills has`} one.</p>`,
     emailCard());
 }
 
@@ -427,7 +428,14 @@ function wire(route) {
   if (to) { setTimeout(() => (to === 'home' ? finish() : app.go('#/start/' + to, { replace: true })), 0); return; }
   if (wiz().step !== step) wizSet({ step });
 
-  $$('[data-stskip]').forEach(el => el.onclick = skipAll);
+  // Skip used to leave the whole wizard from every step, which quietly cost the email ask: from
+  // step 3 it jumped past step 4 entirely, and from step 2 it left with no follows, so home's own
+  // ask never fired either. Skip now means "not this question" and only leaves from the last step.
+  $$('[data-stskip]').forEach(el => el.onclick = () => {
+    if (step === 3 && followedBills().length) return goStep(3, 4);   // still owed the email ask
+    if (step === 2) nudge('follow');                                  // let home make the ask instead
+    skipAll();
+  });
   $$('[data-stback]').forEach(el => el.onclick = () => goBack(+el.dataset.stback));
   $$('[data-stretry]').forEach(el => el.onclick = () => { S.stLoad = null; app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = finish);

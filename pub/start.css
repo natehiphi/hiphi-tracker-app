@@ -58,7 +58,8 @@
 @media (max-width: 359px) { .st-issue { padding: var(--s8) var(--s12); gap: 10px; } .st-idesc { -webkit-line-clamp: 1; } }
 
 /* the check circle (issues and bills): an outline until picked, then filled with a drawn check */
-.st-tick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--n400); background: var(--n0); color: transparent; flex: none;
+/* Square, because both places this is used are multi-select: a circle promises pick-one (A-12). */
+.st-tick { width: 26px; height: 26px; border-radius: var(--r8); border: 2px solid var(--n400); background: var(--n0); color: transparent; flex: none;
   display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
 .st-tick .ic { width: 16px; height: 16px; stroke-width: 3; }
 .st-issue[aria-pressed="true"] .st-tick, .st-pick[aria-pressed="true"] .st-tick { background: var(--p700); border-color: var(--p700); color: var(--n0); }
@@ -105,6 +106,16 @@
 
 /* ---- the green "this worked" line (step 3: following N bills; off-season step 3: the saved issues) ---- */
 .st-ok { display: flex; gap: var(--s8); align-items: flex-start; font-weight: 700; color: var(--ok-text); background: var(--ok-wash); border-radius: var(--r12); padding: 10px 14px; }
+/* The one celebration in the flow (C-7). Green is the app's "saved" colour and was saying this
+   like a system message; orange is reserved for exactly this and had never been spent. */
+.st-won { display: flex; gap: var(--s12); align-items: center; font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.02em;
+  color: var(--o700); background: var(--o50); border-radius: var(--r16); padding: var(--s16); margin: 0 0 var(--s16); }
+.st-won .flower { flex: none; }
+/* The question that follows is secondary to the success, not louder than it (A-13). */
+.st-ask { font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); margin: 0 0 var(--s4); }
+.st-ask .st-opt { font-weight: 400; color: var(--n500); }
+/* The reason to press the button sits above the button, not in grey underneath it (C-6). */
+.st-promise { font-weight: 700; color: var(--n700); margin: 0 0 var(--s12); }
 .st-ok .ic { width: 22px; height: 22px; flex: none; margin-top: 1px; }
 .st-ok .strong { color: inherit; }
 .st-ok a { color: inherit; white-space: nowrap; }
@@ -213,7 +224,8 @@
   .st-what { margin-left: 42px; }
   .st-pwhat, .st-phead { max-width: 68ch; }
   /* a short form reads better level with the heading than pinned to the top of a tall empty column */
-  .st4 .st-main, .st-off.st3 .st-main { grid-row: 1 / span 2; align-self: center; }
+  /* in-session step 3 was missed here, leaving ~450px of blank page under two stance cards */
+  .st4 .st-main, .st-off.st3 .st-main, .st3 .st-main { grid-row: 1 / span 2; align-self: center; }
   .st-form, .st-sent { padding: var(--s24); }
   .st-form .field { max-width: 420px; }
   /* the bar, no longer a bar: Skip and the primary sized to their labels, at the end of the choices */
