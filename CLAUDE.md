@@ -165,6 +165,10 @@ python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve g
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 ```
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
+`public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`
+line, from `demoLoad` in `pub/core.js`. It is the harness aborting the in-flight 5MB `snapshot.json` fetch when a
+case reloads, not a regression — it appears with any snapshot, and a plain load of the same page has a clean
+console. Checked 9/19 against both the old and new snapshot. Investigate only if the count changes.
 A check that fails after an intended change is a test to update, not a reason to revert; say which and why.
 
 ## Before every push to main
