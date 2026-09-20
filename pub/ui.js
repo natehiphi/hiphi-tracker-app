@@ -14,7 +14,10 @@ export function btn(label, { kind = 'primary', icon: ic, iconEnd, full, sm, href
 export const iconBtn = (ic, label, a = {}, cls = '') => `<button type="button" class="iconbtn${cls ? ' ' + cls : ''}" aria-label="${esc(label)}" title="${esc(label)}"${attrs(a)}>${icon(ic)}</button>`;
 // status chip (not a button): tone '' | info | warn | danger | ok | yay
 export const chip = (text, tone = '', ic) => `<span class="chip${tone ? ' ' + tone : ''}">${ic ? icon(ic) : ''}${esc(text)}</span>`;
-export const posChip = b => { const p = posInfo(b); return p ? chip(p.text, 'info', p.icon) : ''; };
+// A strong position gets its icon twice - two thumbs up for "strongly supports" (Nate, 9/20). The
+// text already says it; the pair is what makes it readable at a glance down a list.
+export const posChip = b => { const p = posInfo(b); if (!p) return '';
+  return p.strong ? `<span class="chip info">${icon(p.icon)}${icon(p.icon)}${esc(p.text)}</span>` : chip(p.text, 'info', p.icon); };
 export const issueLine = (iss, extra = '') => iss ? `<span class="issueline">${icon(issueIcon(iss.icon))}<span>${esc(iss.key)}</span>${extra}</span>` : '';
 // A whole-row button or link: row({ lead: 'salad', title, sub, end, href | attrs })
 export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href, attrs: a, cls = '' }) {

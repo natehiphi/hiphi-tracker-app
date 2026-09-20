@@ -14,7 +14,7 @@ import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteNam
   billNum, blurb, titleCaseTitle, sponsorName, glossStage, nextStageLabel, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
   listNames, hiToday, gateName, personName, pubStateCls, PUBLIC_APP } from './model.js';
 import { personById } from './data.js';
-import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
+import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
@@ -233,7 +233,7 @@ const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" styl
 const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
-  return [['Position', pick('pos', POS_WORD[pos] || pos, icon(POS_ICON[pos] || 'circle-dashed'), `Position: ${POS_WORD[pos] || pos}. Change`)],
+  return [['Position', pick('pos', POS_WORD[pos] || pos, posIcons(pos), `Position: ${POS_WORD[pos] || pos}. Change`)],
     ['Priority', pick('pri', b.priority ? 'P' + b.priority : 'No priority', '', `Priority: ${b.priority ? 'P' + b.priority : 'none'}. Change`)],
     ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)]];
 };

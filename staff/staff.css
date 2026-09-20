@@ -334,3 +334,5 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 /* The account menu hung off a bare initials circle with nothing saying it opened anything (A-12). */
 .sv-avbtn { width: auto; min-width: 44px; padding: 0 2px 0 4px; gap: 1px; }
 .sv-avchev { width: 16px; height: 16px; color: var(--n500); flex: none; }
+/* Two thumbs for a strong position: the pair should read as one mark (see ui.js posIcons). */
+.sv-posic .ic + .ic, .bl-cell .ic + .ic, .sv-pick .ic + .ic { margin-left: -5px; }

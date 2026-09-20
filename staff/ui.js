@@ -22,6 +22,11 @@ export const chip = (text, tone = '', ic) => `<span class="chip sv-chip${tone ? 
 export const pickerChip = (label, a = {}, ic) => `<button type="button" class="sv-pick"${attrs(a)}>${ic ? icon(ic) : ''}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 // Position: an icon and a word, never colour alone.
 export const POS_ICON = { strongly_support: 'thumbs-up', support: 'thumbs-up', support_amend: 'thumbs-up', strongly_oppose: 'thumbs-down', oppose: 'thumbs-down', neutral: 'message-square', monitor: 'eye', '': 'circle-dashed' };
+// A strong position shows its icon twice (Nate, 9/20): two thumbs up reads as "strongly" at a
+// glance down a list of 113 bills, where the word alone does not. The picker still takes a plain
+// icon name, so this is only for rendered rows.
+export const posIcons = pos => { const ic = POS_ICON[pos] || 'circle-dashed';
+  return /^strongly_/.test(pos || '') ? icon(ic) + icon(ic) : icon(ic); };
 export const POS_WORD = { strongly_support: 'Strong support', support: 'Support', support_amend: 'Support with changes', strongly_oppose: 'Strongly oppose', oppose: 'Oppose', neutral: 'Comments', monitor: 'Monitor', '': 'No position' };
 export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] || 'circle-dashed');
 

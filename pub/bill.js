@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair } from './core.js';
-import { btn, iconBtn, chip, skeleton } from './ui.js';
+import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
 
@@ -293,7 +293,7 @@ function head(b, x) {
   const iss = issueOf(b), p = posInfo(b), name = nick(b), mine = myStance(b.id);
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
   const chips = [x.law ? chip('Became law', 'ok', 'circle-check') : x.stopped ? chip('Stopped this session', '', 'archive') : '',
-    p ? chip(p.text, 'info', p.icon) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
+    p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
     iss ? chip(iss.key, '', iss.icon) : '',
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');

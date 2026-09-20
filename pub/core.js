@@ -756,8 +756,10 @@ export function issueOf(b) {
 // "HIPHI supports" with its icon; position is a chip with an icon, never a colour stripe.
 export function posInfo(b) {
   const p = b?.hiphi_position;
-  if (/support/.test(p || '')) return { text: p === 'support_amend' ? 'HIPHI supports with changes' : 'HIPHI supports', icon: 'thumbs-up', verb: 'support' };
-  if (/oppose/.test(p || '')) return { text: 'HIPHI opposes', icon: 'thumbs-down', verb: 'oppose' };
+  if (/support/.test(p || '')) return { text: p === 'support_amend' ? 'HIPHI supports with changes' : p === 'strongly_support' ? 'HIPHI strongly supports' : 'HIPHI supports',
+    icon: 'thumbs-up', strong: p === 'strongly_support', verb: 'support' };
+  if (/oppose/.test(p || '')) return { text: p === 'strongly_oppose' ? 'HIPHI strongly opposes' : 'HIPHI opposes',
+    icon: 'thumbs-down', strong: p === 'strongly_oppose', verb: 'oppose' };
   if (p === 'neutral') return { text: 'HIPHI has comments', icon: 'message-square', verb: 'comment on' };
   return null;
 }

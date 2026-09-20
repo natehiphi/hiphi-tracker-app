@@ -266,3 +266,5 @@ main:focus { outline: none; }
   .actionbar .btn { flex: 1 1 100%; }
   .chip { white-space: normal; max-width: 100%; }
 }
+/* A strong position shows its icon twice; the pair reads as one mark, not two. */
+.chip .ic + .ic { margin-left: -5px; }
