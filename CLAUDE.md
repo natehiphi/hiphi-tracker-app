@@ -42,7 +42,7 @@ Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**,
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions).
 - Staff v2: `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer); default is Nate (admin).
-- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921`. **Whenever `demo/snapshot.json`
+- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260922`. **Whenever `demo/snapshot.json`
   changes, bump that `v` in `app.js`, `staff/data.js` and `pub/core.js` in the same commit**, or browsers keep
   the old copy and Nate reports the change as not working.
 - Rebuild: `node ../backend/tools/build_snapshot.js` (reads production; read-only).
@@ -56,8 +56,9 @@ session is dark (until January 2027).
   `node tools/icons.mjs name1,name2`.
 - **Bill names:** lead with `bills.nickname` (about 40 characters, e.g. "Disposable vape ban"; all 248
   position bills have one, monitor-only bills have none), then the plain summary, and ALWAYS show the bill
-  number. Staff edit a nickname in a bill's Public section in either staff app. As of 9/19 all 248 position
-  bills also have a plain summary (backend 3.1y); the 145 monitor-only bills have neither, on purpose.
+  number. Staff edit a nickname in a bill's Public section in either staff app. As of 9/19 **every bill on the
+  public page has a plain summary** — all 248 position bills and all 486 monitor bills (backend 3.1y). Monitor
+  bills have no nickname and should not: a nickname is for a bill the team is campaigning on.
 - Mobile and desktop are both first-class. Nate rejected "a wide mobile version" twice. Judge every screen at
   390×844, 320×640, 1440×900, 1280×800 and 1024×768: two columns with a side panel that stays in view, tables
   for collections, a readable column for forms and focused tasks, label-sized buttons beside each other, actions
@@ -203,8 +204,7 @@ Nate's, not code's — do not start any of these without him:
    strip below 360px puts a real bill on screen (header y=385, row y=429). Legible and 44px either way. Nate's
    word and it ships; 320–359px only.
 3. Should `public.html` (the old public page, still live) redirect to `track.html`?
-4. Content: done for the 248 position bills (all have a plain summary; HB 1779 is cleaned up, 9/19). Open:
-   should the 145 monitor-only bills get plain summaries, or stay title-only on purpose?
+4. Content: **closed 9/19.** Every public bill has a plain summary; HB 1779 is cleaned up.
 5. Parked at his request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
 Known gaps, small and recorded rather than hidden:
