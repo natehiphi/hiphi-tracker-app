@@ -201,12 +201,17 @@ function viewsRow() {
 }
 function parts() {
   const v = bl(), wide = wideNow(), q = v.q.trim(), { list, groups } = build();
-  const act = activeFilters(), quickSpecs = new Set(QUICK.map(x => x[0])), sheetOn = act.filter(([s]) => !quickSpecs.has(s));
+  // The quick chips show their own state, so on a desktop they are left out of the "filters that are on" row. On a
+  // phone there are no quick chips any more (Nate, 9/19), so every filter that is on has to appear there - otherwise
+  // one could be switched on in the sheet and never taken off without opening the sheet again.
+  const act = activeFilters(), quickSpecs = new Set(QUICK.map(x => x[0])), sheetOn = wide ? act.filter(([s]) => !quickSpecs.has(s)) : act;
   const clear = btn('Clear all', { kind: 'text', sm: true, attrs: { 'data-fclearall': '1' } });
-  const quick = QUICK.map(([spec, label, test]) => { const on = isOn(spec), n = quickCount(spec, test);
-    return `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}>${on ? icon('check') : ''}<span>${label}</span><span class="bl-n">${n}</span></button>`; }).join('');
+  // Only a desktop draws these now, and each one counts the whole list, so a phone does not pay for them.
+  const quick = wide ? QUICK.map(([spec, label, test]) => { const on = isOn(spec), n = quickCount(spec, test);
+    return `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}>${on ? icon('check') : ''}<span>${label}</span><span class="bl-n">${n}</span></button>`; }).join('') : '';
   const nm = S.mutes?.size || 0;
-  const mutedChip = nm ? `<a class="chip bl-q" href="#/bills/muted">${icon('bell-off')}<span>Muted</span><span class="bl-n">${nm}</span></a>` : '';
+  // The phone reaches muted bills through the ... menu, which carries the same count.
+  const mutedChip = wide && nm ? `<a class="chip bl-q" href="#/bills/muted">${icon('bell-off')}<span>Muted</span><span class="bl-n">${nm}</span></a>` : '';
   // Filters picked in the sheet show as chips that come off with one click (the quick chips show their own state).
   const onRow = sheetOn.length ? `<div class="bl-on" role="group" aria-label="Filters that are on">${wide ? '<span class="bl-onlab">Filters</span>' : ''}${sheetOn.map(([s, l]) => `<button type="button" class="chip bl-onchip" data-ft="${esc(s)}" aria-label="Remove the filter ${esc(l)}"><span>${esc(l)}</span>${icon('x')}</button>`).join('')}${clear}</div>` : '';
   const quickRow = `<div class="bl-quick" role="group" aria-label="Quick filters">${quick}${mutedChip}${!sheetOn.length && act.length ? clear : ''}</div>`;
@@ -222,7 +227,7 @@ function parts() {
   // Desktop: the quick chips and the count share one line, so the table starts higher (12 compact rows at 1440×900).
   return wide
     ? { head: `${viewsRow()}<div class="bl-frow">${quickRow}${sum}</div>${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${rows}` }
-    : { head: `${viewsRow()}${onRow}${quickRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${sum}${selHead}${rows}` };
+    : { head: `${viewsRow()}${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${sum}${selHead}${rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
 const keysHint = () => hoverNow() && keysOn() ? `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>Space</kbd> a quick look · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>` : '';
@@ -254,7 +259,13 @@ export function blRow(b, { sub = '', href, selectable = false, selected = false 
 function phoneList(groups) {
   const v = bl();
   // Each group is its own box, so its header sticks only while its rows are on screen and the next header pushes it away.
-  const row = b => v.selecting ? blRow(b, { sub: statusLine(b), selectable: true, selected: v.sel.has(b.id) }) : blRow(b, { sub: statusLine(b), href: '#/bill/' + b.bill_number });
+  // A row carries the same quick-look chevron a Today card does (Nate, 9/19: he tapped a bill expecting the panel and
+  // got the whole page). The row itself is an <a>, so the button cannot live inside it - the row and the button sit
+  // side by side in a .bl-prow, the pattern the muted list already uses. Not in select mode: there the row is a
+  // checkbox and a second target beside it would be read as part of the selection.
+  const look = b => iconBtn('chevron-right', `Quick look at ${billNum(b)}`, { 'data-look': b.id }, 'bl-plk');
+  const row = b => v.selecting ? blRow(b, { sub: statusLine(b), selectable: true, selected: v.sel.has(b.id) })
+    : `<div class="bl-prow">${blRow(b, { sub: statusLine(b), href: '#/bill/' + b.bill_number })}${look(b)}</div>`;
   return `<div class="bl-list${v.selecting ? ' bl-selecting' : ''}">${groups.map(g => `<div class="bl-grp">${groupHead(esc(g.title), g.rows.length, { fold: g.k, open: g.open, id: 'bl-g-' + g.k })}${g.open ? g.rows.map(row).join('') : ''}</div>`).join('')}</div>`;
 }
 

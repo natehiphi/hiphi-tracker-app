@@ -139,6 +139,18 @@
 .bl-deskback { display: none; }   /* phones have the frame's back arrow */
 .bl-ptitle { font-size: var(--t22); margin: var(--s8) 0 var(--s8); }
 .bl-lede { font-size: var(--t16); color: var(--n700); margin-bottom: var(--s16); max-width: 60ch; }
+/* ---- a phone row and its quick-look chevron, side by side. The row is an <a>, so the button cannot sit inside
+   it; this is the same shape the muted list uses. The chevron matches Today's, which is where staff have already
+   learnt it. ---- */
+.bl-prow { display: flex; align-items: center; background: var(--n0); }
+/* The row's own right padding is dead space once the chevron is beside it, so the title gets it back. */
+.bl-prow .row { flex: 1 1 auto; min-width: 0; padding-right: var(--s4); background: transparent; }
+.bl-plk { flex: none; margin-right: var(--s8); color: var(--n500); }
+.bl-grp > .bl-prow + .bl-prow, .bl-grp > .row + .bl-prow, .bl-grp > .bl-prow + .row { border-top: 1px solid var(--n100); }
+.bl-prow:hover { background: var(--n50); }
+.bl-prow .row:hover { background: transparent; }
+.bl-plk:hover { color: var(--p700); background: var(--p50); }
+
 .bl-mrow { display: flex; align-items: center; gap: var(--s8); padding-right: var(--s12); background: var(--n0); }
 .bl-list > .bl-mrow + .bl-mrow { border-top: 1px solid var(--n100); }
 .bl-mrow .row { flex: 1 1 auto; min-width: 0; background: transparent; }
@@ -414,6 +426,13 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-bar > .btn { padding: 0 12px; }
   .bl-bar { gap: var(--s4); }
 }
+
+/* ---- one search per screen ---- Nate, 9/19. The header's magnifier searches everything (bills, legislators,
+   people); a screen that carries its own search box searches that list. Two magnifiers in one view and you cannot
+   tell which you are about to get - the thing both Material and Apple's guidelines warn against. The labelled box
+   on the page wins, because on a list screen it is what you want; everything else is one tab away. The rule keys
+   off the box itself, so a screen that has no search box keeps the header's. ---- */
+.sv-page:has(.bl-search) .sv-hdr .sv-srchbtn { display: none; }
 
 /* ---- narrow phones: the strip goes ---- Nate's call, 9/19, from a measured three-way comparison. Even flattened
    the strip is about 70px, and at 320x568 that is still the difference between no bill on screen and two. Every
