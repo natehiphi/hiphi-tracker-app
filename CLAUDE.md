@@ -3,7 +3,7 @@
 Public repo `natehiphi/hiphi-tracker-app`, deployed by GitHub Pages from `main` at
 https://natehiphi.github.io/hiphi-tracker-app/. The backend (schema, migrations, sync, runbooks, `HANDOFF.md`) is
 the private repo in `../backend`. **Read `../backend/HANDOFF.md` first** in any session: section 3 holds the
-newest entries (3.1w, 3.1v, …) with every decision Nate has made and what is still open.
+newest entries (3.1y, 3.1x, 3.1w, …) with every decision Nate has made and what is still open.
 
 ## Who this is for
 
@@ -16,9 +16,9 @@ direction; Claude builds, tests, pushes and verifies the published site.
 
 Both staff apps were assessed side by side and **Staff v2 was recommended**; Nate then had the whole
 improvement list built except "show the draft inside Review" (not wanted) and the Bills list-detail split
-(dropped once the quick look covered the same need). All of it is shipped and live. **Nate is now trying it and
-has not yet said whether the team switches.** Nothing is waiting on code; see "Open items" at the foot of this
-file and `../backend/HANDOFF.md` 3.1x.
+(dropped once the quick look covered the same need). All of it is shipped and live. **Nate said on 9/19 that the
+team is NOT moving to v2 yet — maybe later**, so both staff apps stay and every data-layer change still goes into
+both. Nothing is waiting on code; see "Open items" at the foot of this file and `../backend/HANDOFF.md` 3.1y.
 
 ## The three apps (all in this repo, all static, no build step)
 
@@ -28,7 +28,7 @@ file and `../backend/HANDOFF.md` 3.1x.
 | Staff app (current) | `index.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | the team today |
 | Staff v2 | `staff.html` | `staff/` | the team, to compare |
 
-**Both staff apps stay for now (Nate, 9/19); the team switches at some point.** Until then every data-layer
+**Both staff apps stay (Nate, 9/19: not moving to v2 yet, maybe later).** Until then every data-layer
 change goes into BOTH (see "Two staff apps" below). Links in Slack and email open the current app. If v2 is
 chosen: add `staff.html` to the Supabase Auth redirect URLs, then delete the other app's screens.
 
@@ -42,7 +42,7 @@ Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**,
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions).
 - Staff v2: `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer); default is Nate (admin).
-- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260920`. **Whenever `demo/snapshot.json`
+- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921`. **Whenever `demo/snapshot.json`
   changes, bump that `v` in `app.js`, `staff/data.js` and `pub/core.js` in the same commit**, or browsers keep
   the old copy and Nate reports the change as not working.
 - Rebuild: `node ../backend/tools/build_snapshot.js` (reads production; read-only).
@@ -56,7 +56,8 @@ session is dark (until January 2027).
   `node tools/icons.mjs name1,name2`.
 - **Bill names:** lead with `bills.nickname` (about 40 characters, e.g. "Disposable vape ban"; all 248
   position bills have one, monitor-only bills have none), then the plain summary, and ALWAYS show the bill
-  number. Staff edit a nickname in a bill's Public section in either staff app.
+  number. Staff edit a nickname in a bill's Public section in either staff app. As of 9/19 all 248 position
+  bills also have a plain summary (backend 3.1y); the 145 monitor-only bills have neither, on purpose.
 - Mobile and desktop are both first-class. Nate rejected "a wide mobile version" twice. Judge every screen at
   390×844, 320×640, 1440×900, 1280×800 and 1024×768: two columns with a side panel that stays in view, tables
   for collections, a readable column for forms and focused tasks, label-sized buttons beside each other, actions
@@ -197,11 +198,13 @@ Nate's, not code's — do not start any of these without him:
    URLs (until then a password-reset link lands on the current app), point the Slack and email links at it,
    then delete the current app's screens and make `staff/data.js` the only data layer — which retires
    `parity.mjs` and the 67-call hand copy with it.
-2. At 320px the Bills "where every bill stands" strip pushes the first group header just below the fold.
-   Legible, 44px targets, no sideways scroll, but one short scroll to the first bill. Hide it below ~360px?
+2. At 320px the Bills "where every bill stands" strip costs 176px: the first group header lands at y=569 on a
+   568px screen and the first row at y=613. Measured three ways in backend HANDOFF 3.1y — only hiding the whole
+   strip below 360px puts a real bill on screen (header y=385, row y=429). Legible and 44px either way. Nate's
+   word and it ships; 320–359px only.
 3. Should `public.html` (the old public page, still live) redirect to `track.html`?
-4. Content: 69 of 248 position bills have no plain summary — the Today suggestion feed now raises these one at
-   a time — and HB 1779's public summary still ends "Edited for testing."
+4. Content: done for the 248 position bills (all have a plain summary; HB 1779 is cleaned up, 9/19). Open:
+   should the 145 monitor-only bills get plain summaries, or stay title-only on purpose?
 5. Parked at his request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
 Known gaps, small and recorded rather than hidden:
