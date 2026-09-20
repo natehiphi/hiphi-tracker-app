@@ -59,119 +59,116 @@ header comment promises. Measured: every screen is within A-4.
 
 ---
 
-## 2. Measured, 2026-09-19
+## 2. Measured, 2026-09-20 (after the redesign pass)
 
 `arrival` = px to the thing the person came for (A-1: budget 320, limit 400).
-`all` / `kinds` = controls on the first screenful, total and distinct (A-2: budget 15, limit 25).
+`kinds` = distinct competing controls **in the content region** (A-2: budget 15, limit 25).
+`nav` = persistent furniture (sidebar, header, tab bar), counted separately and judged by B-13.
 
-| App | Width | Screen | They came for | Arrival | all | kinds | sizes | colours |
+| App | Width | Screen | Arrival | all | kinds | nav | sizes | colours |
 |---|---|---|---|---|---|---|---|---|
-| public | 390 | start | the first question | 378 | 9 | 9 | 4 | 5 |
-| public | 390 | home | what needs you | **209** | 12 | 12 | 6 | 7 |
-| public | 390 | mybills | a bill you follow | **427** | 16 | 9 | 5 | 4 |
-| public | 390 | find | a way in | 287 | 12 | 8 | 5 | 2 |
-| public | 390 | bill | what the bill does | **236** | 10 | 10 | 6 | 6 |
-| public | 390 | legislators | your island | 382 | 11 | 11 | 4 | 3 |
-| public | 390 | more | the first choice | **165** | 17 | 7 | 4 | 2 |
-| staff2 | 390 | today | the first thing due | 294 | 23 | 10 | 4 | 8 |
-| staff2 | 390 | bills | the first bill | 386 | 26 | 17 | 4 | 5 |
-| staff2 | 390 | bill | the bill status | **178** | 21 | 20 | 4 | 7 |
-| staff2 | 390 | legislators | the first legislator | **244** | 19 | 12 | 3 | 4 |
-| staff2 | 390 | outreach | the first person | 257 | 24 | 16 | 3 | 4 |
-| public | 1440 | start | the first question | **144** | 12 | 12 | 5 | 5 |
-| public | 1440 | home | what needs you | **202** | 14 | 14 | 6 | 8 |
-| public | 1440 | mybills | a bill you follow | **490** | 16 | 9 | 5 | 4 |
-| public | 1440 | find | a way in | 339 | 18 | 7 | 5 | 2 |
-| public | 1440 | bill | what the bill does | **220** | 17 | 16 | 6 | 6 |
-| public | 1440 | legislators | your island | 390 | 11 | 11 | 4 | 3 |
-| public | 1440 | more | the first choice | **197** | 16 | 7 | 5 | 2 |
-| staff2 | 1440 | today | the first thing due | **214** | 51 | 22 | 4 | 9 |
-| staff2 | 1440 | bills | the first bill | 364 | 90 | 27 | 5 | 5 |
-| staff2 | 1440 | bill | the bill status | **269** | 31 | 30 | 5 | 8 |
-| staff2 | 1440 | legislators | the first legislator | **294** | 35 | 17 | 4 | 4 |
-| staff2 | 1440 | outreach | the first person | 295 | 53 | 21 | 4 | 6 |
+| public | 390 | start | 378 | 9 | 8 | 1 | 4 | 5 |
+| public | 390 | home | **314** | 11 | **5** | 6 | 6 | 7 |
+| public | 390 | mybills | **157** | 14 | **1** | 6 | 4 | 4 |
+| public | 390 | find | **287** | 12 | **2** | 6 | 5 | 2 |
+| public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
+| public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
+| public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
+| staff2 | 390 | today | **294** | 23 | **4** | 6 | 4 | 8 |
+| staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |
+| staff2 | 390 | bill | **178** | 17 | **9** | 7 | 4 | 7 |
+| staff2 | 390 | legislators | **244** | 19 | **6** | 6 | 3 | 4 |
+| staff2 | 390 | outreach | **257** | 24 | **10** | 6 | 3 | 4 |
+| public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
+| public | 1440 | home | **316** | 12 | **6** | 6 | 6 | 8 |
+| public | 1440 | mybills | **242** | 14 | **1** | 6 | 4 | 4 |
+| public | 1440 | find | 339 | 18 | **2** | 6 | 5 | 2 |
+| public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
+| public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
+| public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
+| staff2 | 1440 | today | **214** | 51 | **10** | 12 | 4 | 9 |
+| staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |
+| staff2 | 1440 | bill | **269** | 31 | **18** | 13 | 5 | 7 |
+| staff2 | 1440 | legislators | **294** | 35 | **7** | 11 | 4 | 4 |
+| staff2 | 1440 | outreach | **295** | 53 | **8** | 14 | 4 | 6 |
 
-Bold = within budget. **Staff Bills at 390 measures 386**, exactly the figure HANDOFF 3.1y recorded by
-hand, which is the check that this tool measures the right thing.
+Bold = inside budget. **Every screen in both apps is now inside the A-2 content-control budget**, and
+only five sit between the arrival budget and the limit. Nothing in either app exceeds a limit.
 
-**The 90 on staff Bills at 1440 is not a problem.** 90 controls but only 27 kinds: it is a table, and
-twenty-five rows of the same offer is one decision repeated. That distinction is why A-2 is written
-against kinds.
+Journeys (`tests/journeys.py`): **7 of 7 working and inside budget.**
 
----
+## 2a. Two measurements that were wrong, and what they cost
+
+Recorded because a tool that cries wolf is worse than no tool, and both of these would have sent a
+session to "fix" something that was not broken.
+
+**The first My bills reading (427px phone / 490px desktop) was taken with four followed bills that
+were all `dead`** in the frozen demo session, picked by id order without checking. The screen was
+correctly drawing its end-of-session state. With live bills the same screen measured **157px** — the
+best in the public app. *But the defect was real anyway*, for a different reason: in that all-stopped
+state the screen rendered an empty-state box, filled call to action and all, on top of a list that was
+not empty. That is a state most followers are in for much of the year. Fixed; 427 → 232.
+
+**The bill page's "30 competing controls" (G-4) was 18 content controls plus 13 sidebar entries.**
+A-2 was counting persistent navigation — identical on every screen, learned once, then ignored — as
+competing decisions, which made every desktop screen look thirteen controls worse than it was. The
+rule and the tool now count the content region and report navigation separately. The bill page at 18
+is over the budget of 15 and well inside the limit of 25: a backlog item, not a defect.
 
 ## 3. Gaps — the backlog
 
-Ordered by how much they cost a real person. None of these is started; none needs a decision from Nate
-except where it says so.
+### Closed on 2026-09-20
+- **G-2** — My bills printed an empty state over a populated list. Fixed: 427 → 232px.
+- **G-4** — substantially a measurement artefact (see 2a). What was real — a duplicate
+  "File at the Capitol" link, and a status sentence repeating the hearing card — is fixed. 18 kinds.
+- **G-5** — the stage ribbon's end labels were `--n400` at 13px (3.47:1). Now `--n500` (4.85:1), and
+  they no longer vanish below 420px, where they had left a phone reader twelve unlabelled dashes.
+- **G-1** — flow had no measurement. `tests/journeys.py` now walks seven journeys and counts steps.
 
-### G-1 — Flow has no measurement (Part B)
-Part B is entirely enforced by review. There is no equivalent of `density.py` for journeys, so the
-step budgets in B-2 are aspirations. **This is the biggest hole in the standard**, because flow is half
-of what Nate asked for. Fix: a `tests/journeys.py` that walks each journey in B-2 and counts steps.
-`public_journey.py` already walks much of the public side and could be extended rather than duplicated.
+### Still open
+**G-3 — 23 breakpoints, two colliding at 360px.** The apps use 280, 340, 359, 360, 379, 380, 399,
+420, 599, 600, 640, 700, 720, 760, 899, 900, 999, 1000, 1099, 1100, 1359, 1400 and 1600. Three of
+those — 360, 900, 1100 — are the documented system. **Both `max-width: 359px` (8 uses) and
+`max-width: 360px` (3 uses) exist**, so at exactly 360, the most common Android viewport there is,
+three files switch to their small layout and five do not. Not started; it is a careful sweep, not a
+patch.
 
-### G-2 — Public "My bills" breaks the arrival limit (A-1) — defect
-427px on a phone, **490px on desktop**, against a limit of 400. The worst arrival anywhere in either
-app, on the public page, for the screen whose entire job is showing the bills you follow. Worse than
-the staff Bills screen that 3.1y spent a session bringing down to 386. Cause not yet diagnosed; the
-screenshots are in `tests/out/density/public_*_mybills.png`.
+**G-6 — the old staff app is a third design system.** `styles.css` (2,445 lines) never loads
+`pub/base.css`; it defines `--teal`, `--gold`, `--navy`, `--violet`. The app the team uses every day
+is teal while the public page and Staff v2 are HIPHI blue. Out of scope by Nate's instruction
+(2026-09-19: change Staff v2 and the public tracker only). This is the Staff v2 decision wearing
+different clothes — if the team moves, it closes by deletion.
 
-### G-3 — 23 breakpoints, and two of them collide at 360px (A-9)
-The apps use 23 distinct media-query breakpoints: 280, 340, 359, 360, 379, 380, 399, 420, 599, 600,
-640, 700, 720, 760, 899, 900, 999, 1000, 1099, 1100, 1359, 1400 and 1600. Three of those — 360, 900
-and 1100 — are the documented system; the other twenty grew ad hoc.
-**Both `max-width: 359px` (8 uses) and `max-width: 360px` (3 uses) exist**, so at
-exactly 360 — the most common Android viewport in the world — `pub/bill.css`, `staff/css/lists.css`
-and `staff/css/supporters.css` switch to their small layout while `bills.css`, `today.css`,
-`home.css`, `start.css` and `staff/css/bill.css` do not. This is disharmony with an exact cause.
+**G-7 — four screens carry more than seven text colours.** Staff Today (9 at 1440, 8 at 390), the
+staff bill page (7), public home (8 at 1440, 7 at 390). Worth a look rather than an alarm: four of
+those are the neutral ramp before any meaning colour is spent.
 
-### G-4 — The staff bill page has too many competing controls (A-2) — defect
-**30 distinct kinds at 1440**, 20 at 390, against a limit of 25 and a budget of 15. The highest
-anywhere, and almost nothing repeats — these are 30 genuinely different things asking for attention on
-one screenful. Note this is the *bill page*, not the Bills list: the list measures well.
+**G-8 — five screens between the arrival budget and the limit.** public start 378/144, public
+legislators 382/390, public find 339 (desktop), public home 314/316, staff Bills 386/364. Staff Bills
+is an accepted exception. One fresh observation: public start's 378 includes ~28px of the `?demo=1`
+sandbox banner, so real production arrival is nearer 350.
 
-### G-5 — The stage ribbon's end labels fail contrast (A-7)
-`.sv-riblab` (`staff/staff.css:237`) draws 13px text in `--n400` — 3.47:1, under the 4.5:1 floor. It is
-the "Introduced" and "Law" labels flanking the ribbon; the bold middle is `--p800` and fine. Hidden
-below 420px, so this affects tablet and desktop only. One-token fix: `--n500` gives 4.85:1.
+**G-9 — hooks warn, they do not block.** Nate's choice (2026-09-19). Three are live: JS that does not
+parse, staff data-layer parity, and the `?v=` bumps on a snapshot change.
 
-### G-6 — The old staff app is a third design system
-`styles.css` (2,445 lines) does not load `pub/base.css` and defines its own palette: `--teal #0E7C86`,
-`--gold`, `--navy`, `--violet`. **The app the team uses every day is teal; the public page and Staff v2
-are HIPHI blue.** Nothing in the standard applies to it, and bringing it in would be a rewrite.
-*This is a decision for Nate, and it is really the Staff v2 question wearing different clothes*: if the
-team moves to v2, this gap closes by deletion. Until then, one of the two staff apps will always be
-outside the standard.
+**G-11 (new) — the public Legislators screen does two jobs.** Its own sentence needs an "and": find
+*your* two legislators, and browse all 51. That is why it arrives at 382/390 and why its desktop half
+is empty. B-1 says that is two screens. Not started — it is a product call.
 
-### G-7 — Four screens carry more than seven text colours (A-5)
-Staff Today (9 at 1440, 8 at 390), the staff bill page (8 at 1440, 7 at 390) and public home (8 at
-1440, 7 at 390). Worth a look rather than an alarm: the metric counts every distinct computed colour,
-four of which are the neutral ramp before any meaning colour is spent.
+**G-12 (new) — the public bill page's primary action is a bare `mailto:`.** The identically worded,
+identically styled offer on home opens an in-app composer. Same app, same sentence, two different
+things happen, and one of them throws a first-time visitor into a mail app they may not have set up.
+Not started.
 
-### G-8 — Six screens sit between the arrival budget and the limit (A-1)
-On the backlog, not defects: public start 378, public legislators 382/390, public find 339 (desktop),
-staff Bills 386/364. **Staff Bills is an accepted exception** — 3.1y took it from 505 to 386 with a
-measured three-way comparison and Nate picked the result. Recorded here so nobody reopens it without
-knowing that.
-
-### G-9 — Nothing is enforced automatically
-No hooks exist, so every rule depends on the session remembering to run the review. Nate was offered
-blocking vs warning hooks on 2026-09-19 and chose to see the standard first. The three worth having,
-when he wants them: parity must pass when a staff data layer changes; the three `?v=` bumps must
-accompany any `snapshot.json` change; `node --check` on every edited JS file.
-
-### G-10 — The instructions drift, and have already drifted
-`frontend/CLAUDE.md:223` still lists "No quick-look button on a phone Bills row" as a known gap. It
-shipped on 2026-09-19 (`bl-plk`, `staff/bills.js:266`), and the same file describes the chevron
-correctly 100 lines earlier. A session reading line 223 would "fix" something that is not broken.
-Fix: the ship checklist should update the instructions in the same commit as the code.
-
----
+**G-13 (new) — Capitol jargon sits in the staff app's own chrome with no gloss.** "2nd triple filing",
+"2nd Lateral", "stop 1 of 2", "2nd Decking". Help's first topic is a fourteen-term glossary, which
+under P-4 is the tell: the glossary exists because the screens do not teach. The bill page already
+proves it can be done in six words ("reach the last committee by this date"); Today and Bills do not.
 
 ## 4. Accepted exceptions
 
 | Screen | Rule | Value | Why, and when decided |
 |---|---|---|---|
-| Staff Bills, phone | A-1 arrival | 386px | 3.1y measured three options at 320×568 and Nate picked hiding the strip below 360px. Taking it below 320 would cost the "where every bill stands" counts, which he asked for. 2026-09-19. |
-| Desktop Bills | A-3 / parity with phone | three quick filter chips kept | On desktop they share a line with the totals and cost no vertical space. Nate has a standing offer to make phone and desktop match. 2026-09-19. |
+| Staff Bills, phone | A-1 arrival | 386px | 3.1y measured three options at 320×568 and Nate picked hiding the strip below 360px. Going lower costs the "where every bill stands" counts, which he asked for. 2026-09-19. |
+| Desktop Bills | phone/desktop parity | three quick filter chips kept | On desktop they share a line with the totals and cost no vertical space. Nate has a standing offer to make them match. 2026-09-19. |
+| Today, filled buttons per screenful | A-3 | one per list row | A-3 says one primary in view; Today repeats one action down a list of identical rows. Raised 2026-09-20 as a rule to amend rather than a screen to change — **Nate's call**, see HANDOFF 3.2. |

@@ -54,26 +54,30 @@ TOP_JS = """(sel) => { for (const e of document.querySelectorAll(sel)) {
 # Every control pressable without scrolling. Hick's law: choosing takes longer the more
 # options there are, so this is the nearest thing to a measurable "overwhelming".
 CHOICES_JS = r"""(() => {
-  // Two numbers, because they mean different things. `all` is every control pressable
-  // without scrolling. `kinds` is how many DIFFERENT ones there are: twenty-five rows of
-  // a bill table are one decision repeated, not twenty-five decisions, and Hick's law is
-  // about competing alternatives. `kinds` is the one the budget is set against; `all` is
-  // kept because a screen where the two diverge wildly is a screen that is mostly list,
-  // which is usually a good sign.
-  const H = window.innerHeight, seen = new Set(); let all = 0;
+  // Three numbers, because they mean different things.
+  //   all   - every control pressable without scrolling.
+  //   kinds - how many DIFFERENT ones, inside the content region only. Twenty-five rows of a bill
+  //           table are one decision repeated, not twenty-five decisions, and Hick's law is about
+  //           competing alternatives. This is the number A-2's budget is set against.
+  //   nav   - the persistent furniture: sidebar, header, tab bar. Counted separately because it is
+  //           the SAME on every screen, learned once and then ignored; folding it into `kinds` made
+  //           every desktop screen look 12 controls worse than it is and would have sent somebody
+  //           to simplify a screen whose content was already fine. Navigation is judged by B-13
+  //           (does a destination earn its place), not by this budget.
+  const H = window.innerHeight, main = document.querySelector('main') || document.body;
+  const kinds = new Set(), nav = new Set(); let all = 0;
   document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab]').forEach(e => {
     if (e.offsetParent === null || e.closest('.skip')) return;
     const r = e.getBoundingClientRect();
     if (r.top >= H || r.bottom <= 0 || r.width < 8 || r.height < 8) return;
     if (getComputedStyle(e).visibility === 'hidden') return;
     all++;
-    // a row in a list is the same KIND of choice however many times it repeats
     const row = e.closest('tr, li, .row, .bl-prow, .td-card, .mb-row');
     const key = row ? 'listitem:' + ((row.className || '') + '').split(' ')[0]
                     : (e.tagName + ':' + ((e.innerText || e.getAttribute('aria-label') || e.type || '') + '').trim().slice(0, 24));
-    seen.add(key);
+    (main.contains(e) ? kinds : nav).add(key);
   });
-  return { all, kinds: seen.size }; })()"""
+  return { all, kinds: kinds.size, nav: nav.size }; })()"""
 
 # Distinct text colours in view: how many signals compete for the eye at once.
 COLOURS_JS = r"""(() => { const c = new Set(), m = document.querySelector('main') || document.body;
@@ -97,7 +101,7 @@ def run(br, base, routes, app, W, H, tag, seed):
         p.screenshot(path=f'{OUT}/{app}_{tag}_{name}.png')
         ch = p.evaluate(CHOICES_JS)
         rows.append({'app': app, 'width': W, 'screen': name, 'want': want,
-                     'arrival': top, 'choices': ch['all'], 'kinds': ch['kinds'],
+                     'arrival': top, 'choices': ch['all'], 'kinds': ch['kinds'], 'nav': ch['nav'],
                      'type_sizes': len(p.evaluate(checks.FONTS_JS)['sizes']),
                      'colours': p.evaluate(COLOURS_JS)})
     c.close()
@@ -113,12 +117,12 @@ def main():
         b.close()
     if '--json' in sys.argv:
         print(json.dumps(out, indent=1)); return
-    print(f'{"app":8} {"width":7} {"screen":12} {"they came for":22} {"arrival":>8} {"all":>5} {"kinds":>6} {"sizes":>6} {"colours":>8}')
+    print(f'{"app":8} {"width":7} {"screen":12} {"they came for":22} {"arrival":>8} {"all":>5} {"kinds":>6} {"nav":>4} {"sizes":>6} {"colours":>8}')
     print('-' * 84)
     for r in out:
         a = 'NOT FOUND' if r['arrival'] is None else str(r['arrival'])
         print(f'{r["app"]:8} {r["width"]:<7} {r["screen"]:12} {r["want"]:22} {a:>8} '
-              f'{r["choices"]:>5} {r["kinds"]:>6} {r["type_sizes"]:>6} {r["colours"]:>8}')
+              f'{r["choices"]:>5} {r["kinds"]:>6} {r["nav"]:>4} {r["type_sizes"]:>6} {r["colours"]:>8}')
     print(f'\nscreenshots: {OUT}')
     print('thresholds: DESIGN.md A-1 (arrival), A-2 (kinds), A-4 (sizes), A-5 (colours)')
 

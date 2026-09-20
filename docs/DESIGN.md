@@ -84,12 +84,17 @@ idea stated as structure rather than pixels.
 
 ### A-2 Choice: at most 15 different kinds of control on the first screenful
 
-**Budget 15 kinds. Limit 25 kinds.** Count distinct kinds, not instances — twenty-five rows of a bill
-table are one decision repeated, not twenty-five decisions. `density.py` reports both.
+**Budget 15 kinds. Limit 25 kinds**, counted **inside the content region only**. Count distinct kinds,
+not instances — twenty-five rows of a bill table are one decision repeated, not twenty-five decisions.
+Persistent navigation (sidebar, header, tab bar) is counted separately and is **not** part of this
+budget. `density.py` reports all three numbers.
 
-*Reason.* Hick's law: the time to choose grows with the number of competing alternatives. Repetition
-does not compete with itself; a list is easy to scan precisely because every row is the same offer.
-The number that hurts is how many *different* things are asking for attention at once.
+*Reason.* Hick's law: the time to choose grows with the number of competing alternatives. Two things
+do not compete the way they first appear to. Repetition does not compete with itself — a list is easy
+to scan precisely because every row is the same offer. And persistent navigation is identical on every
+screen, learned once and then ignored; counting it made every desktop screen look thirteen controls
+worse than it was, and would have sent somebody to simplify a screen whose content was already fine.
+Navigation is judged by B-13 — whether a destination earns its place — not by this budget.
 
 ### A-3 One primary action per screen
 
@@ -530,7 +535,8 @@ far more than more features do.
 | | Budget | Limit | Measured by |
 |---|---|---|---|
 | Arrival (A-1) | 320px | 400px | `tests/density.py` |
-| Choice kinds on first screenful (A-2) | 15 | 25 | `tests/density.py` |
+| Choice kinds in the content region (A-2) | 15 | 25 | `tests/density.py` |
+| Journeys working and inside budget (B-2) | all | all | `tests/journeys.py` |
 | Primary actions in view (A-3) | 1 | 1 | review |
 | Type sizes per screen (A-4) | 5 staff / 6 public | as budget | `tests/density.py` |
 | Distinct text colours in view (A-5) | 7 | — | `tests/density.py` |
