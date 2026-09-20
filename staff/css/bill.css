@@ -303,7 +303,8 @@
   .bw-msgt, .bw-log .small, .bw-off li, .bw-offt, .bw-none { max-width: 32em; }     /* about 70 characters */
   .bw-act { padding-bottom: var(--s32); }                         /* the toast sits below the box, not on it */
   .bw-desk .bw-act .bw-sech .meta { padding-top: 0; }             /* "Log activity" is under the message box here */
-  .bw-inbox { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n200); }
+  /* The box sits ABOVE the stream now (newest first), so its rule belongs underneath it. */
+  .bw-inbox { margin-bottom: var(--s16); padding-bottom: var(--s16); border-bottom: 1px solid var(--n200); }
   .bw-inbox .bw-crow textarea { border-radius: var(--r12); }
   .bw-inbox .bw-send { border-radius: var(--r12); }
   .bw-cfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 2px -12px 0 2px; }

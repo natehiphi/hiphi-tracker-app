@@ -1,5 +1,7 @@
 // HIPHI Staff v2 · Bill > Activity (plan 3.3). The team's chat, the team's log and the Capitol's record in ONE stream,
-// oldest at the top and newest just above the message box, like any messaging app. The Capitol's actions are
+// NEWEST AT THE TOP, with the message box above it (Nate, 9/20). It was built the other way round, like a
+// messaging app, and it auto-scrolled to the bottom on open so you always landed on the newest entry. He reads
+// it as a record rather than a conversation, and a record puts the latest thing where the eye starts. The Capitol's actions are
 // clerical and many (a day can bring five), so each day is condensed to one line that opens to the full text.
 // Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits at the end of the
 // stream, inside the column, and says what Enter and Shift+Enter do. Typing @ offers teammates to notify.
@@ -27,10 +29,11 @@ export function loadTimeline(b, force = false) {
 function refreshStream(b) {
   const box = document.getElementById('bw-stream');
   if (!box || box.dataset.bill !== String(b.id)) return;
-  const nearEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 240;
+  // New activity lands at the top now, so it is the top that must be held, not the bottom.
+  const nearTop = window.scrollY <= 240;
   box.innerHTML = streamInner(b);
   wireStream(box, b);
-  if (nearEnd) window.scrollTo(0, document.documentElement.scrollHeight);
+  if (nearTop) window.scrollTo(0, 0);
 }
 
 // ---- building the stream ----
@@ -65,8 +68,9 @@ function items(b) {
     if (ev.source === 'team') { out.push({ kind: 'log', at: ev.occurred_at, ev }); continue; }
     const k = hstDayOf(ev.occurred_at); if (!official.has(k)) official.set(k, []); official.get(k).push(ev);
   }
-  for (const [day, evs] of official) { evs.sort((x, y) => String(x.occurred_at).localeCompare(String(y.occurred_at))); out.push({ kind: 'day', at: evs[0].occurred_at, day, evs }); }
-  return out.sort((x, y) => String(x.at).localeCompare(String(y.at)));
+  // Within one day the Capitol's actions read newest first too, so the whole stream runs one direction.
+  for (const [day, evs] of official) { evs.sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at))); out.push({ kind: 'day', at: evs[0].occurred_at, day, evs }); }
+  return out.sort((x, y) => String(y.at).localeCompare(String(x.at)));
 }
 const timeOf = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });
 function dayLabel(iso) {
@@ -107,9 +111,8 @@ function itemHTML(b, it) {
 }
 function streamInner(b) {
   const all = items(b), loading = !(S.bwTL && b.id in S.bwTL);
-  const showAll = !!S.bwActAll?.[b.id], shown = showAll ? all : all.slice(-LIMIT);
+  const showAll = !!S.bwActAll?.[b.id], shown = showAll ? all : all.slice(0, LIMIT);
   let html = '';
-  if (all.length > shown.length) html += btn(`Show earlier activity (${all.length - shown.length})`, { kind: 'text', icon: 'history', attrs: { 'data-earlier': '1' }, cls: 'bw-earlier' });
   if (loading) html += `<p class="meta bw-loading">${icon('loader-circle')}Loading the Capitol’s record…</p>`;
   if (S.bwTLErr?.[b.id]) html += `<p class="meta">The Capitol’s record did not load. Messages still work.</p>`;
   if (!all.length && !loading) return html + `<p class="bw-none">Nothing here yet. Write the first message below; the owner and followers see it.</p>`;
@@ -119,16 +122,18 @@ function streamInner(b) {
     if (k !== last) { html += `<h3 class="bw-day">${esc(dayLabel(it.at))}</h3>`; last = k; }
     html += itemHTML(b, it);
   }
+  // Older entries are older, so the way to them is downwards now, not upwards.
+  if (all.length > shown.length) html += btn(`Show earlier activity (${all.length - shown.length})`, { kind: 'text', icon: 'history', attrs: { 'data-earlier': '1' }, cls: 'bw-earlier' });
   return html;
 }
-// inline: on desktop the message box is drawn here, at the end of the stream, not as the page's bottom bar.
+// inline: on desktop the message box is drawn here, ABOVE the stream, not as the page's bottom bar.
 export function renderActivity(b, { inline = false } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
   return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
     <h2 id="bw-act-h" class="sr">Activity</h2>
     <div class="bw-sech"><p class="meta">The owner, followers and anyone you @mention get a Slack DM.${DEMO ? ' The sandbox stops at Mar 16, 2026.' : ''}</p>${inline ? '' : logBtn}</div>
+    ${inline ? `<div class="bw-inbox bw-inbox-top">${composerBar(b, { hint: true })}</div>` : ''}
     <div class="bw-stream" id="bw-stream" data-bill="${esc(b.id)}">${streamInner(b)}</div>
-    ${inline ? `<div class="bw-inbox">${composerBar(b, { hint: true })}</div>` : ''}
   </section>`;
 }
 
@@ -158,12 +163,11 @@ function keepAboveKeyboard() {
     const off = Math.round(window.innerHeight - vv.height - vv.offsetTop); bar.style.transform = off > 40 ? `translateY(${-off}px)` : ''; };
   vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
 }
-const toBottom = () => window.scrollTo(0, document.documentElement.scrollHeight);
+const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
 export function wireActivity(pnl, b, route, root) {
   const entry = viewIsNew();
-  // Opened (or came back to) the tab: show the newest entries, just above the message box.
-  if (entry) requestAnimationFrame(toBottom);
+  // Nothing to scroll to on open any more: the newest entry is the first one.
   if (unreadCount(b)) DB.markChatSeen(b.id).catch(() => {});
   pnl.querySelector('[data-log]').onclick = () => logSheet(b);
   wireStream(pnl.querySelector('#bw-stream'), b);
@@ -204,7 +208,7 @@ export function wireActivity(pnl, b, route, root) {
     const send = form.querySelector('.bw-send'); send.setAttribute('aria-busy', 'true'); ta.readOnly = true;
     try {
       await DB.sendMessage(b.id, body); drafts.delete(key);
-      rerender('#bw-chat'); requestAnimationFrame(toBottom);
+      rerender('#bw-chat'); requestAnimationFrame(toTop);
     } catch (x) { send.removeAttribute('aria-busy'); ta.readOnly = false; toast(x, { err: true }); }
   };
   // A Reply button elsewhere (Today) opens this tab with ?reply=1: the cursor goes straight into the box.
