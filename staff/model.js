@@ -516,8 +516,9 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
         log: { type: 'meeting', title: `Asked ${m ? m.who : 'the chair'} for a hearing` } });
     }
 
-    // 2. Public, but the public page can only show the Capitol's own title. 69 of 248 bills were in this state
-    //    when the nicknames were loaded, so this is a real backlog, not a hypothetical.
+    // 2. Public, but the public page can only show the Capitol's own title. 69 of 248 position bills were in this
+    //    state when the nicknames were loaded; that backlog was filled on 9/19, so the rule now fires only on a
+    //    bill made public before anyone has written its summary - which is exactly when it should.
     if (b.is_public && !String(b.public_summary || '').trim()) {
       add({ kind: 'summary', key: `sg:sum:${b.id}`, b, title: 'Write a plain summary for the public page',
         why: 'The public page shows supporters only the official title',
