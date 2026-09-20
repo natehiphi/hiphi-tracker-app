@@ -54,37 +54,79 @@
 .sp-page .empty { margin-top: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
 .sp-page .empty h2 { font-size: var(--t18); }
 
-/* ---- desktop table ---- */
-.sp-page .sp-table { width: 100%; margin-top: var(--s12); table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); font-size: var(--t14); }
-.sp-page .sp-table col.c-cb { width: 52px; }
-.sp-page .sp-table col.c-where { width: 22%; }
-.sp-page .sp-table col.c-n { width: 84px; }
-.sp-page .sp-table col.c-em { width: 150px; }
-.sp-page .sp-table col.c-last { width: 112px; }
-.sp-page .sp-table th { position: sticky; top: var(--header); z-index: 2; height: 40px; padding: 0 var(--s12); background: var(--n50); border-bottom: 1px solid var(--n200);
-  font: 700 var(--t13)/1.2 var(--font); color: var(--n500); text-align: left; white-space: nowrap; }
-.sp-page .sp-table thead th:first-child { border-top-left-radius: var(--r16); }
-.sp-page .sp-table thead th:last-child { border-top-right-radius: var(--r16); }
-.sp-page .sp-table td { height: 52px; padding: 4px var(--s12); border-bottom: 1px solid var(--n100); color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-page .sp-table tbody tr:last-child td { border-bottom: 0; }
+/* ---- desktop table: the Bills table's look (pinned 40px header whose columns sort, 52px rows, a hover wash, the
+   whole row opens). The first row's cells set the widths (fixed layout): Name takes what is left and is never cut,
+   Tags a share, the rest what they need. The wrapper is a size container, so columns leave by the room the TABLE
+   has (the sidebar takes 248px of the window at 1100px and wider), and the page never scrolls sideways. ---- */
+.sp-page .sp-tsum { margin: var(--s12) 0 var(--s8); font-size: var(--t14); color: var(--n500); }
+.sp-page .sp-tsum b { color: var(--n900); }
+.sp-page .sp-twrap { container: sptable / inline-size; }
+.sp-page .sp-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); }
+.sp-page .sp-table thead th { position: sticky; top: var(--header); z-index: 6; height: 40px; padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200);
+  font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-page .sp-table thead th:first-child { border-top-left-radius: var(--r12); }
+.sp-page .sp-table thead th:last-child { border-top-right-radius: var(--r12); }
+.sp-page .sp-table th.c-cb { width: 44px; }
+.sp-page .sp-table th.c-where { width: 116px; }
+.sp-page .sp-table th.c-phone { width: 122px; }
+.sp-page .sp-table th.c-tags { width: 16%; }
+.sp-page .sp-table th.c-follows { width: 84px; }
+.sp-page .sp-table th.c-actions { width: 84px; }
+.sp-page .sp-table th.c-score { width: 72px; }
+.sp-page .sp-table th.c-emails { width: 148px; }
+.sp-page .sp-table th.c-active { width: 108px; }
+.sp-page .sp-table th.c-joined { width: 84px; }
+.sp-page .sp-table .c-score, .sp-page .sp-table .c-joined, .sp-page .sp-table .c-emails { display: none; }
+@container sptable (min-width: 1080px) { .sp-page .sp-table .c-score, .sp-page .sp-table .c-joined { display: table-cell; } }
+@container sptable (min-width: 1400px) { .sp-page .sp-table .c-emails { display: table-cell; } }
+@container sptable (max-width: 879px) { .sp-page .sp-table .c-actions { display: none; } }
+.sp-page .sp-sort { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; max-width: 100%; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.sp-page .sp-sort:hover { color: var(--n900); background: var(--n100); }
+.sp-page .sp-sort.on { color: var(--n900); }
+.sp-page .sp-sort .ic { width: 14px; height: 14px; flex: none; opacity: 0; }
+.sp-page .sp-sort:hover .ic, .sp-page .sp-sort:focus-visible .ic { opacity: .55; }
+.sp-page .sp-sort.on .ic { opacity: 1; }
+.sp-page .sp-table td { height: 52px; padding: 4px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-page .sp-table tbody tr:first-child td { border-top: 0; }
 .sp-page .sp-table tbody tr { cursor: pointer; }
 .sp-page .sp-table tbody tr:hover td { background: var(--n50); }
 .sp-page .sp-table tbody tr.sel td { background: var(--p50); }
-.sp-page .sp-table .num { text-align: right; }
-.sp-page .sp-table th.cb, .sp-page .sp-table td.cb { padding: 0 4px; }
-.sp-page .sp-cbl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: pointer; }
+.sp-page .sp-table tbody tr:last-child td:first-child { border-bottom-left-radius: var(--r12); }
+.sp-page .sp-table tbody tr:last-child td:last-child { border-bottom-right-radius: var(--r12); }
+.sp-page .sp-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sp-page .sp-table th.c-cb, .sp-page .sp-table td.c-cb { padding: 0; text-align: center; }
+.sp-page .sp-cbl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; }
 .sp-page .sp-cbl input { width: 20px; height: 20px; margin: 0; accent-color: var(--p700); cursor: pointer; }
-.sp-page .sp-table td.who a { display: block; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--n900); text-decoration: none; }
-.sp-page .sp-table td.who a:hover { color: var(--p700); text-decoration: underline; }
-.sp-page .sp-table td.who .em { display: block; overflow: hidden; text-overflow: ellipsis; font-size: var(--t13); color: var(--n500); }
-.sp-page .sp-flag { display: inline-flex; align-items: center; gap: 4px; margin-right: var(--s8); font-weight: 700; color: var(--n900); }
-.sp-page .sp-flag .ic { width: 16px; height: 16px; }
+.sp-page .sp-table td.c-name { white-space: normal; }
+.sp-page .sp-nm { display: block; font-weight: 700; color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }
+.sp-page .sp-table tr:hover .sp-nm, .sp-page .sp-nm:hover { color: var(--p700); text-decoration: underline; }
+.sp-page .sp-em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t13); color: var(--n500); }
+.sp-page .sp-l1 { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--n900); }
+.sp-page .sp-l2 { display: block; overflow: hidden; text-overflow: ellipsis; font-size: var(--t13); color: var(--n500); }
+.sp-page .sp-table td.c-phone { font-variant-numeric: tabular-nums; cursor: text; }
+.sp-page .sp-table td.c-tags { white-space: normal; }
+.sp-page .sp-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-height: 52px; overflow: hidden; }
+.sp-page .sp-tags .chip { max-width: 100%; min-height: 24px; padding: 2px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 20px; }
+.sp-page .sp-tagmore { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.sp-page .sp-dash { color: var(--n400); }
+.sp-page .sp-flag { display: inline-flex; align-items: center; gap: 4px; margin-right: var(--s8); font-weight: 700; color: var(--n900); vertical-align: bottom; }
+.sp-page .sp-flag .ic { width: 14px; height: 14px; }
 
-/* ---- select-mode bar (replaces the tab bar on phones) ---- */
-.sp-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; }
-.sp-bar .sp-selcount { flex: 1 1 auto; min-width: 0; font-size: var(--t16); font-weight: 700; color: var(--n900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sp-bar .btn { flex: 0 1 auto; padding: 0 16px; }
-.sp-bar .iconbtn { color: var(--n900); }
+/* ---- the select bar (replaces the tab bar on phones; under the table on desktop). One layout everywhere, the same
+   as Bills: x on the left, the count, the actions on the right. It is a size container: when the bar is narrow the
+   word "selected" goes (the number stays whole), so the count is never cut to "1 selec…". ---- */
+.sp-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; container: spbar / inline-size; }
+.sp-bar .sp-selcount { flex: 1 1 auto; min-width: 0; font-size: var(--t16); color: var(--n900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-bar .sp-selcount b { font-weight: 700; }
+.sp-bar .sp-baract { display: flex; align-items: center; gap: var(--s8); flex: none; }
+.sp-bar .btn { flex: 0 0 auto; padding: 0 16px; }
+.sp-bar .iconbtn { color: var(--n900); margin-left: -8px; }
+@container spbar (max-width: 345px) {
+  .sp-bar .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@container spbar (max-width: 399px) {
+  .sp-bar.sp-many .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 
 /* ---- a person ---- */
 .sp-person .sp-deskback { display: none; }
@@ -123,6 +165,7 @@
 .sp-person .sp-lists { margin-bottom: var(--s8); }
 .sp-person a.sp-listchip { min-height: 44px; padding: 8px 14px; background: var(--n0); border: 1px solid var(--n300); color: var(--p700); font-size: var(--t14); text-decoration: none; }
 .sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
+.sp-person .sp-nick .sv-t { font-weight: 700; color: var(--n900); }   /* a nickname names the bill, so it is bold; the plain summary is the line under it */
 .sp-person .sp-showall { justify-content: center; gap: 6px; min-height: 48px; color: var(--p700); font-weight: 700; font-size: var(--t14); }
 .sp-person .sp-showall .ic { width: 18px; height: 18px; }
 .sp-person .sp-feed { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
@@ -199,15 +242,82 @@
 
 /* ---- desktop ---- */
 @media (min-width: 900px) {
+  /* One tool row in the Bills page's order: the title, the search box, then Filter, Add a person and the menu on the
+     right, with the same button looks as Bills (a blue-ringed Filter, a plain three-dot button). */
   .sp-page .sp-h1 { display: block; position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .sp-page .sp-tools { margin-top: var(--s16); }
-  .sp-page .sp-search { flex: 0 1 420px; }
+  .sp-page.sp-side .sp-h1 { position: static; width: auto; height: auto; margin: 0 var(--s8) 0 0; overflow: visible; clip: auto; flex: none; font-size: var(--t22); }
+  .sp-page .sp-tools { gap: var(--s12); margin-top: 0; }
+  /* 900 to 1099px has no sidebar, so the Supporters / Lists / Emails switcher leads the row instead of the title */
+  .sp-page .sp-tools .sp-seg { flex: none; width: auto; max-width: none; }
+  .sp-page .sp-tools .sp-seg a { flex: none; padding: 0 var(--s16); }
+  .sp-page .sp-search { flex: 0 1 360px; min-width: 180px; }
+  .sp-page .sp-sp { flex: 1 1 auto; }
+  .sp-page .sp-filterbtn { box-shadow: inset 0 0 0 2px var(--p700); color: var(--p700); padding: 0 16px; }
+  .sp-page .sp-filterbtn:hover { box-shadow: inset 0 0 0 2px var(--p700); background: var(--p50); }
+  .sp-page .sp-tools > .iconbtn { border: 0; background: none; }
+  .sp-page .sp-tools > .iconbtn:hover { background: var(--n100); }
   .sp-page .sp-segs { flex-wrap: wrap; overflow: visible; margin: var(--s12) 0 0; padding: 0; }
+  .sp-page .sp-segs .chip:hover { border-color: var(--p700); background: var(--p50); }
+  .sp-page .sp-active { margin-top: var(--s12); }
+  /* The Filter panel: a fixed size under its button, so it never grows off the window as choices change; its four
+     groups scroll inside it. (Only when ui.js anchored it; a touch tablet gets the centred sheet.) */
+  dialog.sv-sheet.sv-pop.sp-fpop { width: 440px; max-width: calc(100vw - 32px); height: min(600px, calc(100vh - 260px)); min-height: 320px; max-height: none; }
+  dialog.sv-sheet.sv-pop.sp-fpop .sv-sh-body { padding: var(--s8) var(--s16) var(--s16); }
+  dialog.sv-sheet.sv-pop.sp-fpop .sv-sh-foot .btn { min-height: 44px; }
+  /* The select bar sits under the table: the actions keep to the right, sized to their labels. */
+  .sp-bar .sp-selcount { flex: 0 0 auto; margin-right: auto; }
   .sp-person .sp-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s8) -8px; padding: 0 12px 0 4px; border-radius: var(--pill);
     color: var(--p700); font-weight: 700; text-decoration: none; }
   .sp-person .sp-deskback:hover { background: var(--p50); }
   .sp-person .sp-deskback .ic { width: 20px; height: 20px; }
   .sp-person .sp-acts4 { max-width: 520px; }
   .sp-person .sp-kv { grid-template-columns: 140px 1fr; }
-  .sp-bar .sp-selcount { flex: 0 0 auto; margin-right: auto; }
+  .sp-person .sp-num { color: var(--n900); font-variant-numeric: tabular-nums; }
+  .sp-person .sp-copy { font-weight: 700; }
+  .sp-person .sp-act:hover, .sp-person a.row:hover { background: var(--p50); }
+}
+
+/* ---- a person on a wide screen (1100px and wider): what they follow and the feed in the main column; a side panel
+   that stays in view with contact, districts, tags, consent and their numbers (.sv-cols + .sv-aside in staff.css) ---- */
+@media (min-width: 1100px) {
+  .sp-two .sp-phead { margin-bottom: var(--s16); }
+  .sp-two .sp-pname h1 { padding-top: 4px; }
+  .sp-two .sp-main { min-width: 0; }
+  .sp-two .sp-main > .sp-sec:first-child .sechead { margin-top: 0; }
+  .sp-two .sp-sec .sechead { margin-top: var(--s24); }
+  .sp-two .sp-fbills .sv-billrow { min-height: 56px; }
+  .sp-two .sp-fkinds { margin-bottom: var(--s8); gap: var(--s8); }
+  .sp-two .sp-fkinds .chip { min-height: 36px; padding: 4px 12px; }
+  .sp-two .sp-fkinds .chip[aria-pressed="true"] { padding: 3px 11px; }
+  .sp-two .sp-fkinds .chip:hover { border-color: var(--p700); background: var(--p50); }
+  .sp-two .sp-fkinds .chip .ic { width: 16px; height: 16px; }
+  .sp-two .sp-fkinds .sp-cn { font-size: var(--t13); font-weight: 400; color: var(--n500); margin-left: 2px; }
+  .sp-two .sp-fi { padding: var(--s8) 0; }
+  .sp-two .sp-aside { gap: var(--s12); }
+  .sp-two .sp-aside .card { padding: var(--s12) var(--s16); }
+  .sp-two .sp-aside .card + .card { margin-top: 0; }
+  .sp-two .sp-sc h2 { font-size: var(--t16); }
+  .sp-two .sp-sc > h2 { margin-bottom: var(--s8); }
+  .sp-two .sp-sch { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 32px; margin: -6px 0 var(--s4); }
+  .sp-two .sp-sch .btn.text { margin-right: -12px; min-height: 40px; }
+  .sp-two .sp-sl { display: flex; align-items: center; gap: var(--s8); min-height: 40px; }
+  .sp-two .sp-sl > .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+  .sp-two .sp-slb { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); overflow-wrap: anywhere; font-size: var(--t14); }
+  .sp-two .sp-slb .btn.text { flex: none; min-height: 40px; margin-right: -12px; }
+  .sp-two .sp-slb .btn.text .ic { width: 16px; height: 16px; }
+  .sp-two .sp-slb .btn.text:hover, .sp-two .sp-sch .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .sp-two .sp-sbtns { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
+  .sp-two .sp-sbtns .btn { flex: 1 1 auto; padding: 0 12px; }
+  .sp-two .sp-sdl { margin: 0; }
+  .sp-two .sp-skv { display: grid; grid-template-columns: 76px 1fr; gap: var(--s8); padding: 4px 0; font-size: var(--t14); }
+  .sp-two .sp-skv dt { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+  .sp-two .sp-skv dd { margin: 0; min-width: 0; color: var(--n900); overflow-wrap: anywhere; }
+  .sp-two .sp-skv dd .meta { display: block; margin-top: 2px; }
+  .sp-two .sp-skv dd .chips { gap: 4px; }
+  .sp-two .sp-snone { font-size: var(--t14); }
+  .sp-two .sp-lock { display: flex; align-items: flex-start; gap: 6px; margin-top: var(--s8); }
+  .sp-two .sp-lock .ic { width: 14px; height: 14px; margin-top: 2px; flex: none; }
+  .sp-two .sp-can { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sp-two .sp-can li { display: flex; align-items: flex-start; gap: var(--s8); color: var(--n900); font-size: var(--t14); }
+  .sp-two .sp-can .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
 }

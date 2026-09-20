@@ -402,9 +402,11 @@ const DB = {
       { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });
     if (error) throw error;
     arr[i] = data;
+    // An approval can be undone for a few seconds (migration 058). Its messages wait out that window before the
+    // outbox is nudged, so an Undo holds them before anyone is told; everything else goes at once.
     const tok = S.session?.access_token;
-    if (tok) fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST',
-      headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {});
+    if (tok) setTimeout(() => fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {}), action === 'approve' ? 12000 : 0);
   },
   async deleteTodo(billId, id) {
     const arr = S.todos[billId] || [];
@@ -610,7 +612,7 @@ const DB = {
     Object.assign(S.alerts.find(x => x.id === a.id) || {}, data); return data;
   },
   async alertStep(id, action, note) {
-    if (DEMO) { const a = S.alerts.find(x => x.id === id); const next = { submit: 'submitted', approve: 'approved', return: 'returned', send: 'sent', test: a.status }[action]; Object.assign(a, { status: next, review_note: action === 'return' ? note : a.review_note, sent_at: action === 'send' ? new Date().toISOString() : a.sent_at, recipients: action === 'send' ? 12 : a.recipients }); return a; }
+    if (DEMO) { const a = S.alerts.find(x => x.id === id); const next = { submit: 'submitted', approve: 'approved', unapprove: 'submitted', return: 'returned', send: 'sent', test: a.status }[action]; Object.assign(a, { status: next, review_note: action === 'return' ? note : a.review_note, sent_at: action === 'send' ? new Date().toISOString() : a.sent_at, recipients: action === 'send' ? 12 : a.recipients }); return a; }
     const { data, error } = await S.supa.rpc('action_alert_step', { p_id: id, p_action: action, p_note: note || null }); if (error) throw error;
     Object.assign(S.alerts.find(x => x.id === id) || {}, data);
     const tok = S.session?.access_token;   // nudge the outbox so DMs, tests and sends go now
@@ -625,6 +627,14 @@ const DB = {
     Object.assign(row, patch, { updated_by: S.me?.id, updated_at: new Date().toISOString() });
     if (DEMO) return;
     const { error } = await S.supa.from('legislator_stances').upsert({ bill_id: billId, legislator_id: legId, stance: row.stance, note: row.note, contact_id: row.contact_id, updated_by: S.me?.id, updated_at: row.updated_at }); if (error) throw error;
+  },
+  // The newest logged conversation for every legislator, in one request (the Legislators table's "Last contact").
+  async legLatestNotes() {
+    if (S.legLast) return S.legLast;
+    if (DEMO) return (S.legLast = {});
+    const { data, error } = await S.supa.from('legislator_notes').select('id,legislator_id,advocate_id,body,created_at').order('created_at', { ascending: false }).limit(2000); if (error) throw error;
+    const out = {}; for (const r of data || []) if (!out[r.legislator_id]) out[r.legislator_id] = r;
+    return (S.legLast = out);
   },
   async legNotes(legId) {
     if (S.legNotes[legId]) return S.legNotes[legId];
@@ -809,7 +819,7 @@ async function demoInit() {
   S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(isMine).map(b => b.id)); const out = [];
     for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
-      if (d.status === 'review') out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
+      if (d.status === 'review' && S.me?.is_admin) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
       if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
     for (const a of DEMO_TL) { const ab = S.bills.find(b => b.id === a.bill_id); if (!ab || (ab.position === 'monitor' && !S.follows.has(ab.id))) continue;
       if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), direct: false, priority: ab.priority, kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 7 * 864e5 }); }
@@ -2807,7 +2817,8 @@ function memoData() {
   const inScope = b => b.position !== 'monitor' && (v.who !== 'me' || mineB(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
   const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
-  const short = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
+  const short = b => { if (b.nickname) return b.nickname;   // the memo names a bill the way the team does
+    const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
   const name = b => `${billNum(b).replace(/^(\D+)/, '$1 ')} (${short(b)})`;
   const gates = sessionGates(bills).filter(g => !g.past), g = gates[0], g2 = gates.find(x => x.racing.length);
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
@@ -3539,6 +3550,11 @@ function demoTransition(d, action, note, url) {
   else if (action === 'withdraw') d.status = 'draft';
   else if (action === 'file') Object.assign(d, { status: 'filed', filed_by: me.id, filed_at: now, filed_url: url || null });
   else if (action === 'unfile') Object.assign(d, { status: 'approved', filed_by: null, filed_at: null, filed_url: null });
+  else if (action === 'unapprove') {   // as the server does (058): the approver, while nothing further has happened
+    if (d.status === 'approved' && d.second_approved_by === me.id) Object.assign(d, { status: 'second_review', second_approved_by: null, second_approved_at: null });
+    else if (['second_review', 'approved'].includes(d.status) && d.approved_by === me.id && !d.second_approved_by) Object.assign(d, { status: 'review', approved_by: null, approved_at: null, first_for_bill: null });
+    else bad('This approval can no longer be undone.');
+  }
   else bad('Unknown action');
 }
 function draftFor(billId, committee) {

@@ -3,10 +3,13 @@
 // cannot be published, only public bills can be added, each bill can carry a public note, the order is rewritten as
 // sort_order 100, 101, … and Archive asks first. Reorder: a 44px drag handle on desktop (arrow keys work on it too),
 // Move up / Move down in each row's ⋯ everywhere.
+// Desktop (1100px and wider) is two columns: the bills (the work) in the main column, and a side panel that stays in
+// view with publishing, followers, sharing and the list's details. Adding is a combobox: results drop down under the
+// search box (arrow keys, Enter, Esc); removing is in each row's menu, which opens by its button; both have Undo.
 import { S, DB, hooks, esc, advocate } from './data.js';
 import { billNum, PUBLIC_APP, billById, plain } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
-import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, clip } from './lists.js';
+import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, billName, isSide } from './lists.js';
 import * as SP from './supporters.js';
 
 const publicLink = l => `${PUBLIC_APP()}#list=${l.slug}`;
@@ -62,7 +65,8 @@ function hitsHTML(l, q) {
   if (q.trim().length < 2) return '';
   const rows = hits(l, q);
   if (!rows.length) return `<p class="le-none">No public bill matches “${esc(q.trim())}”. Only public bills can go on a list; make a bill public on its Public tab first.</p>`;
-  return `<div class="rows le-hits" role="list">${rows.map(b => `<button type="button" class="row le-hit" role="listitem" data-add="${esc(b.id)}" aria-label="Add ${esc(numOf(b))} to the list"><span class="le-plus">${icon('plus')}</span><span class="body"><span class="title"><b>${esc(numOf(b))}</b> <span class="le-t">${esc(clip(b, 90))}</span></span></span></button>`).join('')}</div>`;
+  // Options of the search box's listbox: the box keeps the focus, arrow keys move the highlight (aria-activedescendant).
+  return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body">${billName(b, 90)}</span></div>`).join('')}</div>`;
 }
 
 function billRowHTML(l, x, b, i, n) {
@@ -70,7 +74,7 @@ function billRowHTML(l, x, b, i, n) {
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <button type="button" class="le-grip" data-grip="${esc(b.id)}" aria-label="Move ${esc(num)}, now ${i + 1} of ${n}. Drag it, or press the up and down arrow keys." title="Drag to reorder">${icon('grip-vertical')}</button>
     <a class="le-bmain" href="#/bill/${encodeURIComponent(b.bill_number)}">
-      <span class="title"><b>${esc(num)}</b> <span class="le-t">${esc(clip(b, 110))}</span></span>
+      ${billName(b, 140)}
       ${x.note ? `<span class="le-note">${icon('message-square')}<span>${esc(x.note)}</span></span>` : ''}
       ${b.is_public ? '' : `<span class="le-warn">${icon('eye-off')}Not public, so the public page leaves it out</span>`}
     </a>
@@ -87,35 +91,61 @@ function followersHTML(l) {
 function render(route) {
   const l = listById(route.id);
   if (!l) return `<div class="le-page le-list">${empty({ h: 'h1', title: 'This list is not here', text: 'It may have been archived, or the link is old.', action: btn('See all lists', { href: '#/outreach/lists' }) })}</div>`;
-  const v = V(), rows = listRows(l), q = v.q[l.id] || '';
+  const v = V(), rows = listRows(l), q = v.q[l.id] || '', two = isSide();
   const owner = l.owner_id ? advocate(l.owner_id)?.full_name : '';
-  return `<div class="le-page le-list">
-    <a class="le-deskback" href="#/outreach/lists" data-back>${icon('chevron-left')}<span>Lists</span></a>
+  const head = `<a class="le-deskback" href="#/outreach/lists" data-back>${icon('chevron-left')}<span>Lists</span></a>
     <header class="le-lhead">
       <span class="le-licon">${icon(listIcon(l.icon))}</span>
       <div class="le-lhbody">
         <h1>${esc(l.title)}</h1>
         ${l.description ? `<p class="le-ldesc">${esc(l.description)}</p>` : ''}
-        <p class="meta">${owner ? `Curated by ${esc(owner)}` : 'Curated by HIPHI'} · ${esc(updatedLine(l))}</p>
+        ${two ? '' : `<p class="meta">${owner ? `Curated by ${esc(owner)}` : 'Curated by HIPHI'} · ${esc(updatedLine(l))}</p>`}
       </div>
       ${iconBtn('ellipsis', `More for ${l.title}`, { 'data-le': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
-    </header>
-    <section class="card le-pubcard" aria-label="Publishing">
-      ${switchRow('le-pub', 'Publish', l.is_published, l.is_published ? 'Live. Anyone with the link can find and follow it.' : 'Draft. Only the team can see it.', { 'aria-describedby': 'le-puberr' })}
-      <div id="le-puberr" role="alert"></div>
-      <div class="le-sharerow">${followersHTML(l)}${btn('Share', { kind: 'secondary', sm: true, icon: 'share-2', attrs: { 'data-le': 'share', 'aria-haspopup': 'dialog' } })}</div>
-    </section>
-    <section class="le-sec" aria-labelledby="le-bh">
-      <div class="le-sechead"><h2 id="le-bh">Bills</h2><span class="meta">${rows.length ? plural(rows.length, 'bill') : ''}</span></div>
+    </header>`;
+  const publish = `${switchRow('le-pub', 'Publish', l.is_published, l.is_published ? 'Live. Anyone with the link can find and follow it.' : 'Draft. Only the team can see it.', { 'aria-describedby': 'le-puberr' })}
+      <div id="le-puberr" role="alert"></div>`;
+  const bills = `<section class="le-sec" aria-labelledby="le-bh">
+      <div class="le-sechead"><h2 id="le-bh">Bills</h2><span class="meta">${rows.length ? `${plural(rows.length, 'bill')}${two && rows.length > 1 ? ' · in the order the public sees; drag a handle to reorder' : ''}` : ''}</span></div>
       <div class="le-add">
         <label class="sr" for="le-q">Add a bill by number or words</label>
-        <div class="le-search">${icon('search')}<input id="le-q" type="search" placeholder="Add a bill: number or words" value="${esc(q)}" autocomplete="off" enterkeyhint="search" aria-describedby="le-qh" aria-controls="le-hits">${iconBtn('x', 'Clear the search', { 'data-le': 'qclear', hidden: !q })}</div>
+        <div class="le-search">${icon('search')}<input id="le-q" type="search" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Add a bill: number or words" value="${esc(q)}" autocomplete="off" enterkeyhint="search" aria-describedby="le-qh" aria-controls="le-hits">${iconBtn('x', 'Clear the search', { 'data-le': 'qclear', hidden: !q })}</div>
         <p class="meta" id="le-qh">Only public bills can go on a list.</p>
-        <div id="le-hits" aria-live="polite">${hitsHTML(l, q)}</div>
+        <div id="le-hits">${hitsHTML(l, q)}</div>
+        <p class="sr" id="le-hitn" role="status"></p>
       </div>
       ${rows.length ? `<ol class="rows le-bills">${rows.map(({ x, b }, i) => billRowHTML(l, x, b, i, rows.length)).join('')}</ol>`
         : `<div class="le-empty">${empty({ h: 'h3', title: 'No bills yet', text: 'Search above to add public bills. On the Bills page you can also select several and choose Add to a list.' })}</div>`}
+    </section>`;
+  // Desktop: the share steps are buttons in the side panel (there is room), not a menu behind one button.
+  if (two) {
+    const f = S.listFollowers?.[l.id] || 0, sbtn = (label, act, ic, o = {}) => `<button type="button" class="le-sact" data-le="${act}"${o.disabled ? ' aria-disabled="true"' : ''}>${icon(ic)}<span>${label}</span></button>`;
+    return `<div class="le-page le-list le-two">${head}
+      <div class="sv-cols">${bills}
+        <aside class="sv-aside le-aside" aria-label="About this list">
+          <section class="card le-sc" aria-labelledby="le-h-pub"><h2 id="le-h-pub" class="sr">Publishing</h2>${publish}</section>
+          <section class="card le-sc" aria-labelledby="le-h-fol"><h2 id="le-h-fol">Followers</h2>
+            <div class="le-folrow">${followersHTML(l)}</div>
+            ${sbtn('Email followers', 'mailfol', 'mail', { disabled: !l.is_published })}
+          </section>
+          <section class="card le-sc" aria-labelledby="le-h-share"><h2 id="le-h-share">Share</h2>
+            ${sbtn('Copy link', 'copylink', 'link')}${sbtn('Copy embed code', 'copyembed', 'copy')}${sbtn('Open the public page', 'openpub', 'external-link', { disabled: !l.is_published })}
+            ${l.is_published ? '' : '<p class="meta le-snote">The link works once the list is published.</p>'}
+          </section>
+          <section class="card le-sc" aria-labelledby="le-h-det"><div class="le-sch"><h2 id="le-h-det">Details</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-le': 'edit', 'aria-haspopup': 'dialog' } })}</div>
+            <dl class="le-sdl"><div><dt>Curated by</dt><dd>${esc(owner || 'HIPHI')}</dd></div><div><dt>Updated</dt><dd>${esc(updatedLine(l).replace(/^updated /, ''))}</dd></div><div><dt>Icon</dt><dd><span class="le-dicon">${icon(listIcon(l.icon))}</span></dd></div></dl>
+          </section>
+        </aside>
+      </div>
+    </div>`;
+  }
+  return `<div class="le-page le-list">
+    ${head}
+    <section class="card le-pubcard" aria-label="Publishing">
+      ${publish}
+      <div class="le-sharerow">${followersHTML(l)}${btn('Share', { kind: 'secondary', sm: true, icon: 'share-2', attrs: { 'data-le': 'share', 'aria-haspopup': 'dialog' } })}</div>
     </section>
+    ${bills}
   </div>`;
 }
 
@@ -236,32 +266,56 @@ function wire(route, root) {
       toast(on ? 'Published. The link works now.' : 'Unpublished. The link stops working.', { ok: on, undo: async () => { await DB.updateList(l.id, { is_published: !on }); hooks.render(); } });
     } catch (e) { sw.checked = !on; toast(e, { err: true }); }
   };
-  page.querySelector('[data-le="share"]').onclick = () => shareMenu(l);
-  page.querySelector('[data-le="more"]').onclick = () => pageMenu(l);
-  page.querySelector('[data-le="followers"]')?.addEventListener('click', () => showFollowers(l));
+  const act = (name, fn) => page.querySelectorAll(`[data-le="${name}"]`).forEach(el => el.onclick = () => { if (el.getAttribute('aria-disabled') === 'true') { toast('Publish the list first. Only a live list has a public page and followers.'); return; } fn(el); });
+  act('share', () => shareMenu(l));
+  act('more', () => pageMenu(l));
+  act('followers', () => showFollowers(l));
+  // the desktop side panel's buttons: the same steps as the Share menu and the page menu
+  act('copylink', () => copyText(publicLink(l), l.is_published ? 'Link copied.' : 'Link copied. It works once the list is published.', 'link'));
+  act('copyembed', () => copyText(embedCode(l), 'Embed code copied.', 'embed code'));
+  act('openpub', () => window.open(publicLink(l), '_blank', 'noopener'));
+  act('mailfol', () => S.go('#/email/new?list=' + encodeURIComponent(l.id)));
+  act('edit', () => openListForm(l));
   page.querySelectorAll('[data-bmore]').forEach(el => el.onclick = () => billMenu(l, el.dataset.bmore));
   const list = page.querySelector('.le-bills'); if (list) wireDrag(l, list);
 
   // The add search re-draws only its results, so the box keeps focus and the keyboard stays up.
-  const q = page.querySelector('#le-q'), out = page.querySelector('#le-hits'), clr = page.querySelector('[data-le="qclear"]');
-  const paint = () => { out.innerHTML = hitsHTML(l, q.value); clr.hidden = !q.value; wireHits(); };
-  const wireHits = () => out.querySelectorAll('[data-add]').forEach(el => {
+  // It is a combobox: the box keeps the focus, Down and Up move a highlight through the results, Enter adds the
+  // highlighted bill (or the first), Esc clears. On desktop the results drop down over the page (lists.css) and fold
+  // away when the box loses focus.
+  const q = page.querySelector('#le-q'), out = page.querySelector('#le-hits'), clr = page.querySelector('[data-le="qclear"]'), said = page.querySelector('#le-hitn');
+  let hi = -1;
+  const opts = () => [...out.querySelectorAll('[data-add]')];
+  const mark = i => { const o = opts(); hi = o.length ? (i + o.length) % o.length : -1;
+    o.forEach((el, j) => { el.setAttribute('aria-selected', String(j === hi)); el.classList.toggle('hi', j === hi); });
+    if (hi >= 0) { q.setAttribute('aria-activedescendant', o[hi].id); o[hi].scrollIntoView({ block: 'nearest' }); } else q.removeAttribute('aria-activedescendant'); };
+  const sync = () => { const n = opts().length; q.setAttribute('aria-expanded', String(n > 0 && document.activeElement === q)); out.classList.toggle('open', document.activeElement === q);
+    if (said) said.textContent = q.value.trim().length < 2 ? '' : n ? `${plural(n, 'bill')} found. Use the arrow keys, then Enter to add.` : 'No public bill matches.'; };
+  const paint = () => { out.innerHTML = hitsHTML(l, q.value); clr.hidden = !q.value; hi = -1; q.removeAttribute('aria-activedescendant'); wireHits(); sync(); };
+  const add = async id => {
+    const b = billById(id);
+    try {
+      const n = await DB.addListBills(l.id, [id]);
+      if (!n) { toast('Only public bills can go on a list.', { err: true }); return; }
+      v.focus = 'q'; hooks.render();
+      toast(`Added ${b ? numOf(b) : 'the bill'}.`, { ok: true, undo: async () => { await DB.removeListBill(l.id, id); hooks.render(); } });
+    } catch (e) { toast(e, { err: true }); }
+  };
+  const wireHits = () => opts().forEach((el, i) => {
     el.onmousedown = e => e.preventDefault();          // keep focus in the search box on desktop
-    el.onclick = async () => {
-      const b = billById(el.dataset.add);
-      try {
-        const n = await DB.addListBills(l.id, [el.dataset.add]);
-        if (!n) { toast('Only public bills can go on a list.', { err: true }); return; }
-        v.focus = 'q'; hooks.render();
-        toast(`Added ${b ? numOf(b) : 'the bill'}.`, { ok: true, undo: async () => { await DB.removeListBill(l.id, el.dataset.add); hooks.render(); } });
-      } catch (e) { toast(e, { err: true }); }
-    };
+    el.onmousemove = () => { if (hi !== i) mark(i); };
+    el.onclick = () => add(el.dataset.add);
   });
   let t;
   q.oninput = () => { v.q[l.id] = q.value; clearTimeout(t); t = setTimeout(paint, 120); };
-  q.onkeydown = e => { if (e.key === 'Escape' && q.value) { e.preventDefault(); q.value = ''; v.q[l.id] = ''; paint(); } if (e.key === 'Enter') { e.preventDefault(); out.querySelector('[data-add]')?.click(); } };
+  q.onkeydown = e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (opts().length) { e.preventDefault(); mark(hi < 0 ? (e.key === 'ArrowDown' ? 0 : -1) : hi + (e.key === 'ArrowDown' ? 1 : -1)); } }
+    else if (e.key === 'Escape' && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ''; v.q[l.id] = ''; paint(); }
+    else if (e.key === 'Enter') { e.preventDefault(); const o = opts(); if (o.length) add(o[Math.max(hi, 0)].dataset.add); }
+  };
+  q.onfocus = sync; q.onblur = () => setTimeout(sync, 0);
   clr.onclick = () => { q.value = ''; v.q[l.id] = ''; paint(); q.focus(); };
-  wireHits();
+  wireHits(); sync();
 
   // After a re-render caused by this page, put focus back where the person was working.
   if (v.focus === 'q') { q.focus({ preventScroll: true }); q.setSelectionRange(q.value.length, q.value.length); }

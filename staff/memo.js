@@ -1,10 +1,15 @@
 // Staff v2 · Weekly memo (#/bills/memo), plan 3.10. The current app's memo, unchanged in substance (memoData,
 // memoHTML and memoText in model.js write it from the data): whose bills, which coalition, a live preview, and two ways
 // to copy. "Copy for email" keeps the headings and bold bill numbers when pasted into Gmail or Outlook.
+// Build 3: the bottom bar needed 383px, so "Copy for email" was cut off on 320 to 375px phones: the two buttons now
+// share the bar and shrink (no icons on the narrowest screens). On a desktop the memo is a document: a reading column
+// (the frame's `narrow`), a link back to Bills, and the copy buttons beside the title at the top of the page (that row
+// stays under the header while the memo scrolls, so they are always in reach), not a bar detached at the bottom.
 import { S, esc, hooks } from './data.js';
 import { memoData, memoHTML, memoText } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { btn, segmented, field, toast, empty } from './ui.js';
+import { btn, segmented, field, toast, empty, keysOn } from './ui.js';
+import { deskBack, wideNow, typingIn } from './filters.js';
 
 // memoData's at-risk section names the chamber through CHAMBER_NAME, which model.js does not import (app.js gets it
 // from stops.js). Until model.js imports it, give it the same table so the memo does not stop with an error.
@@ -13,15 +18,19 @@ if (typeof globalThis.CHAMBER_NAME === 'undefined') globalThis.CHAMBER_NAME = CH
 const view = () => S.memoView ??= { who: 'me', coalition: '' };
 function data() { try { return memoData(); } catch (e) { console.error(e); return null; } }
 
+const copyBtns = sm => `${btn('Copy as text', { kind: 'secondary', sm, icon: 'copy', attrs: { 'data-mcopy': 'text' } })}${btn('Copy for email', { sm, icon: 'mail', attrs: { 'data-mcopy': 'rich' } })}`;
+
 export default {
   tab: 'bills', tabs: false,
+  narrow: true,
   title: () => 'Weekly memo',
   back: () => ({ href: '#/bills', label: 'Bills' }),
   render() {
-    const v = view(), m = data();
+    const v = view(), m = data(), wide = wideNow();
     const coal = `<select id="bl-mcoal" class="input">${[['', 'Every coalition'], ...S.campaigns.map(c => [c.id, c.name])].map(([id, l]) => `<option value="${esc(id)}" ${v.coalition === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     return `<div class="bl-memopage">
-      <h1 class="bl-ptitle">Weekly memo</h1>
+      ${deskBack('memo')}
+      <div class="bl-mhead"><h1 class="bl-ptitle">Weekly memo</h1>${wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
       <p class="bl-lede">This week for ${v.who === 'me' ? 'the bills you own or follow' : 'every bill with a position'}, written from the tracker. Copy it into an email.</p>
       <div class="bl-mctl">
         <div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${segmented('memowho', [['me', 'Your bills'], ['all', 'Everyone’s']], v.who === 'me' ? 'me' : 'all', 'Whose bills')}</div>
@@ -31,7 +40,8 @@ export default {
         : empty({ title: 'The memo could not be written', text: 'Something in the data stopped it. Try the other choices, or tell Nate.', h: 'h2' })}</article>
     </div>`;
   },
-  bar: () => `${btn('Copy as text', { kind: 'secondary', icon: 'copy', attrs: { 'data-mcopy': 'text' } })}${btn('Copy for email', { icon: 'mail', attrs: { 'data-mcopy': 'rich' } })}`,
+  // Phones: the two buttons are the page's bottom bar, sharing its width. Desktop: they are in the page (above).
+  bar: () => wideNow() ? '' : `<div class="bl-mbar">${copyBtns(false)}</div>`,
   wire(route, root) {
     const v = view();
     root.querySelectorAll('[data-seg="memowho"]').forEach(el => el.onclick = () => { if (v.who === el.dataset.val) return; v.who = el.dataset.val; hooks.render(); root.querySelector(`[data-seg="memowho"][data-val="${v.who}"]`)?.focus(); });
@@ -48,3 +58,9 @@ export default {
     });
   },
 };
+
+// Esc goes back to Bills on a desktop, as it does on a bill's page (a shortcut, so it waits for keysOn()).
+if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || S.route?.name !== 'memo' || !keysOn() || typingIn(e.target) || document.querySelector('dialog[open]')) return;
+  const a = document.querySelector('.bl-memopage .bl-deskback'); if (a && a.offsetParent) { e.preventDefault(); a.click(); }
+});

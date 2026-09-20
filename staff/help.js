@@ -3,11 +3,15 @@
 // looks through all of it. Facts that change are read from the data, never typed in: whether email is paused (the
 // email setting), who approves (the admin and reviewer flags), the deadlines (the session calendar) and the
 // committees. Keyboard shortcuts are listed only where there is a mouse to hover with.
+// On a desktop (900px and wider, build 3) it is a two-column reference: the search and the list of topics stay in
+// view on the left, and the chosen topic reads in a column of about 70 characters on the right. #/help opens on
+// Capitol words there; #/help/keys (the frame's "?" shortcut) opens the shortcuts directly at any width.
 import { S, DEMO, APP_URL, STAGES, esc, fmtDate } from './data.js';
 import { glossStage, legislativeDay, PUBLIC_APP, plain } from './model.js';
 import { icon, btn, row } from './ui.js';
 
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const names = pred => S.advocates.filter(a => pred(a) && a.is_active !== false).map(a => a.full_name);
 const orList = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`;
 const emailOff = () => (S.emailCfg || {}).enabled === false;
@@ -53,11 +57,11 @@ const TOPICS = [
         ['Undo', 'Mark filed, I\'m going, Not for us and removing a bill from a list can be undone for 10 seconds.'],
         ['A new version', 'If the bill changes (HD1, SD1) after the draft was written, Today asks the owner to check the draft against the new version.']]; } },
   { id: 'tabs', title: 'What each tab is for', icon: 'list-todo', sub: () => 'Today, Bills, Legislators and Outreach',
-    items: () => [['Today', 'Your list for the day: testimony steps, reviews, replies, emails to approve and follow-ups, grouped by when they are due. Clear it and you are done. <b>Mine</b> is yours; <b>Team</b> adds what others are waiting on. What changed on your bills since yesterday is one folded line.'],
+    items: () => [['Today', 'Your list for the day: testimony steps, reviews, replies, emails to approve and follow-ups, grouped by when they are due. Clear it and you are done. <b>Mine</b> is yours; <b>Team</b> adds what others are waiting on, and inside Team you can pick one person to see their list. <b>Hearings today</b> lists every hearing on the day, filed or not. A message you opened but have not answered stays, marked <b>Seen</b>, until you reply or choose Mark done. On a wide screen, <b>Week</b> shows Monday to Friday side by side. What changed on your bills since yesterday is one folded line.'],
       ['Bills', 'Every tracked bill, grouped by where it stands. Filter, select several to change at once, see muted bills, open the weekly memo or export a CSV. New bills to sort show as a banner.'],
       ['Legislators', 'Every senator and representative: district, committees, how to reach them and where they stand on our bills. <b>This week</b> shows who hears our bills in the next 7 days.'],
       ['Outreach', 'Supporters (everyone HIPHI knows, with segments and follow-ups), Lists (sets of public bills people follow in one tap) and Emails (action alerts, approved by a second person before they go).'],
-      ['Your menu', 'Tap your initials, top right, for My settings, Session setup (admins), Help and the current app.']] },
+      ['Your menu', 'Tap your initials, top right, for My settings, Session setup (admins), Help and the current app. On a wide screen the same pages are in the sidebar on the left.']] },
   { id: 'new', title: 'New here?', icon: 'sparkles', sub: () => { const n = newSteps().filter(s => s.done).length; return `${n} of 5 done`; }, html: () => newHTML() },
   { id: 'own', title: 'Owning and following', icon: 'user-check', sub: () => 'Who is asked to do what',
     items: () => [['Owner', 'Responsible for the bill. Drafts are made for the owner, and the testimony steps on Today are the owner\'s (or the writer\'s, or an approver\'s). One owner per bill.'],
@@ -82,9 +86,9 @@ const TOPICS = [
     items: () => [['Drafts', 'Google Drive, in Testimony, then the year, the coalition and the bill.'], ['Alerts', `Slack ${esc((S.slackCfg || {}).main_channel || '#hearing-alerts')} and each coalition's channel. Your own steps come as DMs or email (My settings).`],
       ['Calendar', 'The HIPHI Hearings Google Calendar.'], ['Video', 'The Senate and House YouTube channels.'], ['Questions', `Ask ${esc(orList(names(a => a.is_admin)) || 'an admin')}.`]] },
   { id: 'keys', title: 'Keyboard shortcuts', icon: 'keyboard', hover: true, sub: () => 'For a keyboard and mouse',
-    items: () => [['/', 'Search'], ['g then t, b, l, o or r', 'Go to Today, Bills, Legislators, Outreach or Review'], ['j and k', 'Today: next and previous card'], ['Enter', 'Today: do the card\'s main step'], ['o', 'Today: open the bill'],
-      ['a, r, o', 'Review: approve, request changes, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 4', 'Bill: Overview, Activity, Pathway, Public'], ['[ and ]', 'Bill: previous and next bill'],
-      ['t, n, l, u', 'Sort new bills: track, not for us, later, undo'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.']] },
+    items: () => [['/', 'Search'], ['g then t, b, l, o or r', 'Go to Today, Bills, Legislators, Outreach or Review'], ['j and k', 'Today: next and previous card. Bills and Legislators: next and previous row'], ['Enter', 'Today: do the card\'s main step. Bills: open the bill'], ['o', 'Today and Bills: open the bill'], ['x', 'Bills: tick the row'],
+      ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves)'], ['r, o', 'Review: request changes, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 4', 'Bill: Overview, Activity, Pathway, Public'], ['[ and ]', 'Bill: previous and next bill'],
+      ['t, n, l, u', 'Sort new bills: track, not for us, later, undo (u again undoes the one before)'], ['Arrow keys', 'In a menu or a picker: move; Enter chooses'], ['?', 'Open this list'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.'], ['Switch them off', 'My settings has a switch for all shortcuts.']] },
 ];
 const topic = id => TOPICS.find(t => t.id === id);
 const visible = () => TOPICS.filter(t => !t.hover || HOVER());
@@ -153,19 +157,48 @@ function renderTopic(t) {
   </div>`;
 }
 
+// Desktop: search and topics on the left (they stay in view), the topic on the right. One h1: the topic's title,
+// or "Search results" while the box has words in it.
+function renderDesk(route) {
+  const q = S.st2HelpQ || '', t = topic(route.topic) || topic('words');
+  if (t.id === 'own') frSet({ own: 1 });
+  const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
+  const kbd = t.id === 'keys' && !HOVER() ? `<p class="small muted st-note">${icon('info')} These need a keyboard. They are off on touch screens.</p>` : '';
+  const list = visible(); if (!list.includes(t)) list.push(t);   // a direct link to a topic this device does not list still shows where you are
+  return `<div class="st-page st-help st-duo"><div class="st-cols2">
+    <nav class="st-nav2" aria-label="Help topics">
+      <p class="st-navt">Help</p>
+      <form class="st-search searchbox" role="search" data-hsform><label class="sr" for="st-hq">Search Help</label>${icon('search')}<input id="st-hq" class="input" type="search" placeholder="Search Help" autocomplete="off" value="${esc(q)}"></form>
+      ${list.map(x => `<a class="st-navi" href="#/help/${x.id}"${x.id === t.id && !q.trim() ? ' aria-current="page"' : ''}>${icon(x.icon)}<span class="st-navl">${esc(x.title)}</span></a>`).join('')}
+    </nav>
+    <div class="st-pane st-read">
+      <div class="st-head"><h1 id="st-hh1" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h1><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
+      <div id="st-hres" aria-live="polite">${results(q)}</div>
+      <div id="st-hdefault" ${q.trim() ? 'hidden' : ''}>${kbd}${body}</div>
+    </div>
+  </div></div>`;
+}
+
 export default {
   tab: '',
+  // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.
+  wide: () => DESK(),
   title: route => topic(route.topic)?.title || 'Help',
   back: route => topic(route.topic) ? { href: '#/help', label: 'Help' } : null,
-  render(route) { const t = topic(route.topic); return t ? renderTopic(t) : renderIndex(); },
+  render(route) { if (DESK()) return renderDesk(route); const t = topic(route.topic); return t ? renderTopic(t) : renderIndex(); },
   wire(route, root) {
     root.querySelectorAll('[data-fr]').forEach(a => a.addEventListener('click', () => frSet({ [a.dataset.fr]: 1 })));
     const f = root.querySelector('[data-hsform]'); if (!f) return;
-    const inp = f.querySelector('input'), res = root.querySelector('#st-hres'), def = root.querySelector('#st-hdefault');
-    const wireRes = () => res.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); S.go(a.getAttribute('href')); });
+    const inp = f.querySelector('input'), res = root.querySelector('#st-hres'), def = root.querySelector('#st-hdefault'), desk = !!root.querySelector('.st-help.st-duo');
+    const wireRes = () => res.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); if (desk) S.st2HelpQ = ''; S.go(a.getAttribute('href')); });
     // Typing updates the results in place, so the box keeps focus and the page does not jump.
-    inp.oninput = () => { S.st2HelpQ = inp.value; res.innerHTML = results(inp.value); def.hidden = !!inp.value.trim(); wireRes(); };
+    inp.oninput = () => { S.st2HelpQ = inp.value; res.innerHTML = results(inp.value); const on = !!inp.value.trim(); def.hidden = on; wireRes();
+      if (desk) { const h = root.querySelector('#st-hh1'), sub = root.querySelector('#st-hsub'); h.textContent = on ? 'Search results' : h.dataset.title; sub.hidden = on;
+        root.querySelectorAll('.st-nav2 .st-navi').forEach(a => { if (on) a.removeAttribute('aria-current'); else if (a.getAttribute('href') === '#/help/' + (topic(route.topic) || topic('words')).id) a.setAttribute('aria-current', 'page'); }); } };
     f.onsubmit = e => { e.preventDefault(); res.querySelector('a')?.focus(); };
+    inp.onkeydown = e => { if (e.key === 'Escape' && inp.value) { e.preventDefault(); inp.value = ''; inp.oninput(); } };
+    // Desktop: choosing a topic on the left ends the search, so the topic shows (first in line, before the frame turns the page).
+    if (desk) root.querySelector('.st-nav2').addEventListener('click', e => { if (e.target.closest('a.st-navi')) S.st2HelpQ = ''; }, true);
     wireRes();
   },
 };

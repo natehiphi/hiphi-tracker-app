@@ -2,10 +2,12 @@
 // and the date it stops showing, and whether the bill is on the public page at all. These fields save together with ONE
 // button, the same fields the current app saves. Lists and the email to supporters act on their own, since each
 // is its own thing (a list is a page the public follows; an email goes through approval).
+// Desktop (build 3): the form stays a readable column, and where the column has room a small card beside it shows,
+// as you type, how the public page will name the bill (nickname, summary, the ask).
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
 import { icon, btn, toast, notice, switchRow } from './ui.js';
-import { rerender, drafts, dayOf } from './bill.js';
+import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
 const saved = (b, k) => k === 'is_public' ? !!b.is_public : (b[k] || '');
@@ -14,6 +16,31 @@ const draftOf = b => drafts.get(b.id + ':pub') || {};
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
 const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
 const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria-live="polite">${n} of ${max} characters</span>`;
+
+// ---- the preview (desktop, where there is room beside the form): how the public page will name this bill ----
+// The public page leads with the nickname, then the summary; with no nickname the summary is the headline; with
+// neither, the first sentence of the Capitol's description. "HIPHI asks" shows only while the ask has a date that
+// has not passed. v holds the form's values as typed, so the card changes with every key.
+const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+function previewInner(b, v) {
+  const nick = v.nickname.trim().replace(/\s+/g, ' '), sum = v.public_summary.trim(), ask = v.public_action.trim(), until = v.public_action_until;
+  const first = (/^(.{20,220}?[.!?])(\s|$)/.exec(String(b.description || '').trim()) || [])[1];
+  const name = nick || sum || first || `A bill about ${plainTitle(b).replace(/^./, c => c.toLowerCase())}`;
+  const askOn = ask && until && until >= hiToday();
+  const note = !v.is_public ? [ 'eye-off', 'Hidden. Nobody sees this until it is switched on and saved.' ]
+    : !ask ? ['info', 'No ask: the next hearing is what people are asked to act on.']
+    : !until ? ['triangle-alert', 'The ask needs a date, or it never shows.']
+    : until < hiToday() ? ['triangle-alert', 'That date has passed, so the ask does not show.']
+    : ['calendar-days', `The ask shows through ${dayOf(until)}.`];
+  return `<div class="card bw-prevcard${v.is_public ? '' : ' off'}">
+      <p class="bw-pnum">${esc(spaced(b.bill_number))}</p>
+      <p class="bw-pname${nick ? '' : ' bw-long'}">${esc(name)}</p>
+      ${nick && sum ? `<p class="bw-plede">${esc(sum)}</p>` : ''}
+      ${ask ? `<p class="bw-pask${askOn ? '' : ' off'}">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(ask)}</span></p>` : ''}
+    </div>
+    <p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>`;
+}
+const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
 
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
@@ -24,6 +51,7 @@ export function renderPublic(b) {
   return `<section class="bw-sec bw-pub" aria-labelledby="bw-pub-h">
     <h2 id="bw-pub-h" class="sr">Public page</h2>
     ${notice(live ? 'ok' : warn ? 'warn' : 'info', live ? 'globe' : warn ? 'triangle-alert' : 'eye-off', `<b>Now:</b> ${esc(pubStateText(b))}${pubLink}`)}
+    <div class="bw-pubcols">
     <form class="bw-pubform" data-pubform novalidate>
       ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'), 'Anyone can find it, follow it and get its hearing alerts.')}
       <div class="field"><label for="bw-nick">Nickname</label>
@@ -39,11 +67,16 @@ export function renderPublic(b) {
       <div id="bw-perr" role="alert"></div>
       <div class="bw-acts bw-pubsave">${btn('Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
+    <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
+      <p class="bw-eyebrow" id="bw-prev-h">Preview of the public page</p>
+      <div data-prev>${previewInner(b, valuesOf(b))}</div>
+    </div>
+    </div>
   </section>
   <section class="bw-sec" aria-labelledby="bw-lists-h">
     <h2 id="bw-lists-h">Lists</h2>
     ${!lists.length ? '<p class="small muted">No lists yet. Make one under Outreach, Lists.</p>'
-      : `<p class="small muted">${listed ? 'Tap a list to add or remove this bill. It changes right away.' : 'Make it public to add it to a list: switch it on above and save.'}</p>
+      : `<p class="small muted">${listed ? 'Choose a list to add or remove this bill. It changes right away.' : 'Make it public to add it to a list: switch it on above and save.'}</p>
       <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
         return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}
   </section>
@@ -54,7 +87,7 @@ export function renderPublic(b) {
   </section>`;
 }
 
-export function wirePublic(pnl, b) {
+export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
   const f = { is_public: form.querySelector('#bw-ispub'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
   const errBox = form.querySelector('#bw-perr');
@@ -62,8 +95,10 @@ export function wirePublic(pnl, b) {
     if (Object.keys(d).length) drafts.set(key, d); else drafts.delete(key);
     const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.small');
     if (Object.keys(d).length && !hint) s.insertAdjacentHTML('beforeend', '<span class="small muted">Not saved yet</span>'); else if (!Object.keys(d).length && hint) hint.remove(); };
+  const prev = pnl.querySelector('[data-prev]');
+  const paint = () => { if (prev) prev.innerHTML = previewInner(b, { is_public: f.is_public.checked, nickname: f.nickname.value, public_summary: f.public_summary.value, public_action: f.public_action.value, public_action_until: f.public_action_until.value }); };
   for (const [k, el] of Object.entries(f)) el.addEventListener(k === 'is_public' ? 'change' : 'input', () => {
-    note(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
+    note(); paint(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
     if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
   });
@@ -85,6 +120,18 @@ export function wirePublic(pnl, b) {
       toast('Public page saved.', { ok: true });
     } catch (x) { sub.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
+  // "Write it" on Today lands here: the ask is in view, right under the pinned tabs, with the cursor in it (the way
+  // ?reply=1 opens Activity at the message box). Focus now, inside the tap, so a phone raises its keyboard; scroll on
+  // the next paint, after the frame has put the new page at its top.
+  if (focusAsk) {
+    const ta = f.public_action, fld = ta.closest('.field');
+    ta.focus({ preventScroll: true }); try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch { /* ignore */ }
+    requestAnimationFrame(() => {
+      const top = fld.getBoundingClientRect().top + window.scrollY, desk = matchMedia('(min-width: 900px)').matches;
+      // Desktop keeps the summary above it in view (the ask is written from it); a phone gives the room to the keyboard.
+      window.scrollTo(0, Math.max(0, Math.round(top - underTabs() - (desk ? 176 : 12))));
+    });
+  }
   pnl.querySelectorAll('[data-list]').forEach(el => el.onclick = async () => {
     const l = (S.lists || []).find(x => String(x.id) === el.dataset.list); if (!l) return;
     if (el.getAttribute('aria-disabled') === 'true') { toast('Make it public and save first. Only public bills go on lists.'); return; }

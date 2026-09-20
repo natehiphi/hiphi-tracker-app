@@ -1,15 +1,30 @@
 /* Today (#/) and review mode (#/review): plan 3.1 and 3.2. Every selector sits under .td-root or .td-rv.
-   Budget on a phone: sandbox band 28 + header 56 + subline 56 + group header 44 = the first card at 184px. */
+   Budget on a phone: sandbox band 28 + header 56 + subline 56 + group header 44 = the first card at 184px
+   (a day with hearings adds the "Hearings today" strip above it).
+   Layouts: a phone column below 900px; from 900px the list with a side panel (.sv-cols + .sv-aside); from 1100px
+   (mouse and keyboard) tighter rows and the Week view. Cards choose their own shape from the width of their column. */
 
-/* ---- the page ---- */
+/* ---- the page and its toolbar ---- */
 .td-root { margin-top: calc(-1 * var(--s12)); }   /* the frame gives main 12px on top; the subline sits flush under the header */
-.td-root .td-sub { display: flex; align-items: center; gap: var(--s12); min-height: 56px; }
-.td-root .td-date { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.td-root .td-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s12); min-height: 56px; }
+.td-root .td-head { flex: 1 1 0; min-width: 0; }
+.td-root .td-h1 { display: none; }   /* a phone has the heading in the frame's header */
+.td-root .td-date { display: flex; flex-direction: column; font-size: var(--t14); line-height: 20px; color: var(--n500); }
 .td-root .td-date > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td-root .td-date > span:first-child { color: var(--n700); font-weight: 700; }
 .td-root .td-sep { display: none; }
+.td-root .td-tools { flex: none; display: flex; align-items: center; gap: var(--s8); }
 .td-root .td-sub .sv-seg { flex: none; }
 .td-root .td-sub .sv-seg button { min-height: 44px; padding: 0 14px; }   /* 44px targets on phones (the shared control is 40) */
+.td-root .td-sub .sv-seg button:not([aria-pressed="true"]):hover { background: var(--n200); color: var(--n900); }
+/* Team only: whose list, on its own row on a phone so the toolbar keeps its width */
+.td-root .td-whorow { flex: 1 1 100%; min-width: 0; display: flex; padding-bottom: var(--s8); }
+.td-root .td-whobtn { max-width: 100%; }
+.td-root .td-whobtn > span:not(.sv-av) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .td-whobtn .sv-av { margin-left: -6px; }
+.td-root .td-whonote { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s8); padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--n100);
+  font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-whonote .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
 .td-root .sv-notice { margin: 0 0 var(--s8); }
 
 /* group headers are real h2s (for screen-reader navigation) drawn as the shared 44px group row */
@@ -24,14 +39,21 @@
 .td-root .td-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1);
   padding: var(--s12) var(--s12) var(--s12) var(--s16); display: grid; grid-template-columns: minmax(0, 1fr); scroll-margin: calc(var(--header) + var(--s16)) 0 calc(var(--tabbar) + var(--s16)); }
 .td-root .td-card:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r12); }
-.td-root .td-top { display: flex; align-items: center; min-width: 0; gap: var(--s4); }
+.td-root .td-top { display: flex; align-items: flex-start; min-width: 0; gap: var(--s4); }
 /* the bill link and the ⋯ button are 44px targets that spill into the card's padding, so the line itself stays 24px */
 .td-root .td-bill { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s8); min-height: 44px; margin: -10px 0 -10px -8px; padding: 10px 8px;
   border-radius: var(--r8); text-decoration: none; color: inherit; line-height: 24px; }
 .td-root a.td-bill:hover { background: var(--n50); }
 .td-root .td-num, .td-rv .td-num { font: 700 var(--t16)/24px var(--font-h); color: var(--n900); white-space: nowrap; letter-spacing: -.005em; }
 .td-root .td-bill .sv-p1 { align-self: center; flex: none; }
+/* the nickname names the bill, so it wraps rather than being cut; the plain summary may be cut */
+.td-root .td-nick { font-weight: 700; color: var(--n900); }
+.td-root .td-bill .td-nick { font-size: var(--t14); overflow-wrap: anywhere; }
+.td-root .td-bill.td-named { display: block; }   /* number and nickname run on as one line of text, so a long name wraps under the number */
+.td-root .td-bill.td-named .td-num, .td-root .td-bill.td-named .sv-p1 { margin-right: var(--s4); }
+.td-root .td-bill.td-named .sv-p1 { vertical-align: 2px; }
 .td-root .td-t { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .td-bill .td-t2 { display: none; }   /* a phone shows the nickname alone; the summary joins it where there is room */
 .td-root .td-kind { align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n500); }
 .td-root .td-kind .ic { width: 18px; height: 18px; }
 .td-root .td-more { margin: -10px -6px -10px 0; }
@@ -45,25 +67,89 @@
 .td-root .td-q, .td-rv .td-q { margin: var(--s8) 0 0; padding: 2px 0 2px var(--s12); border-left: 3px solid var(--n200); font-size: var(--t14); line-height: 20px; color: var(--n700);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .td-root .td-acts { margin-top: var(--s8); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
-.td-root .td-acts .btn.primary { padding: 0 20px; }
+.td-root .td-acts .btn.primary, .td-root .td-acts .btn.secondary { padding: 0 20px; }
 .td-root .td-acts .btn.text { padding: 0 8px; margin-left: -4px; }
-/* "Also: Reply to Kevin ›": a 44px row across the card's foot */
-.td-root .td-also { display: flex; align-items: center; gap: var(--s8); width: calc(100% + var(--s12) + var(--s16)); min-height: 44px; margin: var(--s8) calc(-1 * var(--s12)) calc(-1 * var(--s8)) calc(-1 * var(--s16));
-  padding: 0 var(--s12) 0 var(--s16); border-top: 1px solid var(--n100); font-size: var(--t14); color: var(--n700); text-decoration: none; text-align: left; }
-.td-root .td-also + .td-also { margin-top: var(--s8); }
+/* "Also: Reply to Kevin ›": a row across the card's foot; two lines before anything is cut */
+.td-root .td-also { display: flex; align-items: center; gap: var(--s8); width: calc(100% + var(--s12) + var(--s16)); min-height: 44px; margin: var(--s8) calc(-1 * var(--s12)) calc(-1 * var(--s12)) calc(-1 * var(--s16));
+  padding: 6px var(--s12) 6px var(--s16); border-top: 1px solid var(--n100); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; text-align: left; }
+.td-root .td-also + .td-also { margin-top: var(--s12); }   /* the row above pulled the foot up by the card's padding; this puts it back, so rows stack edge to edge */
 .td-root .td-also:last-child { border-radius: 0 0 var(--r12) var(--r12); }
 .td-root a.td-also:hover, .td-root button.td-also:hover { background: var(--n50); }
-.td-root .td-also-t { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .td-also-t { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .td-root .td-also-l { font-weight: 700; color: var(--n900); }
 .td-root .td-also .sv-count { flex: none; font-size: var(--t13); }
+.td-root .td-also .sv-chip { flex: none; }
 .td-root .td-also .chev { width: 18px; height: 18px; color: var(--n400); flex: none; }
 /* read-only rows in Team view: somebody else's step */
 .td-root .td-card.td-wait { background: var(--n50); box-shadow: none; }
 .td-root .td-card.td-wait .td-s { font-size: var(--t14); line-height: 20px; color: var(--n700); }
+/* a message that was opened and not answered: still here, quieter */
+.td-root .td-card.td-seen { box-shadow: none; }
+.td-root .td-card.td-seen .td-s { color: var(--n700); }
 /* the review cluster */
 .td-root .td-cluster { border-color: var(--p100); }
 .td-root .td-cluster .td-s { margin-top: 0; font-weight: 700; display: flex; align-items: center; gap: var(--s8); }
 .td-root .td-cluster .td-s .ic { width: 20px; height: 20px; color: var(--p700); }
+
+/* ---- a panel: "Hearings today" on a phone, and every box in the side panel ---- */
+.td-root .td-panel { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; margin-bottom: var(--s8); }
+.td-root .td-ph { display: flex; align-items: center; gap: var(--s8); min-height: 40px; padding: 0 var(--s12) 0 var(--s16); border-bottom: 1px solid var(--n100); }
+.td-root .td-ph h2 { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); letter-spacing: 0; line-height: 20px; }
+.td-root .td-ph h2 .ic { width: 18px; height: 18px; color: var(--n500); }
+.td-root .td-ph .n { font: 700 var(--t14)/20px var(--font); color: var(--n500); }
+.td-root .td-phint { font-size: var(--t13); color: var(--n500); }
+.td-root .td-plink { display: inline-flex; align-items: center; min-height: 40px; margin-right: calc(-1 * var(--s8)); padding: 0 var(--s8); border-radius: var(--r8); font-size: var(--t14); font-weight: 700; text-decoration: none; }
+.td-root .td-plink:hover { background: var(--p50); }
+.td-root .td-pmore { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; border-top: 1px solid var(--n100); font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.td-root .td-pmore:hover { background: var(--p50); }
+.td-root .td-pmore .ic { width: 16px; height: 16px; }
+.td-root .td-panel a:focus-visible, .td-root .td-panel button:focus-visible { outline-offset: -2px; border-radius: var(--r8); }
+/* hearings today: time | the bill, then where, who is going and the testimony's state */
+.td-root .td-hrow { display: grid; grid-template-columns: 66px minmax(0, 1fr);   /* room for "10:30 AM" */ align-items: start; gap: 0 var(--s8); min-height: 56px; padding: var(--s8) var(--s12) var(--s8) var(--s16); text-decoration: none; color: inherit; }
+.td-root .td-hrow + .td-hrow { border-top: 1px solid var(--n100); }
+.td-root .td-hrow:hover { background: var(--n50); }
+.td-root .td-htime { font-size: var(--t14); font-weight: 700; line-height: 20px; color: var(--n900); white-space: nowrap; }
+.td-root .td-hbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.td-root .td-hbill { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.td-root .td-hbill .td-num, .td-root .td-wrow .td-num, .td-root .td-wi .td-num { font-size: var(--t14); line-height: 20px; }
+.td-root .td-hbill .sv-p1, .td-root .td-wi1 .sv-p1 { height: 18px; margin: 0 2px 0 4px; vertical-align: 1px; }
+.td-root .td-hbill .td-t, .td-root .td-win .td-t { display: inline; white-space: normal; }
+.td-root .td-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* a summary may be cut after two lines; a nickname never is */
+.td-root .td-hline { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); }
+.td-root .td-hmeta { font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-hline .sv-chip, .td-root .td-wi2 .sv-chip { min-height: 22px; padding: 1px 8px; }
+.td-root .td-hrow.past .td-htime, .td-root .td-hrow.past .td-nick, .td-root .td-hrow.past .td-num { color: var(--n500); }
+/* this week: a small table, numbers to the right */
+.td-root .td-wk { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--t14); line-height: 20px; }
+.td-root .td-wk th, .td-root .td-wk td { height: 36px; padding: 0 var(--s8); border-top: 1px solid var(--n100); text-align: left; font-weight: 400; color: var(--n700); white-space: nowrap; }
+.td-root .td-wk thead th { height: 32px; border-top: 0; font-size: var(--t13); font-weight: 700; line-height: 16px; color: var(--n500); white-space: normal; vertical-align: bottom; padding-bottom: 6px; }
+.td-root .td-wk thead th.num { width: 76px; }
+.td-root .td-wk thead th.num + th.num { width: 92px; }   /* "Testimony due" takes two lines in the 300px panel */
+.td-root .td-wk th:first-child { padding-left: var(--s16); }
+.td-root .td-wk th:last-child, .td-root .td-wk td:last-child { padding-right: var(--s16); }
+.td-root .td-wk .num { text-align: right; font-variant-numeric: tabular-nums; }
+.td-root .td-wk td b { color: var(--n900); }
+.td-root .td-wk tr.today th, .td-root .td-wk tr.today td { background: var(--p50); color: var(--n900); font-weight: 700; }
+.td-root .td-wk tr.past th, .td-root .td-wk tr.past td, .td-root .td-wk tr.past td b { color: var(--n500); }
+.td-root .td-now { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--pill); background: var(--p100); color: var(--p900); font: 700 var(--t13)/20px var(--font); vertical-align: 1px; }
+/* waiting on others */
+.td-root .td-wrow { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 6px var(--s12) 6px var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
+.td-root .td-wrow + .td-wrow { border-top: 1px solid var(--n100); }
+.td-root .td-wrow:hover { background: var(--n50); }
+.td-root .td-wt { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.td-root .td-wrow .sv-count { flex: none; font-size: var(--t13); }
+/* team load: a teammate, a bar for the eye, the number for the record */
+.td-root .td-loads { padding: var(--s4) 0; }
+.td-root .td-load { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; padding: 0 var(--s12) 0 var(--s16); text-align: left; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-load:hover { background: var(--n50); }
+.td-root .td-load[aria-pressed="true"] { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+.td-root .td-ln { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); font-weight: 700; color: var(--n900); }
+.td-root .td-ln .sv-count { font-size: var(--t13); }
+.td-root .td-ln .sv-count .ic { width: 14px; height: 14px; }
+.td-root .td-lbar { flex: none; width: 56px; height: 6px; border-radius: 3px; background: var(--n100); overflow: hidden; }
+.td-root .td-lbar i { display: block; height: 100%; border-radius: 3px; background: var(--n400); }
+.td-root .td-load[aria-pressed="true"] .td-lbar i { background: var(--p700); }
+.td-root .td-lc { flex: none; min-width: 24px; text-align: right; font-weight: 700; color: var(--n900); font-variant-numeric: tabular-nums; }
 
 /* ---- all clear ---- */
 .td-root .td-clear { display: flex; align-items: center; gap: var(--s12); padding: var(--s12) var(--s16); margin-bottom: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
@@ -112,19 +198,122 @@
 .td-rv .td-rvendbtns { margin-top: var(--s24); }
 .td-rv.td-rvend .empty { padding-bottom: var(--s8); }
 
-/* ---- desktop: a 720px column, the button on the sentence row, keys for hover-capable pointers ---- */
+/* ---- 900px and wider: one toolbar, then the list beside a side panel that stays in view ---- */
 @media (min-width: 900px) {
   .td-root { margin-top: 0; }
-  .td-root .td-date { flex-direction: row; flex-wrap: wrap; }
+  .td-root .td-sub { flex-wrap: nowrap; gap: var(--s12); min-height: 0; margin-bottom: var(--s16); }
+  .td-root .td-h1 { display: block; font-size: var(--t22); line-height: 28px; }
+  .td-root .td-date { flex-direction: row; flex-wrap: wrap; margin-top: 2px; }
   .td-root .td-date > span { white-space: normal; }
   .td-root .td-sep { display: inline; margin: 0 6px; }
-  .td-root .td-card { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s16); padding: var(--s12) var(--s16); }
+  .td-root .td-whorow { flex: 0 1 auto; padding: 0; }
+  .td-root .td-cols { grid-template-columns: minmax(0, 1fr) 300px; gap: var(--s24); }
+  .td-root .td-main { min-width: 0; container: tdmain / inline-size; }
+  .td-root .td-aside { gap: var(--s12); padding-bottom: var(--s8); }
+  .td-root .td-aside .td-panel { flex: none; margin-bottom: 0; }
+  .td-root .td-card { padding: var(--s12) var(--s16); transition: border-color .15s, box-shadow .15s; }
+  .td-root .td-card:hover { border-color: var(--n300); box-shadow: var(--sh2); }
+  .td-root .td-card.td-wait:hover, .td-root .td-card.td-seen:hover { box-shadow: var(--sh1); }
+  .td-root .td-bill.td-named { display: flex; }
+  .td-root .td-bill.td-named .td-num, .td-root .td-bill.td-named .sv-p1 { margin-right: 0; }
+  .td-root .td-bill .td-t2 { display: block; flex: 1 1 0; }   /* the summary takes what is left: it never squeezes the nickname */
+  .td-root .td-bill .td-nick { flex: 0 1 auto; min-width: 0; }
+  .td-root .td-acts .btn.text { margin-left: 0; }
+  .td-root .td-acts .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .td-root .td-also { width: calc(100% + 2 * var(--s16)); margin-left: calc(-1 * var(--s16)); margin-right: calc(-1 * var(--s16)); padding: 6px var(--s16); }
+  .td-root .td-empty { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+  .td-root .td-empty .empty { padding: var(--s48) var(--s24); }
+  .td-rv .td-rvx { display: inline-flex; }
+}
+/* a card wide enough for it puts its buttons beside the sentence, sized to their labels; a narrow one keeps them below */
+@container tdmain (min-width: 600px) {
+  .td-root .td-card { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s16); }
   .td-root .td-card > * { grid-column: 1 / -1; }
   .td-root .td-card > .td-s, .td-root .td-card > .td-why, .td-root .td-card > .td-note { grid-column: 1; }
   .td-root .td-card > .td-acts { grid-column: 2; grid-row: 2 / span 2; align-self: center; margin-top: 0; flex-direction: row-reverse; flex-wrap: nowrap; }
-  .td-root .td-acts .btn.text { margin-left: 0; }
-  .td-root .td-also { width: calc(100% + 2 * var(--s16)); margin-left: calc(-1 * var(--s16)); margin-right: calc(-1 * var(--s16)); padding: 0 var(--s16); }
-  .td-rv .td-rvx { display: inline-flex; }
+}
+@media (min-width: 1400px) {
+  .td-root .td-cols { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s32); }
+  .td-root .td-wk thead th.num { width: 84px; }
+  .td-root .td-wk thead th.num + th.num { width: 120px; }
 }
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) { .td-rv .td-keys { display: block; } }
+
+/* ---- 1100px and wider (the sidebar layout, mouse and keyboard): tighter rows, and the Week view ---- */
+@media (min-width: 1100px) {
+  .td-root .td-sub .sv-seg button { min-height: 36px; }
+  .td-root .td-whobtn { min-height: 40px; }
+  .td-root .td-h .sv-group { min-height: 40px; }
+  .td-root .td-card { padding-top: 10px; padding-bottom: 10px; }
+  .td-root .td-s { margin-top: 2px; }
+  .td-root .td-also { margin-bottom: -10px; }
+  .td-root .td-also + .td-also { margin-top: 10px; }
+  .td-root .td-acts .btn { min-height: 36px; font-size: var(--t14); }
+  .td-root .td-acts .btn.primary, .td-root .td-acts .btn.secondary { padding: 0 var(--s16); }
+  .td-root .td-acts .btn .ic { width: 16px; height: 16px; }
+  .td-root .td-also { min-height: 36px; }
+  .td-root .td-hrow { min-height: 48px; }
+  .td-root .td-wrow, .td-root .td-load { min-height: 40px; }
+  .td-root .td-pmore { min-height: 36px; }
+
+  .td-root.td-weekroot { max-width: 1600px; margin-left: auto; margin-right: auto; }
+  .td-root .td-wnav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin-bottom: var(--s12); }
+  .td-root .td-wtitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s12); font-size: var(--t18); }
+  .td-root .td-wrange { font: 400 var(--t14)/20px var(--font); letter-spacing: 0; color: var(--n500); }
+  .td-root .td-wbtns { display: flex; align-items: center; gap: var(--s4); }
+  .td-root .td-wbtns .iconbtn { width: 36px; height: 36px; background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); }
+  .td-root .td-wbtns .iconbtn:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
+  .td-root .td-wbtns .iconbtn .ic { width: 20px; height: 20px; }
+  .td-root .td-wbtns .btn.text { min-height: 36px; font-size: var(--t14); }
+  .td-root .td-wbtns .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .td-root .td-wsum { margin-left: auto; font-size: var(--t14); color: var(--n500); }
+  .td-root .td-wwho { display: flex; flex-wrap: wrap; gap: var(--s8); margin-bottom: var(--s12); }
+  .td-root .td-wchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--s12) 0 6px; border-radius: var(--pill); background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); font-size: var(--t14); color: var(--n700); }
+  .td-root button.td-wchip:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
+  .td-root .td-wchip b { color: var(--n900); }
+  .td-root .td-wnone { background: transparent; }
+  .td-root .td-weekgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s12); align-items: start; }
+  .td-root .td-day { min-height: 220px; padding-bottom: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+  .td-root .td-dh { position: sticky; top: var(--header); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); padding: var(--s8) var(--s12); background: var(--n0); border-bottom: 1px solid var(--n100); border-radius: var(--r12) var(--r12) 0 0; }
+  .td-root .td-dh h3 { font-size: var(--t16); line-height: 24px; color: var(--n700); }
+  .td-root .td-dom { color: var(--n900); }
+  .td-root .td-dsum { flex: 1 1 100%; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+  /* today: a blue edge, a tinted header and the word "Today" */
+  .td-root .td-day.today { border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700), var(--sh2); }
+  .td-root .td-day.today .td-dh { background: var(--p50); border-bottom-color: var(--p100); }
+  .td-root .td-day.past { background: var(--n50); }
+  .td-root .td-day.past .td-dh { background: var(--n50); }
+  .td-root .td-day.past .td-num, .td-root .td-day.past .td-nick, .td-root .td-day.past .td-slh b, .td-root .td-day.past .td-dom { color: var(--n500); }
+  .td-root .td-slot { padding: var(--s8) var(--s4) 0; }
+  .td-root .td-slot + .td-slot { margin-top: var(--s4); border-top: 1px solid var(--n100); }
+  .td-root .td-slh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; padding: 0 var(--s8) 2px; font-size: var(--t13); line-height: 20px; color: var(--n500); }
+  .td-root .td-slh b { font-size: var(--t14); color: var(--n900); white-space: nowrap; }
+  .td-root .td-wi { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; margin: 0; padding: 6px var(--s8); border-radius: var(--r8); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
+  .td-root a.td-wi:hover { background: var(--n100); }
+  .td-root a.td-wi:focus-visible { outline-offset: -2px; }
+  .td-root .td-wi1 { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+  .td-root .td-wil { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }   /* the state drops under the number in a narrow column; the owner stays top right */
+  .td-root .td-wi1 .sv-av { flex: none; margin-top: 2px; }
+  .td-root .td-wi1 .sv-chip { min-height: 22px; padding: 1px 8px; }
+  .td-root .td-wnick { font-size: var(--t13); line-height: 18px; color: var(--n500); }
+  .td-root .td-wmore { font-size: var(--t13); color: var(--n500); }
+  .td-root .td-sldue { padding: 0 var(--s8) 2px; line-height: 18px; }
+  .td-root .td-sldue .sv-count { font-size: var(--t13); white-space: normal; }
+  .td-root .td-wkind { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--n500); }
+  .td-root .td-wkind .ic, .td-root .td-wwait { width: 16px; height: 16px; color: var(--n500); }
+  .td-root .td-win { min-width: 0; overflow-wrap: anywhere; }
+  .td-root .td-win .td-t { font-size: var(--t13); line-height: 18px; }
+  .td-root .td-win.td-clamp { line-height: 18px; }
+  .td-root .td-wwait { margin: 0 4px 0 0; vertical-align: -2px; }
+  .td-root .td-wi2 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); margin-top: 2px; }
+  .td-root .td-wi2 .sv-count { font-size: var(--t13); }
+  .td-root .td-wtask { margin: 0 var(--s4); }
+  .td-root .td-wtask .td-wi1 { display: block; }   /* number and nickname run on as text */
+  .td-root .td-wtask .td-wnick { margin-left: 6px; }
+  .td-root .td-wq .td-wsent { color: var(--n500); }
+  .td-root .td-dl2 { display: flex; align-items: center; gap: 6px; margin: var(--s8) var(--s4) 0; padding: var(--s8) var(--s8) 2px; border-top: 1px solid var(--n100); font-size: var(--t13); font-weight: 700; line-height: 20px; color: var(--n500); }
+  .td-root .td-dh + .td-dl2 { margin-top: 0; border-top: 0; }
+  .td-root .td-dl2 .ic { width: 16px; height: 16px; }
+  .td-root .td-dnone { padding: var(--s16) var(--s12); font-size: var(--t14); color: var(--n500); }
+}
 @media (max-width: 359px) { .td-root .td-sub .sv-seg button { padding: 0 12px; } }

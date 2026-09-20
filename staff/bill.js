@@ -1,17 +1,19 @@
 // HIPHI Staff v2 · M2 Bill workspace (plan 3.3). The bill is a full page with its own address
-// (#/bill/HB1562[/overview|activity|pathway|public]), not a modal: Back works, a link can be shared, and on a desktop
-// it sits in the same 720px column as everything else (Nate: centred, nothing docked). Above the tabs: the header
-// (plain title, where the bill stands, position / priority / owner as picker chips that save on tap) and the
-// "Next up" card, which carries the testimony step with the ONE button that does it. Everything the current app's
-// bill window does is here; the Activity tab lives in activity.js, the Public tab in public.js, Pathway in pathway.js.
+// (#/bill/HB1562[/overview|activity|pathway|public]), not a modal: Back works and a link can be shared.
+// Phones: the heading (nickname or plain summary, where the bill stands, position / priority / owner chips), the
+// "Next up" card with the ONE button that does the testimony step, then the four tabs, which pin under the header.
+// Desktop (900px and wider, build 3): two columns. The main column has the heading, the tabs and the tab's content,
+// so real content is on the first screen; the side panel stays in view with what someone needs while reading ANY
+// tab: Next up and its one action, the team's position / priority / owner, and the key facts.
+// The Activity tab lives in activity.js, the Public tab in public.js, Pathway in pathway.js.
 import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, effStage, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, attendees, chairMail,
   billNum, blurb, titleCaseTitle, sponsorName, glossStage, nextStageLabel, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
-  listNames, hiToday, gateName, personName } from './model.js';
+  listNames, hiToday, gateName, personName, pubStateCls, PUBLIC_APP } from './model.js';
 import { personById } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, ownerOf, countdown, stepBar, empty, notice, toast, openSheet, closeSheet,
-  pickerSheet, menuSheet, confirmSheet, field } from './ui.js';
+  pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
 import { renderPublic, wirePublic } from './public.js';
@@ -29,6 +31,12 @@ export function plainTitle(b) {
   if (t === t.toUpperCase()) t = t.charAt(0) + t.slice(1).toLowerCase();
   return t.replace(/\bhawai[ʻ']?i\b/gi, 'Hawaiʻi').replace(/\bhawaiian\b/gi, 'Hawaiian').replace(/\bkupuna\b/gi, 'kūpuna');
 }
+// The team's plain summary (one sentence a neighbour would understand), when someone has written it.
+export const summaryOf = b => String(b?.public_summary || '').trim();
+// What a bill is called on its page: the nickname when it has one ("Disposable vape ban"), else the plain summary,
+// else the subject of the official title. 574 of 734 bills share an official title with another ("Health", "Waste
+// management"), so that title is a detail line in Overview, never the heading.
+export const billName = b => String(b?.nickname || '').trim() || summaryOf(b) || plainTitle(b);
 // A save re-renders the whole page (hooks.render); keep the reader's place and the focus where it was.
 export function rerender(focusSel) {
   const y = window.scrollY, a = document.activeElement, id = a && a.id;
@@ -121,28 +129,50 @@ function neighbours(b) {
   const at = k => { const v = ids[k]; return v == null ? null : S.bills.find(x => x.id === v || x.bill_number === v) || null; };
   return { i, n: ids.length, prev: i > 0 ? at(i - 1) : null, next: i < ids.length - 1 ? at(i + 1) : null };
 }
+// True on the two-column desktop layout (the frame redraws the page when the window crosses 900px).
+const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
+const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+let switching = false;                     // true while a tab change or Previous / Next draws the page
 function goBill(b, tab) {
   carry = origin(S.route);                 // same origin: Back still returns to the list, not to the bill before
-  S.go(billHref(b, tab || tabOf(S.route)), { replace: true });
+  switching = true;
+  try { S.go(billHref(b, tab || tabOf(S.route)), { replace: true }); } finally { switching = false; }
 }
+
+// ---- the tab strip: where it pins, and bringing a tab's content into view ----
+const stickTop = () => { const h = document.querySelector('.sv-hdr'); return h ? h.getBoundingClientRect().height : 56; };
+// How far the page scrolls to put the strip right under the header (where position: sticky holds it from then on).
+function pinY() {
+  const sent = document.querySelector('.bw-tabsent'), nav = document.querySelector('.bw-tabs'); if (!sent || !nav) return 0;
+  return Math.max(0, Math.round(sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - stickTop()));
+}
+// The bottom edge of the pinned strip: a field brought into view (the ask on the Public tab) goes below this line.
+export const underTabs = () => stickTop() + (document.querySelector('.bw-tabs')?.offsetHeight || 0);
 function switchTab(tab) {
-  if (S.route?.name !== 'bill' || tabOf(S.route) === tab) return;
+  if (S.route?.name !== 'bill') return;
   const b = billOf(S.route); if (!b) return;
-  // If the tabs are pinned under the header, the new tab starts right under them; otherwise nothing moves.
-  const sent = document.querySelector('.bw-tabsent'), nav = document.querySelector('.bw-tabs');
-  const pinAt = sent && nav ? sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - stickTop() : 0;
-  const pinned = sent && window.scrollY > pinAt;
-  carry = origin(S.route);
-  S.go(billHref(b, tab), { replace: true, keepScroll: true });
-  if (tab === 'activity') return;          // the stream scrolls to its newest entry itself
-  if (pinned) window.scrollTo(0, pinAt);
+  const same = tabOf(S.route) === tab, pinned = window.scrollY > pinY() + 1;
+  if (!same) {
+    carry = origin(S.route); switching = true;
+    // Replaces this history entry (as before): Back leaves the bill, it does not walk back through its tabs.
+    try { S.go(billHref(b, tab), { replace: true, keepScroll: true }); } finally { switching = false; }
+  }
+  // Phones: on arrival the strip sits at, or below, the bottom of the first screen, so a tap used to move only the
+  // underline. The strip now goes to the top, under the header, and the tab's content fills the screen. A reader
+  // already inside a tab (strip pinned) starts the new tab at its top. Desktop: the content is on the first screen
+  // already, so only a reader who had scrolled down is moved.
+  if (tab === 'activity' && !same) { /* the stream scrolls to its newest entry itself (activity.js) */ }
+  else if (!DESK() || pinned) { const y = pinY(); window.scrollTo({ top: y, behavior: pinned || calm() ? 'auto' : 'smooth' }); }
   document.querySelector(`.bw-tabs [data-tab="${tab}"]`)?.focus({ preventScroll: true });
 }
-const stickTop = () => { const h = document.querySelector('.sv-hdr'); return h ? h.getBoundingClientRect().height : 56; };
+// Back and Forward restore the reader's place (the frame does it); only a page that was just opened, by a link or a
+// reload, brings its tab into view. Registered before the frame's own listener, because app.js imports this file.
+let popping = false;
+addEventListener('popstate', () => { popping = true; setTimeout(() => { popping = false; }, 0); });
 
 // ---- keyboard (desktop): 1-4 switch tabs, [ and ] move through the list, Esc goes back ----
 document.addEventListener('keydown', e => {
-  if (S.route?.name !== 'bill') return;
+  if (S.route?.name !== 'bill' || !keysOn()) return;    // My settings can switch every shortcut off
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
   const b = billOf(S.route); if (!b) return;
@@ -181,15 +211,20 @@ const PRI_SUB = { 1: 'Top tier: leads every list and alert', 2: 'Active, behind 
 // Initials on the owner chip (ui.avatar says "You" at this size, and the chip's label already does).
 const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" style="--av:24px" aria-hidden="true">${esc(a.initials || firstName(a)[0] || '?')}</span>`;
 const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
-function teamChips(b) {
+const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
-  return `<div class="bw-chips">
-    ${pick('pos', POS_WORD[pos] || pos, icon(POS_ICON[pos] || 'circle-dashed'), `Position: ${POS_WORD[pos] || pos}. Change`)}
-    ${pick('pri', b.priority ? 'P' + b.priority : 'No priority', '', `Priority: ${b.priority ? 'P' + b.priority : 'none'}. Change`)}
-    ${pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)}
-    ${isMuted(b) ? chip('Muted', '', 'bell-off') : !isOwner(b) && S.follows?.has(b.id) ? chip('Following', '', 'bell') : ''}
-  </div>`;
-}
+  return [['Position', pick('pos', POS_WORD[pos] || pos, icon(POS_ICON[pos] || 'circle-dashed'), `Position: ${POS_WORD[pos] || pos}. Change`)],
+    ['Priority', pick('pri', b.priority ? 'P' + b.priority : 'No priority', '', `Priority: ${b.priority ? 'P' + b.priority : 'none'}. Change`)],
+    ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)]];
+};
+const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : !isOwner(b) && S.follows?.has(b.id) ? chip('Following', '', 'bell') : '';
+// Phones: a row of chips under the status sentence.
+const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}</div>`;
+// Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip).
+const teamCard = b => `<section class="card bw-side bw-teamc" aria-labelledby="bw-teamc-h">
+    <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-teamc-h">Team</h2>${followFlag(b)}</div>
+    ${teamPicks(b).map(([l, p]) => `<div class="bw-ctl"><span class="bw-ctll" aria-hidden="true">${l}</span>${p}</div>`).join('')}
+  </section>`;
 async function saveWithUndo(b, patch, focusSel) {
   const before = {}; for (const k of Object.keys(patch)) before[k] = b[k] ?? null;
   try {
@@ -397,6 +432,7 @@ async function transition(b, d, action, note, url) {
   FACTS.clear();
   return draftById(b, d.id) || d;
 }
+let approvedAt = -1e4;                     // when this page last approved something (see runDraft)
 async function runDraft(b, d, act, el) {
   if (act === 'changes') return requestChanges(b, d);
   if (act === 'file') return markFiled(b, d);
@@ -406,10 +442,15 @@ async function runDraft(b, d, act, el) {
       await transition(b, d, 'submit'); rerender(`[data-tb="${d.id}"] .bw-acts > *`);
       toast(`Sent to ${approverNames()} for review.`, { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
     } else if (act === 'approve') {
-      const nd = await transition(b, d, 'approve'); rerender();
+      // The same safety as review mode (build 3): a leftover second tap never approves the next step (someone who is
+      // both admin and reviewer would find Approve in the same spot), and every approval has Undo, which the server
+      // backs with its un-approve (migration 058).
+      if (performance.now() - approvedAt < 1000) { if (el?.isConnected) el.removeAttribute('aria-busy'); return; }
+      const nd = await transition(b, d, 'approve'); approvedAt = performance.now(); rerender();
       const owner = ownerOf(b), filer = owner || advocate(nd.submitted_by);
       toast(nd.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.`
-        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? firstName(filer) : 'The owner'} will file it.`, { ok: true });
+        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? firstName(filer) : 'The owner'} will file it.`,
+        { ok: true, undo: async () => { await transition(b, nd, 'unapprove'); rerender(); toast('Approval undone. It is waiting for you again.'); } });
     } else if (act === 'withdraw') {
       await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.');
     } else if (act === 'unfile') {
@@ -517,10 +558,12 @@ function noteSection(b) {
     <div class="bw-acts">${btn('Save note', { kind: 'secondary', attrs: { 'data-savenote': '1' } })}${d != null && d !== (b.internal_notes || '') ? '<span class="small muted">Not saved yet</span>' : ''}</div>
   </section>`;
 }
-function teamSection(b) {
+function teamSection(b, desk) {
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).filter(Boolean);
   const auto = STAGE_LABEL[b.stage || 'introduced'] || b.stage;
-  return `<section class="bw-sec" aria-labelledby="bw-team-h"><h2 id="bw-team-h">Team</h2>
+  // On desktop "Team" is the side panel's card (position, priority, owner), so this section is named for what it holds.
+  const name = !desk ? 'Team' : S.me?.is_admin || b.stage_override ? 'Coalitions and stage' : 'Coalitions';
+  return `<section class="bw-sec" aria-labelledby="bw-team-h"><h2 id="bw-team-h">${name}</h2>
     <div class="rows">
       <div class="row bw-line"><span class="body"><span class="sub">Coalitions</span><span class="title">${coal.length ? esc(coal.join(', ')) : '<span class="muted">None</span>'}</span></span>${btn('Edit', { kind: 'text', attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions' } })}</div>
       ${S.me?.is_admin ? `<div class="row bw-line"><span class="body"><span class="sub">Stage</span><span class="title">${b.stage_override ? `${esc(STAGE_LABEL[b.stage_override] || b.stage_override)} <span class="muted">(set by hand; the Capitol says ${esc(auto)})</span>` : `Automatic: ${esc(auto)}`}</span></span>${btn('Change', { kind: 'text', attrs: { 'data-stage': '1', 'aria-label': 'Change the stage' } })}</div>`
@@ -548,22 +591,48 @@ function sponsorList(b) {
   for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
   return out.map(sponsorName);
 }
-function detailsSection(b) {
-  const st = stopOf(b), sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], stage = effStage(b), next = nextStageLabel(b);
-  const cm = st.committee ? `${esc(cmteFull(st.committee))} <span class="muted">(${esc(st.committee)})</span>${chairLinks(b, st.committee) ? ` · ${chairLinks(b, st.committee)}` : ''}` : st.phase === 'committee' ? `<span class="muted">Waiting for a ${CHAMBER_NAME[st.chamber]} referral</span>` : '';
-  const comp = (b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : '';
+// The lines that say where the bill is. Phones list them in Overview > Details; the desktop side panel shows them
+// beside every tab, so there they leave Details (one place per fact on a screen).
+function whereLines(b, { gloss = true } = {}) {
+  const st = stopOf(b), stage = effStage(b), next = nextStageLabel(b);
+  const chairs = st.committee ? chairLinks(b, st.committee) : '';
+  const cm = st.committee ? `${esc(cmteFull(st.committee))} <span class="muted">(${esc(st.committee)})</span>${chairs ? ` · ${chairs}` : ''}` : st.phase === 'committee' ? `<span class="muted">Waiting for a ${CHAMBER_NAME[st.chamber]} referral</span>` : '';
+  return { cm: cm ? `<div class="bw-dt"><dt>Committee</dt><dd>${cm}</dd></div>` : '',
+    stage: `<div class="bw-dt"><dt>Stage</dt><dd>${esc(STAGE_LABEL[stage] || stage)}${next ? ` <span class="muted">· next: ${esc(next)}</span>` : ''}${gloss && glossStage(stage) ? `<span class="bw-gloss">${esc(glossStage(stage))}</span>` : ''}</dd></div>`,
+    comp: (b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : '' };
+}
+const capitolLink = b => `<a class="bw-inline" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page${icon('external-link')}</a>`;
+const copyLinkBtn = '<button type="button" class="linkbtn bw-inline" data-copylink="1">Copy link</button>';
+function detailsSection(b, desk) {
+  const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], w = desk ? null : whereLines(b);
+  // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">
-      ${cm ? `<div class="bw-dt"><dt>Committee</dt><dd>${cm}</dd></div>` : ''}
+      ${b.title ? `<div class="bw-dt"><dt>Official title</dt><dd>${esc(titleCaseTitle(b.title))}</dd></div>` : ''}
+      ${w ? w.cm : ''}
       <div class="bw-dt"><dt>Referrals</dt><dd>${referralsHTML(b)}</dd></div>
-      <div class="bw-dt"><dt>Stage</dt><dd>${esc(STAGE_LABEL[stage] || stage)}${next ? ` <span class="muted">· next: ${esc(next)}</span>` : ''}${glossStage(stage) ? `<span class="bw-gloss">${esc(glossStage(stage))}</span>` : ''}</dd></div>
+      ${w ? w.stage : ''}
       ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
       ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` <button type="button" class="linkbtn bw-more" data-sponsall="1">Show all ${sp.length}</button>` : ''}</dd></div>` : ''}
-      ${comp}
-      <div class="bw-dt"><dt>Links</dt><dd class="bw-linkrow"><a class="bw-inline" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page${icon('external-link')}</a><button type="button" class="linkbtn bw-inline" data-copylink="1">Copy link</button></dd></div>
+      ${w ? `${w.comp}<div class="bw-dt"><dt>Links</dt><dd class="bw-linkrow">${capitolLink(b)}${copyLinkBtn}</dd></div>` : ''}
     </dl>
-    ${b.title || b.description ? `<details class="bw-fold"><summary>${icon('chevron-down', { cls: 'chev' })}Official title and description</summary>
-      ${b.title ? `<p class="small"><b>Title.</b> ${esc(titleCaseTitle(b.title))}</p>` : ''}${b.description ? `<p class="small"><b>Description.</b> ${esc(b.description)}</p>` : ''}</details>` : ''}
+    ${b.description && summaryOf(b) ? `<details class="bw-fold"><summary>${icon('chevron-down', { cls: 'chev' })}Official description</summary><p class="small">${esc(b.description)}</p></details>` : ''}
+  </section>`;
+}
+// Desktop side panel: the facts someone checks while reading any tab.
+function factsCard(b) {
+  const st = stopOf(b), w = whereLines(b, { gloss: false });
+  const dl = st.deadline && !diedish(b) && st.phase !== 'dead' ? st.deadline : null;
+  const live = pubStateCls(b).includes('live');
+  const pub = live ? `<a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a>` : '';
+  return `<section class="card bw-side bw-facts" aria-labelledby="bw-facts-h">
+    <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-facts-h">Key facts</h2></div>
+    <dl class="bw-kf">
+      ${w.cm}${w.stage}
+      ${dl ? `<div class="bw-dt"><dt>Next deadline</dt><dd>${esc(gateName({ phase: dl.key, label: dl.label }))}, ${esc(dayOf(dl.date + 'T12:00:00-10:00'))} ${dl.missed ? '<span class="bw-late">' + icon('circle-alert') + 'missed</span>' : daysLeft(dl)}</dd></div>` : ''}
+      ${w.comp}
+      <div class="bw-dt"><dt>Links</dt><dd><span class="bw-linkrow">${capitolLink(b)}${pub}${copyLinkBtn}</span>${live ? '' : '<span class="bw-gloss">Not on the public page.</span>'}</dd></div>
+    </dl>
   </section>`;
 }
 // Companions: the other chamber's twin and where it stands. Tracked ones open here; the rest go to the Capitol.
@@ -589,11 +658,12 @@ function loadCompanions(b) {
   }).catch(() => { S.bwComp[b.id] = []; }).finally(() => { S.bwCompBusy[b.id] = false; });
 }
 function overview(b) {
-  const sum = (b.public_summary || b.description || '').trim();
-  return `<section class="bw-sec bw-sum" aria-labelledby="bw-sum-h"><h2 id="bw-sum-h" class="sr">Summary</h2>
-      <p>${sum ? esc(sum) : '<span class="muted">No summary yet. Write one on the Public tab.</span>'}</p>
-      ${b.public_summary ? '' : sum ? '<p class="meta">The official description. A plain summary can be written on the Public tab.</p>' : ''}</section>
-    ${todoSection(b)}${noteSection(b)}${teamSection(b)}${detailsSection(b)}`;
+  const desk = DESK(), desc = (b.description || '').trim();
+  // The plain summary is part of the page heading now. Without one, the Capitol's description stands in here.
+  const sum = summaryOf(b) ? '' : `<section class="bw-sec bw-sum" aria-labelledby="bw-sum-h"><h2 id="bw-sum-h" class="sr">Summary</h2>
+      <p>${desc ? esc(desc) : '<span class="muted">No summary yet. Write one on the Public tab.</span>'}</p>
+      ${desc ? '<p class="meta">The official description. A plain summary can be written on the Public tab.</p>' : ''}</section>`;
+  return `${sum}${todoSection(b)}${noteSection(b)}${teamSection(b, desk)}${detailsSection(b, desk)}`;
 }
 
 // ---- To do, note, coalitions, stage: wiring ----
@@ -666,12 +736,13 @@ function topBar(b, route) {
   </div>`;
 }
 function tabsNav(b, tab) {
-  const n = unreadCount(b);
+  const n = unreadCount(b), keys = keysOn();
+  // The number keys are named on each tab (title, aria-keyshortcuts) and once at the end of the strip on desktop.
   return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(b.bill_number)} sections">${TABS.map(([k, l], i) =>
-    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l} (${i + 1})">${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}</nav>`;
+    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}${keys ? `<span class="bw-khint" aria-hidden="true">${icon('keyboard')}1 to 4</span>` : ''}</nav>`;
 }
 function panel(b, tab) {
-  if (tab === 'activity') { loadTimeline(b); return renderActivity(b); }
+  if (tab === 'activity') { loadTimeline(b); return renderActivity(b, { inline: DESK() }); }
   if (tab === 'pathway') { try { return renderPathway(b); } catch (e) { console.error(e); return empty({ title: 'The pathway could not be drawn', text: 'Try again in a moment.' }); } }
   if (tab === 'public') return renderPublic(b);
   loadCompanions(b);
@@ -683,34 +754,65 @@ function notFound(route) {
     action: btn(num ? `Search for ${esc(num)}` : 'Search bills', { href: '#/search' + (num ? '?q=' + encodeURIComponent(num) : ''), icon: 'search' }) })}</div>`;
 }
 
+// The heading: number (on phones it is in the frame's header), what the bill is called, where it stands.
+function headHTML(b, { chips }) {
+  const nick = String(b.nickname || '').trim(), sum = summaryOf(b);
+  return `<header class="bw-head">
+    <h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>
+    <p class="bw-title${nick || !sum ? '' : ' bw-long'}">${esc(billName(b))}</p>
+    ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
+    <p class="bw-status">${icon('route')}<span>${statusSentence(b)}</span></p>
+    ${chips ? teamChips(b) : ''}
+  </header>`;
+}
+// Phones: the frame's header holds the back label, the number, ⋯, search and your menu in 320 to 390px. The number
+// must never be cut ("Muted bills HB1…"), so a label that would not fit beside it becomes "Back" (the frame already
+// does this for labels over 12 characters). Widths are measured, not guessed from a character count.
+let mctx = null;
+const textW = (t, font) => { try { mctx ??= document.createElement('canvas').getContext('2d'); mctx.font = font; return mctx.measureText(t).width; } catch { return String(t).length * 10; } };
+function fitBack(o, b) {
+  if (DESK() || !b || o.label.length > 12 || o.label === 'Back') return o;
+  const ver = b.current_version && innerWidth >= 360 ? ' ' + b.current_version : '';   // bill.css hides the version below 360px
+  const room = innerWidth - 164;           // less the header's padding and gaps and its three 44px buttons
+  // 36px is the back link's chevron and padding; 4px of slack covers a fallback font before Lato and Roboto arrive.
+  const need = 36 + textW(o.label, '700 16px Lato, sans-serif') + textW(b.bill_number + ver, '700 18px Roboto, sans-serif') + 4;
+  return need > room ? { ...o, label: 'Back' } : o;
+}
+
 export default {
   tab: 'bills',
   title: r => { const b = billOf(r); return b ? billNum(b) : (r.num || 'Bill'); },
-  back: r => origin(r),
+  back: r => fitBack(origin(r), billOf(r)),
   // On Activity the message box takes the tab bar's place at the bottom (like select mode on Bills).
   noTabs: r => tabOf(r) === 'activity' && !!billOf(r),
-  wide: () => false,
+  // The page takes the width the frame offers and caps itself (bill.css: 1056px, the frame's standard page), so
+  // between 900 and 1100px, where a standard page is a 720px column, the two columns still have room.
+  wide: () => true,
   render(route) {
     const b = billOf(route); if (!b) return notFound(route);
-    const tab = tabOf(route);
-    return `<div class="bw-page" data-bw="${esc(b.id)}">
+    const tab = tabOf(route), desk = DESK();
+    // A tab that was just opened fades in, so a key press (1 to 4) is seen to do something. Not on a re-render.
+    const body = `${tabsNav(b, tab)}
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${panel(b, tab)}</div>`;
+    if (!desk) return `<div class="bw-page" data-bw="${esc(b.id)}">${topBar(b, route)}${headHTML(b, { chips: true })}${nextCards(b)}${body}</div>`;
+    loadCompanions(b);                     // the side panel shows the companion beside every tab
+    return `<div class="bw-page bw-desk" data-bw="${esc(b.id)}">
       ${topBar(b, route)}
-      <header class="bw-head">
-        <h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>
-        <p class="bw-title">${esc(b.nickname || plainTitle(b))}</p>
-        <p class="bw-status">${statusSentence(b)}</p>
-        ${teamChips(b)}
-      </header>
-      ${nextCards(b)}
-      ${tabsNav(b, tab)}
-      <div class="bw-panel" id="bw-panel" data-panel="${tab}">${panel(b, tab)}</div>
+      <div class="sv-cols bw-cols">
+        <div class="bw-main">${headHTML(b, { chips: false })}${body}</div>
+        <aside class="sv-aside bw-aside" aria-label="${esc(b.bill_number)} at a glance">${nextCards(b)}${teamCard(b)}${factsCard(b)}</aside>
+      </div>
     </div>`;
   },
-  bar(route) { const b = billOf(route); return b && tabOf(route) === 'activity' ? composerBar(b) : ''; },
+  // Phones: the message box is the page's bottom bar on Activity. Desktop: it sits at the end of the stream, in the column.
+  bar(route) { const b = billOf(route); return b && tabOf(route) === 'activity' && !DESK() ? composerBar(b) : ''; },
   wire(route, root) {
     const b = billOf(route);
     if (!b) { const h1 = root.querySelector('.sv-hdr .sv-title'); if (h1) h1.textContent = String(route.num || 'Bill').toUpperCase(); return; }
     const tab = tabOf(route), page = root.querySelector('.bw-page');
+    // Opened by a link or a reload (not a tab tap, not Previous / Next, not Back, not a re-render after a save)?
+    const arrival = fresh && !switching && !popping;
+    const inApp = !!prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num);
     // Remember the origin in this history entry, so coming Back to the bill still names the right page.
     const o = origin(route); carry = null;
     try { if (!history.state?.bwFrom || history.state.bwFrom.href !== o.href) history.replaceState({ ...(history.state || {}), bwFrom: o }, ''); } catch { /* ignore */ }
@@ -720,11 +822,16 @@ export default {
       const h1 = hdr.querySelector('.sv-title');
       if (h1) h1.innerHTML = `${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver bw-hv">${esc(b.current_version)}</span>` : ''}`;
       if (!hdr.querySelector('.bw-hdrmore')) (hdr.querySelector('.sv-srchbtn') || hdr.querySelector('.sv-avbtn'))?.insertAdjacentHTML('beforebegin', iconBtn('ellipsis', `More for ${b.bill_number}`, { 'data-bwmore': '1' }, 'bw-hdrmore'));
+      // A label shortened to "Back" so the number fits (fitBack) still says where it goes to a screen reader.
+      const bk = hdr.querySelector('.sv-back');
+      if (bk && !bk.hasAttribute('aria-label') && o.label !== 'Back' && bk.textContent.trim() === 'Back') bk.setAttribute('aria-label', `Back to ${o.label}`);
     }
     root.querySelectorAll('[data-bwmore]').forEach(el => el.onclick = () => pageMenu(b));
     // Previous / Next replace this entry, so Back still goes to the list.
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));
-    page.querySelectorAll('.bw-tabs [data-tab]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); switchTab(a.dataset.tab); }));
+    // Tabs (and any other link to a tab of this bill) replace the entry too, and bring the tab into view.
+    page.querySelectorAll('[data-tab]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); switchTab(a.dataset.tab); }));
+    page.querySelectorAll('[data-copylink]').forEach(el => el.onclick = () => copyLink(b));
     // header chips
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
     page.querySelector('[data-bwpick="pri"]').onclick = () => pickPriority(b);
@@ -736,10 +843,17 @@ export default {
     page.querySelectorAll('[data-tmenu]').forEach(el => el.onclick = () => testimonyMenu(b));
     // panels
     const pnl = page.querySelector('#bw-panel');
+    // "Write it" on Today (and ?ask=1) opens the Public tab at the ask, with the cursor in it, the way ?reply=1
+    // opens Activity at the message box. A tab tap never does: it would raise the keyboard uninvited.
+    const focusAsk = tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
     if (tab === 'overview') wireOverview(pnl, b);
     else if (tab === 'activity') wireActivity(pnl, b, route, root);
     else if (tab === 'pathway') { try { wirePathway(pnl, b); } catch (e) { console.error(e); } }
-    else if (tab === 'public') wirePublic(pnl, b);
+    else if (tab === 'public') wirePublic(pnl, b, { focusAsk });
+    // A deep link to a tab (#/bill/HB1562/pathway) on a phone: the strip goes under the header so the tab's content
+    // is what shows, as a tap on the tab does. After the frame's own scroll to the top, hence the frame's next paint.
+    // Activity and the ask bring themselves into view; on desktop the content is on the first screen already.
+    if (arrival && !DESK() && (tab === 'pathway' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
   },
 };
 
@@ -773,5 +887,4 @@ function wireOverview(pnl, b) {
   pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);
   pnl.querySelector('[data-stage]')?.addEventListener('click', () => pickStage(b));
   pnl.querySelector('[data-sponsall]')?.addEventListener('click', () => { (S.bwSponsAll ??= {})[b.id] = true; rerender(); });
-  pnl.querySelector('[data-copylink]').onclick = () => copyLink(b);
 }

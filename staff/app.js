@@ -1,10 +1,10 @@
 // HIPHI Staff v2: the frame and the router (plan section 2). The current staff app (index.html + app.js) is option 1
 // and stays untouched; this is option 2, a task-first, phone-first companion. Screens are modules with
-// { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide? }.
+// { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
 import { S, DB, DEMO, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
-import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar } from './ui.js';
+import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
-import today from './today.js';
+import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import bill from './bill.js';
 import bills from './bills.js';
@@ -54,7 +54,11 @@ const TABS = [['today', '#/', 'list-todo', 'Today'], ['bills', '#/bills', 'scrol
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
-export function go(path, { replace = false, keepScroll = false } = {}) {
+export function go(path, { replace = false, keepScroll = false, force = false } = {}) {
+  // A screen with unsaved work can ask first, for the frame's own jumps too (your menu, the header search, a g
+  // shortcut): it registers (S.leaveGuards ??= []).push(proceed => boolean). True means "I am asking; I will call
+  // proceed() if they choose to leave". A guard must answer false at once when it has nothing unsaved.
+  if (!force) for (const g of S.leaveGuards || []) { let held = false; try { held = g(() => go(path, { replace, keepScroll, force: true })) === true; } catch (e) { console.error(e); } if (held) return; }
   if (takeSheetEntry()) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
   if (replace) history.replaceState({ y: 0, d: depth }, '', path); else history.pushState({ y: 0, d: ++depth }, '', path);
@@ -68,6 +72,9 @@ window.addEventListener('popstate', e => {
   render(); const y = e.state?.y || 0; requestAnimationFrame(() => window.scrollTo(0, y));
 });
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
+// Crossing a layout width (a rotated tablet, a resized window) redraws the page, so screens that draw differently for
+// desktop are never left in the wrong shape.
+for (const q of ['(min-width: 900px)', '(min-width: 1100px)']) { try { matchMedia(q).addEventListener('change', () => { if (S.route && !document.querySelector('dialog[open]')) render(); }); } catch { /* old browsers */ } }
 
 // ---- the frame ----
 export function badge() { try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
@@ -75,9 +82,8 @@ function header(route, scr, pageH1 = false) {
   const b = scr.back ? scr.back(route) : null, title = scr.title ? scr.title(route) : '';
   const bd = badge();
   const pill = bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
-  return `${DEMO ? `<div class="band">Sandbox · Mar 16, 2026 · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved</div>` : ''}
-  <header class="sv-hdr">
-    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(b.label)}</span></a>` : ''}
+  return `<header class="sv-hdr">
+    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${b.label.length > 12 ? ` aria-label="Back to ${esc(b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(b.label.length > 12 ? 'Back' : b.label)}</span></a>` : ''}
     <a class="sv-brand" href="#/" aria-label="Today">${MARK}<span>Bill Tracker</span></a>
     ${pageH1 ? `<span class="sv-title" aria-hidden="true">${esc(b ? '' : title)}</span>` : `<h1 class="sv-title">${esc(title)}</h1>`}
     <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
@@ -85,6 +91,29 @@ function header(route, scr, pageH1 = false) {
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
     <button type="button" class="sv-avbtn" data-avatar aria-label="Your menu">${avatar(S.me, 32)}</button>
   </header>`;
+}
+// The desktop sidebar (1100px and wider; staff.css hides it below that, where the header carries the four tabs).
+// A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
+// away here: Review, Sort new bills, the weekly memo, Lists, Emails, setup and help.
+const SIDE = [
+  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review']]],
+  ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
+  ['legislators', '#/legislators', 'landmark', 'Legislators', []],
+  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
+];
+const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+function sidebar(route, scr) {
+  const bd = badge(), sub = SUB_OF[route.name] || '';
+  let rv = 0; try { rv = reviewQueue().length; } catch { rv = 0; }
+  const count = n => n ? `<span class="sv-sn">${n > 99 ? '99+' : n}</span>` : '';
+  const foot = [['help', '#/help', 'circle-help', 'Help'], ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
+  return `<aside class="sv-side" aria-label="Sections">
+    <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
+    <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
+      <a class="sv-sitem" href="${href}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span>${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
+      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span>${l}</span>${k === 'review' ? count(rv) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
+    <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span></a>`).join('')}</nav>
+  </aside>`;
 }
 function tabbar(scr) {
   const bd = badge();
@@ -102,9 +131,21 @@ export function render() {
   const cls = document.body.classList;
   cls.add('staff2'); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
+  // Desktop widths: a screen is 1120px by default; `wide` (tables) uses the whole window; `narrow` (one focused task
+  // or a form: review, settings) stays a 760px reading column.
+  document.body.toggleAttribute('data-narrow', !!(typeof scr.narrow === 'function' ? scr.narrow(route) : scr.narrow));
   const app = document.getElementById('app');
   // One h1 per page: the page's own when it has one, else the frame's title (hidden visually on desktop).
-  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}</main>${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}${tabs ? tabbar(scr) : ''}`;
+  // The action bar lives inside <main>, as its last child: fixed to the bottom on phones, and on a wide screen it
+  // sits right under the content it acts on (staff.css), never a screen-height away from it.
+  const band = DEMO ? `<div class="band">Sandbox · Mar 16, 2026 · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved</div>` : '';
+  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route, scr)}<div class="sv-page">${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabs ? tabbar(scr) : ''}`;
+  // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the header
+  // already shows the title), which left 12 of 22 screens with no heading at all: where the page's h1 is not drawn,
+  // the header's title is the heading.
+  const ownH1 = app.querySelector('main h1'), ft = app.querySelector('.sv-hdr .sv-title');
+  if (ft && ft.tagName !== 'H1' && (!ownH1 || getComputedStyle(ownH1).display === 'none')) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
+  try { clearTimeout(window.__bootT); } catch { /* ignore */ }
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); }
   wireFrame(app);
@@ -144,7 +185,8 @@ function avatarMenu() {
 let gPending = 0;
 document.addEventListener('keydown', e => {
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
-  if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
+  if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]') || !keysOn()) return;
+  if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const q = document.getElementById('hq'); if (q && q.offsetParent) q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
   if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review' }[e.key]; if (to) { e.preventDefault(); go(to); } }

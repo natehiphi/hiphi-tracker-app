@@ -5,7 +5,7 @@
 // never depends on these), so it works the same whichever app wrote it.
 import { S, DB, DEMO, APP_URL, esc, hooks } from './data.js';
 import { WORKFLOW_KINDS } from './model.js';
-import { icon, btn, switchRow, field, toast } from './ui.js';
+import { icon, btn, switchRow, field, toast, keysOn, setKeys } from './ui.js';
 
 // Plain, verb-free labels for what each nudge is about (app.js WORKFLOW_KINDS keys, same order).
 const WF_LABEL = { chat: ['Messages on bills I own, follow or joined', ''], draft_created: ['A new testimony draft for one of my bills', ''],
@@ -29,7 +29,7 @@ function current() {
 }
 
 export default {
-  tab: '',
+  tab: '', narrow: true,   // a form: a reading column on a wide screen
   title: () => 'My settings',
   render() {
     const { me, r, w, mode } = current(), paused = (S.emailCfg || {}).enabled === false, toEmail = (S.slackCfg || {}).workflow_dm === false;
@@ -62,6 +62,11 @@ export default {
           ${r.before_on ? field('st-befh', 'Hours before', `<input id="st-befh" type="number" min="0.5" max="48" step="0.5" inputmode="decimal" value="${esc(r.hours_before)}" data-remv="hours_before">`) : ''}
           ${r.after_on ? field('st-aftt', 'Missed-deadline reminder', `<input id="st-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>
       </section>` : ''}`}
+      <section class="st-sec st-keysec" aria-labelledby="st-keys">
+        <h2 id="st-keys">Keyboard shortcuts</h2>
+        <div class="card st-list">${switchRow('st-keyson', 'Use keyboard shortcuts', keysOn(), 'For a laptop or desktop. Off means a stray letter never does anything. Approving always takes Shift+A.', { 'data-keys': '1' })}</div>
+        <p class="small muted"><a href="#/help/keys">See the shortcuts</a>. This setting is kept on this device.</p>
+      </section>
       <section class="st-sec" aria-labelledby="st-test">
         <h2 id="st-test" class="sr">Test and account</h2>
         <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>
@@ -105,6 +110,8 @@ export default {
       if (i.dataset.remv === 'hours_before' && !(Number(i.value) >= 0.5 && Number(i.value) <= 48)) { toast('Use a number of hours from 0.5 to 48.', { err: true }); return; }
       save(me.slack_dm !== false, { ...prefs, reminders: rem, workflow: wf });
     });
+    const ks = root.querySelector('[data-keys]');
+    if (ks) ks.onchange = () => { setKeys(ks.checked); toast(ks.checked ? 'Keyboard shortcuts are on.' : 'Keyboard shortcuts are off.', { ok: true }); };
     const t = root.querySelector('[data-test]');
     if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true');
       try { await DB.slackTest(); toast(DEMO ? 'Sandbox: a test DM would be on its way.' : 'Test DM on its way. Check Slack.', { ok: true }); } catch (e) { toast(e, { err: true }); }

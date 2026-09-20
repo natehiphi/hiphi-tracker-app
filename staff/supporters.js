@@ -1,10 +1,12 @@
 // Outreach > Supporters (plan 3.7): everyone HIPHI knows, what they follow and what they did. The same people, rules
 // and calls as the current app's People page (app.js renderPeople / wirePeople), laid out for a phone: one search box,
 // saved segments as a chip row, one Filter sheet in four groups, removable filter chips, and a select mode whose bar
-// sits where the tab bar was. Desktop gets a table with the Bills, Emails and Last active columns.
-import { S, DB, DEMO, hooks, esc, fmtDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
-import { ISLANDS, INTERESTS, personName, whereOf, sortPeople, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
-import { icon, btn, iconBtn, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow } from './ui.js';
+// sits where the tab bar was. Desktop (900px and wider) gets a real table in the Bills table's look: a pinned header
+// whose columns sort, tags and phone in the row, tick boxes, and the whole row opens the person.
+// Privacy: staff see a supporter's island and districts, never a street address. Nothing here reads p.address.
+import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
+import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
+import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen } from './ui.js';
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
 // on the Emails page and when the email is sent) ----
@@ -29,11 +31,31 @@ export function afterSheet(fn) {
   window.addEventListener('popstate', go); const t = setTimeout(go, 400);
 }
 
-export const V = () => S.spView ??= { f: EMPTY_PF(), sort: 'active', seg: null, sel: new Set(), selecting: false, limit: 200 };
-const SORTS = [['active', 'Last active'], ['score', 'Most engaged'], ['newest', 'Newest first'], ['name', 'Name, A to Z']];
+export const V = () => S.spView ??= { f: EMPTY_PF(), sort: ['active', -1], seg: null, sel: new Set(), selecting: false, limit: 200 };
+// One sort for both layouts: the phone's Sort picker and the desktop's column headers set the same v.sort = [key, dir].
+// Each key has the direction a first click gives it (names A to Z; numbers and dates biggest or newest first).
+const ISLAND_ORDER = Object.fromEntries(ISLANDS.map((x, i) => [x, i]));
+const SORT_KEYS = {
+  name: [1, p => personName(p).toLowerCase()],
+  where: [1, p => p.island || p.senate_district || p.house_district ? [ISLAND_ORDER[p.island] ?? 9, p.senate_district || 99, p.house_district || 99] : null],
+  follows: [-1, p => (p.bill_ids || []).length + (p.list_ids || []).length],
+  actions: [-1, p => p.actions || 0],
+  score: [-1, p => p.score || 0],
+  emails: [-1, p => p.emails_sent || 0],
+  active: [-1, p => p.last_active || null],
+  joined: [-1, p => p.created_at || null],
+};
+const SORTS = [['active', 'Last active'], ['score', 'Most engaged'], ['joined', 'Newest first'], ['name', 'Name, A to Z']];
+const cmp = (a, b) => Array.isArray(a) ? a.reduce((r, x, i) => r || cmp(x, b[i]), 0) : typeof a === 'string' ? a.localeCompare(b) : a - b;
+function sortRows(rows, [k, d]) {
+  const get = (SORT_KEYS[k] || SORT_KEYS.active)[1];
+  // Someone with nothing to sort by (no district, never active) goes last whichever way the column runs.
+  return rows.map(p => [get(p), p]).sort(([a, pa], [b, pb]) => (a == null) - (b == null) || (a == null ? 0 : d * cmp(a, b)) || personName(pa).localeCompare(personName(pb))).map(x => x[1]);
+}
 const isDesk = () => matchMedia('(min-width: 900px)').matches;
+const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar lists Supporters, Lists and Emails, so the switcher is not drawn
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
-const shown = v => sortPeople((S.people || []).filter(p => peopleMatch(p, v.f)), v.sort);
+const shown = v => { if (!Array.isArray(v.sort)) v.sort = ['active', -1]; return sortRows((S.people || []).filter(p => peopleMatch(p, v.f)), v.sort); };
 const allTags = () => [...new Set((S.people || []).flatMap(p => p.tags || []))].sort((a, b) => a.localeCompare(b));
 const activeAdvs = () => S.advocates.filter(a => a.is_active !== false);
 const firstName = a => (a?.full_name || '').split(' ')[0] || 'someone';
@@ -87,18 +109,60 @@ function phoneRow(p, v) {
   return row({ leadHtml: `<span class="sp-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span>`, title, sub, end, chevron: false,
     attrs: { 'data-pick': p.id, 'data-k': 'p:' + p.id, 'aria-pressed': on ? 'true' : 'false' }, cls: 'sp-row' + (on ? ' sel' : '') });
 }
+// ---- the desktop table (the Bills table's look: pinned header, sortable columns, 52px rows, the row opens) ----
+// Name takes the spare width and is never cut (it is what tells rows apart); Tags takes a share; the rest are as wide
+// as they need. supporters.css drops the least useful columns when the table is narrow (a container query), so the
+// page never scrolls sideways: Emails first, then Score and Joined, then Actions.
+const COLS = [
+  { k: 'name', label: 'Name', sort: 'name' },
+  { k: 'where', label: 'Where', sort: 'where', tip: 'Island, Senate district and House district' },
+  { k: 'phone', label: 'Phone' },
+  { k: 'tags', label: 'Tags' },
+  { k: 'follows', label: 'Follows', sort: 'follows', num: true, tip: 'Bills and lists they follow' },
+  { k: 'actions', label: 'Actions', sort: 'actions', num: true, tip: 'Testimony, emails to a chair, hearings and shares' },
+  { k: 'score', label: 'Score', sort: 'score', num: true, tip: 'Engagement: 1 per bill followed, 5 per action, 2 per click, a quarter per open' },
+  { k: 'emails', label: 'Emails', sort: 'emails', tip: 'Emails we sent them, and how many they opened' },
+  { k: 'active', label: 'Last active', sort: 'active' },
+  { k: 'joined', label: 'Joined', sort: 'joined', tip: 'When they were added or signed up' },
+];
+const sortWords = ([k, d]) => ({
+  name: d > 0 ? 'sorted by name, A to Z' : 'sorted by name, Z to A',
+  where: d > 0 ? 'sorted by island, then district' : 'sorted by island, then district, in reverse',
+  follows: d < 0 ? 'sorted by what they follow, most first' : 'sorted by what they follow, fewest first',
+  actions: d < 0 ? 'sorted by actions, most first' : 'sorted by actions, fewest first',
+  score: d < 0 ? 'sorted by engagement score, highest first' : 'sorted by engagement score, lowest first',
+  emails: d < 0 ? 'sorted by emails sent, most first' : 'sorted by emails sent, fewest first',
+  active: d < 0 ? 'sorted by last active, newest first' : 'sorted by last active, longest ago first',
+  joined: d < 0 ? 'sorted by when they joined, newest first' : 'sorted by when they joined, oldest first',
+}[k] || '');
+const DASH = '<span class="sp-dash" aria-hidden="true">–</span><span class="sr">none</span>';
+// "3/16" this year, "11/2/25" for an older date (imports go back years).
+const shortDate = d => d ? fmtDate(d, asDate(d).getFullYear() === new Date().getFullYear() ? {} : { year: '2-digit' }) : '';
+function headCell(c, [sk, sd]) {
+  if (!c.sort) return `<th scope="col" class="c-${c.k}">${c.label}</th>`;
+  const on = sk === c.sort, arrow = icon(on ? (sd > 0 ? 'chevron-up' : 'chevron-down') : SORT_KEYS[c.sort][0] > 0 ? 'chevron-up' : 'chevron-down');
+  return `<th scope="col" class="c-${c.k}${c.num ? ' num' : ''}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sp-sort${on ? ' on' : ''}" data-sort="${c.sort}" data-k="h:${c.sort}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>${c.num ? arrow : ''}<span>${c.label}</span>${c.num ? '' : arrow}</button></th>`;
+}
 function deskRow(p, v) {
-  const on = v.sel.has(p.id), dash = '<span class="muted" aria-label="none">–</span>';
-  const emails = p.emails_sent ? `${p.emails_sent} sent · ${p.emails_opened || 0} opened` : dash;
+  const on = v.sel.has(p.id), name = personName(p), nb = (p.bill_ids || []).length, nl = (p.list_ids || []).length;
+  const flag = p.bounced_at ? `<span class="sp-flag">${icon('triangle-alert')}Email bounced</span>` : p.unsubscribed_at ? `<span class="sp-flag">${icon('bell-off')}Unsubscribed</span>` : '';
+  const districts = [p.senate_district ? `SD ${p.senate_district}` : '', p.house_district ? `HD ${p.house_district}` : ''].filter(Boolean).join(' · ');
+  const tags = p.tags || [], more = tags.length - 3;
+  const cell = {
+    name: () => `<td class="c-name"><a class="sp-nm" href="#/person/${encodeURIComponent(p.id)}" data-k="p:${esc(p.id)}">${esc(name)}</a><span class="sp-em" title="${esc(p.email)}">${flag}${esc(p.email)}</span></td>`,
+    where: () => `<td class="c-where">${p.island || districts ? `<span class="sp-l1">${esc(p.island || districts)}</span>${p.island && districts ? `<span class="sp-l2">${esc(districts)}</span>` : ''}` : DASH}</td>`,
+    phone: () => `<td class="c-phone">${p.phone ? esc(p.phone) : DASH}</td>`,
+    tags: () => `<td class="c-tags">${tags.length ? `<span class="sp-tags">${tags.slice(0, 3).map(t => chip(t)).join('')}${more > 0 ? `<span class="sp-tagmore" title="${esc(tags.slice(3).join(', '))}">+${more}<span class="sr"> more: ${esc(tags.slice(3).join(', '))}</span></span>` : ''}</span>` : DASH}</td>`,
+    follows: () => `<td class="c-follows num"${nb + nl ? ` title="${esc([nb && plural(nb, 'bill'), nl && plural(nl, 'list')].filter(Boolean).join(' and '))}"` : ''}>${nb + nl || DASH}</td>`,
+    actions: () => `<td class="c-actions num">${p.actions || DASH}</td>`,
+    score: () => `<td class="c-score num">${p.score ? Math.round(p.score) : DASH}</td>`,
+    emails: () => `<td class="c-emails">${p.emails_sent ? `${p.emails_sent} sent · ${p.emails_opened || 0} opened` : DASH}</td>`,
+    active: () => `<td class="c-active">${p.last_active ? esc(shortDate(p.last_active)) : DASH}</td>`,
+    joined: () => `<td class="c-joined">${p.created_at ? esc(shortDate(p.created_at)) : DASH}</td>`,
+  };
   return `<tr data-row="${esc(p.id)}"${on ? ' class="sel"' : ''}>
-    <td class="cb"><label class="sp-cbl"><input type="checkbox" data-sel="${esc(p.id)}" data-k="c:${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Select ${esc(personName(p))}"></label></td>
-    <td class="who"><a href="#/person/${encodeURIComponent(p.id)}" data-k="p:${esc(p.id)}">${esc(personName(p))}</a><span class="em">${esc(p.email)}</span></td>
-    <td>${p.bounced_at ? `<span class="sp-flag">${icon('triangle-alert')}Email bounced</span>` : p.unsubscribed_at ? '<span class="sp-flag">Unsubscribed</span>' : ''}${esc(whereOf(p)) || (p.bounced_at || p.unsubscribed_at ? '' : dash)}</td>
-    <td class="num">${p.actions || dash}</td>
-    <td class="num">${(p.bill_ids || []).length || dash}</td>
-    <td>${emails}</td>
-    <td>${p.last_active ? esc(fmtDate(p.last_active)) : dash}</td>
-  </tr>`;
+    <td class="c-cb"><label class="sp-cbl"><input type="checkbox" data-sel="${esc(p.id)}" data-k="c:${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Select ${esc(name)}"></label></td>
+    ${COLS.map(c => cell[c.k]()).join('')}</tr>`;
 }
 
 // The part under the search box: filter chips, the select helpers and the people. Re-drawn on its own while typing so
@@ -107,7 +171,7 @@ function resultsHTML(v) {
   const all = S.people || [], rows = shown(v), seg = segOf(v), changed = seg && norm(v.f) !== norm(seg.filter);
   const chips = activeChips(v.f);
   const head = chips.length || v.f.q.trim() ? `<div class="sp-active">
-      <span class="sp-match" aria-live="polite">${esc(plural(rows.length, 'person', 'people'))} ${rows.length === 1 ? 'matches' : 'match'}</span>
+      ${isDesk() && rows.length ? '' : `<span class="sp-match" aria-live="polite">${esc(plural(rows.length, 'person', 'people'))} ${rows.length === 1 ? 'matches' : 'match'}</span>`}
       ${chips.map(([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`).join('')}
       ${btn('Clear all', { kind: 'text', sm: true, attrs: { 'data-sp': 'clear' } })}
       ${changed ? btn(`Save to “${esc(seg.name)}”`, { kind: 'text', sm: true, attrs: { 'data-sp': 'segupdate' } }) : ''}
@@ -121,20 +185,23 @@ function resultsHTML(v) {
   const more = rows.length > page.length ? `<div class="sp-more"><span class="meta">Showing ${page.length.toLocaleString()} of ${rows.length.toLocaleString()}</span>${btn(`Show ${Math.min(200, rows.length - page.length)} more`, { kind: 'secondary', sm: true, attrs: { 'data-sp': 'morerows' } })}</div>` : '';
   if (isDesk()) {
     const allOn = rows.every(p => v.sel.has(p.id)), some = !allOn && rows.some(p => v.sel.has(p.id));
-    return `${head}<table class="sp-table"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}. Select a name to open it.</caption>
-      <colgroup><col class="c-cb"><col><col class="c-where"><col class="c-n"><col class="c-n"><col class="c-em"><col class="c-last"></colgroup>
-      <thead><tr><th class="cb" scope="col"><label class="sp-cbl"><input type="checkbox" data-selall data-k="c:all" ${allOn ? 'checked' : ''} ${some ? 'data-mixed' : ''} aria-label="Select all ${rows.length}"></label></th>
-        <th scope="col">Name</th><th scope="col">Where</th><th scope="col" class="num">Actions</th><th scope="col" class="num">Bills</th><th scope="col">Emails</th><th scope="col">Last active</th></tr></thead>
-      <tbody>${page.map(p => deskRow(p, v)).join('')}</tbody></table>${more}`;
+    // The table's state in words, so the order is never a guess (the Score column is dropped on a narrow table).
+    const sum = `<p class="sp-tsum" aria-live="polite"><b>${rows.length === all.length ? plural(all.length, 'person', 'people') : `${rows.length.toLocaleString()} of ${plural(all.length, 'person', 'people')}`}</b> · ${esc(sortWords(v.sort))}</p>`;
+    return `${head}${sum}<div class="sp-twrap"><table class="sp-table"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}. Column headers sort. Select a name to open that person.</caption>
+      <thead><tr><th class="c-cb" scope="col"><label class="sp-cbl" title="Select everyone shown"><input type="checkbox" data-selall data-k="c:all" ${allOn ? 'checked' : ''} ${some ? 'data-mixed' : ''} aria-label="Select all ${rows.length} shown"></label></th>
+        ${COLS.map(c => headCell(c, v.sort)).join('')}</tr></thead>
+      <tbody>${page.map(p => deskRow(p, v)).join('')}</tbody></table></div>${more}`;
   }
   return `${head}${selHead}<div class="rows sp-list">${page.map(p => phoneRow(p, v)).join('')}</div>${more}`;
 }
 
+// The chosen one carries a tick as well as the blue ring (the same as a chosen chip in the Filter sheet and in Bills).
 function segChips(v) {
   const total = (S.people || []).length, noneOn = !v.seg && !nFilters(v.f);
+  const one = (id, label, n, on) => `<button type="button" class="chip" data-segpick="${esc(id)}" data-k="s:${esc(id)}" aria-pressed="${on}">${on ? icon('check') : ''}${esc(label)}<span class="sp-cn">${n.toLocaleString()}</span></button>`;
   return `<div class="sp-segs" role="group" aria-label="Saved segments">
-    <button type="button" class="chip" data-segpick="" data-k="s:" aria-pressed="${noneOn}">Everyone<span class="sp-cn">${total.toLocaleString()}</span></button>
-    ${(S.segments || []).map(x => `<button type="button" class="chip" data-segpick="${esc(x.id)}" data-k="s:${esc(x.id)}" aria-pressed="${v.seg === x.id}">${esc(x.name)}<span class="sp-cn">${segmentPeople(x.id).length.toLocaleString()}</span></button>`).join('')}
+    ${one('', 'Everyone', total, noneOn)}
+    ${(S.segments || []).map(x => one(x.id, x.name, segmentPeople(x.id).length, v.seg === x.id)).join('')}
   </div>`;
 }
 
@@ -151,7 +218,7 @@ export default {
         S.spLoadKick = true;
         DB.loadPeople().then(() => { S.spLoadErr = null; hooks.render(); }).catch(e => { S.spLoadErr = e; S.spLoadKick = false; hooks.render(); });
       }
-      return `<div class="sp-page"><h1 class="sp-h1">Supporters</h1>${outreachNav('supporters')}${S.spLoadErr
+      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">${isDesk() ? '' : outreachNav('supporters')}<div class="sp-tools"><h1 class="sp-h1">Supporters</h1>${isDesk() && !isSide() ? outreachNav('supporters') : ''}</div>${S.spLoadErr
         ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
         : skeleton(6)}</div>`;
     }
@@ -160,15 +227,19 @@ export default {
     // Select mode is a mode: coming back from another page starts without it (the frame sets data-screen after render).
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
-    const n = nFilters(v.f);
-    return `<div class="sp-page">
-      <h1 class="sp-h1">Supporters</h1>
-      ${outreachNav('supporters')}
+    const n = nFilters(v.f), desk = isDesk();
+    // Desktop: one tool row in the Bills page's order (title, search, then Filter and the rest on the right). With
+    // the sidebar (1100px and wider) the Supporters / Lists / Emails switcher is already on screen, so it is not drawn.
+    return `<div class="sp-page${desk ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">
+      ${desk ? '' : outreachNav('supporters')}
       <div class="sp-tools">
+        <h1 class="sp-h1">Supporters</h1>${desk && !isSide() ? outreachNav('supporters') : ''}
         <div class="sp-search" role="search"><label class="sr" for="sp-q">Search supporters by name, email or phone</label>${icon('search')}
-          <input id="sp-q" type="search" placeholder="Search people" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
+          <input id="sp-q" type="search" placeholder="${desk ? 'Search by name, email or phone' : 'Search people'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
           ${iconBtn('x', 'Clear the search', { 'data-sp': 'qclear', hidden: !v.f.q })}</div>
+        ${desk ? '<span class="sp-sp"></span>' : ''}
         <button type="button" class="btn secondary sm sp-filterbtn" data-sp="filter" data-k="filter" aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="sp-n" aria-label="${n} on">${n}</span>` : ''}</button>
+        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}
         ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}
       </div>
       ${segChips(v)}
@@ -176,15 +247,16 @@ export default {
       <input type="file" id="sp-file" accept=".csv,text/csv" hidden>
     </div>`;
   },
+  // One select bar, the same on phones and desktop and the same as Bills: x on the left, the count, the actions on
+  // the right. On a narrow phone the word "selected" gives way before the number is ever cut (supporters.css).
   bar() {
     const v = S.spView;
     if (!v || !(v.selecting || (isDesk() && v.sel.size))) return '';
     const n = v.sel.size;
-    return `<div class="sp-bar">
-      ${iconBtn('x', 'Stop selecting', { 'data-sp': 'selexit' })}
-      <span class="sp-selcount" aria-live="polite">${n.toLocaleString()} selected</span>
-      ${btn('Tag', { kind: 'secondary', icon: 'tag', attrs: { 'data-sp': 'tag', disabled: !n } })}
-      ${btn('Follow up', { kind: 'secondary', icon: 'calendar-plus', attrs: { 'data-sp': 'fup', disabled: !n } })}
+    return `<div class="sp-bar${n > 9 ? ' sp-many' : ''}" role="toolbar" aria-label="Change the selected people">
+      ${iconBtn('x', isDesk() ? 'Clear the selection' : 'Stop selecting', { 'data-sp': 'selexit' })}
+      <span class="sp-selcount" aria-live="polite"><b>${n.toLocaleString()}</b><span class="sp-selw"> selected</span></span>
+      <span class="sp-baract">${btn('Tag', { kind: 'secondary', icon: 'tag', attrs: { 'data-sp': 'tag', disabled: !n } })}${btn('Follow up', { kind: 'secondary', icon: 'calendar-plus', attrs: { 'data-sp': 'fup', disabled: !n } })}</span>
     </div>`;
   },
   wire(route, root) {
@@ -202,6 +274,7 @@ export default {
     qx.onclick = () => { v.f.q = ''; q.value = ''; qx.hidden = true; drawResults(root); q.focus(); };
     on('[data-sp="filter"]', () => filterSheet());
     on('[data-sp="more"]', () => moreMenu(root));
+    on('.sp-tools [data-sp="add"]', () => addPersonSheet());
     on('[data-segpick]', el => {
       const id = el.dataset.segpick, sg = (S.segments || []).find(x => String(x.id) === id);
       if (!sg || v.seg === sg.id) { v.seg = null; v.f = { ...EMPTY_PF(), q: '' }; }
@@ -209,9 +282,9 @@ export default {
       v.limit = 200; rerender(el.dataset.k);
     });
     // select mode bar (outside main, so looked up on the whole frame)
-    on('[data-sp="selexit"]', () => { v.selecting = false; v.sel.clear(); hooks.render(); });
+    on('[data-sp="selexit"]', () => stopSelect());
     on('[data-sp="tag"]', () => tagSheet([...v.sel]));
-    on('[data-sp="fup"]', () => followupSheet([...v.sel], { onDone: () => { v.selecting = false; v.sel.clear(); hooks.render(); } }));
+    on('[data-sp="fup"]', () => followupSheet([...v.sel], { onDone: () => stopSelect() }));
     wireResults(root);
     // Keep the chosen segment in view in its sideways strip (without moving the page).
     const strip = page.querySelector('.sp-segs'), cur = strip?.querySelector('[aria-pressed="true"]');
@@ -230,7 +303,27 @@ function rerender(key) {
   const y = window.scrollY; hooks.render(); window.scrollTo(0, y);
   if (key) document.querySelector(`#app [data-k="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
 }
+// Select mode on a phone is a place you can go Back from (assessment 9/19: Back left the page with the mode still on).
+// Starting it adds a history entry, the way a sheet does; the phone's Back, the x and Esc all end it the same way.
+let inSelEntry = false;
+function startSelect(id) {
+  const v = V(); v.selecting = true; if (id) v.sel.add(id);
+  if (!isDesk() && !history.state?.spSel) { history.pushState({ ...(history.state || {}), spSel: true }, ''); inSelEntry = true; }
+}
+function stopSelect() {
+  const v = V(); v.selecting = false; v.sel.clear(); lastBox = null;
+  if (inSelEntry && history.state?.spSel) history.back(); else { inSelEntry = false; hooks.render(); }   // the Back lands in the listener below
+}
+// This file loads before the frame, so this runs before the frame's own popstate handler: leaving the select entry
+// ends the mode and redraws here (the address has not changed), and the frame is not asked to scroll anywhere.
+window.addEventListener('popstate', e => {
+  if (!inSelEntry || e.state?.spSel || sheetOpen()) return;
+  inSelEntry = false; e.stopImmediatePropagation();
+  const v = S.spView; if (v) { v.selecting = false; v.sel.clear(); }
+  if (S.route?.name === 'supporters') hooks.render();
+});
 let suppressUntil = 0;   // a long press ends in a click on the row that just turned into a checkbox; ignore it
+let lastBox = null;      // the last tick box clicked in the desktop table, for Shift+click runs
 function wireResults(root) {
   const v = V(), box = root.querySelector('#sp-results'); if (!box) return;
   const on = (sel, fn) => box.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
@@ -245,14 +338,34 @@ function wireResults(root) {
     if (Date.now() < suppressUntil) return;
     const id = el.dataset.pick; v.sel.has(id) ? v.sel.delete(id) : v.sel.add(id); rerender(el.dataset.k);
   });
-  // desktop table: the whole row opens the person; the tick box selects
+  // Rows drawn after the first paint (a search, a sort, "Show more") are not wired by the frame, so their links are
+  // routed here the same way: through S.go, so Back returns to this list where it was.
+  box.querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault(); S.go(a.getAttribute('href'));
+  }));
+  // Desktop table. A header sorts by its column (a second click turns it round); the whole row opens the person,
+  // unless the click was on a control or was the end of selecting some text (a phone number to copy); the tick box
+  // selects, and Shift+click ticks the run from the last box, as in Bills.
+  on('[data-sort]', el => {
+    const k = el.dataset.sort, [ck, cd] = v.sort;
+    v.sort = ck === k ? [k, -cd] : [k, SORT_KEYS[k][0]];
+    v.limit = 200; drawResults(root);
+    root.querySelector(`#sp-results [data-k="${CSS.escape(el.dataset.k)}"]`)?.focus({ preventScroll: true });
+  });
   box.querySelectorAll('tr[data-row]').forEach(tr => tr.addEventListener('click', e => {
-    if (e.target.closest('a, input, label, button')) return;
+    if (e.target.closest('a, input, label, button') || getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) { window.open('#/person/' + encodeURIComponent(tr.dataset.row), '_blank', 'noopener'); return; }
     S.go('#/person/' + encodeURIComponent(tr.dataset.row));
   }));
-  box.querySelectorAll('[data-sel]').forEach(cb => cb.onchange = () => { cb.checked ? v.sel.add(cb.dataset.sel) : v.sel.delete(cb.dataset.sel); rerender(cb.dataset.k); });
+  const boxes = [...box.querySelectorAll('[data-sel]')];
+  boxes.forEach((cb, i) => cb.onclick = e => {
+    const to = cb.checked, a = e.shiftKey && lastBox != null && lastBox < boxes.length ? Math.min(lastBox, i) : i, z = e.shiftKey && lastBox != null && lastBox < boxes.length ? Math.max(lastBox, i) : i;
+    for (let j = a; j <= z; j++) to ? v.sel.add(boxes[j].dataset.sel) : v.sel.delete(boxes[j].dataset.sel);
+    lastBox = i; rerender(cb.dataset.k);
+  });
   const all = box.querySelector('[data-selall]');
-  if (all) { all.indeterminate = all.hasAttribute('data-mixed'); all.onchange = () => { const rows = shown(v); if (all.checked) rows.forEach(p => v.sel.add(p.id)); else v.sel.clear(); rerender('c:all'); }; }
+  if (all) { all.indeterminate = all.hasAttribute('data-mixed'); all.onchange = () => { const rows = shown(v); if (all.checked) rows.forEach(p => v.sel.add(p.id)); else v.sel.clear(); lastBox = null; rerender('c:all'); }; }
   // Long press on a phone row starts select mode with that person picked (the ⋯ menu has "Select people" too).
   const list = box.querySelector('.sp-list');
   if (list && !v.selecting) {
@@ -262,7 +375,7 @@ function wireResults(root) {
       if (e.pointerType === 'mouse') return;
       const r = e.target.closest('[data-pid]'); if (!r) return;
       sx = e.clientX; sy = e.clientY; stop();
-      t = setTimeout(() => { suppressUntil = Date.now() + 800; v.selecting = true; v.sel.add(r.dataset.pid); try { navigator.vibrate?.(12); } catch { /* not supported */ } rerender('p:' + r.dataset.pid); }, 500);
+      t = setTimeout(() => { suppressUntil = Date.now() + 800; startSelect(r.dataset.pid); try { navigator.vibrate?.(12); } catch { /* not supported */ } rerender('p:' + r.dataset.pid); }, 500);
     });
     list.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) stop(); });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(k => list.addEventListener(k, stop));
@@ -274,13 +387,19 @@ function wireResults(root) {
 // ---- ⋯ menu ----
 function moreMenu(root) {
   const v = V(), rows = shown(v), all = S.people || [], seg = segOf(v), changed = seg && norm(v.f) !== norm(seg.filter), admin = !!S.me?.is_admin;
-  const sortL = SORTS.find(s => s[0] === v.sort)?.[1] || 'Last active';
+  // The four ready-made orders. On desktop the column headers sort too; this stays for "Most engaged", whose Score
+  // column is dropped on a narrow table. A header sort that is none of the four shows as the column's name.
+  const preset = SORTS.find(([k]) => k === v.sort[0] && SORT_KEYS[k][0] === v.sort[1]);
+  const sortL = preset?.[1] || `${COLS.find(c => c.sort === v.sort[0])?.label || 'Last active'}${v.sort[1] > 0 ? ', up' : ', down'}`;
+  const desk = isDesk();
   menuSheet({ title: 'Supporters', items: [
-    { label: 'Add a person', icon: 'user-plus', run: () => afterSheet(addPersonSheet) },
+    desk ? null : { label: 'Add a person', icon: 'user-plus', run: () => afterSheet(addPersonSheet) },
     admin ? { label: 'Import CSV', icon: 'upload', sub: 'Adds new people and updates the rest. Nothing is blanked.', run: () => root.querySelector('#sp-file')?.click() } : null,
     admin ? { label: rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, icon: 'download', disabled: !rows.length, reason: 'Nobody matches, so there is nothing to export.', run: () => { exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); } } : null,
-    { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a follow-up', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { v.selecting = true; rerender(); } },
-    { label: `Sort: ${sortL}`, icon: 'list', run: () => afterSheet(() => pickerSheet({ title: 'Sort supporters', value: v.sort, options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = val; hooks.render(); toast(`Sorted by ${SORTS.find(s => s[0] === val)[1].toLowerCase()}.`); } })) },
+    desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a follow-up', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
+    desk ? { label: 'Sort by most engaged', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by most engaged.',
+        run: () => { v.sort = ['score', -1]; v.limit = 200; rerender('more'); toast('Sorted by most engaged.'); } }
+      : { label: `Sort: ${sortL}`, icon: 'list', run: () => afterSheet(() => pickerSheet({ title: 'Sort supporters', value: preset?.[0] || '', options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = [val, SORT_KEYS[val][0]]; v.limit = 200; hooks.render(); toast(`Sorted by ${SORTS.find(s => s[0] === val)[1].toLowerCase()}.`); } })) },
     changed ? { label: `Save changes to “${seg.name}”`, icon: 'bookmark-check', run: () => saveSegmentChanges() } : null,
     { label: seg && changed ? 'Save as a new segment' : 'Save as segment', icon: 'bookmark', sub: 'Keeps these filters one tap away, here and in Emails',
       disabled: pfEmpty(v.f) || (seg && !changed), reason: pfEmpty(v.f) ? 'Add a filter or a search first.' : `These filters are already saved as “${seg?.name}”.`, run: () => afterSheet(saveSegmentSheet) },
@@ -359,7 +478,9 @@ function filterSheet() {
   const count = () => fails.filter(f => !f.length).length;
   const foot = () => { const n = count(); return `${nFilters(d) ? btn('Clear all', { kind: 'text', attrs: { 'data-fx': 'clear' } }) : ''}${btn(n ? `Show ${plural(n, 'person', 'people')}` : 'Nobody matches', { attrs: { 'data-fx': 'apply', disabled: !n } })}`; };
   recount();
-  openSheet({ title: 'Filter supporters', size: 'full', body: body(), foot: foot(), wire: dlg => {
+  // Desktop with a mouse: a panel under the Filter button (ui.js anchors it), like the Bills filter, so the table
+  // stays in view beside it. Phones and touch tablets keep the full sheet.
+  openSheet({ title: 'Filter supporters', size: isDesk() ? 'auto sp-fpop' : 'full', pop: true, body: body(), foot: foot(), wire: dlg => {
     const bodyEl = dlg.querySelector('.sv-sh-body'), footEl = dlg.querySelector('.sv-sh-foot');
     const redraw = key => {
       recount(); const y = bodyEl.scrollTop; bodyEl.innerHTML = body(); footEl.innerHTML = foot(); bodyEl.scrollTop = y;
@@ -538,11 +659,11 @@ export function followupSheet(ids, { onDone } = {}) {
     } });
 }
 
-// Crossing the desktop breakpoint swaps rows for the table (and back); Esc leaves select mode.
-try {
-  matchMedia('(min-width: 900px)').addEventListener('change', () => { if (document.body.dataset.screen === 'supporters') hooks.render(); });
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || document.body.dataset.screen !== 'supporters' || document.querySelector('dialog[open]')) return;
-    const v = S.spView; if (v && (v.selecting || v.sel.size)) { v.selecting = false; v.sel.clear(); hooks.render(); }
-  });
-} catch { /* no matchMedia: phone layout only */ }
+// Esc leaves select mode (the x in the bar does the same). Like every shortcut in v2 it can be switched off in My
+// settings and it never fires while someone is typing. (The frame redraws the page when the window crosses 900px or
+// 1100px, which swaps the rows for the table and back.)
+const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !keysOn() || S.route?.name !== 'supporters' || document.querySelector('dialog[open]') || (typing(e.target) && e.target.type !== 'checkbox')) return;
+  const v = S.spView; if (v && (v.selecting || v.sel.size)) { e.preventDefault(); stopSelect(); }
+});

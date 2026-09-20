@@ -4,9 +4,15 @@
 // status line and its own Save. Message wording, the committee map and keys sit under "Advanced", closed by default.
 // Every setting in app.js renderSettings/wireSettings is reachable here or in My settings (me.js); the DB calls and
 // their arguments are the same as app.js.
+// Build 3 (9/19): nothing is dropped without a word any more. Switches (and the position chips) save the moment they
+// are flipped, like My settings, with a "Saved." toast and the old value put back if the save fails; turning email
+// ON asks first, because that one starts mail to the public. Typed fields keep their Save button: the page says
+// "Not saved yet" beside it, keeps what was typed for the visit, and asks "Save changes?" before you leave. On a
+// desktop the page is two columns: the list of parts stays in view on the left, and the chosen part is a form
+// column on the right with its Save right under it.
 import { S, DB, DEMO, esc, fmtDate, advocate, SUPABASE_URL, SESSION_YEAR, SESSION_OVER, hooks } from './data.js';
 import { legislativeDay, diedish, TEMPLATE_KINDS, TOKENS, parseTrackerCsv, billNum } from './model.js';
-import { icon, btn, row, switchRow, field, notice, empty, toast, pickerSheet, openSheet, closeSheet, chip, pickerChip } from './ui.js';
+import { icon, btn, row, switchRow, field, notice, empty, toast, pickerSheet, openSheet, closeSheet, confirmSheet, chip, pickerChip } from './ui.js';
 import { ICONS } from '../icons.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
@@ -18,6 +24,7 @@ export const ICON_CHOICES = [['salad', 'Healthy food'], ['apple', 'Apple'], ['bi
 const EMOJI_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout', '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby' };
 export const iconName = (v, kind) => { const x = String(v || '').trim(); return ICONS[x] ? x : EMOJI_ICON[x] || EMOJI_ICON[x.replace(/\ufe0f/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse'); };
 const iconLabel = n => (ICON_CHOICES.find(c => c[0] === n) || [n, n])[1];
+const showIcon = (card, v) => { const b = card.querySelector('[data-ciconpick]'); if (b) b.innerHTML = `${icon(v)}<span>${esc(iconLabel(v))}</span>${icon('chevron-down', { cls: 'chev' })}`; const h = card.querySelector('.st-coalic'); if (h) h.innerHTML = icon(v); };
 
 // ---- small shared bits ----
 const admins = () => S.advocates.filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name).join(' or ') || 'an admin';
@@ -38,7 +45,8 @@ const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees',
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED].map(([k, t, ic]) => [k, { t, ic }]));
 
 // ---- async state: readiness and secret status load once per visit and on "Check again" ----
-const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, secrets: null, secretsBusy: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null };
+const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, secrets: null, secretsBusy: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null };
+const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 function loadReady(force) {
   const s = st(); if (s.readyBusy || (s.ready && !force)) return;
   s.readyBusy = true; s.readyErr = '';
@@ -129,22 +137,44 @@ function renderIndex() {
       <div class="rows st-ready">${open.map(readyRowHTML).join('')}
         ${pass.length ? `<button type="button" class="st-fold" data-pass aria-expanded="${s.passOpen}">${icon('circle-check')}<span>${plural(pass.length, 'check passes', 'checks pass')}</span>${icon(s.passOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.passOpen ? pass.map(readyRowHTML).join('') : ''}` : ''}</div>`;
   }
-  const secRow = ([k, t, ic]) => row({ lead: ic, title: esc(t), sub: esc(status(k)), href: '#/setup/' + k });
-  return `<div class="st-page st-setup">
-    <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time.</p></div>
-    <section class="st-sec" aria-labelledby="st-rh">
-      <div class="st-sechead"><h2 id="st-rh">Ready for session?</h2>${rows || s.readyErr ? btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-recheck': '1', 'aria-busy': s.readyBusy ? 'true' : null } }) : ''}</div>
-      ${ready}
-    </section>
-    <section class="st-sec" aria-labelledby="st-ph">
+  const secRow = ([k, t, ic]) => row({ lead: ic, title: esc(t), sub: esc(status(k)), href: '#/setup/' + k, end: s.draft[k] ? chip('Not saved yet', 'info', 'circle-dot') : '' });
+  const recheck = rows || s.readyErr ? btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-recheck': '1', 'aria-busy': s.readyBusy ? 'true' : null } }) : '';
+  const parts = `<section class="st-sec" aria-labelledby="st-ph">
       <h2 id="st-ph" class="st-h2">Settings</h2>
       <div class="rows">${SECTIONS.map(secRow).join('')}</div>
       <div class="rows st-advbox">
         <button type="button" class="row st-adv" data-adv aria-expanded="${s.advOpen}" aria-controls="st-advlist"><span class="lead">${icon('settings')}</span><span class="body"><span class="title">Advanced</span><span class="sub">Message wording, committee map and keys</span></span><span class="end">${icon(s.advOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</span></button>
         <div id="st-advlist" ${s.advOpen ? '' : 'hidden'}>${ADVANCED.map(secRow).join('')}</div>
       </div>
+    </section>`;
+  // Desktop: the checklist is the page (its heading is the h1); the list of parts is also in the left column.
+  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h1>Ready for session?</h1><p class="st-lede">For admins. Everything the season needs, one part at a time.</p></div>${recheck}</div>
+    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>${parts}`);
+  return `<div class="st-page st-setup">
+    <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time.</p></div>
+    <section class="st-sec" aria-labelledby="st-rh">
+      <div class="st-sechead"><h2 id="st-rh">Ready for session?</h2>${recheck}</div>
+      ${ready}
     </section>
+    ${parts}
   </div>`;
+}
+// The desktop page: the list of parts on the left stays in view; the chosen part (or the checklist) is on the right.
+const NAV_DOT = `<span class="st-navd" title="Not saved yet"><span class="sr">Not saved yet</span></span>`;
+function shell(cur, pane) {
+  loadReady();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
+  const s = st(), rows = readyRows();
+  const open = rows ? rows.filter(r => (r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok)).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
+  const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${cur === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}</span>${s.draft[k] ? NAV_DOT : ''}</a>`;
+  return `<div class="st-page st-setup st-duo"><div class="st-cols2">
+    <nav class="st-nav2" aria-label="Session setup">
+      <p class="st-navt">Session setup</p>
+      <a class="st-navi" href="#/setup"${cur ? '' : ' aria-current="page"'}>${icon('clipboard-check')}<span class="st-navl">Ready for session?</span>${open ? `<span class="st-navn${bad ? ' bad' : ''}"><span aria-hidden="true">${open}</span><span class="sr">${open} to fix or tick off${bad ? ', some blocking' : ''}</span></span>` : ''}</a>
+      <p class="st-navg">Settings</p>${SECTIONS.map(item).join('')}
+      <p class="st-navg">Advanced</p>${ADVANCED.map(item).join('')}
+    </nav>
+    <div class="st-pane">${pane}</div>
+  </div></div>`;
 }
 function wireIndex(root) {
   const s = st();
@@ -176,21 +206,27 @@ function goAfterSheet(href) {
 const txt = (id, label, value, { ph = '', help = '', type = 'text', attrs = '' } = {}) => field(id, label, `<input id="${id}" type="${type}" value="${esc(value ?? '')}" placeholder="${esc(ph)}" autocomplete="off"${help ? ` aria-describedby="${id}-help"` : ''} ${attrs}>`, help);
 const area = (id, label, value, { rows = 4, ph = '', help = '', attrs = '' } = {}) => field(id, label, `<textarea id="${id}" rows="${rows}" placeholder="${esc(ph)}"${help ? ` aria-describedby="${id}-help"` : ''} ${attrs}>${esc(value ?? '')}</textarea>`, help);
 const val = (root, id) => (root.querySelector('#' + id)?.value || '').trim();
-const on = (root, id) => !!root.querySelector('#' + id)?.checked;
 const fieldErr = (root, id, msg) => { const el = root.querySelector('#' + id); if (!el) return toast(msg, { err: true }); el.setAttribute('aria-invalid', 'true'); el.closest('.field')?.querySelector('.err')?.remove(); el.insertAdjacentHTML('afterend', `<span class="err" id="${id}-err">${icon('circle-alert')}${esc(msg)}</span>`); el.setAttribute('aria-describedby', id + '-err'); el.focus(); };
 const clearErrs = root => root.querySelectorAll('.st-form .err').forEach(e => { const f = e.closest('.field'); f?.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid'); e.remove(); });
 
 const PAGES = {
   email: {
     status: () => (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders, digests and public hearing emails are held and never sent. Slack still works.'] : ['circle-check', 'Email is on.'],
+    note() { const c = S.emailCfg || {}; return c.changed_at ? `${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.` : ''; },
     body() { const c = S.emailCfg || {};
-      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Held email is not sent later.')}
-        ${c.changed_at ? `<p class="small muted st-note">${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.</p>` : ''}
+      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Held email is not sent later. This switch saves as soon as you flip it.')}
+        <p class="small muted st-note" id="st-email-note">${this.note()}</p>
         ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}</div>`; },
-    saveLabel: 'Save email settings',
-    async save(root) { const on2 = on(root, 'st-email-on');
-      await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on2, postal: val(root, 'st-email-postal'), changed_at: new Date().toISOString(), changed_by: S.me?.initials || null });
-      return on2 ? 'Email is on.' : 'Email paused. Nothing will be sent.'; },
+    // The switch saves itself. Pausing is the safe direction, so it just happens; turning email back ON starts mail
+    // to the public again, so it asks first (a stray tap must never do that).
+    auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings(c),
+      apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
+      confirm: v => v ? { title: 'Turn email on?', text: 'Alerts, reminders, digests and hearing emails to the public start going out again. Email held while it was paused is not sent.', ok: 'Turn email on' } : null,
+      msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' } },
+    after(root) { const n = root.querySelector('#st-email-note'); if (n) n.innerHTML = this.note(); },
+    saveLabel: 'Save the address',
+    // Only the address: the switch has already saved itself, and a Save here must never flip it.
+    async save(root) { await DB.saveEmailSettings({ ...(S.emailCfg || {}), postal: val(root, 'st-email-postal') }); return 'Postal address saved.'; },
   },
   alerts: {
     status: () => ['bell', status('alerts') + '.'],
@@ -209,15 +245,20 @@ const PAGES = {
       <div class="card st-form st-list">${switchRow('st-wfdm', 'Send testimony steps as Slack DMs', c.workflow_dm !== false, 'Off sends them to everyone by email.')}
         ${switchRow('st-health', 'Tell admins when the pipeline has a problem', c.health_dm !== false, 'A DM to each admin.')}
         ${switchRow('st-quiet', 'Tell admins when a notice alerts nobody', c.quiet_dm !== false, 'A hearing notice for bills we do not track, or have no position on.')}</div>`; },
-    wire(root) { root.querySelectorAll('[data-pos]').forEach(b => b.onclick = () => { const now = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', now); b.innerHTML = (now ? icon('check') : '') + esc(POS_OPTS.find(p => p[0] === b.dataset.pos)[1]); }); },
-    saveLabel: 'Save alert settings',
-    async save(root) {
-      const cfg = { ...(S.slackCfg || {}), main_channel: val(root, 'st-main') || '#hearing-alerts-2027',
-        positions: [...root.querySelectorAll('[data-pos][aria-pressed="true"]')].map(b => b.dataset.pos),
-        daily: { ...((S.slackCfg || {}).daily || {}), enabled: on(root, 'st-d-on'), time: val(root, 'st-d-time') || '07:00', days_ahead: Number(val(root, 'st-d-days')) || 7, channel: val(root, 'st-d-chan') || null, post_when_empty: on(root, 'st-d-empty') },
-        workflow_dm: on(root, 'st-wfdm'), health_dm: on(root, 'st-health'), quiet_dm: on(root, 'st-quiet') };
+    // The position chips are switches too: a press saves, and a failed save puts the chip back.
+    wire(root, { refresh }) { const paint = (b, v) => { b.setAttribute('aria-pressed', v); b.innerHTML = (v ? icon('check') : '') + esc(POS_OPTS.find(p => p[0] === b.dataset.pos)[1]); };
+      root.querySelectorAll('[data-pos]').forEach(b => b.onclick = async () => { const now = b.getAttribute('aria-pressed') !== 'true', before = S.slackCfg; paint(b, now);
+        try { await DB.saveSlackSettings({ ...(before || {}), positions: [...root.querySelectorAll('[data-pos][aria-pressed="true"]')].map(x => x.dataset.pos) }, []); refresh(); toast('Saved.', { ok: true }); }
+        catch (e) { S.slackCfg = before; paint(b, !now); toast(e, { err: true }); } }); },
+    auto: Object.fromEntries([['st-d-on', 'enabled', 1], ['st-d-empty', 'post_when_empty', 1], ['st-wfdm', 'workflow_dm'], ['st-health', 'health_dm'], ['st-quiet', 'quiet_dm']]
+      .map(([id, k, daily]) => [id, { cfg: 'slackCfg', save: c => DB.saveSlackSettings(c, []), apply: (c, v) => daily ? { ...c, daily: { ...(c.daily || {}), [k]: v } } : { ...c, [k]: v } }])),
+    saveLabel: 'Save channels and times',
+    // The typed fields only. Switches and chips have saved themselves, so their stored values are kept as they are.
+    async save(root) { const c = S.slackCfg || {};
+      const cfg = { ...c, main_channel: val(root, 'st-main') || '#hearing-alerts-2027',
+        daily: { ...(c.daily || {}), time: val(root, 'st-d-time') || '07:00', days_ahead: Number(val(root, 'st-d-days')) || 7, channel: val(root, 'st-d-chan') || null } };
       await DB.saveSlackSettings(cfg, []);   // coalition channels are edited (and saved) under Coalitions
-      return 'Alert settings saved.'; },
+      return 'Channels and times saved.'; },
   },
   coalitions: {
     status: () => ['users', status('coalitions') + '.'],
@@ -232,7 +273,7 @@ const PAGES = {
             ${txt('co-ch-' + c.id, 'Slack channel', c.slack_channel || '', { ph: '#channel-name', attrs: 'data-cchan' })}
             ${area('co-kw-' + c.id, 'Keywords', (c.keywords || []).join(', '), { rows: 2, ph: 'tobacco, vape, nicotine', attrs: 'data-ckw' })}
             ${txt('co-pub-' + c.id, 'Name on the public page', c.public_name || '', { ph: 'What visitors see', attrs: 'data-cpub' })}
-            <div class="field"><span class="label" id="co-icl-${esc(c.id)}">Icon on the public page</span>${pickerChip(iconLabel(ic), { 'data-ciconpick': c.id, 'aria-describedby': 'co-icl-' + c.id }, ic)}<input type="hidden" data-cicon value=""></div>
+            <div class="field"><span class="label" id="co-icl-${esc(c.id)}">Icon on the public page</span>${pickerChip(iconLabel(ic), { 'data-ciconpick': c.id, 'aria-describedby': 'co-icl-' + c.id }, ic)}<input type="hidden" id="co-ic-${esc(c.id)}" data-cicon value=""></div>
             ${txt('co-desc-' + c.id, 'One friendly sentence for its tile', c.description || '', { ph: 'What this coalition works on', attrs: 'data-cdesc' })}
           </div></div>`; }).join('')}`; },
     wire(root) { const s = st();
@@ -242,8 +283,13 @@ const PAGES = {
       root.querySelectorAll('[data-ciconpick]').forEach(b => b.onclick = () => { const card = b.closest('[data-coal]'), hid = card.querySelector('[data-cicon]'), c = S.campaigns.find(x => x.id === b.dataset.ciconpick);
         const cur = hid.value || iconName(c?.icon);
         pickerSheet({ title: `Icon for ${c?.name || 'this coalition'}`, value: cur, options: ICON_CHOICES.map(([n, l]) => [n, l, n]),
-          onPick: v => { hid.value = v; b.innerHTML = `${icon(v)}<span>${esc(iconLabel(v))}</span>${icon('chevron-down', { cls: 'chev' })}`; card.querySelector('.st-coalic').innerHTML = icon(v); b.focus(); } }); });
+          onPick: v => { hid.value = v; showIcon(card, v); hid.dispatchEvent(new Event('input', { bubbles: true })); b.focus(); } }); });
     },
+    // An icon picked but not saved yet comes back with the rest of the typed changes.
+    // A coalition with changes waiting is opened, so "Not saved yet" is never about a card that looks closed and untouched.
+    afterDraft(root, base) { root.querySelectorAll('[data-coal]').forEach(card => { const v = card.querySelector('[data-cicon]').value; if (v) showIcon(card, v);
+      if (![...card.querySelectorAll('input, select, textarea')].some(el => el.id && el.value !== (base[el.id] ?? ''))) return;
+      const b = card.querySelector('[data-coalopen]'); if (b.getAttribute('aria-expanded') !== 'true') b.click(); }); },
     saveLabel: 'Save coalitions',
     async save(root) { let n = 0;
       for (const card of root.querySelectorAll('[data-coal]')) {
@@ -321,7 +367,7 @@ const PAGES = {
           <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-slacktest': '1' } })}${btn('Change the bot token', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>
         <div class="card st-conn st-form"><div class="st-connhead"><h2 class="st-h3">Google Calendar</h2>${state(sec?.google_calendar_refresh_token, 'Connected', 'Not connected')}</div>
           <p class="small st-note">${calLine}</p>
-          ${switchRow('st-cal-on', 'Make calendar events for hearings', cal.enabled !== false)}${switchRow('st-cal-test', 'Include [TEST] hearings', cal.include_test !== false)}
+          ${switchRow('st-cal-on', 'Make calendar events for hearings', cal.enabled !== false, 'Saves as soon as you flip it.')}${switchRow('st-cal-test', 'Include [TEST] hearings', cal.include_test !== false)}
           <div class="btnrow st-acts">${btn(sec?.google_calendar_refresh_token ? 'Connect again' : 'Connect Google Calendar', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-connect': '1' } })}${btn('Enter the Google keys', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>
         <div class="card st-conn"><div class="st-connhead"><h2 class="st-h3">YouTube</h2>${state(sec?.youtube_api_key, 'Key set', 'Feed only')}</div>
           <p class="small st-note">${sec?.youtube_api_key ? 'The daily sync searches the last week of hearing videos.' : 'Hearing videos come from the chambers\' feeds, the newest 15 per chamber. A key lets the sync search the whole week.'}</p>
@@ -330,8 +376,7 @@ const PAGES = {
       const t = root.querySelector('[data-slacktest]'); if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true'); try { await DB.slackTest(); toast(DEMO ? 'Sandbox: a test DM would be on its way.' : 'Test DM on its way.', { ok: true }); } catch (e) { toast(e, { err: true }); } finally { t.removeAttribute('aria-busy'); } };
       const c = root.querySelector('[data-connect]'); if (c) c.onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e, { err: true }); } };
     },
-    saveLabel: 'Save calendar settings',
-    async save(root) { await DB.saveCalendarSettings({ ...(S.calCfg || {}), enabled: on(root, 'st-cal-on'), include_test: on(root, 'st-cal-test') }); return 'Calendar settings saved.'; },
+    auto: Object.fromEntries([['st-cal-on', 'enabled'], ['st-cal-test', 'include_test']].map(([id, k]) => [id, { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, [k]: v }) }])),
   },
   embed: {
     status: () => ['globe', 'Put a table of the bills we have a public position on into any web page.'],
@@ -345,7 +390,7 @@ const PAGES = {
         root.querySelector('#st-emb-open').href = base.href + (DEMO ? (base.search ? '&' : '?') + 'demo=1' : '');
         root.querySelector('#st-emb-code').value = `<iframe id="hiphi-tracker" src="${base.href}" title="HIPHI bill tracker" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`; };
       code(); root.querySelector('#st-emb-coal').onchange = code; root.querySelector('#st-emb-limit').onchange = code; },
-    saveLabel: 'Copy the code',
+    saveLabel: 'Copy the code', track: false,
     async save(root) { const t = root.querySelector('#st-emb-code');
       try { await navigator.clipboard.writeText(t.value); return 'Code copied.'; } catch { t.focus(); t.select(); return 'Selected. Copy it with Ctrl+C or Cmd+C.'; } },
   },
@@ -413,19 +458,88 @@ function wireApply(root, rows) {
     catch (e) { toast(e, { err: true }); a.disabled = false; a.removeAttribute('aria-busy'); } };
 }
 
+// The Save bar of a part: what state the typed fields are in, then the button. On a phone it is the frame's bottom
+// bar; on a desktop it sits right under the form it saves.
+function saveBar(key, desk) {
+  const p = PAGES[key]; if (!p.save) return '';
+  const tracked = p.track !== false;
+  return `<div class="st-bar st-sbar${desk ? ' st-sbar2' : ''}">${tracked ? `<span class="st-savestate" data-ststate role="status"></span>${p.auto ? `<span class="st-savehint" data-sthint>Switches save on their own.</span>` : ''}` : ''}
+    ${btn(p.saveLabel, { kind: 'primary', icon: key === 'embed' ? 'copy' : null, attrs: { 'data-stsave': '1', 'aria-disabled': tracked ? 'true' : null } })}</div>`;
+}
+const statusHTML = p => { const [ic, line] = p.status(); return `${icon(ic)}<span>${line}</span>`; };
 function renderSection(key) {
-  const p = PAGES[key], [ic, line] = p.status();
+  const p = PAGES[key], head = `<div class="st-head"><h1>${esc(ALL[key].t)}</h1><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
+  const form = `<form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`;
+  if (DESK()) return shell(key, `${head}${form}${saveBar(key, true)}`);
   return `<div class="st-page st-setup st-subpage">
     <a class="st-crumb" href="#/setup" data-back>${icon('arrow-left')}<span>Session setup</span></a>
-    <div class="st-head"><h1>${esc(ALL[key].t)}</h1><p class="st-status">${icon(ic)}<span>${line}</span></p></div>
-    <form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>
+    ${head}${form}
   </div>`;
 }
 const section = route => PAGES[route.section] ? route.section : '';
 const isAdmin = () => !!S.me?.is_admin;
 
+// ---- unsaved changes ----
+// What counts: every field you type in or choose from (not the switches, which save themselves; not file pickers or
+// read-only boxes). What was typed is kept for the visit (st().draft), so a redraw of the page (the window crossing
+// a layout width, a status arriving) or a trip to another page never loses it.
+const fields = form => [...form.querySelectorAll('input, select, textarea')].filter(el => el.id && el.type !== 'checkbox' && el.type !== 'file' && !el.readOnly);
+const snap = form => Object.fromEntries(fields(form).map(el => [el.id, el.value]));
+let guard = null;   // { key, hash, state, title, dirty(), save(), drop() } while a part with typed fields is on screen
+const guardOn = () => { try { return !!guard && S.route?.name === 'setup' && S.route.section === guard.key && guard.dirty(); } catch { return false; } };
+// "Save changes?": Cancel, Don't save, or Save, the same three answers (and words) the email composer gives. Esc,
+// Back, the x and a click outside all mean Cancel. Never window.confirm.
+const leaveSheet = title => new Promise(res => { let done = false;
+  openSheet({ title: 'Save changes?', size: 'auto', body: `<p>Your changes to ${esc(title)} are not saved yet.</p>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-lv': 'stay' } })}${btn('Don’t save', { kind: 'text', attrs: { 'data-lv': 'drop' } })}${btn('Save', { attrs: { 'data-lv': 'save' } })}`,
+    onClose: () => { if (!done) res('stay'); },
+    wire: d => d.querySelectorAll('[data-lv]').forEach(b => b.onclick = async () => { done = true; await closeSheet({ silent: true }); res(b.dataset.lv); }) }); });
+// True when it is fine to go: saved, or thrown away on purpose. A Save that fails (a field error, no connection)
+// stays on the page with the error showing.
+async function askLeave() {
+  const g = guard; if (!g) return true;
+  const r = await leaveSheet(g.title);
+  if (r === 'save') { const ok = await g.save(); if (ok) guard = null; return ok; }
+  if (r === 'drop') { g.drop(); guard = null; return true; }
+  return false;
+}
+// The frame's own jumps (your menu, the header search, a g shortcut, any S.go) ask through the frame's hook: true
+// means "I am asking", and proceed() is only called when the answer lets them go.
+(S.leaveGuards ??= []).push(proceed => { if (!guardOn()) return false; askLeave().then(ok => { if (ok) proceed(); }); return true; });
+// Leaving by a link (the back link, the list of parts, the sidebar, the tabs): ask first, then go where it pointed.
+document.addEventListener('click', e => {
+  if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || !guardOn()) return;
+  const a = e.target.closest?.('a[href]'); if (!a || a.target === '_blank' || a.closest('dialog')) return;
+  const href = a.getAttribute('href'); if (href === guard.hash) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  askLeave().then(ok => { if (!ok) return;
+    if (!href.startsWith('#')) { location.href = a.href; return; }
+    if (a.hasAttribute('data-back') && (history.state?.d || 0) > 0) history.back(); else S.go(href); });
+}, true);
+// Leaving by Back (the browser's, or a phone's): the address has already moved, so put this page's entry back (the
+// form on screen is untouched), ask, and only then really go back. This listener is registered before the frame's
+// (the frame imports this file first), so the frame never draws the other page underneath the question.
+addEventListener('popstate', e => {
+  if (!guardOn() || location.hash === guard.hash) return;   // the same address means Back only closed a sheet
+  e.stopImmediatePropagation();
+  history.pushState(guard.state, '', guard.hash);
+  askLeave().then(ok => { if (ok) history.back(); });
+});
+// Closing the tab or reloading: the browser's own question (the only one a page is allowed there).
+addEventListener('beforeunload', e => { if (guardOn()) { e.preventDefault(); e.returnValue = ''; } });
+// A safety net for any way out that is not a link, Back or the frame's go(): nothing is lost there either. What was
+// typed is kept for the visit, and a toast says so, with the way back.
+let shown = null;
+try { new MutationObserver(() => {
+  const now = S.route?.name === 'setup' && PAGES[S.route.section] ? S.route.section : null;
+  if (shown && shown !== now && st().draft[shown]) { const k = shown; toast(`Your changes to ${ALL[k].t} are not saved yet.`, { action: { label: 'Go back', run: () => S.go('#/setup/' + k) } }); }
+  shown = now;
+}).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] }); } catch { /* no observer: the index still marks the part */ }
+
 export default {
   tab: '',
+  // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.
+  wide: () => DESK() && isAdmin(),
   title: route => section(route) ? ALL[section(route)].t : 'Session setup',
   back: route => section(route) ? { href: '#/setup', label: 'Session setup' } : null,
   noTabs: route => !!section(route) && isAdmin(),
@@ -434,23 +548,72 @@ export default {
     return section(route) ? renderSection(section(route)) : renderIndex();
   },
   bar(route) {
-    const key = section(route); if (!key || !isAdmin() || !PAGES[key].save) return '';
-    return `<div class="st-bar">${btn(PAGES[key].saveLabel, { kind: 'primary', icon: key === 'embed' ? 'copy' : null, attrs: { 'data-stsave': '1' } })}</div>`;
+    const key = section(route); if (!key || !isAdmin() || DESK()) return '';
+    return saveBar(key, false);
   },
   wire(route, root) {
+    guard = null;
     if (!isAdmin()) return;
     const key = section(route);
     if (!key) return wireIndex(root);
-    const p = PAGES[key], form = root.querySelector('[data-stform]');
-    p.wire && p.wire(form);
+    const p = PAGES[key], form = root.querySelector('[data-stform]'), s = st();
+    const refresh = () => { const el = root.querySelector('[data-ststatus]'); if (el) el.innerHTML = statusHTML(p); p.after && p.after(form); };
+    p.wire && p.wire(form, { refresh });
+    // Switches: flip, save, say so. A failed save puts the switch and the setting back.
+    for (const [id, a] of Object.entries(p.auto || {})) {
+      const el = form.querySelector('#' + id); if (!el) continue;
+      el.onchange = async () => {
+        const v = el.checked, ask = a.confirm && a.confirm(v);
+        if (ask && !(await confirmSheet(ask))) { el.checked = !v; el.focus(); return; }
+        const before = S[a.cfg];
+        try { await a.save(a.apply({ ...(before || {}) }, v)); }
+        catch (e) { S[a.cfg] = before; el.checked = !v; toast(e, { err: true }); return; }
+        refresh(); toast(a.msg ? a.msg(v) : 'Saved.', { ok: true });
+      };
+    }
+    if (!p.save) return;
+    const tracked = p.track !== false;
+    let base = {};
+    const dirty = () => tracked && form.isConnected && fields(form).some(el => el.value !== (base[el.id] ?? ''));
+    const mark = () => {
+      if (!tracked) return;
+      const on = dirty(); if (on) s.draft[key] = snap(form); else delete s.draft[key];
+      const stEl = root.querySelector('[data-ststate]'), hint = root.querySelector('[data-sthint]'), b = root.querySelector('[data-stsave]');
+      if (stEl) { const html = on ? `${icon('circle-dot')}<span>Not saved yet</span>` : ''; if (stEl.innerHTML !== html) stEl.innerHTML = html; }
+      if (hint) hint.hidden = on;
+      if (b) { if (on) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); }
+      // the list of parts (desktop) marks this one while its changes wait
+      const nav = root.querySelector(`.st-nav2 a[href="#/setup/${key}"]`), dot = nav?.querySelector('.st-navd');
+      if (nav && on && !dot) nav.insertAdjacentHTML('beforeend', NAV_DOT); else if (dot && !on) dot.remove();
+    };
     const save = async () => {
-      const b = root.querySelector('[data-stsave]'); if (!b || b.getAttribute('aria-busy')) return;
+      const b = root.querySelector('[data-stsave]'); if (!b || b.getAttribute('aria-busy')) return false;
+      if (b.getAttribute('aria-disabled') === 'true') { toast(p.auto ? 'Nothing to save. Switches save on their own.' : 'Nothing to save yet.'); return false; }
       clearErrs(form); b.setAttribute('aria-busy', 'true');
-      try { const msg = await p.save(form); if (msg) { toast(msg, { ok: !/^Nothing|^Selected/.test(msg) }); if (key !== 'embed' && key !== 'keys') hooks.render(); } }
-      catch (e) { toast(e, { err: true }); }
+      try {
+        const msg = await p.save(form); if (!msg) return false;   // a field error is showing
+        if (tracked) delete s.draft[key];
+        toast(msg, { ok: !/^Nothing|^Selected/.test(msg) });
+        if (key !== 'embed' && key !== 'keys') hooks.render(); else { base = snap(form); mark(); }
+        return true;
+      } catch (e) { toast(e, { err: true }); return false; }
       finally { root.querySelector('[data-stsave]')?.removeAttribute('aria-busy'); }
     };
     root.querySelector('[data-stsave]')?.addEventListener('click', save);
-    form.onsubmit = e => { e.preventDefault(); if (p.save) save(); };
+    form.onsubmit = e => { e.preventDefault(); save(); };
+    if (!tracked) return;
+    // What is stored is the baseline; then what was typed earlier this visit goes back into its fields.
+    base = snap(form);
+    const d = s.draft[key];
+    if (d) { for (const el of fields(form)) if (el.id in d && d[el.id] !== el.value) el.value = d[el.id]; p.afterDraft && p.afterDraft(form, base); }
+    form.addEventListener('input', mark); form.addEventListener('change', mark);
+    mark();
+    // A redraw while you type (a status arriving, the window changing layout) gives the field its cursor back.
+    form.addEventListener('focusin', e => { if (e.target.id) s.focus = { hash: location.hash, id: e.target.id, at: performance.now() }; });
+    form.addEventListener('input', e => { if (e.target.id) s.focus = { hash: location.hash, id: e.target.id, at: performance.now() }; });
+    if (s.focus && s.focus.hash === location.hash && performance.now() - s.focus.at < 4000 && (!document.activeElement || document.activeElement === document.body)) {
+      const el = form.querySelector('#' + CSS.escape(s.focus.id)); if (el) { el.focus({ preventScroll: true }); try { const n = el.value.length; el.setSelectionRange(n, n); } catch { /* not a text field */ } }
+    }
+    guard = { key, hash: location.hash, state: history.state, title: ALL[key].t, dirty, save, drop: () => { delete s.draft[key]; } };
   },
 };

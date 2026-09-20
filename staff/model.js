@@ -235,7 +235,8 @@ export function memoData() {
   const inScope = b => b.position !== 'monitor' && (v.who !== 'me' || mineB(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
   const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
-  const short = b => { const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
+  const short = b => { if (b.nickname) return b.nickname;   // the memo names a bill the way the team does
+    const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
   const name = b => `${billNum(b).replace(/^(\D+)/, '$1 ')} (${short(b)})`;
   const gates = sessionGates(bills).filter(g => !g.past), g = gates[0], g2 = gates.find(x => x.racing.length);
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;

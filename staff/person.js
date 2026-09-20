@@ -1,13 +1,23 @@
 // A supporter's page (plan 3.7, #/person/:id): who they are, how to reach them, what they may be emailed, what they
 // follow, and one activity feed (their timeline and the team's notes together). Same data and calls as the current
 // app's person drawer (app.js personDrawerHTML / wirePersonDrawer). Street addresses are private to the person: only
-// the districts found from one are stored, and no address is ever shown.
+// the districts found from one are stored, and no address is ever shown (nothing here reads p.address).
+// Desktop (1100px and wider) is two columns: what they follow and everything that happened in the main column, and a
+// side panel that stays in view with how to reach them, where they live (districts only), tags and consent.
 import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById } from './data.js';
-import { INTERESTS, personName, whereOf, billById, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
+import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
 import { icon, btn, iconBtn, chip, billRow, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { followupSheet, afterSheet } from './supporters.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
+const isTwo = () => matchMedia('(min-width: 1100px)').matches;
+// A tel: link only helps on a phone. With a mouse the number is shown as text with a Copy button instead.
+const hasMouse = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+const tel = p => String(p.phone || '').replace(/[^\d+]/g, '');
+function copyText(text, okMsg) {
+  const fail = () => toast('Copying did not work in this browser. Select the text and copy it.');
+  try { navigator.clipboard.writeText(text).then(() => toast(okMsg, { ok: true }), fail); } catch { fail(); }
+}
 const firstName = a => (a?.full_name || '').split(' ')[0] || 'Someone';
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const intLabel = k => INTERESTS.find(x => x[0] === k)?.[1] || k;
@@ -35,7 +45,7 @@ function header(p) {
     : `Contact, ${p.source === 'import' ? `imported${p.source_note ? ' from ' + p.source_note : ''}` : 'added by hand'} on ${fmtDate(p.created_at)}`;
   return `<header class="sp-phead">
     <div class="sp-pname"><h1>${esc(personName(p))}</h1>${iconBtn('ellipsis', `More actions for ${personName(p)}`, { 'data-pp': 'more', 'aria-haspopup': 'dialog' })}</div>
-    <p class="sp-reach"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${p.phone ? ` · <a href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${esc(p.phone)}</a>` : ''}</p>
+    ${isTwo() ? '' : `<p class="sp-reach"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${p.phone ? ` · ${hasMouse() ? `<span class="sp-num">${esc(p.phone)}</span> <button type="button" class="linkbtn sp-copy" data-pp="copyphone">Copy<span class="sr"> the phone number</span></button>` : `<a href="tel:${esc(tel(p))}">${esc(p.phone)}</a>`}` : ''}</p>`}
     <p class="meta">${esc(state)}</p>
   </header>`;
 }
@@ -43,7 +53,7 @@ function actions(p) {
   const tile = (ic, label, a) => `<${a.href ? `a href="${esc(a.href)}"` : 'button type="button"'} class="sp-act"${Object.entries(a).filter(([k]) => k !== 'href').map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}>${icon(ic)}<span>${label}</span></${a.href ? 'a' : 'button'}>`;
   return `<div class="sp-acts4" role="group" aria-label="Contact ${esc(personName(p))}">
     ${tile('mail', 'Email', { href: `mailto:${p.email}` })}
-    ${p.phone ? tile('phone', 'Call', { href: `tel:${p.phone.replace(/[^\d+]/g, '')}` }) : tile('phone', 'Call', { 'data-pp': 'nophone', 'aria-disabled': 'true' })}
+    ${!p.phone ? tile('phone', 'Call', { 'data-pp': 'nophone', 'aria-disabled': 'true' }) : hasMouse() ? tile('copy', 'Copy number', { 'data-pp': 'copyphone' }) : tile('phone', 'Call', { href: `tel:${tel(p)}` })}
     ${tile('calendar-plus', 'Follow up', { 'data-pp': 'fup' })}
     ${tile('notebook-pen', 'Note', { 'data-pp': 'note' })}
   </div>`;
@@ -82,10 +92,13 @@ function about(p) {
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
   const lists = (p.list_ids || []).map(id => (S.lists || []).find(l => l.id === id)).filter(Boolean);
-  const showAll = st.billsAll[p.id] || bills.length <= BILLS_FIRST + 1, head = [bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list')].filter(Boolean).join(' · ');
+  const firstN = isTwo() ? 8 : BILLS_FIRST;
+  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list')].filter(Boolean).join(' · ');
+  // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still explained.
+  const sum = b => b.nickname ? esc(blurb(b, 140)) : '';
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
-    ${bills.length ? `<div class="rows">${(showAll ? bills : bills.slice(0, BILLS_FIRST)).map(b => billRow(b, { href: `#/bill/${b.bill_number}` })).join('')}
+    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `#/bill/${b.bill_number}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}
       ${showAll ? '' : `<button type="button" class="row sp-showall" data-pp="billsall">${icon('chevron-down')}<span>Show all ${bills.length} bills</span></button>`}</div>`
       : `<p class="muted sp-none">${lists.length ? 'No single bills.' : 'Not following any bill or list yet.'}</p>`}
   </section>`;
@@ -94,7 +107,14 @@ function feed(p) {
   const st = P(), notes = S.peopleNotes?.[p.id], tl = S.personTL?.[p.id];
   const loading = notes === undefined || tl === undefined;
   const items = [...(tl || []).map(e => ({ t: e.at, e })), ...(notes || []).map(n => ({ t: n.created_at, n }))].sort((a, b) => new Date(b.t) - new Date(a.t));
-  const all = st.feedAll[p.id], list = all ? items : items.slice(0, FEED_STEP);
+  // Desktop: the feed can be narrowed to one kind of thing ("what did they do?" is the usual question).
+  const kindOf = x => x.n ? 'notes' : x.e.kind === 'action' ? 'actions' : ['email', 'open', 'click', 'bounce', 'unsubscribe'].includes(x.e.kind) ? 'emails' : x.e.kind === 'follow' ? 'follows' : 'other';
+  const counts = items.reduce((m, x) => { const k = kindOf(x); m[k] = (m[k] || 0) + 1; return m; }, {});
+  const tabs = [['all', 'All', items.length], ['actions', 'Actions', counts.actions || 0], ['emails', 'Emails', counts.emails || 0], ['follows', 'Follows', counts.follows || 0], ['notes', 'Notes', counts.notes || 0]];
+  let fk = isTwo() ? st.feedKind?.[p.id] || 'all' : 'all'; if (fk !== 'all' && !counts[fk]) fk = 'all';
+  const filtered = fk === 'all' ? items : items.filter(x => kindOf(x) === fk);
+  const filterRow = isTwo() && items.length > 3 ? `<div class="chips sp-fkinds" role="group" aria-label="Show">${tabs.filter(([k, , n]) => k === 'all' || n).map(([k, l, n]) => `<button type="button" class="chip" data-fkind="${k}" aria-pressed="${fk === k}">${fk === k ? icon('check') : ''}${l}<span class="sp-cn">${n}</span></button>`).join('')}</div>` : '';
+  const all = st.feedAll[p.id], list = all ? filtered : filtered.slice(0, FEED_STEP);
   const li = x => {
     if (x.n) {
       const mine = x.n.advocate_id === S.me?.id;
@@ -106,9 +126,46 @@ function feed(p) {
   };
   return `<section class="sp-sec" aria-labelledby="sp-h-feed"><div class="sechead"><h2 id="sp-h-feed">Activity</h2><span class="meta">Notes are for the team only</span></div>
     ${loading ? skeleton(2).replace('skelpage', 'skelpage sp-feedload') : st.loadErr && !items.length ? `<p class="muted sp-none">The activity did not load. Try again later.</p>`
-      : items.length ? `<ol class="card sp-feed">${list.map(li).join('')}</ol>${!all && items.length > FEED_STEP ? btn(`Show all ${items.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-pp': 'feedall' } }) : ''}`
+      : items.length ? `${filterRow}<ol class="card sp-feed">${list.map(li).join('')}</ol>${!all && filtered.length > FEED_STEP ? btn(`Show all ${filtered.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-pp': 'feedall' } }) : ''}`
       : `<p class="muted sp-none">Nothing yet. Add a note to start.</p>`}
   </section>`;
+}
+
+// ---- desktop side panel: how to reach them, where they are (districts only), what we know about them, what they
+// may be sent, and their numbers. It stays in view while the feed scrolls (.sv-cols > .sv-aside in staff.css). ----
+function sidePanel(p) {
+  const none = t => `<span class="muted">${t}</span>`;
+  const line = (ic, html) => `<div class="sp-sl">${icon(ic)}<div class="sp-slb">${html}</div></div>`;
+  const copyBtn = (what, label) => btn('Copy', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-pp': what, 'aria-label': label } });
+  const phone = p.phone
+    ? (hasMouse() ? `<span class="sp-num">${esc(p.phone)}</span>${copyBtn('copyphone', `Copy the phone number ${p.phone}`)}` : `<a href="tel:${esc(tel(p))}">${esc(p.phone)}</a>`)
+    : `${none('No phone number yet.')} <button type="button" class="linkbtn" data-pp="edit">Add one</button>`;
+  const can = (on, yes, no) => `<li>${icon(on ? 'bell' : 'bell-off')}<span>${on ? yes : no}</span></li>`;
+  const kv = (k, v) => `<div class="sp-skv"><dt>${k}</dt><dd>${v}</dd></div>`;
+  return `<aside class="sv-aside sp-aside" aria-label="About ${esc(personName(p))}">
+    <section class="card sp-sc" aria-labelledby="sp-h-contact"><h2 id="sp-h-contact">Contact</h2>
+      ${line('mail', `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${copyBtn('copyemail', `Copy the email address ${p.email}`)}`)}
+      ${line('phone', phone)}
+      <div class="sp-sbtns">${btn('Add a note', { sm: true, icon: 'notebook-pen', attrs: { 'data-pp': 'note', 'aria-haspopup': 'dialog' } })}${btn('Follow up', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-pp': 'fup', 'aria-haspopup': 'dialog' } })}</div>
+    </section>
+    <section class="card sp-sc" aria-labelledby="sp-h-where"><div class="sp-sch"><h2 id="sp-h-where">Where</h2>${btn(whereOf(p) ? 'Change' : 'Find districts', { kind: 'text', sm: true, icon: 'map-pin', attrs: { 'data-pp': 'dist', 'aria-haspopup': 'dialog' } })}</div>
+      ${whereOf(p) ? `<dl class="sp-sdl">${kv('Island', p.island ? esc(p.island) : none('Not known'))}${kv('Senate', p.senate_district ? `District ${esc(p.senate_district)}` : none('Not known'))}${kv('House', p.house_district ? `District ${esc(p.house_district)}` : none('Not known'))}</dl>` : `<p class="muted sp-snone">No districts yet.</p>`}
+      <p class="meta sp-lock">${icon('lock')}<span>Only districts are kept, never a street address.</span></p>
+    </section>
+    <section class="card sp-sc" aria-labelledby="sp-h-about"><div class="sp-sch"><h2 id="sp-h-about">About</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'square-pen', attrs: { 'data-pp': 'edit', 'aria-haspopup': 'dialog' } })}</div>
+      <dl class="sp-sdl">${kv('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
+        ${kv('Interests', (p.interests || []).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
+    </section>
+    <section class="card sp-sc" aria-labelledby="sp-h-consent"><h2 id="sp-h-consent">What they can be sent</h2>
+      <ul class="sp-can">${can(p.action_optin, 'Action alerts: yes', 'Action alerts: no')}${can(p.hearing_optin, 'Hearing alerts: yes', 'Hearing alerts: no')}
+        <li>${p.bounced_at ? `${icon('triangle-alert')}<span><b>Email bounced</b> ${esc(fmtDate(p.bounced_at))}</span>` : p.unsubscribed_at ? `${icon('circle-x')}<span><b>Unsubscribed</b> ${esc(fmtDate(p.unsubscribed_at))}</span>` : `${icon('mail-check')}<span>Still subscribed</span>`}</li></ul>
+    </section>
+    <section class="card sp-sc" aria-labelledby="sp-h-num"><h2 id="sp-h-num">So far</h2>
+      <dl class="sp-sdl">${kv('Emails', p.emails_sent ? `${plural(p.emails_sent, 'email')} sent · ${p.emails_opened || 0} opened · ${p.emails_clicked || 0} clicked` : none('None sent yet'))}
+        ${kv('Actions', p.actions ? `${plural(p.actions, 'action')}${p.testimonies ? `, ${plural(p.testimonies, 'testimony', 'testimonies')}` : ''}` : none('None yet'))}
+        ${kv('Score', `${Math.round(p.score || 0)} <span class="meta">1 per bill followed, 5 per action, 2 per click, a quarter per open</span>`)}</dl>
+    </section>
+  </aside>`;
 }
 
 export default {
@@ -127,9 +184,12 @@ export default {
       return `<div class="sp-person">${empty({ title: 'This person is not in Supporters', text: 'They may have been merged into someone else or deleted.', action: btn('Back to Supporters', { href: '#/outreach' }) })}</div>`;
     }
     ensureFeed(p.id);
-    const back = this.back(route);
+    const back = this.back(route), backLink = `<a class="sp-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>`;
+    if (isTwo()) return `<div class="sp-person sp-two">${backLink}${header(p)}
+      <div class="sv-cols"><div class="sp-main">${followups(p)}${follows(p)}${feed(p)}</div>${sidePanel(p)}</div>
+    </div>`;
     return `<div class="sp-person">
-      <a class="sp-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>
+      ${backLink}
       ${header(p)}${actions(p)}${consent(p)}${followups(p)}${about(p)}${follows(p)}${feed(p)}
     </div>`;
   },
@@ -140,6 +200,9 @@ export default {
     const on = (sel, fn) => page.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-pp="more"]', () => moreMenu(p));
     on('[data-pp="nophone"]', () => toast(`No phone number for ${personName(p)} yet. Add one with Edit.`));
+    on('[data-pp="copyphone"]', () => copyText(p.phone, `Copied ${p.phone}.`));
+    on('[data-pp="copyemail"]', () => copyText(p.email, `Copied ${p.email}.`));
+    on('[data-fkind]', el => { (st.feedKind ??= {})[p.id] = el.dataset.fkind; st.feedAll[p.id] = false; const y = scrollY; hooks.render(); scrollTo(0, y); document.querySelector(`.sp-person [data-fkind="${el.dataset.fkind}"]`)?.focus({ preventScroll: true }); });
     on('[data-pp="fup"]', () => followupSheet([p.id]));
     on('[data-pp="note"]', () => noteSheet(p));
     on('[data-pp="edit"]', () => editSheet(p));

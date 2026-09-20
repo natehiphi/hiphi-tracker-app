@@ -5,9 +5,15 @@
 // its own box; on a desktop the header's box drives this page as you type ("/" focuses it, handled by the frame).
 import { S, DB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, capitolUrl, SESSION_YEAR } from './data.js';
 import { plain, diedish, personName, whereOf, titleCaseSmart } from './model.js';
-import { icon, btn, empty, toast, billRow } from './ui.js';
+// Build 3, desktop: the groups sit side by side (bills on the left, legislators and supporters on the right), each
+// with its count; the arrow keys move through the results from the search box (Down enters the list, Up and Down
+// move, Left and Right change column, Home and End jump, Enter opens, Esc returns to the box). Bills are named the
+// way the Bills list names them: number, nickname in bold, then the plain summary (five bills share the nickname
+// "Let counties regulate tobacco sales", and the summary and status are what tell them apart).
+import { icon, btn, empty, toast } from './ui.js';
 import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex } from './legislators.js';
+import { blRow } from './bills.js';
 
 const SHOW = { bills: 8, legs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
@@ -44,6 +50,7 @@ const personRow = p => {
 const more = (key, n, shown, label) => n > shown ? `<button type="button" class="row lg-more" data-lgsmore="${key}">${icon('chevron-down')}<span>Show all ${n} ${label}</span></button>` : '';
 const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labelledby="${id}"><h2 class="sv-group" id="${id}"><span>${title}</span><span class="n">${n}</span></h2>${inner}</section>`;
 
+const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 function resultsHTML(q) {
   const s = st();
   if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, and supporters by name or email.' });
@@ -55,24 +62,52 @@ function resultsHTML(q) {
   const nb = s.more.has('b') ? tracked.length : SHOW.bills, nl = s.more.has('l') ? legs.length : SHOW.legs, np = s.more.has('p') ? people.length : SHOW.people;
   const unBlock = q.length < 3 ? '' : un === null ? `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking through every bill of the session</span></div>`
     : un.length ? `<h3 class="lg-subh">Not tracked yet <span class="lg-n">${un.length}</span></h3>${un.map(untrackedRow).join('')}` : '';
-  const out = [];
+  const main = [], side = [];
+  const nBills = tracked.length + (un ? un.length : 0);
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
-    out.push(group('lg-gb', 'Bills', tracked.length + (un ? un.length : 0), tracked.slice(0, nb).map(b => billRow(b, { sub: esc(billSub(b)), href: `#/bill/${encodeURIComponent(b.bill_number)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
-  if (legs.length) out.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
-  if (!peopleReady) out.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
-  else if (people.length) out.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
-  if (!out.length) return empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
-  return out.join('');
+    main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `#/bill/${encodeURIComponent(b.bill_number)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
+  if (legs.length) side.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
+  if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
+  else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
+  if (!main.length && !side.length) return empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
+  // What was found, in words, above the groups (each group's header repeats its own count).
+  const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
+  const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span></p>` : '';
+  const two = main.length && side.length;
+  return `${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
+}
+
+// ---- arrow keys through the results (they are the list's own keys, like a menu's, not shortcuts: they only act
+// inside the search box and the results, so they never fire on a stray letter) ----
+const ITEMS = '#lg-sres a.row, #lg-sres .lg-urow [data-lgtrack], #lg-sres .lg-more';
+const items = () => [...document.querySelectorAll(ITEMS)].filter(el => el.offsetParent);
+function moveResult(e, box) {
+  const list = items(), cur = document.activeElement, i = list.indexOf(cur);
+  const go = el => { if (!el) return; e.preventDefault(); el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); };
+  if (i < 0) { if (e.key === 'ArrowDown' && list.length) go(list[0]); return; }      // from the search box
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); box()?.focus(); return; }
+  if (e.key === 'ArrowDown') return go(list[Math.min(list.length - 1, i + 1)]);
+  if (e.key === 'ArrowUp') { if (i === 0) { e.preventDefault(); box()?.focus(); } else go(list[i - 1]); return; }
+  if (e.key === 'Home') return go(list[0]);
+  if (e.key === 'End') return go(list[list.length - 1]);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    // the other column, at about the same height
+    const col = cur.closest('[data-scol]'), to = document.querySelector(`#lg-sres [data-scol="${e.key === 'ArrowRight' ? 1 : 0}"]`);
+    if (!col || !to || to === col || getComputedStyle(to.parentElement).display !== 'grid') return;
+    const y = cur.getBoundingClientRect().top, cand = list.filter(el => to.contains(el));
+    go(cand.sort((a, b) => Math.abs(a.getBoundingClientRect().top - y) - Math.abs(b.getBoundingClientRect().top - y))[0]);
+  }
 }
 
 export default {
   tab: '', title: () => 'Search',
+  wide: () => true,   // the frame's 720px column (900 to 1099px) cannot hold two groups side by side; the CSS caps the page at 1120px
   render(route) {
     const q = qOf(route), s = st();
     if (s.q !== q) { s.q = q; s.more = new Set(); }
     // Supporters load on first use on the live tracker (the sandbox has them already).
     if (!S.peopleLoaded && !S.peopleLoading && !S.lgPeopleTried) { S.lgPeopleTried = true; DB.loadPeople().then(refresh).catch(() => { S.peopleLoaded = true; S.people ??= []; refresh(); }); }
-    return `<div class="lg-search">
+    return `<div class="lg-search st-srch">
       <h1 class="lg-dtitle">Search</h1>
       <form class="searchbox lg-sbox lg-sphone" role="search" data-lgsform novalidate>
         <label class="sr" for="lg-sq">Search bills, legislators and supporters</label>
@@ -113,12 +148,21 @@ export default {
       paint(); untracked();
     }, 120); };
     boxes.forEach(b => { b.value = s.q; b.addEventListener('input', () => onType(b)); });
+    // Down from the box goes into the results; inside them the arrow keys move, and Esc comes back to the box.
+    const boxNow = () => boxes.find(b => b.offsetParent);
+    const keys = e => { if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) moveResult(e, boxNow); };
+    res.addEventListener('keydown', keys);
+    boxes.forEach(b => b.addEventListener('keydown', e => { if (e.key === 'ArrowDown') keys(e); }));
     // Enter in either box keeps this page (the header's own submit would push another history entry).
     root.querySelector('[data-lgsform]').onsubmit = e => { e.preventDefault(); own.blur(); };
     const hf = hdr?.closest('form');
     if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); onType(hdr); }, { capture: true });
     // Focus the box that is on screen (the page's on a phone, the header's on a desktop).
-    requestAnimationFrame(() => { const f = boxes.find(b => b.offsetParent); if (f && document.activeElement !== f && !s.q) f.focus({ preventScroll: true }); });
+    // With a keyboard and a mouse the box takes the focus on arrival even with words in it (type on, or press Down for
+    // the results); a phone only when it is empty, so its keyboard does not cover the results.
+    const fine = (() => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } })();
+    requestAnimationFrame(() => { const f = boxes.find(b => b.offsetParent), at = document.activeElement;
+      if (f && at !== f && (!s.q || fine && (!at || at === document.body || at.id === 'main'))) { f.focus({ preventScroll: true }); try { f.setSelectionRange(f.value.length, f.value.length); } catch { /* not a text box */ } } });
     root.addEventListener('click', async e => {
       const m = e.target.closest('[data-lgsmore]'); if (m) { s.more.add({ b: 'b', l: 'l', p: 'p' }[m.dataset.lgsmore]); paint(); return; }
       const tr = e.target.closest('[data-lgtrack]'); if (!tr) return;

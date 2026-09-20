@@ -79,6 +79,11 @@
 .le-list .le-note .ic, .le-list .le-warn .ic { width: 16px; height: 16px; margin-top: 3px; color: var(--n500); flex: none; }
 .le-list .le-warn { font-weight: 700; color: var(--n900); }
 .le-list .le-dragging { position: relative; z-index: 2; background: var(--p50); box-shadow: var(--sh2); }
+/* A bill's name: number and nickname in bold, the plain summary under it (lists.js billName) */
+.le-list .le-bmain .sub, .le-list .le-hit .sub, .le-cmp .le-opt .le-bsum { font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.le-list .le-hit .sub, .le-cmp .le-opt .le-bsum { -webkit-line-clamp: 1; }
+.le-list .le-hit { cursor: pointer; }
+.le-list .le-hit.hi, .le-list .le-hit:hover { background: var(--p50); }
 .le-list .le-sorting, .le-list .le-sorting * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 
 /* ---- sheets ---- */
@@ -194,8 +199,31 @@
 .le-cmp .le-state > .btn.text { margin: var(--s8) 0 -8px 16px; }
 .le-cmp .le-state .le-stats, .le-cmp .le-state .le-quote { margin-left: 28px; }
 
-/* ---- the composer's bottom bar ---- */
-.le-bar { display: flex; gap: var(--s8); width: 100%; }
+.le-cmp .le-whosum { display: block; margin-top: 2px; font-size: var(--t14); color: var(--n500); }
+.le-cmp .le-step > .sv-notice { margin: 0 0 var(--s12); }
+/* where the words stand: "Not saved yet" / "Draft saved 3 min ago" (an icon and words, never colour alone) */
+.le-savest { display: inline-flex; align-items: center; min-width: 0; font-size: var(--t14); }
+.le-savest:empty { display: none; }
+.le-savest .le-unsaved, .le-savest .le-savedok { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.le-savest .le-unsaved { font-weight: 700; color: var(--n900); }
+.le-savest .le-savedok { color: var(--n500); }
+.le-savest .ic { width: 16px; height: 16px; flex: none; }
+.le-savest .le-unsaved .ic { color: var(--p700); }
+/* the last step: what the button does and does not do */
+.le-cmp .le-nosend { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s12); color: var(--n900); }
+.le-cmp .le-nosend .ic { width: 20px; height: 20px; margin-top: 2px; color: var(--p700); flex: none; }
+.le-cmp .le-flowh { margin: var(--s16) 0 var(--s8); font: 700 var(--t14)/1.3 var(--font); color: var(--n500); letter-spacing: 0; }
+.le-cmp .le-flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.le-cmp .le-flow li { display: flex; align-items: flex-start; gap: var(--s12); color: var(--n900); }
+.le-cmp .le-fn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; flex: none; }
+.le-cmp .le-flow + .sv-notice, .le-cmp .le-flow + .notice { margin-top: var(--s16); }
+/* the "Save changes?" sheet has three buttons: let them wrap on a narrow phone */
+.sv-sh-foot.le-foot3 { flex-wrap: wrap; }
+.sv-sh-foot.le-foot3 .le-dont { color: var(--bad-text); }
+
+/* ---- the composer's bottom bar (phones and narrow windows): the save state on its own line, then Back / Next ---- */
+.le-bar { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s8); width: 100%; }
+.le-bar .le-barstate { flex: 1 1 100%; justify-content: center; min-height: 20px; margin-top: -4px; }
 .le-bar .btn { flex: 1 1 0; min-width: 0; }
 .le-bar .btn.secondary { flex: 0 1 auto; }
 
@@ -236,8 +264,73 @@
 
 /* ---- desktop ---- */
 @media (min-width: 900px) {
+  /* One tool row, as on Bills and Supporters: the title (or, with no sidebar, the switcher), a line about the page,
+     and the page's one main button on the right. */
   .le-page .le-h1 { display: block; position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .le-page .le-tools { margin-top: var(--s16); }
+  .le-page.le-side .le-h1 { position: static; width: auto; height: auto; margin: 0 var(--s8) 0 0; overflow: visible; clip: auto; flex: none; font-size: var(--t22); }
+  .le-page .le-tools { margin-top: 0; gap: var(--s16); min-height: 48px; }
+  .le-page .le-tools .le-seg { flex: none; width: auto; max-width: none; }
+  .le-page .le-tools .le-seg a { flex: none; padding: 0 var(--s16); }
+  .le-page .le-tools .le-lede { max-width: 70ch; }
+  .le-page .le-tools > .btn { margin-left: auto; }
+  .le-page .le-tsum { margin: var(--s12) 0 var(--s8); font-size: var(--t14); color: var(--n500); }
+  .le-page .le-tsum b { color: var(--n900); }
+  .le-page .le-twrap { container: letable / inline-size; margin-top: var(--s12); }
+  .le-page .le-tsum + .le-twrap { margin-top: 0; }
+  /* The table: the same look as Bills and Supporters (pinned 40px header, columns that sort, a hover wash, the whole
+     row opens). The first column takes the spare width and wraps to two lines before it is ever cut. */
+  .le-page .le-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); }
+  .le-page .le-table thead th { position: sticky; top: var(--header); z-index: 6; height: 40px; padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200);
+    font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .le-page .le-table thead th:first-child { border-top-left-radius: var(--r12); padding-left: var(--s16); }
+  .le-page .le-table thead th:last-child { border-top-right-radius: var(--r12); }
+  .le-page .le-sort { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; max-width: 100%; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .le-page .le-sort:hover { color: var(--n900); background: var(--n100); }
+  .le-page .le-sort.on { color: var(--n900); }
+  .le-page .le-sort .ic { width: 14px; height: 14px; flex: none; opacity: 0; }
+  .le-page .le-sort:hover .ic, .le-page .le-sort:focus-visible .ic { opacity: .55; }
+  .le-page .le-sort.on .ic { opacity: 1; }
+  .le-page .le-table td { height: 56px; padding: 6px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .le-page .le-table td:first-child { padding-left: var(--s16); }
+  .le-page .le-table tbody tr:first-child td { border-top: 0; }
+  .le-page .le-table tbody tr { cursor: pointer; }
+  .le-page .le-table tbody tr:hover td { background: var(--n50); }
+  .le-page .le-table tbody tr:last-child td:first-child { border-bottom-left-radius: var(--r12); }
+  .le-page .le-table tbody tr:last-child td:last-child { border-bottom-right-radius: var(--r12); }
+  .le-page .le-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .le-page .le-table td.c-title, .le-page .le-table td.c-subject, .le-page .le-table td.c-to { white-space: normal; }
+  .le-page .le-table td.c-title, .le-page .le-table td.c-to { display: table-cell; }
+  .le-page .le-tdlead { float: left; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 2px var(--s12) 2px 0; border-radius: 50%; background: var(--n100); color: var(--n700); }
+  .le-page .le-tdlead .ic { width: 20px; height: 20px; }
+  .le-page .le-tdlead.sm { width: 28px; height: 28px; margin: 4px var(--s8) 4px 0; }
+  .le-page .le-tdlead.sm .ic { width: 16px; height: 16px; }
+  .le-page .le-tdbody { display: block; overflow: hidden; padding: 4px; margin: -4px; }   /* room for the name's focus ring inside the clipped box */
+  .le-page .le-tdname { display: block; font-weight: 700; color: var(--n900); text-decoration: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .le-page .le-table tr:hover .le-tdname, .le-page .le-tdname:hover { color: var(--p700); text-decoration: underline; }
+  .le-page .le-tdsub { font-size: var(--t13); color: var(--n500); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .le-page .le-of { color: var(--n500); }
+  .le-page .le-l1 { color: var(--n900); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .le-page .le-l1 b { font-weight: 700; }
+  .le-page .le-l2 { display: block; font-size: var(--t13); color: var(--n500); }
+  .le-page .le-next { display: inline; }
+  .le-page .le-next.you { font-weight: 700; color: var(--n900); }
+  .le-page .le-next .ic { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--p700); }
+  .le-page .le-dash { color: var(--n400); }
+  .le-page .le-table .chip { flex: none; }
+  /* Lists: column widths (the list's name takes the rest) */
+  .le-page .le-tlists th.c-bills { width: 84px; }
+  .le-page .le-tlists th.c-followers { width: 112px; }
+  .le-page .le-tlists th.c-status { width: 116px; }
+  .le-page .le-tlists th.c-owner { width: 168px; }
+  .le-page .le-tlists th.c-updated { width: 112px; }
+  /* Emails: column widths (the subject takes the rest); the narrowest tables drop Clicked and Sent to, which the
+     email's own page still shows */
+  .le-page .le-temails th.c-to { width: 21%; }
+  .le-page .le-temails th.c-writer { width: 88px; }
+  .le-page .le-temails th.c-status { width: 192px; }
+  .le-page .le-temails th.c-when { width: 104px; }
+  .le-page .le-temails th.c-opens { width: 112px; }
+  .le-page .le-temails th.c-clicks { width: 96px; }
   .le-page .le-deskback, .le-cmp .le-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s8) -8px; padding: 0 12px 0 4px;
     border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
   .le-page .le-deskback:hover, .le-cmp .le-deskback:hover { background: var(--p50); }
@@ -246,7 +339,16 @@
   .le-page .le-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); background: none; border: 0; box-shadow: none; overflow: visible; }
   .le-page .le-lists > .row, .le-page .le-lists > .row + .row { min-width: 0; border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); min-height: 88px; }
   .le-page .le-lrow .le-desc { display: block; margin-top: 2px; color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* A list: the drag handle, 44px, at the left of each row */
+  /* A list. Adding is a combobox: the results drop down over the page, under the search box, while it has the focus */
+  .le-list .le-add { position: relative; }
+  .le-list #le-hits { display: none; position: absolute; left: 0; right: 0; top: 48px; z-index: 20; margin: 0; }
+  .le-list #le-hits.open:not(:empty) { display: block; }
+  .le-list #le-hits .le-hits { max-height: 380px; overflow: auto; box-shadow: var(--sh3); border-radius: var(--r12); }
+  .le-list #le-hits .le-none { padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+  .le-list .le-hit { min-height: 48px; }
+  .le-list .le-bmain:hover { text-decoration: none; }
+  .le-list .le-brow:hover { background: var(--n50); }
+  /* The drag handle, 44px, at the left of each row */
   .le-list .le-brow { padding-left: var(--s4); }
   .le-list .le-grip { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none; border-radius: var(--r8); color: var(--n400); cursor: grab; touch-action: none; }
   .le-list .le-grip:hover, .le-list .le-grip:focus-visible { color: var(--n700); background: var(--n100); }
@@ -256,3 +358,67 @@
   /* Emails: the stats sit on the right of a sent row */
   .le-page .le-erow .title { -webkit-line-clamp: 1; }
 }
+/* ---- the composer on a wide screen (1100px and wider): two panes. The steps on the left with Back / Next under the
+   form, sized to their labels; the real email on the right, redrawn as you type, which stays in view. ---- */
+@media (min-width: 900px) {
+  .le-bar { flex-wrap: nowrap; align-items: center; justify-content: flex-end; }
+  .le-bar .le-barstate { flex: 0 1 auto; margin: 0 var(--s8) 0 0; min-height: 0; }
+  .le-bar .btn, .le-bar .btn.secondary { flex: 0 0 auto; }
+}
+@media (min-width: 1100px) {
+  .le-two .sv-cols.le-panes { grid-template-columns: minmax(0, 1fr) minmax(360px, 42%); margin-top: var(--s16); }
+  .le-two .le-form { min-width: 0; }
+  .le-two .le-form .le-steps { margin: 0 0 var(--s16); }
+  .le-two .le-form .le-state { margin: 0; }
+  .le-two .le-formbar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: var(--s16); padding: var(--s12) 0 var(--s16);
+    background: linear-gradient(180deg, rgba(242,246,249,0) 0, var(--n50) 12px); }
+  .le-two .le-formbar .btn { min-width: 112px; }
+  .le-two .le-formbar .btn.text { min-width: 0; margin-right: -12px; }
+  .le-two .le-formbar .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .le-two .le-formbar .le-savest { margin-left: auto; padding-left: var(--s8); }
+  .le-two .le-prevpane { gap: var(--s8); top: calc(var(--header) + var(--s16)); }
+  .le-two .le-prevhead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); min-height: 28px; }
+  .le-two .le-prevhead h2 { font-size: var(--t16); }
+  .le-two .le-noprev { display: flex; flex-direction: column; align-items: center; gap: var(--s8); padding: var(--s48) var(--s24); border: 1px dashed var(--n300); border-radius: var(--r16); color: var(--n500); text-align: center; font-size: var(--t14); }
+  .le-two .le-noprev .ic { width: 28px; height: 28px; color: var(--n400); }
+  .le-two .le-checks { list-style: none; margin: var(--s12) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+  .le-two .le-checks li { display: flex; align-items: flex-start; gap: var(--s8); color: var(--n900); }
+  .le-two .le-checks .ic { width: 18px; height: 18px; margin-top: 3px; color: var(--n500); flex: none; }
+  .le-two .le-testrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s16); }
+  .le-two .le-ed { min-height: 280px; }
+  .le-two .le-rtebar button { min-width: 40px; height: 40px; }
+  .le-two .le-rtebar button:hover { background: var(--n100); }
+  .le-two.le-status .le-rule { margin-top: var(--s12); font-weight: 400; }
+}
+
+/* ---- one list on a wide screen (1100px and wider): the bills in the main column; publishing, followers, sharing
+   and the details in a side panel that stays in view (.sv-cols + .sv-aside in staff.css) ---- */
+@media (min-width: 1100px) {
+  .le-two .le-lhead { margin-bottom: var(--s24); }
+  .le-two .le-lhbody h1 { padding-top: 4px; }
+  .le-two .le-ldesc { max-width: 70ch; }
+  .le-two .sv-cols > .le-sec { margin-top: 0; min-width: 0; }
+  .le-two .le-sechead { min-height: 32px; align-items: center; }
+  .le-two .le-aside { gap: var(--s12); }
+  .le-two .le-aside .card { padding: var(--s12) var(--s16); }
+  .le-two .le-aside .card + .card { margin-top: 0; }
+  .le-two .le-sc h2 { font-size: var(--t16); margin-bottom: var(--s4); }
+  .le-two .le-sc .sv-switchrow { min-height: 48px; padding: 0; }
+  .le-two .le-sch { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+  .le-two .le-sch .btn.text { margin: -6px -12px -2px 0; min-height: 40px; }
+  .le-two .le-sch .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .le-two .le-folrow { min-height: 40px; display: flex; align-items: center; }
+  .le-two .le-sact { display: flex; align-items: center; gap: var(--s8); width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 0 var(--s8); border-radius: var(--r8); color: var(--p700); font-size: var(--t14); font-weight: 700; text-align: left; }
+  .le-two .le-sact:hover { background: var(--p50); }
+  .le-two .le-sact .ic { width: 18px; height: 18px; flex: none; }
+  .le-two .le-sact[aria-disabled="true"] { color: var(--n500); cursor: default; }
+  .le-two .le-sact[aria-disabled="true"]:hover { background: none; }
+  .le-two .le-snote { margin-top: var(--s4); }
+  .le-two .le-sdl { margin: 0; }
+  .le-two .le-sdl > div { display: grid; grid-template-columns: 92px 1fr; gap: var(--s8); padding: 4px 0; font-size: var(--t14); }
+  .le-two .le-sdl dt { font-weight: 700; color: var(--n500); }
+  .le-two .le-sdl dd { margin: 0; color: var(--n900); }
+  .le-two .le-dicon .ic { width: 18px; height: 18px; color: var(--n700); vertical-align: -3px; }
+}
+@container letable (max-width: 1079px) { .le-page .le-temails .c-clicks { display: none; } .le-page .le-tlists .c-owner { display: none; } }
+@container letable (max-width: 899px) { .le-page .le-temails .c-writer { display: none; } }

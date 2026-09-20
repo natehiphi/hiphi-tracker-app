@@ -51,13 +51,21 @@
 .bl-grp > .row + .row { border-top: 1px solid var(--n100); }
 .bl-list .bl-noown { display: inline-flex; color: var(--n500); }
 .bl-list .bl-noown .ic { width: 24px; height: 24px; }
-.bl-list .sv-billrow { -webkit-touch-callout: none; padding-top: var(--s8); padding-bottom: var(--s8); }   /* two lines in a 64px row */
+.bl-list .sv-billrow { -webkit-touch-callout: none; padding-top: 10px; padding-bottom: 10px; }
+/* The title takes two lines before it is cut: the number and the nickname in bold, then the plain summary (with no
+   nickname, the summary over both lines). The status sentence keeps its own line underneath. */
+.sv-billrow.bl-row .bl-rt { -webkit-line-clamp: 2; line-height: 1.35; overflow-wrap: anywhere; }   /* wherever a Bills row is drawn (the list, muted bills, search) */
+.sv-billrow.bl-row .bl-rt .sv-t { color: var(--n700); }
+.sv-billrow.bl-row .sub { margin-top: 2px; -webkit-line-clamp: 2; }   /* the status wraps before its committee is cut ("... 9:30 AM · HHS/CPN") */
+.sv-billrow.bl-row .bl-noown { display: inline-flex; color: var(--n500); }
+.sv-billrow.bl-row .bl-noown .ic { width: 24px; height: 24px; }
 .bl-list .sv-billrow .sub b { color: var(--n900); }
 .bl-selecting .sv-billrow { user-select: none; -webkit-user-select: none; }
 .bl-selecting .sv-billrow[aria-pressed="true"] { background: var(--p50); }
 
 /* ---- muted bills ---- */
 .bl-muted { max-width: 720px; }
+.bl-deskback { display: none; }   /* phones have the frame's back arrow */
 .bl-ptitle { font-size: var(--t22); margin: var(--s8) 0 var(--s8); }
 .bl-lede { font-size: var(--t16); color: var(--n700); margin-bottom: var(--s16); max-width: 60ch; }
 .bl-mrow { display: flex; align-items: center; gap: var(--s8); padding-right: var(--s12); background: var(--n0); }
@@ -65,12 +73,19 @@
 .bl-mrow .row { flex: 1 1 auto; min-width: 0; background: transparent; }
 .bl-mrow > .btn { flex: none; }
 
-/* ---- select mode bar (in the frame's action bar) ---- */
+/* ---- select bar (in the frame's action bar): x on the left, the count, the actions on the right. The same order
+   as the Supporters bar. The count is a one-line box that wraps: when the bar is too narrow, "selected" (and the
+   note about hidden bills) drop to a second line that is not shown, so "3 selected" shortens to "3" before any
+   button is squeezed or any text is cut. ---- */
 .bl-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; }
-.bl-bar-n { flex: 1 1 auto; min-width: 0; font-size: var(--t16); color: var(--n900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bl-bar > .btn { flex: 0 1 auto; padding: 0 16px; }
+.bl-bar > .iconbtn { flex: none; margin-left: -8px; color: var(--n900); }
+.bl-bar-n { flex: 1 1 0; min-width: 1.5em; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; height: 24px; line-height: 24px; overflow: hidden; font-size: var(--t16); color: var(--n900); }
+.bl-bar-n b { flex: none; font-weight: 700; }
+.bl-bar-w { flex: none; font-weight: 700; }
+.bl-bar-h { flex: none; font-size: var(--t14); color: var(--n700); }
+.bl-bar-h::before { content: '· '; }
+.bl-bar > .btn { flex: 0 0 auto; padding: 0 16px; }
 .bl-bar > .btn:disabled { box-shadow: none; }
-.bl-bar-h { display: block; font-size: var(--t13); color: var(--n700); }
 
 /* ---- sheets: the filter sheet, the bulk pickers, the columns popover ---- */
 dialog.sv-sheet.bl-fsheet { height: 72vh; transition: height .2s var(--ease); }
@@ -113,6 +128,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-mctl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s12) var(--s16); margin-bottom: var(--s16); }
 .bl-mctl .field { flex: 1 1 200px; margin: 0; }
 .bl-mlabel { display: block; font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 6px; }
+.bl-mwho .sv-seg button { white-space: nowrap; }
 .bl-memo { padding: var(--s16); }
 .bl-memo h2 { font-size: var(--t18); margin-bottom: var(--s8); }
 .bl-memo h3 { font-size: var(--t16); margin: var(--s16) 0 var(--s4); }
@@ -122,69 +138,168 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-memo li b { color: var(--n900); }
 .bl-memo p:last-child { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
 .bl-memo .bl-quiet { font-size: var(--t16); color: var(--n700); }
+/* the phone's bottom bar: the two buttons share the width and shrink with it (the bar needed 383px before, so
+   "Copy for email" ran off 320 to 375px screens); under 400px the icons go, and a label may take two lines */
+.bl-mbar { display: flex; gap: var(--s8); width: 100%; }
+.actionbar .bl-mbar .btn { flex: 1 1 0; min-width: 0; padding: 0 12px; white-space: normal; line-height: 1.15; text-align: center; }
+@media (max-width: 399px) { .bl-mbar .btn .ic { display: none; } }
 
 /* ---- desktop ---- */
+.bl-keys, .bl-onlab { display: none; }
 @media (min-width: 900px) {
   .bl-h1 { display: block; font-size: var(--t22); margin-right: var(--s8); }
   .bl-top { gap: var(--s12); margin-bottom: var(--s12); }
   .bl-wide .bl-search { flex: 0 1 360px; margin: 0; }
-  .bl-quick { flex-wrap: wrap; overflow: visible; margin: 0 0 var(--s4); padding: 0; }
-  .bl-memo { padding: var(--s24); }
+  .bl-wide .bl-search .input { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+  .bl-wide .bl-search .ic-search { top: 12px; }
+  .bl-wide .bl-search .iconbtn { top: 0; }
+  .bl-top .btn.secondary:hover, .bl-top .iconbtn:hover { background: var(--p50); }
+  /* one line above the table: the quick chips on the left, what the list holds on the right */
+  .bl-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s16); margin-bottom: var(--s8); }
+  .bl-frow .bl-quick { flex: 1 1 auto; flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+  .bl-frow .bl-sum { flex: none; margin: 0 0 0 auto; }
+  .bl-wide button.chip.bl-q, .bl-wide a.chip.bl-q, .bl-wide button.chip.bl-onchip { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+  .bl-wide button.chip.bl-q[aria-pressed="true"] { padding-top: 3px; padding-bottom: 3px; }
+  .bl-wide button.chip.bl-q:not(:disabled):hover, .bl-wide a.chip.bl-q:hover { background: var(--p50); }
+  .bl-wide button.chip.bl-onchip:hover { background: var(--p100); }
+  .bl-wide .bl-on { margin: 0 0 var(--s8); }
+  .bl-wide .bl-on .btn.sm { min-height: 36px; }
+  .bl-onlab { display: inline; font-size: var(--t13); font-weight: 700; color: var(--n500); margin-right: var(--s4); }
+  .bl-keys { display: block; margin-top: var(--s12); font-size: var(--t13); color: var(--n500); }
+  .bl-keys kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
+
+  /* the link back to Bills on Sort new bills, the weekly memo and muted bills (the frame's arrow is for phones) */
+  .bl-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
+  .bl-deskback:hover { background: var(--p50); color: var(--p800); }
+  .bl-deskback .ic { width: 20px; height: 20px; }
+  .bl-muted .bl-mrow:hover { background: var(--n50); }
+  .bl-muted .bl-mrow .row:hover { background: transparent; }
+
+  /* the weekly memo as a document: a reading column (about 72 characters a line), the copy buttons beside the
+     title in a row that stays under the header while the memo scrolls, and the memo on a page of its own */
+  .bl-memopage { max-width: none; }
+  .bl-mhead { position: sticky; top: var(--header); z-index: 5; display: flex; align-items: center; gap: var(--s16); margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8); background: var(--n50); }
+  .bl-mhead .bl-ptitle { flex: 1 1 auto; margin: 0; }
+  .bl-mcopy { flex: none; display: flex; gap: var(--s8); }
+  .bl-mcopy .btn { flex: none; }
+  .bl-memopage .bl-lede { margin: var(--s4) 0 var(--s16); }
+  .bl-mctl { align-items: flex-end; }
+  .bl-mctl .bl-mwho { flex: none; }
+  .bl-mctl .field { flex: 0 1 280px; }
+  .bl-mctl .input { min-height: 48px; }
+  .bl-memo { padding: 40px 72px 48px; }
+  .bl-memo h2 { font-size: var(--t22); margin-bottom: var(--s12); }
+  .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
+  .bl-memo li { margin: 6px 0; }
 
   dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--r12); box-shadow: var(--sh3); }
   dialog.sv-sheet.bl-pop::backdrop { background: rgba(9, 53, 70, .12); }
+  dialog.sv-sheet .bl-colsep { height: 1px; background: var(--n100); margin: var(--s4) 0; }
   .bl-fs .bl-crows { grid-template-columns: 1fr; }
 
-  .actionbar .inner:has(> .bl-barw) { max-width: 1200px; }
-  .bl-barw { gap: var(--s8); }
-  .bl-barw .bl-bar-n { flex: 0 1 auto; margin-right: var(--s8); }
-  .bl-barw > .btn { flex: none; }
-  .bl-barw > .btn.text { margin-left: auto; }
+  /* the select bar on a wide screen: the frame right-aligns a page's buttons; here the x and the count stay left */
+  body.staff2 main > .actionbar .inner:has(> .bl-barw) { justify-content: flex-start; }
+  .bl-barw { flex-wrap: wrap; gap: var(--s8); padding: var(--s8) var(--s12) var(--s8) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh2); }
+  .bl-barw .bl-bar-n { flex: 1 1 8em; }
+  body.staff2 main > .actionbar .bl-barw > .btn { flex: none; min-width: 0; min-height: 40px; }
+  .bl-barw > .iconbtn:hover { background: var(--n100); }
 
-  /* the table: sticky 40px header, 52px rows (44 compact), one line per cell */
-  .bl-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); }
-  .bl-table thead th { position: sticky; top: var(--header); z-index: 6; height: 40px; padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ---- the table. Roomy rows (52px) give every text cell two lines before it is cut; compact rows (40px) are one
+     line each. Sticky header and group rows, a wash on the row under the pointer, a bar on the row the keys are on. */
+  .bl-table { --bl-th: 40px; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); line-height: 1.35; }
+  .bl-table.bl-compact { --bl-th: 36px; }
+  .bl-table thead th { position: sticky; top: var(--header); z-index: 6; height: var(--bl-th); padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; line-height: 1.15; color: var(--n500); text-align: left; }
   .bl-table thead th:first-child { border-top-left-radius: var(--r12); }
   .bl-table thead th:last-child { border-top-right-radius: var(--r12); }
-  .bl-table .bl-sort { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; font-weight: 700; color: var(--n500); max-width: 100%; }
-  .bl-table .bl-sort:hover, .bl-table th[aria-sort="ascending"] .bl-sort, .bl-table th[aria-sort="descending"] .bl-sort { color: var(--n900); }
-  .bl-table .bl-sort .ic { width: 14px; height: 14px; }
-  .bl-table td { height: 52px; padding: 0 12px; border-top: 1px solid var(--n100); color: var(--n700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-  .bl-table.bl-compact td { height: 44px; }
-  .bl-table.bl-compact .bl-ck label { height: 42px; }
-  .bl-tscroll { overflow-x: auto; border-radius: var(--r12); }
-  .bl-tscroll .bl-table thead th { position: static; }
-  .bl-tscroll .bl-table .bl-ck, .bl-tscroll .bl-table .bl-num, .bl-tscroll .bl-table thead th:nth-child(2) { position: sticky; top: auto; z-index: 2; background: var(--n0); }
-  .bl-tscroll .bl-table thead th:first-child, .bl-tscroll .bl-table thead th:nth-child(2) { background: var(--n50); }
-  .bl-tscroll .bl-table .bl-ck { left: 0; }
-  .bl-tscroll .bl-table .bl-num, .bl-tscroll .bl-table thead th:nth-child(2) { left: 44px; box-shadow: 1px 0 0 var(--n200); }
-  .bl-tscroll .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
-  .bl-tscroll .bl-table tbody tr.sel td { background: var(--p50); }
-  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; }   /* its width is the box's, set inline, so it stays in view */
-  .bl-table tbody tr[data-row] { cursor: pointer; }
+  .bl-table thead th.bl-h-pri, .bl-table thead th.bl-h-own, .bl-table thead th.bl-h-pulse { padding: 0 8px; }
+  /* a header is a button when its column sorts: a wash on hover, and an arrow that is faint until the column is
+     sorted (it sits outside the label's box, so a narrow column's label is never cut to make room for it) */
+  .bl-table .bl-sort { position: relative; display: inline-flex; align-items: center; min-height: 28px; margin: 0 -6px; padding: 2px 6px; border-radius: 6px; font-weight: 700; color: var(--n500); max-width: calc(100% + 12px); white-space: normal; line-height: 1.15; text-align: left; }
+  .bl-table .bl-sort:hover { background: var(--n100); color: var(--n900); }
+  .bl-table .bl-sort.on { color: var(--n900); padding-right: 20px; }
+  .bl-table .bl-sort .ic { position: absolute; right: 4px; top: 50%; width: 14px; height: 14px; margin-top: -7px; opacity: 0; }
+  .bl-table .bl-sort.on .ic { opacity: 1; color: var(--p700); }
+  .bl-table .bl-sort:not(.on):hover, .bl-table .bl-sort:not(.on):focus-visible { padding-right: 20px; margin-right: -20px; }
+  .bl-table .bl-sort:not(.on):hover .ic, .bl-table .bl-sort:not(.on):focus-visible .ic { opacity: .5; }
+  /* where it stands, and what is next: two short lines, each kept whole (the second one quieter) */
+  .bl-table .bl-lns { display: block; min-width: 0; }
+  .bl-table .bl-ln { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bl-table .bl-l2 { color: var(--n500); }
+
+  .bl-table td { height: 52px; padding: 7px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; }
+  .bl-table .bl-c2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+  .bl-table .bl-ti b { color: var(--n900); font-weight: 700; }
+  .bl-table tbody tr[data-row] { cursor: pointer; scroll-margin: calc(var(--header) + var(--bl-th) + 48px) 0 96px; }
   .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
   .bl-table tbody tr.sel td { background: var(--p50); }
-  .bl-table .bl-gr th { padding: 0; background: var(--n50); border-top: 1px solid var(--n200); text-align: left; font-weight: 400; }
+  .bl-table tbody tr.sel:hover td { background: var(--p100); }
+  .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
+  .bl-table .bl-gr th { position: sticky; top: calc(var(--header) + var(--bl-th)); z-index: 5; padding: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); text-align: left; font-weight: 400; }
   .bl-table .bl-tg:first-of-type .bl-gr th { border-top: 0; }
-  .bl-table .bl-gr .sv-group { border-bottom: 0; padding: 0 12px; }
+  .bl-table .bl-gr + tr td { border-top: 0; }
+  .bl-table .bl-gr .sv-group { border-bottom: 0; padding: 0 12px; min-height: 40px; }
   .bl-table .bl-gr .sv-group .n { margin-left: var(--s8); }
   .bl-table .bl-gr .sv-group .chev { margin-left: auto; }
-  .bl-table .bl-ck { padding: 0; text-align: center; }
-  .bl-table .bl-ck label { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; }
-  .bl-table .bl-ck input { width: 20px; height: 20px; margin: 0; accent-color: var(--p700); cursor: pointer; }
-  .bl-table .bl-num a { font-weight: 700; color: var(--n900); text-decoration: none; }
+  .bl-table .bl-ck, .bl-table thead th.bl-ck, .bl-table.bl-compact thead th.bl-ck { padding: 0; text-align: center; }
+  .bl-table .bl-ck label { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; border-radius: var(--r8); }
+  .bl-table .bl-ck label:hover { background: var(--n100); }
+  .bl-table .bl-ck input { width: 18px; height: 18px; margin: 0; accent-color: var(--p700); cursor: pointer; }
+  .bl-table .bl-num a { font-weight: 700; color: var(--n900); text-decoration: none; border-radius: 4px; }
+  .bl-table .bl-num a span { white-space: nowrap; }
   .bl-table .bl-num a:hover { color: var(--p700); text-decoration: underline; }
-  .bl-table .bl-ti { color: var(--n700); }
-  .bl-table .bl-cell { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 36px; padding: 0 6px; margin-left: -6px; border-radius: var(--r8); color: var(--n700); font-size: var(--t14); }
-  .bl-table .bl-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bl-table .bl-cell { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% + 12px); min-height: 36px; padding: 2px 6px; margin: 0 -6px; border-radius: var(--r8); color: var(--n700); font-size: var(--t14); line-height: 1.2; text-align: left; }
+  .bl-table .bl-cell > span:not(.sv-p1):not(.sv-av):not(.bl-noown) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .bl-table .bl-cell .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
-  .bl-table .bl-cell:hover { background: var(--n100); }
+  .bl-table .bl-cell:hover { background: var(--n100); color: var(--n900); }
+  .bl-table tr.sel .bl-cell:hover { background: var(--n0); }
+  .bl-table .bl-pri, .bl-table .bl-own { min-width: 36px; justify-content: center; }
+  .bl-table .bl-pri .sv-p1 { flex: none; }
   .bl-table .bl-noown { display: inline-flex; color: var(--n500); }
   .bl-table .bl-noown .ic { width: 24px; height: 24px; }
-  .bl-table .bl-risk { display: inline-flex; align-items: center; gap: 4px; color: var(--n900); }
-  .bl-table .bl-risk .ic { width: 16px; height: 16px; color: var(--n700); }
-  .bl-table .bl-days, .bl-table .bl-date { color: var(--n500); }
+  .bl-table .bl-days, .bl-table .bl-date { color: var(--n500); white-space: nowrap; }
   .bl-table .bl-dash { color: var(--n500); }
+
+  /* a page a little too narrow for the table (1100 to 1165px, beside the sidebar): 8px gutters before anything else gives */
+  .bl-table.bl-tight thead th, .bl-table.bl-tight td { padding-left: 8px; padding-right: 8px; }
+  .bl-table.bl-tight .bl-ck, .bl-table.bl-tight thead th.bl-ck { padding: 0; }
+  .bl-table.bl-tight:not(.bl-compact) .bl-ti .bl-c2 { -webkit-line-clamp: 3; }   /* a 40-character nickname still shows whole */
+
+  /* compact rows: one line a cell, tighter gutters */
+  .bl-table.bl-compact { line-height: 1.3; }
+  .bl-table.bl-compact thead th { padding: 0 8px; }
+  .bl-table.bl-compact td { height: 40px; padding: 0 8px; white-space: nowrap; text-overflow: ellipsis; }
+  .bl-table.bl-compact .bl-c2 { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .bl-table.bl-compact .bl-c2 br { display: none; }
+  .bl-table.bl-compact .bl-lns { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bl-table.bl-compact .bl-ln { display: inline; overflow: visible; }
+  .bl-table.bl-compact .bl-l2::before { content: ' · '; }
+  .bl-table.bl-compact .bl-xw { display: none; }
+  .bl-table.bl-compact .bl-gr .sv-group { min-height: 32px; padding: 0 8px; font-size: var(--t14); }
+  .bl-table.bl-compact .bl-ck label { width: 40px; height: 38px; }
+  .bl-table.bl-compact .bl-cell { min-height: 32px; }
+  .bl-table.bl-compact .bl-cell > span:not(.sv-p1):not(.sv-av):not(.bl-noown) { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .bl-table.bl-compact tbody tr[data-row] { scroll-margin-top: calc(var(--header) + var(--bl-th) + 40px); }
+
+  /* optional columns in a window too small for them: only this box scrolls sideways, the tick box and the bill
+     number stay pinned on the left, and the header row is held under the app's header by bills.js (--bl-hy). */
+  .bl-tnote { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--t13); color: var(--n500); }
+  .bl-tnote .ic { width: 16px; height: 16px; flex: none; }
+  .bl-twrap { position: relative; }
+  .bl-twrap::after { content: ''; position: absolute; top: 1px; right: 1px; bottom: 1px; width: 28px; border-radius: 0 var(--r12) var(--r12) 0; background: linear-gradient(90deg, rgba(20, 43, 53, 0), rgba(20, 43, 53, .10)); pointer-events: none; opacity: 1; transition: opacity .15s; }
+  .bl-twrap.bl-end::after { opacity: 0; }
+  .bl-tscroll { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n0); box-shadow: var(--sh1); }
+  .bl-tscroll .bl-table { border: 0; border-radius: 0; box-shadow: none; }
+  .bl-tscroll:focus-visible { outline-offset: 0; }
+  .bl-tscroll .bl-table thead th { position: relative; top: auto; transform: translateY(var(--bl-hy, 0px)); }
+  .bl-tscroll .bl-table .bl-gr th { position: static; }
+  .bl-tscroll .bl-table td.bl-ck, .bl-tscroll .bl-table td.bl-num { position: sticky; z-index: 2; background: var(--n0); }
+  .bl-tscroll .bl-table thead th.bl-ck, .bl-tscroll .bl-table thead th.bl-h-bill { position: sticky; z-index: 7; }
+  .bl-tscroll .bl-table .bl-ck { left: 0; }
+  .bl-tscroll .bl-table td.bl-num, .bl-tscroll .bl-table thead th.bl-h-bill { left: var(--bl-pin, 44px); box-shadow: 1px 0 0 var(--n200); }
+  .bl-tscroll .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
+  .bl-tscroll .bl-table tbody tr.sel td { background: var(--p50); }
+  .bl-tscroll .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
+  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; }   /* its width is the box's, set inline, so it stays in view */
 }
 
 /* ---- phones: 44px segmented buttons; very narrow screens (320px, or 200% zoom) stack the top row ---- */

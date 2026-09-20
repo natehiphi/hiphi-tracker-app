@@ -5,7 +5,7 @@
 // (a first testimony moves to second review, and the old app wrongly said "the owner gets a DM to file it").
 import { S, DB, esc, fmtDT, advocate, hooks } from './data.js';
 import { billNum, blurb, alertTarget, billById } from './model.js';
-import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet } from './ui.js';
+import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 
@@ -103,7 +103,7 @@ function render(route) {
   return `<div class="td-rv">${header(r, r.keys.length)}
     ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an admin', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
     ${it.type === 'email' ? emailBody(it) : draftBody(it)}
-    <p class="td-keys">Keys: A approve · R ${it.type === 'email' ? 'send back' : 'request changes'}${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p></div>`;
+    ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R ${it.type === 'email' ? 'send back' : 'request changes'}${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
 }
 function bar(route) {
   const { it } = current(route);
@@ -119,21 +119,47 @@ function advance(r, entry) {
   S.go(r.i < r.keys.length ? `#/review/${encodeURIComponent(r.keys[r.i])}` : '#/review/done', { replace: true });
 }
 const markNotices = billId => { const keys = (S.inbox || []).filter(i => i.direct && i.unread && i.bill_id === billId && i.kind !== 'message').map(i => i.key); if (keys.length) DB.inboxMark(keys).catch(() => {}); };
+// Approve is the one step a second tap or a stray key must never reach (assessment 9/19: the next item's Approve
+// appears in the same spot, and a tap 1.5 seconds later approved an email to 12 supporters unread). Three guards:
+//   1. For a second after an item appears, Approve does nothing (ARM_MS; the button shows it is not ready yet).
+//   2. An email to supporters asks once more, with the number of people.
+//   3. Every approval has Undo for ten seconds (the server allows it for ten minutes, migration 058).
+const ARM_MS = 1000;
+let shown = { key: '', at: 0 };
+const armed = key => shown.key === key && performance.now() - shown.at >= ARM_MS;
+// Undo: the server steps the item back, the decision leaves the log, and review returns to that item.
+async function unapprove(r, it, entry) {
+  if (it.type === 'email') await DB.alertStep(it.a.id, 'unapprove'); else await DB.transition(it.b.id, it.d.id, 'unapprove');
+  const at = r.log.indexOf(entry); if (at >= 0) r.log.splice(at, 1);
+  const i = r.keys.indexOf(it.key); if (i < 0) r.keys.splice(r.i = Math.min(r.i, r.keys.length), 0, it.key); else r.i = i;
+  r.done = false;
+  toast('Approval undone. It is waiting for you again.');
+  if (S.route?.name === 'review') S.go(`#/review/${encodeURIComponent(it.key)}`, { replace: true }); else hooks.render();
+}
 async function approve(route, el) {
   const { r, it } = current(route); if (!it || !actionable(it)) return;
+  if (!armed(it.key)) return;   // too soon after this item appeared: a leftover tap, not a decision
+  if (it.type === 'email') {
+    const n = S.tdAud?.[it.a.id];
+    const yes = await confirmSheet({ title: n != null ? `Approve this email to ${n} ${n === 1 ? 'person' : 'people'}?` : 'Approve this email to supporters?', text: `“${esc(it.a.subject || '(no subject)')}”. ${esc(first(it.a.author_id))} can send it once you approve.`, ok: 'Approve' });
+    if (!yes) return;
+    await afterBack();
+  }
+  el = document.querySelector('[data-approve]') || el;
   if (el) { el.setAttribute('aria-busy', 'true'); el.disabled = true; }
   try {
     if (it.type === 'email') {
       await DB.alertStep(it.a.id, 'approve');
-      const msg = `Approved. ${first(it.a.author_id)} can send it now.`;
-      toast(msg, { ok: true }); advance(r, { num: it.b ? `Email on ${billNum(it.b)}` : 'Email', what: msg, icon: 'check' });
+      const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${billNum(it.b)}` : 'Email', what: msg, icon: 'check' };
+      toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
       return;
     }
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
     // Written from the state the server returned: a first testimony goes on to second review.
     const d = resolve(it.key)?.d || it.d, filer = d.submitted_by ? (d.submitted_by === S.me.id ? null : first(d.submitted_by)) : first((S.assignments[it.b.id] || [])[0]);
     const msg = d.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} will file it.` : 'Approved. Ready to file at the Capitol.';
-    toast(msg, { ok: true }); advance(r, { num: billNum(it.b), what: msg, icon: 'check' });
+    const entry = { num: billNum(it.b), what: msg, icon: 'check' };
+    toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
 // Request changes (or Send back, for an email): a note is required, so the writer knows what to fix.
@@ -166,26 +192,37 @@ function close() { if ((history.state?.d || 0) > 0) history.back(); else S.go('#
 function wire(route, root) {
   const main = root.querySelector('main'); if (!main) return;
   root.querySelectorAll('[data-skip]').forEach(el => el.onclick = () => { const { r } = current(route); advance(r, null); });
-  root.querySelector('[data-approve]')?.addEventListener('click', e => approve(route, e.currentTarget));
+  // A new item on screen: Approve waits a second before it listens, and says so (dimmed, aria-disabled; it keeps
+  // focus and its place, so nothing jumps). The card slides in so the change of item cannot be missed.
+  const { it: now } = current(route), ap = root.querySelector('[data-approve]');
+  if (now && shown.key !== now.key) {
+    shown = { key: now.key, at: performance.now() };
+    root.querySelector('.td-rvcard')?.classList.add('td-in'); root.querySelector('.td-rvn')?.classList.add('td-tick');
+  }
+  if (ap && now && !armed(now.key)) { ap.setAttribute('aria-disabled', 'true'); ap.classList.add('td-arming');
+    setTimeout(() => { if (ap.isConnected) { ap.removeAttribute('aria-disabled'); ap.classList.remove('td-arming'); } }, Math.max(0, ARM_MS - (performance.now() - shown.at)) + 20); }
+  ap?.addEventListener('click', e => approve(route, e.currentTarget));
   root.querySelector('[data-changes]')?.addEventListener('click', () => changes(route));
   root.querySelector('[data-again]')?.addEventListener('click', () => { const keys = stillSkipped(S.tdRev); S.tdRev = { keys, i: 0, log: [], skipped: [], done: false }; S.go(`#/review/${encodeURIComponent(keys[0])}`, { replace: true }); });
   root.querySelector('[data-home]')?.addEventListener('click', () => { S.tdRev = null; });
 }
 
-// Desktop keys, only where there is a mouse to hover: A approve, R request changes, O open the Doc, Right arrow skip, Esc close.
+// Desktop keys, only where there is a mouse to hover: Shift+A approve, R request changes (it opens a note, so a stray
+// R decides nothing), O open the Doc, Right arrow skip, Esc close. My settings can switch all shortcuts off.
 document.addEventListener('keydown', e => {
-  if (S.route?.name !== 'review' || !HOVER() || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || document.querySelector('dialog[open]')) return;
+  if (S.route?.name !== 'review' || !HOVER() || !keysOn() || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || document.querySelector('dialog[open]')) return;
   const route = S.route, k = e.key.toLowerCase();
   if (k === 'escape') { e.preventDefault(); close(); return; }
   const { it } = current(route); if (!it) return;
   if (k === 'arrowright') { e.preventDefault(); document.querySelector('[data-skip]')?.click(); }
-  else if (k === 'a') { e.preventDefault(); document.querySelector('[data-approve]')?.click(); }
+  // Approve takes Shift+A: a lone letter from a sentence meant for another window approved two items (9/19).
+  else if (k === 'a' && e.shiftKey) { e.preventDefault(); document.querySelector('[data-approve]')?.click(); }
   else if (k === 'r') { e.preventDefault(); document.querySelector('[data-changes]')?.click(); }
   else if (k === 'o' && it.type === 'draft' && it.d.doc_url) { e.preventDefault(); window.open(it.d.doc_url, '_blank', 'noopener'); }
 });
 
 export default {
-  tab: 'today', tabs: false,
+  tab: 'today', tabs: false, narrow: true,   // one decision per screen: a reading column, with the buttons right under the card
   // On phones the frame's back link (to Today) closes review; the page's own bar carries the title, the counter
   // and Skip, plus an × on desktop, where the frame hides its back link.
   back: () => ({ href: '#/', label: 'Today' }),

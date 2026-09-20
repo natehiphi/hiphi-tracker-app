@@ -1,7 +1,8 @@
 // HIPHI Staff v2 · Bill > Activity (plan 3.3). The team's chat, the team's log and the Capitol's record in ONE stream,
 // oldest at the top and newest just above the message box, like any messaging app. The Capitol's actions are
 // clerical and many (a day can bring five), so each day is condensed to one line that opens to the full text.
-// The message box takes the tab bar's place at the bottom; typing @ offers teammates to notify.
+// Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits at the end of the
+// stream, inside the column, and says what Enter and Shift+Enter do. Typing @ offers teammates to notify.
 import { S, DB, DEMO, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
@@ -120,23 +121,32 @@ function streamInner(b) {
   }
   return html;
 }
-export function renderActivity(b) {
+// inline: on desktop the message box is drawn here, at the end of the stream, not as the page's bottom bar.
+export function renderActivity(b, { inline = false } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
   return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
     <h2 id="bw-act-h" class="sr">Activity</h2>
-    <div class="bw-sech"><p class="meta">The owner, followers and anyone you @mention get a Slack DM.${DEMO ? ' The sandbox stops at Mar 16, 2026.' : ''}</p>${btn('Log activity', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1' } })}</div>
+    <div class="bw-sech"><p class="meta">The owner, followers and anyone you @mention get a Slack DM.${DEMO ? ' The sandbox stops at Mar 16, 2026.' : ''}</p>${inline ? '' : logBtn}</div>
     <div class="bw-stream" id="bw-stream" data-bill="${esc(b.id)}">${streamInner(b)}</div>
+    ${inline ? `<div class="bw-inbox">${composerBar(b, { hint: true })}</div>` : ''}
   </section>`;
 }
 
-// ---- the message box (the page's bottom bar on this tab) ----
-export function composerBar(b) {
+// ---- the message box (phones: the page's bottom bar on this tab; desktop: the end of the stream) ----
+// Enter sends where there is a real keyboard; on a touch screen Return makes a new line and the Send button sends.
+const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+// The stream opens at its newest entry, so on desktop "Log activity" sits there too, under the message box; on a
+// phone the box is the page's bottom bar and has no room for it, so it stays at the top of the stream.
+const logBtn = btn('Log activity', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1' } });
+export function composerBar(b, { hint: inline = false } = {}) {
   const d = drafts.get(b.id + ':chat') || '';
+  const hint = inline && enterSends();     // the line under the box is only drawn where it is true
   return `<form class="bw-composer" data-bill="${esc(b.id)}" novalidate>
     <div class="bw-mention" role="group" aria-label="Notify a teammate" hidden></div>
     <div class="bw-crow"><label class="sr" for="bw-chat">Message the team</label>
-      <textarea id="bw-chat" rows="1" maxlength="4000" placeholder="Message the team. Type @ to notify someone.">${esc(d)}</textarea>
-      <button type="submit" class="bw-send" aria-label="Send message">${icon('send')}</button></div>
+      <textarea id="bw-chat" rows="1" maxlength="4000" placeholder="Message the team. Type @ to notify someone."${hint ? ' aria-describedby="bw-chat-h"' : ''}>${esc(d)}</textarea>
+      <button type="submit" class="bw-send" aria-label="Send message" title="Send message">${icon('send')}</button></div>
+    ${inline ? `<div class="bw-cfoot">${hint ? '<p class="meta bw-chint" id="bw-chat-h">Enter sends. Shift+Enter starts a new line.</p>' : '<span></span>'}${logBtn}</div>` : ''}
   </form>`;
 }
 // iOS keeps fixed bars behind the keyboard; lift the message box by the keyboard's height (Android resizes on its own).
@@ -184,8 +194,8 @@ export function wireActivity(pnl, b, route, root) {
   ta.onkeydown = e => {
     if (!box.hidden && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) { const f = box.querySelector('[data-at]'); if (f) { e.preventDefault(); pickAt(f.dataset.at); return; } }
     if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); box.hidden = true; return; }
-    // Enter sends on a keyboard; on a phone the Return key makes a new line and the Send button sends.
-    if (e.key === 'Enter' && !e.shiftKey && matchMedia('(hover: hover) and (pointer: fine)').matches) { e.preventDefault(); form.requestSubmit(); }
+    // Enter sends on a keyboard (Shift+Enter is a new line); on a phone the Return key makes a new line.
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && enterSends()) { e.preventDefault(); form.requestSubmit(); }
   };
   form.onsubmit = async e => {
     e.preventDefault();

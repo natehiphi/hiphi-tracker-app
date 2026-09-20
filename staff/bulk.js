@@ -11,24 +11,56 @@ import { bl, shownBills, wideNow, settled } from './filters.js';
 export const selIds = () => { const v = bl(); for (const id of v.sel) if (!S.bills.some(b => b.id === id)) v.sel.delete(id); return [...v.sel]; };
 const billsN = n => `${n} bill${n === 1 ? '' : 's'}`;
 const hiddenOf = ids => { const vis = new Set(shownBills().map(b => b.id)); return ids.filter(id => !vis.has(id)); };
-export function startSelect(firstId) { const v = bl(); v.selecting = true; if (firstId) v.sel.add(firstId); hooks.render(); }
-export function stopSelect() { const v = bl(); v.selecting = false; v.sel.clear(); hooks.render(); }
+// Select mode is a step in the browser's history, the way a sheet is: the phone's Back ends it and leaves you on
+// Bills (it used to leave Bills for Today with the mode still on underneath). The x and Esc take that step back
+// themselves. Desktop has no mode to leave (the tick boxes are always there), so nothing is pushed there.
+let swallow = false;   // our own history.back() is on its way: that popstate is not a page change
+export function startSelect(firstId) {
+  const v = bl();
+  if (!v.selecting && !wideNow()) {
+    try { history.replaceState({ ...(history.state || {}), y: scrollY }, ''); history.pushState({ ...(history.state || {}), blsel: true }, ''); v.pushed = true; } catch { v.pushed = false; }
+  }
+  v.selecting = true; if (firstId) v.sel.add(firstId); hooks.render();
+}
+export function stopSelect() {
+  const v = bl(), pushed = v.pushed && history.state?.blsel;
+  v.selecting = false; v.pushed = false; v.sel.clear();
+  if (pushed) { swallow = true; history.back(); }
+  hooks.render();
+}
+// Leaving Bills ends select mode, however the leaving happened (a tab, search, a link, Back from a sheet's page).
+export function dropSelect() { const v = S.bl; if (v && v.selecting) { v.selecting = false; v.pushed = false; v.sel.clear(); } }
+if (typeof window !== 'undefined') {
+  // Registered before the frame's own popstate listener (the frame imports this file first), so it can end the mode
+  // before the frame redraws the page, and keep the frame out of a Back that was only ours.
+  addEventListener('popstate', e => {
+    const v = S.bl; if (!v) return;
+    if (swallow) { swallow = false; e.stopImmediatePropagation(); return; }
+    if (v.selecting && v.pushed && !e.state?.blsel) { v.selecting = false; v.pushed = false; v.sel.clear(); return; }   // Back: the frame draws Bills next, where it was
+    // An old select-mode step (the mode ended when the route left Bills): pass over it, so one Back is one page.
+    if (e.state?.blsel && !v.selecting) { e.stopImmediatePropagation(); history.back(); }
+  });
+  // The frame names each screen on <body> after it draws it; when that stops being the Bills list, the mode ends.
+  try { new MutationObserver(() => { if (document.body.dataset.screen !== 'bills' || S.route?.muted) dropSelect(); }).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] }); } catch { /* no observer: bills.js also checks on arrival */ }
+}
 
-// ---- the bar: replaces the tab bar on phones, fixed to the bottom of the window on desktop ----
+// ---- the bar: one shape for every select mode in the app (Supporters has the same): x on the left, then the count,
+// then the actions on the right. It replaces the tab bar on phones; on desktop it is the page's action bar. The
+// count's word drops to the hidden second line when there is no room, so "3 selected" shortens to "3" before
+// anything is cut. ----
 export function bulkBar() {
-  const ids = selIds(), n = ids.length, hid = hiddenOf(ids).length;
-  if (wideNow()) {
-    if (!n) return '';
+  const ids = selIds(), n = ids.length, hid = hiddenOf(ids).length, wide = wideNow();
+  if (wide && !n) return '';
+  const count = `<span class="bl-bar-n" aria-live="polite"><b>${n}</b><span class="bl-bar-w">selected</span>${hid ? `<span class="bl-bar-h">${hid} hidden by your filters</span>` : ''}</span>`;
+  if (wide) {
     const b = (label, act, ic) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act } });
     return `<div class="bl-bar bl-barw" role="toolbar" aria-label="Change the selected bills">
-      <span class="bl-bar-n"><b>${n}</b> selected${hid ? `<span class="bl-bar-h">${hid} hidden by your filters</span>` : ''}</span>
-      ${b('Set position', 'pos', 'thumbs-up')}${b('Set priority', 'pri', 'flag')}${b('Set owner', 'own', 'user-round')}${b('Add to coalition', 'camp', 'users')}${(S.lists || []).length ? b('Add to list', 'list', 'list-plus') : ''}
-      ${btn('Clear', { kind: 'text', attrs: { 'data-bulk': 'clear' } })}</div>`;
+      ${iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
+      ${b('Set position', 'pos', 'thumbs-up')}${b('Set priority', 'pri', 'flag')}${b('Set owner', 'own', 'user-round')}${b('Add to coalition', 'camp', 'users')}${(S.lists || []).length ? b('Add to list', 'list', 'list-plus') : ''}</div>`;
   }
   return `<div class="bl-bar" role="toolbar" aria-label="Change the selected bills">
-    <span class="bl-bar-n" aria-live="polite">${n ? `<b>${n}</b> selected` : 'Tap bills to select'}</span>
-    ${btn('Set…', { kind: 'secondary', attrs: { 'data-bulk': 'set', disabled: !n } })}${btn('Add to…', { kind: 'secondary', attrs: { 'data-bulk': 'add', disabled: !n } })}
-    ${iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' })}</div>`;
+    ${iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' })}${count}
+    ${btn('Set…', { kind: 'secondary', attrs: { 'data-bulk': 'set', disabled: !n } })}${btn('Add to…', { kind: 'secondary', attrs: { 'data-bulk': 'add', disabled: !n } })}</div>`;
 }
 export function wireBulkBar(root) {
   const bar = root.querySelector('.bl-bar'); if (!bar) return;
@@ -66,13 +98,15 @@ export function openValue(field) {
     return `${hiddenNote(ids, hid)}<div class="sv-pickl" role="radiogroup" aria-label="New ${F.word}">${F.opts().map(([v, l, ic, sub]) => { const have = bills.filter(b => F.cur(b) === v).length;
       return `<button type="button" role="radio" aria-checked="${pick === v}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub || have ? `<span class="sub">${esc([sub, have ? (have === ids.length ? (ids.length === 1 ? 'It has this now' : `All ${ids.length} have this now`) : `${have} already ${have === 1 ? 'has' : 'have'} this`) : ''].filter(Boolean).join(' · '))}</span>` : ''}</span>${pick === v ? icon('check', { cls: 'on' }) : ''}</button>`; }).join('')}</div>`; };
   const footHTML = () => { const n = selIds().length; return btn(`Apply to ${billsN(n)}`, { full: true, attrs: { 'data-apply': '1', disabled: pick === null || !n } }); };
-  const paint = () => { const body = d.querySelector('.sv-sh-body'), y = body.scrollTop; body.innerHTML = bodyHTML(); body.scrollTop = y; d.querySelector('.sv-sh-foot').innerHTML = footHTML(); wire(); };
+  const titleText = () => `Set ${F.word} for ${billsN(selIds().length)}`;
+  // The title is redrawn with the rest: after "Leave them out" it used to keep saying "20 bills" above "Apply to 2 bills".
+  const paint = () => { const body = d.querySelector('.sv-sh-body'), y = body.scrollTop; body.innerHTML = bodyHTML(); body.scrollTop = y; d.querySelector('.sv-sh-foot').innerHTML = footHTML(); const h = d.querySelector('#sv-sh-t'); if (h) h.textContent = titleText(); wire(); };
   const wire = () => {
     d.querySelectorAll('[data-pv]').forEach(el => el.onclick = () => { pick = el.dataset.pv; paint(); d.querySelector(`[data-pv="${CSS.escape(pick)}"]`)?.focus(); });
     const t = d.querySelector('[data-trim]'); if (t) t.onclick = () => { const hid = new Set(hiddenOf(selIds())); for (const id of hid) bl().sel.delete(id); hooks.render(); paint(); };
     d.querySelector('[data-apply]').onclick = () => apply(field, pick);
   };
-  d = openSheet({ title: `Set ${F.word} for ${billsN(selIds().length)}`, body: bodyHTML(), foot: footHTML(), wire: dlg => { d = dlg; wire(); } });
+  d = openSheet({ title: titleText(), body: bodyHTML(), foot: footHTML(), wire: dlg => { d = dlg; wire(); } });
 }
 async function apply(field, v) {
   const ids = selIds(); if (!ids.length || v == null) return;

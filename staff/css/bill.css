@@ -1,5 +1,11 @@
-/* HIPHI Staff v2 · M2 Bill workspace (bill.js, activity.js, public.js). Every selector starts with .bw-.
-   Phone first at 390px; from 900px the page sits in the frame's centred 720px column. Sizes 13/14/16/18/22 only. */
+/* HIPHI Staff v2 · M2 Bill workspace (bill.js, activity.js, public.js, and pathway.js's desktop table). Every
+   selector starts with .bw-. Phone first at 390px. From 900px (build 3) the page is two columns: the heading, the
+   tabs and the tab's content on the left, and a side panel that stays in view on the right (Next up, Team, Key
+   facts). Sizes 13/14/16/18/22 only. */
+
+/* The frame gives this page its whole width (wide: true in bill.js); the page caps itself. Phones and small tablets
+   keep the 720px column they had (688px inside the gutters). */
+.bw-page { max-width: 688px; margin-left: auto; margin-right: auto; }
 
 /* ---- phones: the frame's header is the top bar; the number is its h1 and ⋯ sits beside search ---- */
 .bw-ver { color: var(--n500); }
@@ -8,8 +14,13 @@
 
 /* ---- header ---- */
 .bw-head { padding-top: var(--s4); }
-.bw-title { font: 700 var(--t16)/1.35 var(--font); color: var(--n900); }
-.bw-status { margin-top: var(--s4); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 65ch; }
+/* The name: a nickname ("Disposable vape ban") or the subject is short and reads as a title; a plain summary is a
+   sentence, so it is set a size smaller. Under a nickname the summary follows as the second line. */
+.bw-title { font: 700 var(--t18)/1.3 var(--font); color: var(--n900); max-width: 40em; overflow-wrap: anywhere; }
+.bw-title.bw-long { font-size: var(--t16); line-height: 1.4; }
+.bw-lede { margin-top: 2px; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
+.bw-status { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
+.bw-status > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); }
 .bw-chips { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-top: var(--s12); }
 .bw-chips .sv-pick { max-width: 100%; }
 .bw-chips .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -65,6 +76,13 @@
 .bw-tabs a:focus-visible { outline-offset: -3px; }
 .bw-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: var(--n0); font: 700 var(--t13)/20px var(--font); text-align: center; }
 .bw-panel { padding-top: var(--s16); }
+.bw-khint { display: none; }
+/* A tab that was just opened arrives with a short fade, so a tap or a key press is seen to do something. */
+@keyframes bw-in { from { opacity: 0; transform: translateY(6px); } }
+.bw-panel.bw-in { animation: bw-in .2s var(--ease, ease-out); }
+/* Phones: a tap on a tab brings the strip to the top of the screen (bill.js). A short tab still needs the page to be
+   tall enough for that: the screen, less the header (56), the strip (49) and the space main keeps for the tab bar (96). */
+@media (max-width: 899px) { .bw-panel { min-height: calc(100vh - 201px); } }
 
 /* ---- sections ---- */
 .bw-sec + .bw-sec { margin-top: var(--s32); }
@@ -197,26 +215,182 @@
   .bw-next .bw-acts .btn { flex-basis: 100%; }
 }
 
-/* ---- desktop: the page's own top bar (back, Previous / Next, ⋯) and the number as the page title ---- */
+/* ---- the Public tab's preview and the desktop pieces that have no phone form: hidden until there is room ---- */
+.bw-prev, .bw-pwfold { display: none; }
+
+/* ======================================================================================================
+   Desktop (900px and wider): two columns, a side panel that stays in view, label-sized tabs and buttons,
+   hover washes, and a table for the Pathway. Rows are tighter than on a phone (a mouse needs 36 to 40px).
+   ====================================================================================================== */
 @media (min-width: 900px) {
+  .bw-page { max-width: 1056px; }          /* the frame's standard page (1120px less its gutters) */
   .bw-hdrmore { display: none; }
+  /* the page's own top bar: back, Previous / Next, ⋯ */
   .bw-top { display: flex; align-items: center; gap: var(--s8); min-height: 44px; margin: 0 -12px var(--s4) -8px; }
-  .bw-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; max-width: 40%; }
+  .bw-back { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin-right: auto; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; max-width: 40%; }
   .bw-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bw-back:hover { background: var(--p50); }
-  .bw-back { margin-right: auto; }
   .bw-nav { display: flex; align-items: center; gap: var(--s4); }
   .bw-pn .ic { width: 18px; height: 18px; }
   .bw-pn[aria-disabled="true"] { color: var(--n400); text-decoration: none; cursor: default; }
+  .bw-pn[aria-disabled="true"]:hover { background: none; }
+
+  /* the main column: number, name, where it stands, then the tabs with their content on the first screen */
+  .bw-cols { margin-top: var(--s4); }
+  .bw-main { min-width: 0; }
   .bw-num { display: block; }
   .bw-page h1.bw-num { font-size: var(--t22); }
   .bw-head { padding-top: 0; }
   .bw-title { margin-top: var(--s4); }
-  .bw-tabs { margin: var(--s24) 0 0; padding: 0; border-top: 0; }
+  .bw-lede { font-size: var(--t16); }
+  /* one line, 45px: where the column is too narrow for the key hint it wraps to a second line, which is cut off */
+  .bw-tabs { display: flex; flex-wrap: wrap; align-items: stretch; column-gap: var(--s4); row-gap: var(--s8); max-height: 45px; overflow: hidden; margin: var(--s16) 0 0; padding: 0; border-top: 0; background: var(--n50); }
+  .bw-tabs a { min-height: 44px; padding: 0 var(--s16); border-radius: var(--r8) var(--r8) 0 0; }
+  .bw-tabs a:hover { background: var(--n100); }
+  .bw-tabs a[aria-current="page"]:hover { background: var(--p50); }
+  .bw-tabs a[aria-current="page"]::after { left: 0; right: 0; bottom: 0; }
+  .bw-panel { padding-top: var(--s24); container: bwp / inline-size; }
+
+  /* the side panel (the frame's .sv-aside keeps it in view): Next up, Team, Key facts */
+  /* 2px of room for the cards' shadows inside its own scroll. At the end of a page main keeps 48px of padding under
+     the columns, so the panel is that much shorter than the window, or its top would slide under the header there. */
+  .bw-cols > .bw-aside { padding: 2px; margin: -2px; max-height: calc(100vh - var(--header) - var(--s16) - var(--s48)); }
+  .bw-page .bw-aside .card { margin-top: 0; }
   .bw-next .bw-acts .btn { flex: 0 1 auto; }
-  .bw-watch { margin: 0 -12px 0 auto; }
-  .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
-  .bw-dt dt { margin: 1px 0 0; }
+  /* tighter than the phone card, so Next up and Team both show on a 1280x800 screen */
+  .bw-page .bw-aside .btn { min-height: 40px; }
+  .bw-page .bw-aside .btn.text { min-height: 36px; }
+  .bw-page .bw-aside button.chip { min-height: 36px; padding: 4px 12px; }
+  .bw-page .bw-aside button.chip[aria-pressed="true"] { padding: 3px 11px; }
+  .bw-aside .bw-tb, .bw-aside .bw-acts, .bw-aside .bw-due { margin-top: var(--s8); }
+  .bw-aside .bw-hfoot { margin-top: var(--s8); padding-top: var(--s8); row-gap: 0; }
+  .bw-aside .bw-watch { margin: 0 0 0 -12px; }
+  .bw-side > .bw-nexthead { margin-bottom: var(--s4); min-height: 24px; margin-top: 0; margin-right: 0; }
+  .bw-ctl { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; }
+  .bw-ctl + .bw-ctl { border-top: 1px solid var(--n100); }
+  .bw-ctll { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .bw-ctl .sv-pick { min-height: 36px; max-width: 232px; border-color: transparent; padding: 0 8px 0 10px; margin-right: -8px; }
+  .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
+  .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bw-ctl .sv-av { font-size: var(--t13); }
+  .bw-kf { margin: 0; }
+  .bw-kf .bw-dt { display: block; padding: var(--s8) 0; }
+  .bw-kf .bw-dt:first-child { padding-top: 0; }
+  .bw-kf .bw-dt:last-child { padding-bottom: 0; }
+  .bw-kf .bw-dt dd .sv-count, .bw-kf .bw-late { margin-left: 2px; }
+  .bw-kf .bw-linkrow { column-gap: var(--s16); }
+
+  /* Overview: a readable column; the details line up as label and value */
+  .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
+  .bw-dl .bw-dt dt { margin: 1px 0 0; }
+  .bw-todo { min-height: 48px; }
+  .bw-page .bw-inline, .bw-more, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"] { min-height: 32px; }
+  .bw-addrow { max-width: 560px; }
+  .bw-addrow .btn { min-height: 44px; }
+  .bw-page .bw-sec textarea#bw-note { max-width: 70ch; }
+
+  /* Activity: the message box ends the stream, inside the column; lines stay near 70 characters */
+  .bw-msgt, .bw-log .small, .bw-off li, .bw-offt, .bw-none { max-width: 32em; }     /* about 70 characters */
+  .bw-act { padding-bottom: var(--s32); }                         /* the toast sits below the box, not on it */
+  .bw-desk .bw-act .bw-sech .meta { padding-top: 0; }             /* "Log activity" is under the message box here */
+  .bw-inbox { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n200); }
+  .bw-inbox .bw-crow textarea { border-radius: var(--r12); }
+  .bw-inbox .bw-send { border-radius: var(--r12); }
+  .bw-cfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 2px -12px 0 2px; }
+  .bw-off summary { margin: 0 -8px; padding: var(--s4) 8px; border-radius: var(--r8); min-height: 44px; }
+  .bw-off summary:hover { background: var(--n100); }
+  .bw-off summary .chev { margin-left: auto; }                     /* the text stops at about 70 characters; the arrow stays at the edge */
+  .bw-msg, .bw-log { margin: 0 -8px; padding: var(--s8); border-radius: var(--r8); }
+  .bw-msg:hover { background: var(--n100); }
+  .bw-msgmore { margin: -6px -4px 0 0; }
+
+  /* Public: a readable form, and beside it (where the column has room) how the public page will name the bill */
+  .bw-pubform { max-width: 520px; }
+  .bw-prevcard { margin-top: var(--s8); padding: var(--s16); }
+  .bw-prevcard.off { border-style: dashed; box-shadow: none; background: var(--n50); }
+  .bw-pnum { font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
+  .bw-pname { margin-top: var(--s4); font: 700 var(--t18)/1.25 var(--font); color: var(--n900); overflow-wrap: anywhere; }
+  .bw-pname.bw-long { font-size: var(--t16); line-height: 1.35; }
+  .bw-plede { margin-top: var(--s4); font-size: var(--t14); line-height: 1.45; color: var(--n700); overflow-wrap: anywhere; }
+  .bw-pask { display: flex; gap: var(--s8); margin-top: var(--s12); padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--p50); color: var(--p900); font-size: var(--t14); line-height: 1.4; overflow-wrap: anywhere; }
+  .bw-pask.off { background: var(--n100); color: var(--n500); }
+  .bw-pask .ic { width: 18px; height: 18px; margin-top: 1px; }
+  .bw-pnote { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+  .bw-pnote .ic { width: 16px; height: 16px; margin-top: 1px; }
+  @container bwp (min-width: 560px) {
+    .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 248px; gap: var(--s24); align-items: start; }
+    .bw-pubcols .bw-pubform { max-width: none; }
+    .bw-prev { display: block; position: sticky; top: calc(var(--header) + 45px + var(--s16)); margin-top: var(--s12); }
+  }
+
+  /* Pathway: each stop's members as a table (pathway.js draws it on desktop only) */
+  .bw-panel .lg-stop { overflow: clip; }                          /* keeps the rounded corners without trapping the sticky header row */
+  .bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t14); }
+  .bw-pwt thead th { position: sticky; top: calc(var(--header) + 45px); z-index: 5; height: 40px; padding: 0 8px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; }
+  .bw-pwt thead th:first-child { padding-left: var(--s16); }
+  .bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-weight: 700; color: var(--n500); }
+  .bw-sortb:hover { background: var(--n100); color: var(--n900); }
+  .bw-pwt th[aria-sort="ascending"] .bw-sortb, .bw-pwt th[aria-sort="descending"] .bw-sortb { color: var(--n900); }
+  .bw-sortb .ic { width: 14px; height: 14px; }
+  .bw-pwt tbody th, .bw-pwt td { height: 48px; padding: 4px 8px; border-top: 1px solid var(--n100); vertical-align: middle; text-align: left; font-weight: 400; color: var(--n700); }
+  .bw-pwt tbody tr:first-child th, .bw-pwt tbody tr:first-child td { border-top: 0; }
+  .bw-pwt tbody th { padding-left: var(--s16); }
+  .bw-pwt tbody tr:hover { background: var(--n50); }
+  /* the note gets the spare width; the other columns are as wide as their longest value ("Vice chair", "Leaning yes") */
+  .bw-pwc-name { width: 27%; }
+  .bw-pwc-role { width: 84px; }
+  .bw-pwc-stance { width: 164px; }
+  .bw-pwc-act { width: 48px; }
+  .bw-pwt td.bw-pwc-act { padding: 0 4px 0 0; text-align: right; white-space: nowrap; }
+  .bw-pwt td.bw-pwc-act .iconbtn { width: 40px; height: 40px; color: var(--n700); }
+  .bw-pwt td.bw-pwc-act .iconbtn .ic { width: 20px; height: 20px; }
+  /* the name is the link; its whole cell is the target (48px), as the first cell of a table row should be */
+  .bw-pwt tbody th { position: relative; }
+  .bw-pwnm::after { content: ''; position: absolute; inset: 0; }
+  .bw-pwnm { font-weight: 700; color: var(--n900); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; overflow-wrap: anywhere; }
+  .bw-pwnm:hover { color: var(--p800); text-decoration-color: currentColor; }
+  .bw-pwt tr.lead .bw-pwc-role { font-weight: 700; color: var(--n900); }
+  .bw-pwsub { display: block; font-size: var(--t13); color: var(--n500); }
+  .bw-pwt .sv-pick { width: 100%; min-height: 36px; padding: 0 8px 0 10px; justify-content: space-between; }
+  .bw-pwt .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .bw-pwnote { display: flex; flex-direction: column; justify-content: center; gap: 1px; width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 2px 8px; border-radius: var(--r8); text-align: left; }
+  .bw-pwnote:hover { background: var(--p50); }
+  .bw-pwnote.none { flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; font-size: var(--t13); color: var(--n500); }
+  .bw-pwnote.none:hover { color: var(--p800); }
+  .bw-pwnote.none .ic { width: 14px; height: 14px; }
+  .bw-pwntx { color: var(--n900); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .bw-pwmeta { font-size: var(--t13); color: var(--n500); }
+  /* under 640px of column the stance chips drop their icon (the word stays), as they do on a phone, so the note keeps room */
+  @container bwp (max-width: 639px) {
+    .bw-pwc-stance { width: 136px; }
+    .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
+  }
+  /* a narrow column (a small window beside the sidebar): Role and Note fold into the name cell */
+  @container bwp (max-width: 559px) {
+    .bw-pwt .bw-pwc-role, .bw-pwt .bw-pwc-note { display: none; }
+    .bw-pwt span.bw-pwfold { display: inline; }
+    .bw-pwt span.bw-pwinl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--t13); color: var(--n700); overflow-wrap: anywhere; }
+    .bw-pwt .iconbtn.bw-pwfold { display: inline-flex; }
+    .bw-pwc-name { width: auto; }
+    .bw-pwc-act { width: 92px; }
+  }
+}
+/* Pointers that hover get a wash under everything clickable, not only a colour change. */
+@media (hover: hover) and (pointer: fine) {
+  .bw-page .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .bw-page .bw-inline { border-radius: 6px; }
+  .bw-page .bw-inline:hover, .bw-page .bw-more:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
+  .bw-page button.chip:hover:not([aria-disabled="true"]) { background: var(--p50); border-color: var(--p700); }
+  .bw-fold summary { border-radius: var(--r8); }
+  .bw-fold summary:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
+  .bw-meta a:hover, .bw-dt dd a[href^="#/legislator/"]:hover { background: var(--p50); box-shadow: 0 0 0 3px var(--p50); border-radius: 4px; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  /* a message's ⋯ shows when the pointer or the keyboard reaches it */
+  .bw-msgmore { opacity: 0; }
+  .bw-msg:hover .bw-msgmore, .bw-msgmore:focus-visible { opacity: 1; }
+  .bw-khint { display: inline-flex; align-items: center; gap: 6px; height: 44px; margin-left: auto; padding-right: 2px; font-size: var(--t13); color: var(--n500); white-space: nowrap; }
+  .bw-khint .ic { width: 16px; height: 16px; }
 }
 /* a legislator named inside a detail line (the chair) is still a full-size target on phones */
 .bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }

@@ -66,6 +66,16 @@
 .lg-brow .lg-bbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; color: inherit; text-decoration: none; }
 .lg-brow .title { font-weight: 400; color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lg-brow .title b { color: var(--n900); font-weight: 700; }
+/* a bill with a nickname: the nickname and number on the first line, the plain summary on one line under it */
+.lg-brow .lg-bnum { color: var(--n700); white-space: nowrap; }
+.lg-brow .lg-bsum { font-size: var(--t14); color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-page .lg-sec > .notice { margin: 0; }
+.lg-page .lg-sec > .notice b { color: inherit; }
+/* with a mouse the phone number is text with Copy beside it (a Call link would hide the number) */
+.lg-tel { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-left: var(--s4); font-weight: 700; font-size: var(--t14); color: var(--n900); }
+.lg-tel > .ic { width: 18px; height: 18px; color: var(--n500); }
+.lg-tel .btn.text { padding: 0 8px; }
+.lg-tel .btn.text:hover { background: var(--p50); text-decoration: none; }
 .lg-brow .sub { font-size: var(--t14); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lg-brow .lg-note, .lg-mem .lg-memnote { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .lg-brow .sv-pick { flex: none; }
@@ -80,6 +90,7 @@ div.lg-brow:hover { background: var(--n0); }
 .lg-noterow .iconbtn { margin-top: -6px; color: var(--n500); }
 .lg-noterow .iconbtn .ic { width: 20px; height: 20px; }
 .lg-crow .sv-chip { flex: none; }
+.lg-page .rows .row .title { overflow-wrap: anywhere; }   /* a long email address wraps inside its card */
 .lg-page .rows .row .lead { width: 36px; height: 36px; }
 .lg-page .rows .row .lead .ic { width: 20px; height: 20px; }
 
@@ -151,23 +162,204 @@ div.lg-brow:hover { background: var(--n0); }
   .lg-mem .sv-pick .ic:not(.chev), .lg-brow .sv-pick .ic:not(.chev) { display: none; }
   /* bill rows: the title may take two lines so the words survive next to the stance chip */
   .lg-brow .title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .lg-brow .lg-bnum { white-space: normal; }
 }
 
-/* ---- desktop ---- */
+/* ---- desktop (900px and wider): the directory is a table, a legislator is two columns ---- */
 @media (min-width: 900px) {
   .lg-dtitle { display: block; margin: var(--s8) 0 var(--s16); }
-  .lg-dir .lg-tools { flex-direction: row; align-items: center; gap: var(--s16); }
-  .lg-dir .lg-sbox { flex: 0 1 520px; }
-  .lg-dir .lg-sug { max-width: 560px; }
-  .lg-dir .lg-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lg-dir .lg-list > .row { border-top: 1px solid var(--n100); }
-  .lg-dir .lg-list > .row:nth-child(-n+2) { border-top: 0; }
-  .lg-dir .lg-list > .row:nth-child(odd) { border-right: 1px solid var(--n100); }
+  .lg-search .lg-sphone { display: none; }
+
+  /* one toolbar: the search that filters as you type, then the filters; everything 44px tall on one line */
+  .lg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-bottom: var(--s4); }
+  .lg-bar .lg-sbox { flex: 1 1 240px; max-width: 360px; }
+  .lg-bar .lg-sbox .input { min-height: 44px; padding: 9px 44px; border-radius: var(--pill); }
+  .lg-bar .lg-sbox .ic-search { top: 12px; left: 16px; }
+  .lg-bar .lg-sbox .clear { top: 0; right: 0; }
+  .lg-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+  .lg-filters .sv-pick[data-on] { background: var(--p50); border: 2px solid var(--p700); color: var(--p800); padding: 0 11px 0 13px; }
+  .lg-filters .sv-pick[data-on] .chev { color: var(--p700); }
+  .lg-filters .sv-seg button:hover { color: var(--n900); background: var(--n200); }
+  .lg-filters .sv-seg button[aria-pressed="true"]:hover { background: var(--n0); color: var(--p800); }
+  .lg-desk .lg-cap { min-height: 44px; margin: var(--s4) 0; }
+  .lg-desk .lg-clear:hover, .lg-desk .lg-sech .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .lg-desk .lg-cap b { color: var(--n900); }
+  .lg-desk .lg-snote { display: flex; align-items: center; margin: var(--s8) 0; }
+  .lg-addr { display: flex; flex-wrap: wrap; gap: var(--s8); margin: var(--s8) 0; }
+
+  /* the table: the look of the Bills table (sticky 40px header, 52px rows, hover wash, the whole row opens) */
+  .lg-tbl { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); }
+  .lg-tbl thead th { position: sticky; top: var(--header); z-index: 6; height: 40px; padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lg-tbl thead th:first-child { border-top-left-radius: var(--r12); padding-left: var(--s16); }
+  .lg-tbl thead th:last-child { border-top-right-radius: var(--r12); }
+  .lg-tbl .lg-sort { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; max-width: 100%; font-weight: 700; color: var(--n500); border-radius: var(--r8); }
+  .lg-tbl .lg-sort:hover, .lg-tbl th[aria-sort="ascending"] .lg-sort, .lg-tbl th[aria-sort="descending"] .lg-sort { color: var(--n900); }
+  .lg-tbl .lg-sort:focus-visible { outline-offset: -2px; }
+  .lg-tbl .lg-sort { padding: 0 6px; margin: 0 -6px; min-height: 32px; }
+  .lg-tbl .lg-sort:hover { background: var(--n100); }
+  .lg-tbl .lg-sort .ic { width: 14px; height: 14px; }
+  .lg-tbl tbody th, .lg-tbl tbody td { height: 52px; padding: 6px 12px; border-top: 1px solid var(--n100); color: var(--n700); font-weight: 400; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+  .lg-tbl tbody th { padding-left: var(--s16); }
+  .lg-tbl tbody tr:first-child > * { border-top: 0; }
+  .lg-tbl tbody tr { cursor: pointer; }
+  .lg-tbl tbody tr:hover > * { background: var(--n50); }
+  .lg-tbl tbody tr:focus-within > * { background: var(--p50); }
+  .lg-tbl tbody tr:last-child > :first-child { border-bottom-left-radius: var(--r12); }
+  .lg-tbl tbody tr:last-child > :last-child { border-bottom-right-radius: var(--r12); }
+  /* widths: the name and the committees share a fixed part; the bills they hear get whatever is spare */
+  .lg-tbl th.lg-c-name { width: 20%; }
+  .lg-tbl th.lg-c-district { width: 88px; }
+  .lg-tbl th.lg-c-island { width: 80px; }
+  .lg-tbl th.lg-c-cmte { width: 15%; }
+  .lg-tbl th.lg-c-bills { width: 92px; }
+  .lg-tbl th.lg-c-stance { width: 96px; }
+  .lg-tbl th.lg-c-contact { width: 128px; }
+  .lg-tbl .lg-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lg-tbl tbody td.lg-c-bills { font-weight: 700; color: var(--n900); padding-right: 26px; }
+  .lg-tbl thead th.lg-c-bills { padding-right: 12px; }
+  .lg-tn { display: flex; align-items: center; gap: 10px; min-height: 40px; color: inherit; text-decoration: none; border-radius: var(--r8); }
+  .lg-tn .lg-tnb { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .lg-tn .lg-nm { font-weight: 700; color: var(--n900); line-height: 1.3; }
+  .lg-tn:hover .lg-nm { text-decoration: underline; text-underline-offset: 3px; }
+  .lg-tn .lg-tl { font-size: var(--t13); color: var(--n500); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lg-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+  /* a bill to a line: the nickname gives way (ellipsis), the number and "and 5 more" never do */
+  .lg-bls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 var(--s24); }
+  .lg-bls.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lg-bl { display: flex; align-items: baseline; gap: 6px; min-width: 0; line-height: 20px; }
+  .lg-blt { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lg-blt b { color: var(--n900); font-weight: 700; }
+  .lg-bln { flex: none; white-space: nowrap; }
+  .lg-morebills { flex: none; white-space: nowrap; color: var(--n500); }
+  .lg-dash, .lg-when .lg-who { color: var(--n500); }
+  .lg-wait { display: inline-block; width: 72px; height: 10px; border-radius: 5px; background: var(--n100); }
+  .lg-tbl .lg-ss { font-weight: 700; }
+
+  /* one legislator: the work on the left, who they are and how to reach them in the panel that stays in view */
+  .lg-page.lg-desk { max-width: 1056px; margin: 0 auto; }
   .lg-page .lg-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
   .lg-page .lg-deskback:hover { background: var(--p50); }
   .lg-page .lg-deskback .ic { width: 20px; height: 20px; }
   .lg-head h1 { font-size: var(--t22); }
   .lg-hsub, .lg-hcm { white-space: normal; }
   .lg-acts .btn.primary { flex: 0 0 auto; }
-  .lg-search .lg-sphone { display: none; }
+  .lg-desk .lg-head { padding: 0 0 var(--s4); }
+  .lg-desk .lg-sec:first-of-type, .lg-desk .lg-head + .lg-sec { margin-top: var(--s16); }
+  .lg-desk .lg-brow { padding: 6px var(--s12) 6px var(--s16); }
+  .lg-desk .lg-brow .lg-bbody { padding: 2px var(--s8); margin: -2px calc(-1 * var(--s8)); border-radius: var(--r8); }
+  .lg-desk .lg-brow .lg-bbody:hover { background: var(--n50); }
+  .lg-desk .lg-noteb { color: var(--n500); }
+  .lg-desk .lg-noteb .ic { width: 20px; height: 20px; }
+  .lg-desk .lg-noteb:hover { color: var(--n900); }
+  .lg-desk a.lg-brow.lg-plain:hover .title b { text-decoration: underline; }
+  .lg-cols > .lg-side { padding-bottom: 2px; }   /* room for the card's shadow inside the panel's own scroll box */
+  .lg-card { padding: var(--s16); }
+  .lg-who2 { display: flex; align-items: center; gap: var(--s12); }
+  .lg-ph.s72 { width: 72px; height: 72px; }
+  .lg-ph.s72.none { font-size: var(--t22); }
+  .lg-who2b { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .lg-who2s { font-size: var(--t14); color: var(--n700); }
+  .lg-who2b .sv-chip { margin-top: 2px; white-space: normal; }
+  .lg-places { margin-top: var(--s12); font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .lg-cis { margin-top: var(--s12); border-top: 1px solid var(--n100); }
+  .lg-ci { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: 6px 0; border-bottom: 1px solid var(--n100); }
+  .lg-cic { flex: none; display: flex; color: var(--n500); }
+  .lg-cic .ic { width: 20px; height: 20px; }
+  .lg-cib { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .lg-cil { font-size: var(--t13); color: var(--n500); }
+  .lg-civ { font-size: var(--t14); font-weight: 700; color: var(--n900); overflow-wrap: anywhere; user-select: all; }
+  .lg-civ a { color: var(--p700); text-decoration: none; user-select: auto; }
+  .lg-civ a:hover { text-decoration: underline; }
+  .lg-civ a .ic { width: 14px; height: 14px; margin-left: 4px; vertical-align: -2px; }
+  .lg-ci > .btn { flex: none; }
+  .lg-ci > .btn.text { margin-right: -8px; padding: 0 8px; }
+  .lg-ci > .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .lg-cacts { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s16); }
+  .lg-cacts .btn { flex: 1 1 auto; padding: 0 16px; font-size: var(--t14); }
+  .lg-cardh { font-size: var(--t16); margin-bottom: var(--s8); }
+  .lg-seats { list-style: none; margin: 0; padding: 0; }
+  .lg-seats li { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 40px; padding: 6px 0; font-size: var(--t14); color: var(--n700); }
+  .lg-seats li + li { border-top: 1px solid var(--n100); }
+  .lg-seats b { color: var(--n900); margin-right: 4px; }
+  .lg-seats .sv-chip { flex: none; }
+  .lg-card .lg-empty { padding: 0; }
+}
+/* a laptop (under 1360px): the island leaves the table (it follows from the district, and the toolbar still filters by
+   it) and the name gets its room, so the bills they hear keep theirs; "and 5 more" goes too, because the count is in
+   the column beside it */
+@media (min-width: 900px) and (max-width: 1359px) {
+  .lg-tbl .lg-c-island, .lg-tbl .lg-morebills { display: none; }
+  .lg-tbl th.lg-c-name { width: 22%; }
+  .lg-tbl th.lg-c-contact { width: 120px; }
+}
+@media (min-width: 900px) and (max-width: 999px) {
+  .lg-tbl .lg-c-stance { display: none; }
+}
+/* a mouse gets slimmer filter buttons, level with the search box; a touch screen keeps 44px */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .lg-filters .sv-seg button { min-height: 40px; }
+}
+
+/* ==== Session setup, Help and My settings (build 3) ===================================================================
+   Their first rules live in triage.css, which loads AFTER this file. So every rule here starts from body.staff2 and
+   wins on specificity, never on order. New class names (st-duo, st-nav2, st-pane, st-sbar…) exist only here. */
+
+/* the Save bar's state line: "Not saved yet" when typed changes are waiting (all widths) */
+body.staff2 .st-savestate { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+body.staff2 .st-savestate:empty { display: none; }
+body.staff2 .st-savestate .ic { width: 16px; height: 16px; color: var(--p700); }
+body.staff2 .st-savehint { font-size: var(--t14); color: var(--n500); }
+body.staff2 .st-sbar .btn[aria-disabled="true"] { cursor: default; }
+body.staff2 .st-page .st-note:empty { display: none; }
+body.staff2 .st-page .st-form > .st-note + .field { margin-top: var(--s12); }
+@media (max-width: 899px) {
+  /* phones: the state sits on its own line above the button, so a long label never loses room to it */
+  body.staff2 .st-sbar { flex-wrap: wrap; row-gap: 6px; }
+  body.staff2 .st-sbar .st-savestate { flex: 0 0 100%; justify-content: center; }
+  body.staff2 .st-sbar .st-savehint { display: none; }
+  body.staff2 .st-subpage { padding-bottom: var(--s32); }
+}
+
+@media (min-width: 900px) {
+  /* two columns: the list of parts (or topics) stays in view; the chosen one is a readable column beside it */
+  body.staff2 .st-duo { max-width: 1056px; margin: 0 auto; padding-top: var(--s4); }
+  body.staff2 .st-duo .st-cols2 { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: var(--s32); align-items: start; }
+  body.staff2 .st-duo .st-nav2 { position: sticky; top: calc(var(--header) + var(--s16)); max-height: calc(100vh - var(--header) - var(--s32)); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 2px; margin: -2px; }
+  body.staff2 .st-duo .st-navt { margin: var(--s8) var(--s12) var(--s12); font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+  body.staff2 .st-duo .st-navg { margin: var(--s16) var(--s12) var(--s4); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  body.staff2 .st-duo .st-navi { display: flex; align-items: center; gap: var(--s12); min-height: 44px; padding: 0 var(--s12); border-radius: var(--r8); color: var(--n700); font-size: var(--t14); font-weight: 700; text-decoration: none; }
+  body.staff2 .st-duo .st-navi .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+  body.staff2 .st-duo .st-navi .st-navl { flex: 1 1 auto; min-width: 0; }
+  body.staff2 .st-duo .st-navi:hover { background: var(--n100); color: var(--n900); }
+  body.staff2 .st-duo .st-navi[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1), inset 0 0 0 1px var(--n200); }
+  body.staff2 .st-duo .st-navi[aria-current="page"] .ic { color: var(--p700); }
+  body.staff2 .st-duo .st-navi:focus-visible { outline-offset: -2px; }
+  body.staff2 .st-duo .st-navn { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--n200); color: var(--n900); font: 700 var(--t13)/20px var(--font); text-align: center; }
+  body.staff2 .st-duo .st-navn.bad { background: var(--bad-text); color: var(--n0); }
+  body.staff2 .st-duo .st-navd { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--p700); }
+  body.staff2 .st-duo .st-pane { min-width: 0; max-width: 680px; }
+  body.staff2 .st-duo .st-pane.st-read { max-width: 640px; }   /* Help: about 70 characters of 16px text */
+  body.staff2 .st-duo .st-pane > .st-head { margin: var(--s8) 0 var(--s16); }
+  body.staff2 .st-duo .st-headrow { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s16); }
+  body.staff2 .st-duo .st-headrow .btn { flex: none; margin-top: -6px; }
+  body.staff2 .st-duo .st-pane .btn.text:hover, body.staff2 .st-me .btn.text:hover { background: var(--p50); text-decoration: none; }
+  body.staff2 .st-duo .sv-switchrow:hover .sv-switch, body.staff2 .st-me .sv-switchrow:hover .sv-switch { box-shadow: 0 0 0 4px var(--n100); }
+  /* Save sits right under the form it saves, and stays in reach on a long one */
+  body.staff2 .st-sbar2 { position: sticky; bottom: 0; z-index: 5; justify-content: flex-end; gap: var(--s16); margin-top: var(--s16); padding: var(--s12) 0 var(--s16); background: linear-gradient(180deg, transparent 0, var(--n50) 12px); }
+  body.staff2 .st-sbar2 .btn.primary { flex: 0 0 auto; min-width: 160px; min-height: 48px; }
+  /* Help: a glossary reads across (the word, then what it means), which is also half the height */
+  body.staff2 .st-duo .st-dli { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: var(--s4) var(--s16); align-items: baseline; padding: 10px 0; }
+  body.staff2 .st-duo .st-dl dd { margin: 0; }
+  /* Help: the search lives with the topics */
+  body.staff2 .st-duo .st-nav2 .st-search { margin: 0 0 var(--s8); }
+  body.staff2 .st-duo .st-nav2 .st-search .input { min-height: 44px; padding: 9px 12px 9px 40px; border-radius: var(--pill); }
+  body.staff2 .st-duo .st-nav2 .st-search .ic-search { top: 12px; left: 14px; width: 18px; height: 18px; }
+  body.staff2 .st-duo.st-help #st-hres .rows { margin-bottom: 0; }
+  /* My settings: one tidy form column in the middle of the page (the frame's "narrow" width), not 1,056px of switches */
+  body.staff2 .st-me { max-width: 696px; margin-left: auto; margin-right: auto; }
+  body.staff2 .st-me .st-keysec > p { margin-top: var(--s8); }
+  body.staff2 .st-me .st-times input, body.staff2 .st-duo .st-grid input { height: 50px; }   /* a time box and a number box are 2px apart otherwise, and their labels with them */
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  body.staff2 .st-duo .st-navi { min-height: 40px; }
 }

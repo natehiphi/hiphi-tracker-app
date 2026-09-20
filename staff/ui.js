@@ -51,11 +51,11 @@ export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href
 // A bill row (64px on phones): number + plain title, a status sentence, and position / P1 / owner at the right.
 export function billRow(b, { sub = '', href, attrs: a, selectable = false, selected = false, cls = '' } = {}) {
   const num = (b.bill_number || '').replace(/^([A-Z]+)(\d)/, '$1$2') + (b.current_version ? ' ' + b.current_version : '');
-  const title = b.nickname || b.public_summary || b.description || b.title || '';   // the nickname names the bill when it has one
+  const nick = b.nickname || '', title = b.public_summary || b.description || b.title || '';   // the nickname names the bill when it has one; the summary follows
   const pos = b.position || '';
   const end = `<span class="sv-posic" title="${esc(POS_WORD[pos] || pos)}" aria-label="${esc(POS_WORD[pos] || pos)}">${icon(POS_ICON[pos] || 'circle-dashed')}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${avatar(ownerOf(b))}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
-  const inner = `${box}<span class="body"><span class="title"><b>${esc(num)}</b> <span class="sv-t">${esc(title)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
+  const inner = `${box}<span class="body"><span class="title"><b>${esc(num)}</b> ${nick ? `<b class="sv-nk">${esc(nick)}</b> ` : ''}<span class="sv-t">${esc(title)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
   const extra = { 'data-bill': b.id, ...(selectable ? { 'aria-pressed': selected ? 'true' : 'false' } : {}), ...(a || {}) };
   return href && !selectable ? `<a class="row sv-billrow${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs(extra)}>${inner}</a>`
     : `<button type="button" class="row sv-billrow${selected ? ' sel' : ''}${cls ? ' ' + cls : ''}"${attrs(extra)}>${inner}</button>`;
@@ -91,8 +91,18 @@ export function toast(msg, opt = {}) {
     + `<span>${esc(opt.err ? friendly(msg) : msg)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '') + (opt.action ? `<button type="button" class="toastundo toastact">${esc(opt.action.label)}</button>` : '');
   if (opt.undo) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await opt.undo(); } catch (e) { toast(e, true); } };
   if (opt.action) el.querySelector('.toastact').onclick = () => { box.innerHTML = ''; opt.action.run(); };
-  box.appendChild(el); clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000);
+  // One with a button can be closed (it could sit on top of the bill tabs for ten seconds), and any toast someone is
+  // reading or reaching for stays put: its clock starts again when they leave it.
+  if (opt.undo || opt.action) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
+  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
+  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
+  box.appendChild(el); arm();
 }
+// Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
+// not use them). Every keydown handler in v2 checks this first.
+export const keysOn = () => { try { return localStorage.getItem('sv_keys') !== 'off'; } catch { return true; } };
+export const setKeys = on => { try { if (on) localStorage.removeItem('sv_keys'); else localStorage.setItem('sv_keys', 'off'); } catch { /* private mode */ } };
+const DESK = () => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 export function friendly(e) {
   const m = String(e?.message || e || '');
   if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
@@ -105,12 +115,24 @@ export function friendly(e) {
 // pushes a history entry), Esc closes it, focus moves into it and returns to where it was. ----
 let cur = null;
 export const sheetOpen = () => !!cur;
-export function openSheet({ title, body, foot = '', size = 'half', onClose, wire } = {}) {
+// What was just clicked or activated: on a desktop a menu or picker opens beside it, not in the middle of the window
+// 900px away (assessment, 9/19). Captured before any handler runs, and only trusted for a moment.
+let trigger = null, triggerAt = 0;
+document.addEventListener('click', e => { trigger = e.target?.closest?.('button, a, [role="button"]') || null; triggerAt = performance.now(); }, true);
+const anchorNow = () => trigger && trigger.isConnected && performance.now() - triggerAt < 400 && !trigger.closest('dialog') ? trigger : null;
+function place(d, anchor) {
+  const r = anchor.getBoundingClientRect(), w = d.offsetWidth, h = d.offsetHeight, m = 8;
+  let left = r.left; if (left + w > innerWidth - m) left = Math.max(m, r.right - w);
+  let top = r.bottom + 6; if (top + h > innerHeight - m) top = r.top - h - 6 >= m ? r.top - h - 6 : Math.max(m, innerHeight - h - m);
+  d.style.left = Math.round(left) + 'px'; d.style.top = Math.round(top) + 'px';
+}
+export function openSheet({ title, body, foot = '', size = 'half', onClose, wire, pop = false } = {}) {
   // A sheet opened from another sheet takes over its Back entry instead of undoing it and pushing a new one
   // (a Back that lands late would otherwise undo the new sheet's entry).
   let reuse = false, back = document.activeElement;
   if (cur) { reuse = cur.pushed; back = cur.back; cur.d.close(); cur.d.remove(); cur = null; }
-  const d = document.createElement('dialog'); d.className = `sv-sheet ${size}`; d.setAttribute('aria-labelledby', 'sv-sh-t');
+  const anchor = pop && DESK() ? anchorNow() : null;
+  const d = document.createElement('dialog'); d.className = `sv-sheet ${size}${anchor ? ' sv-pop' : ''}`; d.setAttribute('aria-labelledby', 'sv-sh-t');
   d.innerHTML = `<div class="sv-sh-grab" aria-hidden="true"></div><div class="sv-sh-head"><h2 id="sv-sh-t" tabindex="-1">${title}</h2>${iconBtn('x', 'Close', { 'data-shclose': '1' })}</div><div class="sv-sh-body">${body}</div>${foot ? `<div class="sv-sh-foot">${foot}</div>` : ''}`;
   document.body.appendChild(d);
   cur = { d, back, onClose, pushed: true };
@@ -119,7 +141,19 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
   d.addEventListener('click', e => { if (e.target === d) closeSheet(); });
   d.querySelector('[data-shclose]').onclick = () => closeSheet();
   d.showModal();
-  (d.querySelector('[autofocus]') || d.querySelector('#sv-sh-t'))?.focus?.();
+  if (anchor) place(d, anchor);
+  // Focus: a field marked autofocus; else, with a keyboard and mouse, the thing Enter should do (the chosen option,
+  // the first menu item, the main button), so "open, Enter" works; else the heading, which a screen reader reads first.
+  // (one selector per try: a comma list answers with whichever comes first in the page, not the first in the list)
+  const pick = (...sels) => { for (const q of sels) { const el = d.querySelector(q); if (el) return el; } return null; };
+  const first = d.querySelector('[autofocus]') || (DESK() ? pick('[role="radio"][aria-checked="true"]', '.sv-menu button:not([aria-disabled="true"])', '.sv-pickl button', '.sv-sh-foot .btn.primary', '.sv-sh-foot .btn.danger') : null) || d.querySelector('#sv-sh-t');
+  first?.focus?.();
+  // Arrow keys move through a menu or a picker; Home and End jump.
+  d.addEventListener('keydown', e => {
+    const list = e.target?.closest?.('.sv-menu, .sv-pickl'); if (!list || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const items = [...list.querySelectorAll('button')], i = items.indexOf(e.target.closest('button')); if (!items.length) return;
+    e.preventDefault(); (e.key === 'Home' ? items[0] : e.key === 'End' ? items[items.length - 1] : items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]).focus();
+  });
   if (wire) wire(d);
   return d;
 }
@@ -147,12 +181,12 @@ export function popSheet() {
 export function takeSheetEntry() { if (!cur) return false; closeSheet({ fromPop: true, silent: true }); return true; }
 // A picker: one choice from a list, saves on tap. options: [[value, label, icon?, sub?]]
 export function pickerSheet({ title, options, value, onPick, help = '' }) {
-  return openSheet({ title, body: `${help ? `<p class="small muted sv-sh-help">${help}</p>` : ''}<div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${options.map(([v, l, ic, sub]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`,
+  return openSheet({ title, pop: true, body: `${help ? `<p class="small muted sv-sh-help">${help}</p>` : ''}<div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${options.map(([v, l, ic, sub]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`,
     wire: d => d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); await onPick(el.dataset.pv); }) });
 }
 // A menu of actions (the ⋯ menus). items: [{ label, icon, danger, disabled, reason, run }]
 export function menuSheet({ title = 'More', items }) {
-  return openSheet({ title, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i) => `<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
+  return openSheet({ title, pop: true, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i) => `<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
     wire: d => { const list = items.filter(Boolean); d.querySelectorAll('[data-mi]').forEach(el => el.onclick = async () => { const it = list[+el.dataset.mi]; if (it.disabled) { if (it.reason) toast(it.reason); return; } await closeSheet({ silent: true }); await it.run(); }); } });
 }
 // Confirm in the app (never window.confirm): confirmSheet({ title, text, ok: 'Delete', danger: true }) -> Promise<boolean>

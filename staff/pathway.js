@@ -7,7 +7,8 @@
 import { S, DB, esc, hooks, fmtDT, fmtDate, advocate, pathwayStops } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { stopOf, legsOf, stanceOf, legTitle, legsForSponsors, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto } from './model.js';
-import { icon, btn, chip, pickerChip, openSheet, closeSheet, toast } from './ui.js';
+import { icon, btn, chip, pickerChip, openSheet, closeSheet, pickerSheet, toast } from './ui.js';
+import { rerender } from './bill.js';   // used inside functions only (bill.js imports this file too)
 
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
@@ -64,7 +65,7 @@ export const stanceChip = (b, l, extra = {}) => {
   const x = stanceOf(b.id, l.id);
   return pickerChip(STANCE_WORD[x.stance] || 'Unknown', { 'data-lgst': `${b.id}|${l.id}`, 'aria-label': `${shortName(l)} on ${b.bill_number}: ${STANCE_WORD[x.stance] || 'Unknown'}. Change`, ...extra }, STANCE_ICON[x.stance] || 'circle-dashed');
 };
-export function openStance(b, l) {
+export function openStance(b, l, { redraw = () => hooks.render() } = {}) {
   const x = stanceOf(b.id, l.id), before = { stance: x.stance, note: x.note ?? null, contact_id: x.contact_id ?? null };
   const by = x.updated_by && advocate(x.updated_by);
   const team = S.advocates.filter(a => a.is_active !== false);
@@ -74,8 +75,8 @@ export function openStance(b, l) {
   const save = async (patch, msg) => {
     try { await DB.setStance(b.id, l.id, patch); }
     catch (e) { toast(e, { err: true }); return; }
-    hooks.render();
-    toast(msg, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); hooks.render(); toast('Undone.'); } });
+    redraw();
+    toast(msg, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); redraw(); toast('Undone.'); } });
   };
   openSheet({
     title: `${esc(shortName(l))} on ${esc(billNum(b))}`, size: 'auto',
@@ -134,7 +135,7 @@ export function renderPathway(b) {
   const st = stopOf(b);
   const comp = (b.companions || []).map(n => S.bills.find(x => x.bill_number === String(n).replace(/\s/g, ''))).find(Boolean);
   const compRefs = comp && comp.chamber !== b.chamber ? (comp.referrals || []).slice(0, comp.origin_stops || undefined) : null;
-  const stops = pathwayStops(b, st, S.counterparts || [], compRefs);
+  const stops = pathwayStops(b, st, S.counterparts || [], compRefs), desk = DESK();
   const intro = legsForSponsors(b), nSp = (b.sponsors || []).length;
   const introLine = intro.length ? `<p class="lg-pwintro">Introduced by ${intro.slice(0, 3).map(l => `<a href="${legHref(l, b)}">${esc(shortName(l))}</a>`).join(', ')}${nSp > 3 ? ` and ${nSp - 3} more` : ''}. The first name is the lead introducer.</p>` : '';
   if (!stops.length) return `<div class="lg-pw" data-lgpw="${esc(b.id)}">${introLine}<p class="lg-pwnone">No committee referral yet, so there is no one to work on until the Capitol posts one.</p></div>`;
@@ -158,7 +159,7 @@ export function renderPathway(b) {
         <span class="lg-l2"><span class="lg-stopmeta">${esc(meta)}</span>${t ? `<span class="lg-tally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">${esc(t.text)}</span></span>` : ''}</span>
         ${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'lg-chev' })}
       </button></h3>
-      <div class="lg-stopbody" id="lg-sb-${i}"${open ? '' : ' hidden'}>${members.length ? members.map(m => memberRow(b, m, joint)).join('') : '<p class="lg-pwnone">No member list for this committee yet.</p>'}</div>
+      <div class="lg-stopbody" id="lg-sb-${i}"${open ? '' : ' hidden'}>${!members.length ? '<p class="lg-pwnone">No member list for this committee yet.</p>' : desk ? memberTable(b, s, members, joint, i) : members.map(m => memberRow(b, m, joint)).join('')}</div>
     </section>`;
   }).join('');
   return `<div class="lg-pw" data-lgpw="${esc(b.id)}">
@@ -181,10 +182,73 @@ function memberRow(b, m, joint) {
     ${l.email ? `<a class="iconbtn lg-mail" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(b.bill_number)}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : '<span class="lg-mail" aria-hidden="true"></span>'}
   </div>`;
 }
+// ---- desktop: a stop's members as a table (build 3) ----
+// Name, role, stance, and the team's note with who knows them. Leadership comes first, because chairs decide; the
+// Name, Role and Stance headers sort (one order for every stop), so "who is still unknown?" is one click. The stance
+// chip opens a small picker beside itself and saves on the click, with Undo; the note cell opens the note sheet.
+// Where the column is narrow (bill.css asks the panel's width) the Role and Note columns fold into the name cell.
+const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
+const ST_ORDER = { yes: 0, leaning_yes: 1, unknown: 2, leaning_no: 3, no: 4 };
+const PW_COLS = [['name', 'Name'], ['role', 'Role'], ['stance', 'Stance']];
+function sortedMembers(b, members) {
+  const s = S.pwSort; if (!s) return members;                  // legsOf lists leadership first, then by name
+  const val = m => s.key === 'name' ? String(m.l.sort_name || m.l.name) : s.key === 'stance' ? ST_ORDER[stanceOf(b.id, m.l.id).stance] : RANK[m.role];
+  return members.map((m, i) => [m, i]).sort(([x, i], [y, j]) => { const a = val(x), c = val(y); return (a < c ? -1 : a > c ? 1 : 0) * s.dir || i - j; }).map(([m]) => m);
+}
+function memberTable(b, stop, members, joint, i) {
+  const s = S.pwSort || { key: 'role', dir: 1 };
+  const th = ([key, label]) => { const on = s.key === key;
+    return `<th scope="col" class="bw-pwc-${key}" aria-sort="${on ? (s.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bw-sortb" data-pwsort="${key}" data-pwtab="${i}">${label}${on ? icon(s.dir > 0 ? 'chevron-up' : 'chevron-down') : ''}</button></th>`; };
+  return `<table class="bw-pwt"><caption class="sr">${esc(cmteName(stop.committee))}: members and where they stand on ${esc(b.bill_number)}</caption>
+    <thead><tr>${PW_COLS.map(th).join('')}<th scope="col" class="bw-pwc-note">Note and contact</th><th scope="col" class="bw-pwc-act"><span class="sr">Note and email</span></th></tr></thead>
+    <tbody>${sortedMembers(b, members).map(m => memberTr(b, m, joint)).join('')}</tbody></table>`;
+}
+function memberTr(b, m, joint) {
+  const l = m.l, x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id), by = x.updated_by && advocate(x.updated_by);
+  const lead = Object.entries(m.roles).filter(([, r]) => r !== 'member');
+  const role = !joint ? roleWord(m.role) : lead.length ? lead.map(([c, r]) => `${roleWord(r)}, ${c}`).join(' · ') : 'Member';
+  const only = joint && !lead.length && Object.keys(m.roles).length === 1 ? `${Object.keys(m.roles)[0]} only` : '';
+  const key = `${b.id}|${l.id}`, word = STANCE_WORD[x.stance] || 'Unknown';
+  // When it was last touched and by whom stands in for "last contact": the note is where a contact gets written down.
+  const meta = [who ? `${who.full_name.split(' ')[0]} knows them` : '', by && (x.note || who) ? `${by.id === S.me?.id ? 'You' : by.full_name.split(' ')[0]}, ${fmtDate(x.updated_at)}` : ''].filter(Boolean).join(' · ');
+  const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${b.bill_number}`;
+  return `<tr class="${m.role !== 'member' ? 'lead' : ''}">
+    <th scope="row" class="bw-pwc-name"><a class="bw-pwnm" href="${legHref(l, b)}"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</a>
+      <span class="bw-pwsub">${m.role !== 'member' || (joint && lead.length) ? `<span class="bw-pwfold">${esc(role)} · </span>` : ''}${esc([partyDist(l), only].filter(Boolean).join(' · '))}</span>
+      ${x.note || meta ? `<span class="bw-pwfold bw-pwinl">${esc([x.note, meta].filter(Boolean).join(' · '))}</span>` : ''}</th>
+    <td class="bw-pwc-role">${esc(role)}</td>
+    <td class="bw-pwc-stance">${pickerChip(word, { 'data-pwst': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${b.bill_number}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}</td>
+    <td class="bw-pwc-note"><button type="button" class="bw-pwnote${x.note || meta ? '' : ' none'}" data-pwnote="${key}" aria-label="${esc(noteLabel)}"${x.note ? ` title="${esc(x.note)}"` : ''}>
+      ${x.note ? `<span class="bw-pwntx">${esc(x.note)}</span>` : ''}${meta ? `<span class="bw-pwmeta">${esc(meta)}</span>` : ''}${x.note || meta ? '' : `${icon('plus')}<span>Add a note</span>`}</button></td>
+    <td class="bw-pwc-act"><button type="button" class="iconbtn bw-pwfold" data-pwnote="${key}" aria-label="${esc(noteLabel)}" title="${x.note || who ? 'Edit the note' : 'Add a note'}">${icon('notebook-pen')}</button>${l.email ? `<a class="iconbtn" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(b.bill_number)}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : ''}</td>
+  </tr>`;
+}
+function pickStance(b, l) {
+  const x = stanceOf(b.id, l.id), before = { stance: x.stance, note: x.note ?? null, contact_id: x.contact_id ?? null }, sel = `[data-pwst="${b.id}|${l.id}"]`;
+  pickerSheet({ title: `${shortName(l)} on ${billNum(b)}`, value: x.stance, options: STANCES.map(([v, label]) => [v, label, STANCE_ICON[v]]),
+    onPick: async v => {
+      if (v === before.stance) return;
+      try { await DB.setStance(b.id, l.id, { ...before, stance: v }); } catch (e) { toast(e, { err: true }); return; }
+      rerender(sel);
+      toast(`${shortName(l)}: ${STANCE_WORD[v].toLowerCase()} on ${b.bill_number}.`, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); rerender(sel); toast('Undone.'); } });
+    } });
+}
+function wireTable(pw, b) {
+  const find = key => { const [bid, lid] = String(key).split('|'); return String(b.id) === bid ? (S.legislators || []).find(x => x.id === Number(lid)) : null; };
+  pw.querySelectorAll('[data-pwst]').forEach(el => el.onclick = () => { const l = find(el.dataset.pwst); if (l) pickStance(b, l); });
+  pw.querySelectorAll('[data-pwnote]').forEach(el => el.onclick = () => { const l = find(el.dataset.pwnote), k = el.dataset.pwnote;
+    // Back to the control that opened it: the note cell when it shows, else the small note button (narrow columns).
+    if (l) openStance(b, l, { redraw: () => rerender(el.classList.contains('iconbtn') ? `.iconbtn[data-pwnote="${k}"]` : `.bw-pwnote[data-pwnote="${k}"]`) }); });
+  pw.querySelectorAll('[data-pwsort]').forEach(el => el.onclick = () => {
+    const key = el.dataset.pwsort, cur = S.pwSort || { key: 'role', dir: 1 };
+    S.pwSort = { key, dir: cur.key === key ? -cur.dir : 1 };
+    rerender(`[data-pwsort="${key}"][data-pwtab="${el.dataset.pwtab}"]`);
+  });
+}
 export function wirePathway(root, b) {
   const pw = root && (root.matches?.('.lg-pw') ? root : root.querySelector('.lg-pw'));
   if (!pw) return;
-  wireStances(pw); wireLinks(pw);
+  wireStances(pw); wireLinks(pw); wireTable(pw, b);
   // Folding changes only this stop (no re-render), and is remembered for this visit.
   pw.querySelectorAll('[data-lgfold]').forEach(el => el.onclick = () => {
     const open = el.getAttribute('aria-expanded') !== 'true';

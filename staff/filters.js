@@ -15,6 +15,24 @@ export const wideNow = () => matchMedia('(min-width: 900px)').matches;
 export const settled = () => !history.state?.sheet ? Promise.resolve() : new Promise(res => {
   const t = setTimeout(res, 400); addEventListener('popstate', () => { clearTimeout(t); setTimeout(res, 0); }, { once: true }); });
 
+// A keyboard and a mouse (never a touch screen): where row keys and their hints belong.
+export const hoverNow = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+// Typing in a field is never a shortcut.
+export const typingIn = el => !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+
+// ---- the pages under Bills (Sort new bills, Weekly memo, Muted bills) ----
+// On a desktop the frame draws no back arrow, so each of these pages draws this link above its title (the assessment
+// found no way back but the browser's button). Opened from the Bills list, it is a real Back, so the list returns
+// where it was (the frame does that for data-back); opened from the sidebar or a link, it goes to the list.
+// While a page renders, body[data-screen] still names the page before it (the frame sets it after render()).
+const SUB = { key: '', fromList: false };
+export function deskBack(key) {   // key: 'triage' | 'memo' | 'muted' (muted bills is a page of the 'bills' screen)
+  const v = bl(), prev = document.body.dataset.screen || '';
+  const again = SUB.key === key && (key === 'muted' ? prev === 'bills' && !!v.lastMuted : prev === key);   // a redraw of the same page
+  if (!again) { SUB.key = key; SUB.fromList = prev === 'bills' && !v.lastMuted; }
+  return `<a class="bl-deskback" href="#/bills"${SUB.fromList ? ' data-back' : ''}>${icon('chevron-left')}<span>Bills</span></a>`;
+}
+
 // Everything the Bills screens remember. The shared facet sets (S.pris, S.poss…) live on S because passes() reads
 // them there; the rest lives on S.bl so nothing else in the app is touched.
 export function bl() {
@@ -124,7 +142,8 @@ export const filterCount = () => activeFilters().length;
 
 // ---- the Filter sheet: half height on phones (drag up for more), a 400px popover under the button on desktop ----
 const opt = (spec, label, n, { ic, title } = {}) => { const on = isOn(spec);
-  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${ic ? icon(ic) : ''}<span>${esc(label)}</span><span class="bl-n">${n}</span></button>`; };
+  // A chip that is on carries a tick (never colour alone), the same as the quick chips and the Supporters filter.
+  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${on ? icon('check') : ic ? icon(ic) : ''}<span>${esc(label)}</span><span class="bl-n">${n}</span></button>`; };
 const group = (title, inner, key) => `<section class="bl-fg" aria-labelledby="bl-fg-${key}"><h3 id="bl-fg-${key}">${title}</h3><div class="chips">${inner}</div></section>`;
 function sheetBody() {
   const v = bl(), base = baseBills(), f = Object.fromEntries(facets().map(g => [g.key, g]));
