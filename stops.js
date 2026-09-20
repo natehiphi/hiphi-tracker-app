@@ -191,6 +191,7 @@ export function hearingStream(h, chamber, now = Date.now()) {
 // state: passed, current, next (this chamber), or predicted (the other
 // chamber's referral, from the companion bill when it has one, else the
 // House <-> Senate counterpart map). counterparts: [{house_code, senate_code}].
+const ENDED = ['dead', 'vetoed'];
 export function pathwayStops(b, st, counterparts = [], companionRefs = null) {
   const refs = b.referrals || []; if (!refs.length) return [];
   const n = Math.min(b.origin_stops || refs.length, refs.length);
@@ -203,11 +204,21 @@ export function pathwayStops(b, st, counterparts = [], companionRefs = null) {
     if (!isCurrentLeg) state = leg === 'second' && ch === originCh ? 'passed' : 'next';
     else if (c === cur) state = 'current';
     else state = list.indexOf(cur) > i ? 'passed' : 'next';
-    if (st.phase !== 'committee' && isCurrentLeg) state = 'passed';
+    // A bill that is past committee in this leg really did clear these stops. A bill that DIED did
+    // not necessarily clear any of them - it may have been deferred in the first one - and this
+    // record cannot tell us which. It used to say "Passed" for every committee of every dead bill,
+    // so the committee that killed a bill was shown as having passed it (SB1418: WAM deferred it on
+    // 2/27/25 and the pathway said WAM passed). Claiming nothing is the honest answer here; naming
+    // the committee that stopped it needs the activity log, which this file does not see.
+    if (ENDED.includes(st.phase)) state = 'ended';
+    else if (st.phase !== 'committee' && isCurrentLeg) state = 'passed';
     out.push({ chamber: ch, committee: c, state, stop: i + 1, of: list.length });
   });
   inChamber(origin, originCh, leg === 'first');
-  const done = ['governor', 'enacted', 'vetoed', 'conference'].includes(st.phase) || st.stage === 'second_crossover';
+  // A dead or vetoed bill is going nowhere, so it gets no predicted stops either: the old test
+  // referenced st.stage, which billStop never returns, so it was always false and dead bills were
+  // shown "Likely next" committees in the other chamber.
+  const done = ['governor', 'enacted', 'vetoed', 'conference'].includes(st.phase) || ENDED.includes(st.phase);
   if (second.length) inChamber(second, otherCh, leg === 'second');
   else if (!done) {
     // predict from the companion's referral, else map each origin committee to its counterpart

@@ -129,7 +129,7 @@ export function tally(b, members) {
 }
 
 // ---- the pathway ----
-const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now'], next: ['circle', 'Next'], predicted: ['circle-dashed', 'Likely'] };
+const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now'], next: ['circle', 'Next'], predicted: ['circle-dashed', 'Likely'], ended: ['circle-minus', 'Outcome not recorded'] };
 export function renderPathway(b) {
   if (!b) return '';
   const st = stopOf(b);
