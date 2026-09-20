@@ -14,6 +14,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, 
   friendly, toast, nudge } from './core.js';
 import { btn, chip, posChip, row, steps } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
+import { topics } from './topics.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The email step is the last one; a signed-in person does not get it, so their count is one shorter.
@@ -26,7 +27,7 @@ const namesHtml = list => andList(list.map(i => `<b class="strong">${esc(i.key)}
 const issuesPhrase = sel => sel.length > 2 ? `your ${sel.length} issues` : namesHtml(sel);
 const reduce = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // The live page (track.js) keeps the same hiphi_wiz key and stores a coalition's first internal name, so we do too.
-const pickedIssues = () => { const sel = new Set(wiz().issues || []); return issues().filter(i => sel.has(i.key) || i.names.some(n => sel.has(n))); };
+const pickedIssues = () => { const sel = new Set(wiz().issues || []); return topicList().filter(i => sel.has(i.key) || i.names.some(n => sel.has(n))); };
 // "Wednesday, January 20" for a Hawaiʻi calendar day
 const longDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' });
 const shortDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' });
@@ -87,14 +88,19 @@ const bar1 = label => `<div class="st-bar st-one">${btn(label, { kind: 'primary'
 const followLabel = n => n ? `Follow ${plural(n, 'bill')}` : 'Follow bills';
 
 // ================= Step 1 (in session and off-season): welcome and issues =================
+// The six topics, counted over the pool of live bills HIPHI has taken a position on. This replaced
+// the nine coalitions, one of which ("General Public Health") held 64 of the 218 supported bills and
+// told a stranger nothing about what they had chosen. See pub/topics.js.
+const poolBills = () => (S.pool && S.pool.bills) || [];
+const topicList = () => topics(poolBills());
 function issueRows(off, yr) {
   const sel = new Set(wiz().issues || []);
   // In session, issues() puts the ones with nothing moving after the rest, and General Public Health last. Between
   // sessions nothing is moving, so the busiest issues of the last session lead instead (still General last).
-  const list = off ? issues().sort((a, b) => a.general - b.general || (b.bills || 0) - (a.bills || 0)) : issues();
+  const list = topicList().sort((a, b) => (b.bills || 0) - (a.bills || 0));
   return `<div class="st-issues" role="group" aria-labelledby="st-h">${list.map(i => {
     const on = sel.has(i.key) || i.names.some(n => sel.has(n));
-    const extra = off ? `<span class="st-icount">${plural(i.bills || 0, 'bill')} in ${yr}</span>` : i.live ? '' : chip('Quiet right now', '', 'hourglass');
+    const extra = `<span class="st-icount">${plural(i.bills || 0, 'bill')}${off ? ` in ${yr}` : ''}</span>`;
     return `<button type="button" class="st-issue" data-stissue="${esc(i.names[0])}" aria-pressed="${on}">
       <span class="st-ilead">${icon(i.icon)}</span>
       <span class="st-ibody"><span class="st-iname">${esc(i.key)}</span>${extra}${i.description ? `<span class="st-idesc">${esc(i.description)}</span>` : ''}</span>
@@ -137,7 +143,7 @@ function model2() {
   const R = ranker(), w = wiz(), seen = new Set(), per = sel.map(i => ({ i, bills: [] }));
   for (const b of L.rows) {
     if (seen.has(b.id) || !alive(b) || !hasPos(b)) continue;
-    const g = per.find(p => (b.coalitions || []).some(n => p.i.names.includes(n))); if (!g) continue;
+    const g = per.find(p => (p.i.match ? p.i.match(b) : (b.coalitions || []).some(n => p.i.names.includes(n)))); if (!g) continue;
     seen.add(b.id); g.bills.push(b);
   }
   per.forEach(p => p.bills.sort(R.cmp));
@@ -163,7 +169,7 @@ function load2(sig, sel, off) {
   S.stLoad = { sig };
   const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
   const work = (async () => {
-    const rows = await billsForCoalitions(sel.flatMap(i => i.names));
+    const rows = poolBills().length ? poolBills() : await billsForCoalitions(sel.flatMap(i => i.names));
     // Off-season: HIPHI's published lists, to offer "Follow HIPHI's list" on the issues they cover.
     if (off) await Promise.all((S.lists || []).map(l => listBillsFor(l.slug).catch(() => null)));
     return rows;
