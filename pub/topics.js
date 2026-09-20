@@ -66,7 +66,8 @@ const TOPICS = [
 
 // What a bill is about, in the words a person would search for. The nickname is the team's own
 // plain name and is the best signal; the summary and title back it up for bills without one.
-const textOf = b => `${b.nickname || ''} ${b.public_summary || b.hiphi_summary || ''} ${b.title || ''}`;
+const nameOf = b => (b && (b.hiphi_nickname || b.nickname)) || '';
+const textOf = b => `${nameOf(b)} ${b.public_summary || b.hiphi_summary || ''} ${b.title || ''}`;
 
 // The sub-topic a bill belongs to, or null. First match wins - see the note above.
 export function subOf(b) {
@@ -91,3 +92,25 @@ export function topics(bills = []) {
   });
 }
 export const TOPIC_KEYS = TOPICS.map(t => t.key);
+
+// ---- policies ----------------------------------------------------------------------------
+// The 248 bills HIPHI has a position on are only 153 distinct policies: "Let counties regulate
+// tobacco sales" is ELEVEN separate bills, free school meals is five, the DUI limit is seven. A
+// first visit that lists bills therefore asks somebody to choose between near-identical rows, and
+// following one quietly misses the others - which is exactly how an important bill gets left behind.
+//
+// The team's own nicknames are the grouping key, because they were written to be identical for
+// identical policies. That is not guaranteed - "Lower the DUI limit to .05" and "Lower the DUI
+// blood alcohol limit" are one policy under two names - so when this graduates to the database the
+// key becomes a column staff can correct. Until then a bill with no nickname is its own policy,
+// which is right: monitor bills and one-offs should not be lumped together.
+export function policies(bills = []) {
+  const map = new Map();
+  for (const b of bills) {
+    const nn = nameOf(b).trim();
+    const key = nn ? 'n:' + nn.toLowerCase() : 'b:' + b.id;
+    if (!map.has(key)) map.set(key, { key, name: nn || null, bills: [] });
+    map.get(key).bills.push(b);
+  }
+  return [...map.values()];
+}

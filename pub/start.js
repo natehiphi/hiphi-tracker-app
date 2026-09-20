@@ -14,7 +14,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, 
   friendly, toast, nudge } from './core.js';
 import { btn, chip, posChip, row, steps } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
-import { topics } from './topics.js';
+import { topics, policies } from './topics.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The email step is the last one; a signed-in person does not get it, so their count is one shorter.
@@ -86,12 +86,16 @@ const barBusy = () => bar2('Finding bills…', { icon: 'loader-circle' }, { 'dat
 const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1' });
 const bar1 = label => `<div class="st-bar st-one">${btn(label, { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stdone': '1' } })}</div>`;
 const followLabel = n => n ? `Follow ${plural(n, 'bill')}` : 'Follow bills';
+// A policy HIPHI backs hardest: its lead bill carries a strongly_ position. These are offered and
+// ticked first, because they are the ones the team is actually campaigning on.
+const isStrong = pol => (pol.bills[0]?.hiphi_position || pol.bills[0]?.position || '') === 'strongly_support';
 
 // ================= Step 1 (in session and off-season): welcome and issues =================
 // The six topics, counted over the pool of live bills HIPHI has taken a position on. This replaced
 // the nine coalitions, one of which ("General Public Health") held 64 of the 218 supported bills and
 // told a stranger nothing about what they had chosen. See pub/topics.js.
-const poolBills = () => (S.pool && S.pool.bills) || [];
+const supports = b => /support/.test(b.hiphi_position || b.position || '');
+const poolBills = () => ((S.pool && S.pool.bills) || []).filter(supports);
 const topicList = () => topics(poolBills());
 function issueRows(off, yr) {
   const sel = new Set(wiz().issues || []);
@@ -146,20 +150,30 @@ function model2() {
     const g = per.find(p => (p.i.match ? p.i.match(b) : (b.coalitions || []).some(n => p.i.names.includes(n)))); if (!g) continue;
     seen.add(b.id); g.bills.push(b);
   }
-  per.forEach(p => p.bills.sort(R.cmp));
-  const empty = per.filter(p => !p.bills.length).map(p => p.i);
+  // Bills become POLICIES here. Eleven bills say "Let counties regulate tobacco sales"; offering
+  // them as eleven rows asks somebody to choose between identical things and lets the other ten slip
+  // past whichever one they tick. One row, every bill under it, nothing missed. (Nate, 9/20)
+  per.forEach(p => { p.bills.sort(R.cmp); p.pols = policies(p.bills);
+    p.pols.forEach(x => x.bills.sort(R.cmp)); p.pols.sort((a, b) => R.cmp(a.bills[0], b.bills[0])); });
+  const empty = per.filter(p => !p.pols.length).map(p => p.i);
   let first = [], fallback = false;
-  if (!per.some(p => p.bills.length)) { first = recommendations(3).map(r => r.b); fallback = true; }
+  if (!per.some(p => p.pols.length)) { first = policies(recommendations(3).map(r => r.b)); fallback = true; }
   else {
-    // At most 5 to start. Round-robin across the picked issues so each one shows up, most urgent first each round.
-    const qs = per.map(p => p.bills.slice());
-    while (first.length < 5 && qs.some(q => q.length)) {
-      for (const q of qs.filter(x => x.length).sort((a, b) => R.cmp(a[0], b[0]))) { if (first.length < 5) first.push(q.shift()); }
+    // What gets offered, in Nate's order (9/20): every policy HIPHI STRONGLY backs and that is still
+    // alive, then the most urgent one from each picked topic so no topic arrives empty, then the next
+    // most urgent until there are eight. Capped at twelve so six topics does not become a wall; the
+    // rest sit behind "More <topic> bills". The old rule was a flat top-3, which buried strong bills.
+    const seen = new Set(), take = x => { if (!seen.has(x.key)) { seen.add(x.key); first.push(x); } };
+    for (const p of per) for (const x of p.pols) if (isStrong(x)) take(x);
+    for (const p of per) if (p.pols.length) take(p.pols[0]);
+    const qs = per.map(p => p.pols.filter(x => !seen.has(x.key)));
+    while (first.length < 8 && qs.some(q => q.length)) {
+      for (const q of qs.filter(x => x.length).sort((a, b) => R.cmp(a[0].bills[0], b[0].bills[0]))) { if (first.length < 8) take(q.shift()); }
     }
-    first.sort(R.cmp);
+    first = first.slice(0, 12).sort((a, b) => R.cmp(a.bills[0], b.bills[0]));
   }
-  const firstIds = new Set(first.map(b => b.id)), more = (w.moreFor === sig && w.more) || {};
-  const extras = per.map(p => { const rest = p.bills.filter(b => !firstIds.has(b.id)), n = Math.min(rest.length, (more[p.i.key] || 0) * 6);
+  const firstIds = new Set(first.map(x => x.key)), more = (w.moreFor === sig && w.more) || {};
+  const extras = per.map(p => { const rest = p.pols.filter(x => !firstIds.has(x.key)), n = Math.min(rest.length, (more[p.i.key] || 0) * 6);
     return { i: p.i, shown: rest.slice(0, n), left: rest.length - n }; });
   const picked = new Set(w.picksFor === sig ? (w.picks || []) : []);
   return { sig, sel, first, fallback, empty, extras, picked, R };
@@ -180,7 +194,11 @@ function load2(sig, sel, off) {
     if (!off) {
       // New issues, new picks: the 3 that need voices soonest start ticked.
       const m = model2(), w = wiz();
-      if (m.first && w.picksFor !== sig) wizSet({ picksFor: sig, picks: m.first.slice(0, 3).map(b => b.id), moreFor: sig, more: {} });
+      if (m.first && w.picksFor !== sig) {
+        const lead = new Set(m.sel.map(i => m.first.find(x => i.match && i.match(x.bills[0]))?.key).filter(Boolean));
+        const tick = m.first.filter(x => isStrong(x) || lead.has(x.key));
+        wizSet({ picksFor: sig, picks: (tick.length ? tick : m.first.slice(0, 3)).flatMap(x => x.bills.map(b => b.id)), moreFor: sig, more: {} });
+      }
     }
     app.render();
   }).catch(e => { console.error(e); if (S.stLoad && S.stLoad.sig === sig) { S.stLoad.err = true; app.render(); } });
@@ -191,22 +209,24 @@ function load2(sig, sel, off) {
 // opens it in place. That button sits on the card's bottom edge, beside the toggle rather than inside it (a button
 // cannot hold a button), so reading more never ticks or unticks the bill. HIPHI's position is always on the card.
 S.stWhat ??= new Set();
-function pickCard(b, R, picked) {
-  const inf = R.info(b), iss = issues().find(i => (b.coalitions || []).some(n => i.names.includes(n)));
+function pickCard(pol, R, picked) {
+  const b = pol.bills[0], n = pol.bills.length, ids = pol.bills.map(x => x.id);
+  const inf = R.info(b), iss = topicList().find(i => i.match && i.match(b));
   const within8 = inf.h && new Date(inf.h.scheduled_at) - Date.now() < 8 * 864e5;
   const day = within8 ? new Date(inf.h.scheduled_at).toLocaleDateString('en-CA', { timeZone: HST }) === new Date().toLocaleDateString('en-CA', { timeZone: HST })
     ? 'today' : new Date(inf.h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }) : '';
-  const on = picked.has(b.id), name = nick(b), full = plainSum(b, 300), open = S.stWhat.has(b.id), tid = 'st-w-' + String(b.id).replace(/\W/g, '');
+  const on = ids.every(id => picked.has(id)), name = pol.name || nick(b), full = plainSum(b, 300);
+  const open = S.stWhat.has(pol.key), tid = 'st-w-' + pol.key.replace(/\W/g, '');
   return `<li class="st-pcard${on ? ' on' : ''}${open ? ' st-open' : ''}">
-    <button type="button" class="st-pick" data-stpick="${esc(b.id)}" aria-pressed="${on}">
+    <button type="button" class="st-pick" data-stpick="${esc(ids.join(','))}" aria-pressed="${on}">
       <span class="st-tick" aria-hidden="true">${icon('check')}</span>
       <span class="st-pbody">
         <span class="st-ptop">${iss ? `<span class="issueline">${icon(iss.icon)}<span>${esc(iss.key)}</span></span>` : '<span></span>'}${day ? chip(`Hearing ${day}`, 'info', 'calendar') : ''}</span>
         ${name ? `<span class="st-phead">${esc(name)}</span><span class="st-pwhat st-clamp" id="${tid}">${esc(full)}</span>`
           : `<span class="st-phead st-clamp" id="${tid}">${esc(full)}</span>`}
-        <span class="st-pmeta"><span>${esc(spaced(b.bill_number))}</span>${posChip(b)}</span>
+        <span class="st-pmeta"><span>${n > 1 ? `${n} bills, incl. ${esc(spaced(b.bill_number))}` : esc(spaced(b.bill_number))}</span>${posChip(b)}</span>
       </span></button>
-    <button type="button" class="st-what" data-stwhat="${esc(b.id)}" aria-expanded="${open}" aria-controls="${tid}" hidden><span>What it does<span class="sr">: ${esc(spaced(b.bill_number))}</span></span>${icon('chevron-down')}</button></li>`;
+    <button type="button" class="st-what" data-stwhat="${esc(pol.key)}" aria-expanded="${open}" aria-controls="${tid}" hidden><span>What it does<span class="sr">: ${esc(spaced(b.bill_number))}</span></span>${icon('chevron-down')}</button></li>`;
 }
 // Show "What it does" only on cards whose text is really cut off at this width (or is open, so it can be closed).
 function fitWhat() {
@@ -219,12 +239,18 @@ function fitWhat() {
 // The cut moves when the window is resized, a phone is turned, or the web fonts arrive.
 let fitT = 0;
 window.addEventListener('resize', () => { cancelAnimationFrame(fitT); fitT = requestAnimationFrame(fitWhat); });
-function tickPhrase(first, R) {
-  const t = Math.min(3, first.length), k = first.slice(0, 3).filter(b => R.info(b).h).length;
-  if (!t) return '';
-  if (k === t) return t === 1 ? 'The one with a hearing coming up is checked.' : `The ${t} with hearings soonest are checked.`;
-  if (k) return `The ${k === 1 ? 'one' : k} with ${k === 1 ? 'a hearing' : 'hearings'} coming up ${k === 1 ? 'is' : 'are'} checked, plus ${t - k === 1 ? 'HIPHI’s top pick' : `${t - k} of HIPHI’s top picks`}.`;
-  return t === 1 ? 'HIPHI’s top pick is checked.' : `HIPHI’s top ${t} are checked.`;
+function tickPhrase(first, R, picked) {
+  const on = first.filter(x => x.bills.every(b => picked.has(b.id)));
+  if (!on.length) return '';
+  const strong = on.filter(isStrong).length;
+  // Only credit hearings for rows that are not ALREADY counted as strongly backed, or the sentence
+  // describes the same bills twice.
+  const hear = on.filter(x => !isStrong(x) && R.info(x.bills[0]).h).length;
+  const bits = [];
+  if (strong) bits.push(`the ${strong === 1 ? 'one' : strong} HIPHI backs hardest`);
+  if (hear) bits.push(`${bits.length ? 'and the' : 'the'} ${hear === 1 ? 'one' : hear} with a hearing coming up`);
+  const what = bits.length ? bits.join(' ') : `${on.length === 1 ? 'one' : on.length}`;
+  return `We checked ${what}. Uncheck anything you don’t want.`;
 }
 const skel = (step, off) => shell('', `${artFor(step, off)}${stepRow(step, off)}<p class="sr" role="status">Finding HIPHI’s picks for you</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:128px"></div>'.repeat(3), true);
@@ -236,7 +262,10 @@ function step2() {
   if (m.err) return loadErr(2, false);
   const { sel, first, fallback, empty, extras, picked, R } = m, w = wiz();
   const opened = w.ready && !S.watch.size;   // picked issues off-season; the session has opened since
-  const n = first.length, ticks = tickPhrase(first, R), saved = `We saved your ${empty.length === 1 ? 'pick' : 'picks'}`;
+  // n counts BILLS, not rows: eight rows can carry eleven bills once policies are grouped, and
+  // "Start with these 8 bills" over a list that follows 11 is the copy telling a small lie.
+  const n = first.reduce((a, x) => a + x.bills.length, 0), rows = first.length;
+  const ticks = tickPhrase(first, R, picked), saved = `We saved your ${empty.length === 1 ? 'pick' : 'picks'}`;
   let h1, lede;
   if (fallback && n) { h1 = n === 1 ? 'Start with this bill' : `Start with these ${n} bills`;
     lede = `Nothing is moving on ${namesHtml(empty)} right now. ${saved}. Meanwhile, HIPHI is working on ${n === 1 ? 'this bill' : 'these bills'} this week.`; }
@@ -245,7 +274,8 @@ function step2() {
   else if (opened) { h1 = 'The session is open!'; lede = `Here are HIPHI’s picks for ${issuesPhrase(sel)}. ${n === 1 ? 'It’s checked for you.' : `${ticks} Uncheck any you don’t want.`}`; }
   // One bill: there is nothing to uncheck "any" of (assessment, 9/19).
   else if (n === 1) { h1 = 'Start with this bill'; lede = `HIPHI picked it for ${issuesPhrase(sel)}. It’s checked for you.`; }
-  else { h1 = `Start with these ${n} bills`; lede = `HIPHI picked them for ${issuesPhrase(sel)}. ${ticks} Uncheck any you don’t want.`; }
+  else { h1 = rows === 1 ? 'Start with this one' : `Start with these ${rows}`;
+    lede = `HIPHI picked them for ${issuesPhrase(sel)}${n > rows ? ` — ${plural(n, 'bill')} in all, because some of these are the same idea in more than one bill` : ''}. ${ticks}`; }
   const more = extras.filter(x => x.shown.length).map(x => `<h2 class="st-subh">More ${esc(x.i.key)} bills</h2>
     <ul class="st-picks" role="list">${x.shown.map(b => pickCard(b, R, picked)).join('')}</ul>`).join('');
   const moreBtns = fallback ? '' : extras.filter(x => x.left > 0).map(x => btn(`More ${esc(x.i.key)} bills (${x.left})`, { kind: 'text', icon: 'plus', attrs: { 'data-stmore': x.i.key } })).join('');
@@ -470,7 +500,7 @@ function wire(route) {
     const m = model2();
     $$('[data-stpick]').forEach(el => el.onclick = () => {
       const on = toggleTick(el), w = wiz(), set = new Set(w.picksFor === m.sig ? (w.picks || []) : []);
-      if (on) set.add(el.dataset.stpick); else set.delete(el.dataset.stpick);
+      for (const id of el.dataset.stpick.split(',')) { if (on) set.add(id); else set.delete(id); }
       wizSet({ picksFor: m.sig, picks: [...set] });
       const nb = $('[data-stnext] span'); if (nb) nb.textContent = followLabel(set.size);
       clearFlash();
