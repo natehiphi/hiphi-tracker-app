@@ -124,3 +124,9 @@
   .mb-tiles .row .title { font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; }
   .mb-tiles .row .body { gap: var(--s4); }
 }
+
+/* Only stopped bills: the fold header carries the sentence that used to be an empty-state banner
+   sitting on top of a list that was not empty (G-2), and the way forward goes after the list. */
+.mb-keep { font-weight: 400; color: var(--n500); }
+.mb-note { color: var(--n700); margin: 0 0 var(--s16); }
+.mb-onward { margin: var(--s24) 0 0; }

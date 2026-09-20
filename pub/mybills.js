@@ -183,7 +183,7 @@ export function billRow(b, { note = '', pos = false, fresh = false, why = false,
     <a class="mb-main" href="${billPath(b)}">
       <span class="mb-bill">${head}${note ? `<span class="mb-note">${esc(note)}</span>` : ''}
         <span class="mb-id"><span class="mb-num">${esc(num)}</span>${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}</span></span>
-      <span class="mb-who">${p ? `<span class="mb-pos">${icon(p.icon)}<span>${esc(p.text)}</span></span>` : ''}${mine ? `<span class="mb-stance">${icon(mine.icon)}<span>${esc(mine.text)}</span></span>` : pos || ghost || why ? '' : '<span class="mb-stance none">Not said yet</span>'}</span>
+      <span class="mb-who">${p ? `<span class="mb-pos">${icon(p.icon)}<span>${esc(p.text)}</span></span>` : ''}${mine ? `<span class="mb-stance">${icon(mine.icon)}<span>${esc(mine.text)}</span></span>` : pos || ghost ? '' : '<span class="mb-stance none">Not said yet</span>'}</span>
       <span class="mb-status">${ghost ? '<span class="mb-why">Unfollowed. Select the star to follow it again.</span>' : why ? `<span class="mb-why">${esc(stoppedWhy(b))}</span>` : statusChip(b, hearing)}</span>
       ${why || ghost ? '' : `<span class="mb-next">${nd ? `<b>${esc(nd.day)}</b><span>${esc(nd.sub)}</span>` : moving(b) ? '<span>No date set</span>' : ''}</span>`}
     </a>
@@ -305,7 +305,7 @@ function render() {
   const lists = (S.lists || []).filter(l => S.listFollows.has(l.id));
   const si = sessionInfo(), off = si.phase !== 'in';
   if (lists.length && !off) loadFollowedLists(lists);
-  const head = `<div class="mb-top"><h1 class="hero">My bills</h1>${followed.length ? `<span class="mb-count">${plural(followed.length, 'bill')}</span>` : ''}</div>`;
+  const head = `<div class="mb-top"><h1 class="hero">My bills</h1>${followed.length && live.length ? `<span class="mb-count">${plural(followed.length, 'bill')}</span>` : ''}</div>`;
   // Lists followed with nothing on them yet (between sessions, or a list that has gone quiet): say what will happen.
   const waiting = lists.filter(l => off || movingOn(l) === 0);
   const listLine = waiting.length ? `You follow ${esc(andList(waiting.map(l => l.title)))}. When HIPHI adds ${waiting.length === 1 ? 'its' : 'their'}${off ? ` ${nextYear(si)}` : ''} bills, they will appear here.` : '';
@@ -317,8 +317,12 @@ function render() {
       : emptyBox({ art: VOICES, title: 'You’re not following any bills yet.',
           text: 'Follow a bill and it shows up here, with the next hearing and what you can do about it.',
           action: `<div class="btncol mb-emptybtns">${btn('Find bills', { kind: 'primary', icon: 'search', href: '#/find' })}${off ? '' : btn('Take the 1-minute start', { kind: 'text', href: '#/start/1' })}</div>` });
+  } else if (!live.length && gone.length) {
+    // Only stopped bills, and they are right below: the list speaks for itself. The sentence rides
+    // on the fold header that is already open, and the way forward goes AFTER the list, which is
+    // where a next step belongs (B-3). One word for the state - "stopped" - in all three places.
+    body = off ? `<p class="mb-note">The ${esc(String(si.recapYear))} session is over. The next one opens ${esc(nextOpenWords(si))}.</p>` : '';
   } else if (!live.length) {
-    // Only stopped bills: say so kindly, keep their record, and point to what is still moving.
     body = emptyBox({ title: off ? `The ${si.recapYear} session is over` : 'All your bills have finished for this session.',
       text: off ? `All your bills have finished, and their record stays here. The next session opens ${esc(nextOpenWords(si))}.` : 'Their record stays here.',
       action: btn(off ? 'Browse bills by issue' : 'Find bills still moving', { kind: 'primary', icon: 'search', href: '#/find' }) });
@@ -331,9 +335,11 @@ function render() {
     ${listCards(lists, { where: 'here', mine: true })}</section>` : '';
   // A followed bill that stopped since the last visit is news worth a mark on the closed fold too.
   const goneNew = gone.filter(b => !ghostIds.has(b.id) && newsOf(b)).length;
-  const goneSec = gone.length ? fold('mb-stopped', `Stopped this session (${gone.length})${goneNew ? `<span class="mb-new">${goneNew} new<span class="sr"> since your last visit</span></span>` : ''}`,
+  const goneSec = gone.length ? fold('mb-stopped', `Stopped this session (${gone.length})${!live.length ? ' <span class="mb-keep">— their record stays here</span>' : ''}${goneNew ? `<span class="mb-new">${goneNew} new<span class="sr"> since your last visit</span></span>` : ''}`,
     billList(gone, b => ({ why: true, fresh: true, ghost: ghostIds.has(b.id) })), { open: !live.length }) : '';
-  return `<div class="mb" data-mbroot>${head}${body}${listSec}${goneSec}</div>`;
+  const onward = !live.length && gone.length
+    ? `<p class="mb-onward">${btn(off ? 'Browse bills by issue' : 'Find bills still moving', { kind: 'secondary', icon: 'search', href: '#/find' })}</p>` : '';
+  return `<div class="mb" data-mbroot>${head}${body}${listSec}${goneSec}${onward}</div>`;
 }
 const nextOpenWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
 

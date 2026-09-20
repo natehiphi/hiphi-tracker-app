@@ -184,7 +184,7 @@ function capped(key, bills, opt, n = 10) {
 function reason(b) {
   const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.flatMap(x => x.coalitions || []));
   if ((b.coalitions || []).some(n => picked.has(n))) return 'Matches an issue you picked';
-  if ((b.coalitions || []).some(n => mine.has(n))) return 'Like bills you follow';
+  if ((b.coalitions || []).some(n => mine.has(n))) return 'Similar to bills you follow';
   if (/strongly/.test(b.hiphi_position || '')) return 'One of HIPHI’s top priorities';
   return 'Testimony is open this week';
 }

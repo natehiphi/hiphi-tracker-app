@@ -269,7 +269,7 @@ function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
 function reasonFor(b) {
   const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.filter(x => x.id !== b.id).flatMap(x => x.coalitions || []));
   if ((b.coalitions || []).some(c => picked.has(c))) return 'Matches an issue you picked';
-  if ((b.coalitions || []).some(c => mine.has(c))) return 'Like bills you follow';
+  if ((b.coalitions || []).some(c => mine.has(c))) return 'Similar to bills you follow';
   return /strongly/.test(b.hiphi_position || '') ? 'One of HIPHI’s top priorities' : '';
 }
 // A suggestion card: Follow and "Not for me" always; the reason line only when it says something the card does
@@ -325,10 +325,10 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
-  const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">Another bill that needs voices</h2>
+  const sugInMain = !cards.length && !asks.length;
+  const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">${sugInMain ? 'A bill that still needs voices' : 'Another bill that needs voices'}</h2>
       ${sugCard(sug.b, sug.h)}
       ${btn('More bills that need voices', { kind: 'text', iconEnd: 'chevron-right', href: '#/find', cls: 'hm-link' })}</section>` : '';
-  const sugInMain = !cards.length && !asks.length;
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">

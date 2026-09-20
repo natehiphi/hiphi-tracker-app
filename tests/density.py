@@ -19,8 +19,12 @@ os.makedirs(OUT, exist_ok=True)
 
 # A returning visitor. Without this the public app redirects home to the first-visit
 # wizard and every reading describes onboarding instead of the screen asked for.
-FOLLOWS = ["f3ade73a-7b4a-4ea2-8299-224265456d33", "991efeed-8b98-48b6-9933-5569e301193c",
-           "1c423409-5d74-435a-a1d4-302bfbd7d2bb", "c273ea4a-6c55-43af-9c53-c0745e04996c"]
+# These four must be bills that are still MOVING in the frozen demo session. An earlier set was
+# picked by id order and every one of them was `dead`, so My bills correctly drew its
+# end-of-session empty state and the tool reported 427px of "chrome" that was nothing of the kind.
+# If the snapshot is rebuilt, re-pick these: any four public bills whose stage is not dead/law.
+FOLLOWS = ["f707d3fd-f830-491c-8f46-06dcfd847cbf", "5aa2ef38-47b1-4376-a41d-39983afe15d3",
+           "4cd8463b-a73c-4bc8-b6ef-55a285ecc388", "7d6caa6e-9e33-4cda-a45b-43b94e2c6dc4"]
 SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
         "localStorage.setItem('hiphi_wiz', JSON.stringify({done:true, issues:['vaping']})); } catch (e) {}"
         % json.dumps(json.dumps(FOLLOWS)))
@@ -28,7 +32,7 @@ SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
 # screen, route, what the person came for, selector for it
 PUB = [
   ('start',       '/start/1',      'the first question',   '.st-rrow, .st1 button, .st1 .row'),
-  ('home',        '/',             'what needs you',       '.hm-quiet, .hm-card, .hm .row, .mwrow'),
+  ('home',        '/',             'what needs you',       '.acard, .hm-quiet, .hm-card, .hm .row, .mwrow'),
   ('mybills',     '/bills',        'a bill you follow',    '.mb-row, .mb-main'),
   ('find',        '/find',         'a way in',             '.fd-row, .fd .row, .fd-issue'),
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),

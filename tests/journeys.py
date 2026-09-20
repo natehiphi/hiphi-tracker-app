@@ -71,11 +71,11 @@ def run_one(br, j):
     if j.get('skip_wizard'):                     # a returning visitor who is past onboarding
         p.evaluate("try{localStorage.setItem('hiphi_wiz',JSON.stringify({done:true,issues:['tobacco']}));"
                    "localStorage.setItem('hiphi_watch_ids_demo',JSON.stringify("
-                   "['f3ade73a-7b4a-4ea2-8299-224265456d33','991efeed-8b98-48b6-9933-5569e301193c']));}catch(e){}")
+                   "['5f8d9c39-8a21-415c-a725-2b4dbc8cb7d9','8ef79794-9605-4c2c-924f-0f706ab99f8d']));}catch(e){}")
     if j.get('wiz_at_4'):                        # somebody who has reached the email ask honestly
         p.evaluate("try{localStorage.setItem('hiphi_wiz',JSON.stringify({step:4,issues:['tobacco']}));"
                    "localStorage.setItem('hiphi_watch_ids_demo',JSON.stringify("
-                   "['f3ade73a-7b4a-4ea2-8299-224265456d33','991efeed-8b98-48b6-9933-5569e301193c']));}catch(e){}")
+                   "['5f8d9c39-8a21-415c-a725-2b4dbc8cb7d9','8ef79794-9605-4c2c-924f-0f706ab99f8d']));}catch(e){}")
     p.goto(j['app'] + j['start']); p.reload(); p.wait_for_timeout(2800)
     steps, failed = 0, None
     for s in j['steps']:

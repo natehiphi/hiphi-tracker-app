@@ -48,3 +48,9 @@
 .acard .btn { white-space: normal; text-align: center; }
 .acard .acwhat { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .acard .note { margin-top: var(--s4); }
+
+/* "Not for me" dismisses the suggestion; it is the card's own furniture, not a third action on the
+   bill (A-20). Pushed to the end of the top row, where a dismissible card's control belongs. */
+.acdismiss { margin-left: auto; min-height: 44px; padding: 0 var(--s8); border-radius: var(--pill);
+  color: var(--n500); font-size: var(--t13); font-weight: 700; background: none; }
+.acdismiss:hover { background: var(--n100); color: var(--n700); }

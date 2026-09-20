@@ -35,7 +35,12 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const differs = agrees(b) === false, emailFirst = late || (newToActing() && !didKind(b, h, 'email')), composing = S.compose === k;
   const testimonyBtn = btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
   const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-compose': k } });
+  const followBtn = btn('Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false' } });
+  // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
+  // step 4 (email a committee chair about a bill they met four seconds ago).
+  const asking = !!suggest && !S.watch.has(b.id);
   const primary = differs ? (b.state_url ? btn('Testify at the Capitol site', { kind: 'secondary', iconEnd: 'external-link', full: true, href: b.state_url, attrs: { target: '_blank', rel: 'noopener' } }) : '')
+    : asking ? followBtn
     : composing ? '' : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rows = [
     differs ? '' : emailFirst
@@ -48,7 +53,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   ].join('');
   const name = nick(b);
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
-    ${compact ? '' : `<div class="acrow">${issueLine(iss)}${posChip(b)}</div>
+    ${compact ? '' : `<div class="acrow">${issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
     <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(name || blurb(b, 120))}</a></${heading}>
     ${name ? `<p class="acwhat">${esc(blurb(b, 160))}</p>` : ''}`}
     <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
@@ -63,7 +68,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
-    ${suggest ? `<div class="suggestbar">${btn(S.watch.has(b.id) ? 'Following' : 'Follow', { kind: 'text', icon: 'star', attrs: { 'data-follow': b.id, 'aria-pressed': S.watch.has(b.id) ? 'true' : 'false' }, cls: S.watch.has(b.id) ? 'on' : '' })}${btn('Not for me', { kind: 'text', attrs: { 'data-notforme': b.id } })}</div>` : ''}
+    ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'text', icon: 'star', attrs: { 'data-follow': b.id, 'aria-pressed': 'true' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
 const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
