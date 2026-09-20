@@ -432,7 +432,9 @@ function wire(route) {
   // step 3 it jumped past step 4 entirely, and from step 2 it left with no follows, so home's own
   // ask never fired either. Skip now means "not this question" and only leaves from the last step.
   $$('[data-stskip]').forEach(el => el.onclick = () => {
-    if (step === 3 && followedBills().length) return goStep(3, 4);   // still owed the email ask
+    // In session the email ask is step 4, so Skip on step 3 owes them that step. OFF-SEASON step 3
+    // IS the email step and there is no step 4 - skipping there really does mean leaving.
+    if (step === 3 && sessionInfo().phase === 'in' && followedBills().length) return goStep(3, 4);
     if (step === 2) nudge('follow');                                  // let home make the ask instead
     skipAll();
   });
