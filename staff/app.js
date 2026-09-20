@@ -89,7 +89,7 @@ function header(route, scr, pageH1 = false) {
     <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off"></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
-    <button type="button" class="sv-avbtn" data-avatar aria-label="Your menu">${avatar(S.me, 32)}</button>
+    <button type="button" class="sv-avbtn" data-avatar aria-label="Your menu" aria-haspopup="menu">${avatar(S.me, 32)}${icon('chevron-down', { cls: 'sv-avchev' })}</button>
   </header>`;
 }
 // The desktop sidebar (1100px and wider; staff.css hides it below that, where the header carries the four tabs).

@@ -81,10 +81,10 @@ button.sv-group:hover { background: var(--n100); }
 .sv-switchrow input:checked + .sv-switch::after { transform: translateX(18px); }
 .sv-switchrow input:focus-visible + .sv-switch { outline: 2px solid var(--p700); outline-offset: 2px; }
 .sv-steps { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
-.sv-steps li { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 0 6px; border-radius: var(--r8); background: var(--n100); color: var(--n500); font-size: var(--t13); font-weight: 700; text-align: center; }
+.sv-steps li { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 0 6px 6px; border-bottom: 3px solid var(--n200); background: none; color: var(--n500); font-size: var(--t13); font-weight: 700; text-align: center; }
 .sv-steps li .ic { width: 14px; height: 14px; }
-.sv-steps li.done { background: var(--n100); color: var(--n700); }
-.sv-steps li.cur { background: var(--n0); color: var(--p800); box-shadow: inset 0 0 0 2px var(--p700); }
+.sv-steps li.done { color: var(--n700); border-bottom-color: var(--n400); }
+.sv-steps li.cur { color: var(--p800); border-bottom-color: var(--p700); }
 .sv-notice { margin-bottom: var(--s12); align-items: center; }
 .sv-notice .btn { margin-left: auto; flex: none; }
 
@@ -234,12 +234,13 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
 .sv-rib.done i.now { background: var(--o400); }                 /* law: the one place orange is celebration */
 .sv-rib.stopped i.done { background: var(--n300); }
 .sv-rib.stopped i.now { background: var(--n500); }
-.sv-riblab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--t13); color: var(--n400); }
+.sv-riblab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--t13); color: var(--n500); }
 .sv-riblab b { color: var(--p800); font-weight: 700; text-align: center; }
 .sv-riblab b .set { color: var(--n500); font-weight: 400; }
 .sv-rib.stopped + .sv-riblab b { color: var(--n700); }
 .sv-rib.done + .sv-riblab b { color: var(--o600); }
-@media (max-width: 420px) { .sv-riblab span { display: none; } .sv-riblab { justify-content: center; } }
+/* The ends stay on a phone: without them the ribbon is twelve unlabelled dashes (A-12, P-4). */
+@media (max-width: 420px) { .sv-riblab { gap: var(--s4); font-size: var(--t13); } .sv-riblab span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 
 /* ---- urgency mark (ui.js urgentMark): a block, not a word, so a list scans in one pass ---- */
 .sv-urg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
@@ -323,3 +324,13 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
    sheet, over its own content, and goes when the sheet does. */
 dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index: 3; margin: var(--s8); }
 @media (min-width: 900px) { dialog.sv-sheet .toastmsg.insheet { margin: var(--s12); } }
+
+/* A row that scrolls sideways says so: the last chip fades instead of ending at a clean gutter,
+   which is the only cue a hidden scrollbar leaves (B-9, A-12). Same mask as .sv-scrolly, rotated. */
+.bl-quick, .bl-phone .bl-stgs, .bw-mention, .sp-page .sp-segs {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+/* The account menu hung off a bare initials circle with nothing saying it opened anything (A-12). */
+.sv-avbtn { width: auto; min-width: 44px; padding: 0 2px 0 4px; gap: 1px; }
+.sv-avchev { width: 16px; height: 16px; color: var(--n500); flex: none; }

@@ -338,13 +338,13 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Request changes', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
   else if (d.status === 'review') main = chip('In review', '', 'hourglass');
   else if (d.status === 'second_review') main = chip('Needs 2nd approval', '', 'hourglass');
-  else if (d.status === 'approved') main = btn('Mark filed', { kind, icon: 'clipboard-check', attrs: { 'data-dact': 'file', 'data-draft': d.id } });
+  else if (d.status === 'approved') { main = btn('File at the Capitol', { kind, icon: 'external-link', href: capitolUrl(b), target: '_blank' });
+    alt = btn('Mark filed', { kind: 'secondary', icon: 'clipboard-check', attrs: { 'data-dact': 'file', 'data-draft': d.id } }); }
   else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
   else if (d.status === 'cancelled') main = chip('Hearing cancelled', '', 'circle-x');
   const stale = b.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
   const links = [
     d.doc_url ? btn('Open Doc', { kind: 'text', icon: 'file-text', href: d.doc_url, target: '_blank' }) : '',
-    d.status === 'approved' ? btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' }) : '',
     d.filed_url ? btn('Confirmation', { kind: 'text', icon: 'external-link', href: d.filed_url, target: '_blank' }) : '',
   ].join('');
   return `<div class="bw-tb" data-tb="${esc(d.id)}">

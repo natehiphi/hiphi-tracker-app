@@ -239,7 +239,7 @@ export function todayItems(scope = 'mine', who = null) {
     const mine = (ownMe || subMe) && !muted(b), open = !own(b) && !d.submitted_by && inScope(b);
     if (d.status === 'approved') {
       if (mine || open) push({ ...base, kind: 'file', who: mine ? 'yours' : 'anyone', s: mine && self ? 'File your testimony at the Capitol' : `File the ${c} testimony at the Capitol`,
-        btns: [{ label: 'Mark filed', act: 'file' }, { label: 'File at the Capitol', href: capitolUrl(b), ext: true }] });
+        btns: [{ label: 'File at the Capitol', href: capitolUrl(b), ext: true }, { label: 'Mark filed', act: 'file' }] });
       else if (team) wait(first(d.submitted_by || own(b)), 'to file it', 'Approved', [d.submitted_by, own(b)]);   // either of them may file it
       continue;
     }
@@ -459,7 +459,7 @@ function toolbar(route) {
   // Mine | Team stays as it was. Inside Team, a picker narrows the list to one teammate ("Everyone" by default), so a
   // phone's toolbar keeps its width and the choice sits where the long list is. On a wide screen the side panel's
   // Team load does the same with one click, from any list.
-  const seg = `<div class="sv-seg td-scope" role="group" aria-label="Whose tasks"><button type="button" data-seg="tdscope" data-val="mine" aria-pressed="${scope === 'mine'}">Mine</button><button type="button" data-seg="tdscope" data-val="team" aria-pressed="${scope !== 'mine'}">Team</button></div>`;
+  const seg = `<div class="sv-seg td-scope" role="group" aria-label="Whose tasks"><button type="button" data-seg="tdscope" data-val="mine" aria-pressed="${scope === 'mine'}">Mine</button><button type="button" data-seg="tdscope" data-val="team" aria-pressed="${scope !== 'mine'}">Everyone</button></div>`;
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s list. Choose someone else` : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : icon('users')}<span>${who ? esc(who.full_name) : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub"><div class="td-head"><h1 class="td-h1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span>${g ? `<span class="td-dl"><span class="td-sep" aria-hidden="true">·</span>Deadline ${esc(when)}: ${esc(gateName(g).replace(/^First /, '1st ').replace(/^Second /, '2nd '))}</span>` : ''}</p></div>
