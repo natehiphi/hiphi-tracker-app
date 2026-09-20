@@ -106,6 +106,13 @@ shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`tod
   `.sv-cols` + `.sv-aside`, `.sv-grid2/3`. The frame redraws when the window crosses 900 or 1100px.
 - `menuSheet` / `pickerSheet` open against the clicked button on desktop (arrow keys, Home/End, Esc). Real forms
   use `openSheet`. Never `window.confirm`; use `confirmSheet`.
+- **Bills on a phone (9/19, backend 3.1y).** Three control rows became two and 505px above the first bill became
+  386. What holds it there: no quick filter chips (all three live in Filter, and `sheetOn` therefore includes the
+  quick specs on a phone so a filter set in the sheet can be taken off without reopening it); the "where every
+  bill stands" strip is a flat scrolling row with an inline `bl-stlab` label, hidden below 360px; the header's
+  magnifier is hidden on any screen carrying its own `.bl-search`; and each row is a `.bl-prow` — the `<a>` row
+  plus a `bl-plk` chevron beside it, because the button cannot nest inside the link. Desktop keeps the chips, its
+  header search and the eye button, and none of these rules touch it.
 - **Every keydown shortcut must check `keysOn()`** (My settings has the switch) and ignore typing in fields.
   No single-letter shortcut may do anything that cannot be undone. Approve is Shift+A.
 - **Approve is guarded** (`staff/review.js`): one-second arming after an item appears, a confirm for supporter
@@ -203,10 +210,8 @@ Nate's, not code's — do not start any of these without him:
    URLs (until then a password-reset link lands on the current app), point the Slack and email links at it,
    then delete the current app's screens and make `staff/data.js` the only data layer — which retires
    `parity.mjs` and the 67-call hand copy with it.
-2. At 320px the Bills "where every bill stands" strip costs 176px: the first group header lands at y=569 on a
-   568px screen and the first row at y=613. Measured three ways in backend HANDOFF 3.1y — only hiding the whole
-   strip below 360px puts a real bill on screen (header y=385, row y=429). Legible and 44px either way. Nate's
-   word and it ships; 320–359px only.
+2. Parked at Nate's request (9/19): rehearsing the January session flip. The 2027 calendar load itself is not
+   parked — it has to happen before Wed 20 Jan 2027.
 3. Should `public.html` (the old public page, still live) redirect to `track.html`?
 4. Content: **closed 9/19.** Every public bill has a plain summary; HB 1779 is cleaned up.
 5. Parked at his request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
