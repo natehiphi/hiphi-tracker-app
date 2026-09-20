@@ -219,3 +219,107 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
   body.staff2[data-narrow] main { max-width: 760px; }
   #toast { left: calc(248px + var(--s32)); right: auto; bottom: var(--s24); justify-content: flex-start; }   /* bottom left of the page: the buttons that act on a page sit bottom right */
 }
+
+/* ============================================================================
+   Desktop follow-ups (assessment 9/19, Nate's list): the stage ribbon, the
+   urgency mark, a side panel that never hides content behind an invisible
+   scrollbar, a sidebar that collapses, and the quick-look sheet.
+   ========================================================================= */
+
+/* ---- stage ribbon (ui.js stageRibbon) ---- */
+.sv-rib { display: flex; gap: 3px; margin: 0 0 6px; }
+.sv-rib i { flex: 1 1 0; height: 6px; border-radius: 3px; background: var(--n200); }
+.sv-rib i.done { background: var(--p300); }
+.sv-rib i.now { background: var(--p700); }
+.sv-rib.done i.now { background: var(--o400); }                 /* law: the one place orange is celebration */
+.sv-rib.stopped i.done { background: var(--n300); }
+.sv-rib.stopped i.now { background: var(--n500); }
+.sv-riblab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--t13); color: var(--n400); }
+.sv-riblab b { color: var(--p800); font-weight: 700; text-align: center; }
+.sv-riblab b .set { color: var(--n500); font-weight: 400; }
+.sv-rib.stopped + .sv-riblab b { color: var(--n700); }
+.sv-rib.done + .sv-riblab b { color: var(--o600); }
+@media (max-width: 420px) { .sv-riblab span { display: none; } .sv-riblab { justify-content: center; } }
+
+/* ---- urgency mark (ui.js urgentMark): a block, not a word, so a list scans in one pass ---- */
+.sv-urg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  flex: none; min-width: 60px; padding: 4px 6px; border-radius: var(--r8); background: var(--n100); color: var(--n700); line-height: 1.1; }
+.sv-urg b { font: 700 var(--t16)/1.15 var(--font-h); letter-spacing: -.02em; }
+.sv-urg span { font-size: var(--t13); text-transform: lowercase; color: var(--n500); }   /* 13px: the smallest of the five sizes, not a sixth */
+.sv-urg .ic { width: 14px; height: 14px; margin-bottom: 1px; }
+.sv-urg.soon { background: var(--warn-wash); color: var(--warn-text); }
+.sv-urg.soon span { color: var(--warn-text); }
+.sv-urg.late { background: var(--bad-wash); color: var(--bad-text); box-shadow: inset 3px 0 0 var(--bad-text); }
+.sv-urg.late span { color: var(--bad-text); }
+.sv-urg.done { background: var(--ok-wash); color: var(--ok-text); min-width: 40px; }
+.sv-urg.none { background: none; min-width: 0; padding: 0; }
+
+@media (min-width: 900px) {
+  /* The side panel scrolls with the page once it is taller than the window, instead of hiding its last card
+     behind an inner scrollbar nobody sees (assessment 9/19). Only the first card stays in view. */
+  /* align-self: stretch, or an aside shorter than the main column scrolls off the top taking its sticky card
+     with it — the card only has room to stick inside its own box. */
+  .sv-cols > .sv-aside, body.staff2:has(.band) .sv-cols > .sv-aside { position: static; max-height: none; overflow: visible; align-self: stretch; }
+  /* Docked flush under the header, not 16px below it: in the gap you could see the top edge of the NEXT card
+     sliding past behind the stuck one, and flush also lines the panel up with a pinned page heading. */
+  .sv-cols > .sv-aside .sv-stick { position: sticky; top: var(--header); z-index: 2; }   /* descendant: Today groups its panels into rail columns */
+  /* A panel that still chooses to scroll says so: a gutter is always reserved and the last line fades. */
+  .sv-scrolly { overflow: auto; scrollbar-gutter: stable; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 20px), transparent); }
+}
+
+/* ---- quick look: a bill without leaving the page you are on (look.js) ---- */
+dialog.sv-sheet.look .sv-sh-body { padding-top: var(--s4); }
+/* The sheet's own heading names the bill for a screen reader; the panel then says it properly in the body, so the
+   small copy at the top is not drawn twice. */
+dialog.sv-sheet.look .sv-sh-head { padding-bottom: 0; }
+dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lk-head { margin-bottom: var(--s12); }
+.lk-head .num { font: 700 var(--t22)/1.15 var(--font-h); color: var(--n900); letter-spacing: -.02em; }
+.lk-head .nick { font: 700 var(--t18)/1.25 var(--font-h); color: var(--n900); margin-top: 2px; }
+.lk-head .sum { font-size: var(--t14); color: var(--n500); margin-top: 4px; }
+.lk-says { font-size: var(--t14); color: var(--n700); margin: 0 0 var(--s16); }
+.lk-cols { display: grid; gap: var(--s16); }
+.lk-card { border: 1px solid var(--n200); border-radius: var(--r12); padding: var(--s12); background: var(--n0); }
+.lk-card.next { border-color: var(--p100); background: var(--p50); }
+.lk-card h3 { font-size: var(--t16); margin-bottom: 4px; }
+.lk-kv { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px var(--s12); margin: var(--s8) 0 0; font-size: var(--t14); }
+.lk-kv dt { color: var(--n500); }
+.lk-kv dd { margin: 0; color: var(--n900); min-width: 0; overflow-wrap: anywhere; }
+.lk-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
+.lk-nav { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
+.lk-nav .pos { margin-right: auto; }
+.lk-keys { margin: var(--s12) 0 0; font-size: var(--t13); color: var(--n500); }
+.lk-keys kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 5px; font: 700 11px/16px var(--font); color: var(--n700); background: var(--n0); text-align: center; }
+@media (min-width: 900px) {
+  dialog.sv-sheet.look { width: min(900px, calc(100vw - 64px)); max-height: calc(100vh - 80px); }
+  .lk-cols { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+}
+
+/* ---- a sidebar you can collapse (1100px and wider) ---- */
+@media (min-width: 1100px) {
+  /* The sandbox band only becomes sticky at this width, so the 28px it takes off the top is only owed here.
+     While this lived in the 900px block every .sv-stick between 900 and 1099px was pushed down by a band that
+     was scrolling away with the page. */
+  body.staff2:has(.band) .sv-cols > .sv-aside .sv-stick { top: calc(var(--header) + 28px); }
+  body.staff2.sidenarrow #app { grid-template-columns: 64px minmax(0, 1fr); }
+  body.staff2.sidenarrow .sv-side { padding-left: var(--s8); padding-right: var(--s8); align-items: stretch; }
+  body.staff2.sidenarrow .sv-sbrand { justify-content: center; padding: 0; }
+  body.staff2.sidenarrow .sv-sbrand span { display: none; }
+  body.staff2.sidenarrow .sv-sitem { justify-content: center; padding: 0; gap: 0; }
+  body.staff2.sidenarrow .sv-sitem span.lbl { display: none; }
+  body.staff2.sidenarrow .sv-ssub, body.staff2.sidenarrow .sv-sitem.sub { display: none; }
+  body.staff2.sidenarrow .sv-sn { position: absolute; margin: -16px 0 0 16px; min-width: 18px; height: 18px; font-size: 11px; line-height: 18px; }
+  body.staff2.sidenarrow #toast { left: calc(64px + var(--s32)); }
+  .sv-scollapse { display: flex; align-items: center; gap: var(--s12); min-height: 40px; padding: 0 var(--s12); border-radius: var(--r8); color: var(--n500); font-size: var(--t13); font-weight: 700; }
+  .sv-scollapse:hover { background: var(--n100); color: var(--n900); }
+  .sv-scollapse .ic { width: 18px; height: 18px; flex: none; }
+  body.staff2.sidenarrow .sv-scollapse { justify-content: center; padding: 0; }
+  body.staff2.sidenarrow .sv-scollapse span { display: none; }
+}
+@media (max-width: 1099px) { .sv-scollapse { display: none; } }
+
+/* A toast raised while a sheet is open is appended INTO the sheet (ui.js): an open <dialog> lives in the browser's
+   top layer, so anything left in #toast underneath it can be seen but never clicked. It sits at the foot of the
+   sheet, over its own content, and goes when the sheet does. */
+dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index: 3; margin: var(--s8); }
+@media (min-width: 900px) { dialog.sv-sheet .toastmsg.insheet { margin: var(--s12); } }

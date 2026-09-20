@@ -4,10 +4,12 @@
 // folded at the bottom. It replaces the current app's Tracked bills table, the board, the Did not advance page, the
 // Still alive and monitor chips, the Coalitions & lists menu and the Muted menu, and keeps what each of them did.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD } from './ui.js';
-import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack } from './filters.js';
+import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
+  views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP } from './filters.js';
+import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 
 // ---- groups, in stage order ----
@@ -162,7 +164,38 @@ function sumLine(list, q, filtered, more) {
   if (live === n) return `<b>${n}</b> live bill${n === 1 ? '' : 's'}`;
   return `<b>${n}</b> bill${n === 1 ? '' : 's'} <span class="bl-sumparts">· ${[[live, 'live'], [mon, 'monitoring'], [dead, 'did not advance']].filter(x => x[0]).map(([k, w]) => `${k} ${w}`).join(' · ')}</span>`;
 }
-function dyn() {
+// ---- "Where every bill stands": one row above the table (Nate asked for the current app's three columns of cards
+// back; his call, 9/19, was that the grouped table already shows the bills, so this is the glance that was missing).
+// The counts are buttons: they take you to that group in the table rather than making a second list of it.
+// Seven equal chips would say nothing, so the three that carry the work are full buttons and the rest is a quiet run.
+const LEAD = ['hear', 'risk', 'wait'];
+const SHORT = { hear: 'Hearing scheduled', risk: 'At risk', wait: 'Waiting', thru: 'Through committees', done: 'Governor or law', mon: 'Monitoring', dead: 'Did not advance' };
+const standBtn = (g, cls) => `<button type="button" class="${cls}" data-jump="${g.k}" aria-label="${esc(g.title)}: ${g.rows.length} bill${g.rows.length === 1 ? '' : 's'}. Go to them in the list"><span class="w">${esc(SHORT[g.k] || g.title)}</span><span class="n">${g.rows.length}</span></button>`;
+function standStrip(groups, list) {
+  if (!groups.length) return '';
+  const lead = groups.filter(g => LEAD.includes(g.k)), rest = groups.filter(g => !LEAD.includes(g.k));
+  const clock = sessionClock(list);
+  const cl = clock ? (() => {
+    const n = clock.noHearing.length, soon = clock.days <= 1;
+    return `<div class="bl-clock${soon ? ' soon' : ''}">${icon('calendar-clock')}<div class="bl-cl">
+      <span class="bl-cl1"><b>${esc(clock.name)}</b> · ${esc(fmtDate(clock.date))} · ${clock.days <= 0 ? 'today' : clock.days === 1 ? '1 day away' : `${clock.days} days away`}</span>
+      <span class="bl-cl2">${clock.racing} bill${clock.racing === 1 ? '' : 's'} must be heard by then${clock.racing ? ` · <b class="bl-nh">${n} with no hearing yet</b>` : ''}</span>
+    </div></div>`; })() : '';
+  return `<section class="bl-stands" aria-labelledby="bl-stands-h">
+    <h2 class="bl-stands-h" id="bl-stands-h">Where every bill stands</h2>
+    <div class="bl-stgs"><span class="bl-stlead">${lead.map(g => standBtn(g, 'bl-stg')).join('')}</span>${rest.length ? `<span class="bl-strest">${rest.map(g => standBtn(g, 'bl-stg2')).join('')}</span>` : ''}</div>
+    ${cl}</section>`;
+}
+// ---- saved views: a row of chips beside the Mine/Everyone segment, the current one marked ----
+function viewsRow() {
+  const list = views(), on = curView();
+  if (!list.length) return '';
+  const chip = (id, label, pressed) => `<button type="button" class="chip bl-v" data-view="${esc(id)}" aria-pressed="${pressed}">${pressed ? icon('bookmark-check') : icon('bookmark')}<span>${esc(label)}</span></button>`;
+  return `<div class="bl-views" role="group" aria-label="Saved views"><span class="bl-vlab">Views</span>
+    ${chip('', 'Default', !on && isDefault())}${list.map(w => chip(w.id, w.name, on === w.id)).join('')}
+    <button type="button" class="chip bl-vedit" data-vedit="1">${icon('pencil')}<span>Edit</span></button></div>`;
+}
+function parts() {
   const v = bl(), wide = wideNow(), q = v.q.trim(), { list, groups } = build();
   const act = activeFilters(), quickSpecs = new Set(QUICK.map(x => x[0])), sheetOn = act.filter(([s]) => !quickSpecs.has(s));
   const clear = btn('Clear all', { kind: 'text', sm: true, attrs: { 'data-fclearall': '1' } });
@@ -179,13 +212,16 @@ function dyn() {
   const sum = `<p class="bl-sum" aria-live="polite">${list.length ? sumLine(list, q, filtered, more) : ''}</p>`;
   const selHead = !wide && v.selecting && list.length ? (() => { const shown = NAV, all = shown.length && shown.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
     return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} selected ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : 'Tap bills to select them.'}</span>${btn(all ? 'Select none' : `Select all ${shown.length}`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
-  const body = list.length ? (wide ? table(groups) + keysHint() : phoneList(groups)) : emptyState(q, act.length);
+  const rows = list.length ? (wide ? table(groups) + keysHint() : phoneList(groups)) : emptyState(q, act.length);
+  const strip = list.length ? standStrip(groups, list) : '';
+  // The head is the sticky block: everything you steer the list with. The body is what scrolls under it.
   // Desktop: the quick chips and the count share one line, so the table starts higher (12 compact rows at 1440×900).
-  return wide ? `<div class="bl-frow">${quickRow}${sum}</div>${onRow}<div id="bl-banner">${banner()}</div>${body}`
-    : `${onRow}${quickRow}<div id="bl-banner">${banner()}</div>${sum}${selHead}${body}`;
+  return wide
+    ? { head: `${viewsRow()}<div class="bl-frow">${quickRow}${sum}</div>${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${rows}` }
+    : { head: `${viewsRow()}${onRow}${quickRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${sum}${selHead}${rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
-const keysHint = () => hoverNow() && keysOn() ? `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>` : '';
+const keysHint = () => hoverNow() && keysOn() ? `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>Space</kbd> a quick look · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>` : '';
 function emptyState(q, nf) {
   const v = bl();
   if (q) {
@@ -232,6 +268,7 @@ const COLS = [
   { k: 'pos', label: 'Position', min: [132, 124], ideal: [156, 148], sort: 'pos' }, { k: 'pri', label: 'Priority', w: [78, 78], sort: 'pri' }, { k: 'own', label: 'Owner', w: [72, 72], sort: 'own' },
   { k: 'cmte', label: 'Committees', min: [96, 96], ideal: [148, 140], opt: 1 }, { k: 'coal', label: 'Coalitions', min: [110, 110], ideal: [176, 168], opt: 1 },
   { k: 'last', label: 'Last action', min: [172, 172], ideal: [320, 300], opt: 1, sort: 'last' }, { k: 'pulse', label: 'Team pulse', w: [104, 100], opt: 1, sort: 'pulse' },
+  { k: 'look', w: [36, 32] },
 ];
 // The room the table has: the page is the window, less the sidebar from 1100px (the frame's 248px) and the page's
 // gutters, less the table's border. wire() measures the real box and corrects this once if the frame ever differs.
@@ -270,8 +307,14 @@ function squeezed(cols, avail, ci) {
   return W;
 }
 function table(groups) {
-  const v = bl(), ci = v.compact ? 1 : 0, cols = COLS.filter(c => !c.opt || v.cols.has(c.k)), std = cols.filter(c => !c.opt), avail = tableAvail();
+  const v = bl(), ci = v.compact ? 1 : 0, avail = tableAvail();
   const least = cs => cs.reduce((t, c) => t + (c.w ? c.w[ci] : c.min[ci]), 0);
+  // The quick-look column costs 36px, which is exactly what a 1100px window (with the sidebar) has to spare. It is
+  // the first thing to go, rather than pushing a table that used to fit into scrolling sideways; Space still works.
+  let cols = COLS.filter(c => !c.opt || v.cols.has(c.k));
+  const roomy = cs => least(cs) <= avail || !!squeezed(cs, avail, ci), noLook = cols.filter(c => c.k !== 'look');
+  if (!roomy(cols) && roomy(noLook)) cols = noLook;
+  const std = cols.filter(c => !c.opt);
   // When even the least widths do not fit (optional columns in a small window), the standard table fills the box as
   // it always does and the optional columns sit to its right at full width: only the table scrolls sideways, with the
   // tick box and the bill number pinned, and the page itself never does.
@@ -284,6 +327,7 @@ function table(groups) {
   const [sk, sd] = v.sort || [];
   const th = c => {
     if (c.k === 'sel') return `<th scope="col" class="bl-ck"><label title="Select every bill shown"><input type="checkbox" id="bl-all" ${rowsShown.length && selShown === rowsShown.length ? 'checked' : ''} aria-label="Select every bill shown"></label></th>`;
+    if (c.k === 'look') return '<th scope="col" class="bl-h-look"><span class="sr">Quick look</span></th>';
     if (!c.sort) return `<th scope="col" class="bl-h-${c.k}">${c.label}</th>`;
     const on = sk === c.sort, l = c.label.toLowerCase(), tip = !on ? `Sort by ${l}` : sd > 0 ? `Sorted by ${l}, first to last. Click for last to first` : `Sorted by ${l}, last to first. Click to stop sorting`;
     return `<th scope="col" class="bl-h-${c.k}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bl-sort${on ? ' on' : ''}" data-sort="${c.sort}" title="${tip}"><span>${c.label}</span>${icon(on && sd < 0 ? 'move-down' : 'move-up')}</button></th>`;
@@ -305,6 +349,8 @@ function table(groups) {
       case 'pos': { const p = b.position || ''; return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(POS_WORD[p] || p)}. Change it">${icon(POS_ICON[p] || 'circle-dashed')}<span>${esc(POS_WORD[p] || p)}</span></button></td>`; }
       case 'pri': return `<td><button type="button" class="bl-cell bl-pri" data-edit="pri" data-id="${b.id}" aria-label="Priority for ${esc(billNum(b))}: ${b.priority ? 'P' + b.priority : 'none'}. Change it">${b.priority === 1 ? '<span class="sv-p1">P1</span>' : b.priority ? `<span>P${b.priority}</span>` : none}</button></td>`;
       case 'own': { const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billNum(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
+      // The facts and the next step without leaving the list; the full page is one click on from there.
+      case 'look': return `<td class="bl-lk">${iconBtn('scan-eye', `Quick look at ${billNum(b)}`, { 'data-look': b.id }, 'bl-lkb')}</td>`;
     }
     return '<td></td>';
   };
@@ -357,8 +403,11 @@ function exportCSV(list) {
 }
 const listInOrder = () => build().groups.flatMap(g => g.rows);
 function moreMenu() {
-  const v = bl(), wide = wideNow(), nm = S.mutes?.size || 0, n = shownBills().length, tc = S.triageCounts;
+  const v = bl(), wide = wideNow(), nm = S.mutes?.size || 0, n = shownBills().length, tc = S.triageCounts, nv = views().length;
   menuSheet({ title: 'Bills', items: [
+    { label: 'Save this view', icon: 'bookmark', sub: nv >= VIEW_CAP ? `You have ${VIEW_CAP}, as many as we keep` : 'Name the filters that are on, and come back to them', run: async () => { await settled(); openSaveView(repaintDyn); } },
+    nv ? { label: `Saved views (${nv})`, icon: 'bookmark-check', sub: 'Rename or delete one', run: async () => { await settled(); openEditViews(repaintDyn); } } : null,
+    { label: 'Reset to default', icon: 'rotate-ccw', sub: isDefault() ? 'Already your own bills, no filters' : 'Your own bills, no filters, no search', disabled: isDefault(), reason: 'Nothing to reset', run: () => { resetView(); repaint('[data-filter]'); } },
     { label: 'Weekly memo', icon: 'notebook-pen', sub: 'This week for your bills, ready to paste into an email', run: async () => { await settled(); S.go('#/bills/memo'); } },
     { label: `Muted bills (${nm})`, icon: 'bell-off', sub: nm ? 'See them and unmute' : 'None right now', run: async () => { await settled(); S.go('#/bills/muted'); } },
     { label: 'Export CSV', icon: 'download', sub: `The ${n} bill${n === 1 ? '' : 's'} in this list, as a spreadsheet file`, run: () => exportCSV(listInOrder()) },
@@ -405,8 +454,17 @@ let ROOT = null, longAt = 0, fixing = false;
 function repaintDyn() {
   // Typing in the search box: only the results change, so the box keeps its focus, caret and keyboard.
   const el = document.getElementById('bl-dyn'); if (!el) return;
-  el.innerHTML = dyn(); wireDyn(el.closest('.bl-page'));
+  const page = el.closest('.bl-page'), p = parts();
+  page.querySelector('#bl-head').innerHTML = p.head;
+  el.innerHTML = p.body;
+  wireDyn(page); measureStick();
   const inner = ROOT?.querySelector('.actionbar .inner'); if (inner) { inner.innerHTML = bulkBar(); wireBulkBar(ROOT); }
+}
+// How tall the sticky block is, so the table's own sticky header and group rows hold just under it instead of
+// under the app header. Measured rather than guessed: the chips wrap, and a saved-views row comes and goes.
+function measureStick() {
+  const page = document.querySelector('.bl-page'), st = page?.querySelector('.bl-stick'); if (!st) return;
+  page.style.setProperty('--bl-sh', (wideNow() ? Math.round(st.getBoundingClientRect().height) : 0) + 'px');
 }
 // The bill a row is, opened in a new tab (Cmd or Ctrl with a click, or the middle button), the way a link would.
 const newTab = num => window.open(`${location.pathname}${location.search}#/bill/${encodeURIComponent(num)}`, '_blank', 'noopener');
@@ -421,6 +479,33 @@ function markRow(focus) {
   if (tr && focus) { tr.querySelector('a[data-bill]')?.focus({ preventScroll: true }); tr.scrollIntoView({ block: 'nearest' }); }
   return tr;
 }
+// The bills on screen, in the order shown, as the quick look's j/k list. NAV already holds that order (it is what
+// Previous and Next on a bill page walk), so it is reused rather than worked out again.
+const BYID = () => { const m = new Map(); for (const b of S.bills) m.set(b.id, b); return m; };
+function lookAtRow(id) {
+  const m = BYID(), list = NAV.map(x => m.get(x)).filter(Boolean), i = list.findIndex(b => b.id === id);
+  const b = m.get(id); if (!b) return;
+  openLook(b, { list: list.length ? list : [b], index: Math.max(0, i) });
+}
+// A count in the strip takes you to that group: it opens it if it was folded, then puts its row just under the
+// sticky header. Nothing is filtered away, so there is nothing to undo.
+function jumpGroup(k) {
+  const v = bl();
+  if (v.folds[k] !== true) { v.folds[k] = true; repaint(); }
+  const head = document.querySelector(`.bl-table .bl-gr [data-fold="${k}"], .bl-grp > [data-fold="${k}"]`);
+  const box = head?.closest('tbody, .bl-grp'); if (!box) return;
+  // The group row itself comes to rest under the toolbar AND the table's column headers, so the jump lands it there
+  // rather than a header's height too high, which hid the group's own first row.
+  const th = document.querySelector('.bl-table thead');
+  const want = () => stickBottom() + (th && th.isConnected ? th.offsetHeight : 0);
+  const gap = () => Math.round(box.getBoundingClientRect().top - want());
+  const soft = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scrollTo({ top: Math.max(0, scrollY + gap()), behavior: soft ? 'smooth' : 'auto' });
+  // A smooth scroll can land a few pixels short (the page grew when the group opened), which leaves a sliver of the
+  // group above showing; once it has settled, the last pixels are taken quietly.
+  setTimeout(() => { const d = gap(); if (Math.abs(d) > 2) scrollTo({ top: Math.max(0, scrollY + d), behavior: 'auto' }); }, soft ? 420 : 0);
+  head.focus({ preventScroll: true });
+}
 function moveRow(step) {
   const v = bl(), rows = tableRows(); if (!rows.length) return;
   let i = rows.findIndex(r => r.dataset.row === v.cur);
@@ -430,12 +515,21 @@ function moveRow(step) {
   v.cur = to.dataset.row; v.keys = true; markRow(true);
 }
 function wireDyn(page) {
-  const v = bl(), dynEl = page.querySelector('#bl-dyn');
+  // The head (chips, saved views, the count) and the body (the strip and the rows) are both redrawn together, so
+  // both are wired from the page rather than from #bl-dyn alone. The controls in .bl-top are wired once, in wire().
+  const v = bl(), dynEl = page;
   dynEl.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { const spec = el.dataset.ft; toggle(spec); repaint(`.bl-quick [data-ft="${CSS.escape(spec)}"], .bl-on [data-ft="${CSS.escape(spec)}"]`); });
   dynEl.querySelectorAll('[data-fclearall]').forEach(el => el.onclick = () => { clearAll(); repaint('[data-filter]'); });
   dynEl.querySelectorAll('[data-scopeall]').forEach(el => el.onclick = () => { v.scope = 'all'; changed(); repaint('[data-seg="blscope"][data-val="all"]'); });
   dynEl.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => { v.folds[el.dataset.fold] = el.getAttribute('aria-expanded') !== 'true'; repaint(`[data-fold="${el.dataset.fold}"]`); });
   dynEl.querySelectorAll('[data-selall]').forEach(el => el.onclick = () => { if (el.dataset.selall === 'all') NAV.forEach(id => v.sel.add(id)); else NAV.forEach(id => v.sel.delete(id)); repaint('[data-selall]'); });
+  dynEl.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => jumpGroup(el.dataset.jump));
+  dynEl.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
+    const id = el.dataset.view;
+    if (id ? applyView(id) : (resetView(), true)) repaint(`[data-view="${CSS.escape(id)}"]`, '[data-filter]');
+  });
+  dynEl.querySelectorAll('[data-vedit]').forEach(el => el.onclick = () => openEditViews(repaintDyn));
+  dynEl.querySelectorAll('[data-look]').forEach(el => el.onclick = () => { v.cur = el.dataset.look; markRow(false); lookAtRow(el.dataset.look); });
   // Phones: in select mode a tap picks the bill; otherwise press and hold starts select mode with that bill.
   const listEl = dynEl.querySelector('.bl-list');
   if (listEl && v.selecting) listEl.querySelectorAll('button[data-bill]').forEach(el => el.onclick = () => { const id = el.dataset.bill; v.sel.has(id) ? v.sel.delete(id) : v.sel.add(id); repaint(`[data-bill="${id}"]`); });
@@ -484,11 +578,28 @@ function wireDyn(page) {
   if (box) { if (v.sx) box.scrollLeft = v.sx; edgeCue(box); box.addEventListener('scroll', () => { v.sx = box.scrollLeft; edgeCue(box); }, { passive: true }); }
 }
 let lastBox = null;
+// Where the page's own sticky stack ends: the app header (offset by the sandbox band when there is one) plus the
+// Bills toolbar. Read from the boxes themselves, so the band and the wrapping chips never need counting by hand.
+function stickBottom() {
+  const st = document.querySelector('.bl-page .bl-stick');
+  if (st && getComputedStyle(st).position === 'sticky') return Math.max(0, Math.round(st.getBoundingClientRect().bottom));
+  return Math.max(0, Math.round(document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 56));
+}
+// In the sideways-scrolling table neither the column headers nor the group rows can use position: sticky (their
+// scroll box is the table's, not the window's), so both are held by hand while the table is on screen.
 function holdHead() {
   const box = document.querySelector('.bl-tscroll'), head = box?.querySelector('thead'); if (!head) return;
-  const top = document.querySelector('.sv-hdr')?.offsetHeight || 56, r = box.getBoundingClientRect();
-  const dy = Math.round(Math.max(0, Math.min(top - r.top, r.height - head.offsetHeight - 56)));
+  const top = stickBottom(), r = box.getBoundingClientRect(), hh = head.offsetHeight;
+  const dy = Math.round(Math.max(0, Math.min(top - r.top, r.height - hh - 56)));
   box.style.setProperty('--bl-hy', dy + 'px'); box.classList.toggle('bl-held', dy > 0);
+  // Each group row stays under the held header while its own rows are on screen, and stops at the end of its group.
+  for (const tb of box.querySelectorAll('tbody.bl-tg')) {
+    const g = tb.querySelector('.bl-grb'); if (!g) continue;
+    const rb = tb.getBoundingClientRect(), gh = g.offsetHeight;
+    const d = Math.round(Math.max(0, Math.min(top + hh - rb.top, rb.height - gh)));
+    g.style.transform = d ? `translateY(${d}px)` : '';
+    g.classList.toggle('bl-held', d > 0);
+  }
 }
 // The faded right edge says "there is more this way"; it goes once the table is scrolled to its end.
 function edgeCue(box) { box.parentElement?.classList.toggle('bl-end', box.scrollLeft + box.clientWidth >= box.scrollWidth - 2); }
@@ -506,8 +617,10 @@ export default {
     // Select mode belongs to the list: arriving from any other page starts without it (it used to follow you around).
     if ((document.body.dataset.screen || 'bills') !== 'bills' || v.lastMuted) dropSelect();
     v.lastMuted = false;
-    const wide = wideNow();
-    return `<div class="bl-page ${wide ? 'bl-wide' : 'bl-phone'}">${controls(wide)}<div id="bl-dyn">${dyn()}</div></div>`;
+    const wide = wideNow(), p = parts();
+    // Everything you steer the list with is in one block, so from 900px up it can stay under the app header while
+    // 113 rows go past it. On a phone it is a plain block: the screen is too short to spend on controls.
+    return `<div class="bl-page ${wide ? 'bl-wide' : 'bl-phone'}"><div class="bl-stick">${controls(wide)}<div id="bl-head">${p.head}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
   bar(route) {
     if (route.muted) return '';
@@ -532,8 +645,15 @@ export default {
     page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget);
     page.querySelector('[data-more]').onclick = moreMenu;
     const cb = page.querySelector('[data-cols]'); if (cb) cb.onclick = () => columnsSheet(cb);
+    measureStick();
+    // The toolbar's own height changes when the chips wrap (a window resize, a filter that adds a chip, a saved
+    // view appearing), and the table's sticky header hangs off it.
+    STICK?.disconnect();
+    const st = page.querySelector('.bl-stick');
+    if (st && typeof ResizeObserver === 'function') { STICK = new ResizeObserver(() => measureStick()); STICK.observe(st); }
   },
 };
+let STICK = null;
 
 // Once for the app: the layout switches between rows and the table at 900px, the keys, and a press and hold must not
 // also count as a tap on the row that appears under the finger.
@@ -558,6 +678,8 @@ if (typeof window !== 'undefined') {
     if (Date.now() - lastG < 1200) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, v = S.bl, tr = tableRows().find(r => r.dataset.row === v.cur);
     if (k === 'j' || k === 'k') { e.preventDefault(); moveRow(k === 'j' ? 1 : -1); }
+    // Space on the marked row: the quick look. It opens a panel and changes nothing, so it is safe on one key.
+    else if (k === ' ' && tr && !e.target?.closest?.('button, [role="button"], summary')) { e.preventDefault(); v.keys = true; lookAtRow(tr.dataset.row); }
     else if (k === 'x' && tr) { e.preventDefault(); v.sel.has(v.cur) ? v.sel.delete(v.cur) : v.sel.add(v.cur); v.keys = true; repaint(); }
     // Enter on the row's own link is the browser's; here it covers the marker when the focus is on the page itself.
     else if ((k === 'o' || k === 'Enter' && (e.target === document.body || e.target.id === 'main')) && tr) { e.preventDefault(); S.billNav = NAV.slice(); S.go('#/bill/' + tr.dataset.num); }

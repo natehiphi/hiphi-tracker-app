@@ -119,6 +119,12 @@ function suggestHTML(v) {
 
 // ---- rows ----
 const pdHTML = l => `<span class="lg-pd"><span aria-hidden="true">${esc(partyDist(l))}</span><span class="sr">${esc(`${PARTY[l.party] || ''} ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`.trim())}</span></span>`;
+// The towns a district covers, under the district code. A supporter says "I live in Kaūmana" far more often than
+// "I am in Senate District 1", so the names have to be on the row, not only on the legislator's page. One line that
+// cuts with an ellipsis keeps the row rhythm; the whole list is on hover (title) and read out in full (.sr).
+// The search already matches these words: hay() above feeds l.places into the haystack.
+const townsHTML = l => { const t = String(l.places || '').trim(); if (!t) return '';
+  return `<span class="lg-twn" title="${esc(t)}"><span aria-hidden="true">${esc(t)}</span><span class="sr">Covers ${esc(t)}</span></span>`; };
 // "Chair, HHS · Member, CPN"; plain seats are grouped ("Member, HHS and CPN")
 const andList = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 // Leadership seats are named; plain seats only when there is no leadership seat ("Member, HHS and LBT").
@@ -138,8 +144,9 @@ export function legRow(l, { week, weekMode = false } = {}) {
   const w = week && week.get(l.id), n = w ? w.bills.size : 0;
   // The count comes first so a narrow screen cuts the committee list, not the number that matters this week.
   const sub = weekMode && w ? [`${n} of our bills`, rolesText(w.roles)]
-    : [n ? `${n} of our bills this week` : '', l.title, seatsOf(l).map(m => m.role === 'member' ? m.committee : `${roleWord(m.role)}, ${m.committee}`).join(' · ') || l.places];
-  return `<a class="row lg-row" href="${legHref(l)}">${photo(l, 40)}<span class="body"><span class="title"><span class="lg-nm">${esc(l.name)}</span>${pdHTML(l)}</span><span class="sub">${esc(sub.filter(Boolean).join(' · '))}</span></span><span class="end">${stanceSummary(l, weekMode && w ? w.bills : null)}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+    : [n ? `${n} of our bills this week` : '', l.title, seatsOf(l).map(m => m.role === 'member' ? m.committee : `${roleWord(m.role)}, ${m.committee}`).join(' · ')];
+  // The towns get their own line rather than the tail of the committees, so they are never the first thing cut.
+  return `<a class="row lg-row" href="${legHref(l)}">${photo(l, 40)}<span class="body"><span class="title"><span class="lg-nm">${esc(l.name)}</span>${pdHTML(l)}</span>${sub.filter(Boolean).length ? `<span class="sub">${esc(sub.filter(Boolean).join(' · '))}</span>` : ''}${townsHTML(l)}</span><span class="end">${stanceSummary(l, weekMode && w ? w.bills : null)}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 }
 const weekOrder = week => (a, b) => week.get(b.id).bills.size - week.get(a.id).bills.size
   || Math.min(...Object.values(week.get(a.id).roles).map(r => RANK[r])) - Math.min(...Object.values(week.get(b.id).roles).map(r => RANK[r])) || a.sort_name.localeCompare(b.sort_name);
@@ -248,7 +255,7 @@ function tableHTML(v, ls, week, mode) {
     const names = (weekMode && w ? Object.keys(w.roles) : seatsOf(l).map(m => m.committee)).map(c => `${c}: ${cmteName(c)}`).join('\n');
     return `<tr data-lgrow="${l.id}" data-href="${legHref(l)}">
       <th scope="row" class="lg-c-name"><a class="lg-tn" href="${legHref(l)}">${photo(l, 32)}<span class="lg-tnb"><span class="lg-nm">${esc(l.name)}</span>${l.title ? `<span class="lg-tl" title="${esc(l.title)}">${esc(l.title)}</span>` : ''}</span></a></th>
-      <td class="lg-c-district">${pdHTML(l)}</td>
+      <td class="lg-c-district">${pdHTML(l)}${townsHTML(l)}</td>
       <td class="lg-c-island">${esc(islandFor(l)) || '<span class="lg-dash">Not known</span>'}</td>
       <td class="lg-c-cmte"${names ? ` title="${esc(names)}"` : ''}><span class="lg-clamp">${esc(seats) || '<span class="lg-dash">No committee seats</span>'}</span></td>
       <td class="lg-c-bills lg-num">${wb.n || '<span class="lg-dash">0</span>'}</td>

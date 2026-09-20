@@ -102,6 +102,10 @@ const SIDE = [
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
 const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+// Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
+// following them to their phone (where there is no sidebar at all).
+export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
+const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
 function sidebar(route, scr) {
   const bd = badge(), sub = SUB_OF[route.name] || '';
   let rv = 0; try { rv = reviewQueue().length; } catch { rv = 0; }
@@ -110,9 +114,10 @@ function sidebar(route, scr) {
   return `<aside class="sv-side" aria-label="Sections">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
     <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
-      <a class="sv-sitem" href="${href}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span>${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
-      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span>${l}</span>${k === 'review' ? count(rv) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
-    <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span>${l}</span></a>`).join('')}</nav>
+      <a class="sv-sitem" href="${href}" title="${label}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
+      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
+    <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" title="${l}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${l}</span></a>`).join('')}
+      <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${sideNarrow()}">${icon(sideNarrow() ? 'panel-left-open' : 'panel-left-close')}<span>Collapse</span></button></nav>
   </aside>`;
 }
 function tabbar(scr) {
@@ -129,7 +134,7 @@ export function render() {
   let main, bar = '';
   try { main = scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
   const cls = document.body.classList;
-  cls.add('staff2'); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
+  cls.add('staff2'); cls.toggle('sidenarrow', sideNarrow()); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
   // Desktop widths: a screen is 1120px by default; `wide` (tables) uses the whole window; `narrow` (one focused task
   // or a form: review, settings) stays a 760px reading column.
@@ -164,6 +169,8 @@ function wireFrame(app) {
     go(a.getAttribute('href'));
   }));
   app.querySelector('[data-avatar]')?.addEventListener('click', avatarMenu);
+  // Collapse: redrawn in place, so the page under it keeps its scroll position and nothing else moves.
+  app.querySelector('[data-sidecol]')?.addEventListener('click', () => { setSideNarrow(!sideNarrow()); render(); document.querySelector('[data-sidecol]')?.focus(); });
   // "Skip to content" moves focus into the page. As a #main link the router read it as a page name and went to Today.
   const skip = app.querySelector('[data-skip]');
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };

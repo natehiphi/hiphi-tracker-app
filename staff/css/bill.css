@@ -1,7 +1,7 @@
 /* HIPHI Staff v2 · M2 Bill workspace (bill.js, activity.js, public.js, and pathway.js's desktop table). Every
-   selector starts with .bw-. Phone first at 390px. From 900px (build 3) the page is two columns: the heading, the
-   tabs and the tab's content on the left, and a side panel that stays in view on the right (Next up, Team, Key
-   facts). Sizes 13/14/16/18/22 only. */
+   selector starts with .bw-. Phone first at 390px. From 900px (build 4) the page is two columns: on the left the
+   heading and the tabs, pinned together under the app header, with the tab's content under them; on the right a side
+   panel of Next up and Team whose first card stays in view. Sizes 13/14/16/18/22 only. */
 
 /* The frame gives this page its whole width (wide: true in bill.js); the page caps itself. Phones and small tablets
    keep the 720px column they had (688px inside the gutters). */
@@ -19,6 +19,10 @@
 .bw-title { font: 700 var(--t18)/1.3 var(--font); color: var(--n900); max-width: 40em; overflow-wrap: anywhere; }
 .bw-title.bw-long { font-size: var(--t16); line-height: 1.4; }
 .bw-lede { margin-top: 2px; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
+/* The stage ribbon (ui.js stageRibbon) sits between the name and the status sentence: twelve steps, the current one
+   marked, and a caption that names it. It is the same on all four tabs, so Pathway holds the detail, not the fact. */
+.bw-ribwrap { margin-top: var(--s12); max-width: 46em; }
+.bw-ribwrap .sv-riblab { margin-bottom: 0; }
 .bw-status { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
 .bw-status > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); }
 .bw-chips { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-top: var(--s12); }
@@ -128,6 +132,7 @@
 .bw-dt dt { font-size: var(--t13); font-weight: 700; color: var(--n500); margin-bottom: 2px; }
 .bw-dt dd { margin: 0; color: var(--n900); overflow-wrap: anywhere; }
 .bw-gloss { display: block; margin-top: 2px; font-size: var(--t13); color: var(--n500); }
+.bw-chair { display: inline-block; }   /* "Chair Sen. San Buenaventura" wraps as one phrase, never after the word */
 .bw-refl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .bw-refl + .bw-refl { margin-top: var(--s8); }
 .bw-refch { min-width: 56px; font-size: var(--t13); font-weight: 700; color: var(--n500); }
@@ -235,7 +240,7 @@
   .bw-pn[aria-disabled="true"] { color: var(--n400); text-decoration: none; cursor: default; }
   .bw-pn[aria-disabled="true"]:hover { background: none; }
 
-  /* the main column: number, name, where it stands, then the tabs with their content on the first screen */
+  /* the main column: number, name, the ribbon, where it stands, then the tabs with the tab's content under them */
   .bw-cols { margin-top: var(--s4); }
   .bw-main { min-width: 0; }
   .bw-num { display: block; }
@@ -243,6 +248,11 @@
   .bw-head { padding-top: 0; }
   .bw-title { margin-top: var(--s4); }
   .bw-lede { font-size: var(--t16); }
+  /* The heading and the tab strip pin under the app header as ONE block: on a long Activity stream or a long Pathway
+     you keep both your place and the tabs. bill.js measures this block and publishes --bw-under, the line the tab's
+     own sticky pieces (the Pathway table's header row, the Public tab's preview) hold themselves to. */
+  .bw-stick { position: sticky; top: var(--header); z-index: 20; background: var(--n50); }
+  .bw-stick .bw-tabs { position: static; }
   /* one line, 45px: where the column is too narrow for the key hint it wraps to a second line, which is cut off */
   .bw-tabs { display: flex; flex-wrap: wrap; align-items: stretch; column-gap: var(--s4); row-gap: var(--s8); max-height: 45px; overflow: hidden; margin: var(--s16) 0 0; padding: 0; border-top: 0; background: var(--n50); }
   .bw-tabs a { min-height: 44px; padding: 0 var(--s16); border-radius: var(--r8) var(--r8) 0 0; }
@@ -251,10 +261,16 @@
   .bw-tabs a[aria-current="page"]::after { left: 0; right: 0; bottom: 0; }
   .bw-panel { padding-top: var(--s24); container: bwp / inline-size; }
 
-  /* the side panel (the frame's .sv-aside keeps it in view): Next up, Team, Key facts */
-  /* 2px of room for the cards' shadows inside its own scroll. At the end of a page main keeps 48px of padding under
-     the columns, so the panel is that much shorter than the window, or its top would slide under the header there. */
-  .bw-cols > .bw-aside { padding: 2px; margin: -2px; max-height: calc(100vh - var(--header) - var(--s16) - var(--s48)); }
+  /* The side panel is Next up and Team only — the key facts moved into Details, so nothing hides behind an invisible
+     inner scrollbar. It scrolls with the page (staff.css); its first card stays in view (.sv-stick).
+     2px of room for the cards' shadows, which a sticky card would otherwise clip. */
+  /* Stretched to the row, not sized to its own cards: the panel is shorter than the main column, and without this
+     its sticky first card would scroll away with the panel a screen into a long Activity stream. */
+  .bw-cols > .bw-aside { padding: 2px; margin: -2px; align-self: stretch; }
+  /* Next up docks on the same line as the pinned heading, with no gap: the Team card behind it then passes under the
+     app header instead of showing a stray card edge in the space between. (The shared .sv-stick keeps 16px there,
+     and adds the band's 28px from 900px although the band is only sticky from 1100px.) */
+  .bw-cols > .bw-aside > .sv-stick, body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: var(--header); }
   .bw-page .bw-aside .card { margin-top: 0; }
   .bw-next .bw-acts .btn { flex: 0 1 auto; }
   /* tighter than the phone card, so Next up and Team both show on a 1280x800 screen */
@@ -273,12 +289,6 @@
   .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
   .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bw-ctl .sv-av { font-size: var(--t13); }
-  .bw-kf { margin: 0; }
-  .bw-kf .bw-dt { display: block; padding: var(--s8) 0; }
-  .bw-kf .bw-dt:first-child { padding-top: 0; }
-  .bw-kf .bw-dt:last-child { padding-bottom: 0; }
-  .bw-kf .bw-dt dd .sv-count, .bw-kf .bw-late { margin-left: 2px; }
-  .bw-kf .bw-linkrow { column-gap: var(--s16); }
 
   /* Overview: a readable column; the details line up as label and value */
   .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
@@ -320,13 +330,13 @@
   @container bwp (min-width: 560px) {
     .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 248px; gap: var(--s24); align-items: start; }
     .bw-pubcols .bw-pubform { max-width: none; }
-    .bw-prev { display: block; position: sticky; top: calc(var(--header) + 45px + var(--s16)); margin-top: var(--s12); }
+    .bw-prev { display: block; position: sticky; top: calc(var(--bw-under, calc(var(--header) + 45px)) + var(--s16)); margin-top: var(--s12); }
   }
 
   /* Pathway: each stop's members as a table (pathway.js draws it on desktop only) */
   .bw-panel .lg-stop { overflow: clip; }                          /* keeps the rounded corners without trapping the sticky header row */
   .bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t14); }
-  .bw-pwt thead th { position: sticky; top: calc(var(--header) + 45px); z-index: 5; height: 40px; padding: 0 8px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; }
+  .bw-pwt thead th { position: sticky; top: var(--bw-under, calc(var(--header) + 45px)); z-index: 5; height: 40px; padding: 0 8px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; }
   .bw-pwt thead th:first-child { padding-left: var(--s16); }
   .bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-weight: 700; color: var(--n500); }
   .bw-sortb:hover { background: var(--n100); color: var(--n900); }
@@ -375,6 +385,14 @@
     .bw-pwc-act { width: 92px; }
   }
 }
+/* From 1100px the sandbox band is sticky and the app header sits 28px under it (staff.css's body.staff2:has(.band)
+   rules). The pinned heading follows the header down, or it would cover the header's lower half. Below 1100px the
+   band scrolls away and the header holds the top, so the plain top: var(--header) above is right there. */
+@media (min-width: 1100px) {
+  body.staff2:has(.band) .bw-stick,
+  body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + 28px); }
+}
+
 /* Pointers that hover get a wash under everything clickable, not only a colour change. */
 @media (hover: hover) and (pointer: fine) {
   .bw-page .btn.text:hover { background: var(--p50); text-decoration: none; }

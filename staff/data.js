@@ -407,6 +407,17 @@ export const DB = {
     const { error } = await S.supa.from('advocates').update({ slack_dm, prefs }).eq('id', S.me.id);
     if (error) throw error;
   },
+  // One corner of advocates.prefs, merged and saved. Used for the things that used to live in localStorage and so
+  // did not follow anyone from their laptop to their phone: which messages you have seen, which suggestions you
+  // have put off, your saved views on Bills. Optimistic, and it puts the old value back if the write is refused.
+  async patchPrefs(patch) {
+    const before = S.me?.prefs || {};
+    if (!S.me) return;
+    S.me.prefs = { ...before, ...patch };
+    if (DEMO) return;
+    const { error } = await S.supa.from('advocates').update({ prefs: S.me.prefs }).eq('id', S.me.id);
+    if (error) { S.me.prefs = before; throw error; }
+  },
   async saveSlackSettings(cfg, coalitionChannels) {
     S.slackCfg = cfg;
     for (const [id, ch] of coalitionChannels) { const c = S.campaigns.find(x => x.id === id); if (c) c.slack_channel = ch; }
@@ -717,7 +728,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260919', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260920', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];

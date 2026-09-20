@@ -3,9 +3,9 @@
 // every option, and options that would leave nothing are disabled. passes() from model.js does the shared facets and
 // flags; this file adds the two groups the current app handled elsewhere (owner, which was the teammate scope, and
 // committee) so every count in the sheet comes from one function, passAll().
-import { S, DEMO, esc, advocate, effStage, STAGES, isMine, hooks } from './data.js';
+import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, hooks } from './data.js';
 import { factsOf, facets, FACTS, passes, diedish, codesOf, plain } from './model.js';
-import { icon, btn, openSheet, closeSheet, POS_ICON, POS_WORD } from './ui.js';
+import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
 export const wideNow = () => matchMedia('(min-width: 900px)').matches;
@@ -37,18 +37,27 @@ export function deskBack(key) {   // key: 'triage' | 'memo' | 'muted' (muted bil
 // them there; the rest lives on S.bl so nothing else in the app is touched.
 export function bl() {
   if (!S.bl) {
-    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set() };
+    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '' };
     load();
   }
   return S.bl;
 }
-function load() {
-  const v = S.bl;
-  let f = null; try { f = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { /* private window: start clean */ }
+// The starting state, and the shape a saved view stores: every filter, and nothing about how the table is drawn
+// (columns and row height are how this person likes to read, not what they are looking at).
+export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [] };
+export function viewState() {
+  const v = bl();
+  return { scope: v.scope, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts],
+    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes] };
+}
+// Ids are checked against what exists today, so a deleted coalition or teammate never leaves a filter nobody can see
+// (a saved view made in January is read the same way in April).
+function applyFilters(f) {
+  const v = bl();
   S.pris = new Set(); S.poss = new Set(); S.stands = new Set(); S.camps = new Set(); S.lsts = new Set();
   S.hearF = false; S.riskF = false; S.tripleF = false; S.aliveF = false; S.stageF = '';   // "Still alive" is the folded Did not advance group now
+  v.owners = new Set(); v.cmtes = new Set();
   if (!f) return;
-  // Ids are checked against what exists today, so a deleted coalition or teammate never leaves a filter nobody can see.
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.scope = f.scope === 'all' ? 'all' : 'me';
   S.pris = new Set(ok(f.pris, [1, 2, 3]));
@@ -60,12 +69,20 @@ function load() {
   S.stageF = STAGES.some(([k]) => k === f.stageF) ? f.stageF : '';
   v.owners = new Set(ok(f.owners, ['none', ...S.advocates.map(a => a.id)]));
   v.cmtes = new Set(f.cmtes || []);
+}
+function load() {
+  const v = S.bl;
+  let f = null; try { f = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { /* private window: start clean */ }
+  applyFilters(f);
+  if (!f) return;
+  const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.cols = new Set(ok(f.cols, ['cmte', 'coal', 'last', 'pulse']));
   v.compact = !!f.compact;
+  v.view = typeof f.view === 'string' ? f.view : '';
 }
 export function save() {
   const v = bl();
-  try { localStorage.setItem(KEY, JSON.stringify({ scope: v.scope, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts], hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], cols: [...v.cols], compact: v.compact })); } catch { /* storage full or blocked: filters just are not remembered */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ ...viewState(), cols: [...v.cols], compact: v.compact, view: v.view || '' })); } catch { /* storage full or blocked: filters just are not remembered */ }
 }
 
 // ---- the list ----
@@ -115,13 +132,107 @@ export function toggle(spec) {
   changed();
 }
 export function clearAll() {
-  const v = bl();
-  S.pris = new Set(); S.poss = new Set(); S.stands = new Set(); S.camps = new Set(); S.lsts = new Set();
-  S.hearF = false; S.riskF = false; S.tripleF = false; S.stageF = ''; v.owners = new Set(); v.cmtes = new Set();
+  const v = bl(), scope = v.scope;
+  applyFilters({ ...BLANK, scope });   // clearing the filters is not a change of scope: Mine stays Mine
   changed();
 }
-// Each new filter state starts with sensible folds again (a group opens when it is all there is to see).
-export function changed() { bl().folds = {}; save(); }
+// Each new filter state starts with sensible folds again (a group opens when it is all there is to see). Any change
+// made by hand also means this is no longer the saved view it came from, so the chip stops saying it is.
+export function changed(keepView = false) { const v = bl(); if (!keepView) v.view = ''; v.folds = {}; save(); }
+
+// ---- saved views (plan 3.4, Nate 9/19) ----
+// A view is a name for a filter state. They live in advocates.prefs, so someone's "My P1s this week" is the same on
+// their laptop and their phone; the unnamed current state stays in localStorage, which is per browser on purpose
+// (what you were last looking at is not worth syncing). No new Supabase call: DB.patchPrefs already exists.
+export const VIEW_CAP = 8;
+export const views = () => { const w = S.me?.prefs?.views; return Array.isArray(w) ? w.filter(x => x && x.id && x.name) : []; };
+export const curView = () => views().some(w => w.id === bl().view) ? bl().view : '';
+export const viewName = id => views().find(w => w.id === id)?.name || '';
+const newId = () => 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const putViews = list => DB.patchPrefs({ views: list });
+export const addView = async name => { const list = views(); if (list.length >= VIEW_CAP) return null;
+  const w = { id: newId(), name, f: viewState() }; await putViews([...list, w]); bl().view = w.id; save(); return w; };
+export const renameView = async (id, name) => { await putViews(views().map(w => w.id === id ? { ...w, name } : w)); };
+// Delete gives back what it removed and where, so Undo puts it back in the same place in the row.
+export const removeView = async id => { const list = views(), at = list.findIndex(w => w.id === id); if (at < 0) return null;
+  const w = list[at]; await putViews(list.filter(x => x.id !== id)); if (bl().view === id) { bl().view = ''; save(); } return { w, at }; };
+export const restoreView = async ({ w, at }) => { const list = views().slice(); list.splice(Math.min(at, list.length), 0, w); await putViews(list); };
+export function applyView(id) {
+  const w = views().find(x => x.id === id); if (!w) return false;
+  const v = bl(); applyFilters(w.f); v.q = ''; changed(); v.view = id; save(); return true;
+}
+// Back to how Bills looks on a first visit: your own bills, no filters, no search. Columns and row height stay.
+export function resetView() { const v = bl(); applyFilters(BLANK); v.q = ''; changed(); }
+export const isDefault = () => { const f = viewState(); return !activeFilters().length && f.scope === 'me' && !bl().q.trim(); };
+
+// ---- the two sheets: name a view, and look after the ones you have ----
+// A real form, so openSheet (never window.prompt, which no phone shows well and no screen reader announces).
+const suggestName = () => {
+  const on = activeFilters().map(([, l]) => l);
+  return (on.length ? on.slice(0, 3).join(' · ') : bl().scope === 'all' ? 'Everyone’s bills' : 'My bills').slice(0, 40);
+};
+const nameTaken = (name, notId) => views().some(w => w.id !== notId && w.name.toLowerCase() === name.toLowerCase());
+// One name form for both jobs: Save this view, and Rename. `after` redraws whatever opened it.
+function nameSheet({ title, value, ok, help, run, after, notId }) {
+  openSheet({ title, size: 'auto',
+    body: `${help ? `<p class="small muted bl-vhelp">${help}</p>` : ''}
+      ${field('bl-vname', 'Name', `<input class="input bl-vinput" id="bl-vname" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" value="${esc(value)}" autofocus>`)}
+      <div class="bl-verr" id="bl-verr"></div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-vno': '1' } })}${btn(ok, { attrs: { 'data-vyes': '1' } })}`,
+    wire: d => {
+      const input = d.querySelector('#bl-vname'), err = d.querySelector('#bl-verr'), go = d.querySelector('[data-vyes]');
+      const fail = t => { err.innerHTML = inlineErr('bl-vmsg', t); input.setAttribute('aria-describedby', 'bl-vmsg'); input.focus(); };
+      const submit = async () => {
+        const name = input.value.trim().replace(/\s+/g, ' ');
+        if (!name) return fail('Give the view a name.');
+        if (nameTaken(name, notId)) return fail('You already have a view with that name.');
+        go.setAttribute('aria-busy', 'true');
+        try { await closeSheet({ silent: true }); await run(name); after?.(); }
+        catch (e) { go.removeAttribute('aria-busy'); toast(e, { err: true }); }
+      };
+      go.onclick = submit;
+      d.querySelector('[data-vno]').onclick = () => closeSheet();
+      input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+      input.oninput = () => { err.innerHTML = ''; input.removeAttribute('aria-describedby'); };
+      setTimeout(() => input.select(), 0);
+    } });
+}
+export function openSaveView(after) {
+  if (views().length >= VIEW_CAP) {
+    toast(`That is ${VIEW_CAP} saved views, as many as we keep. Delete one to make room.`, { action: { label: 'Saved views', run: () => openEditViews(after) } });
+    return;
+  }
+  nameSheet({ title: 'Save this view', ok: 'Save view', value: suggestName(), after,
+    help: 'Saves the filters that are on now, under a name. Your saved views follow you to your phone.',
+    run: async name => { await addView(name); toast(`Saved “${name}” as a view.`); } });
+}
+export function openEditViews(after) {
+  const list = () => views();
+  const bodyHTML = () => list().length
+    ? `<ul class="bl-vlist">${list().map(w => `<li class="bl-vrow"><span class="bl-vnm">${esc(w.name)}</span>
+        ${iconBtn('pencil', `Rename ${w.name}`, { 'data-vren': w.id })}${iconBtn('trash-2', `Delete ${w.name}`, { 'data-vdel': w.id }, 'bl-vdel')}</li>`).join('')}</ul>
+      <p class="small muted bl-vhelp">${list().length} of ${VIEW_CAP} saved.</p>`
+    : '<p class="small muted bl-vhelp">No saved views yet. Set your filters, then pick “Save this view”.</p>';
+  openSheet({ title: 'Saved views', size: 'auto', body: bodyHTML(),
+    wire: d => {
+      d.querySelectorAll('[data-vren]').forEach(el => el.onclick = () => { const w = list().find(x => x.id === el.dataset.vren); if (!w) return;
+        const was = w.name;
+        nameSheet({ title: 'Rename view', ok: 'Save name', value: was, after, notId: w.id,
+          run: async name => { await renameView(w.id, name); after?.();
+            toast(`Renamed to “${name}”.`, { undo: async () => { await renameView(w.id, was); after?.(); } }); } });
+      });
+      // A sheet is a modal and the toast lives under the page, so Undo would be out of reach with the sheet still
+      // open: deleting closes it. The chips redraw behind, and Undo puts the view back where it was.
+      d.querySelectorAll('[data-vdel]').forEach(el => el.onclick = async () => {
+        el.setAttribute('aria-busy', 'true');
+        try {
+          const gone = await removeView(el.dataset.vdel); if (!gone) return;
+          await closeSheet({ silent: true }); after?.();
+          toast(`Deleted “${gone.w.name}”.`, { undo: async () => { await restoreView(gone); after?.(); } });
+        } catch (e) { el.removeAttribute('aria-busy'); toast(e, { err: true }); }
+      });
+    } });
+}
 const ownerWord = id => id === 'none' ? 'No owner' : id === S.me?.id ? 'You' : (advocate(id)?.full_name || 'Someone');
 const cmteName = c => S.committees?.[c]?.name || '';
 // [spec, label] for every filter that is on, in the sheet's order

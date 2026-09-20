@@ -290,7 +290,12 @@ export default {
     const strip = page.querySelector('.sp-segs'), cur = strip?.querySelector('[aria-pressed="true"]');
     if (strip && cur && strip.scrollWidth > strip.clientWidth && (cur.offsetLeft + cur.offsetWidth > strip.scrollLeft + strip.clientWidth || cur.offsetLeft < strip.scrollLeft)) strip.scrollLeft = cur.offsetLeft - 16;
     const file = page.querySelector('#sp-file');
-    file.onchange = async () => { const f = file.files[0]; file.value = ''; if (f) importSheet(f); };
+    file.onchange = async () => {
+      const f = file.files[0]; file.value = ''; if (!f) return;
+      let text = ''; try { text = await f.text(); } catch { text = ''; }
+      if (!text.trim()) { toast(`${f.name} is empty, or this browser could not read it.`, { err: true }); return; }
+      reviewSheet(text, f.name);
+    };
   },
 };
 
@@ -394,7 +399,7 @@ function moreMenu(root) {
   const desk = isDesk();
   menuSheet({ title: 'Supporters', items: [
     desk ? null : { label: 'Add a person', icon: 'user-plus', run: () => afterSheet(addPersonSheet) },
-    admin ? { label: 'Import CSV', icon: 'upload', sub: 'Adds new people and updates the rest. Nothing is blanked.', run: () => root.querySelector('#sp-file')?.click() } : null,
+    admin ? { label: 'Import CSV', icon: 'upload', sub: 'A file or pasted text. You see what it will do first.', run: () => afterSheet(importSheet) } : null,
     admin ? { label: rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, icon: 'download', disabled: !rows.length, reason: 'Nobody matches, so there is nothing to export.', run: () => { exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); } } : null,
     desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a follow-up', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
     desk ? { label: 'Sort by most engaged', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by most engaged.',
@@ -565,40 +570,132 @@ function addPersonSheet() {
       go.onclick = save; [em, nm].forEach(i => i.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
     } });
 }
-// Import shows what will happen before anything is written: new, updated, opted in, and the first rows as read.
-async function importSheet(file) {
-  let parsed;
-  try { parsed = parsePeopleCSV(await file.text()); } catch { parsed = { rows: [], cols: [] }; }
-  const { rows, cols } = parsed;
-  if (!rows.length) {
-    openSheet({ title: 'Nothing to import', size: 'auto', body: `<div class="sp-sheet"><p>${esc(file.name)} has no rows with an email address.</p>
-      <p class="meta sp-cols">${cols.length ? `The first row reads: ${esc(cols.slice(0, 12).join(', '))}. One of these has to say “email”.` : 'The file looks empty.'}</p></div>`,
-      foot: btn('OK', { attrs: { 'data-ok': '1' } }), wire: d => { d.querySelector('[data-ok]').onclick = () => closeSheet(); } });
+// ---- import: a file or pasted text, a preview, then the numbers ----
+// The fields are read by parsePeopleCSV() in model.js, the one parser both staff apps share; nothing here picks a
+// column apart. To be able to say WHICH row was left out, the text is first cut into records the same way the parser
+// does (a newline inside quotes is not a row break) and each record is handed to that parser with the header in
+// front of it. Row numbers are the line numbers of the file, so they match what Nate sees in a spreadsheet.
+function csvRecords(text) {
+  const out = []; let cur = '', q = false, line = 1, start = 1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { q = !q; cur += c; continue; }
+    if (!q && (c === '\n' || c === '\r')) { if (c === '\r' && text[i + 1] === '\n') i++; out.push({ line: start, text: cur }); line++; start = line; cur = ''; continue; }
+    if (c === '\n') line++;                        // a wrapped line inside quotes still counts in the file
+    cur += c;
+  }
+  if (cur.trim()) out.push({ line: start, text: cur });
+  return out;
+}
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;     // the same test the import does before it writes a row
+// What the file will do, row by row. Nothing from a row is ever shown back except the name, the email and the tags:
+// a list can carry a street address, and staff never see one.
+function reviewCSV(text) {
+  const recs = csvRecords(text.replace(/^﻿/, ''));
+  const head = recs.shift() || { text: '', line: 1 };
+  const cols = parsePeopleCSV(head.text + '\n').cols;
+  const hasEmail = cols.some(h => h.includes('email') || h.includes('e-mail'));
+  const have = new Set((S.people || []).map(p => (p.email || '').toLowerCase()));
+  const rows = [], skipped = [], seen = new Map();
+  for (const rec of recs) {
+    if (!rec.text.trim()) continue;                // a blank line is not a problem, so it is not reported
+    const r = hasEmail ? parsePeopleCSV(head.text + '\n' + rec.text).rows[0] : null;
+    if (!r) { skipped.push({ line: rec.line, why: hasEmail ? 'No email address in this row' : 'The file has no email column' }); continue; }
+    const e = r.email.toLowerCase();
+    if (!EMAIL_RE.test(r.email)) { skipped.push({ line: rec.line, why: `“${r.email}” is not an email address`, who: r.name || '' }); continue; }
+    if (seen.has(e)) { skipped.push({ line: rec.line, why: `Already on line ${seen.get(e)} of this file`, who: r.email }); continue; }
+    seen.set(e, rec.line);
+    rows.push({ ...r, line: rec.line, known: have.has(e) });
+  }
+  const found = ['email', rows.some(r => r.name) && 'name', rows.some(r => r.phone) && 'phone', rows.some(r => r.tags.length) && 'tags',
+    rows.some(r => r.interests.length) && 'interests', rows.some(r => r.action_alerts !== null) && 'opt-in'].filter(Boolean);
+  return { rows, skipped, cols, hasEmail, found,
+    add: rows.filter(r => !r.known).length, upd: rows.filter(r => r.known).length,
+    opted: rows.filter(r => r.action_alerts).length, noName: rows.filter(r => !r.name).length };
+}
+const SKIP_SHOWN = 8;
+const skipList = skipped => `<div class="sp-imskip"><h3 class="sp-imskh">${icon('circle-alert')}<span>${plural(skipped.length, 'row')} will not be imported</span></h3>
+  <ul class="sp-imskl">${skipped.slice(0, SKIP_SHOWN).map(s => `<li><b>Line ${s.line}</b><span>${esc(s.why)}${s.who ? ` · ${esc(s.who)}` : ''}</span></li>`).join('')}</ul>
+  ${skipped.length > SKIP_SHOWN ? `<p class="meta">and ${(skipped.length - SKIP_SHOWN).toLocaleString()} more, all for the same kinds of reason.</p>` : ''}</div>`;
+const sandboxNote = what => DEMO ? `<p class="notice info sp-imdemo">${icon('info')}<span>Sandbox: ${what} only in this browser, until you reload. Nothing reaches the live list.</span></p>` : '';
+
+// Step 1: where the CSV comes from. A file on a laptop, a paste on a phone (where picking a file is the harder way).
+function importSheet() {
+  openSheet({ title: 'Import people', size: 'auto',
+    body: `<div class="sp-sheet sp-imstart">
+      <p class="meta">A CSV from a mailing list or a sign-up sheet. One column has to say <b>email</b>; name (or first and last), phone, tags, interests and an opt-in column are read when they are there.</p>
+      ${btn('Choose a CSV file', { kind: 'secondary', icon: 'upload', attrs: { 'data-imfile': '1' } })}
+      <p class="sp-imor"><span>or</span></p>
+      <div class="field"><label for="sp-imtx">Paste the text of a CSV</label>
+        <textarea id="sp-imtx" rows="5" spellcheck="false" autocapitalize="off" aria-describedby="sp-imerr" placeholder="name,email,tags&#10;Ana Sample,ana@example.com,volunteer"></textarea></div>
+      <div id="sp-imerr" role="alert"></div>
+      ${sandboxNote('an import changes the list')}</div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Check the text', { attrs: { 'data-go': '1' } })}`,
+    wire: dlg => {
+      dlg.querySelector('[data-no]').onclick = () => closeSheet();
+      dlg.querySelector('[data-imfile]').onclick = () => document.querySelector('#sp-file')?.click();
+      const tx = dlg.querySelector('#sp-imtx'), err = m => { dlg.querySelector('#sp-imerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; tx.toggleAttribute('aria-invalid', !!m); };
+      dlg.querySelector('[data-go]').onclick = () => {
+        const text = tx.value.trim();
+        if (!text) { err('Paste the text first, or choose a file above.'); tx.focus(); return; }
+        if (!text.includes('\n')) { err('That is one line. A CSV needs a heading row and then a row for each person.'); tx.focus(); return; }
+        err(''); reviewSheet(text, 'the text you pasted');
+      };
+    } });
+}
+// Step 2: what will happen, before anything is written.
+function reviewSheet(text, source) {
+  const r = reviewCSV(text);
+  if (!r.rows.length) {
+    openSheet({ title: 'Nothing to import', size: 'auto',
+      body: `<div class="sp-sheet sp-import"><p>Nothing in ${esc(source)} can be imported.</p>
+        <p class="meta sp-cols">${!r.hasEmail ? (r.cols.length ? `The heading row reads: ${esc(r.cols.slice(0, 12).join(', '))}. One of these has to say “email”.` : 'The heading row is empty. The first line has to name the columns.')
+          : 'Every row was left out for the reason beside it.'}</p>
+        ${r.skipped.length ? skipList(r.skipped) : ''}</div>`,
+      foot: `${btn('Back', { kind: 'text', attrs: { 'data-back': '1' } })}${btn('Close', { attrs: { 'data-ok': '1' } })}`,
+      wire: d => { d.querySelector('[data-ok]').onclick = () => closeSheet(); d.querySelector('[data-back]').onclick = () => importSheet(); } });
     return;
   }
-  const have = new Set((S.people || []).map(p => (p.email || '').toLowerCase()));
-  const uniq = [...new Set(rows.map(r => r.email.toLowerCase()))];
-  const upd = uniq.filter(e => have.has(e)).length, add = uniq.length - upd, opted = rows.filter(r => r.action_alerts).length;
-  const found = ['email', rows.some(r => r.name) && 'name', rows.some(r => r.phone) && 'phone', rows.some(r => r.tags.length) && 'tags', rows.some(r => r.interests.length) && 'interests', rows.some(r => r.action_alerts !== null) && 'opt-in'].filter(Boolean);
-  openSheet({ title: `Import ${plural(rows.length, 'row')}?`, size: 'auto',
-    body: `<div class="sp-sheet sp-import"><p class="meta">From ${esc(file.name)}</p>
+  openSheet({ title: `Import ${plural(r.rows.length, 'person', 'people')}?`, size: 'auto',
+    body: `<div class="sp-sheet sp-import"><p class="meta">From ${esc(source)}</p>
       <ul class="sp-sum">
-        <li>${icon('user-plus')}<span><b>${add.toLocaleString()}</b> new, added as contacts</span></li>
-        <li>${icon('user-check')}<span><b>${upd.toLocaleString()}</b> already here, updated. Nothing they have is blanked.</span></li>
-        <li>${icon('bell')}<span><b>${opted.toLocaleString()}</b> marked as opted in to action alerts</span></li>
+        <li>${icon('user-plus')}<span><b>${r.add.toLocaleString()}</b> new, added as contacts</span></li>
+        <li>${icon('user-check')}<span><b>${r.upd.toLocaleString()}</b> already here, updated. Nothing they have is blanked.</span></li>
+        <li>${icon('bell')}<span><b>${r.opted.toLocaleString()}</b> marked as opted in to action alerts</span></li>
+        ${r.skipped.length ? `<li class="sp-imbad">${icon('circle-alert')}<span><b>${r.skipped.length.toLocaleString()}</b> skipped, listed below</span></li>` : ''}
       </ul>
-      <p class="meta">Read from the file: ${esc(found.join(', '))}. First rows:</p>
-      <ul class="sp-peek">${rows.slice(0, 3).map(r => `<li><b>${esc(r.name || '(no name)')}</b><span>${esc(r.email)}${r.tags.length ? ' · ' + esc(r.tags.join(', ')) : ''}</span></li>`).join('')}</ul></div>`,
-    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn(`Import ${plural(rows.length, 'person', 'people')}`, { icon: 'upload', attrs: { 'data-go': '1' } })}`,
+      <p class="meta">Read from the file: ${esc(r.found.join(', '))}. First rows:</p>
+      <ul class="sp-peek">${r.rows.slice(0, 3).map(x => `<li><b>${esc(x.name || 'No name')}</b><span>${esc(x.email)}${x.tags.length ? ' · ' + esc(x.tags.join(', ')) : ''}</span></li>`).join('')}</ul>
+      ${r.noName ? `<p class="meta">${plural(r.noName, 'row')} with no name: they show as their email address until someone adds one.</p>` : ''}
+      ${r.skipped.length ? skipList(r.skipped) : ''}
+      ${sandboxNote('this changes the list')}</div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn(`Import ${plural(r.rows.length, 'person', 'people')}`, { icon: 'upload', attrs: { 'data-go': '1' } })}`,
     wire: dlg => {
       dlg.querySelector('[data-no]').onclick = () => closeSheet();
       const go = dlg.querySelector('[data-go]');
       go.onclick = async () => {
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
-        try { const r = await DB.importPeople(rows, file.name); closeSheet({ silent: true }); rerender(); toast(`Imported: ${r.added} added, ${r.updated} updated, ${r.skipped} skipped.`, { ok: true }); }
+        // line and known are ours, for the preview; the import gets the same shape it has always been given.
+        const payload = r.rows.map(({ line, known, ...row }) => row);
+        try { const res = await DB.importPeople(payload, source); rerender(); doneSheet(res, r); }
         catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
       };
     } });
+}
+// Step 3: what actually happened, in the same words, and it stays on screen until it is closed.
+function doneSheet(res, r) {
+  const late = Math.max(0, (res.skipped || 0));
+  openSheet({ title: 'Imported', size: 'auto',
+    body: `<div class="sp-sheet sp-import"><ul class="sp-sum">
+        <li>${icon('user-plus')}<span><b>${(res.added || 0).toLocaleString()}</b> added</span></li>
+        <li>${icon('user-check')}<span><b>${(res.updated || 0).toLocaleString()}</b> updated</span></li>
+        <li${r.skipped.length || late ? ' class="sp-imbad"' : ''}>${icon(r.skipped.length || late ? 'circle-alert' : 'check')}<span><b>${(r.skipped.length + late).toLocaleString()}</b> skipped</span></li>
+      </ul>
+      ${r.skipped.length ? skipList(r.skipped) : ''}
+      ${late ? `<p class="meta">${plural(late, 'row')} the list itself turned down, for an email address it would not take.</p>` : ''}
+      ${sandboxNote('this list changed')}</div>`,
+    foot: btn('Done', { attrs: { 'data-ok': '1' } }),
+    wire: d => { d.querySelector('[data-ok]').onclick = () => { closeSheet(); }; } });
 }
 
 // ---- bulk: tag and follow-up (the follow-up sheet is shared with the person page) ----

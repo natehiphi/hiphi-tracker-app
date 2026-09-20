@@ -1,6 +1,6 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
-import { S, esc, advocate } from './data.js';
+import { S, STAGES, effStage, esc, advocate } from './data.js';
 import { icon } from '../icons.js';
 export { icon };
 
@@ -76,6 +76,37 @@ export function stepBar(status, { second = false } = {}) {
   const order = steps.map(s => s[0]), cur = status === 'filed' ? steps.length : Math.max(0, order.indexOf(status));
   return `<ol class="sv-steps" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : ''}<span>${l}</span></li>`).join('')}</ol>`;
 }
+// ---- stage ribbon: how far a bill has walked towards becoming law (the one graphic worth keeping from the
+// current app; assessment 9/19). Twelve steps: 'vetoed' and 'dead' are outcomes, not steps, so they colour the
+// ribbon rather than adding a segment to it. A stopped bill still shows how far it got. ----
+const RIBBON = STAGES.filter(([k]) => k !== 'vetoed' && k !== 'dead');
+export function stageRibbon(b, { labels = true } = {}) {
+  const st = effStage(b), dead = st === 'dead', vetoed = st === 'vetoed';
+  // Where it stopped: the last real stage the sync recorded, not the word 'dead'.
+  const key = dead ? (b.stage && b.stage !== 'dead' ? b.stage : 'introduced') : vetoed ? 'governor' : st;
+  const i = Math.max(0, RIBBON.findIndex(([k]) => k === key)), last = RIBBON.length - 1;
+  const now = RIBBON[i]?.[1] || '';
+  const said = dead ? `Stopped after ${now}` : vetoed ? 'Vetoed by the Governor' : i === last ? 'Signed into law' : now;
+  const tone = dead || vetoed ? ' stopped' : i === last ? ' done' : '';
+  const set = b.stage_override ? ' · set by the team' : '';
+  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}. Step ${i + 1} of ${RIBBON.length}.`)}">${
+    RIBBON.map(([, l], n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}" title="${esc(l)}"></i>`).join('')
+  }</div>${labels ? `<p class="sv-riblab"><span>${esc(RIBBON[0][1])}</span><b>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
+}
+
+// ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long
+// list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----
+export function urgentMark(iso, { done = false } = {}) {
+  if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
+  if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
+  const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
+  const big = ms <= 0 ? (over >= 48 ? `${Math.round(over / 24)}d` : `${Math.max(1, Math.round(over))}h`)
+    : h < 1 ? '<1h' : h < 48 ? `${Math.round(h)}h` : `${Math.ceil(h / 24)}d`;
+  const word = ms <= 0 ? 'overdue' : h < 48 ? 'left' : 'to go';
+  const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
+  return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
+}
+
 export const empty = ({ title, text = '', action = '', h = 'h2', art = '' }) => `<div class="empty">${art}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;
 export const skeleton = (n = 5) => `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:56px"></div>${Array.from({ length: n }, () => '<div class="skel" style="height:72px"></div>').join('')}</div>`;
 export const notice = (tone, ic, html, action = '') => `<div class="notice ${tone} sv-notice">${icon(ic)}<div>${html}</div>${action}</div>`;
@@ -85,18 +116,25 @@ export const inlineErr = (id, text) => `<div class="inlinemsg" id="${esc(id)}" r
 export function toast(msg, opt = {}) {
   if (opt === true) opt = { err: true };
   const box = document.getElementById('toast'); if (!box) return;
-  box.innerHTML = '';
+  // A toast raised while a sheet is open has to live inside that sheet. #toast sits in the ordinary page, and the
+  // browser puts an open <dialog> in the top layer above everything there, so an Undo button left outside could be
+  // seen but never clicked (found on Bills' saved views, 9/19). Anywhere else it goes to #toast as before.
+  const dlg = document.querySelector('dialog[open]');
+  const host = dlg || box;
+  const clear = () => document.querySelectorAll('.toastmsg').forEach(t => t.remove());
+  clear();
   const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.ok ? ' yay' : '');
   el.innerHTML = (opt.ok ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
     + `<span>${esc(opt.err ? friendly(msg) : msg)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '') + (opt.action ? `<button type="button" class="toastundo toastact">${esc(opt.action.label)}</button>` : '');
-  if (opt.undo) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await opt.undo(); } catch (e) { toast(e, true); } };
-  if (opt.action) el.querySelector('.toastact').onclick = () => { box.innerHTML = ''; opt.action.run(); };
+  if (opt.undo) el.querySelector('.toastundo').onclick = async () => { clear(); try { await opt.undo(); } catch (e) { toast(e, true); } };
+  if (opt.action) el.querySelector('.toastact').onclick = () => { clear(); opt.action.run(); };
   // One with a button can be closed (it could sit on top of the bill tabs for ten seconds), and any toast someone is
   // reading or reaching for stays put: its clock starts again when they leave it.
   if (opt.undo || opt.action) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
   const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
   el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
-  box.appendChild(el); arm();
+  if (dlg) el.classList.add('insheet');
+  host.appendChild(el); arm();
 }
 // Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
 // not use them). Every keydown handler in v2 checks this first.

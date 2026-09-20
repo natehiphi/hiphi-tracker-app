@@ -89,13 +89,25 @@ function about(p) {
       ${dd('Engagement', `${p.score || 0} <span class="meta">One point per bill followed, 5 per action, 2 per click, a quarter per open</span>`)}
     </dl></section>`;
 }
+// Where a supporter said they stand on a bill they follow. Backend migration 056 put it on watchlist.stance; it
+// reaches this page only once people_overview carries it (the exact query change is in the handover report), and no
+// second Supabase call is made for it. Until it lands every row reads as "followed, nothing said", which is also how
+// a real follow with no stance looks, so the section is right either way.
+const STANCE = { support: ['thumbs-up', 'Supports'], oppose: ['thumbs-down', 'Opposes'], unsure: ['circle-help', 'Not sure'] };
+const ownStance = (p, b) => { const all = p.bill_stances; if (!all || typeof all !== 'object') return null; const k = all[b.id] ?? all[b.bill_number]; return STANCE[k] ? k : null; };
+// The icon and the word together, never the colour on its own.
+const stanceChip = k => `<span class="sp-st sp-st-${k}">${icon(STANCE[k][0])}<span>${STANCE[k][1]}</span></span>`;
+
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
   const lists = (p.list_ids || []).map(id => (S.lists || []).find(l => l.id === id)).filter(Boolean);
   const firstN = isTwo() ? 8 : BILLS_FIRST;
-  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list')].filter(Boolean).join(' · ');
-  // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still explained.
-  const sum = b => b.nickname ? esc(blurb(b, 140)) : '';
+  const said = k => bills.filter(b => ownStance(p, b) === k).length;
+  const stanceHead = [said('support') && `${said('support')} for`, said('oppose') && `${said('oppose')} against`, said('unsure') && `${said('unsure')} unsure`].filter(Boolean).join(', ');
+  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list'), stanceHead].filter(Boolean).join(' · ');
+  // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still
+  // explained. Their own stance goes in front of it: on this page that is the thing a staffer came to read.
+  const sum = b => { const k = ownStance(p, b); return `${k ? stanceChip(k) : ''}${b.nickname ? esc(blurb(b, 140)) : ''}`; };
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
     ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `#/bill/${b.bill_number}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}

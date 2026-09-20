@@ -454,3 +454,135 @@ export const titleCaseSmart = t => t !== t.toUpperCase() ? t : t.toLowerCase().r
 export const titleCaseTitle = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase().replace(/\bhawaii\b/gi, 'Hawaii') : t;
 export const DRAFT_STEPS = [['draft', 'Write'], ['review', 'Review'], ['approved', 'Approve'], ['filed', 'File']];
 export const sponsorName = n => String(n || '').toLowerCase().replace(/(^|[\s\-'.(])([a-z])/g, (m, a, c) => a + c.toUpperCase());
+
+// ============================================================================
+// The session clock and the suggestion feed (Nate, 9/19)
+// ============================================================================
+
+// The next deadline these bills are racing, and how they stand against it. This is the only portfolio number that
+// earns a place on Today: "2 have no hearing yet" is not a statistic, it is the work. The full five-bucket
+// breakdown stays on Bills, where every count is one click from the rows it describes.
+export function sessionClock(list) {
+  if (SESSION_OVER) return null;
+  const ahead = sessionGates(list).filter(g => !g.past);
+  const g = ahead.find(x => x.racing.length) || ahead[0];
+  if (!g) return null;
+  return { name: g.name, label: g.label, date: g.date, days: g.days, racing: g.racing.length, p1: g.p1,
+    noHearing: g.noHearing.map(x => x.b) };
+}
+
+// ---- suggestions ----
+// Today's promise is a list you can clear, so a suggestion must never look like a task that is due. These are
+// generated from a bill's own pathway, capped, kept out of the badge count, and every one of them can be done,
+// put off for a fortnight, or refused for that bill for good. Each carries the reason it was raised: the app does
+// not know whether Kevin already called the chair, and saying what it does know is how someone spots that.
+export const SUGGEST_CAP = 5;
+const SUG_RANK = { chair: 1, summary: 2, thank: 3, position: 4, update: 5 };
+const wk = 7 * 864e5;
+
+export const suggState = () => (S.me?.prefs?.sugg) || {};
+// 'done' and 'never' are permanent for that key; 'later' lapses after a fortnight so a bill that really does need
+// attention comes back rather than disappearing for the session.
+export function suggHidden(key) {
+  const s = suggState()[key];
+  if (!s) return false;
+  if (s.state === 'later') return Date.now() - (s.at || 0) < 14 * 864e5;
+  return true;
+}
+export async function setSugg(key, state) {
+  const sugg = { ...suggState(), [key]: { state, at: Date.now() } };
+  await DB.patchPrefs({ sugg });
+}
+
+// A favourable committee report in the last week: the moment a thank-you actually lands.
+const PASSED = /recommend(s|ed)? (that the measure be )?pass|passed with amendments|pass(ed)? second reading|reported from/i;
+
+export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {}) {
+  if (SESSION_OVER) return [];
+  const now = Date.now(), out = [];
+  const add = s => { if (!suggHidden(s.key) && !skip(s.b)) out.push({ ...s, rank: SUG_RANK[s.kind] || 9 }); };
+  for (const b of bills) {
+    if (diedish(b) || b.position === 'monitor') continue;
+    const st = stopOf(b), ahead = hearingAhead(b), name = b.nickname || blurb(b, 60);
+
+    // 1. Waiting in committee with a deadline in sight and nobody has asked for a hearing.
+    if (!ahead && st.column === 'a' && st.committee && st.deadline && !st.deadline.missed) {
+      const m = chairMail(st.committee), two = m && m.n > 1;
+      add({ kind: 'chair', key: `sg:chair:${b.id}:${st.deadline.date}`, b,
+        title: `Ask the chair${two ? 's' : ''} of ${st.committee} for a hearing`,
+        why: `No hearing yet · ${st.deadline.label} deadline ${fmtDate(st.deadline.date)}, ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}${m ? ` · ${m.who}` : ''}`,
+        act: m ? { label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(`Aloha ${m.who},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${name ? ` (${name})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(S.me?.full_name || '').split(' ')[0]}`)}`, ext: true }
+          : { label: 'Open the bill', href: `#/bill/${b.bill_number}` },
+        log: { type: 'meeting', title: `Asked ${m ? m.who : 'the chair'} for a hearing` } });
+    }
+
+    // 2. Public, but the public page can only show the Capitol's own title. 69 of 248 bills were in this state
+    //    when the nicknames were loaded, so this is a real backlog, not a hypothetical.
+    if (b.is_public && !String(b.public_summary || '').trim()) {
+      add({ kind: 'summary', key: `sg:sum:${b.id}`, b, title: 'Write a plain summary for the public page',
+        why: 'The public page shows supporters only the official title',
+        act: { label: 'Write it', href: `#/bill/${b.bill_number}/public` },
+        log: null });
+    }
+
+    // 3. A committee just sent it on. Thanking the chair is the cheapest relationship work there is.
+    if (b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && PASSED.test(b.last_action || '')) {
+      // Name the committee that actually moved it, from the Capitol's own sentence ("The committee(s) on HHS
+      // recommend(s)…"). Without a code we cannot say whose chair to thank, so the suggestion is not made.
+      const mv = /committee\(?s?\)? on ([A-Z][A-Z/]*)/.exec(b.last_action || '');
+      const prev = mv && chairMail(mv[1]);
+      if (prev) add({ kind: 'thank', key: `sg:thx:${b.id}:${b.last_action_date}`, b,
+        title: `Thank ${prev.who} for moving it`,
+        // The Capitol's sentence, cut at the end of a clause rather than mid-word ("…The votes were").
+        why: `${fmtDate(b.last_action_date)}: ${(t => t.length <= 96 ? t : t.slice(0, 96).replace(/[\s,.;:]+\S*$/, '') + '…')(String(b.last_action || '').replace(/\s+/g, ' ').replace(/\.\s+The votes were.*$/i, '.').trim())}`,
+        act: { label: 'Send a thank you', href: `mailto:${prev.email}?subject=${encodeURIComponent('Mahalo for hearing ' + b.bill_number)}`, ext: true },
+        log: { type: 'meeting', title: `Thanked ${prev.who}` } });
+    }
+
+    // 4. Tracked, moving, and the team has never said where it stands.
+    if (!b.position && b.tracked) {
+      add({ kind: 'position', key: `sg:pos:${b.id}`, b, title: 'Decide where the team stands',
+        why: 'Tracked, but it has no position, so it is in nobody\'s list and no supporter sees it',
+        act: { label: 'Open the bill', href: `#/bill/${b.bill_number}` }, log: null });
+    }
+
+    // 5. A hearing far enough ahead to be worth telling supporters about. Only when email is switched on: while it
+    //    is paused there is nothing to draft towards.
+    if (ahead && S.emailCfg?.enabled !== false && b.is_public && String(b.public_action || '').trim()) {
+      const days = (new Date(ahead.scheduled_at) - now) / 864e5;
+      if (days >= 5 && days <= 21 && !(S.alerts || []).some(a => a.bill_id === b.id && a.status !== 'cancelled'))
+        add({ kind: 'update', key: `sg:upd:${b.id}:${ahead.id}`, b, title: 'Tell supporters the hearing is coming',
+          why: `${ahead.committee} hearing ${fmtDate(ahead.scheduled_at)} · ${Math.round(days)} days · no alert drafted`,
+          act: { label: 'Draft the email', href: '#/email/new' },
+          log: { type: 'coalition', title: 'Drafted a supporter update' } });
+    }
+  }
+  // Best first inside each kind, then one kind after another. Sorting by kind alone filled the whole feed with
+  // chair emails (23 bills were waiting on a hearing when this was first run), which is a firehose, not a
+  // suggestion. Urgency decides the order inside a kind: a deadline three days away comes before one three weeks
+  // away. When one kind really is all there is, the round robin gives up and fills the page from it.
+  const urgency = s => s.kind === 'chair' ? (stopOf(s.b).deadline?.days ?? 999) : 500;
+  const best = out.sort((a, c) => urgency(a) - urgency(c) || (a.b.priority || 9) - (c.b.priority || 9)
+    || a.b.bill_number.localeCompare(c.b.bill_number, 'en', { numeric: true }));
+  const byKind = new Map();
+  for (const s of best) { if (!byKind.has(s.kind)) byKind.set(s.kind, []); byKind.get(s.kind).push(s); }
+  const kinds = [...byKind.keys()].sort((a, c) => (SUG_RANK[a] || 9) - (SUG_RANK[c] || 9));
+  const seen = new Set(), picked = [], cursor = new Map(), taken = new Map(), PER_KIND = 2;
+  let moved = true;
+  while (picked.length < cap && moved) {
+    moved = false;
+    for (const k of kinds) {
+      if (picked.length >= cap || (taken.get(k) || 0) >= PER_KIND) continue;
+      const arr = byKind.get(k); let i = cursor.get(k) || 0;
+      while (i < arr.length && seen.has(arr[i].b.id)) i++;
+      cursor.set(k, i + 1);
+      if (i >= arr.length) continue;
+      seen.add(arr[i].b.id); picked.push(arr[i]); taken.set(k, (taken.get(k) || 0) + 1); moved = true;
+    }
+  }
+  for (const k of kinds) for (const s of byKind.get(k)) {
+    if (picked.length >= cap) break;
+    if (!seen.has(s.b.id)) { seen.add(s.b.id); picked.push(s); }
+  }
+  return picked;
+}

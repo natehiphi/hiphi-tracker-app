@@ -35,9 +35,18 @@
 .td-root .td-group + .td-group { margin-top: 0; }
 .td-root .td-list { display: flex; flex-direction: column; gap: var(--s8); }
 
-/* ---- a card: bill line, the task sentence, the reason, one button (plus one text button), then "Also" rows ---- */
+/* ---- a card: the urgency block, then the bill line, the task sentence, the reason, one button (plus one text
+   button), then "Also" rows. The block is the current app's left rail, the fastest thing on the page to scan, so it
+   leads and the countdown is left out of the reason line rather than said twice. Its column keeps its width on a
+   card with no deadline, so every sentence starts on the same line all the way down. ---- */
 .td-root .td-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1);
-  padding: var(--s12) var(--s12) var(--s12) var(--s16); display: grid; grid-template-columns: minmax(0, 1fr); scroll-margin: calc(var(--header) + var(--s16)) 0 calc(var(--tabbar) + var(--s16)); }
+  padding: var(--s12) var(--s12) var(--s12) var(--s16); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s12); scroll-margin: calc(var(--header) + var(--s16)) 0 calc(var(--tabbar) + var(--s16)); }
+.td-root .td-card > * { grid-column: 2; }
+.td-root .td-card > .td-also { grid-column: 1 / -1; }
+.td-root .td-urg { grid-column: 1; grid-row: 1 / span 2; align-self: start; display: flex; justify-content: center; width: 60px; margin-top: 2px; }
+.td-root .td-urg .sv-urg { min-width: 100%; }
+/* 11px is not one of the five sizes: the word under the number is 13, and the block is wide enough to hold "overdue" */
+.td-root .sv-urg span { font-size: var(--t13); line-height: 16px; }
 .td-root .td-card:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r12); }
 .td-root .td-top { display: flex; align-items: flex-start; min-width: 0; gap: var(--s4); }
 /* the bill link and the ⋯ button are 44px targets that spill into the card's padding, so the line itself stays 24px */
@@ -57,6 +66,10 @@
 .td-root .td-kind { align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n500); }
 .td-root .td-kind .ic { width: 18px; height: 18px; }
 .td-root .td-more { margin: -10px -6px -10px 0; }
+/* the chevron opens the quick look (look.js): the bill's facts and next step without leaving the list */
+.td-root .td-look { margin: -10px -6px -10px 0; }
+.td-root .td-look .ic { width: 20px; height: 20px; color: var(--n400); }
+.td-root .td-look:hover .ic { color: var(--p700); }
 .td-root .td-s { margin-top: var(--s4); font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
 .td-root .td-why .sv-chip { margin-right: var(--s4); vertical-align: 1px; }
 .td-root .td-why { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); }
@@ -227,10 +240,12 @@
 }
 /* a card wide enough for it puts its buttons beside the sentence, sized to their labels; a narrow one keeps them below */
 @container tdmain (min-width: 600px) {
-  .td-root .td-card { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s16); }
-  .td-root .td-card > * { grid-column: 1 / -1; }
-  .td-root .td-card > .td-s, .td-root .td-card > .td-why, .td-root .td-card > .td-note { grid-column: 1; }
-  .td-root .td-card > .td-acts { grid-column: 2; grid-row: 2 / span 2; align-self: center; margin-top: 0; flex-direction: row-reverse; flex-wrap: nowrap; }
+  .td-root .td-card { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--s16); }
+  .td-root .td-card > * { grid-column: 2 / -1; }
+  .td-root .td-card > .td-s, .td-root .td-card > .td-why, .td-root .td-card > .td-note { grid-column: 2; }
+  .td-root .td-card > .td-acts { grid-column: 3; grid-row: 2 / span 2; align-self: center; margin-top: 0; flex-direction: row-reverse; flex-wrap: nowrap; }
+  .td-root .td-card > .td-also { grid-column: 1 / -1; }
+  .td-root .td-urg { grid-column: 1; }
 }
 @media (min-width: 1400px) {
   .td-root .td-cols { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s32); }
@@ -317,3 +332,86 @@
   .td-root .td-dnone { padding: var(--s16) var(--s12); font-size: var(--t14); color: var(--n500); }
 }
 @media (max-width: 359px) { .td-root .td-sub .sv-seg button { padding: 0 12px; } }
+
+/* ============================================================================
+   9/19 follow-ups: the session clock, the suggestion section, the two rails on
+   a very wide screen, and the weekend's own column in the Week view.
+   ========================================================================= */
+
+/* ---- the side panel's rails. Below 1600px they are not boxes at all: display:contents drops them and the panels
+   stack in one column exactly as they did. ---- */
+.td-root .td-rail { display: contents; }
+
+/* ---- the session clock (model.js sessionClock): the next deadline, and what is not ready for it ---- */
+.td-root .td-ck { padding: var(--s12) var(--s16) var(--s8); }
+.td-root .td-ckwhen { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--s8); }
+.td-root .td-ckwhen b { font: 700 var(--t22)/28px var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.td-root .td-ckwhen span { font-size: var(--t14); color: var(--n500); }
+.td-root .td-cklab { font-size: var(--t14); line-height: 20px; font-weight: 700; color: var(--n700); }
+.td-root .td-ckn { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+/* "3 bills with no hearing yet" is work, not a number: it opens those bills as suggestions in the list */
+.td-root .td-ckwork { display: flex; align-items: center; gap: var(--s8); width: calc(100% + 2 * var(--s16)); min-height: 52px;
+  margin: var(--s8) calc(-1 * var(--s16)) calc(-1 * var(--s8)); padding: var(--s8) var(--s12) var(--s8) var(--s16); border-top: 1px solid var(--n100); text-align: left; }
+.td-root .td-ckwork:hover { background: var(--p50); }
+.td-root .td-ckwork > .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.td-root .td-ckwt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.td-root .td-ckwt b { font-size: var(--t14); line-height: 20px; color: var(--n900); }
+.td-root .td-ckwt > span { font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-ckwork .chev { width: 18px; height: 18px; color: var(--n400); flex: none; }
+.td-root .td-ckwork[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.td-root .td-ckok { display: flex; align-items: center; gap: 6px; margin-top: var(--s8); padding-bottom: var(--s4); font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-ckok .ic { width: 16px; height: 16px; color: var(--ok-text); flex: none; }
+
+/* ---- suggestions. Not tasks: no urgency block, no countdown, a dashed card that never looks like the work above,
+   and three plain answers on every one of them. ---- */
+.td-root .td-sugg { margin-top: var(--s16); padding-top: var(--s4); border-top: 2px solid var(--n200); }
+.td-root .td-sglist { display: flex; flex-direction: column; gap: var(--s8); }
+.td-root .td-sg { background: var(--n0); border: 1px dashed var(--n300); border-radius: var(--r12); padding: var(--s12) var(--s12) var(--s8) var(--s16); }
+.td-root .td-sg .td-s { font-size: var(--t16); line-height: 22px; }
+.td-root .td-sgwhy { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.td-root .td-sgctl { display: flex; flex-wrap: wrap; gap: var(--s4); margin: var(--s4) calc(-1 * var(--s8)) 0; }
+.td-root .td-sgctl button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s12); border-radius: var(--r8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.td-root .td-sgctl button:hover { background: var(--n100); color: var(--n900); }
+.td-root .td-sgctl button .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.td-root .td-sgnote { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); padding: var(--s8) var(--s8) var(--s8) var(--s12); border-radius: var(--r8); background: var(--n100); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-sgnote > .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.td-root .td-sgnote > span { flex: 1 1 200px; min-width: 0; }
+.td-root .td-sgnone { padding: var(--s12) var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n500); }
+
+/* ---- the weekend's own column (bug 4): it is added only in a week that has something in it, so an ordinary week
+   keeps five full-width days, and it is never dressed up as Friday. ---- */
+@media (min-width: 1100px) {
+  .td-root .td-day.td-wkend, .td-root .td-day.td-wkend .td-dh { background: var(--n50); }
+  .td-root .td-wday { margin-right: 6px; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  /* 1100 to 1399px: five days of 125px each plus a sixth would be unreadable, so the weekend is a labelled strip
+     across the foot of the week instead. Either way it is its own place and never says Friday. */
+  .td-root .td-day.td-wkend { grid-column: 1 / -1; min-height: 0; display: flex; flex-wrap: wrap; align-items: flex-start; }
+  .td-root .td-day.td-wkend > * { flex: 1 1 240px; min-width: 0; max-width: 420px; }
+  .td-root .td-day.td-wkend > .td-dh, .td-root .td-day.td-wkend > .td-dl2 { flex: 1 1 100%; max-width: none; position: static; }
+}
+@media (min-width: 1400px) {
+  .td-root .td-weekgrid.hasweekend { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, .8fr); }
+  .td-root .td-day.td-wkend { grid-column: auto; display: block; }
+  .td-root .td-day.td-wkend > *, .td-root .td-day.td-wkend > .td-dh, .td-root .td-day.td-wkend > .td-dl2 { max-width: none; }
+  .td-root .td-day.td-wkend > .td-dh { position: sticky; }
+}
+
+/* ---- the width the window has. Today asks the frame for the whole window (today.js `wide`) and sets its own page
+   width here, so resizing past 1600px needs no redraw: the frame only redraws at 900 and 1100. Up to 1600 the page
+   is the 1056px column it always was. Above it the list grows to 780px of text and stops — a longer line is harder
+   to scan — and everything else goes to the rail, which splits into two columns as soon as it can hold them. ---- */
+@media (min-width: 1100px) {
+  .td-root:not(.td-weekroot) { max-width: 1056px; margin-left: auto; margin-right: auto; }
+}
+@media (min-width: 1600px) {
+  .td-root:not(.td-weekroot) { max-width: 1520px; }
+  .td-root .td-cols { grid-template-columns: minmax(0, 780px) minmax(0, 1fr); gap: var(--s32); }
+  .td-root .td-aside { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s16); align-items: start; }
+  .td-root .td-rail { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
+}
+@media (min-width: 900px) {
+  /* the first panel in a rail stays in view while the page scrolls (.sv-stick); repeated here because a rail is in
+     the way of the shared `.sv-aside > .sv-stick` selector */
+  .td-root .td-aside .td-panel.sv-stick { position: sticky; top: calc(var(--header) + var(--s16)); z-index: 2; }
+  body.staff2:has(.band) .td-root .td-aside .td-panel.sv-stick { top: calc(var(--header) + 28px + var(--s16)); }
+}

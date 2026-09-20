@@ -166,6 +166,9 @@
 .sp-person a.sp-listchip { min-height: 44px; padding: 8px 14px; background: var(--n0); border: 1px solid var(--n300); color: var(--p700); font-size: var(--t14); text-decoration: none; }
 .sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
 .sp-person .sp-nick .sv-t { font-weight: 700; color: var(--n900); }   /* a nickname names the bill, so it is bold; the plain summary is the line under it */
+/* where they said they stand on a bill they follow: an icon and the word, so it never rests on the colour */
+.sp-person .sp-st { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; padding: 1px var(--s8) 1px 6px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; vertical-align: -3px; }
+.sp-person .sp-st .ic { width: 14px; height: 14px; flex: none; }
 .sp-person .sp-showall { justify-content: center; gap: 6px; min-height: 48px; color: var(--p700); font-weight: 700; font-size: var(--t14); }
 .sp-person .sp-showall .ic { width: 18px; height: 18px; }
 .sp-person .sp-feed { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
@@ -214,6 +217,23 @@
 .sp-sheet .sp-peek b { color: var(--n900); }
 .sp-sheet .sp-peek span { color: var(--n500); }
 .sp-sheet .sp-cols { margin-top: var(--s8); overflow-wrap: anywhere; }
+/* import: choose a file or paste the text, then the preview. Amber is the within-24-hours colour and red is danger,
+   so a skipped row is neither: it is the ordinary text colour with an icon and the word "skipped" doing the work. */
+.sp-sheet.sp-imstart .btn { width: 100%; margin-top: var(--s16); }
+.sp-sheet .sp-imor { display: flex; align-items: center; gap: var(--s12); margin: var(--s16) 0; font-size: var(--t13); color: var(--n500); }
+.sp-sheet .sp-imor::before, .sp-sheet .sp-imor::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--n200); }
+.sp-sheet.sp-imstart textarea { font-size: var(--t14); }
+.sp-sheet .sp-sum li.sp-imbad .ic { color: var(--n500); }
+.sp-sheet .sp-imskip { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
+.sp-sheet .sp-imskh { display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); }
+.sp-sheet .sp-imskh .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.sp-sheet .sp-imskl { list-style: none; margin: 0; padding: 0; border: 1px solid var(--n200); border-radius: var(--r12); }
+.sp-sheet .sp-imskl li { display: flex; gap: var(--s12); align-items: baseline; padding: var(--s8) var(--s12); font-size: var(--t14); }
+.sp-sheet .sp-imskl li + li { border-top: 1px solid var(--n100); }
+.sp-sheet .sp-imskl b { flex: none; color: var(--n900); }
+.sp-sheet .sp-imskl span { min-width: 0; color: var(--n500); overflow-wrap: anywhere; }
+.sp-sheet .sp-imskip .meta { margin-top: var(--s8); }
+.sp-sheet .sp-imdemo { margin-top: var(--s16); }
 .sp-sheet .sp-private { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); margin-bottom: var(--s12); }
 .sp-sheet .sp-private .ic { width: 18px; height: 18px; color: var(--n500); margin-top: 2px; }
 .sp-sheet .sp-demo { margin-bottom: var(--s12); }

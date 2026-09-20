@@ -2,7 +2,12 @@
    from a .bl- class. Five type sizes only (13/14/16/18/22); 44px targets on phones; blue only for actions and
    selection; status carries a word or an icon, never colour alone. */
 
-/* ---- page frame: phones and tablets keep a 720px column, desktop gets the 1200px table ---- */
+/* ---- page frame: phones and tablets keep a 720px column, desktop gets the 1200px table ----
+   --bl-top0 is where this page's own sticky things start: under the app header, and 28px lower when the sandbox
+   band shows (staff.css offsets .sv-hdr the same way, from 1100px where the band itself is sticky).
+   --bl-sh is the sticky toolbar's height, measured by bills.js because the chips wrap and the saved-views row
+   comes and goes; the table's header and group rows hold just under it. */
+.bl-page, .bl-memopage { --bl-top0: var(--header); --bl-sh: 0px; }
 .bl-page { margin: 0 auto; }
 .bl-phone { max-width: 720px; }
 .bl-h1 { display: none; }
@@ -41,12 +46,63 @@
 #bl-banner .sv-notice { margin: var(--s8) 0 var(--s12); }
 .bl-selhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); font-size: var(--t14); color: var(--n700); margin: 0 0 var(--s8); }
 
+/* ---- saved views: a row of chips beside Mine/Everyone. The one you are in carries a tick-style icon and
+   aria-pressed, never colour alone. ---- */
+.bl-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); }
+.bl-vlab { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.bl-page button.chip.bl-v { min-height: 44px; padding: 8px 14px; border: 1px solid var(--n400); background: var(--n0); color: var(--n700); font-size: var(--t14); }
+.bl-page button.chip.bl-v:hover { border-color: var(--p700); }
+.bl-page button.chip.bl-v[aria-pressed="true"] { background: var(--p50); border: 2px solid var(--p700); color: var(--p800); padding: 7px 13px; }
+.bl-v .ic, .bl-vedit .ic { width: 16px; height: 16px; }
+.bl-page button.chip.bl-vedit { min-height: 44px; padding: 8px 12px; border: 1px dashed var(--n400); background: none; color: var(--n700); font-size: var(--t13); }
+.bl-page button.chip.bl-vedit:hover { border-style: solid; border-color: var(--p700); color: var(--p800); }
+/* the two sheets */
+.bl-vlist { list-style: none; margin: 0; padding: 0; }
+.bl-vrow { display: flex; align-items: center; gap: var(--s4); min-height: 56px; border-bottom: 1px solid var(--n100); }
+.bl-vrow:last-child { border-bottom: 0; }
+.bl-vnm { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+.bl-vdel:hover { color: var(--bad-text); background: var(--bad-wash); }
+.bl-vhelp { margin: 0 0 var(--s12); }
+.bl-verr:empty { display: none; }
+.bl-vinput { width: 100%; }
+
+/* ---- "Where every bill stands": one row over the table. Every count is a button that takes you to that group in
+   the list (the grouped table already shows the bills, so this is a glance, not a second list). The three that
+   carry the work are full buttons; the rest is a quieter run, so seven equal chips never all shout at once. ---- */
+.bl-stands { display: flex; flex-direction: column; gap: var(--s8); margin: 0 0 var(--s12); padding: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
+.bl-stands-h { font: 700 var(--t13)/1.2 var(--font); color: var(--n500); margin: 0; }
+.bl-stgs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.bl-stlead { display: flex; align-items: center; gap: var(--s8); min-width: 0; }
+.bl-stlead > * { flex: none; }
+/* On a phone every count is one sideways-scrolling row, the same as the quick chips right above it: the strip costs
+   about 140px instead of 230, so the first bill still shows on a 320px screen without scrolling. */
+.bl-phone .bl-stands { gap: var(--s4); padding: var(--s8) var(--s12) var(--s12); }
+.bl-phone .bl-stgs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--s12)); padding: var(--s4) var(--s12); scroll-padding: 0 var(--s12); }
+.bl-phone .bl-stgs::-webkit-scrollbar { display: none; }
+.bl-phone .bl-stlead, .bl-phone .bl-strest { display: contents; }
+.bl-phone .bl-stgs > * { flex: none; }
+.bl-stg { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-size: var(--t14); font-weight: 700; text-align: left; }
+.bl-stg .n { font: 700 var(--t16)/1 var(--font); color: var(--p800); }
+.bl-stg:hover { border-color: var(--p700); background: var(--p50); }
+.bl-strest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+.bl-stg2 { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 4px 8px; border-radius: var(--r8); color: var(--n500); font-size: var(--t13); }
+.bl-stg2 .n { font-weight: 700; color: var(--n700); }
+.bl-stg2:hover { background: var(--n100); color: var(--n900); }
+.bl-clock { display: flex; align-items: flex-start; gap: var(--s8); padding-top: var(--s8); border-top: 1px solid var(--n100); font-size: var(--t13); color: var(--n700); }
+.bl-clock > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); margin-top: 1px; }
+.bl-cl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bl-cl1 b { color: var(--n900); }
+.bl-cl2 { color: var(--n500); }
+.bl-cl2 .bl-nh { color: var(--n900); }
+/* amber only inside a day of the deadline; the words say it too */
+.bl-clock.soon > .ic, .bl-clock.soon .bl-cl1 b { color: var(--warn-text); }
+
 /* ---- phone list: one card, sticky group headers (no overflow:hidden, which would stop them sticking) ---- */
 .bl-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
 .bl-list > :first-child, .bl-list > .bl-grp:first-child > .sv-group { border-top-left-radius: var(--r16); border-top-right-radius: var(--r16); }
 .bl-list > :last-child, .bl-list > .bl-grp:last-child > :last-child { border-bottom-left-radius: var(--r16); border-bottom-right-radius: var(--r16); }
 .bl-list > .bl-grp:last-child > .sv-group[aria-expanded="false"] { border-bottom: 0; }
-.bl-grp > .sv-group { position: sticky; top: var(--header); z-index: 5; }
+.bl-grp > .sv-group { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 5; }
 .bl-grp + .bl-grp > .sv-group { border-top: 1px solid var(--n200); }
 .bl-grp > .row + .row { border-top: 1px solid var(--n100); }
 .bl-list .bl-noown { display: inline-flex; color: var(--n500); }
@@ -149,6 +205,12 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 @media (min-width: 900px) {
   .bl-h1 { display: block; font-size: var(--t22); margin-right: var(--s8); }
   .bl-top { gap: var(--s12); margin-bottom: var(--s12); }
+  /* The toolbar stays: on a 113-row table every control used to be gone after a dozen rows. It sits under the app
+     header and over the table's own sticky header, which holds under it (bills.js measures --bl-sh).
+     The padding is main's own top gutter, pulled back up so nothing shows through the block when it is stuck. */
+  .bl-wide .bl-stick { position: sticky; top: var(--bl-top0); z-index: 8; background: var(--n50); margin-top: calc(-1 * var(--s12)); padding: var(--s12) 0 var(--s8); }
+  .bl-wide .bl-stick > :last-child, .bl-wide .bl-stick #bl-head > :last-child { margin-bottom: 0; }
+  .bl-wide .bl-stick #bl-head:empty { display: none; }
   .bl-wide .bl-search { flex: 0 1 360px; margin: 0; }
   .bl-wide .bl-search .input { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
   .bl-wide .bl-search .ic-search { top: 12px; }
@@ -168,6 +230,16 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-keys { display: block; margin-top: var(--s12); font-size: var(--t13); color: var(--n500); }
   .bl-keys kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
 
+  /* the strip is one row on a desktop: the counts on the left, the deadline clock on the right */
+  .bl-wide .bl-stands { flex-direction: row; align-items: center; gap: var(--s16); padding: var(--s8) var(--s12); }
+  .bl-wide .bl-stands-h { flex: none; }
+  .bl-wide .bl-stgs { flex: 1 1 auto; min-width: 0; }
+  .bl-wide .bl-stg { min-height: 36px; padding: 4px 12px; }
+  .bl-wide .bl-stg2 { min-height: 32px; }
+  /* min-width: 0 on both halves, or the row refuses to give and the page itself scrolls sideways at 1100px,
+     where the sidebar arrives and the page loses 248px in one step. */
+  .bl-wide .bl-clock { flex: 0 1 auto; min-width: 0; max-width: 42%; padding-top: 0; border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s16); }
+
   /* the link back to Bills on Sort new bills, the weekly memo and muted bills (the frame's arrow is for phones) */
   .bl-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
   .bl-deskback:hover { background: var(--p50); color: var(--p800); }
@@ -178,7 +250,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   /* the weekly memo as a document: a reading column (about 72 characters a line), the copy buttons beside the
      title in a row that stays under the header while the memo scrolls, and the memo on a page of its own */
   .bl-memopage { max-width: none; }
-  .bl-mhead { position: sticky; top: var(--header); z-index: 5; display: flex; align-items: center; gap: var(--s16); margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8); background: var(--n50); }
+  .bl-mhead { position: sticky; top: var(--bl-top0); z-index: 5; display: flex; align-items: center; gap: var(--s16); margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8); background: var(--n50); }
   .bl-mhead .bl-ptitle { flex: 1 1 auto; margin: 0; }
   .bl-mcopy { flex: none; display: flex; gap: var(--s8); }
   .bl-mcopy .btn { flex: none; }
@@ -208,7 +280,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
      line each. Sticky header and group rows, a wash on the row under the pointer, a bar on the row the keys are on. */
   .bl-table { --bl-th: 40px; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); line-height: 1.35; }
   .bl-table.bl-compact { --bl-th: 36px; }
-  .bl-table thead th { position: sticky; top: var(--header); z-index: 6; height: var(--bl-th); padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; line-height: 1.15; color: var(--n500); text-align: left; }
+  .bl-table thead th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 6; height: var(--bl-th); padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; line-height: 1.15; color: var(--n500); text-align: left; }
   .bl-table thead th:first-child { border-top-left-radius: var(--r12); }
   .bl-table thead th:last-child { border-top-right-radius: var(--r12); }
   .bl-table thead th.bl-h-pri, .bl-table thead th.bl-h-own, .bl-table thead th.bl-h-pulse { padding: 0 8px; }
@@ -229,12 +301,12 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table td { height: 52px; padding: 7px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; }
   .bl-table .bl-c2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
   .bl-table .bl-ti b { color: var(--n900); font-weight: 700; }
-  .bl-table tbody tr[data-row] { cursor: pointer; scroll-margin: calc(var(--header) + var(--bl-th) + 48px) 0 96px; }
+  .bl-table tbody tr[data-row] { cursor: pointer; scroll-margin: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th) + 48px) 0 96px; }
   .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
   .bl-table tbody tr.sel td { background: var(--p50); }
   .bl-table tbody tr.sel:hover td { background: var(--p100); }
   .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
-  .bl-table .bl-gr th { position: sticky; top: calc(var(--header) + var(--bl-th)); z-index: 5; padding: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); text-align: left; font-weight: 400; }
+  .bl-table .bl-gr th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th)); z-index: 5; padding: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); text-align: left; font-weight: 400; }
   .bl-table .bl-tg:first-of-type .bl-gr th { border-top: 0; }
   .bl-table .bl-gr + tr td { border-top: 0; }
   .bl-table .bl-gr .sv-group { border-bottom: 0; padding: 0 12px; min-height: 40px; }
@@ -256,6 +328,12 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-pri .sv-p1 { flex: none; }
   .bl-table .bl-noown { display: inline-flex; color: var(--n500); }
   .bl-table .bl-noown .ic { width: 24px; height: 24px; }
+  .bl-table thead th.bl-h-look, .bl-table td.bl-lk { padding: 0; text-align: center; }
+  .bl-table .bl-lkb { width: 32px; height: 32px; min-height: 0; margin: 0 auto; color: var(--n400); border-radius: var(--r8); }
+  .bl-table .bl-lkb .ic { width: 18px; height: 18px; }
+  .bl-table tbody tr:hover .bl-lkb { color: var(--p700); }
+  .bl-table .bl-lkb:hover { background: var(--p50); color: var(--p700); }
+  .bl-table.bl-compact .bl-lkb { width: 28px; height: 28px; }
   .bl-table .bl-days, .bl-table .bl-date { color: var(--n500); white-space: nowrap; }
   .bl-table .bl-dash { color: var(--n500); }
 
@@ -278,7 +356,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table.bl-compact .bl-ck label { width: 40px; height: 38px; }
   .bl-table.bl-compact .bl-cell { min-height: 32px; }
   .bl-table.bl-compact .bl-cell > span:not(.sv-p1):not(.sv-av):not(.bl-noown) { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  .bl-table.bl-compact tbody tr[data-row] { scroll-margin-top: calc(var(--header) + var(--bl-th) + 40px); }
+  .bl-table.bl-compact tbody tr[data-row] { scroll-margin-top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th) + 40px); }
 
   /* optional columns in a window too small for them: only this box scrolls sideways, the tick box and the bill
      number stay pinned on the left, and the header row is held under the app's header by bills.js (--bl-hy). */
@@ -299,7 +377,11 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-tscroll .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
   .bl-tscroll .bl-table tbody tr.sel td { background: var(--p50); }
   .bl-tscroll .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
-  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; }   /* its width is the box's, set inline, so it stays in view */
+  /* Sideways-scrolling table: the group row keeps its place in both directions. Left, because its width is the
+     box's (set inline by bills.js); down, because bills.js holds it under the column headers while its own rows
+     are on screen — position: sticky cannot, as this box is the scroll container, not the window. */
+  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; z-index: 4; will-change: transform; }
+  .bl-tscroll .bl-table .bl-gr .sv-group.bl-held { box-shadow: 0 1px 0 var(--n200); }
 }
 
 /* ---- phones: 44px segmented buttons; very narrow screens (320px, or 200% zoom) stack the top row ---- */
@@ -316,4 +398,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 @media (max-width: 380px) {
   .bl-bar > .btn { padding: 0 12px; }
   .bl-bar { gap: var(--s4); }
+}
+
+/* ---- the sandbox band (1100px and wider, where staff.css makes it sticky and pushes the header down 28px) ---- */
+@media (min-width: 1100px) {
+  body.staff2:has(.band) .bl-page, body.staff2:has(.band) .bl-memopage { --bl-top0: calc(var(--header) + 28px); }
 }
