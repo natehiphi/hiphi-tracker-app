@@ -167,6 +167,10 @@ function sumLine(list, q, filtered, more) {
 // ---- "Where every bill stands": one row above the table (Nate asked for the current app's three columns of cards
 // back; his call, 9/19, was that the grouped table already shows the bills, so this is the glance that was missing).
 // The counts are buttons: they take you to that group in the table rather than making a second list of it.
+// `bl-stlab` is the phone's label. On a phone the strip lost its card and its heading to save the 157px Nate
+// objected to, which left two identical-looking rows of counted pills doing different jobs - the quick chips
+// filter the list, these jump to a group. The label rides at the head of the same scrolling row, so it says which
+// is which for nothing vertically. Desktop keeps the real heading and hides it.
 // Seven equal chips would say nothing, so the three that carry the work are full buttons and the rest is a quiet run.
 const LEAD = ['hear', 'risk', 'wait'];
 const SHORT = { hear: 'Hearing scheduled', risk: 'At risk', wait: 'Waiting', thru: 'Through committees', done: 'Governor or law', mon: 'Monitoring', dead: 'Did not advance' };
@@ -183,7 +187,7 @@ function standStrip(groups, list) {
     </div></div>`; })() : '';
   return `<section class="bl-stands" aria-labelledby="bl-stands-h">
     <h2 class="bl-stands-h" id="bl-stands-h">Where every bill stands</h2>
-    <div class="bl-stgs"><span class="bl-stlead">${lead.map(g => standBtn(g, 'bl-stg')).join('')}</span>${rest.length ? `<span class="bl-strest">${rest.map(g => standBtn(g, 'bl-stg2')).join('')}</span>` : ''}</div>
+    <div class="bl-stgs"><span class="bl-stlab" aria-hidden="true">Where they stand</span><span class="bl-stlead">${lead.map(g => standBtn(g, 'bl-stg')).join('')}</span>${rest.length ? `<span class="bl-strest">${rest.map(g => standBtn(g, 'bl-stg2')).join('')}</span>` : ''}</div>
     ${cl}</section>`;
 }
 // ---- saved views: a row of chips beside the Mine/Everyone segment, the current one marked ----

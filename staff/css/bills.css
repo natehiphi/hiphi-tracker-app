@@ -40,6 +40,9 @@
 .bl-page button.chip:disabled .bl-n, .bl-fs button.chip:disabled .bl-n { color: var(--n500); font-weight: 400; }
 .bl-q .ic { width: 16px; height: 16px; }
 .bl-sum { font-size: var(--t14); color: var(--n500); margin: var(--s8) 0; }
+/* On a phone the strip right above already counts every group, so this line only has to carry the total. It sits
+   tight under the strip instead of floating between two blocks. */
+.bl-phone .bl-sum { margin: 0 0 var(--s8); }
 .bl-sum b { color: var(--n900); }
 .bl-sum:empty { margin: 0; }
 #bl-banner:empty { display: none; }
@@ -74,13 +77,25 @@
 .bl-stgs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 .bl-stlead { display: flex; align-items: center; gap: var(--s8); min-width: 0; }
 .bl-stlead > * { flex: none; }
-/* On a phone every count is one sideways-scrolling row, the same as the quick chips right above it: the strip costs
-   about 140px instead of 230, so the first bill still shows on a 320px screen without scrolling. */
-.bl-phone .bl-stands { gap: var(--s4); padding: var(--s8) var(--s12) var(--s12); }
-.bl-phone .bl-stgs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--s12)); padding: var(--s4) var(--s12); scroll-padding: 0 var(--s12); }
+/* Desktop has the real heading over the row, so the inline label is phone-only. */
+.bl-stlab { display: none; }
+/* On a phone the strip is a plain block, not a card. Nate asked on 9/19 why so much sits above the first bill:
+   the card was 157px of which the heading, the border, the padding and a two-line deadline were most of it. The
+   heading is now for screen readers only - the screen is called Bills and every count names itself - the counts
+   are one sideways-scrolling row flush with the page gutter like the quick chips right above them, and the
+   deadline is one line. 157px became about 70. Below 360px it is hidden altogether (rule at the foot of this
+   file): at that width nothing fits above the first bill whatever we do to the strip. */
+.bl-phone .bl-stands { gap: var(--s4); margin: 0 0 var(--s8); padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.bl-phone .bl-stands-h { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.bl-phone .bl-stgs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) var(--s4); scroll-padding: 0 var(--gutter); }
 .bl-phone .bl-stgs::-webkit-scrollbar { display: none; }
 .bl-phone .bl-stlead, .bl-phone .bl-strest { display: contents; }
 .bl-phone .bl-stgs > * { flex: none; }
+/* Says which row this is without costing a line: the quick chips above filter the list, these jump to a group. */
+.bl-phone .bl-stlab { display: inline-flex; align-items: center; align-self: stretch; padding-right: var(--s4); font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
+/* The deadline reads as one sentence that wraps, rather than two stacked lines with a rule over them. */
+.bl-phone .bl-clock { align-items: center; gap: var(--s4); padding-top: 0; border-top: 0; }
+.bl-phone .bl-cl { flex-direction: row; flex-wrap: wrap; gap: 0 var(--s8); }
 .bl-stg { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-size: var(--t14); font-weight: 700; text-align: left; }
 .bl-stg .n { font: 700 var(--t16)/1 var(--font); color: var(--p800); }
 .bl-stg:hover { border-color: var(--p700); background: var(--p50); }
@@ -398,6 +413,14 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 @media (max-width: 380px) {
   .bl-bar > .btn { padding: 0 12px; }
   .bl-bar { gap: var(--s4); }
+}
+
+/* ---- narrow phones: the strip goes ---- Nate's call, 9/19, from a measured three-way comparison. Even flattened
+   the strip is about 70px, and at 320x568 that is still the difference between no bill on screen and two. Every
+   count it carries is also reachable from Filter, so nothing is lost, only a glance. 360px is the line because
+   every current phone is 375 or wider; this is the iPhone SE 1, older Androids, and anyone on large text. ---- */
+@media (max-width: 359px) {
+  .bl-phone .bl-stands { display: none; }
 }
 
 /* ---- the sandbox band (1100px and wider, where staff.css makes it sticky and pushes the header down 28px) ---- */
