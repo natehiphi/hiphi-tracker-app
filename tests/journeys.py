@@ -28,7 +28,7 @@ JOURNEYS = [
  dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=4, start='#/', steps=[
    dict(what='pick an issue',        do="document.querySelectorAll('.st-issue')[3].click()", reach=seen('Tobacco')),
    dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('Start with these')),
-   dict(what='follow the picked bills', do=click_text('.actionbar .btn', 'Follow \\d+ bills'), reach=seen("following")),
+   dict(what='follow the picked bills', do=click_text('.actionbar .btn', 'Follow \\d+ bill'), reach=seen("following")),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
