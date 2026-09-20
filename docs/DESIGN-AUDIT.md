@@ -171,4 +171,4 @@ proves it can be done in six words ("reach the last committee by this date"); To
 |---|---|---|---|
 | Staff Bills, phone | A-1 arrival | 386px | 3.1y measured three options at 320×568 and Nate picked hiding the strip below 360px. Going lower costs the "where every bill stands" counts, which he asked for. 2026-09-19. |
 | Desktop Bills | phone/desktop parity | three quick filter chips kept | On desktop they share a line with the totals and cost no vertical space. Nate has a standing offer to make them match. 2026-09-19. |
-| Today, filled buttons per screenful | A-3 | one per list row | A-3 says one primary in view; Today repeats one action down a list of identical rows. Raised 2026-09-20 as a rule to amend rather than a screen to change — **Nate's call**, see HANDOFF 3.2. |
+| ~~Today, filled buttons per screenful~~ | A-3 | — | **Resolved 2026-09-20: Nate amended the rule.** A-3 now permits one primary repeated per item in a list of equivalent items. Today is compliant as built; no exception needed. |

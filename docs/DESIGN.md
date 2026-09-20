@@ -96,12 +96,21 @@ screen, learned once and then ignored; counting it made every desktop screen loo
 worse than it was, and would have sent somebody to simplify a screen whose content was already fine.
 Navigation is judged by B-13 — whether a destination earns its place — not by this budget.
 
-### A-3 One primary action per screen
+### A-3 One primary action per screen — or one repeated per item in a list
 
-At most one filled/primary button in view. Everything else is secondary, tertiary or a plain link. If
-two things both feel primary, the screen is doing two jobs and should be split.
+At most one filled/primary button in view, with one exception: **a list of equivalent items may carry
+the same primary action on each row**, because that is one offer repeated, not several offers
+competing. The exception holds only while the rows really are equivalent; the moment one row deserves
+a different or more urgent action than its neighbours, the screen is back to one primary and the rest
+become secondary. Outside a list, if two things both feel primary the screen is doing two jobs and
+should be split.
 
 *Reason.* NN/g and GOV.UK both: a primary action that has to compete is no longer a primary action.
+But "compete" is the operative word, and it is the same distinction A-2 draws between instances and
+kinds — twenty rows offering the identical next step do not make the reader choose between twenty
+things. **Amended 2026-09-20 on Nate's decision**, after a review flagged staff Today for carrying
+several filled "Mark filed" buttons down a list of identical rows. The original rule would have made
+that screen worse by demoting every row but the first, for no gain to anybody using it.
 
 ### A-4 Five type sizes on a staff screen, six on a public one
 
@@ -537,7 +546,7 @@ far more than more features do.
 | Arrival (A-1) | 320px | 400px | `tests/density.py` |
 | Choice kinds in the content region (A-2) | 15 | 25 | `tests/density.py` |
 | Journeys working and inside budget (B-2) | all | all | `tests/journeys.py` |
-| Primary actions in view (A-3) | 1 | 1 | review |
+| Primary actions in view (A-3) | 1, or 1 per row in a list of equivalent items | as budget | review |
 | Type sizes per screen (A-4) | 5 staff / 6 public | as budget | `tests/density.py` |
 | Distinct text colours in view (A-5) | 7 | — | `tests/density.py` |
 | Touch target (A-6) | 44px | 44px | `tests/checks.py` |
