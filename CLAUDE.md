@@ -49,6 +49,15 @@ session is dark (until January 2027).
 
 ## Shared rules for all three
 
+**Read `docs/DESIGN.md` before any design decision.** It is the written standard - Part A how a screen looks,
+Part B how a person moves through it, Part C the first visit and the email ask - and every rule has an id
+(`A-1`, `B-4`, `C-2`) and a reason. Cite the ids in commit messages. `docs/DESIGN-AUDIT.md` records where the
+apps stand against it today, the verified contrast table, the gap backlog (G-1...G-10) and the accepted
+exceptions - check it before "fixing" something that was decided on purpose. A rule that is wrong gets changed
+in the same commit as the code, never quietly skipped. The `design-review` skill (in `../backend/.claude/skills/`,
+found because sessions start in the backend repo) walks the whole checklist.
+
+
 - Vanilla ES modules, template literals, one state object `S`, `render()` redraws. No bundler, npm, Tailwind or
   framework. Supabase client comes from jsdelivr at runtime. Real project ref and publishable key are in
   `app.js`, `staff/data.js`, `pub/core.js`, `public.js`; never replace them with placeholders.
@@ -170,6 +179,7 @@ Serve first: `python3 -m http.server 8832` in this folder.
 python3 tests/public_journey.py     # public: 254 checks, phone + desktop, first visit, ladder, off-season
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
+python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
 ```
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
 `public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`
@@ -220,5 +230,6 @@ Known gaps, small and recorded rather than hidden:
 - A suggestion marked Done writes to the bill's timeline after a 10-second delay so Undo can cancel it. Switch
   tabs and come back inside those ten seconds and Undo restores the card, but the timeline line is already
   written. Fixable only by adding a call that removes an `activity_log` row.
-- No quick-look button on a phone Bills row: the row's end already carries position, P1 and the owner avatar,
-  and a fourth 44px target crowds it. Tapping the row opens the bill, as before.
+- The staff bill page carries 30 different controls on one desktop screenful against a limit of 25
+  (`docs/DESIGN-AUDIT.md` gap G-4), and public "My bills" starts its first bill 427px down on a phone,
+  490px on desktop, against a 400px limit (gap G-2). Both are recorded defects, neither is started.
