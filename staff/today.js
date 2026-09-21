@@ -577,13 +577,14 @@ function hearingsIn(d0, d1, scope, who) {
 const draftOf = h => (S.drafts?.[h.bill_id] || []).find(d => d.hearing_id && d.hearing_id === h.id && d.status !== 'cancelled') || draftFor(h.bill_id, h.committee) || null;
 const T_STATE = { filed: ['Filed', 'ok', 'check'], approved: ['Approved', '', 'clipboard-check'], second_review: ['In review', '', 'hourglass'], review: ['In review', '', 'hourglass'], draft: ['Draft', '', 'pencil'] };
 const stateChip = d => { const [l, tone, ic] = (d && T_STATE[d.status]) || ['No draft', '', 'circle-dashed']; return chip(l, tone, ic); };
-// A Monitor bill's automatic draft is not work until someone touches it (the list's rule), so it gets no countdown.
-const worked = (b, d) => !(b.position === 'monitor' && (!d || (d.status === 'draft' && !d.submitted_at && !d.review_note)));
-function goingLine(h) {
-  const names = attendees(h).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id)).map(a => a.id === S.me?.id ? 'You' : a.full_name.split(' ')[0]);
-  if (!names.length) return 'No one yet';
+// "Lauren is going", "You and Lauren are going": who is going to a hearing, you first; empty when nobody is. A sitting
+// hears several bills and a person marks one of them, so the Week view passes everyone marked on any of its bills.
+function goingOf(people) {
+  const seen = new Set(), names = people.filter(a => a && !seen.has(a.id) && seen.add(a.id)).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id)).map(a => a.id === S.me?.id ? 'You' : a.full_name.split(' ')[0]);
+  if (!names.length) return '';
   return `${names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]} ${names.length === 1 && names[0] !== 'You' ? 'is' : 'are'} going`;
 }
+const goingLine = h => goingOf(attendees(h)) || 'No one yet';
 const P1 = '<span class="sv-p1">P1</span>';
 const shortName = (b, n = 80) => b.nickname ? `<b class="td-nick">${esc(b.nickname)}</b>` : `<span class="td-t">${esc(blurb(b, n))}</span>`;
 // One side-panel look (and the same box for the strip on a phone): a titled white box with a count.
@@ -609,12 +610,12 @@ function hearingsToday(scope, who, cap) {
 }
 
 // ---- the side panel (900px and wider): what a manager scans while the list is worked ----
-// "This week": hearings and open testimony deadlines for each working day (a weekend row only when it has something).
+// "This week": for each working day, the hearings (sittings, not bills: Wednesday used to say 9 above two hearings)
+// and the bills whose testimony is still due that day, counted from weekOf exactly as the Week view draws them, so the
+// two never disagree (R-025). A weekend row only when it has something.
 function weekPanel(scope, who, r) {
-  const now = Date.now(), today = hst(now), mon = mondayOf(now), days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(mon, i));
-  const hs = hearingsIn(mon, days[6], scope, who), due = new Map();
-  for (const t of r.tasks) if (TESTIMONY.has(t.kind) && t.due != null) { const d = hst(t.due); due.set(d, (due.get(d) || 0) + 1); }
-  const count = d => [hs.filter(x => x.day === d).length, due.get(d) || 0];
+  const now = Date.now(), today = hst(now), mon = mondayOf(now), week = weekOf(mon, scope, who, r), days = [...week.keys()];
+  const count = d => { const c = week.get(d); return [c.hs.size, [...c.dl.values()].reduce((n, g) => n + g.rows.length, 0)]; };
   const rows = days.slice(0, 5).map(d => ({ d, label: `${dayFmt(d, { weekday: 'short' })} ${dayFmt(d, { day: 'numeric' })}`, n: count(d) }));
   const wk = [5, 6].map(i => count(days[i])).reduce((a, x) => [a[0] + x[0], a[1] + x[1]], [0, 0]);
   if (wk[0] || wk[1]) rows.push({ d: days[5], label: 'Weekend', n: wk, wkend: true });
@@ -768,76 +769,152 @@ async function suggDo(key, state, el) {
   });
 }
 
-// ---- the Week view (1100px and wider only): Monday to Friday, hearings and the steps due each day ----
-function weekItem({ h, b, t }) {
-  const d = draftOf(h), o = S.outcomes?.[h.id]?.outcome, owner = advocate((S.assignments[b.id] || [])[0]);
-  return `<a class="td-wi" href="#/bill/${esc(b.bill_number)}"><span class="td-wi1"><span class="td-wil"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="sr">Testimony: </span>${stateChip(d)}</span>${avatar(owner, 20)}</span>
-    <span class="td-win${b.nickname ? '' : ' td-clamp'}">${shortName(b, 90)}</span>${t < Date.now() && o ? `<span class="td-wi2">${chip(OUTCOME_LABEL[o] || o)}</span>` : ''}</a>`;
+// ---- the Week view (1100px and wider only): what each day holds, in time order (R-025, 9/21) ----
+// Nate: "many bills blend together; it is not clear what is a hearing and what is a testimony due date". Each testimony
+// deadline used to show twice, on two days: as a step on the day it falls, and as "Testimony due in 28h" under the
+// hearing, in the hearing's column, a day late. Now there are three kinds of thing, each with its own look and a title
+// that says what it is (A-12, A-13, P-4), and each fact is said once, on its own day (A-14):
+//   - "Testimony due": one card per sitting whose written testimony is due that day (24 hours before the hearing, the
+//     Hawaiʻi rule, unless the notice says otherwise), with the bills still to get in and where each one stands;
+//   - "Hearing": one grey block per sitting, on the day it is held: the bills heard, who is going, and the result;
+//   - "Also to do": the day's other steps that have no time of their own (emails, follow-ups, to-dos, messages).
+// Everything with a time runs in time order (Nate, 9/21); at the same minute a deadline comes first. Times are clock
+// times: the column already says the day, and "28h left" made people work out which day it was. Initials only on
+// Everyone: on Mine every bill is yours.
+const slotKey = h => `${h.scheduled_at}|${h.committee}|${h.room || ''}`;
+// A testimony step's state in a word and an icon, and how far behind it is (0 is furthest). Inside a "Testimony due"
+// card "Approved" read as done, so an approved draft says what it still needs: "Ready to file" (review, 9/21). Each
+// state has its own icon; "No draft yet" is not the dashed circle, which means "No owner". A step that waits on
+// someone else (Everyone) keeps the hourglass, with its own word from t.chip.
+const WK_STATE = { nodraft: ['No draft yet', 'file-text', 0], stale: ['Out of date', 'triangle-alert', 1], write: ['Draft', 'pencil', 2], submit: ['Draft', 'pencil', 2],
+  revise: ['Sent back', 'undo-2', 3], review: ['To review', 'scan-eye', 4], review2: ['To approve', 'scan-eye', 4], file: ['Ready to file', 'clipboard-check', 6] };
+const WK_WAIT = { Draft: ['Draft', 2], 'Sent back': ['Sent back', 3], 'In review': ['In review', 5], '2nd approval': ['2nd approval', 5], Approved: ['Ready to file', 6] };
+const wkState = t => { if (t.kind !== 'wait') return WK_STATE[t.kind] || ['Open', 'circle-dot', 5]; const [w, n] = WK_WAIT[t.chip] || [t.chip || 'Waiting', 5]; return [w, 'hourglass', n]; };
+const WK_ICON = { email: 'mail', fix: 'mail', send: 'send', followup: 'user-round', todo: 'list-todo', ask: 'megaphone', chair: 'mail', wait: 'hourglass', review: 'clipboard-check', review2: 'clipboard-check', nodraft: 'file-text', stale: 'triangle-alert', write: 'pencil', submit: 'pencil', revise: 'pencil', file: 'clipboard-check' };
+// "today's", "tomorrow's", "Wed's": the hearing a deadline is for, said the way a person would.
+const whoseDay = (day, now) => day === hst(now) ? 'today’s' : day === hst(now + DAY) ? 'tomorrow’s' : dayFmt(day, { weekday: 'short' }) + '’s';
+// Only the public ask has a time of its own (its hearing's start); every other step without a testimony deadline is
+// due on a day, or whenever, and goes under "Also to do".
+const wkTimed = t => t.kind === 'ask' && !!t.b && t.due != null;
+
+// One week, day by day (Mon..Sun): the testimony deadlines (dl, one card per sitting), the sittings heard (hs) and the
+// other steps. An open step sits on the day it is due; overdue and undated ones belong to today, as in the list, so
+// nothing open is off the grid. The side panel's "This week" counts from this too.
+function weekOf(mon, scope, who, r) {
+  const now = Date.now(), today = hst(now), ok = billsOf(scope, who), days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(mon, i));
+  const wk = new Map(days.map(d => [d, { dl: new Map(), hs: new Map(), other: [] }]));
+  for (const x of hearingsIn(mon, days[6], scope, who)) { const hs = wk.get(x.day).hs, k = slotKey(x.h); if (!hs.has(k)) hs.set(k, []); hs.get(k).push(x); }
+  const card = (c, h) => { const k = slotKey(h); if (!c.dl.has(k)) c.dl.set(k, { h, due: testDue(h), rows: [], filed: 0 }); return c.dl.get(k); };
+  for (const t of r.tasks) {
+    const c = wk.get(t.due == null || t.due < now ? today : hst(t.due)); if (!c) continue;
+    if (!(TESTIMONY.has(t.kind) && t.h && t.b)) { c.other.push(t); continue; }
+    const g = card(c, t.h), st = wkState(t), ex = g.rows.find(x => x.b.id === t.b.id);
+    if (!ex) g.rows.push({ b: t.b, st, t }); else if (st[2] < ex.st[2]) Object.assign(ex, { st, t });
+  }
+  // Every deadline in the week, not only those a step exists for yet. A "no draft" step is made only 7 days ahead, so
+  // the Sunday deadline for a Monday hearing next week was nowhere on this week (R-025).
+  for (const h of S.hearings || []) {
+    if (h.status === 'cancelled') continue;
+    const due = testDue(h), c = due > now ? wk.get(hst(due)) : null; if (!c) continue;
+    const b = billById(h.bill_id); if (!b || b.position === 'monitor' || !ok(b) || diedish(b) || draftOf(h)) continue;
+    const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: WK_STATE.nodraft });
+  }
+  // How many more of each sitting's bills are already filed: a manager's "are we nearly there".
+  const keys = new Set([...wk.values()].flatMap(c => [...c.dl.keys()])), filed = new Map();
+  for (const h of S.hearings || []) { const k = slotKey(h), b = keys.has(k) && billById(h.bill_id); if (b && ok(b) && draftOf(h)?.status === 'filed') { if (!filed.has(k)) filed.set(k, new Set()); filed.get(k).add(b.id); } }
+  for (const c of wk.values()) for (const [k, g] of c.dl) { const open = new Set(g.rows.map(x => x.b.id)); g.filed = [...(filed.get(k) || [])].filter(id => !open.has(id)).length; }
+  return wk;
 }
-// One entry per bill per day, as in the list: the first step leads, and the rest are counted. In the weekend column
-// each entry says which of the two days it falls on, because Sat and Sun share one column.
-function weekTask(list, wkend = false) {
-  const t = list[0], more = list.length - 1;
-  const href = t.b ? `#/bill/${t.b.bill_number}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
-  const day = wkend && t.due != null ? `<span class="td-wday">${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</span>` : '';
-  const lead = t.b ? `<b class="td-num">${esc(billNum(t.b))}</b>${t.b.nickname ? `<span class="td-wnick">${esc(t.b.nickname)}</span>` : ''}` : `<span class="td-wkind">${icon(t.kind === 'followup' ? 'user-round' : t.a ? 'mail' : 'bell')}${t.kind === 'followup' ? 'Follow-up' : t.a ? 'Email' : 'Notice'}</span>`;
-  const inner = `<span class="td-wi1">${day}${lead}</span><span class="td-win td-wsent">${t.kind === 'wait' ? icon('hourglass', { cls: 'td-wwait' }) : ''}${t.s}</span>${t.due != null || t.seen || more ? `<span class="td-wi2">${t.seen ? SEEN() : ''}${t.due != null ? cd(t.due) : ''}${more ? `<span class="td-wmore">and ${plural(more, 'more step')}</span>` : ''}</span>` : ''}`;
-  return href ? `<a class="td-wi td-wtask${t.kind === 'wait' ? ' td-wq' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="td-wi td-wtask">${inner}</div>`;
+
+// One bill in a card or a block: the number (and P1) with the one fact that matters here, then its name on one line.
+function wkBill(b, right, owners) {
+  const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
+  return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="#/bill/${esc(b.bill_number)}"><span class="wk-b1"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2"><span class="wk-name">${esc(b.nickname || blurb(b, 80))}</span>${own}</span></a></li>`;
+}
+// "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
+const wkWhen = (t, wkend) => (wkend ? dayFmt(hst(t), { weekday: 'short' }) + ' ' : '') + timeOf(new Date(t).toISOString());
+function wkDeadline(g, owners, now, wkend) {
+  const ms = g.due - now, late = ms <= 0, soon = !late && ms <= DAY, what = `for ${whoseDay(hst(new Date(g.h.scheduled_at).getTime()), now)} ${g.h.committee} hearing`;
+  const head = late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
+  const when = late ? `was due ${dayFmt(hst(g.due), { weekday: 'short' })} ${timeOf(new Date(g.due).toISOString())}` : hst(g.due) === hst(now) ? `in ${span(ms)}` : '';
+  const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }))
+    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1])}`, owners)).join('');
+  return `<section class="wk-blk wk-dl${late ? ' late' : soon ? ' soon' : ''}" data-at="${g.due}" aria-label="${esc(`${head}${when ? ', ' + when : ''}, ${what}`)}">
+    <p class="wk-bh">${icon(late ? 'circle-alert' : 'clock')}<b>${esc(head)}</b></p>
+    <p class="wk-bs">${when ? `<span class="wk-when">${esc(when)}</span> · ` : ''}${esc(what)}</p>
+    <ul class="wk-bills">${rows}</ul>${g.filed ? `<p class="wk-filed">${icon('check')}${esc(`${g.filed} more already filed`)}</p>` : ''}</section>`;
+}
+function wkHearing(list, owners, now, wkend) {
+  const h = list[0].h, past = list[0].t < now - 2 * HR, when = wkWhen(list[0].t, wkend);
+  const rows = list.map(x => { const o = S.outcomes?.[x.h.id]?.outcome; return wkBill(x.b, past && o ? chip(OUTCOME_LABEL[o] || o) : '', owners); }).join('');
+  // A hearing that is over needs nothing from anyone, so it keeps its place in the day as one quiet line that opens to
+  // its bills and what happened to them. Drawn in full, the morning's hearings pushed the afternoon's overdue testimony
+  // below the fold, and their pale boxes looked like deadline cards (review, 9/21).
+  if (past) return `<details class="wk-blk wk-hr wk-held" data-at="${list[0].t}"><summary>${icon('landmark')}<span class="wk-heldt"><b>${esc(when)} · Hearing\u00a0held</b> · ${esc(h.committee)} · ${esc(plural(list.length, 'bill'))}</span>${icon('chevron-down', { cls: 'chev' })}</summary><ul class="wk-bills">${rows}</ul></details>`;
+  // Who is going, only when someone is (Nate, 9/21).
+  const going = goingOf(list.flatMap(x => attendees(x.h)));
+  return `<section class="wk-blk wk-hr" data-at="${list[0].t}" aria-label="${esc(`Hearing, ${when}, ${h.committee}, ${room(h.room)}${going ? '. ' + going : ''}`)}">
+    <p class="wk-bh">${icon('landmark')}<b>${esc(when)} · Hearing</b></p>
+    <p class="wk-bs">${esc(h.committee)} · ${esc(room(h.room))}</p>${going ? `<p class="wk-bs wk-going">${icon('users')}<span>${esc(going)}</span></p>` : ''}
+    <ul class="wk-bills">${rows}</ul></section>`;
+}
+// A step with a time of its own (the public ask, due when its hearing starts) takes its place in the day's order.
+const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="#/bill/${esc(t.b.bill_number)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · <b class="td-num">${esc(billNum(t.b))}</b> ${t.s}</span></a>`;
+// Everything else that day, one row per bill (the first step leads, the rest are counted). Messages are not calendar
+// items: they fold into one row that opens the list, where they are answered (Nate, 9/21).
+function wkAlso(all, now, wkend) {
+  const msg = t => t.kind === 'reply' || t.kind === 'notice', msgs = all.filter(msg), per = new Map();
+  for (const t of all) { if (msg(t)) continue; const k = t.b ? 'b' + t.b.id : t.key; if (!per.has(k)) per.set(k, []); per.get(k).push(t); }
+  const rows = [...per.values()].map(g => {
+    const t = g[0], more = g.length - 1, href = t.b ? `#/bill/${t.b.bill_number}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
+    const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
+    const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `<b class="td-num">${esc(billNum(t.b))}</b> ` : ''}${t.s}${late ? ` <span class="sv-count late">overdue</span>` : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
+    return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
+  }).join('') + (msgs.length ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
+  return `<section class="wk-blk wk-also" aria-label="Also to do"><p class="wk-bh">${icon('list-todo')}<b>Also to do</b></p><ul class="wk-others">${rows}</ul></section>`;
 }
 function weekView(route, scope, who, r) {
-  const now = Date.now(), today = hst(now), off = weekOff(route), mon = dayAdd(mondayOf(now), off * 7), days = [0, 1, 2, 3, 4].map(i => dayAdd(mon, i)), sun = dayAdd(mon, 6);
-  const hs = hearingsIn(mon, sun, scope, who);
-  // An open step sits on the day it is due. Overdue and undated ones belong to today, as in the list, so nothing open
-  // is off the grid this week. Saturday and Sunday used to be filed under Friday, which made Friday say things that
-  // were not Friday's (bug 4, 9/19). They now have a column of their own, added only in a week that has something in
-  // it, so an ordinary week keeps five full-width days.
-  const wkendDays = [dayAdd(mon, 5), dayAdd(mon, 6)];
-  const cols = new Map(days.map(d => [d, { hs: [], ts: [] }]));
-  const wkend = { hs: [], ts: [] };
-  const bucket = d => wkendDays.includes(d) ? wkend : cols.get(d) || null;
-  for (const x of hs) { const c = bucket(x.day); if (c) c.hs.push(x); }
-  for (const t of r.tasks) { const d = t.due == null || t.due < now ? today : hst(t.due), c = bucket(d); if (c) c.ts.push(t); }
+  const now = Date.now(), today = hst(now), off = weekOff(route), mon = dayAdd(mondayOf(now), off * 7), wk = weekOf(mon, scope, who, r), days = [...wk.keys()];
+  const owners = scope === 'team', all = [...wk.values()];
   const byDue = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || (x.due ?? Infinity) - (y.due ?? Infinity) || x.rank - y.rank;
-  const slots = list => { const m = new Map(); for (const x of list) { const k = `${x.t}|${x.h.committee}|${x.h.room || ''}`; if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return [...m.values()]; };
-  // Bills heard together share one heading (time, committee, room) and one testimony deadline, shown while any of
-  // them still has testimony to get in.
-  const needs = x => { const d = draftOf(x.h); return x.t > now && d?.status !== 'filed' && worked(x.b, d); };
-  const slotHtml = (list, wkend) => slots(list).map(g => `<div class="td-slot"><p class="td-slh"><b>${esc((wkend ? dayFmt(g[0].day, { weekday: 'short' }) + ' ' : '') + timeOf(g[0].h.scheduled_at))}</b><span>${esc(g[0].h.committee)} · ${esc(room(g[0].h.room))}</span></p>
-    ${g.some(needs) ? `<p class="td-sldue">${cd(testDue(g.find(needs).h), 'testimony')}</p>` : ''}${g.map(weekItem).join('')}</div>`).join('');
-  const perBill = ts => { const m = new Map(); for (const t of ts.sort(byDue)) { const k = t.b ? t.b.id : t.key; if (!m.has(k)) m.set(k, []); m.get(k).push(t); } return [...m.values()]; };
-  const dayHtml = d => {
-    const c = cols.get(d), isToday = d === today, past = d < today, ts = perBill(c.ts), nH = c.hs.length, nT = ts.length;
-    return `<section class="td-day${isToday ? ' today' : past ? ' past' : ''}" aria-labelledby="td-d-${d}"${isToday ? ' aria-current="date"' : ''}>
-      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? '<span class="td-now">Today</span>' : ''}
-        <p class="td-dsum">${[nH ? plural(nH, 'hearing') : 'No hearings', nT ? `${nT} due` : ''].filter(Boolean).join(' · ')}</p></div>
-      ${c.hs.length ? slotHtml(c.hs) : ''}
-      ${c.ts.length ? `<p class="td-dl2">${icon('list-todo')}${past ? 'Was due' : 'Due'}</p>${ts.map(x => weekTask(x)).join('')}` : ''}
-      ${nH || nT ? '' : `<p class="td-dnone">${past ? 'Nothing was scheduled.' : 'Nothing scheduled.'}</p>`}</section>`;
+  // A day's things with a time, in time order (at the same minute: the deadline, then the step, then the hearing),
+  // then the steps with no time of their own. The weekend passes its two days together.
+  const body = (cs, wkend) => {
+    const other = cs.flatMap(c => c.other), rest = other.filter(t => !wkTimed(t)).sort(byDue);
+    return [...cs.flatMap(c => [...c.dl.values()]).map(g => [g.due, 0, () => wkDeadline(g, owners, now, wkend)]),
+      ...other.filter(wkTimed).map(t => [t.due, 1, () => wkStep(t, wkend)]),
+      ...cs.flatMap(c => [...c.hs.values()]).map(l => [l[0].t, 2, () => wkHearing(l, owners, now, wkend)])]
+      .sort((x, y) => x[0] - y[0] || x[1] - y[1]).map(x => x[2]()).join('') + (rest.length ? wkAlso(rest, now, wkend) : '');
   };
-  // Saturday and Sunday get their own column, and only when there is something in it: a weekend hearing or a step
-  // that really falls then. It is never called Friday and never counted in Friday's line.
-  const wkTs = perBill(wkend.ts), wkN = wkend.hs.length + wkTs.length;
-  const wkPast = wkendDays[1] < today;
+  const dayHtml = d => {
+    const isToday = d === today, past = d < today, html = body([wk.get(d)], false);
+    return `<section class="td-day wk-day${isToday ? ' today' : past ? ' past' : ''}" data-day="${d}" aria-labelledby="td-d-${d}"${isToday ? ' aria-current="date"' : ''}>
+      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? '<span class="td-now">Today</span>' : ''}</div>
+      <div class="wk-col">${html || `<p class="td-dnone">${past ? 'Nothing was scheduled.' : 'Nothing scheduled.'}</p>`}</div></section>`;
+  };
+  // Saturday and Sunday share one place, added only in a week that has something then, and never called Friday (bug 4,
+  // 9/19). Each entry in it says its day.
+  const we = [wk.get(days[5]), wk.get(days[6])], weN = we.reduce((n, c) => n + c.dl.size + c.hs.size + c.other.length, 0);
   const dayName = d => `${dayFmt(d, { weekday: 'short' })} ${dayFmt(d, { day: 'numeric' })}`;
-  const wkendHtml = () => `<section class="td-day td-wkend${wkPast ? ' past' : ''}" aria-labelledby="td-d-wkend">
-      <div class="td-dh"><h3 id="td-d-wkend">Over the weekend</h3>
-        <p class="td-dsum">${esc(`${dayName(wkendDays[0])} – ${dayName(wkendDays[1])}`)}${wkend.hs.length ? ` · ${plural(wkend.hs.length, 'hearing')}` : ''}${wkTs.length ? ` · ${wkTs.length} due` : ''}</p></div>
-      ${wkend.hs.length ? slotHtml(wkend.hs, true) : ''}
-      ${wkTs.length ? `<p class="td-dl2">${icon('list-todo')}${wkPast ? 'Was due' : 'Due'}</p>${wkTs.map(x => weekTask(x, true)).join('')}` : ''}</section>`;
+  const weekend = () => `<section class="td-day wk-day td-wkend${days[6] < today ? ' past' : ''}" aria-labelledby="td-d-wkend">
+      <div class="td-dh"><h3 id="td-d-wkend">Weekend</h3><p class="td-dsum">${esc(`${dayName(days[5])} – ${dayName(days[6])}`)}</p></div>
+      <div class="wk-col">${body(we, true)}</div></section>`;
   const label = off === 0 ? 'This week' : off === 1 ? 'Next week' : off === -1 ? 'Last week' : `Week of ${dayFmt(mon, { month: 'short', day: 'numeric' })}`;
   const range = `${dayFmt(mon, { month: 'short', day: 'numeric' })} to ${dayFmt(days[4], dayFmt(mon, { month: 'short' }) === dayFmt(days[4], { month: 'short' }) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
-  // Team: how the week's hearings fall across owners, and one click to see only that person's week.
+  // Team: how the week's bills heard fall across owners, and one click to see only that person's week.
+  const heard = all.flatMap(c => [...c.hs.values()].flat());
   let byWho = '';
-  if (scope === 'team' && hs.length) {
-    const n = new Map(); for (const x of hs) { const o = (S.assignments[x.b.id] || [])[0] || ''; n.set(o, (n.get(o) || 0) + 1); }
-    byWho = `<div class="td-wwho" role="group" aria-label="Hearings this week, by bill owner">${[...n.entries()].filter(([id]) => id && advocate(id)).sort((x, y) => y[1] - x[1]).map(([id, k]) => `<button type="button" class="td-wchip" data-who="${esc(id)}" title="${esc(id === S.me.id ? 'Show my week' : `Show ${advocate(id).full_name}’s week`)}">${avatar(advocate(id), 20)}<span>${esc(id === S.me.id ? 'You' : first(id))}</span><b>${k}</b></button>`).join('')}${n.get('') ? `<span class="td-wchip td-wnone">${avatar(null, 20)}<span>No owner</span><b>${n.get('')}</b></span>` : ''}</div>`;
+  if (scope === 'team' && heard.length) {
+    const n = new Map(); for (const x of heard) { const o = (S.assignments[x.b.id] || [])[0] || ''; n.set(o, (n.get(o) || 0) + 1); }
+    byWho = `<div class="td-wwho" role="group" aria-label="Bills heard this week, by owner"><span class="td-wwlab">Bills heard, by owner</span>${[...n.entries()].filter(([id]) => id && advocate(id)).sort((x, y) => y[1] - x[1]).map(([id, k]) => `<button type="button" class="td-wchip" data-who="${esc(id)}" title="${esc(id === S.me.id ? 'Show my week' : `Show ${advocate(id).full_name}’s week`)}">${avatar(advocate(id), 20)}<span>${esc(id === S.me.id ? 'You' : first(id))}</span><b>${k}</b></button>`).join('')}${n.get('') ? `<span class="td-wchip td-wnone">${avatar(null, 20)}<span>No owner</span><b>${n.get('')}</b></span>` : ''}</div>`;
   }
-  // The week's line counts what the columns show: hearings, and one entry per bill per day for the steps due.
-  const dueN = days.reduce((n, d) => n + perBill(cols.get(d).ts).length, 0) + wkTs.length;
+  // The week's line names what it counts: sittings and the bills in them, and the bills whose testimony is still due.
+  const nSit = all.reduce((n, c) => n + c.hs.size, 0), nDue = all.reduce((n, c) => n + [...c.dl.values()].reduce((m, g) => m + g.rows.length, 0), 0);
+  const sum = [nSit ? `${plural(nSit, 'hearing')} (${plural(heard.length, 'bill')})` : 'No hearings', nDue ? `testimony due for ${plural(nDue, 'bill')}` : ''].filter(Boolean).join(' · ');
   return `<div class="td-wnav"><h2 class="td-wtitle">${esc(label)}${Math.abs(off) > 1 ? '' : `<span class="td-wrange">${esc(range)}</span>`}</h2>
       <div class="td-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-week': off - 1 })}${off ? btn('This week', { kind: 'text', attrs: { 'data-week': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-week': off + 1 })}</div>
-      <p class="td-wsum">${plural(hs.length, 'hearing')}${dueN ? ` · ${dueN} due` : ''}</p></div>
-    ${byWho}<div class="td-weekgrid${wkN ? ' hasweekend' : ''}">${days.map(dayHtml).join('')}${wkN ? wkendHtml() : ''}</div>`;
+      <p class="td-wsum">${esc(sum)}</p></div>
+    ${byWho}<div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>`;
 }
 
 function render(route) {

@@ -41,6 +41,8 @@ PUB = [
 ]
 SV = [
   ('today',       '/',             'the first thing due',  '.td-card, .td-root .row'),
+  # the Week view exists from 1100px; a phone opening the same address gets the list, so its first card counts there
+  ('week',        '/?view=week',   'the week\'s first entry', '.wk-blk, .wk-timed, .td-card'),
   ('bills',       '/bills',        'the first bill',       '.bl-prow, .bl-grp .row, .bl-table tbody tr'),
   ('bill',        '/bill/HB1562',  'the bill status',      '.bw-ribwrap, .sv-rib, .bw-page .card'),
   ('legislators', '/legislators',  'the first legislator', '.lg-row, .lg-page .row, main tbody tr'),

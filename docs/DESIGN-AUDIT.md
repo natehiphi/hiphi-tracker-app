@@ -87,6 +87,7 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
 | staff2 | 1440 | today | **214** | 51 | **10** | 12 | 4 | 9 |
+| staff2 | 1440 | week (9/21) | **272** | 45 | **7** | 12 | 5 | 8 |
 | staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |
 | staff2 | 1440 | bill | **269** | 31 | **18** | 13 | 5 | 7 |
 | staff2 | 1440 | legislators | **294** | 35 | **7** | 11 | 4 | 4 |
@@ -141,7 +142,9 @@ different clothes — if the team moves, it closes by deletion.
 
 **G-7 — four screens carry more than seven text colours.** Staff Today (9 at 1440, 8 at 390), the
 staff bill page (7), public home (8 at 1440, 7 at 390). Worth a look rather than an alarm: four of
-those are the neutral ramp before any meaning colour is spent.
+those are the neutral ramp before any meaning colour is spent. The staff Week view, rebuilt 9/21 (R-025), is at 8: three neutrals,
+the two blues of the selected "Week" and the Today marker, and red (overdue), amber (due within 24 hours) and green
+("already filed"), each with its words.
 
 **G-8 — five screens between the arrival budget and the limit.** public start 378/144, public
 legislators 382/390, public find 339 (desktop), public home 314/316, staff Bills 386/364. Staff Bills

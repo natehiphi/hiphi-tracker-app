@@ -124,13 +124,13 @@
 .td-root .td-htime { font-size: var(--t14); font-weight: 700; line-height: 20px; color: var(--n900); white-space: nowrap; }
 .td-root .td-hbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .td-root .td-hbill { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
-.td-root .td-hbill .td-num, .td-root .td-wrow .td-num, .td-root .td-wi .td-num { font-size: var(--t14); line-height: 20px; }
-.td-root .td-hbill .sv-p1, .td-root .td-wi1 .sv-p1 { height: 18px; margin: 0 2px 0 4px; vertical-align: 1px; }
-.td-root .td-hbill .td-t, .td-root .td-win .td-t { display: inline; white-space: normal; }
+.td-root .td-hbill .td-num, .td-root .td-wrow .td-num { font-size: var(--t14); line-height: 20px; }
+.td-root .td-hbill .sv-p1 { height: 18px; margin: 0 2px 0 4px; vertical-align: 1px; }
+.td-root .td-hbill .td-t { display: inline; white-space: normal; }
 .td-root .td-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* a summary may be cut after two lines; a nickname never is */
 .td-root .td-hline { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); }
 .td-root .td-hmeta { font-size: var(--t13); line-height: 18px; color: var(--n500); }
-.td-root .td-hline .sv-chip, .td-root .td-wi2 .sv-chip { min-height: 22px; padding: 1px 8px; }
+.td-root .td-hline .sv-chip { min-height: 22px; padding: 1px 8px; }
 .td-root .td-hrow.past .td-htime, .td-root .td-hrow.past .td-nick, .td-root .td-hrow.past .td-num { color: var(--n500); }
 /* this week: a small table, numbers to the right */
 .td-root .td-wk { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--t14); line-height: 20px; }
@@ -282,7 +282,8 @@
   .td-root .td-wbtns .btn.text { min-height: 36px; font-size: var(--t14); }
   .td-root .td-wbtns .btn.text:hover { background: var(--p50); text-decoration: none; }
   .td-root .td-wsum { margin-left: auto; font-size: var(--t14); color: var(--n500); }
-  .td-root .td-wwho { display: flex; flex-wrap: wrap; gap: var(--s8); margin-bottom: var(--s12); }
+  .td-root .td-wwho { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-bottom: var(--s12); }
+  .td-root .td-wwlab { font-size: var(--t13); color: var(--n500); }
   .td-root .td-wchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--s12) 0 6px; border-radius: var(--pill); background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); font-size: var(--t14); color: var(--n700); }
   .td-root button.td-wchip:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
   .td-root .td-wchip b { color: var(--n900); }
@@ -298,37 +299,7 @@
   .td-root .td-day.today .td-dh { background: var(--p50); border-bottom-color: var(--p100); }
   .td-root .td-day.past { background: var(--n50); }
   .td-root .td-day.past .td-dh { background: var(--n50); }
-  .td-root .td-day.past .td-num, .td-root .td-day.past .td-nick, .td-root .td-day.past .td-slh b, .td-root .td-day.past .td-dom { color: var(--n500); }
-  .td-root .td-slot { padding: var(--s8) var(--s4) 0; }
-  .td-root .td-slot + .td-slot { margin-top: var(--s4); border-top: 1px solid var(--n100); }
-  .td-root .td-slh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; padding: 0 var(--s8) 2px; font-size: var(--t13); line-height: 20px; color: var(--n500); }
-  .td-root .td-slh b { font-size: var(--t14); color: var(--n900); white-space: nowrap; }
-  .td-root .td-wi { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; margin: 0; padding: 6px var(--s8); border-radius: var(--r8); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
-  .td-root a.td-wi:hover { background: var(--n100); }
-  .td-root a.td-wi:focus-visible { outline-offset: -2px; }
-  .td-root .td-wi1 { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
-  .td-root .td-wil { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }   /* the state drops under the number in a narrow column; the owner stays top right */
-  .td-root .td-wi1 .sv-av { flex: none; margin-top: 2px; }
-  .td-root .td-wi1 .sv-chip { min-height: 22px; padding: 1px 8px; }
-  .td-root .td-wnick { font-size: var(--t13); line-height: 18px; color: var(--n500); }
-  .td-root .td-wmore { font-size: var(--t13); color: var(--n500); }
-  .td-root .td-sldue { padding: 0 var(--s8) 2px; line-height: 18px; }
-  .td-root .td-sldue .sv-count { font-size: var(--t13); white-space: normal; }
-  .td-root .td-wkind { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--n500); }
-  .td-root .td-wkind .ic, .td-root .td-wwait { width: 16px; height: 16px; color: var(--n500); }
-  .td-root .td-win { min-width: 0; overflow-wrap: anywhere; }
-  .td-root .td-win .td-t { font-size: var(--t13); line-height: 18px; }
-  .td-root .td-win.td-clamp { line-height: 18px; }
-  .td-root .td-wwait { margin: 0 4px 0 0; vertical-align: -2px; }
-  .td-root .td-wi2 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); margin-top: 2px; }
-  .td-root .td-wi2 .sv-count { font-size: var(--t13); }
-  .td-root .td-wtask { margin: 0 var(--s4); }
-  .td-root .td-wtask .td-wi1 { display: block; }   /* number and nickname run on as text */
-  .td-root .td-wtask .td-wnick { margin-left: 6px; }
-  .td-root .td-wq .td-wsent { color: var(--n500); }
-  .td-root .td-dl2 { display: flex; align-items: center; gap: 6px; margin: var(--s8) var(--s4) 0; padding: var(--s8) var(--s8) 2px; border-top: 1px solid var(--n100); font-size: var(--t13); font-weight: 700; line-height: 20px; color: var(--n500); }
-  .td-root .td-dh + .td-dl2 { margin-top: 0; border-top: 0; }
-  .td-root .td-dl2 .ic { width: 16px; height: 16px; }
+  .td-root .td-day.past .td-num, .td-root .td-day.past .td-dom, .td-root .td-day.past .wk-bh b { color: var(--n500); }
   .td-root .td-dnone { padding: var(--s16) var(--s12); font-size: var(--t14); color: var(--n500); }
 }
 @media (max-width: 359px) { .td-root .td-sub .sv-seg button { padding: 0 12px; } }
@@ -380,22 +351,99 @@
 .td-root .td-sgnote > span { flex: 1 1 200px; min-width: 0; }
 .td-root .td-sgnone { padding: var(--s12) var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n500); }
 
-/* ---- the weekend's own column (bug 4): it is added only in a week that has something in it, so an ordinary week
+/* ---- the weekend's own place (bug 4): it is added only in a week that has something in it, so an ordinary week
    keeps five full-width days, and it is never dressed up as Friday. ---- */
 @media (min-width: 1100px) {
   .td-root .td-day.td-wkend, .td-root .td-day.td-wkend .td-dh { background: var(--n50); }
-  .td-root .td-wday { margin-right: 6px; font-size: var(--t13); font-weight: 700; color: var(--n500); }
-  /* 1100 to 1399px: five days of 125px each plus a sixth would be unreadable, so the weekend is a labelled strip
-     across the foot of the week instead. Either way it is its own place and never says Friday. */
+  /* Below 1600px the weekend is a labelled strip across the foot of the week, its cards side by side: a sixth column
+     there squeezed every weekday to 184px on a 1440 laptop, and to 125px at 1100 (R-025). Either way it is its own
+     place and never says Friday. */
   .td-root .td-day.td-wkend { grid-column: 1 / -1; min-height: 0; display: flex; flex-wrap: wrap; align-items: flex-start; }
-  .td-root .td-day.td-wkend > * { flex: 1 1 240px; min-width: 0; max-width: 420px; }
-  .td-root .td-day.td-wkend > .td-dh, .td-root .td-day.td-wkend > .td-dl2 { flex: 1 1 100%; max-width: none; position: static; }
+  .td-root .td-day.td-wkend > .td-dh { flex: 1 1 100%; position: static; }
+  .td-root .td-day.td-wkend > .wk-col { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+  .td-root .td-day.td-wkend > .wk-col > * { flex: 1 1 240px; min-width: 0; max-width: 360px; }
 }
-@media (min-width: 1400px) {
+@media (min-width: 1600px) {
   .td-root .td-weekgrid.hasweekend { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, .8fr); }
   .td-root .td-day.td-wkend { grid-column: auto; display: block; }
-  .td-root .td-day.td-wkend > *, .td-root .td-day.td-wkend > .td-dh, .td-root .td-day.td-wkend > .td-dl2 { max-width: none; }
   .td-root .td-day.td-wkend > .td-dh { position: sticky; }
+  /* one column of cards; nowrap, or a wrapping column flex line grows to its widest card and runs off the page */
+  .td-root .td-day.td-wkend > .wk-col { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .td-root .td-day.td-wkend > .wk-col > * { flex: none; max-width: none; }
+}
+
+/* ---- the Week view's three kinds of thing (R-025, 9/21). A testimony deadline is an outlined card with a clock, a
+   hearing is a filled grey block with the Capitol, and the rest are plain rows: three looks, each titled in words
+   (A-5, A-12), so a hearing can never be mistaken for a deadline again. Titles are the strongest text in a column;
+   bill numbers step down to 13px under them (A-13). ---- */
+@media (min-width: 1100px) {
+  .td-root .wk-day { min-width: 0; }   /* a grid item's automatic minimum is its widest line, which ran the weekend off the page */
+  .td-root .wk-col { display: flex; flex-direction: column; gap: var(--s8); padding: var(--s8); }
+  .td-root .wk-blk { border-radius: var(--r8); padding: var(--s8) 0 var(--s4); }
+  .td-root .wk-bh { display: flex; align-items: center; gap: 6px; padding: 0 var(--s8); font-size: var(--t14); line-height: 20px; color: var(--n900); }
+  .td-root .wk-bh .ic { width: 16px; height: 16px; flex: none; }
+  .td-root .wk-bs { padding: 0 var(--s8) 0 30px; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+  .td-root .wk-going { display: flex; align-items: flex-start; gap: 6px; padding-left: var(--s8); margin-top: 2px; color: var(--n700); }
+  .td-root .wk-going .ic { width: 16px; height: 16px; flex: none; color: var(--n500); margin-top: 1px; }
+  /* testimony due: amber within 24 hours, red once overdue; the title says so in words too */
+  .td-root .wk-dl { background: var(--n0); box-shadow: inset 0 0 0 1px var(--n200); border-left: 4px solid var(--n400); }
+  .td-root .wk-dl .wk-bh .ic { color: var(--n500); }
+  .td-root .wk-dl.soon { border-left-color: var(--warn-fill); }
+  .td-root .wk-dl.soon .wk-bh, .td-root .wk-dl.soon .wk-bh .ic, .td-root .wk-dl.soon .wk-when { color: var(--warn-text); }
+  .td-root .wk-dl.late { border-left-color: var(--bad-text); background: var(--bad-wash); box-shadow: none; }
+  .td-root .wk-dl.late .wk-bh, .td-root .wk-dl.late .wk-bh .ic, .td-root .wk-dl.late .wk-when { color: var(--bad-text); }
+  /* a hearing is an event at a place */
+  .td-root .wk-hr { background: var(--n100); }
+  .td-root .wk-hr .wk-bh .ic { color: var(--n700); }
+  .td-root .wk-held { background: none; padding: 0; }
+  .td-root .wk-held > summary { display: flex; align-items: flex-start; gap: 6px; padding: 6px var(--s8); border-radius: 6px; list-style: none; cursor: pointer; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+  .td-root .wk-held > summary::-webkit-details-marker { display: none; }
+  .td-root .wk-held > summary:hover { background: var(--n100); }
+  .td-root .wk-held > summary:focus-visible { outline-offset: -2px; }
+  .td-root .wk-held > summary .ic { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--n500); }
+  .td-root .wk-heldt { flex: 1 1 auto; min-width: 0; }
+  .td-root .wk-heldt b { color: var(--n700); }
+  .td-root .wk-held > summary .chev { transition: transform 150ms var(--ease); }
+  .td-root .wk-held[open] > summary .chev { transform: rotate(180deg); }
+  .td-root .wk-held .wk-bills { margin: 0 0 var(--s4) 22px; }
+  /* one bill: number and state, then its name on one line, in one style (the nickname, or a monitor bill's summary) */
+  .td-root .wk-bills { margin: var(--s4) 0 0; padding: 0; list-style: none; }
+  .td-root .wk-bill { display: block; padding: 3px var(--s8); border-radius: 6px; color: var(--n700); text-decoration: none; }
+  .td-root a.wk-bill:hover { background: var(--n100); }
+  .td-root .wk-hr a.wk-bill:hover { background: var(--n200); }
+  .td-root a.wk-bill:focus-visible, .td-root a.wk-oth:focus-visible { outline-offset: -2px; }
+  .td-root .wk-b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-width: 0; }
+  .td-root .wk-bill .td-num { font-size: var(--t13); line-height: 20px; font-weight: 600; }   /* a step under the 14px bold titles (A-13); Poppins titles wrapped "Testimony / due" at 1440 */
+  .td-root .wk-bill .sv-p1 { height: 18px; }
+  .td-root .wk-right { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .td-root .wk-right .sv-chip { min-height: 20px; padding: 0 8px; font-size: var(--t13); }
+  .td-root .wk-right .sv-chip .ic { width: 14px; height: 14px; }
+  .td-root .wk-b2 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .td-root .wk-name { flex: 1 1 auto; min-width: 0; font-size: var(--t13); line-height: 18px; color: var(--n700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-root .wk-mon .wk-name { color: var(--n500); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .td-root .wk-b2 .sv-av { flex: none; }
+  .td-root .wk-filed { display: flex; align-items: center; gap: 6px; padding: 2px var(--s8) 0; font-size: var(--t13); line-height: 18px; color: var(--ok-text); }
+  .td-root .wk-filed .ic { width: 14px; height: 14px; }
+  /* everything else: plain rows, quieter than the two kinds above */
+  .td-root .wk-also { padding-top: var(--s4); }
+  .td-root .wk-also .wk-bh { font-size: var(--t13); color: var(--n500); }
+  .td-root .wk-others { list-style: none; margin: 2px 0 0; padding: 0; }
+  .td-root .wk-oth { display: flex; gap: 6px; align-items: flex-start; padding: 3px var(--s8); border-radius: 6px; font-size: var(--t13); line-height: 18px; color: var(--n700); text-decoration: none; }
+  .td-root a.wk-oth:hover { background: var(--n100); }
+  .td-root .wk-oth > .ic { width: 16px; height: 16px; margin-top: 1px; color: var(--n500); flex: none; }
+  .td-root .wk-oth .td-num { font-size: var(--t13); line-height: 18px; }
+  .td-root .wk-timed { color: var(--n900); }
+  .td-root .wk-q { color: var(--n500); }
+  .td-root .wk-ot { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .td-root .wk-ot .sv-count { font-size: var(--t13); }
+  .td-root .wk-more { color: var(--n500); white-space: nowrap; }
+}
+/* 1100 to 1279px: days are 148 to 180px wide, so the icons leave the titles and the lines start at the card's edge;
+   the look (card or block) and the words still say which is which. */
+@media (min-width: 1100px) and (max-width: 1279px) {
+  .td-root .wk-col { padding: var(--s4); }
+  .td-root .wk-bh .ic { display: none; }
+  .td-root .wk-bs { padding-left: var(--s8); }
 }
 
 /* ---- the width the window has. Today asks the frame for the whole window (today.js `wide`) and sets its own page
