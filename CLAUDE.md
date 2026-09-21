@@ -12,13 +12,20 @@ use the terminal, and reviews on his phone AND a laptop. He wants direct answers
 screenshots for anything visual. When he says something is bad, fix it rather than defend it. He approves
 direction; Claude builds, tests, pushes and verifies the published site.
 
-## Where things stand (2026-09-19, after 3.1x)
+## Where things stand (2026-09-20, after 3.5)
 
-Both staff apps were assessed side by side and **Staff v2 was recommended**; Nate then had the whole
-improvement list built except "show the draft inside Review" (not wanted) and the Bills list-detail split
-(dropped once the quick look covered the same need). All of it is shipped and live. **Nate said on 9/19 that the
-team is NOT moving to v2 yet — maybe later**, so both staff apps stay and every data-layer change still goes into
-both. Nothing is waiting on code; see "Open items" at the foot of this file and `../backend/HANDOFF.md` 3.1y.
+**Read `../backend/HANDOFF.md` 3.5 before touching the public first visit.** It holds Nate's verbatim review of
+the eleven-screen onboarding and the target shape for the next build. In short: the "narrow" and bill-picking
+steps merge into collapsible topic sections with bills pre-ticked (every live strongly-supported bill plus
+staff-recommended ones - a new `bills` column is needed) and a Follow all button; "where do you stand" asks about
+three bills at most (decided earlier, NOT yet built); "Reading a bill" becomes a miniature of the real bill page
+with numbered callouts; "How a bill becomes law" and "The session calendar" are replaced by ONE friendly
+January-to-May session page; Home's "What happens next" card becomes its own screen; the legislator step takes a
+street address, not a town; the email step becomes one "keep me updated" opt-in covering hearing AND advocacy
+alerts; the name is saved with the account; no "Step 4 of 11" counter; and "Skip" moves to the next page.
+
+**The team is moving to Staff v2** (Nate, 9/20; logins later). Until the old app is retired, data-layer changes
+still go into both staff apps. The move's steps are in the backend CLAUDE.md "Open items".
 
 ## The three apps (all in this repo, all static, no build step)
 
@@ -28,9 +35,10 @@ both. Nothing is waiting on code; see "Open items" at the foot of this file and 
 | Staff app (current) | `index.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | the team today |
 | Staff v2 | `staff.html` | `staff/` | the team, to compare |
 
-**Both staff apps stay (Nate, 9/19: not moving to v2 yet, maybe later).** Until then every data-layer
-change goes into BOTH (see "Two staff apps" below). Links in Slack and email open the current app. If v2 is
-chosen: add `staff.html` to the Supabase Auth redirect URLs, then delete the other app's screens.
+**The team is moving to Staff v2 (Nate, 9/20).** Until the current app is retired, every data-layer change
+still goes into BOTH (see "Two staff apps" below). Links in Slack and email still open the current app until the
+move's steps are done: Nate adds `staff.html` to the Supabase Auth redirect URLs, then the links are repointed,
+then the other app's screens are deleted.
 
 `public.html` + `public.js` is an older public page that is still live and out of scope (Nate has been asked
 whether it should redirect to `track.html`). `mockup-hybrid.html` is a reference mock.
@@ -97,7 +105,9 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
   2. The email ask is a step in the flow (`sendEmailLink`); giving it is the consent for hearing alerts. One
      ask per visit, always skippable. HIPHI's own action alerts stay a separate choice, off by default. An
-     existing account only ever GAINS choices from an ask.
+     existing account only ever GAINS choices from an ask. **CHANGING (Nate, 9/20, HANDOFF 3.5):** the ask becomes
+     one "keep me updated" opt-in that covers hearing alerts AND HIPHI's advocacy alerts. Rewrite this rule, and
+     DESIGN.md C-4, in the same commit as that code. Email to the public stays paused either way.
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
@@ -216,10 +226,11 @@ resume them by id rather than respawning.
 ## Open items
 
 Nate's, not code's — do not start any of these without him:
-1. **Does the team move to Staff v2?** If yes, in this order: add `staff.html` to the Supabase Auth redirect
-   URLs (until then a password-reset link lands on the current app), point the Slack and email links at it,
-   then delete the current app's screens and make `staff/data.js` the only data layer — which retires
-   `parity.mjs` and the 67-call hand copy with it.
+1. **The team is moving to Staff v2 (decided 9/20).** In this order: Nate adds `staff.html` to the Supabase
+   Auth redirect URLs (until then a password-reset link lands on the current app); point the Slack and email
+   links at it (`APP_URL` in `staff/data.js:32`, the share link in `staff/bill.js`, the `APP_URL` env for
+   emails); then delete the current app's screens and make `staff/data.js` the only data layer — which retires
+   `parity.mjs` and the 67-call hand copy with it. Hold the deletion a week so there is a way back.
 2. Parked at Nate's request (9/19): rehearsing the January session flip. The 2027 calendar load itself is not
    parked — it has to happen before Wed 20 Jan 2027.
 3. Should `public.html` (the old public page, still live) redirect to `track.html`?
