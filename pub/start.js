@@ -14,11 +14,18 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, 
   friendly, toast, nudge } from './core.js';
 import { btn, chip, posChip, row, steps } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
-import { topics, policies } from './topics.js';
+import { topics, policies, inSub } from './topics.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The email step is the last one; a signed-in person does not get it, so their count is one shorter.
-const total = off => (off || S.session ? 3 : 4);
+// The guided start, as an ordered list of named screens rather than step numbers. Adding a screen
+// is adding a name here: every place that used to compare `step === 3` now asks for the name, so
+// inserting one in the middle stops renumbering the rest (Nate's longer flow, 9/20).
+const FLOW_IN = ['topics', 'narrow', 'bills', 'stand'], FLOW_OFF = ['topics', 'recap'];
+const flowOf = off => [...(off ? FLOW_OFF : FLOW_IN), ...(S.session ? [] : ['email'])];
+const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
+const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
+const total = off => flowOf(off).length;
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const andList = a => a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
 // Issue names are shown whole and in bold inside sentences: "Healthy Eating, Active Living" has a comma of its own,
@@ -70,7 +77,8 @@ const backBtn = step => btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st
 const stepRow = (step, off) => `<div class="steps st-steps">${step > 1 ? backBtn(step) : ''}${steps(step, total(off))}</div>`;
 const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-const artFor = (step, off) => `<div class="st-art">${step === (off ? 3 : 4) ? islands(myIsland()) : step === 3 ? VOICES : CAPITOL}</div>`;
+const artFor = (step, off) => { const n = nameAt(step, off);
+  return `<div class="st-art">${n === 'email' ? islands(myIsland()) : n === 'stand' ? VOICES : CAPITOL}</div>`; };
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -115,11 +123,34 @@ const SURE1 = 'Takes about a minute. No account needed.', SURE2 = 'You can chang
 function step1() {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
-  return shell('st1', `${artFor(1, off)}${stepRow(1, off)}
+  return shell('st1', `${artFor(stepOf('topics', off), off)}${stepRow(stepOf('topics', off), off)}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
     <p class="lede">${off ? `The Legislature is on break until ${esc(shortDay(si.nextOpen))}. Pick the issues you care about, and HIPHI’s bills for them will be ready when hearings start.`
       : 'Pick the issues you care about. We’ll show you a few bills you can follow.'}</p>${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${issueRows(off, yr)}`);
+}
+
+// ================= Narrow it down: the sub-topics inside the picked topics =================
+// Optional by design. Picking nothing means "all of it", and Skip says so - this screen exists to
+// let somebody who only cares about school meals avoid being handed SNAP and sugary drinks, not to
+// make everyone answer another question. Sub-topics with no live bills are not offered at all.
+function narrowGroups() {
+  const bills = poolBills();
+  return pickedIssues().map(i => ({ i, subs: (i.subs || []).filter(sx => sx.bills > 0) })).filter(g => g.subs.length > 1);
+}
+const pickedSubs = () => new Set(wiz().subs || []);
+function stepNarrow() {
+  const groups = narrowGroups(), sel = pickedSubs();
+  const n = groups.reduce((a, g) => a + g.subs.length, 0);
+  return shell('st1 st-narrow', `${artFor(stepOf('narrow', false), false)}${stepRow(stepOf('narrow', false), false)}
+    <h1 class="hero" id="st-h">Anything in particular?</h1>
+    <p class="lede">${n} kinds of bill sit inside what you picked. Choose the ones you care about, or leave it and we will show you all of them.</p>${sureWide('info', SURE2)}`,
+    `${sayRow('info', SURE2)}<div class="st-narrows" role="group" aria-labelledby="st-h">${groups.map(g => `
+      <section class="st-ngroup"><h2 class="st-nhead">${icon(g.i.icon)}<span>${esc(g.i.key)}</span></h2>
+        <div class="st-nsubs">${g.subs.map(sx => {
+          const on = sel.has(sx.key);
+          return `<button type="button" class="chip st-nsub" data-stsub="${esc(sx.key)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(sx.name)}</span><span class="st-ncount">${sx.bills}</span></button>`;
+        }).join('')}</div></section>`).join('')}</div>`);
 }
 
 // ================= Step 2 (in session): a few bills to follow =================
@@ -137,17 +168,20 @@ function ranker() {
     || (POS_W[a.hiphi_position] ?? 9) - (POS_W[b.hiphi_position] ?? 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }); };
   return { info, cmp };
 }
-const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.key).join('|')}`;
+const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.key).join('|')}|${[...(wiz().subs || [])].sort().join(',')}`;
 function model2() {
   const sel = pickedIssues(), sig = sigOf(false, sel), L = S.stLoad;
   if (!sel.length) return { none: true };
   if (!L || L.sig !== sig) return { loading: true, sig, sel };
   if (L.err) return { err: true, sig, sel };
   if (!L.rows) return { loading: true, sig, sel };
-  const R = ranker(), w = wiz(), seen = new Set(), per = sel.map(i => ({ i, bills: [] }));
+  const R = ranker(), w = wiz(), seen = new Set(), per = sel.map(i => ({ i, bills: [] })), subSel = pickedSubs();
   for (const b of L.rows) {
     if (seen.has(b.id) || !alive(b) || !hasPos(b)) continue;
     const g = per.find(p => (p.i.match ? p.i.match(b) : (b.coalitions || []).some(n => p.i.names.includes(n)))); if (!g) continue;
+    // Narrowed: if this topic has sub-topics picked, only bills in them count.
+    const mine = (g.i.subs || []).filter(sx => subSel.has(sx.key));
+    if (mine.length && !mine.some(sx => inSub(b, g.i.topicKey, sx.key))) continue;
     seen.add(b.id); g.bills.push(b);
   }
   // Bills become POLICIES here. Eleven bills say "Let counties regulate tobacco sales"; offering
@@ -279,7 +313,7 @@ function step2() {
   const more = extras.filter(x => x.shown.length).map(x => `<h2 class="st-subh">More ${esc(x.i.key)} bills</h2>
     <ul class="st-picks" role="list">${x.shown.map(b => pickCard(b, R, picked)).join('')}</ul>`).join('');
   const moreBtns = fallback ? '' : extras.filter(x => x.left > 0).map(x => btn(`More ${esc(x.i.key)} bills (${x.left})`, { kind: 'text', icon: 'plus', attrs: { 'data-stmore': x.i.key } })).join('');
-  return shell('st2', `${artFor(2, false)}${stepRow(2, false)}
+  return shell('st2', `${artFor(stepOf('bills', false), false)}${stepRow(stepOf('bills', false), false)}
     <h1 class="hero" id="st-h">${h1}</h1>
     <p class="lede">${lede}</p>${n ? sureWide('info', SURE2) : ''}`,
     `${n ? `${sayRow('info', SURE2)}<ul class="st-picks" role="list" aria-labelledby="st-h">${first.map(b => pickCard(b, R, picked)).join('')}</ul>` : ''}
@@ -309,7 +343,7 @@ function standCard(b) {
 function step3() {
   const bills = followedBills(), n = bills.length;
   if (!n) return skel(3, false);
-  return shell('st3', `${artFor(3, false)}${stepRow(3, false)}
+  return shell('st3', `${artFor(stepOf('stand', false), false)}${stepRow(stepOf('stand', false), false)}
     <p class="st-won st-mile" role="status">${flower(30)}<span>You’re following ${plural(n, 'bill')}. Mahalo!</span></p>
     <h2 class="st-ask" id="st-h">Where do you stand? <span class="st-opt">(optional)</span></h2>
     <p class="lede">Private — we never show your answer publicly, and you can change it any time.</p>`,
@@ -343,7 +377,7 @@ function emailCard() {
 }
 function step4() {
   const n = S.watch.size;
-  return shell('st4', `${artFor(4, false)}${stepRow(4, false)}
+  return shell('st4', `${artFor(stepOf('email', false), false)}${stepRow(stepOf('email', false), false)}
     <h1 class="hero" id="st-h">Want a heads-up when a hearing is set?</h1>
     <p class="lede">Hearings are posted about two days ahead. Add your email and we’ll tell you in time when ${n === 1 ? 'your bill has' : `one of your ${n} bills has`} one.</p>`,
     emailCard());
@@ -390,7 +424,7 @@ function step2off() {
         <span class="st-idesc">${following ? `HIPHI’s ${nextYr} bills will show up on your page as they are added.` : `HIPHI’s ${nextYr} bills will show up on your page when they are added to it.`}</span></span></button>` : ''}
     </section>`;
   }).join('');
-  return shell('st2 st-off', `${artFor(2, true)}${stepRow(2, true)}
+  return shell('st2 st-off', `${artFor(stepOf('recap', true), true)}${stepRow(stepOf('recap', true), true)}
     <h1 class="hero" id="st-h">What happened in ${yr}</h1>
     <p class="lede">Here’s how HIPHI’s bills did on the ${sel.length === 1 ? 'issue' : 'issues'} you picked. Select a bill to read more.</p>`, cards);
 }
@@ -407,7 +441,7 @@ function step3off() {
       <p class="lede">The ${nextYr} session opens on ${opens}. HIPHI’s bills for your issues will be here then, ready to follow.</p>`
     : `<h1 class="hero" id="st-h">Want a heads-up when your bills have a hearing?</h1>
       <p class="lede">Add your email now and you’re set for ${nextYr}: when a bill you follow has a hearing, we’ll tell you in time. It also keeps your bills and lists on any device.</p>`;
-  return shell('st3 st-off', `${artFor(3, true)}${stepRow(3, true)}${saved}${intro}`,
+  return shell('st3 st-off', `${artFor(stepOf('email', true), true)}${stepRow(stepOf('email', true), true)}${saved}${intro}`,
     `${S.session ? '' : emailCard()}<h2 class="st-subh st-alsoh">One more thing you can do now</h2>${legs}`);
 }
 
@@ -449,11 +483,14 @@ const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy', 'tru
 
 // Where a step cannot be shown (nothing picked, nothing followed, signed in on the email step), where to go instead.
 function redirectFor(step, off) {
-  const picked = pickedIssues().length > 0;
-  if (off) return step > 3 ? 3 : step >= 2 && !picked ? 1 : 0;
-  if (step === 2) return picked ? 0 : 1;
-  if (step === 3) return S.watch.size ? 0 : picked ? 2 : 1;
-  if (step === 4) return S.session ? 'home' : S.watch.size ? 0 : picked ? 2 : 1;
+  const picked = pickedIssues().length > 0, n = nameAt(step, off), T = total(off);
+  const back = () => picked ? stepOf('bills', off) : stepOf('topics', off);
+  if (step > T) return T;
+  if (off) return n !== 'topics' && !picked ? stepOf('topics', off) : 0;
+  if (n === 'narrow') return !picked ? stepOf('topics', off) : narrowGroups().length ? 0 : stepOf('bills', off);
+  if (n === 'bills') return picked ? 0 : stepOf('topics', off);
+  if (n === 'stand') return S.watch.size ? 0 : back();
+  if (n === 'email') return S.session ? 'home' : S.watch.size ? 0 : back();
   return 0;
 }
 
@@ -470,8 +507,10 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     // In session the email ask is step 4, so Skip on step 3 owes them that step. OFF-SEASON step 3
     // IS the email step and there is no step 4 - skipping there really does mean leaving.
-    if (step === 3 && sessionInfo().phase === 'in' && followedBills().length) return goStep(3, 4);
-    if (step === 2) nudge('follow');                                  // let home make the ask instead
+    const here = nameAt(step, off), emailAt = stepOf('email', off);
+    if (here === 'stand' && emailAt && followedBills().length) return goStep(step, emailAt);
+    if (here === 'narrow') return goStep(step, stepOf('bills', off));  // narrowing is optional; the bills are not
+    if (here === 'bills') nudge('follow');                             // let home make the ask instead
     skipAll();
   });
   $$('[data-stback]').forEach(el => el.onclick = () => goBack(+el.dataset.stback));
@@ -480,23 +519,34 @@ function wire(route) {
   // "Find my legislators" leaves the start for good; the link itself does the navigating.
   $$('[data-stready]').forEach(el => el.addEventListener('click', () => { wizSet({ done: true, step: 1, ready: sessionInfo().nextOpen }); welcome(); }));
 
-  if (step === 1) {
+  if (nameAt(step, off) === 'topics') {
     $$('[data-stissue]').forEach(el => el.onclick = () => {
       const on = toggleTick(el), set = new Set(wiz().issues || []), name = el.dataset.stissue;
-      // Store the coalition's first name; drop any other spelling of the same issue (its public name, a sibling).
-      const iss = issues().find(i => i.names.includes(name));
-      (iss ? [iss.key, ...iss.names] : [name]).forEach(n => set.delete(n));
+      // Store the topic's own key; drop any other spelling of the same one (its label, a sibling).
+      const t = topicList().find(i => i.names.includes(name) || i.key === name);
+      (t ? [t.key, ...t.names] : [name]).forEach(n => set.delete(n));
       if (on) set.add(name);
       wizSet({ issues: [...set] }); clearFlash();
     });
     const next = $('[data-stnext]');
     if (next) next.onclick = () => {
       if (!pickedIssues().length) { flash('Pick at least one issue, or select Skip.'); return; }
-      goStep(1, 2);
+      // Straight past the narrowing when there is nothing to narrow: a single sub-topic is not a choice.
+      goStep(step, narrowGroups().length ? step + 1 : stepOf('bills', off));
     };
   }
 
-  if (step === 2 && !off) {
+  if (nameAt(step, off) === 'narrow') {
+    $$('[data-stsub]').forEach(el => el.onclick = () => {
+      const on = el.getAttribute('aria-pressed') !== 'true', set = pickedSubs();
+      if (on) set.add(el.dataset.stsub); else set.delete(el.dataset.stsub);
+      wizSet({ subs: [...set] });
+      app.render();
+    });
+    const next = $('[data-stnext]');
+    if (next) next.onclick = () => goStep(step, stepOf('bills', off));
+  }
+  if (nameAt(step, off) === 'bills') {
     const m = model2();
     $$('[data-stpick]').forEach(el => el.onclick = () => {
       const on = toggleTick(el), w = wiz(), set = new Set(w.picksFor === m.sig ? (w.picks || []) : []);
@@ -524,7 +574,8 @@ function wire(route) {
     });
     const next = $('[data-stnext]');
     if (next) next.onclick = async () => {
-      if (m.loading || m.err || m.none) return;
+      // Never a dead button: if the bills are somehow not ready, say so rather than swallowing the tap.
+      if (m.loading || m.err || m.none) { flash(m.err ? 'The bills did not load. Try again.' : 'Still finding bills — one moment.'); return; }
       const w = wiz(), ids = w.picksFor === m.sig ? (w.picks || []) : [];
       if (!ids.length) { flash('Check at least one bill, or select Skip.'); return; }
       if (next.getAttribute('aria-busy') === 'true') return;
@@ -533,11 +584,11 @@ function wire(route) {
       // done: Home stops sending them back here even if they later unfollow everything. ready: the off-season promise is kept.
       wizSet({ step: 3, done: true, ready: null, followed: ids });
       welcome();
-      goStep(2, 3);
+      goStep(step, stepOf('stand', off));
     };
   }
 
-  if (step === 2 && off) {
+  if (nameAt(step, off) === 'recap') {
     $$('[data-stlist]').forEach(el => el.onclick = async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-busy', 'true'); busy(el.querySelector('.st-ilead'), '');
@@ -545,10 +596,10 @@ function wire(route) {
       // The row itself now says what happened. Between sessions core's toast would cheer "Following 0 bills" on top of it.
       const t = document.getElementById('toast'); if (t) t.innerHTML = '';
     });
-    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(2, 3);
+    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, stepOf('stand', off));
   }
 
-  if (step === 3 && !off) {
+  if (nameAt(step, off) === 'stand') {
     $$('[data-ststance]').forEach(el => el.onclick = () => {
       const [id, v] = el.dataset.ststance.split('|'), had = tookStand(), now = myStance(id) === v ? null : v;
       Promise.resolve(setStance(id, now)).catch(e => toast(e, true));
@@ -564,7 +615,7 @@ function wire(route) {
         S.stMile = null; document.querySelector('.st-mile')?.remove(); if (live) live.textContent = '';
       }
     });
-    const next = $('[data-stnext]'); if (next) next.onclick = () => (S.session ? finish() : goStep(3, 4));
+    const next = $('[data-stnext]'); if (next) next.onclick = () => (S.session ? finish() : goStep(step, stepOf('email', off)));
   }
 
   // The email step (in session step 4, off-season step 3). It is this visit's one email ask, so Home will not ask again.
@@ -596,34 +647,43 @@ function wire(route) {
   });
 }
 
-const TITLES = { in: ['Pick your issues', 'Pick your bills', 'Where do you stand?', 'Get a heads-up'], off: ['Get ready', 'What happened', 'Get a heads-up'] };
+const TITLE = { topics: 'Pick your issues', narrow: 'Narrow it down', bills: 'Pick your bills',
+  stand: 'Where do you stand?', email: 'Get a heads-up', recap: 'What happened' };
 export default {
   tab: 'home',
   tabs: false,
-  title: route => { const t = TITLES[isOff() ? 'off' : 'in']; return t[Math.min(route.step || 1, t.length) - 1]; },
+  title: route => TITLE[nameAt(route.step || 1, isOff())] || 'Get started',
   render(route) {
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)), off);   // wire() sends them on
-    if (step === 1) return step1();
-    if (step === 2) return off ? step2off() : step2();
-    if (step === 3) return off ? step3off() : step3();
-    return step4();
+    switch (nameAt(step, off)) {
+      case 'topics': return step1();
+      case 'narrow': return stepNarrow();
+      case 'bills':  return step2();
+      case 'stand':  return step3();
+      case 'recap':  return step2off();
+      case 'email':  return off ? step3off() : step4();
+      default:       return step1();
+    }
   },
   wire,
   bar(route) {
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
-    if (step === 1) return bar2(off ? 'Next' : 'Show me bills', { iconEnd: 'arrow-right' });
-    if (off && step === 2) { const L = S.stLoad, sig = sigOf(true, pickedIssues()); return L && L.sig === sig && L.err ? barRetry() : bar2('Next', { iconEnd: 'arrow-right' }); }
-    if (off) return S.session ? bar1('Go to my page') : '';
-    if (step === 2) {
-      const m = model2();
-      if (m.err) return barRetry();
-      if (m.loading || m.none) return barBusy();
-      if (m.fallback && !m.first.length) return bar1('Go to my page');
-      return bar2(followLabel(m.picked.size), { icon: 'star' });
+    switch (nameAt(step, off)) {
+      case 'topics': return bar2(off ? 'Next' : 'Show me bills', { iconEnd: 'arrow-right' });
+      case 'narrow': return bar2('Show me bills', { iconEnd: 'arrow-right' });
+      case 'recap':  { const L = S.stLoad, sig = sigOf(true, pickedIssues());
+        return L && L.sig === sig && L.err ? barRetry() : bar2('Next', { iconEnd: 'arrow-right' }); }
+      case 'bills': {
+        const m = model2();
+        if (m.err) return barRetry();
+        if (m.loading || m.none) return barBusy();
+        if (m.fallback && !m.first.length) return bar1('Go to my page');
+        return bar2(followLabel(m.picked.size), { icon: 'star' });
+      }
+      case 'stand': return bar2(S.session ? 'Go to my page' : 'Next', { iconEnd: 'arrow-right' });
+      default: return '';   // the email step holds its own buttons, next to the field
     }
-    if (step === 3) return bar2(S.session ? 'Go to my page' : 'Next', { iconEnd: 'arrow-right' });
-    return '';   // the email step holds its own buttons, next to the field
   },
 };

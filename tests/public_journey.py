@@ -46,17 +46,22 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') == '#/start/1', 'first visit lands on step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(p.evaluate('location.hash') == '#/start/2', 'step 2'); std(p, 'start2', axe=True); shot(p, 'p_s2')
-    t2 = text(p); ok('Relating to' not in t2, 'step 2 has no "Relating to" headlines')
+    # The flow gained a "narrow it down" screen (9/20) and may gain more, so the walk advances by
+    # pressing Next and checks WHAT it is looking at, not which number the step happens to be.
+    if p.locator('[data-stsub]').count():
+        std(p, 'narrow', axe=True); shot(p, 'p_narrow')
+        ok('particular' in text(p).lower(), 'narrow step offers sub-topics')
+        p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    ok(p.locator('[data-stpick]').count() > 0, f"bills step offers bills ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
+    t2 = text(p); ok('Relating to' not in t2, 'bills step has no "Relating to" headlines')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(p.evaluate('location.hash') == '#/start/3', f"step 3 is where-you-stand ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
-    ok(re.search(r'where do you stand|stand', text(p), re.I) is not None and not p.locator('main [data-helper]').count(), 'step 3 asks for a stance and pushes no action')
+    ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the bills ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
+    ok(not p.locator('main [data-helper]').count(), 'the stance step pushes no action')
     chips = p.locator('main button[aria-pressed]'); n0 = chips.count()
     if n0: chips.first.click(); p.wait_for_timeout(400)
     st = p.evaluate("JSON.parse(localStorage.getItem('hiphi_stances_demo') || '{}')"); ok(len(st) >= 1, f'a stance is saved ({st})')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1200)
-    ok(p.evaluate('location.hash') == '#/start/4', 'step 4 is the email step'); std(p, 'start4', axe=True); shot(p, 'p_s4')
-    ok(p.locator('main input[type=email]').count() == 1, 'step 4 has one labelled email field')
+    ok(p.locator('main input[type=email]').count() == 1, f"the email step follows the stance step ({p.evaluate('location.hash')})"); std(p, 'start4', axe=True); shot(p, 'p_s4')
     # finish without an email
     p.evaluate("(() => { const b=[...document.querySelectorAll('main button, main a')].find(x=>/skip|not now|later/i.test(x.innerText)); b && b.click(); })()"); p.wait_for_timeout(1800)
     ok(p.evaluate('location.hash') in ('#/', ''), f"finishing lands on Home ({p.evaluate('location.hash')})"); shot(p, 'p_home_welcome', full=True)

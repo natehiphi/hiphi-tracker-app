@@ -245,3 +245,14 @@
   .st-intro .lede { font-size: var(--t18); line-height: 1.55; }
   .st-art svg { height: 140px; }
 }
+
+/* ---- Narrow it down: the sub-topics inside the picked topics ---- */
+.st-narrows { display: flex; flex-direction: column; gap: var(--s24); }
+.st-ngroup { display: flex; flex-direction: column; gap: var(--s8); }
+.st-nhead { display: flex; align-items: center; gap: var(--s8); margin: 0; font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.st-nhead .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
+.st-nsubs { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.st-nsub { gap: 6px; }
+.st-nsub[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); }
+.st-nsub[aria-pressed="true"] .st-ncount { background: rgba(255,255,255,.22); color: var(--n0); }
+.st-ncount { min-width: 20px; padding: 0 5px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; }

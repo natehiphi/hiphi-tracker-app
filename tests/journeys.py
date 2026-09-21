@@ -25,9 +25,10 @@ PUBLIC = HOST + '/track.html?demo=1'
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
- dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=4, start='#/', steps=[
-   dict(what='pick an issue',        do="document.querySelectorAll('.st-issue')[3].click()", reach=seen('Tobacco')),
-   dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('Start with these')),
+ dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=5, start='#/', steps=[
+   dict(what='pick a topic', do="""(()=>{const e=[...document.querySelectorAll('.st-issue')].find(x=>/Food/.test(x.innerText)); if(!e)return false; e.click(); return true;})()""", reach=seen('Food')),
+   dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('particular')),
+   dict(what='past the narrowing',   do=click_text('.actionbar .btn', 'Show me bills'), reach=seen('Start with these')),
    dict(what='follow the picked bills', do=click_text('.actionbar .btn', 'Follow \\d+ bill'), reach=seen("following")),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
@@ -41,7 +42,7 @@ JOURNEYS = [
    dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),
- dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/4', wiz_at_4=True, steps=[
+ dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/5', wiz_at_4=True, steps=[
    dict(what='type the address', do="(()=>{const i=document.querySelector('input[type=email]'); if(!i)return false;"
         "i.value='someone@example.com'; i.dispatchEvent(new Event('input',{bubbles:true})); return true;})()",
         reach="(()=>{const i=document.querySelector('input[type=email]'); return !!i && i.value.includes('@');})()"),

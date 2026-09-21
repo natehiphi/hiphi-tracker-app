@@ -313,7 +313,7 @@ anything that lengthens one needs a reason in the commit message.
 
 | Journey | Budget |
 |---|---|
-| Public: arrive → follow a first bill | 4 steps |
+| Public: arrive → follow a first bill | 5 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → action sent | 4 steps |
 | Public: give an email address (from the moment it is offered) | 2 steps |
@@ -324,7 +324,13 @@ anything that lengthens one needs a reason in the commit message.
 
 *Reason.* Every extra step loses people, and the loss compounds. Budgets also stop the most tempting
 bad fix for a crowded screen: moving things one level deeper, which trades a look problem for a flow
-problem and usually makes the app worse overall. **Not yet automated — see gap G-1.**
+problem and usually makes the app worse overall.
+
+**Raised from 4 to 5 for the first journey on 2026-09-20**, on Nate's decision to build a deliberately
+longer first visit that narrows by sub-topic before offering bills. A budget that moves whenever the
+product moves is worthless, so this is the standing test: the step was *bought* for something — a
+list of eleven near-identical bills became one row per policy — and it is recorded here rather than
+quietly absorbed. Measured by `tests/journeys.py`, which fails if any journey exceeds its budget.
 
 ### B-3 No dead ends
 
