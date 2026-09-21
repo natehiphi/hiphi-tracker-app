@@ -8,6 +8,7 @@ import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
 import { icon, btn, iconBtn, chip, billRow, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { followupSheet, afterSheet } from './supporters.js';
+import { issueById, catByKey } from './issues.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
 const isTwo = () => matchMedia('(min-width: 1100px)').matches;
@@ -101,18 +102,21 @@ const stanceChip = k => `<span class="sp-st sp-st-${k}">${icon(STANCE[k][0])}<sp
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
   const lists = (p.list_ids || []).map(id => (S.lists || []).find(l => l.id === id)).filter(Boolean);
+  // What they follow first (R-018): whole categories and issues; the bills below are the ones they followed on their own.
+  const cats = (p.category_keys || []).map(catByKey).filter(Boolean), iss = (p.issue_ids || []).map(issueById).filter(i => i && !i.archived_at);
   const firstN = isTwo() ? 8 : BILLS_FIRST;
   const said = k => bills.filter(b => ownStance(p, b) === k).length;
   const stanceHead = [said('support') && `${said('support')} for`, said('oppose') && `${said('oppose')} against`, said('unsure') && `${said('unsure')} unsure`].filter(Boolean).join(', ');
-  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list'), stanceHead].filter(Boolean).join(' · ');
+  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [cats.length && plural(cats.length, 'whole category', 'whole categories'), iss.length && plural(iss.length, 'issue'), bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list'), stanceHead].filter(Boolean).join(' · ');
   // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still
   // explained. Their own stance goes in front of it: on this page that is the thing a staffer came to read.
   const sum = b => { const k = ownStance(p, b); return `${k ? stanceChip(k) : ''}${b.nickname ? esc(blurb(b, 140)) : ''}`; };
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
+    ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
     ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `#/bill/${b.bill_number}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}
       ${showAll ? '' : `<button type="button" class="row sp-showall" data-pp="billsall">${icon('chevron-down')}<span>Show all ${bills.length} bills</span></button>`}</div>`
-      : `<p class="muted sp-none">${lists.length ? 'No single bills.' : 'Not following any bill or list yet.'}</p>`}
+      : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
 }
 function feed(p) {

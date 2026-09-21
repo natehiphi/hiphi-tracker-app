@@ -34,9 +34,11 @@
 .fd-back:hover { background: var(--p50); }
 .fd-back:active { background: var(--p100); }
 .fd-back .ic { width: 20px; height: 20px; }
-.fd-ihead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 var(--s16); }
-.fd-ihead .fd-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; margin-bottom: var(--s4); }
-.fd-ihead .fd-icon .ic { width: 28px; height: 28px; }
+/* The icon sits beside the title on a phone too: on a line of its own it cost 68px before the first issue (A-1). */
+.fd-ihead { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: var(--s12); row-gap: var(--s8); align-items: center; margin: var(--s8) 0 var(--s16); }
+.fd-ihead > :not(.fd-icon):not(h1) { grid-column: 1 / -1; }
+.fd-ihead .fd-icon { width: 44px; height: 44px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; }
+.fd-ihead .fd-icon .ic { width: 22px; height: 22px; }
 .fd-ihead .meta { font-size: var(--t14); }
 .fd-cta { margin-top: var(--s16); }
 .fd-follow { display: flex; flex-direction: column; gap: var(--s8); }
@@ -81,8 +83,9 @@
   .fd-voices > .side { top: calc(var(--header) + var(--s24)); }
 
   /* an issue's or a list's header: the icon sits beside the title instead of on a line of its own */
-  .fd-ihead { display: grid; grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--s16); row-gap: var(--s8); align-items: center; margin-bottom: var(--s24); }
-  .fd-ihead .fd-icon { margin: 0; }
+  .fd-ihead { grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--s16); margin-bottom: var(--s24); }
+  .fd-ihead .fd-icon { width: 56px; height: 56px; }
+  .fd-ihead .fd-icon .ic { width: 28px; height: 28px; }
   .fd-ihead > :not(.fd-icon):not(h1) { grid-column: 2; }
 
   /* a list's page: its Follow button sits beside the title, in view, sized to its label */
@@ -92,3 +95,20 @@
   .fd-lhead .fd-follow:not(.on) { align-items: flex-start; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
   .fd-lhead .fd-follow.on { margin: 0 0 var(--s16); }
 }
+
+/* ---- issues (R-018): a list of issues on a category page and in search. The row opens the issue's page; its Follow
+   button sits beside it (a button cannot live inside a link), and is the row's one action (A-20). ---- */
+.fd-ilist { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.fd-irow { display: flex; align-items: center; gap: var(--s8); padding-right: var(--s12); background: var(--n0); transition: background .15s; }
+.fd-irow + .fd-irow { border-top: 1px solid var(--n100); }
+.fd-irow:hover { background: var(--n50); }
+.fd-imain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: var(--s12) var(--s8) var(--s12) var(--s16); min-height: 56px; text-decoration: none; color: inherit; }
+.fd-imain:active { background: var(--n100); }
+.fd-iname { font-weight: 700; color: var(--n900); line-height: 1.3; }
+.fd-idesc { font-size: var(--t14); color: var(--n700); line-height: 1.4; }
+.fd-imeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s8); font-size: var(--t13); color: var(--n500); }
+.fd-ifollow { flex: none; }
+.fd-ifollow.on { color: var(--p700); }
+.fd-also { margin-top: var(--s8); color: var(--n700); }
+.fd-also a { color: var(--p700); font-weight: 700; }
+@media (max-width: 359px) { .fd-irow { flex-wrap: wrap; padding: 0 0 var(--s12); } .fd-ifollow { margin-left: var(--s16); } }

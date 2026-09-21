@@ -38,6 +38,11 @@
 .bl-page .bl-head h1.bl-nick { font-size: var(--t28); line-height: 1.15; }
 .bl-page .bl-lede { margin-top: calc(-1 * var(--s4)); }
 .bl-page .bl-head .chips .chip { white-space: normal; }
+/* R-018: the issue a bill belongs to, and one tap to follow it */
+.bl-page .bl-issue { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0; font-size: var(--t14); color: var(--n700); }
+.bl-page .bl-issue > .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
+.bl-page .bl-issue > span { flex: 1 1 200px; min-width: 0; }
+.bl-page .bl-issue a { font-weight: 700; }
 .bl-page .bl-note { margin-top: var(--s16); }
 .bl-page .bl-skel { margin-top: var(--s8); }
 /* text buttons on this page get a wash on hover, not only an underline */

@@ -1,0 +1,73 @@
+/* Outreach > Issues and one issue (063, R-018; staff/issues.js). The index and the issue page borrow the Lists look
+   (.le-page, and .le-list for the issue page: header, bill rows, the add search); only what is new is here. */
+
+/* ---- the index ---- */
+.is-index .is-needs { margin-top: var(--s16); border-color: var(--warn-wash); background: var(--n0); }
+.is-index .is-needs h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t18); line-height: 1.3; }
+.is-index .is-needs h2 .ic { width: 22px; height: 22px; margin-top: 1px; color: var(--warn-text); flex: none; }
+.is-index .is-needs > .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.is-index .is-nlist { list-style: none; margin: 0; padding: 0; box-shadow: none; }
+.is-index .is-nrow { display: flex; align-items: center; gap: var(--s8); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.is-index .is-nrow + .is-nrow { border-top: 1px solid var(--n100); }
+.is-index .is-nmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.is-index .is-nmain .title { color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain .title b { color: var(--n900); }
+.is-index .is-nmain .sub { font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain:hover .title b { color: var(--p700); text-decoration: underline; }
+.is-index .is-nrow .btn { flex: none; }
+.is-index .is-needs > .btn.text { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+.is-index .is-find { margin-top: var(--s16); max-width: 440px; }
+.is-index .is-cat { margin-top: var(--s24); }
+.is-index .is-chead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.is-index .is-chead h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
+.is-catic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--p50); color: var(--p700); flex: none; }
+.is-catic .ic { width: 18px; height: 18px; }
+.is-index .is-row { min-height: 64px; }
+.is-index .is-row .is-meta { display: block; font-size: var(--t13); color: var(--n500); }
+.is-index .is-row .is-desc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--t14); color: var(--n700); }
+.is-index .is-row .end .chip { flex: none; }
+.is-arch { margin-top: var(--s24); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-arch > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s16); cursor: pointer; font-weight: 700; color: var(--n900); }
+.is-arch > summary::-webkit-details-marker { display: none; }
+.is-arch > summary .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.is-arch > summary .is-chev { margin-left: auto; transition: transform .15s; }
+.is-arch[open] > summary .is-chev { transform: rotate(180deg); }
+.is-arch > .rows, .is-arch > .le-bills { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+
+/* ---- one issue (inside .le-page.le-list) ---- */
+.is-page .is-folcard { padding: 0 var(--s16); }
+.is-page .is-folcard .le-sharerow { border-top: 0; }
+.is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
+.is-page > .sv-notice { margin: var(--s12) 0 0; }
+.is-page .le-brow .iconbtn { flex: none; }
+
+/* ---- the issue form and the picker (sheets) ---- */
+.is-form .is-for, .is-picker .is-for { margin: 0 0 var(--s12); }
+.is-form .is-cats { border: 0; margin: var(--s16) 0 0; padding: 0; min-width: 0; }
+.is-form .is-cats legend { padding: 0; margin-bottom: var(--s4); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.is-form .is-opt { font-weight: 400; color: var(--n500); }
+.is-form .is-alsoh { margin: 0 0 var(--s4); }
+.is-form .is-cat { align-items: center; padding: 2px 0; min-height: 44px; }
+.is-form .is-cat input { margin: 0; }
+.is-form .is-cat[hidden] { display: none; }
+.is-form .sv-switchrow { margin-top: var(--s16); }
+/* The search box in a sheet: the same look as Lists' (whose rules are scoped to its page) */
+.is-psearch { position: relative; margin-bottom: var(--s8); }
+.is-psearch > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.is-psearch input { width: 100%; min-height: 44px; padding: 8px 16px 8px 40px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0);
+  color: var(--n900); font-size: var(--t16); -webkit-appearance: none; appearance: none; }
+.is-psearch input::-webkit-search-cancel-button { display: none; }
+.is-psearch input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.is-picker .is-gh, .is-page .is-gh { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0 var(--s4); padding: 0 var(--s8); font: 700 var(--t14)/1.3 var(--font); color: var(--n500); }
+.is-picker .is-gh .ic { width: 16px; height: 16px; }
+.is-picker .is-gh:first-child { margin-top: var(--s4); }
+.is-picker .sv-pickl .sub { font-size: var(--t13); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-picker .sv-pickl .ic.on { color: var(--p700); }
+#is-mlist .sv-pickl .sub { font-size: var(--t13); color: var(--n500); }
+
+/* ---- a bill's Public tab: the issues it is on ---- */
+.bw-issues { align-items: center; }
+
+@media (min-width: 900px) {
+  .is-index .is-row .is-desc { -webkit-line-clamp: 2; }
+}

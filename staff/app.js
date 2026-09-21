@@ -16,6 +16,7 @@ import search from './search.js';
 import supporters from './supporters.js';
 import person from './person.js';
 import lists from './lists.js';
+import issues, { issuePage as issue } from './issues.js';
 import list from './list.js';
 import emails from './emails.js';
 import composer from './composer.js';
@@ -25,7 +26,7 @@ import help from './help.js';
 import devui from './devui.js';
 
 // ---- routes ----
-const SCREENS = { today, review, bill, bills, triage, memo, legislators, legislator, search, supporters, person, lists, list, emails, composer, me, setup, help, devui };
+const SCREENS = { today, review, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui };
 export function parseRoute(h = location.hash) {
   const dh = decodeURIComponent(h || '');
   let m;
@@ -38,7 +39,8 @@ export function parseRoute(h = location.hash) {
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase(), tab: seg[2] || 'overview', q };
     case 'legislators': return { name: 'legislators', q };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
-    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : { name: 'supporters', q };
+    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q } : { name: 'supporters', q };
+    case 'issue': return { name: 'issue', id: seg[1] || '', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
     case 'list': return { name: 'list', id: seg[1] || '', q };
     case 'email': return seg[1] === 'new' ? { name: 'composer', id: '', q } : { name: 'composer', id: seg[1] || '', q };
@@ -99,9 +101,9 @@ const SIDE = [
   ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review']]],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
-  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
+  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
-const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };

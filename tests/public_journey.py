@@ -9,6 +9,7 @@ pos = {b['id'] for b in snap['bills'] if b.get('position') and b['position'] != 
 FOLLOW = list(dict.fromkeys(h['bill_id'] for h in snap['hearings'] if h['scheduled_at'] > '2026-03-15T00:00:00' and h['bill_id'] in pos))[:6]
 WAITING = [b['id'] for b in snap['bills'] if b['bill_number'] in ('HB1563', 'HB1732')]
 NONICK = next(b['bill_number'] for b in snap['bills'] if not b.get('nickname') and b.get('is_public') and b.get('tracked'))   # a bill HIPHI only watches has no nickname
+VAPE = next(i['id'] for i in snap.get('issues', []) if i['slug'] == 'disposable-vape-ban')   # an issue (063, R-018)
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 COMMUNITY = re.compile(r'people have spoken up|HIPHI community|Together, |join the count|actions count|community total', re.I)
@@ -52,10 +53,16 @@ with sync_playwright() as pw:
         std(p, 'narrow', axe=True); shot(p, 'p_narrow')
         ok('particular' in text(p).lower(), 'narrow step offers sub-topics')
         p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
-    ok(p.locator('[data-stpick]').count() > 0, f"bills step offers bills ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
-    t2 = text(p); ok('Relating to' not in t2, 'bills step has no "Relating to" headlines')
+    # Screen 2 offers ISSUES, not bills (R-018): one row per issue, one "Follow all" per category and no overall one
+    # (Nate's answer 4), and the button counts issues.
+    ok(p.locator('[data-stpick]').count() > 0, f"issues step offers issues ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
+    t2 = text(p); ok('Relating to' not in t2, 'issues step has no "Relating to" headlines')
+    ok(p.locator('[data-stfollowcat]').count() >= 1 and p.locator('[data-stfollowall]').count() == 0, 'one "Follow all" per category, and no overall one')
+    lbl = p.inner_text('.st-bar'); ok(re.search(r'Follow \d+ issues?', lbl) is not None, f'the button counts issues ("{lbl.strip()}")')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the bills ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
+    fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
+    ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
+    ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the issues ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
     ok(not p.locator('main [data-helper]').count(), 'the stance step pushes no action')
     # Three at most, the rest folded (Nate, 9/20), and one card per idea: a policy carried by two bills was asked twice (R-019).
     shown = p.evaluate("[...document.querySelectorAll('.st-stand')].filter(e => e.offsetParent !== null).length")
@@ -105,6 +112,19 @@ with sync_playwright() as pw:
     visit(p, '/find?q=vape', wait=2800); ok('Disposable vape ban' in text(p), 'search finds a bill by its nickname')
     visit(p, '/bill/' + NONICK, wait=2800); h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''"); ok(len(h1) > 10, f'a bill without a nickname still has a plain headline ({NONICK}: "{h1[:50]}")')
     visit(p, '/bill/HB1563', wait=2800); ok('Let counties regulate tobacco sales' in text(p), 'an approved nickname from the snapshot leads the bill page (HB 1563)')
+    # ---- issues (063, R-018): categories and issues in Find, an issue's page, My issues, and the issue on a bill page ----
+    visit(p, '/find', wait=2800); tf = text(p); ok('Food & Nutrition' in tf and 'Getting Around Safely' in tf, 'Find browses the six categories')
+    visit(p, '/find/category/food', wait=2800); tc = text(p); std(p, 'category', axe=True); shot(p, 'p_category', full=True)
+    ok('Follow all' in tc and p.locator('[data-fdissue]').count() >= 3, f"a category page lists its issues, each with its own Follow ({p.locator('[data-fdissue]').count()})")
+    visit(p, '/issue/disposable-vape-ban', wait=3000); ti = text(p); std(p, 'issue', axe=True); shot(p, 'p_issue', full=True)
+    h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
+    ok('vape' in h1.lower() and 'HB 2121' in ti, f'an issue page names the issue and lists its bills ("{h1}")')
+    p.locator('[data-fdissue]').first.click(); p.wait_for_timeout(1500)
+    ok(VAPE in p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]')"), 'following an issue from its page saves the issue')
+    visit(p, '/bills', wait=2800); tm = text(p); std(p, 'myissues', axe=True); shot(p, 'p_myissues', full=True)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'My issues' and h1 in tm, 'My issues lists the followed issue')
+    visit(p, '/bill/HB2121', wait=2800); ok(re.search(r'Part of', text(p)) is not None and h1 in text(p), 'a bill page names the issue it belongs to')
+    visit(p, '/find?q=school%20meals', wait=3200); tq = text(p); ok('free school meals' in tq.lower() and 'Issues' in tq, 'search finds issues by name')
     c.close()
 
     # ---- 3. desktop is a first-class view ----
@@ -153,13 +173,13 @@ with sync_playwright() as pw:
     ok('January 20' in t and not COMMUNITY.search(t), 'off-season step 1: January 20, no community totals')
     # The between-sessions walk, pressing Next the whole way (R-019: Next went nowhere on the live site, every topic
     # said "0 bills", the recap found nothing, and Home asked for the issues again - and nothing here pressed Next).
-    counts = re.findall(r'\d+ bills? in 20\d\d', t)[:3]
-    ok(re.search(r'(?<!\d)0 bills in', t) is None and re.search(r'[1-9]\d* bills in 20\d\d', t) is not None, f"off-season topics count last session's bills ({counts})")
+    counts = re.findall(r'\d+ issues? in 20\d\d', t)[:3]
+    ok(re.search(r'(?<!\d)0 (bills|issues) in', t) is None and re.search(r'[1-9]\d* issues? in 20\d\d', t) is not None, f"off-season categories count last session's issues ({counts})")
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
-    ok(p.evaluate('location.hash') == '#/start/2' and 'What happened in' in t, f"off-season Next goes to the recap ({p.evaluate('location.hash')})")
-    ok('worked on 0 bills' not in t and 'HIPHI worked on' in t, 'the recap finds the topic’s bills')
+    ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
+    ok(re.search(r'[1-9]\d* issues? HIPHI worked on in 20\d\d', t) is not None, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
-    ok(p.locator('main input[type=email]').count() == 1, f"the recap's Next goes on to the email ask ({p.evaluate('location.hash')})")
+    ok(p.locator('main input[type=email]').count() == 1, f"its Next follows them and goes on to the email ask ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500); p.locator('[data-stnext]').click(); p.wait_for_timeout(3000); t = text(p)
     ok('Your issues' in t and 'Pick a few health issues' not in t, 'off-season Home names the issues just picked and does not ask again')
     for extra in ('', '&season=off'):

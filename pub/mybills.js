@@ -1,13 +1,16 @@
-// My bills (tab): every bill this person follows, in the order they can do something about it.
-// Soonest hearing first (that is where a five-minute action lives), then the bills racing a committee deadline,
-// then the rest. Bills that stopped this session fold away at the bottom with the archive icon: they still belong
-// to the person's record, but they are not something to act on. The bill row built here is shared with Find
-// (search results, issue pages, HIPHI's lists and the suggestion rows), so a bill looks and follows the same way
-// everywhere. On a phone a row is a small stack; from 1100px the same markup lines up as a table with a header row
-// (bill, status, next date, stance, follow), so a desktop gets a real list instead of a widened phone.
+// My issues (tab; R-018, Nate 9/21: people follow issues, not bills, and the tab is named for them). A person comes
+// here to see how the issues they follow are doing. Grouped by category, one row per followed issue saying what is
+// happening on it (a hearing soon, how many bills are moving, what is new since the last visit) - not its bills: "the
+// user is not interested in bills, but instead about policies", and the bills are one press away on the issue's page.
+// Following a whole category of 17 issues used to draw every bill of every one of them (5,500px on a phone). Then
+// bills followed on their own, as bill rows, then HIPHI's lists. The bill row and the issue row built here are shared
+// with Find (search, issue and category pages, HIPHI's lists, the suggestion rows), so a bill and an issue each look
+// and follow the same way everywhere. On a phone a bill row is a small stack; from 1100px the same markup lines up as
+// a table with a header row (bill, status, next date, stance, follow).
 import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, dateLong, hstDay,
-  sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app } from './core.js';
-import { btn, iconBtn, row } from './ui.js';
+  sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
+  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary } from './core.js';
+import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
 import { VOICES } from './art.js';
 
@@ -219,14 +222,14 @@ export function fold(id, summary, inner, { ic = 'archive', open = false } = {}) 
 // happen instead of celebrating "Following 0 bills" (assessment, 9/19).
 export const nextYear = (si = sessionInfo()) => si.nextOpen ? +String(si.nextOpen).slice(0, 4) : si.yr + 1;
 const movingOn = l => { const rows = S.listBills[l.slug]; return rows ? rows.filter(r => moving(r.b)).length : null; };   // null: not loaded yet
-// { lead: "You follow Keiki health.", rest: "When HIPHI adds its 2027 bills, they will appear in My bills." } or null.
-export function listPromise(l, { where = 'in My bills' } = {}) {
+// { lead: "You follow Keiki health.", rest: "When HIPHI adds its 2027 bills, they will appear in My issues." } or null.
+export function listPromise(l, { where = 'in My issues' } = {}) {
   const si = sessionInfo(), lead = `You follow ${l.title}.`;
   if (si.phase !== 'in') return { lead, rest: `When HIPHI adds its ${nextYear(si)} bills, they will appear ${where}.` };
   if (movingOn(l) === 0) return { lead, rest: `Nothing on it is moving right now. When HIPHI adds bills to it, they will appear ${where}.` };
   return null;
 }
-export function listCards(lists, { where = 'in My bills', mine = false } = {}) {
+export function listCards(lists, { where = 'in My issues', mine = false } = {}) {
   const card = l => {
     const on = S.listFollows.has(l.id), fans = countOk(l.followers), n = Number(l.bills) || 0;   // followers are people: only from 10
     const meta = [n ? `${n} bill${n === 1 ? '' : 's'}` : '', fans ? `${fans} people follow it` : ''].filter(Boolean).join(' · ');
@@ -294,58 +297,109 @@ function loadFollowedLists(lists) {
 const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
 const andList = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
 
+// ---- the issue row (063, R-018): an issue looks the same wherever it is listed (My issues, a category's page, search) ----
+// The row opens the issue's page; the button beside it follows it or lets it go (a button cannot sit inside a link).
+// It says what is happening on the issue rather than listing its bills. `news`: what is new since the last visit
+// (My issues). `key`: the attribute the button carries, which decides what pressing it does on that screen.
+export const billsOfIssue = i => issueBills(i).map(id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null)).filter(Boolean);
+export function issueItem(i, { news = '', key = 'data-fdissue' } = {}) {
+  const on = issueFollowed(i), off = sessionInfo().phase !== 'in', bills = billsOfIssue(i), live = bills.filter(moving), law = bills.filter(becameLaw).length;
+  const pos = issuePos(off ? bills : live.length ? live : bills), soon = !off && live.map(b => stopOf(b)).find(st => st.hearingState === 'scheduled' && st.hearing);
+  const meta = off ? [plural(bills.length || issueBills(i).length, 'bill') + ` in ${sessionInfo().recapYear}`, law ? `${law} became law` : ''].filter(Boolean).join(' · ')
+    : live.length ? `${plural(live.length, 'bill')} moving` : 'Nothing moving right now';
+  return `<li class="fd-irow${on ? ' on' : ''}">
+    <a class="fd-imain" href="#/issue/${esc(i.slug)}"><span class="fd-iname">${esc(i.name)}</span>
+      ${i.description ? `<span class="fd-idesc mb-clamp">${esc(i.description)}</span>` : ''}
+      <span class="fd-imeta">${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}${soon ? chip(`Hearing ${dayWord(soon.hearing.scheduled_at)}`, 'info', 'calendar') : ''}<span>${esc(meta)}</span>${pos ? posChip({ hiphi_position: pos }) : ''}</span></a>
+    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: 'star', cls: 'fd-ifollow' + (on ? ' on' : ''), attrs: { [key]: i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}` } })}
+  </li>`;
+}
+export const issueList = (list, opt = {}) => list.length ? `<ul class="fd-ilist" role="list">${list.map(i => issueItem(i, typeof opt === 'function' ? opt(i) : opt)).join('')}</ul>` : '';
+// Issues with something happening first: a hearing soon, then bills moving, then HIPHI's strongest, then by name.
+export function issueOrder(list) {
+  const off = sessionInfo().phase !== 'in', score = i => { const bills = billsOfIssue(i), live = bills.filter(moving);
+    return off ? [bills.some(b => b.hiphi_position === 'strongly_support') ? 0 : 1, 0]
+      : [live.some(b => stopOf(b).hearingState === 'scheduled') ? 0 : live.length ? 1 : 2, i.recommended || live.some(b => b.hiphi_position === 'strongly_support') ? 0 : 1]; };
+  return list.map(i => ({ i, k: score(i) })).sort((x, y) => x.k[0] - y.k[0] || x.k[1] - y.k[1] || x.i.name.localeCompare(y.i.name)).map(x => x.i);
+}
+// What is new on an issue since the last visit: the news on the most urgent of its followed bills that has any.
+const issueNews = i => { for (const b of byUrgency(billsOfIssue(i).filter(b => S.watch.has(b.id)))) { const n = newsOf(b); if (n) return n; } return ''; };
 function render() {
   // Coming to this screen afresh (not a redraw after a star press): bills unfollowed last time are gone for good.
   const fresh = !document.querySelector('.mb[data-mbroot]');
   if (fresh) S.mbGhost = new Map();
   lastSeen(fresh);
   const ghosts = [...(S.mbGhost || new Map()).values()].filter(b => !S.watch.has(b.id)), ghostIds = new Set(ghosts.map(b => b.id));
-  const followed = mine(), all = [...followed, ...ghosts];
-  const live = byUrgency(all.filter(b => !stopped(b))), gone = all.filter(stopped).sort(numCmp);
-  const lists = (S.lists || []).filter(l => S.listFollows.has(l.id));
   const si = sessionInfo(), off = si.phase !== 'in';
+  const lists = (S.lists || []).filter(l => S.listFollows.has(l.id));
   if (lists.length && !off) loadFollowedLists(lists);
-  const head = `<div class="mb-top"><h1 class="hero">My bills</h1>${followed.length && live.length ? `<span class="mb-count">${plural(followed.length, 'bill')}</span>` : ''}</div>`;
-  // Lists followed with nothing on them yet (between sessions, or a list that has gone quiet): say what will happen.
+  // Issues, by category, each once: under its own category, or under the followed category that brought it (the DUI
+  // limit lives in Tobacco, Vaping & Alcohol but also comes with all of Getting Around Safely). In each, the issues
+  // with bills moving (between sessions: with bills last session) come first; the rest fold away, as on a category's
+  // page, unless there is nothing else to show.
+  const iss = followedIssues(), homeOf = i => S.catFollows.has(i.category) ? i.category : (i.categories || []).find(k => S.catFollows.has(k)) || i.category;
+  const cats = S.cats.filter(c => S.catFollows.has(c.key) || iss.some(i => homeOf(i) === c.key));
+  const busy = i => off ? issueBills(i).length > 0 : billsOfIssue(i).some(moving), opt = i => ({ news: issueNews(i), key: 'data-unfollowissue' });
+  const catSec = c => {
+    const whole = S.catFollows.has(c.key), mineHere = issueOrder(iss.filter(i => homeOf(i) === c.key));
+    const act = mineHere.filter(busy), quiet = mineHere.filter(i => !busy(i));
+    return `<section class="mb-cat" aria-labelledby="mb-c-${esc(c.key)}">
+      <div class="mb-cathead"><span class="mb-catic">${icon(c.icon)}</span><h2 id="mb-c-${esc(c.key)}">${esc(c.name)}</h2>
+        ${whole ? `<span class="mb-catall">${icon('check')}<span>Following all, and new ones</span></span>${btn('Stop following all', { kind: 'text', sm: true, attrs: { 'data-unfollowcat': c.key } })}` : ''}</div>
+      ${act.length ? issueList(act, opt) : quiet.length ? issueList(quiet, opt) : `<p class="mb-quiet">Nothing in it yet. New issues come to you as HIPHI takes them up.</p>`}
+      ${act.length && quiet.length ? fold('mb-cq-' + c.key, `Nothing moving ${off ? `in ${si.recapYear}` : 'right now'} (${quiet.length})`, issueList(quiet, opt), { ic: 'hourglass' }) : ''}
+    </section>`;
+  };
+  // Bills followed on their own: not carried by an issue they follow.
+  const own = [...mine(), ...ghosts].filter(b => !viaIssue(b) && (S.direct.has(b.id) || ghostIds.has(b.id)));
+  const ownLive = byUrgency(own.filter(b => !stopped(b))), ownGone = own.filter(stopped).sort(numCmp);
+  const n = iss.length, head = `<div class="mb-top"><h1 class="hero">My issues</h1>${n ? `<span class="mb-count">${plural(n, 'issue')}</span>` : ''}</div>`;
   const waiting = lists.filter(l => off || movingOn(l) === 0);
   const listLine = waiting.length ? `You follow ${esc(andList(waiting.map(l => l.title)))}. When HIPHI adds ${waiting.length === 1 ? 'its' : 'their'}${off ? ` ${nextYear(si)}` : ''} bills, they will appear here.` : '';
-  let body;
-  if (!all.length) {
-    body = lists.length && listLine
-      ? emptyBox({ art: VOICES, title: off ? `You’re set for the ${nextYear(si)} session` : 'No bills here yet', text: listLine,
-          action: `<div class="btncol mb-emptybtns">${btn(off ? 'Browse bills by issue' : 'Find bills', { kind: 'primary', icon: 'search', href: '#/find' })}</div>` })
-      : emptyBox({ art: VOICES, title: 'You’re not following any bills yet.',
-          text: 'Follow a bill and it shows up here, with the next hearing and what you can do about it.',
-          action: `<div class="btncol mb-emptybtns">${btn('Find bills', { kind: 'primary', icon: 'search', href: '#/find' })}${off ? '' : btn('Take the 1-minute start', { kind: 'text', href: '#/start/1' })}</div>` });
-  } else if (!live.length && gone.length) {
-    // Only stopped bills, and they are right below: the list speaks for itself. The sentence rides
-    // on the fold header that is already open, and the way forward goes AFTER the list, which is
-    // where a next step belongs (B-3). One word for the state - "stopped" - in all three places.
-    body = off ? `<p class="mb-note">The ${esc(String(si.recapYear))} session is over. The next one opens ${esc(nextOpenWords(si))}.</p>` : '';
-  } else if (!live.length) {
-    body = emptyBox({ title: off ? `The ${si.recapYear} session is over` : 'All your bills have finished for this session.',
-      text: off ? `All your bills have finished, and their record stays here. The next session opens ${esc(nextOpenWords(si))}.` : 'Their record stays here.',
-      action: btn(off ? 'Browse bills by issue' : 'Find bills still moving', { kind: 'primary', icon: 'search', href: '#/find' }) });
-  } else {
-    body = billList(live, b => ({ fresh: true, ghost: ghostIds.has(b.id) }));
-  }
-  // (the empty state above has already said it when there are no bills at all)
+  const anything = cats.length || own.length;
+  const body = anything ? `${off ? `<p class="mb-note">The ${esc(String(si.recapYear))} session is over. The next one opens ${esc(nextOpenWords(si))}, and the bills on your issues come here as HIPHI takes them up.</p>` : ''}
+      ${cats.map(catSec).join('')}` : lists.length && listLine
+    ? emptyBox({ art: VOICES, title: off ? `You’re set for the ${nextYear(si)} session` : 'No issues here yet', text: listLine,
+        action: `<div class="btncol mb-emptybtns">${btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' })}</div>` })
+    : emptyBox({ art: VOICES, title: 'You’re not following any issues yet.',
+        text: 'Follow an issue and its bills show up here, with the next hearing and what you can do about it.',
+        action: `<div class="btncol mb-emptybtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>` });
+  const ownSec = own.length ? `<section class="mb-own" aria-labelledby="mb-own-h"><div class="sechead"><h2 id="mb-own-h">${cats.length ? 'Other bills you follow' : 'Bills you follow'}</h2></div>
+      ${ownLive.length ? billList(ownLive, b => ({ fresh: true, ghost: ghostIds.has(b.id) })) : ''}
+      ${ownGone.length ? fold('mb-stopped', `Stopped this session (${ownGone.length})`, billList(ownGone, b => ({ why: true, fresh: true, ghost: ghostIds.has(b.id) })), { open: !ownLive.length }) : ''}</section>` : '';
   const listSec = lists.length ? `<section aria-labelledby="mb-lists-h"><div class="sechead"><h2 id="mb-lists-h">Lists you follow</h2></div>
-    ${!all.length && listLine ? '' : `<p class="small muted mb-sub">${off ? `When HIPHI adds its ${nextYear(si)} bills to one of these lists, they show up here.` : 'When HIPHI adds a bill to one of these lists, it shows up here.'}</p>`}
+    ${!anything && listLine ? '' : `<p class="small muted mb-sub">${off ? `When HIPHI adds its ${nextYear(si)} bills to one of these lists, they show up here.` : 'When HIPHI adds a bill to one of these lists, it shows up here.'}</p>`}
     ${listCards(lists, { where: 'here', mine: true })}</section>` : '';
-  // A followed bill that stopped since the last visit is news worth a mark on the closed fold too.
-  const goneNew = gone.filter(b => !ghostIds.has(b.id) && newsOf(b)).length;
-  const goneSec = gone.length ? fold('mb-stopped', `Stopped this session (${gone.length})${!live.length ? ' <span class="mb-keep">— their record stays here</span>' : ''}${goneNew ? `<span class="mb-new">${goneNew} new<span class="sr"> since your last visit</span></span>` : ''}`,
-    billList(gone, b => ({ why: true, fresh: true, ghost: ghostIds.has(b.id) })), { open: !live.length }) : '';
-  const onward = !live.length && gone.length
-    ? `<p class="mb-onward">${btn(off ? 'Browse bills by issue' : 'Find bills still moving', { kind: 'secondary', icon: 'search', href: '#/find' })}</p>` : '';
-  return `<div class="mb" data-mbroot>${head}${body}${listSec}${goneSec}${onward}</div>`;
+  const onward = anything ? `<p class="mb-onward">${btn('Browse more issues', { kind: 'secondary', icon: 'search', href: '#/find' })}</p>` : '';
+  return `<div class="mb" data-mbroot>${head}${body}${ownSec}${listSec}${onward}</div>`;
+}
+// Letting go of an issue or a whole category, with Undo (B-5): Undo puts back exactly what was followed before.
+async function letGo(change, said) {
+  const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
+  if (!(await change())) return;
+  app.render();
+  toast(said, { undo: async () => {
+    await setFollows({ issuesOn: [...before.i], catsOn: [...before.c],
+      issuesOff: [...S.issueFollows].filter(x => !before.i.has(x)), catsOff: [...S.catFollows].filter(x => !before.c.has(x)) });
+    app.render(); } });
 }
 const nextOpenWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
 
 export default {
   tab: 'bills',
-  title: () => 'My bills',
+  title: () => 'My issues',
   render,
-  wire() { stampSeen(mine()); const root = document.querySelector('.mb'); if (root) wireRows(root); },
+  wire() {
+    stampSeen(mine()); const root = document.querySelector('.mb'); if (!root) return;
+    wireRows(root);
+    root.querySelectorAll('[data-unfollowissue]').forEach(el => el.onclick = () => {
+      const i = S.issueById.get(el.dataset.unfollowissue); if (!i) return;
+      const whole = (i.categories || [i.category]).filter(c => S.catFollows.has(c)).map(c => catOf(c)?.name).filter(Boolean);
+      letGo(() => unfollowIssue(i), whole.length ? `You no longer follow ${i.name}. You still follow the rest of ${whole.join(' and ')}, but not new issues in it.` : `You no longer follow ${i.name}.`);
+    });
+    root.querySelectorAll('[data-unfollowcat]').forEach(el => el.onclick = () => {
+      const c = catOf(el.dataset.unfollowcat); if (!c) return;
+      letGo(() => setFollows({ catsOff: [c.key] }), `You no longer follow all of ${c.name}.`);
+    });
+  },
 };

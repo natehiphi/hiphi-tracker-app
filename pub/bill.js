@@ -7,7 +7,8 @@
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
-  firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf } from './core.js';
+  firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
+  issuesOf, issueFollowed, setFollows, catOf } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
@@ -191,7 +192,6 @@ function mainButton(b, x) {
   if (S.sentq?.[x.qKey]) return `<div class="bl-barq" role="group" aria-label="Did you send your email?"><p class="bl-barq-t">Did you send your email?</p>
     ${btn('Yes, I sent it', { kind: 'primary', sm: true, attrs: { 'data-bl-sent': 'yes' } })}${btn('Not yet', { kind: 'text', sm: true, attrs: { 'data-bl-sent': 'no' } })}</div>`;
   if (x.act && S.compose === x.k) return '';
-  const iss = issueOf(b), coal = iss && (S.coalitions || []).find(c => iss.names.includes(c.name) && c.slug);
   switch (x.kind) {
     case 'email': return btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-bl-go': 'compose' } });
     case 'testify': return btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
@@ -203,8 +203,11 @@ function mainButton(b, x) {
       // Between sessions nothing is moving: the useful step is getting ready for January.
       const off = sessionInfo().phase !== 'in';
       if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(b.bill_number)}` });
-      if (!coal) return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
-      return btn(`${off ? 'See' : 'See live'} bills on ${esc(iss.key.split(',')[0])}`, { kind: 'primary', icon: iss.icon, full: true, href: `#/find/issue/${encodeURIComponent(coal.slug)}`, cls: 'bl-barbtn' });
+      // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018).
+      const bi = issuesOf(b)[0];
+      if (bi) return issueFollowed(bi) ? btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' })
+        : btn(`Follow the issue: ${esc(bi.name)}`, { kind: 'primary', icon: 'star', full: true, attrs: { 'data-bl-followissue': bi.id }, cls: 'bl-barbtn' });
+      return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
     }
     default: return btn('Share this bill', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
   }
@@ -292,15 +295,22 @@ function plainHead(b) {
 // The name leads when the bill has one ("Disposable vape ban"), with what it does right under it. The number stays in
 // the top bar. The official "Relating to…" title never shows up here, so the lede is only ever a summary.
 function head(b, x) {
-  const iss = issueOf(b), p = posInfo(b), name = nick(b), mine = myStance(b.id);
+  const p = posInfo(b), name = nick(b), mine = myStance(b.id);
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
   const chips = [x.law ? chip('Became law', 'ok', 'circle-check') : x.stopped ? chip('Stopped this session', '', 'archive') : '',
     p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
-    iss ? chip(iss.key, '', iss.icon) : '',
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}</div>`;
+}
+// The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
+// to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
+function issueLine(b) {
+  const iss = issuesOf(b); if (!iss.length) return '';
+  const i = iss[0], on = issueFollowed(i), cat = catOf(i.category);
+  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${on ? ' · you follow this issue' : ''}</span>
+    ${on ? '' : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id } })}</p>`;
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
@@ -623,6 +633,12 @@ export default {
       await flipFollow(b);
       app.render();
     });
+    each('[data-bl-followissue]', el => el.addEventListener('click', async () => {
+      const i = S.issueById.get(el.dataset.blFollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
+      el.setAttribute('aria-busy', 'true');
+      if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}. Its bills come to you, next session’s too.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); }
+      app.render();
+    }));
     // Where do you stand? The answer rides on the follow (that is how it reaches an account, and the bill's totals),
     // so taking a stand on a bill you do not follow yet also follows it, says so, and offers Undo.
     root.querySelectorAll('[data-bl-stance]').forEach(el => el.addEventListener('click', async () => {

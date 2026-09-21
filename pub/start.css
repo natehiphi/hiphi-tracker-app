@@ -259,7 +259,14 @@
 
 /* ---- Narrow it down: the sub-topics inside the picked topics ---- */
 /* ---- screen 2: one <details> per topic, the fold doing the "too many bills" work for free ---- */
-.st-followall { margin: 0 0 var(--s16); }
+/* R-018: one "Follow all" per category (it also brings issues HIPHI takes up later), and a category with nothing in
+   play, which can still be followed whole. */
+.st-catall { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); }
+.st-catall .btn.on { color: var(--ok-text); }
+.st-catnote { margin: 0; font-size: var(--t13); color: var(--n500); }
+.st-quiets { list-style: none; margin: var(--s12) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.st-quiet { display: grid; grid-template-columns: auto 1fr; gap: var(--s8) var(--s12); align-items: center; }
+.st-quiet .st-catall { grid-column: 1 / -1; }
 .st-tsecs { display: flex; flex-direction: column; gap: var(--s12); }
 .st-tsec { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s12) var(--s16); }
 .st-tsec > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }

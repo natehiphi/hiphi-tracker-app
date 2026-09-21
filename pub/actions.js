@@ -4,7 +4,7 @@
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
-  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf } from './core.js';
+  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows } from './core.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -131,9 +131,18 @@ const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ..
 // twin filed in the other chamber) offers to follow that too, right here rather than silently -
 // "never auto-follow silently" (HANDOFF 3.5 plan, wave 5c). Only ever offered, never done for them.
 export async function followToggle(id, label) {
-  const was = S.watch.has(id);
+  const was = S.watch.has(id), via = was ? viaIssue(id) : null;
   await toggleWatch(id);
-  if (was) { toast(`Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } }); return; }
+  // A bill that came with an issue: its star is "Not for me", and the issue stays followed (R-018).
+  if (was) { toast(via ? `You won’t hear about ${label || 'this bill'}. You still follow ${via.name}.` : `Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } }); return; }
+  // One bill followed on its own: offer the issue it belongs to (R-018, answer 7) - the issue covers the whole policy,
+  // its twin in the other chamber and next session's bills too. A bill with no issue still offers its twin (R-021).
+  const iss = issuesOf(id).find(i => !issueFollowed(i));
+  if (iss) {
+    toast(`Following ${label || 'this bill'}`.trim(), { yay: true, also: { label: `Follow the issue: ${iss.name}`,
+      action: async () => { if (await setFollows({ issuesOn: [iss.id] })) { toast(`Following ${iss.name}`, { yay: true }); app.render(); } } } });
+    return;
+  }
   const b = anyBill(id), cnums = b ? companionsOf(b) : [];
   if (cnums.length === 1) {
     try {
@@ -185,13 +194,13 @@ export function wireActions(root = document) {
 // choice in Settings). One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
-  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your bills come with you. Hearing alerts start once you do.</p></div></div>`;
+  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p></div></div>`;
   const nb = S.watch.size, na = myActions().length;
-  const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when your bills get a hearing. It also keeps your record on any device.'
+  const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when a bill on your issues gets a hearing. It also keeps your record on any device.'
     : kind === 'back' ? `Welcome back. Your ${nb} bill${nb === 1 ? '' : 's'}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only. Add your email to keep them, and to hear when a hearing is set.`
-    : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your bills on any device.';
+    : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your issues on any device.';
   return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon('mail-check')}<div class="ngbody">
-    <p class="strong" id="ng-t">Get an email when your bills have a hearing</p><p class="small">${text}</p>
+    <p class="strong" id="ng-t">Get an email when a bill on your issues has a hearing</p><p class="small">${text}</p>
     ${DEMO ? '<p class="small muted">Sign-in is off in the sandbox.</p>' : `<form class="ngform" novalidate><div class="field"><label for="ng-email">Your email</label><input id="ng-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required></div>
       <div class="btnrow">${btn('Send me alerts', { kind: 'primary', sm: true, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>
       <p class="meta">No password. We email you a link to confirm. Unsubscribe any time.</p></form>`}

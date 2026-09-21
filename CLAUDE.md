@@ -54,7 +54,7 @@ Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**,
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions).
 - Staff v2: `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer); default is Nate (admin).
-- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260922`. **Whenever `demo/snapshot.json`
+- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921i`. **Whenever `demo/snapshot.json`
   changes, bump that `v` in `app.js`, `staff/data.js` and `pub/core.js` in the same commit**, or browsers keep
   the old copy and Nate reports the change as not working.
 - Rebuild: `node ../backend/tools/build_snapshot.js` (reads production; read-only).

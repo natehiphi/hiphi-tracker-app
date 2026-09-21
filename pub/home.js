@@ -14,8 +14,8 @@
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair,
   actedOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
-  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, ensureRecapPool, pickedTopic } from './core.js';
-import { topics } from './topics.js';
+  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
+  issueFollowed, issueBills, catOf, setFollows, app, toast } from './core.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
@@ -35,7 +35,6 @@ function who(code) {
   const c = S.committees[codesOf(code)[0]];
   return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : 'The committee';
 }
-const slugOf = g => (S.coalitions || []).find(c => g.names.includes(c.name))?.slug || g.key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 // Saved by the legislators screen ("Remember on this device"): { senate, house, label }.
 const districts = () => { try { return JSON.parse(localStorage.getItem('hiphi_districts') || 'null') || {}; } catch { return {}; } };
 const districtsKnown = () => !!(districts().senate || (S.profile || {}).senate_district);
@@ -104,8 +103,11 @@ function resultOf(b, hs, testified) {
 }
 // Bills the person followed without acting on them, for the recap: a follower whose bills became law should hear
 // about it (the win is the reward, even without an action; assessment 9/19).
+// Only bills the person followed on their own: a bill that came with an issue followed after the session ended was
+// never "followed in 2026", and saying so to someone who arrived today is untrue (R-018). Their issues are listed
+// under "Your issues" instead, with what became of each.
 function followedRows(yr, skip) {
-  return S.bills.filter(b => !skip.has(b.id) && (!b.session_year || b.session_year === yr)).map(b => {
+  return S.bills.filter(b => !skip.has(b.id) && S.direct.has(b.id) && (!b.session_year || b.session_year === yr)).map(b => {
     const did = 'You followed it.';
     if (b.stage === 'enacted') return { b, tone: 'law', did, text: 'It became law.' };
     if (b.stage === 'governor') return { b, tone: 'up', did, text: 'It passed the House and Senate and is on the Governor’s desk.' };
@@ -182,13 +184,14 @@ function weeks(si, mine) {
 function sessionPanel(si, { welcome = false } = {}) {
   const all = myActions(), mine = all.filter(a => !a.year || a.year === si.yr);
   const thisYear = b => !b || !b.session_year || b.session_year === si.yr;
-  const follows = S.bills.filter(thisYear).length;
+  // Issues first (R-018): what the person follows is issues; a follower of single bills only still sees their bills.
+  const nIss = followedIssues().length, follows = nIss || S.bills.filter(thisYear).length;
   const stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && thisYear(anyBill(id))).length;
   const ms = milestoneState(all), rows = impacts(mine);
   const stat = (k, label, href) => !k ? '' : href ? `<li><a class="hm-stat" href="${href}" data-hm-stat="bills"><b>${n(k)}</b><span>${label}${icon('chevron-right')}</span></a></li>` : `<li><span class="hm-stat"><b>${n(k)}</b><span>${label}</span></span></li>`;
   const calmNext = ms.next && ['follow', 'stance'].includes(ms.next[0]);
   return `<section class="card hm-panel" aria-labelledby="hm-ys"><h2 id="hm-ys" class="hm-ptitle">${flower(24)}<span>Your ${si.yr} session</span></h2>
-    <ul class="hm-stats">${stat(follows, follows === 1 ? 'bill followed' : 'bills followed', '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
+    <ul class="hm-stats">${stat(follows, nIss ? (follows === 1 ? 'issue followed' : 'issues followed') : (follows === 1 ? 'bill followed' : 'bills followed'), '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
     ${mine.length ? weeks(si, mine) : `<p class="muted small">${welcome ? 'Your progress adds up here through the session.' : 'Your first action will show up here, with what happened after it.'}</p>`}
     ${welcome ? '' : chipsHtml(ms.got)}
     ${!welcome || calmNext ? nextHtml(ms) : ''}
@@ -312,14 +315,14 @@ function followView(si) {
 function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST });
   const live = S.bills.filter(alive).length;
-  const h1 = total ? `${plural(total, 'thing')} you can do this week` : live || cards.length || folded.length ? 'You’re all caught up' : 'Your bills have finished for this session';
+  const h1 = total ? `${plural(total, 'thing')} you can do this week` : live || cards.length || folded.length ? 'You’re all caught up' : 'The bills on your issues have finished for this session';
   // Nothing open: everything done (the islands), nothing needs a voice yet, or every bill has finished.
   let quiet = '';
   if (!total) {
     quiet = cards.length || folded.length
       ? empty({ art: islands(myIsland()), text: 'You’ve done everything on your list this week. Mahalo! New hearings usually post by Friday.' })
-      : live ? `<p class="lede">Nothing needs you right now. When ${live === 1 ? 'your bill' : `one of your ${n(live)} bills`} has a hearing, a simple way to help shows up here.</p>`
-      : `<div class="hm-quiet"><p class="lede">Their record stays in My bills. Other bills are still moving and need voices.</p>${btn('Find bills still moving', { kind: sug ? 'secondary' : 'primary', icon: 'search', href: '#/find' })}</div>`;
+      : live ? `<p class="lede">Nothing needs you right now. When one of the ${live === 1 ? 'bill' : `${n(live)} bills`} on your issues has a hearing, a simple way to help shows up here.</p>`
+      : `<div class="hm-quiet"><p class="lede">Their record stays in My issues. Other bills are still moving and need voices.</p>${btn('Find bills still moving', { kind: sug ? 'secondary' : 'primary', icon: 'search', href: '#/find' })}</div>`;
   }
   // One email ask, under the first card, never above the page's heading (the "welcome back" one used to push it down).
   const nudgeHtml = S.nudge && S.nudge !== 'action' ? nudgeCard(S.nudge) : '';
@@ -339,6 +342,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
     </div><div class="side hm-side">
+      ${newIssuesCard()}
       ${sessionPanel(si)}
       ${whatsNew(inCards)}
       ${sugInMain ? '' : sugHtml}
@@ -349,9 +353,11 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
 // The first visit (Nate, 9/19): they followed a few bills and maybe said where they stand, and that is enough for
 // today. No deadline shouts here. Anything they could do this week waits behind one quiet line.
 function welcomeView(si, { cards, asks, total }) {
-  const follows = S.bills.length, stands = S.bills.filter(b => ['support', 'oppose'].includes((S.stances || {})[b.id])).length;
+  // What they follow, in words ("all of Food & Nutrition and 3 more issues", "7 issues"); a stand counts once per issue.
+  const said = followSummary() || plural(S.bills.length, 'bill'), stances = S.stances || {}, took = id => ['support', 'oppose'].includes(stances[id]);
+  const iss = followedIssues(), stands = iss.length ? iss.filter(i => issueBills(i).some(took)).length : S.bills.filter(b => took(b.id)).length;
   const ms = milestoneState(myActions());
-  const stood = !stands ? '' : follows === 1 ? ' and said where you stand on it' : stands === follows ? ` and said where you stand on all ${n(follows)}` : ` and said where you stand on ${n(stands)}`;
+  const stood = !stands ? '' : ` and said where you stand on ${stands === 1 ? 'one of them' : n(stands)}`;
   const soon = cards.filter(x => !actedOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge ? '' : nudgeCard(S.nudge);
@@ -360,14 +366,14 @@ function welcomeView(si, { cards, asks, total }) {
     ${accountCards()}
     <div class="cols"><div class="hm-main">
       <header class="hm-head hm-hello">${flower(32)}<h1 class="hero">${(wiz().name || '').trim() ? `You’re all set, ${esc(wiz().name.trim())}` : 'You’re all set'}</h1>
-        <p class="lede">You follow ${plural(follows, 'bill')}${stood}. That’s all you need to do today.</p>
+        <p class="lede">You follow ${esc(said)}${stood}. That’s all you need to do today.</p>
         ${chipsHtml(ms.got)}
-        ${btn('See my bills', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
+        ${btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
       <section class="card hm-nextup" aria-labelledby="hm-nu"><h2 id="hm-nu">What happens next</h2>
         <ul class="hm-steps">
-          ${step('eye', 'We keep watch.', 'We check your bills every day, so you don’t have to.')}
-          ${step('calendar-clock', 'When a bill has a hearing, you can help.', `${soon ? `${soon === 1 ? 'One of your bills has' : `${n(soon)} of your bills have`} one coming up. ` : ''}We’ll show one simple way to help, right here. Most take a couple of minutes.`)}
-          ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My bills.')}
+          ${step('eye', 'We keep watch.', 'We check every bill on your issues each day, so you don’t have to.')}
+          ${step('calendar-clock', 'When a bill has a hearing, you can help.', `${soon ? `${soon === 1 ? 'One bill on your issues has' : `${n(soon)} bills on your issues have`} one coming up. ` : ''}We’ll show one simple way to help, right here. Most take a couple of minutes.`)}
+          ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My issues.')}
         </ul></section>
       ${ask}
       ${total ? `<section class="hm-later">${toggle('ready', 'hm-readybox', `Ready now? ${plural(total, 'thing')} you can do this week`, 'Hide these for now')}
@@ -390,7 +396,7 @@ function exploreView() {
   const f = S.featured || { bills: [], hearings: [] }, seen = new Set(), skip = dismissed(), calm = welcomed();
   const cards = openActions(f.bills, f.hearings).filter(x => !x.late && !skip.has(x.b.id) && !seen.has(x.b.id) && seen.add(x.b.id)).slice(0, calm ? 5 : 3);
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
-  const iss = issues(), lists = (S.lists || []).filter(l => l.is_published !== false);
+  const cats = S.cats, lists = (S.lists || []).filter(l => l.is_published !== false);
   const lede = !cards.length ? 'No hearings are set on HIPHI’s bills yet this week. New ones usually post by Friday. Meanwhile, look around by issue.'
     : calm ? 'These bills have hearings soon. Follow one to keep an eye on it. When it needs a voice, we’ll show a simple way to help.'
     : 'These bills have hearings soon. Add your voice in a few minutes, or follow a bill to keep an eye on it.';
@@ -402,8 +408,8 @@ function exploreView() {
         : `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2>
         ${cards.slice(0, 1).map(x => sugCard(x.b, x.h)).join('')}${nudgeHtml}${cards.slice(1).map(x => sugCard(x.b, x.h)).join('')}</section>`}
     </div><div class="side hm-side">
-      ${iss.length ? `<section class="hm-sec" aria-labelledby="hm-iss"><h2 id="hm-iss">Browse by issue</h2>
-        <div class="rows hm-issues">${iss.map(g => row({ lead: g.icon, title: esc(g.key), sub: esc(g.description || ''), href: `#/find/issue/${encodeURIComponent(slugOf(g))}` })).join('')}</div></section>` : ''}
+      ${cats.length ? `<section class="hm-sec" aria-labelledby="hm-iss"><h2 id="hm-iss">Browse issues</h2>
+        <div class="rows hm-issues">${cats.map(c => row({ lead: c.icon, title: esc(c.name), sub: esc(c.description || ''), href: `#/find/category/${encodeURIComponent(c.key)}` })).join('')}</div></section>` : ''}
       ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-lists"><h2 id="hm-lists">Lists from HIPHI</h2>
         <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: esc(l.description || ''), end: countOk(l.followers) ? `<span class="hm-day">${n(l.followers)} following</span>` : '', href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}
       <p class="hm-start">Want suggestions? ${btn('Take the 1-minute start', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' })}</p>
@@ -416,21 +422,19 @@ function exploreView() {
 // became of the bills they followed, acted on or not. Someone new is welcomed, never told what they "didn't do".
 // The issues they saved are named, with Edit. One email ask on the screen: the nudge card when core has one pending,
 // else the button in "Get ready for January", and neither right after a "Not now".
-// The picks are topics since 9/20 (topics.js), or a coalition name saved before then. Looking them up among the
-// coalitions alone found none of the topics, so Home asked people who had just picked their issues to "pick a few
-// health issues now" (R-019). A topic is counted over every bill HIPHI worked on last session, as the start counts it.
+// What they follow, one row each: a whole category, or an issue (R-018). Someone who picked categories at the start
+// but skipped the issues sees those categories instead, each opening its page.
 function myIssues(yr) {
-  const past = (S.recapPool && S.recapPool.yr === yr && S.recapPool.bills) || [];
-  const all = [...topics(past), ...issues()], seen = new Set(), out = [];
-  for (const k of wiz().issues || []) { const g = all.find(x => x.key === k || x.names.includes(k)); if (g && !seen.has(g.key)) { seen.add(g.key); out.push(g); } }
-  if (out.some(g => g.topicKey)) ensureRecapPool(yr);
-  return out;
+  const rows = [];
+  for (const c of S.cats.filter(c => S.catFollows.has(c.key))) rows.push({ lead: c.icon, title: `All of ${c.name}`, sub: 'Every issue in it, and new ones', href: `#/find/category/${c.key}` });
+  for (const i of followedIssues().filter(i => S.issueFollows.has(i.id) && !i.categories.some(k => S.catFollows.has(k)))) {
+    const nb = issueBills(i).length;
+    rows.push({ lead: catOf(i.category)?.icon || 'heart-pulse', title: i.name, sub: nb ? `${plural(nb, 'bill')} in ${yr}` : '', href: `#/issue/${i.slug}` });
+  }
+  if (!rows.length) for (const k of wiz().issues || []) { const c = catOf(k); if (c) rows.push({ lead: c.icon, title: c.name, sub: 'Pick the issues to follow', href: `#/find/category/${c.key}` }); }
+  return rows;
 }
-// A topic has no page of its own yet (R-018 adds one), so its row states what it is and does not pretend to be a
-// link (A-12); an old coalition pick keeps its link to the coalition's page.
-const issueRow = (g, yr) => g.topicKey
-  ? `<div class="row"><span class="lead">${icon(g.icon)}</span><span class="body"><span class="title">${esc(g.key)}</span>${g.bills ? `<span class="sub">${plural(g.bills, 'bill')} in ${yr}</span>` : ''}</span></div>`
-  : row({ lead: g.icon, title: esc(g.key), sub: g.bills ? `${plural(g.bills, 'bill')} in ${yr}. See what happened.` : '', href: `#/find/issue/${encodeURIComponent(slugOf(g))}` });
+const issueRow = r => row({ lead: r.lead, title: esc(r.title), sub: esc(r.sub), href: r.href });
 function offView(si) {
   const yr = si.recapYear, next = si.nextOpen, nextYr = next ? +next.slice(0, 4) : yr + 1, welcome = welcomed();
   const opens = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : '';
@@ -457,12 +461,12 @@ function offView(si) {
   const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !emailGiven();
   const lede = `${welcome ? `The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}. When it opens,` : `${opens ? `The ${nextYr} session opens ${esc(opens)}. ` : ''}When hearings start,`} HIPHI’s ${nextYr} bills${mine.length ? ' for your issues' : ''} will show up here, with simple ways to help.`;
   const ready = known && !askBtn ? ['You’re ready for January', 'Your legislators are saved, so you’ll know who to talk to from the first hearing.']
-    : ['Get ready for January', known ? 'Get an email when your bills have a hearing. It also keeps your bills on any device.'
-      : askBtn ? 'Know who represents you, and get an email when your bills have a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
+    : ['Get ready for January', known ? 'Get an email when a bill on your issues has a hearing. It also keeps your issues on any device.'
+      : askBtn ? 'Know who represents you, and get an email when a bill on your issues has a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
   // The saved issues and followed lists, named, with a way to change them. They sit under the recap's neighbour when
   // there is a recap (so the two columns stay even), else they lead the page: they are what the person just set up.
   const setup = `${mine.length ? `<section class="hm-sec" aria-labelledby="hm-mi"><div class="hm-sechead"><h2 id="hm-mi">Your issues</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', href: '#/start/1', attrs: { 'aria-label': 'Edit your issues' } })}</div>
-      <div class="rows">${mine.map(g => issueRow(g, yr)).join('')}</div></section>` : ''}
+      <div class="rows">${mine.map(issueRow).join('')}</div></section>` : ''}
     ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-ml"><h2 id="hm-ml">Lists you follow</h2>
       <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: `HIPHI’s ${nextYr} bills will show up here as they are added.`, href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}`;
   return `<div class="hm hm-off">
@@ -485,11 +489,35 @@ function offView(si) {
         <div class="btncol">${btn(known ? 'See my legislators' : 'Find my legislators', { kind: nothingYet || (known && askBtn) ? 'secondary' : 'primary', icon: 'landmark', href: '#/legislators' })}
           ${askBtn ? btn('Get hearing alerts by email', { kind: known && !nothingYet ? 'primary' : 'secondary', icon: 'mail', href: '#/signin' }) : ''}
           ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>
+      ${newIssuesCard()}
       ${nudgeHtml}
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
     </div></div>
   </div>`;
+}
+
+// ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
+// Shown once, on Home, with a one-tap Follow; never followed for them. "Seen" is what this browser knew last time:
+// the first visit knows everything, so only issues HIPHI takes up later ever count as new.
+const SEEN_KEY = DEMO ? 'hiphi_seen_issues_demo' : 'hiphi_seen_issues';
+function newIssues() {
+  if (S.hmNew) return S.hmNew;   // worked out once per visit, so the note stays until they act on it or leave
+  let seen = null; try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch { /* private mode */ }
+  const known = new Set(seen || S.issues.map(i => i.id));
+  const partly = new Set(S.issues.filter(i => S.issueFollows.has(i.id)).flatMap(i => i.categories));
+  S.hmNew = seen ? S.issues.filter(i => !known.has(i.id) && !issueFollowed(i) && i.categories.some(c => partly.has(c) && !S.catFollows.has(c))) : [];
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(S.issues.map(i => i.id))); } catch { /* private mode */ }
+  return S.hmNew;
+}
+function newIssuesCard() {
+  const list = newIssues().filter(i => !issueFollowed(i)).slice(0, 3); if (!list.length || !S.cats.length) return '';
+  const cat = catOf(list[0].categories.find(c => S.issues.some(x => S.issueFollows.has(x.id) && x.categories.includes(c))) || list[0].category);
+  return `<section class="card hm-newiss" aria-labelledby="hm-ni"><h2 id="hm-ni">${list.length === 1 ? 'A new issue' : 'New issues'} in ${esc(cat?.name || 'your issues')}</h2>
+    <p class="muted small">HIPHI just took ${list.length === 1 ? 'it' : 'them'} up. Follow ${list.length === 1 ? 'it' : 'any'} if you like.</p>
+    <ul class="hm-newlist" role="list">${list.map(i => `<li><a class="hm-newname" href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>
+      ${btn('Follow', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-hm-newfollow': i.id, 'aria-label': `Follow ${i.name}` } })}</li>`).join('')}</ul>
+    ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-newdone': '1' } })}</section>`;
 }
 
 // wide.css keeps the side column in view under the header. When the column is taller than the window, a sticky top
@@ -536,6 +564,11 @@ export default {
       fitSide();
     });
     const fold = root.querySelector('.hm-fold'); if (fold) fold.ontoggle = () => { S.hmOpen.fold = fold.open; };
+    root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
+      const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
+      if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
+    });
+    root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
     fitSide();
     const side = root.querySelector('.cols > .hm-side');
     if (side && window.ResizeObserver) { sideWatch?.disconnect(); sideWatch = new ResizeObserver(fitSide); sideWatch.observe(side); }

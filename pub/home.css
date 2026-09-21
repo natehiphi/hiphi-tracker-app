@@ -70,6 +70,12 @@
 .hm .hm-sec h2, .hm .hm-ready h2, .hm .hm-recap h2 { font-size: var(--t22); }
 .hm .hm-sechead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
 .hm .hm-sechead .btn { margin-right: calc(-1 * var(--s12)); }
+/* R-018: a new issue in a category the person partly follows, shown once (Nate, 9/21, answer 3) */
+.hm .hm-newiss { display: flex; flex-direction: column; gap: var(--s8); align-items: flex-start; }
+.hm .hm-newiss h2 { font-size: var(--t18); }
+.hm .hm-newlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); width: 100%; }
+.hm .hm-newlist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.hm .hm-newname { font-weight: 700; color: var(--n900); min-height: 44px; display: flex; align-items: center; }
 .hm .hm-day { font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
 .hm .rows .row .title, .hm .rows .row .sub, .hm .hm-pick .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hm .rows .row .sub { color: var(--n700); }

@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo } from './core.js';
+  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import start from './start.js';
@@ -16,12 +16,13 @@ import more from './more.js';
 import helper from './helper.js';
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
-const SCREENS = { start, home, bills: mybills, find, issue: find, list: find, bill, legislators: people, legislator: people,
+const SCREENS = { start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, more, help: more, signin: more, settings: more, privacy: more };
-const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My bills'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
+// "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
+const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 
 // ---- routes ----
-// New form: #/, #/start/2, #/bills, #/find?q=, #/find/issue/<slug>, #/list/<slug>, #/bill/HB1563, #/legislators,
+// New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563, #/legislators,
 // #/legislator/<id>, #/more, #/help, #/signin, #/settings, #/privacy. Links shared before 9/19 (#bill=HB1563,
 // #list=slug, #legislator=id, #legislators) still open the same pages.
 export function parseRoute(h = location.hash) {
@@ -40,7 +41,8 @@ export function parseRoute(h = location.hash) {
     // silent: the hash moves, the screen does not.
     case 'start': return { name: 'start', step: Math.max(1, +seg[1] || 1) };
     case 'bills': return { name: 'bills' };
-    case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
+    case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
+    case 'issue': return { name: 'issue', slug: seg[1] || '' };
     case 'list': return { name: 'list', slug: seg[1] || '' };
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase() };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
@@ -49,7 +51,7 @@ export function parseRoute(h = location.hash) {
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home' };
   }
 }
-export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
+export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
   committee: `#/committee/${r.code}`, committees: '#/committees' })[r.name] || '#/';
 
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.
@@ -70,8 +72,8 @@ function header(route, scr) {
   const inStart = route.name === 'start';
   const account = S.session ? `<a class="hbtn hacct" href="#/settings">${icon('user')}<span>Account</span></a>` : DEMO ? '' : `<a class="hbtn hacct" href="#/signin">${icon('log-in')}<span>Sign in</span></a>`;
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin">Sign in</a>`)
-    : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills: vaping, school meals, HB 1563" autocomplete="off" enterkeyhint="search"></form>
-       <a class="hbtn hsearchbtn" href="#/find" aria-label="Search bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
+    : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: vaping, school meals" autocomplete="off" enterkeyhint="search"></form>
+       <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
   const nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · an imagined end of the 2026 session · nothing is saved' : 'Sandbox · Mon, Mar 16, 2026 · nothing is saved'}</div>` : ''}
     <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi Public Health Institute</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
@@ -151,13 +153,14 @@ document.addEventListener('keydown', e => {
 // Back after a month with things saved only in this browser: the one moment their loss is a real risk.
 function welcomeBack() {
   const o = onb(), last = o.lastVisit ? Date.parse(o.lastVisit) : 0;
-  if (last && Date.now() - last > 30 * 864e5 && (S.watch.size >= 3 || S.done.size)) nudge('back');
+  if (last && Date.now() - last > 30 * 864e5 && (S.watch.size >= 3 || S.issueFollows.size || S.done.size)) nudge('back');
   onbSet({ lastVisit: new Date().toISOString() });
 }
 async function boot() {
   const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
   try {
-    await Promise.race([(async () => { await loadUser(); await loadLists(); await loadBills(); })(), timeout]);
+    // The issues come first: what a person follows is worked out from them (063, R-018).
+    await Promise.race([(async () => { await loadCatalog(); await loadUser(); await loadLists(); await loadBills(); })(), timeout]);
     welcomeBack();
     // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets the
     // guided start behind it, so Back goes somewhere helpful.

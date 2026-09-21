@@ -1,13 +1,15 @@
 // HIPHI Staff v2 · Bill > Public (plan 3.3). What the public page says about this bill: the nickname, the plain summary, the ask
 // and the date it stops showing, and whether the bill is on the public page at all. These fields save together with ONE
-// button, the same fields the current app saves. Lists and the email to supporters act on their own, since each
-// is its own thing (a list is a page the public follows; an email goes through approval).
+// button, the same fields the current app saves. Issues, lists and the email to supporters act on their own, since each
+// is its own thing (an issue is what the public follows, R-018; a list is a page the public follows; an email goes
+// through approval).
 // Desktop (build 3): the form stays a readable column, and where the column has room a small card beside it shows,
 // as you type, how the public page will name the bill (nickname, summary, the ask).
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
 import { icon, btn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
+import { issuesOfBill, openIssuePicker, whyNot } from './issues.js';
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
 const saved = (b, k) => k === 'is_public' ? !!b.is_public : (b[k] || '');
@@ -42,6 +44,21 @@ function previewInner(b, v) {
 }
 const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
 
+// Issues (063, R-018): the public follows issues, and a bill reaches everyone following an issue it is on. The chips are
+// the issues it is on (press one to take the bill off it, with Undo); Choose opens every issue, by category.
+function issuesSection(b) {
+  if (!(S.categories || []).length) return '';
+  const iss = issuesOfBill(b.id), why = whyNot(b);
+  const say = !iss.length ? 'Put it on an issue, and everyone who follows that issue gets it.'
+    : why ? `${why.replace('its followers do not', 'the people following these issues do not')}.` : 'Everyone who follows one of these issues gets this bill.';
+  return `<section class="bw-sec" aria-labelledby="bw-iss-h">
+    <h2 id="bw-iss-h">Issues</h2>
+    <p class="small muted">${esc(say)}</p>
+    <div class="chips bw-issues">${iss.map(i => `<button type="button" class="chip" data-issoff="${esc(i.id)}" aria-pressed="true" aria-label="${esc(i.name)}: on this bill. Press to take it off.">${icon('check')}${esc(i.name)}</button>`).join('')}
+      ${btn(iss.length ? 'Change' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div>
+  </section>`;
+}
+
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
@@ -73,6 +90,7 @@ export function renderPublic(b) {
     </div>
     </div>
   </section>
+  ${issuesSection(b)}
   <section class="bw-sec" aria-labelledby="bw-lists-h">
     <h2 id="bw-lists-h">Lists</h2>
     ${!lists.length ? '<p class="small muted">No lists yet. Make one under Outreach, Lists.</p>'
@@ -143,6 +161,15 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
       if (on) { const n = await add(); rerender(sel); if (!n) { toast('Only public bills go on lists. Make it public and save first.'); return; } }
       else { await remove(); rerender(sel); }
       toast(on ? `Added to ${l.title}.` : `Removed from ${l.title}.`, { undo: async () => { if (on) await remove(); else await add(); rerender(sel); } });
+    } catch (x) { el.disabled = false; toast(x, { err: true }); }
+  });
+  pnl.querySelector('[data-ispick]')?.addEventListener('click', () => openIssuePicker(b, { onClose: () => rerender('[data-ispick]') }));
+  pnl.querySelectorAll('[data-issoff]').forEach(el => el.onclick = async () => {
+    const id = el.dataset.issoff, i = (S.issues || []).find(x => x.id === id); if (!i) return;
+    el.disabled = true;
+    try {
+      await DB.setBillIssue(b.id, id, false); rerender('[data-ispick]');
+      toast(`Took it off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, id, true); rerender('[data-ispick]'); } });
     } catch (x) { el.disabled = false; toast(x, { err: true }); }
   });
   pnl.querySelector('[data-email]').onclick = e => {

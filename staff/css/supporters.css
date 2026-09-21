@@ -4,7 +4,8 @@
 /* ---- the list: switcher, search row, segment chips ---- */
 .sp-page .sp-h1 { display: none; }
 .sp-page .sp-seg { display: flex; width: 100%; max-width: 440px; }
-.sp-page .sp-seg a { flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px; border-radius: var(--pill);
+/* Four links (Supporters, Issues, Lists, Emails): each as wide as its word plus an equal share of the rest, so all four fit at 320px */
+.sp-page .sp-seg a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; border-radius: var(--pill);
   font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
 .sp-page .sp-seg a:hover { color: var(--n900); background: var(--n50); }
 .sp-page .sp-seg a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }

@@ -53,7 +53,7 @@ function sortRows(rows, [k, d]) {
   return rows.map(p => [get(p), p]).sort(([a, pa], [b, pb]) => (a == null) - (b == null) || (a == null ? 0 : d * cmp(a, b)) || personName(pa).localeCompare(personName(pb))).map(x => x[1]);
 }
 const isDesk = () => matchMedia('(min-width: 900px)').matches;
-const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar lists Supporters, Lists and Emails, so the switcher is not drawn
+const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar lists Supporters, Issues, Lists and Emails, so the switcher is not drawn
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const shown = v => { if (!Array.isArray(v.sort)) v.sort = ['active', -1]; return sortRows((S.people || []).filter(p => peopleMatch(p, v.f)), v.sort); };
 const allTags = () => [...new Set((S.people || []).flatMap(p => p.tags || []))].sort((a, b) => a.localeCompare(b));
@@ -86,8 +86,8 @@ function dropFilter(f, key, val) {
   else f[key] = EMPTY_PF()[key];
 }
 
-// ---- the Outreach switcher (Lists and Emails show the same three links) ----
-export const outreachNav = cur => `<nav class="sv-seg sp-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
+// ---- the Outreach switcher (Issues, Lists and Emails show the same four links) ----
+export const outreachNav = cur => `<nav class="sv-seg sp-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
   .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 
 // ---- rows ----

@@ -12,7 +12,7 @@
 import json, os, sys
 from playwright.sync_api import sync_playwright
 
-HOST = 'http://localhost:8832'
+HOST = os.environ.get('HOST', 'http://localhost:8832')   # HOST=http://localhost:NNNN for another server
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'journeys')
 os.makedirs(OUT, exist_ok=True)
 
@@ -25,10 +25,11 @@ PUBLIC = HOST + '/track.html?demo=1'
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
- dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=3, start='#/', steps=[
-   dict(what='pick a topic', do="""(()=>{const e=[...document.querySelectorAll('.st-issue')].find(x=>/Food/.test(x.innerText)); if(!e)return false; e.click(); return true;})()""", reach=seen('Food')),
-   dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('topics, and their bills|Start with')),
-   dict(what='follow the picked bills', do=click_text('.actionbar .btn', 'Follow \\d+ bill'), reach=seen("following")),
+ # People follow issues, not bills (R-018, 9/21): a bill comes to them because it is on an issue they follow.
+ dict(name='public: arrive -> follow a first issue', app=PUBLIC, budget=3, start='#/', steps=[
+   dict(what='pick a category', do="""(()=>{const e=[...document.querySelectorAll('.st-issue')].find(x=>/Food/.test(x.innerText)); if(!e)return false; e.click(); return true;})()""", reach=seen('Food')),
+   dict(what='ask for its issues',   do=click_text('.btn', 'Show me the issues'),  reach=seen('Your issues')),
+   dict(what='follow the ticked issues', do=click_text('.st-bar .btn', 'Follow \\d+ issue'), reach=seen("following")),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",

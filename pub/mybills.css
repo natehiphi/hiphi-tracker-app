@@ -130,3 +130,19 @@
 .mb-keep { font-weight: 400; color: var(--n500); }
 .mb-note { color: var(--n700); margin: 0 0 var(--s16); }
 .mb-onward { margin: var(--s24) 0 0; }
+
+/* ---- My issues (R-018): a section per category, then each followed issue with its moving bills ----
+   The category is a heading with its icon; an issue is a light block under it (no card: the bill rows below it are
+   the cards, and a card inside a card is two borders for one thing - A-8). The issue name is the link to its page,
+   and "Following" beside it is the one action (A-20). */
+.mb-cat { margin: 0 0 var(--s32); }
+.mb-cathead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0 0 var(--s12); }
+.mb-cathead h2 { font-size: var(--t22); }
+.mb-catic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
+.mb-catic .ic { width: 20px; height: 20px; }
+.mb-catall { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
+.mb-catall .ic { width: 18px; height: 18px; }
+.mb-cat .fd-ilist + .mb-quiet { margin-top: var(--s12); }
+.mb-quiet { margin: 0; font-size: var(--t14); color: var(--n700); }
+.mb-quiet a { font-weight: 700; }
+.mb-own { margin-top: var(--s8); }

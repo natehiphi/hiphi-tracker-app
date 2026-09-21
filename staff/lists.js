@@ -36,7 +36,7 @@ export const billName = (b, n = 110) => b.nickname
 
 // ---- layout, and the desktop table parts shared by Lists and Emails ----
 export const isDesk = () => matchMedia('(min-width: 900px)').matches;
-export const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar already lists Supporters, Lists and Emails
+export const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar already lists Supporters, Issues, Lists and Emails
 export const DASH = '<span class="le-dash" aria-hidden="true">–</span><span class="sr">none</span>';
 // "3/16" this year, "11/2/25" for an older date.
 export const shortDate = d => d ? fmtDate(d, asDate(d).getFullYear() === new Date().getFullYear() ? {} : { year: '2-digit' }) : '';
@@ -72,9 +72,9 @@ export const pageHead = (cur, title, lede, action) => {
   return `${desk ? '' : outreachNav(cur)}<div class="le-tools"><h1 class="le-h1">${title}</h1>${desk && !isSide() ? outreachNav(cur) : ''}<p class="le-lede">${lede}</p>${action}</div>`;
 };
 
-// The Outreach switcher: the same three links, in the same place, on Supporters, Lists and Emails.
+// The Outreach switcher: the same four links, in the same place, on Supporters, Issues, Lists and Emails.
 export function outreachNav(cur) {
-  return `<nav class="sv-seg le-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
+  return `<nav class="sv-seg le-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
     .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 }
 

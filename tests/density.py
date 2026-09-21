@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import checks
 
-HOST = 'http://localhost:8832'
+HOST = os.environ.get('HOST', 'http://localhost:8832')   # HOST=http://localhost:NNNN for another server
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'density')
 os.makedirs(OUT, exist_ok=True)
 
@@ -25,16 +25,21 @@ os.makedirs(OUT, exist_ok=True)
 # If the snapshot is rebuilt, re-pick these: any four public bills whose stage is not dead/law.
 FOLLOWS = ["f707d3fd-f830-491c-8f46-06dcfd847cbf", "5aa2ef38-47b1-4376-a41d-39983afe15d3",
            "4cd8463b-a73c-4bc8-b6ef-55a285ecc388", "7d6caa6e-9e33-4cda-a45b-43b94e2c6dc4"]
+# ...and one followed ISSUE (R-018: people follow issues; the four bills above are ones followed on their own).
+ISSUE = "66a32660-b0a7-4a90-a71f-231963619b44"   # the disposable vape ban; re-pick by slug if the snapshot is rebuilt
 SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
+        "localStorage.setItem('hiphi_issue_follows_demo', %s);"
         "localStorage.setItem('hiphi_wiz', JSON.stringify({done:true, issues:['vaping']})); } catch (e) {}"
-        % json.dumps(json.dumps(FOLLOWS)))
+        % (json.dumps(json.dumps(FOLLOWS)), json.dumps(json.dumps([ISSUE]))))
 
 # screen, route, what the person came for, selector for it
 PUB = [
   ('start',       '/start/1',      'the first question',   '.st-rrow, .st1 button, .st1 .row'),
   ('home',        '/',             'what needs you',       '.acard, .hm-quiet, .hm-card, .hm .row, .mwrow'),
-  ('mybills',     '/bills',        'a bill you follow',    '.mb-row, .mb-main'),
+  ('mybills',     '/bills',        'an issue you follow',  '.fd-irow, .mb-row, .mb-main'),
   ('find',        '/find',         'a way in',             '.fd-row, .fd .row, .fd-issue'),
+  ('category',    '/find/category/food', 'its first issue', '.fd-irow'),
+  ('issue',       '/issue/disposable-vape-ban', 'what the issue is', '.fd-ihead .lede'),
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
   ('legislators', '/legislators',  'your island',          '.pp-isle'),
   ('more',        '/more',         'the first choice',     '.mwrow, .mr .row'),

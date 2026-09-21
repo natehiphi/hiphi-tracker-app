@@ -279,7 +279,7 @@ function aboutScreen() {
   const email = S.session ? '' : `<div class="field"><label for="hp-email">Your email <span class="hp-opt">(optional)</span></label>
       <input id="hp-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" value="${esc(x.email)}"
         aria-describedby="${bad ? 'hp-email-err ' : ''}hp-email-help"${bad ? ' aria-invalid="true"' : ''}>${bad ? errHTML('email') : ''}
-      <span class="help" id="hp-email-help">We’ll email you when your bills have a hearing. No password. Your email is never part of your letter.</span>
+      <span class="help" id="hp-email-help">We’ll email you when a bill on your issues has a hearing. No password. Your email is never part of your letter.</span>
       ${x.link === 'failed' && x.linkTo === x.email.trim() ? `<span class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link just now. We’ll try again when you continue.</span></span>` : ''}</div>`;
   return `<div class="hp-top">${screenHead(1, 'About you')}
       ${name ? `<p class="hp-nick">${esc(name)}</p>` : ''}
@@ -377,7 +377,7 @@ function doneScreen() {
   const gave = !S.session && x.link && x.linkTo;
   const ask = gave && x.link !== 'failed' ? `<div class="card tint hp-inbox" id="hp-inbox" tabindex="-1" role="status">${icon('mail-check')}<div>
         <p class="strong">Check your inbox at <span class="hp-break">${esc(x.linkTo)}</span> to finish</p>
-        <p class="small">Open the link on this device and your bills come with you. Hearing alerts start once you do.</p>
+        <p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>
         ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
     : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
         ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
@@ -389,7 +389,7 @@ function doneScreen() {
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
-      <p>${esc(next)} ${x.followedNow ? `We added ${esc(n)} to My bills, so you’ll see what they decide.` : 'We’ll show what they decide in My bills.'}</p>
+      <p>${esc(next)} ${x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.'}</p>
       ${watch}</section>
     ${ask}`;
 }

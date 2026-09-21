@@ -63,6 +63,8 @@ export const S = {
   drawerOpen: { bill: null, pub: false, notes: false, details: false, team: false, todo: false },   // per bill: survives the re-render a save causes, resets when another bill opens
   committees: {},   // code -> {name, chair, vice_chair}; empty until the committees table exists
   deskOut: false,
+  // Issues (063, R-018): what the public follows. Categories (the six) -> issues -> the bills that carry them.
+  categories: [], issues: [], issueCats: [], billIssues: [],
 };
 export const $ = sel => document.querySelector(sel);
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -213,6 +215,7 @@ export const DB = {
         .order('started_at', { ascending: false }).limit(10);
       S.syncRuns = sr.data || [];
     } catch { S.syncRuns = []; }
+    await this.loadIssues();
     // Companion stages for the "companion alive" chip (non-fatal)
     try {
       const nums = [...new Set(S.bills.flatMap(b => b.companions || []))];
@@ -539,6 +542,83 @@ export const DB = {
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
 
+  // ---- issues (063, R-018): Staff v2 only; the current app is retiring and has no Issues page ----
+  // Non-fatal like the other additive loads: without them the rest of the app still works.
+  async loadIssues() {
+    if (DEMO) return;
+    try {
+      const [cats, iss, ic, bi] = await Promise.all([
+        S.supa.from('categories').select('*').order('sort_order'),
+        S.supa.from('issues').select('*').order('sort_order').order('name'),
+        S.supa.from('issue_categories').select('issue_id,category'),
+        S.supa.from('bill_issues').select('bill_id,issue_id,added_at'),
+      ]);
+      for (const r of [cats, iss, ic, bi]) if (r.error) throw r.error;
+      S.categories = cats.data || []; S.issues = iss.data || []; S.issueCats = ic.data || []; S.billIssues = bi.data || [];
+    } catch (e) { console.warn('issues:', e.message || e); }
+  },
+  async createIssue({ name, description, category, also = [], recommended = false }) {
+    const base = name.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'issue';
+    let slug = base, n = 2; while (S.issues.some(i => i.slug === slug)) slug = `${base}-${n++}`;
+    const row = { slug, name: name.trim(), description: (description || '').trim() || null, category, recommended: !!recommended, sort_order: 100 };
+    let issue;
+    if (DEMO) issue = { id: 'demo-' + Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), edited_at: new Date().toISOString(), archived_at: null, ...row };
+    else { const { data, error } = await S.supa.from('issues').insert(row).select('*').single(); if (error) throw error; issue = data; }
+    S.issues.push(issue);
+    if (also.length) await this.setIssueAlso(issue.id, also);
+    return issue;
+  },
+  async updateIssue(id, patch) {
+    const i = S.issues.find(x => x.id === id); if (!i) return;
+    const before = { ...i };
+    Object.assign(i, patch, { updated_at: new Date().toISOString() });
+    if (DEMO) return;
+    const { error } = await S.supa.from('issues').update(patch).eq('id', id);
+    if (error) { Object.assign(i, before); throw error; }
+  },
+  // The categories an issue also sits in, besides its own (the DUI limit: alcohol policy, and getting around safely).
+  async setIssueAlso(id, cats) {
+    const i = S.issues.find(x => x.id === id); if (!i) return;
+    const want = new Set(cats.filter(c => c !== i.category)), had = new Set(S.issueCats.filter(x => x.issue_id === id).map(x => x.category));
+    const add = [...want].filter(c => !had.has(c)), drop = [...had].filter(c => !want.has(c));
+    if (!DEMO) {
+      if (drop.length) { const { error } = await S.supa.from('issue_categories').delete().eq('issue_id', id).in('category', drop); if (error) throw error; }
+      if (add.length) { const { error } = await S.supa.from('issue_categories').insert(add.map(category => ({ issue_id: id, category }))); if (error) throw error; }
+    }
+    S.issueCats = [...S.issueCats.filter(x => !(x.issue_id === id && drop.includes(x.category))), ...add.map(category => ({ issue_id: id, category }))];
+  },
+  async setBillIssue(billId, issueId, on) {
+    const had = S.billIssues.some(x => x.bill_id === billId && x.issue_id === issueId);
+    if (on === had) return;
+    if (on) S.billIssues.push({ bill_id: billId, issue_id: issueId, added_at: new Date().toISOString() });
+    else S.billIssues = S.billIssues.filter(x => !(x.bill_id === billId && x.issue_id === issueId));
+    if (DEMO) return;
+    const { error } = on ? await S.supa.from('bill_issues').insert({ bill_id: billId, issue_id: issueId })
+      : await S.supa.from('bill_issues').delete().eq('bill_id', billId).eq('issue_id', issueId);
+    if (error) {
+      if (on) S.billIssues = S.billIssues.filter(x => !(x.bill_id === billId && x.issue_id === issueId));
+      else S.billIssues.push({ bill_id: billId, issue_id: issueId, added_at: new Date().toISOString() });
+      throw error;
+    }
+  },
+  // Two issues that are really one: the first one's bills, extra categories and followers move to the second, and
+  // the first is archived (merge_issues, 063). Nobody following either one loses a bill.
+  async mergeIssues(fromId, intoId) {
+    if (DEMO) {
+      const from = S.issues.find(i => i.id === fromId), into = S.issues.find(i => i.id === intoId); if (!from || !into) return;
+      for (const x of S.billIssues.filter(r => r.issue_id === fromId)) if (!S.billIssues.some(r => r.issue_id === intoId && r.bill_id === x.bill_id)) S.billIssues.push({ ...x, issue_id: intoId });
+      S.billIssues = S.billIssues.filter(r => r.issue_id !== fromId);
+      const cats = new Set([...S.issueCats.filter(r => r.issue_id === fromId).map(r => r.category), from.category]);
+      for (const c of cats) if (c !== into.category && !S.issueCats.some(r => r.issue_id === intoId && r.category === c)) S.issueCats.push({ issue_id: intoId, category: c });
+      for (const p of S.people || []) if ((p.issue_ids || []).includes(fromId)) p.issue_ids = [...new Set(p.issue_ids.map(x => x === fromId ? intoId : x))];
+      from.archived_at = new Date().toISOString();
+      return;
+    }
+    const { error } = await S.supa.rpc('merge_issues', { p_from: fromId, p_into: intoId }); if (error) throw error;
+    await this.loadIssues();
+    if (S.peopleLoaded) { S.peopleLoaded = false; await this.loadPeople().catch(() => {}); }
+  },
+
   // ---- people (CRM) ----
   async loadPeople() {
     if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;
@@ -728,7 +808,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260920b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260921i', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -741,6 +821,7 @@ export async function demoInit() {
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); hooks.afterLoad(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
+  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, ...i })); S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },

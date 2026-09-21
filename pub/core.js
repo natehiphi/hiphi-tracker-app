@@ -129,8 +129,15 @@ export function groups() {
 export const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
 export const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
   committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
-  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null };
+  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null,
+  // Following (063, R-018): what the person chose - issues, whole categories, single bills ("direct") and "Not for me"
+  // (skips). S.watch is worked out from those (recomputeWatch) and is what every screen reads as "followed bills".
+  direct: new Set(), issueFollows: new Set(), catFollows: new Set(), skips: new Set(), viaIssues: new Set(),
+  cats: [], issues: [], issueById: new Map(), issueBySlug: new Map(), issuesByBill: new Map() };
 export const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
+export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
+export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
+export const SKIPS_KEY = DEMO ? 'hiphi_skips_demo' : 'hiphi_skips';
 export const CONSENT_KEY = 'hiphi_consent_pending';
 // ---------------- data ----------------
 export async function init() {
@@ -141,9 +148,9 @@ export async function init() {
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
 }
 // ---------------- sandbox data ----------------
-export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [] };
+export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260920b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260921i', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -166,6 +173,16 @@ export async function demoLoad() {
       if (b.stage === 'dead' && !b.died_deadline) b.died_deadline = 'Sine die'; }
   }
   D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
+  // Categories and issues, shaped like public_categories / public_issues: an issue lists the position bills that carry
+  // it, with each one's session, and every bill knows its issues (public_all_bills.hiphi_issues).
+  D.cats = (snap.categories || []).slice().sort((x, y) => x.sort_order - y.sort_order);
+  { const extra = {}; for (const r of snap.issueCategories || []) (extra[r.issue_id] ??= []).push(r.category);
+    const byId = new Map(D.bills.map(b => [b.id, b])), byIssue = {}, ofBill = {};
+    for (const r of snap.billIssues || []) { const b = byId.get(r.bill_id); if (!b || !b.hiphi_position || b.hiphi_position === 'monitor') continue;
+      (byIssue[r.issue_id] ??= []).push(b); (ofBill[b.id] ??= []).push(r.issue_id); }
+    D.issues = (snap.issues || []).map(i => { const bs = (byIssue[i.id] || []).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
+      return { ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)], bill_ids: bs.map(b => b.id), bill_years: bs.map(b => b.session_year), followers: 0 }; });
+    for (const b of D.bills) b.hiphi_issues = ofBill[b.id] || null; }
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
@@ -205,12 +222,12 @@ export async function loadActions(ids) {
   }
   const hids = [...new Set([...S.hearings, ...((S.featured || {}).hearings || [])].map(h => h.id))];
   const [c, v, st] = await Promise.all([
-    ids.length ? S.supa.from('public_action_counts').select('*').in('bill_id', ids) : null,
-    hids.length ? S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', hids.slice(0, 300)) : null,
-    ids.length ? S.supa.from('public_bill_stances').select('*').in('bill_id', ids) : null]);
-  (c?.data || []).forEach(r => { S.actionCounts[r.bill_id] = r; });
-  S.voices = Object.fromEntries((v?.data || []).map(r => [r.hearing_id, r.people]));
-  S.billStances = { ...(S.billStances || {}), ...Object.fromEntries((st?.data || []).map(r => [r.bill_id, r])) };
+    inChunks(ids, ch => S.supa.from('public_action_counts').select('*').in('bill_id', ch)),
+    inChunks(hids.slice(0, 300), ch => S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', ch)),
+    inChunks(ids, ch => S.supa.from('public_bill_stances').select('*').in('bill_id', ch))]);
+  c.forEach(r => { S.actionCounts[r.bill_id] = r; });
+  S.voices = Object.fromEntries(v.map(r => [r.hearing_id, r.people]));
+  S.billStances = { ...(S.billStances || {}), ...Object.fromEntries(st.map(r => [r.bill_id, r])) };
   S.totals = {};   // community-wide totals are no longer shown (9/19); numbers live inside one bill or one hearing
 }
 export async function markDone(billId, hearingId, kind, on = true, { quiet = false } = {}) {
@@ -242,8 +259,14 @@ export async function setStance(id, stance) {
   if (stance) S.stances[id] = stance; else delete S.stances[id];
   saveStances();
   if (!DEMO && S.session && S.user && S.watch.has(id)) {
-    const r = await S.supa.from('watchlist').update({ stance: stance || null }).eq('user_id', S.user.id).eq('bill_id', id);
+    // A stance lives on the bill's own follow row. A bill followed through an issue has none, so taking a stand on it
+    // gives it one (and keeps it followed if the issue is later unfollowed: you took a stand on it). Clearing a stance
+    // never adds a row.
+    const r = stance
+      ? await S.supa.from('watchlist').upsert({ user_id: S.user.id, bill_id: id, stance }, { onConflict: 'user_id,bill_id' })
+      : await S.supa.from('watchlist').update({ stance: null }).eq('user_id', S.user.id).eq('bill_id', id);
     if (r.error) toast(r.error, true);
+    else if (stance && !S.direct.has(id)) { S.direct.add(id); saveLocal(); }
   }
 }
 // Does the person's stance match HIPHI's? null when either side has none. HIPHI's scripted letters and emails are
@@ -253,12 +276,94 @@ export function agrees(b) {
   if (!mine || mine === 'unsure' || !/support|oppose/.test(p)) return null;
   return (mine === 'support') === /support/.test(p);
 }
-export function localWatch() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]')); } catch { return new Set(); } }
-export function saveLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...S.watch])); } catch { /* private mode */ } }
+// ---------------- following: issues, whole categories, single bills (063, R-018) ----------------
+// Nate, 9/21: people follow issues, not bills; the bills come to them because of the issue. What a person chose is kept
+// as four sets - issues, whole categories ("Follow all": Nate, it also brings issues HIPHI takes up there later), bills
+// followed on their own, and bills marked "Not for me" - and S.watch, the followed bills every screen reads, is worked
+// out from them here, the same way the database's follow_set decides who gets a hearing alert.
+const readSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
+const writeSet = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* private mode */ } };
+export const localWatch = () => readSet(LOCAL_KEY);   // bills followed on their own
+export function saveLocal() { writeSet(LOCAL_KEY, S.direct); writeSet(ISSUES_KEY, S.issueFollows); writeSet(CATS_KEY, S.catFollows); writeSet(SKIPS_KEY, S.skips); }
+// The session whose bills an issue brings: this one, or between sessions the one just ended (so its outcomes show).
+export const followYear = () => { const si = sessionInfo(); return si.phase === 'in' ? si.yr : si.recapYear; };
+export const catOf = key => S.cats.find(c => c.key === key) || null;
+export const issueFollowed = i => !!i && (S.issueFollows.has(i.id) || (i.categories || [i.category]).some(c => S.catFollows.has(c)));
+export const issuesOf = b => (b && S.issuesByBill.get(typeof b === 'string' ? b : b.id)) || [];
+// The issue a bill is followed through, or null when it is followed on its own (or not at all).
+export const viaIssue = b => issuesOf(b).find(issueFollowed) || null;
+export const issueBills = i => (i.bill_ids || []).filter((id, k) => +(i.bill_years || [])[k] === followYear());
+export const issuesIn = key => S.issues.filter(i => (i.categories || [i.category]).includes(key));
+export const followedIssues = () => S.issues.filter(issueFollowed);
+export const followsAnything = () => S.watch.size > 0 || S.issueFollows.size > 0 || S.catFollows.size > 0;
+// The categories this person cares about: picked at the start, followed whole, or holding an issue they follow.
+export const likedCats = () => new Set([...(wiz().issues || []), ...S.catFollows, ...followedIssues().flatMap(i => i.categories)]);
+// HIPHI's position on an issue, from the bills that carry it: what it is for, when it is for any of them (an issue can
+// hold a bill HIPHI opposes because it would push the other way), else what it opposes, else comments.
+export const issuePos = bills => { const ps = new Set(bills.map(b => b && b.hiphi_position).filter(Boolean));
+  return ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral'].find(p => ps.has(p)) || null; };
+// "all of Food & Nutrition and 3 more issues", "7 issues": what this person follows, in words.
+export function followSummary() {
+  const cats = S.cats.filter(c => S.catFollows.has(c.key));
+  const rest = S.issues.filter(i => S.issueFollows.has(i.id) && !(i.categories || [i.category]).some(c => S.catFollows.has(c))).length;
+  const parts = [...cats.map(c => `all of ${c.name}`), ...(rest ? [`${rest}${cats.length ? ' more' : ''} ${rest === 1 ? 'issue' : 'issues'}`] : [])];
+  return parts.length <= 1 ? (parts[0] || '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+export function recomputeWatch() {
+  const via = new Set();
+  for (const i of S.issues) if (issueFollowed(i)) for (const id of issueBills(i)) via.add(id);
+  const out = new Set([...S.direct, ...via]);
+  for (const id of S.skips) if (!S.direct.has(id)) out.delete(id);   // "Not for me", unless also followed on its own
+  S.viaIssues = via; S.watch = out;
+}
+// Categories and issues: loaded before anything else, because what a person follows is worked out from them.
+export async function loadCatalog() {
+  let cats = [], issues = [];
+  if (DEMO) { cats = D.cats; issues = D.issues; }
+  else {
+    try { const [c, i] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order')]);
+      cats = c.data || []; issues = i.data || []; } catch (e) { console.error(e); }   // without them the page still works, by bills
+  }
+  S.cats = cats;
+  S.issues = issues.map(i => ({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
+  S.issueById = new Map(S.issues.map(i => [i.id, i])); S.issueBySlug = new Map(S.issues.map(i => [i.slug, i]));
+  S.issuesByBill = new Map();
+  for (const i of S.issues) for (const id of i.bill_ids) (S.issuesByBill.get(id) || S.issuesByBill.set(id, []).get(id)).push(i);
+}
+// Follow or unfollow issues and whole categories in one go (the first visit, a category or issue page, Undo).
+export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], catsOff = [] } = {}) {
+  const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
+  issuesOn.forEach(x => S.issueFollows.add(x)); issuesOff.forEach(x => S.issueFollows.delete(x));
+  catsOn.forEach(x => S.catFollows.add(x)); catsOff.forEach(x => S.catFollows.delete(x));
+  recomputeWatch(); saveLocal();
+  if (S.user && !DEMO) {
+    const uid = S.user.id, calls = [];
+    const addI = [...new Set(issuesOn)].filter(x => !before.i.has(x)), delI = issuesOff.filter(x => before.i.has(x));
+    const addC = [...new Set(catsOn)].filter(x => !before.c.has(x)), delC = catsOff.filter(x => before.c.has(x));
+    if (addI.length) calls.push(S.supa.from('issue_follows').insert(addI.map(issue_id => ({ user_id: uid, issue_id }))));
+    if (delI.length) calls.push(S.supa.from('issue_follows').delete().eq('user_id', uid).in('issue_id', delI));
+    if (addC.length) calls.push(S.supa.from('category_follows').insert(addC.map(category => ({ user_id: uid, category }))));
+    if (delC.length) calls.push(S.supa.from('category_follows').delete().eq('user_id', uid).in('category', delC));
+    const err = (await Promise.all(calls)).find(r => r.error)?.error;
+    if (err) { toast(err, true); S.issueFollows = before.i; S.catFollows = before.c; recomputeWatch(); saveLocal(); return false; }
+  }
+  try { await loadBills(); } catch (e) { console.error(e); }
+  return true;
+}
+// Stop following one issue. If it came with a whole category, that category becomes its other issues, one by one:
+// "Follow all" also covered issues HIPHI takes up later, and taking one out ends that (the screen says so).
+export function unfollowIssue(i) {
+  const cats = (i.categories || [i.category]).filter(c => S.catFollows.has(c));
+  const others = [...new Set(cats.flatMap(issuesIn).map(x => x.id))].filter(id => id !== i.id);
+  return setFollows({ issuesOff: [i.id], catsOff: cats, issuesOn: others });
+}
 export async function loadUser() {
   S.user = null;
   S.stances = localStances();
-  if (DEMO || !S.session) { S.watch = localWatch(); return; }
+  if (DEMO || !S.session) {
+    S.direct = localWatch(); S.issueFollows = readSet(ISSUES_KEY); S.catFollows = readSet(CATS_KEY); S.skips = readSet(SKIPS_KEY);
+    recomputeWatch(); return;
+  }
   const { data, error } = await S.supa.rpc('ensure_public_user');
   if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut(); return; } throw error; }
   S.user = data;
@@ -294,15 +399,25 @@ export async function loadUser() {
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
   for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
   try { localStorage.removeItem(LISTS_KEY); } catch {}
-  const wl = await S.supa.from('watchlist').select('bill_id,stance');
+  const [wl, isf, caf, sk] = await Promise.all([S.supa.from('watchlist').select('bill_id,stance'), S.supa.from('issue_follows').select('issue_id'),
+    S.supa.from('category_follows').select('category'), S.supa.from('bill_skips').select('bill_id')]);
   const server = new Set((wl.data || []).map(r => r.bill_id));
+  // Issues, whole categories and "Not for me" chosen on this device join the account, as bills and lists do.
+  const merge = async (table, col, local, have) => {
+    const add = [...local].filter(x => !have.has(x));
+    if (add.length) { const r = await S.supa.from(table).insert(add.map(x => ({ user_id: S.user.id, [col]: x }))); if (!r.error) add.forEach(x => have.add(x)); }
+    return have;
+  };
+  S.issueFollows = await merge('issue_follows', 'issue_id', [...readSet(ISSUES_KEY)].filter(id => S.issueById.has(id)), new Set((isf.data || []).map(r => r.issue_id)));
+  S.catFollows = await merge('category_follows', 'category', [...readSet(CATS_KEY)].filter(k => S.cats.some(c => c.key === k)), new Set((caf.data || []).map(r => r.category)));
+  S.skips = await merge('bill_skips', 'bill_id', readSet(SKIPS_KEY), new Set((sk.data || []).map(r => r.bill_id)));
   // First sign-in: what was starred on this device joins the account, with the stance taken on it.
   const local = localWatch(); const missing = [...local].filter(id => !server.has(id));
   if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id, stance: S.stances[bill_id] || null }))); missing.forEach(id => server.add(id)); }
   // Stances: the account wins where it has one; a stance taken on this device for a bill already followed is sent up.
   for (const r of wl.data || []) { if (r.stance) S.stances[r.bill_id] = r.stance; else if (S.stances[r.bill_id]) await S.supa.from('watchlist').update({ stance: S.stances[r.bill_id] }).eq('user_id', S.user.id).eq('bill_id', r.bill_id); }
   saveStances();
-  S.watch = server; saveLocal();
+  S.direct = server; recomputeWatch(); saveLocal();
 }
 // ---------------- curated lists ----------------
 // HIPHI staff curate lists of public bills. Following a list follows every
@@ -337,16 +452,16 @@ export async function followList(slug, on, { quiet = false } = {}) {
     if (r.error) { toast(r.error, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
   } else saveListFollows();
   const live = rows.filter(({ b }) => alive(b) || b.stage === 'governor');
-  if (on) { live.forEach(({ b }) => S.watch.add(b.id)); saveLocal(); }
+  if (on) { live.forEach(({ b }) => S.direct.add(b.id)); recomputeWatch(); saveLocal(); }
   l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
   await loadBills();
   if (on) nudge('follow');
   app.render();
   if (quiet) return;
   // Between sessions a list has no bills still moving: never cheer "Following 0 bills" (assessment, 9/19).
-  toast(!on ? `You no longer follow ${l.title}. Its bills stay in My bills.`
+  toast(!on ? `You no longer follow ${l.title}. Its bills stay in My issues.`
     : live.length ? `Following ${live.length} bill${live.length === 1 ? '' : 's'} on ${l.title}. Any HIPHI adds later will follow too.`
-    : `You follow ${l.title}. HIPHI’s bills will show up in My bills when the next session opens.`, on ? { yay: true } : {});
+    : `You follow ${l.title}. HIPHI’s bills will show up in My issues when the next session opens.`, on ? { yay: true } : {});
 }
 export const POS_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes', strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting', monitor: 'HIPHI is watching' };
 // ---------------- legislators ----------------
@@ -427,14 +542,15 @@ export async function loadBills() {
   }
   if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; }
   else {
+    // Following a whole category can mean 60 or more bills: asked for in slices (inChunks).
     const [b, h, a, o] = await Promise.all([
-      S.supa.from('public_all_bills').select('*').in('id', ids),
-      S.supa.from('public_all_hearings').select('*').in('bill_id', ids),
-      S.supa.from('public_activity').select('*').in('bill_id', ids).order('occurred_at', { ascending: false }).limit(300),
-      S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ids),
+      inChunks(ids, ch => S.supa.from('public_all_bills').select('*').in('id', ch)),
+      inChunks(ids, ch => S.supa.from('public_all_hearings').select('*').in('bill_id', ch)),
+      inChunks(ids, ch => S.supa.from('public_activity').select('*').in('bill_id', ch).order('occurred_at', { ascending: false }).limit(300)),
+      inChunks(ids, ch => S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ch)),
     ]);
-    S.bills = b.data || []; S.hearings = h.data || []; S.activity = a.data || [];
-    Object.assign(S.outcomes, Object.fromEntries((o.data || []).map(x => [x.hearing_id, x])));
+    S.bills = b; S.hearings = h; S.activity = a.sort((x, y) => y.occurred_at.localeCompare(x.occurred_at)).slice(0, 300);
+    Object.assign(S.outcomes, Object.fromEntries(o.map(x => [x.hearing_id, x])));
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length) {
@@ -446,7 +562,16 @@ export async function loadBills() {
     S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
     S.committees = Object.fromEntries((c.data || []).map(x => [x.code, x]));
     S.coalitions = (co.data || []).filter(x => x.bills > 0);
+    // The session dates are known now; if they change which session's bills an issue brings, load those instead.
+    const had = [...S.watch].sort().join(); recomputeWatch();
+    if ([...S.watch].sort().join() !== had) return loadBills();
   }
+}
+// Supabase takes an id list in the URL, so a long list is asked for in slices and put back together.
+async function inChunks(ids, make, size = 80) {
+  const parts = []; for (let k = 0; k < ids.length; k += size) parts.push(ids.slice(k, k + size));
+  const rs = await Promise.all(parts.map(make));
+  return rs.flatMap(r => { if (r?.error) throw r.error; return r?.data || []; });
 }
 // This week at the Capitol: upcoming hearings on bills HIPHI has a position on,
 // so a first visit has something to watch in one tap.
@@ -488,7 +613,11 @@ export function ensureRecapPool(yr) {
 }
 // The topic keys picked in the guided start ('food', 'tobacco'...). Since 9/20 the start stores topics, not
 // coalition names, so anything matching picks against b.coalitions has to ask topicOf() as well (R-019).
-export const pickedTopic = b => { const k = topicOf(b)?.key; return !!k && (wiz().issues || []).includes(k); };
+// A bill in a category this person cares about (likedCats). A bill with no issue yet falls back to the old word
+// patterns of topics.js.
+export const pickedTopic = b => { const liked = likedCats(), iss = issuesOf(b);
+  if (iss.length) return iss.some(i => (i.categories || [i.category]).some(c => liked.has(c)));
+  const k = topicOf(b)?.key; return !!k && liked.has(k); };
 export function dismissed() { try { return new Set(JSON.parse(localStorage.getItem('hiphi_dismiss') || '[]')); } catch { return new Set(); } }
 export function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } }
 // What this person seems to care about: coalitions of the bills they follow,
@@ -543,14 +672,23 @@ export async function loadFeatured() {
 // Onboarding state lives in this browser: which steps are done, nudges shown, tour seen.
 export function onb() { try { return JSON.parse(localStorage.getItem('hiphi_onb') || '{}'); } catch { return {}; } }
 export function onbSet(patch) { const o = { ...onb(), ...patch }; try { localStorage.setItem('hiphi_onb', JSON.stringify(o)); } catch { /* ignore */ } return o; }
+// The star on one bill. A bill that came with an issue: pressing it is "Not for me" (the issue stays followed). A bill
+// nobody's issue covers: it follows or unfollows that bill on its own. Pressing it again undoes either.
 export async function toggleWatch(id) {
-  const on = S.watch.has(id);
-  if (on) S.watch.delete(id); else S.watch.add(id);
-  saveLocal();
+  const on = S.watch.has(id), covered = S.viaIssues.has(id), wasDirect = S.direct.has(id), wasSkip = S.skips.has(id);
+  if (on) { S.direct.delete(id); if (covered) S.skips.add(id); }
+  else { S.skips.delete(id); if (!covered) S.direct.add(id); }
+  recomputeWatch(); saveLocal();
   if (S.user && !DEMO) {
-    const r = on ? await S.supa.from('watchlist').delete().eq('user_id', S.user.id).eq('bill_id', id)
-                 : await S.supa.from('watchlist').insert({ user_id: S.user.id, bill_id: id, stance: (S.stances || {})[id] || null });
-    if (r.error) { toast(r.error, true); if (on) S.watch.add(id); else S.watch.delete(id); saveLocal(); return; }
+    const uid = S.user.id, calls = [];
+    if (wasDirect && !S.direct.has(id)) calls.push(S.supa.from('watchlist').delete().eq('user_id', uid).eq('bill_id', id));
+    if (!wasDirect && S.direct.has(id)) calls.push(S.supa.from('watchlist').insert({ user_id: uid, bill_id: id, stance: (S.stances || {})[id] || null }));
+    if (!wasSkip && S.skips.has(id)) calls.push(S.supa.from('bill_skips').insert({ user_id: uid, bill_id: id }));
+    if (wasSkip && !S.skips.has(id)) calls.push(S.supa.from('bill_skips').delete().eq('user_id', uid).eq('bill_id', id));
+    const err = (await Promise.all(calls)).find(r => r.error)?.error;
+    if (err) { toast(err, true);
+      if (wasDirect) S.direct.add(id); else S.direct.delete(id); if (wasSkip) S.skips.add(id); else S.skips.delete(id);
+      recomputeWatch(); saveLocal(); return; }
   }
   await loadBills();
   // Signed in, first bill followed, no districts yet: ask for a home address once (it is the field HIPHI needs most).
@@ -577,7 +715,7 @@ export async function browseCoalition(name) {
 }
 // ---------------- helpers ----------------
 export const bill = id => S.bills.find(b => b.id === id);
-export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
+export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || ((S.recapPool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
 export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {
@@ -702,7 +840,7 @@ export const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hea
 export const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
 // Milestones mark real acts, are shown only to the person, and never expire.
 export const MILESTONES = [
-  ['follow', 'Following along', 'follow your first bill', () => S.watch.size >= 1],
+  ['follow', 'Following along', 'follow your first issue', () => followsAnything()],
   ['stance', 'Took a stand', 'say where you stand on a bill', () => Object.values(S.stances || {}).some(v => v === 'support' || v === 'oppose')],
   ['first', 'First action', 'your first action on a bill', a => a.length >= 1],
   ['testimony', 'First testimony', 'testimony to a committee', a => a.some(x => x.kind === 'testimony')],
@@ -791,7 +929,12 @@ export function issues() {
   return groups().map(g => ({ ...g, icon: issueIcon(g.icon), general: /general/i.test(g.key) }))
     .sort((a, b) => a.general - b.general || (b.live > 0) - (a.live > 0) || (b.live || 0) - (a.live || 0) || a.sort_order - b.sort_order);
 }
+// The category a bill's issue sits in, as a line on a card ("Food & Nutrition", its icon). Coalition names are HIPHI's
+// own way of organising its partners and no longer show on the public page (R-018, answer 5); a bill with no issue
+// falls back to its coalition only until staff give it one.
 export function issueOf(b) {
+  const iss = issuesOf(b)[0], cat = iss && catOf(iss.category);
+  if (cat) return { key: cat.name, names: [cat.key], icon: cat.icon };
   const n = (b.coalitions || [])[0]; if (!n) return null;
   const g = issues().find(x => x.names.includes(n));
   return g || { key: cname(n), names: [n], icon: 'heart-pulse' };
@@ -910,9 +1053,9 @@ export async function ensureBill(num) {
   return b;
 }
 // Where a person is in the guided start: a first visit is someone who has not finished or skipped it and follows nothing.
-export const firstVisit = () => !S.watch.size && ((!wiz().done && !wiz().skipped) || readyForSession());
+export const firstVisit = () => !followsAnything() && ((!wiz().done && !wiz().skipped) || readyForSession());
 // Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
-export const readyForSession = () => !!wiz().ready && !S.watch.size && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
+export const readyForSession = () => !!wiz().ready && !followsAnything() && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
 export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');
 export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
 // Asking a chair for a hearing is remembered per committee, so a bill asked about in its House committee is offered
