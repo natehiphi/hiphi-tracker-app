@@ -150,7 +150,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260921i', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260921j', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
