@@ -33,10 +33,11 @@ export function parseRoute(h = location.hash) {
   const [p, qs] = dh.replace(/^#/, '').split('?'), q = new URLSearchParams(qs || ''), seg = p.split('/').filter(Boolean);
   switch (seg[0]) {
     case undefined: return { name: 'home' };
-    // A sanity bound only: the guided start decides its own length (pub/start.js FLOW_IN), and
-    // redirectFor sends anything past the end back to the last screen. Hard-capping at 4 here silently
-    // rendered step 4 for #/start/5 when the flow grew, so the hash moved and the screen did not.
-    case 'start': return { name: 'start', step: Math.min(9, Math.max(1, +seg[1] || 1)) };
+    // No upper bound here on purpose. The guided start decides its own length (pub/start.js FLOW_IN)
+    // and redirectFor sends anything past the end back to the last screen. Every hard cap written in
+    // this file has been wrong within a day of the flow growing - first 4, then 9 - and the symptom is
+    // silent: the hash moves, the screen does not.
+    case 'start': return { name: 'start', step: Math.max(1, +seg[1] || 1) };
     case 'bills': return { name: 'bills' };
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
     case 'list': return { name: 'list', slug: seg[1] || '' };

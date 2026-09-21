@@ -358,7 +358,7 @@ function welcomeView(si, { cards, asks, total }) {
   return `<div class="hm hm-follow hm-welcome">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head hm-hello">${flower(32)}<h1 class="hero">You’re all set</h1>
+      <header class="hm-head hm-hello">${flower(32)}<h1 class="hero">${(wiz().name || '').trim() ? `You’re all set, ${esc(wiz().name.trim())}` : 'You’re all set'}</h1>
         <p class="lede">You follow ${plural(follows, 'bill')}${stood}. That’s all you need to do today.</p>
         ${chipsHtml(ms.got)}
         ${btn('See my bills', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
@@ -457,7 +457,7 @@ function offView(si) {
   return `<div class="hm hm-off">
     ${accountCards()}
     <header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
-      <div class="hm-breakt"><h1 class="hero">${welcome ? `You’re all set for ${nextYr}` : 'The Legislature is on break'}</h1>
+      <div class="hm-breakt"><h1 class="hero">${welcome ? `You’re all set for ${nextYr}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
         <p class="lede">${lede}</p>
         ${next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : ''}</div></header>
     <div class="cols even"><div class="hm-col">

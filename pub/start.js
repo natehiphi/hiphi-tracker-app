@@ -11,18 +11,23 @@
 // on the right) and the bar sits at the end of the choices (start.css).
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, sessionInfo, billsForCoalitions, recommendations,
   loadBills, saveLocal, wiz, wizSet, followList, listBillsFor, HST, anyBill, myStance, setStance, sendEmailLink, validEmail,
-  friendly, toast, nudge } from './core.js';
+  friendly, toast, nudge, stopOf } from './core.js';
 import { btn, chip, posChip, row, steps } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics, policies, inSub } from './topics.js';
+import { townMatches, lookupTown } from './people.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The email step is the last one; a signed-in person does not get it, so their count is one shorter.
 // The guided start, as an ordered list of named screens rather than step numbers. Adding a screen
 // is adding a name here: every place that used to compare `step === 3` now asks for the name, so
 // inserting one in the middle stops renumbering the rest (Nate's longer flow, 9/20).
-const FLOW_IN = ['topics', 'narrow', 'bills', 'stand'], FLOW_OFF = ['topics', 'recap'];
-const flowOf = off => [...(off ? FLOW_OFF : FLOW_IN), ...(S.session ? [] : ['email'])];
+// Nate's long first visit (9/20), in his order. Everything after `stand` is explaining rather than
+// asking, and every one of those screens is skippable - a person who wants to get on with it presses
+// Skip and lands on Home with their bills already followed.
+const FLOW_IN = ['topics', 'narrow', 'bills', 'stand', 'tour', 'howlaw', 'calendar', 'hearing', 'legislators'];
+const FLOW_OFF = ['topics', 'recap'];
+const flowOf = off => [...(off ? FLOW_OFF : FLOW_IN), ...(S.session ? [] : ['email']), 'name'];
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
 const total = off => flowOf(off).length;
@@ -78,7 +83,7 @@ const stepRow = (step, off) => `<div class="steps st-steps">${step > 1 ? backBtn
 const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
 const artFor = (step, off) => { const n = nameAt(step, off);
-  return `<div class="st-art">${n === 'email' ? islands(myIsland()) : n === 'stand' ? VOICES : CAPITOL}</div>`; };
+  return `<div class="st-art">${n === 'email' || n === 'legislators' ? islands(myIsland()) : n === 'stand' || n === 'name' ? VOICES : CAPITOL}</div>`; };
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -351,6 +356,133 @@ function step3() {
     <p class="sr" role="status" id="st-live"></p>`);
 }
 
+// ================= The explaining screens: tour, how a law is made, calendar, hearings =========
+// Everything here teaches rather than asks. Each one is one idea, each is skippable, and each is
+// built from what the person has already chosen so it is about THEIR bills, not a generic tour.
+const stShell = (cls, name, h1, lede, body) => shell(cls,
+  `${artFor(stepOf(name, false), false)}${stepRow(stepOf(name, false), false)}
+   <h1 class="hero" id="st-h">${h1}</h1><p class="lede">${lede}</p>`, body);
+
+// A guided look at one of their own bills: the four things a bill page tells you, in order.
+function stepTour() {
+  const b = followedBills()[0];
+  if (!b) return stShell('st1 st-teach', 'tour', 'Reading a bill', 'Every bill page says the same four things.',
+    `<ol class="st-teach-list">${TOUR.map(t => `<li><span class="st-tlabel">${esc(t[0])}</span><span class="st-tbody">${esc(t[1])}</span></li>`).join('')}</ol>`);
+  const st = stopOf(b), name = nick(b) || blurb(b, 80);
+  const rows = [
+    ['Its everyday name', name],
+    ['What it does', plainSum(b, 180)],
+    ['Where it is now', (st && st.says) || 'Waiting for its next step.'],
+    ['What you can do', whatNow(b)],
+  ];
+  return stShell('st1 st-teach', 'tour', 'Reading a bill',
+    `Here is one you just followed. Every bill page says these four things, in this order.`,
+    `<div class="st-tourcard"><p class="st-tournum">${esc(spaced(b.bill_number))}</p>
+      <ol class="st-teach-list">${rows.map(r => `<li><span class="st-tlabel">${esc(r[0])}</span><span class="st-tbody">${esc(r[1])}</span></li>`).join('')}</ol>
+      <p class="st-tourlink">${btn('Open this bill', { kind: 'text', iconEnd: 'arrow-right', href: billPath(b) })}</p></div>`);
+}
+// What this particular bill lets you do today. Said of a bill that already had a hearing on the
+// calendar, "when a hearing is set" was true of bills in general and wrong about the one on screen.
+function whatNow(b) {
+  const h = ((S.pool && S.pool.hearings) || []).filter(x => x.bill_id === b.id && new Date(x.scheduled_at) > Date.now())
+    .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
+  if (!h) return 'Nothing yet. When a hearing is set we email you, and you can send a short email or written testimony.';
+  const d = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'short', day: 'numeric' });
+  return `It has a hearing ${d}. You can send written testimony before then — it usually closes a day ahead.`;
+}
+const TOUR = [['Its everyday name', 'What the team calls it, in plain words.'],
+  ['What it does', 'One or two sentences, no legal language.'],
+  ['Where it is now', 'Which committee has it, and what has to happen next.'],
+  ['What you can do', 'A short email, or written testimony when a hearing is set.']];
+
+// How a bill becomes law here, in the same seven steps the bill pages use.
+const LAW_STEPS = [
+  ['Introduced', 'A legislator files it. Most bills never get further.'],
+  ['Committees', 'Two or three committees must each hold a hearing and vote it through.'],
+  ['First chamber vote', 'The whole House or Senate votes.'],
+  ['Crossover', 'It starts again in the other chamber, with its own committees.'],
+  ['Second chamber vote', 'The other chamber votes.'],
+  ['Conference', 'If the two versions differ, a small group agrees one.'],
+  ['The Governor', 'Signs it, lets it become law, or vetoes it.'],
+];
+function stepHowLaw() {
+  return stShell('st1 st-teach', 'howlaw', 'How a bill becomes law',
+    'Seven steps, and a bill can stop at any of them. Most do.',
+    `<ol class="st-lawsteps">${LAW_STEPS.map(([t, d], i) => `<li><span class="st-lawn">${i + 1}</span>
+      <span class="st-tbody"><b>${esc(t)}</b><span>${esc(d)}</span></span></li>`).join('')}</ol>`);
+}
+
+// The dates that decide everything, from the session's own calendar.
+function stepCalendar() {
+  const si = sessionInfo(), today = new Date().toISOString().slice(0, 10);
+  const next = (S.deadlines || []).filter(d => d.deadline_date >= today).slice(0, 5);
+  const list = next.length ? next : (S.deadlines || []).slice(-5);
+  return stShell('st1 st-teach', 'calendar', 'The session calendar',
+    `Bills die on deadlines, not on opinions. ${next.length ? 'These are the next ones.' : `The ${esc(String(si.recapYear || si.yr))} session has finished; these were its deadlines.`}`,
+    `<ul class="st-dates" role="list">${list.map(d => `<li><span class="st-dwhen">${esc(shortDay(d.deadline_date))}</span>
+      <span class="st-tbody"><b>${esc(d.label)}</b><span>${esc(DEADLINE_WHY[d.key] || 'A bill must have cleared this stage by now, or it stops for the year.')}</span></span></li>`).join('')}</ul>`);
+}
+// Every key the session calendar actually uses (public_deadlines), each in one plain sentence. The
+// first draft missed second_triple, final_decking and fiscal, so those three fell through to a
+// generic line - the kind of copy that is true of everything and tells nobody anything.
+const DEADLINE_WHY = {
+  intro_cutoff: 'The last day a bill can be filed at all.',
+  first_triple: 'A bill sent to three committees must be through the first one.',
+  first_lateral: 'It must be through every committee except the money one.',
+  first_decking: 'The money committee must be done with it.',
+  first_crossover: 'It must pass its own chamber and move to the other one.',
+  second_triple: 'In the second chamber: a bill with three committees must be through the first.',
+  second_lateral: 'In the second chamber: through every committee except the money one.',
+  second_decking: 'In the second chamber: the money committee must be done.',
+  second_crossover: 'It must pass the second chamber and go back.',
+  final_decking: 'If the two chambers disagree, their final version must be agreed by now.',
+  fiscal: 'The last day for the final vote on bills that spend money.',
+  sine_die: 'The session ends. Anything unfinished is over for the year.',
+};
+
+// What a hearing is, and the one fact people miss: testimony closes before the hearing starts.
+function stepHearing() {
+  return stShell('st1 st-teach', 'hearing', 'What a hearing is',
+    'A committee meets in public, hears from anyone who wants to speak, and votes.',
+    `<ol class="st-teach-list">
+      <li><span class="st-tlabel">Notice</span><span class="st-tbody">A hearing is posted about two days ahead. That is when we email you.</span></li>
+      <li><span class="st-tlabel">Testimony</span><span class="st-tbody">Anyone may send written testimony. It usually closes <b>24 hours before</b> the hearing starts — this is the deadline people miss.</span></li>
+      <li><span class="st-tlabel">The hearing</span><span class="st-tbody">The committee discusses it and votes. You can watch, or turn up and speak.</span></li>
+      <li><span class="st-tlabel">Afterwards</span><span class="st-tbody">It moves on, is deferred, or stops there for the year.</span></li>
+    </ol>`);
+}
+
+// Who speaks for you: a town is enough, and it is optional.
+function stepLegs() {
+  const w = wiz(), town = w.town ? lookupTown(w.town) : null;
+  const q = S.stTown ?? '';
+  const sug = town ? [] : townMatches(q);
+  const card = l => `<li class="st-leg"><span class="st-legpic">${l.photo_url ? `<img src="${esc(l.photo_url)}" alt="" loading="lazy">` : icon('user')}</span>
+    <span class="st-tbody"><b>${esc(l.name)}</b><span>${l.chamber === 'S' ? 'Senator' : 'Representative'} · District ${esc(String(l.district))}</span></span></li>`;
+  const both = town && town.senator && town.rep, some = town && (town.senator || town.rep);
+  const found = town
+    ? `<p class="st-ok-small">${icon(both ? 'circle-check' : 'info')}<span>${both ? `Your two in ${esc(town.label)}` : `In ${esc(town.label)}`}</span></p>
+       ${some ? `<ul class="st-legs" role="list">${[town.senator, town.rep].filter(Boolean).map(card).join('')}</ul>` : ''}
+       ${both ? '' : `<p class="st-legnote">From the town alone we can’t tell your ${!town.senator && !town.rep ? 'senator or representative' : !town.senator ? 'senator' : 'representative'} — it depends on your street. <a href="#/legislators">Look up your address</a> any time.</p>`}
+       ${btn('Use a different town', { kind: 'text', attrs: { 'data-sttownclear': '1' } })}`
+    : `<div class="field"><label for="st-town">Your town</label>
+        <input id="st-town" type="text" autocomplete="address-level2" placeholder="Kailua, Hilo, Waipahu…" value="${esc(q)}" data-sttown="1"></div>
+       ${sug.length ? `<div class="st-sugs" role="group" aria-label="Towns">${sug.map(x => `<button type="button" class="st-sug" data-sttownpick="${esc(x.key)}">${icon('map-pin')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : ''}`;
+  return stShell('st1 st-teach st-legstep', 'legislators', 'Who speaks for you',
+    'Two people at the Capitol represent where you live: one senator and one representative. They are who your emails go to. Optional — and only your town is kept, on this device.',
+    card_wrap(found));
+}
+const card_wrap = inner => `<div class="st-legwrap">${inner}</div>`;
+
+// The last thing asked, and the smallest: a name to greet them by.
+function stepName() {
+  const w = wiz();
+  return stShell('st1 st-teach', 'name', 'One last thing',
+    'What should we call you? Just a first name is fine, and it only ever appears on this device.',
+    `<div class="field"><label for="st-name">Your name</label>
+      <input id="st-name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(w.name || '')}" data-stname="1"></div>`);
+}
+
 // ================= Step 4 (in session) and step 3 (off-season): the email step =================
 // S.stMail: this visit's email step. The typed address survives a trip to the privacy page and back.
 S.stMail ??= { email: '', sent: '', demo: false };
@@ -489,7 +621,7 @@ function redirectFor(step, off) {
   if (off) return n !== 'topics' && !picked ? stepOf('topics', off) : 0;
   if (n === 'narrow') return !picked ? stepOf('topics', off) : narrowGroups().length ? 0 : stepOf('bills', off);
   if (n === 'bills') return picked ? 0 : stepOf('topics', off);
-  if (n === 'stand') return S.watch.size ? 0 : back();
+  if (['stand', 'tour', 'howlaw', 'calendar', 'hearing', 'legislators'].includes(n)) return S.watch.size ? 0 : back();
   if (n === 'email') return S.session ? 'home' : S.watch.size ? 0 : back();
   return 0;
 }
@@ -508,14 +640,21 @@ function wire(route) {
     // In session the email ask is step 4, so Skip on step 3 owes them that step. OFF-SEASON step 3
     // IS the email step and there is no step 4 - skipping there really does mean leaving.
     const here = nameAt(step, off), emailAt = stepOf('email', off);
+    const TEACH = ['tour', 'howlaw', 'calendar', 'hearing', 'legislators'];
+    if (TEACH.includes(here) && emailAt && followedBills().length) return goStep(step, emailAt);
     if (here === 'stand' && emailAt && followedBills().length) return goStep(step, emailAt);
+    if (here === 'name') return finish();   // nothing after it; Skip means done
     if (here === 'narrow') return goStep(step, stepOf('bills', off));  // narrowing is optional; the bills are not
     if (here === 'bills') nudge('follow');                             // let home make the ask instead
     skipAll();
   });
   $$('[data-stback]').forEach(el => el.onclick = () => goBack(+el.dataset.stback));
   $$('[data-stretry]').forEach(el => el.onclick = () => { S.stLoad = null; app.render(); });
-  $$('[data-stdone]').forEach(el => el.onclick = finish);
+  $$('[data-stdone]').forEach(el => el.onclick = () => {
+    const after = stepOf('name', off);
+    if (nameAt(step, off) === 'email' && after > step && !/go to my page/i.test(el.innerText || '')) return goStep(step, after);
+    finish();
+  });
   // "Find my legislators" leaves the start for good; the link itself does the navigating.
   $$('[data-stready]').forEach(el => el.addEventListener('click', () => { wizSet({ done: true, step: 1, ready: sessionInfo().nextOpen }); welcome(); }));
 
@@ -534,6 +673,24 @@ function wire(route) {
       // Straight past the narrowing when there is nothing to narrow: a single sub-topic is not a choice.
       goStep(step, narrowGroups().length ? step + 1 : stepOf('bills', off));
     };
+  }
+
+  // The explaining screens: Next simply moves on; the two with a field remember what was typed.
+  if (['tour', 'howlaw', 'calendar', 'hearing'].includes(nameAt(step, off))) {
+    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);
+  }
+  if (nameAt(step, off) === 'legislators') {
+    const box = $('[data-sttown]');
+    if (box) box.oninput = () => { S.stTown = box.value; app.render();
+      const again = document.querySelector('[data-sttown]');
+      if (again) { again.focus({ preventScroll: true }); again.setSelectionRange(again.value.length, again.value.length); } };
+    $$('[data-sttownpick]').forEach(el => el.onclick = () => { wizSet({ town: el.dataset.sttownpick }); S.stTown = ''; app.render(); });
+    const clear = $('[data-sttownclear]'); if (clear) clear.onclick = () => { wizSet({ town: '' }); S.stTown = ''; app.render(); };
+    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);
+  }
+  if (nameAt(step, off) === 'name') {
+    const box = $('[data-stname]'); if (box) box.oninput = () => wizSet({ name: box.value.trim().slice(0, 40) });
+    const next = $('[data-stnext]'); if (next) next.onclick = () => { if (box) wizSet({ name: box.value.trim().slice(0, 40) }); finish(); };
   }
 
   if (nameAt(step, off) === 'narrow') {
@@ -615,7 +772,7 @@ function wire(route) {
         S.stMile = null; document.querySelector('.st-mile')?.remove(); if (live) live.textContent = '';
       }
     });
-    const next = $('[data-stnext]'); if (next) next.onclick = () => (S.session ? finish() : goStep(step, stepOf('email', off)));
+    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);
   }
 
   // The email step (in session step 4, off-season step 3). It is this visit's one email ask, so Home will not ask again.
@@ -648,7 +805,9 @@ function wire(route) {
 }
 
 const TITLE = { topics: 'Pick your issues', narrow: 'Narrow it down', bills: 'Pick your bills',
-  stand: 'Where do you stand?', email: 'Get a heads-up', recap: 'What happened' };
+  stand: 'Where do you stand?', tour: 'Reading a bill', howlaw: 'How a bill becomes law',
+  calendar: 'The session calendar', hearing: 'What a hearing is', legislators: 'Who speaks for you',
+  email: 'Get a heads-up', name: 'Your name', recap: 'What happened' };
 export default {
   tab: 'home',
   tabs: false,
@@ -661,6 +820,12 @@ export default {
       case 'narrow': return stepNarrow();
       case 'bills':  return step2();
       case 'stand':  return step3();
+      case 'tour':   return stepTour();
+      case 'howlaw': return stepHowLaw();
+      case 'calendar': return stepCalendar();
+      case 'hearing': return stepHearing();
+      case 'legislators': return stepLegs();
+      case 'name':   return stepName();
       case 'recap':  return step2off();
       case 'email':  return off ? step3off() : step4();
       default:       return step1();
@@ -682,7 +847,11 @@ export default {
         if (m.fallback && !m.first.length) return bar1('Go to my page');
         return bar2(followLabel(m.picked.size), { icon: 'star' });
       }
-      case 'stand': return bar2(S.session ? 'Go to my page' : 'Next', { iconEnd: 'arrow-right' });
+      case 'stand': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'tour': case 'howlaw': case 'calendar': case 'hearing':
+        return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'legislators': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'name': return bar2('Done', { iconEnd: 'check' });
       default: return '';   // the email step holds its own buttons, next to the field
     }
   },

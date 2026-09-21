@@ -61,10 +61,23 @@ with sync_playwright() as pw:
     if n0: chips.first.click(); p.wait_for_timeout(400)
     st = p.evaluate("JSON.parse(localStorage.getItem('hiphi_stances_demo') || '{}')"); ok(len(st) >= 1, f'a stance is saved ({st})')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1200)
-    ok(p.locator('main input[type=email]').count() == 1, f"the email step follows the stance step ({p.evaluate('location.hash')})"); std(p, 'start4', axe=True); shot(p, 'p_s4')
-    # finish without an email
+    # The explaining screens (9/20): a bill tour, how a bill becomes law, the calendar, what a hearing
+    # is, and who speaks for you. Walk them with Next, checking each teaches and asks for nothing.
+    teach = []
+    for _ in range(8):
+        if p.locator('main input[type=email]').count(): break
+        teach.append(p.evaluate("document.querySelector('main h1')?.innerText || ''"))
+        std(p, f'teach{len(teach)}', axe=True); shot(p, f'p_teach{len(teach)}')
+        ok(not p.locator('main [data-helper]').count(), f'teaching screen "{teach[-1]}" pushes no action')
+        p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    ok(len(teach) == 5, f'five explaining screens between the stance and the email ({teach})')
+    ok(p.locator('main input[type=email]').count() == 1, f"the email step follows them ({p.evaluate('location.hash')})"); std(p, 'start4', axe=True); shot(p, 'p_s4')
+    # skip the email: skipping the EMAIL must not skip the name step after it
     p.evaluate("(() => { const b=[...document.querySelectorAll('main button, main a')].find(x=>/skip|not now|later/i.test(x.innerText)); b && b.click(); })()"); p.wait_for_timeout(1800)
+    ok(p.locator('#st-name').count() == 1, f"skipping the email lands on the name step ({p.evaluate('location.hash')})"); std(p, 'name', axe=True); shot(p, 'p_name')
+    p.fill('#st-name', 'Leilani'); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     ok(p.evaluate('location.hash') in ('#/', ''), f"finishing lands on Home ({p.evaluate('location.hash')})"); shot(p, 'p_home_welcome', full=True)
+    ok('Leilani' in text(p), 'Home greets them by the name they gave')
     th = text(p); vis_primary = p.evaluate("[...document.querySelectorAll('main .acard .btn.primary')].filter(e=>e.offsetParent!==null).length")
     ok(vis_primary == 0, f'welcome Home pushes no action ({vis_primary} primary action buttons visible)')
     ok(not COMMUNITY.search(th), 'welcome Home has no community-wide totals'); std(p, 'home_welcome', axe=True)

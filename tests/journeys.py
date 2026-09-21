@@ -42,7 +42,7 @@ JOURNEYS = [
    dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),
- dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/5', wiz_at_4=True, steps=[
+ dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/10', wiz_at_4=True, steps=[
    dict(what='type the address', do="(()=>{const i=document.querySelector('input[type=email]'); if(!i)return false;"
         "i.value='someone@example.com'; i.dispatchEvent(new Event('input',{bubbles:true})); return true;})()",
         reach="(()=>{const i=document.querySelector('input[type=email]'); return !!i && i.value.includes('@');})()"),

@@ -102,6 +102,26 @@ function placeIds(p) {
   return ids;
 }
 
+// Town -> the two people who serve it. Pure and synchronous: the full finder's street-address lookup
+// is async and stateful, and the guided start only needs the town case (pub/start.js legislators step).
+export function townMatches(q, cap = 5) {
+  const k = norm(String(q || '').trim());
+  if (k.length < 2) return [];
+  const all = [...placeIndex().values()];
+  const starts = all.filter(p => p.key.startsWith(k)), has = all.filter(p => !p.key.startsWith(k) && p.key.includes(k));
+  return [...starts, ...has].slice(0, cap).map(p => ({ key: p.key, label: p.label, island: p.island }));
+}
+export function lookupTown(key) {
+  const p = [...placeIndex().values()].find(x => x.key === norm(key));
+  if (!p) return null;
+  const people = placeIds(p).map(legById).filter(Boolean);
+  // A town can straddle districts, and some towns are not listed by their senator at all. Only name a
+  // person when the town settles it - exactly one per chamber. Otherwise say it depends on the street,
+  // rather than picking one and being wrong about somebody's own legislator.
+  const one = ch => { const x = people.filter(l => l.chamber === ch); return x.length === 1 ? x[0] : null; };
+  return { label: p.label, island: p.island, senator: one('S'), rep: one('H') };
+}
+
 // ZIP codes the Postal Service uses in Hawaiʻi, with the towns and neighbourhoods each one covers, as the
 // district directory spells them (so a pick finds its legislators). Honolulu ZIPs list neighbourhoods.
 const ZIPS = {
