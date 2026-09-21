@@ -289,3 +289,6 @@
   .st-teach-list .st-tlabel { flex-basis: auto; font-size: var(--t13); text-transform: uppercase; letter-spacing: .04em; }
 }
 .st-legnote { margin: 0; color: var(--n700); }
+/* "We can't tell from the town" is information, not success: no green (A-5). */
+.st-info-small { display: flex; gap: var(--s8); align-items: center; margin: 0; font-weight: 700; color: var(--n900); }
+.st-info-small .ic { flex: none; color: var(--p700); }

@@ -83,7 +83,7 @@ const stepRow = (step, off) => `<div class="steps st-steps">${step > 1 ? backBtn
 const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
 const artFor = (step, off) => { const n = nameAt(step, off);
-  return `<div class="st-art">${n === 'email' || n === 'legislators' ? islands(myIsland()) : n === 'stand' || n === 'name' ? VOICES : CAPITOL}</div>`; };
+  return `<div class="st-art">${n === 'email' || n === 'legislators' ? islands(myIsland()) : n === 'stand' || n === 'name' || n === 'hearing' ? VOICES : CAPITOL}</div>`; };
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -91,8 +91,8 @@ const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}
 const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)}<span>${sure}</span></p>`;
 
 // ---------- the bar: one Skip, one primary ----------
-const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }) => `<div class="st-bar"><div class="st-btns">
-  ${btn('Skip', { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(label, { kind: 'primary', ...opt, attrs })}</div></div>`;
+const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = 'Skip') => `<div class="st-bar"><div class="st-btns">
+  ${btn(skip, { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(label, { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the bills load the primary says so, and when they could not be loaded it is the way to try again, so the
 // one button on the screen is never a dead one.
 const barBusy = () => bar2('Finding bills…', { icon: 'loader-circle' }, { 'data-stnext': '1', 'aria-busy': 'true' });
@@ -400,14 +400,14 @@ const LAW_STEPS = [
   ['Introduced', 'A legislator files it. Most bills never get further.'],
   ['Committees', 'Two or three committees must each hold a hearing and vote it through.'],
   ['First chamber vote', 'The whole House or Senate votes.'],
-  ['Crossover', 'It starts again in the other chamber, with its own committees.'],
+  ['Moves to the other chamber (crossover)', 'It starts again there, with its own committees.'],
   ['Second chamber vote', 'The other chamber votes.'],
   ['Conference', 'If the two versions differ, a small group agrees one.'],
   ['The Governor', 'Signs it, lets it become law, or vetoes it.'],
 ];
 function stepHowLaw() {
   return stShell('st1 st-teach', 'howlaw', 'How a bill becomes law',
-    'Seven steps, and a bill can stop at any of them. Most do.',
+    'Seven steps, and a bill can stop at any of them. Most bills stop somewhere along the way.',
     `<ol class="st-lawsteps">${LAW_STEPS.map(([t, d], i) => `<li><span class="st-lawn">${i + 1}</span>
       <span class="st-tbody"><b>${esc(t)}</b><span>${esc(d)}</span></span></li>`).join('')}</ol>`);
 }
@@ -445,10 +445,10 @@ function stepHearing() {
   return stShell('st1 st-teach', 'hearing', 'What a hearing is',
     'A committee meets in public, hears from anyone who wants to speak, and votes.',
     `<ol class="st-teach-list">
-      <li><span class="st-tlabel">Notice</span><span class="st-tbody">A hearing is posted about two days ahead. That is when we email you.</span></li>
-      <li><span class="st-tlabel">Testimony</span><span class="st-tbody">Anyone may send written testimony. It usually closes <b>24 hours before</b> the hearing starts — this is the deadline people miss.</span></li>
+      <li><span class="st-tlabel">Notice</span><span class="st-tbody">A hearing is posted about two days ahead.</span></li>
+      <li><span class="st-tlabel">Testimony</span><span class="st-tbody"><span>Anyone may send written testimony. It usually closes <b>24 hours before</b> the hearing starts — the deadline people miss.</span></span></li>
       <li><span class="st-tlabel">The hearing</span><span class="st-tbody">The committee discusses it and votes. You can watch, or turn up and speak.</span></li>
-      <li><span class="st-tlabel">Afterwards</span><span class="st-tbody">It moves on, is deferred, or stops there for the year.</span></li>
+      <li><span class="st-tlabel">Afterwards</span><span class="st-tbody">It moves on, or is put off — which usually means it stops for the year.</span></li>
     </ol>`);
 }
 
@@ -461,7 +461,7 @@ function stepLegs() {
     <span class="st-tbody"><b>${esc(l.name)}</b><span>${l.chamber === 'S' ? 'Senator' : 'Representative'} · District ${esc(String(l.district))}</span></span></li>`;
   const both = town && town.senator && town.rep, some = town && (town.senator || town.rep);
   const found = town
-    ? `<p class="st-ok-small">${icon(both ? 'circle-check' : 'info')}<span>${both ? `Your two in ${esc(town.label)}` : `In ${esc(town.label)}`}</span></p>
+    ? `<p class="${both ? 'st-ok-small' : 'st-info-small'}">${icon(both ? 'circle-check' : 'info')}<span>${both ? `Your two in ${esc(town.label)}` : `In ${esc(town.label)}`}</span></p>
        ${some ? `<ul class="st-legs" role="list">${[town.senator, town.rep].filter(Boolean).map(card).join('')}</ul>` : ''}
        ${both ? '' : `<p class="st-legnote">From the town alone we can’t tell your ${!town.senator && !town.rep ? 'senator or representative' : !town.senator ? 'senator' : 'representative'} — it depends on your street. <a href="#/legislators">Look up your address</a> any time.</p>`}
        ${btn('Use a different town', { kind: 'text', attrs: { 'data-sttownclear': '1' } })}`
@@ -469,7 +469,7 @@ function stepLegs() {
         <input id="st-town" type="text" autocomplete="address-level2" placeholder="Kailua, Hilo, Waipahu…" value="${esc(q)}" data-sttown="1"></div>
        ${sug.length ? `<div class="st-sugs" role="group" aria-label="Towns">${sug.map(x => `<button type="button" class="st-sug" data-sttownpick="${esc(x.key)}">${icon('map-pin')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : ''}`;
   return stShell('st1 st-teach st-legstep', 'legislators', 'Who speaks for you',
-    'Two people at the Capitol represent where you live: one senator and one representative. They are who your emails go to. Optional — and only your town is kept, on this device.',
+    'Two people at the Capitol represent where you live: one senator and one representative. They are the ones who vote on your bills. Optional — and only your town is kept, on this device.',
     card_wrap(found));
 }
 const card_wrap = inner => `<div class="st-legwrap">${inner}</div>`;
@@ -478,7 +478,7 @@ const card_wrap = inner => `<div class="st-legwrap">${inner}</div>`;
 function stepName() {
   const w = wiz();
   return stShell('st1 st-teach', 'name', 'One last thing',
-    'What should we call you? Just a first name is fine, and it only ever appears on this device.',
+    'What should we call you? We’ll use it to greet you, nothing else — and it stays on this device.',
     `<div class="field"><label for="st-name">Your name</label>
       <input id="st-name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(w.name || '')}" data-stname="1"></div>`);
 }
@@ -848,9 +848,8 @@ export default {
         return bar2(followLabel(m.picked.size), { icon: 'star' });
       }
       case 'stand': return bar2('Next', { iconEnd: 'arrow-right' });
-      case 'tour': case 'howlaw': case 'calendar': case 'hearing':
-        return bar2('Next', { iconEnd: 'arrow-right' });
-      case 'legislators': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'tour': case 'howlaw': case 'calendar': case 'hearing': case 'legislators':
+        return bar2('Next', { iconEnd: 'arrow-right' }, undefined, 'Skip the tour');
       case 'name': return bar2('Done', { iconEnd: 'check' });
       default: return '';   // the email step holds its own buttons, next to the field
     }
