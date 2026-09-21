@@ -42,7 +42,8 @@ const andList = a => a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')
 // Issue names are shown whole and in bold inside sentences: "Healthy Eating, Active Living" has a comma of its own,
 // and shortening it to "Healthy Eating" made a crosswalk bill look misfiled (assessment, 9/19).
 const namesHtml = list => andList(list.map(i => `<b class="strong">${esc(i.key)}</b>`));
-const issuesPhrase = sel => sel.length > 2 ? `your ${sel.length} issues` : namesHtml(sel);
+// The picks on screen 1 are categories (R-018): "inside your 3 categories", never "inside your 3 issues".
+const issuesPhrase = sel => sel.length > 2 ? `your ${sel.length} categories` : namesHtml(sel);
 const reduce = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // The live page (track.js) keeps the same hiphi_wiz key and stores a coalition's first internal name, so we do too.
 const pickedIssues = () => { const sel = new Set(wiz().issues || []); return topicList().filter(i => sel.has(i.key) || i.names.some(n => sel.has(n))); };
@@ -247,10 +248,18 @@ const catAll = (c, n, all) => `${btn(all ? `Following all of ${esc(c.key)}` : `F
 // one (three issues or fewer) also starts open; a busy one past the first starts folded. Opening and closing is
 // remembered for this visit (S.stOpen), so nothing jumps when the screen redraws.
 S.stOpen ??= {};
+// A folded category still says what is ticked inside it, so "Follow N issues" never counts an issue the person has not
+// seen (R-023's review, 9/21: HIPHI's recommended ones start ticked, and a busy category after the first starts
+// folded). Hidden while the section is open, where the ticks themselves show (A-14).
+function pickedLine(p, m) {
+  if (m.catOn.has(p.c.topicKey)) return 'Following all';
+  const on = p.rows.filter(m.ticked).map(x => x.i.name);
+  return !on.length ? '' : `${on.length} ticked: ${on.slice(0, 2).join(', ')}${on.length > 2 ? ` and ${on.length - 2} more` : ''}`;
+}
 function catSection(p, m, isFirst) {
-  const c = p.c, n = p.rows.length, open = S.stOpen[c.topicKey] ?? (isFirst || n <= 3);
+  const c = p.c, n = p.rows.length, open = S.stOpen[c.topicKey] ?? (isFirst || n <= 3), said = pickedLine(p, m);
   return `<details class="st-tsec"${open ? ' open' : ''} data-stsec="${esc(c.topicKey)}">
-    <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tname">${esc(c.key)}</span><span class="st-tcount">${plural(n, 'issue')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
+    <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span><span class="st-tcount">${plural(n, 'issue')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
     <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
       <ul class="st-picks" role="list">${p.rows.map(x => issueCard(x, m, c.topicKey)).join('')}</ul>
     </div></details>`;
@@ -716,6 +725,8 @@ function wire(route) {
         t.setAttribute('aria-pressed', String(on)); t.closest('.st-pcard')?.classList.toggle('on', on); });
       $$('[data-stcatall]').forEach(box => { const key = box.dataset.stcatall, p = m.per.find(q => q.c.topicKey === key);
         if (p) box.innerHTML = catAll(p.c, p.rows.length, m.catOn.has(key)); });
+      $$('[data-stpicked]').forEach(el => { const p = m.per.find(q => q.c.topicKey === el.dataset.stpicked); if (!p) return;
+        const said = pickedLine(p, m); el.textContent = said; el.hidden = !said; });
       wireCatAll();
       const nb = $('[data-stnext] span'); if (nb) nb.textContent = followLabel(m.count);
       clearFlash();

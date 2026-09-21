@@ -112,6 +112,17 @@ with sync_playwright() as pw:
     visit(p, '/find?q=vape', wait=2800); ok('Disposable vape ban' in text(p), 'search finds a bill by its nickname')
     visit(p, '/bill/' + NONICK, wait=2800); h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''"); ok(len(h1) > 10, f'a bill without a nickname still has a plain headline ({NONICK}: "{h1[:50]}")')
     visit(p, '/bill/HB1563', wait=2800); ok('Let counties regulate tobacco sales' in text(p), 'an approved nickname from the snapshot leads the bill page (HB 1563)')
+    # ---- "Your issues" with three categories: a folded section says what is ticked inside it, so "Follow N issues"
+    # never counts an issue the person has not seen (R-023's review, 9/21) ----
+    fresh(p); p.reload(); p.wait_for_timeout(2500)
+    for name in ('Food', 'Tobacco', 'Family'):
+        p.evaluate(f"[...document.querySelectorAll('.st-issue')].find(x => /{name}/.test(x.innerText))?.click()"); p.wait_for_timeout(150)
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(2200)
+    secs = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => ({ open: d.open, line: d.querySelector('[data-stpicked]').hidden ? '' : d.querySelector('[data-stpicked]').textContent, n: d.querySelectorAll('[data-stpick][aria-pressed=true]').length }))")
+    folded = [x for x in secs if not x['open']]
+    ok(folded and all((x['line'].startswith(f"{x['n']} ticked") if x['n'] else not x['line']) for x in folded), f'a folded category says what is ticked inside it ({folded})')
+    ok(f"Follow {sum(x['n'] for x in secs)} issue" in p.inner_text('.st-bar'), 'the button counts exactly the ticks, folded or not')
+    ok('your 3 categories' in text(p) and 'your 3 issues' not in text(p), 'three picks are called categories, not issues')
     # ---- issues (063, R-018): categories and issues in Find, an issue's page, My issues, and the issue on a bill page ----
     visit(p, '/find', wait=2800); tf = text(p); ok('Food & Nutrition' in tf and 'Getting Around Safely' in tf, 'Find browses the six categories')
     visit(p, '/find/category/food', wait=2800); tc = text(p); std(p, 'category', axe=True); shot(p, 'p_category', full=True)

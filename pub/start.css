@@ -273,7 +273,11 @@
 .st-tsec > summary::-webkit-details-marker { display: none; }
 .st-tsum { flex: 1 1 auto; display: flex; align-items: center; gap: var(--s8); min-width: 0; font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
 .st-tsum .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
-.st-tname { flex: 1 1 auto; min-width: 0; }
+.st-tnamebox { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-tname { min-width: 0; }
+/* What is ticked inside a folded category (pub/start.js pickedLine); the open section shows the ticks themselves */
+.st-tpicked { font: 400 var(--t14)/1.35 var(--font); color: var(--n700); letter-spacing: 0; }
+.st-tsec[open] .st-tpicked { display: none; }
 .st-tcount { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
 .st-tchev { width: 20px; height: 20px; color: var(--n500); flex: none; transition: transform .15s; }
 .st-tsec[open] > summary .st-tchev { transform: rotate(180deg); }
