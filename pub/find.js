@@ -11,7 +11,8 @@
 // lists are cards side by side, bills are table rows (mybills.js), a list's Follow button sits beside its title, and
 // the suggestion card shares its row with the other bills that have a hearing this week.
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations, dismissed,
-  browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK } from './core.js';
+  browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
+  pickedTopic } from './core.js';
 import { btn, row, skeleton, notice, inlineErr } from './ui.js';
 import { actionCard, wireActions } from './actions.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear } from './mybills.js';
@@ -183,7 +184,8 @@ function capped(key, bills, opt, n = 10) {
 // One reason per suggested bill, in the person's terms (never "you follow X", which reads wrong after the start).
 function reason(b) {
   const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.flatMap(x => x.coalitions || []));
-  if ((b.coalitions || []).some(n => picked.has(n))) return 'Matches an issue you picked';
+  // The start saves topics now ('tobacco'), not coalition names; matching coalitions alone never fired (R-019).
+  if (pickedTopic(b) || (b.coalitions || []).some(n => picked.has(n))) return 'Matches an issue you picked';
   if ((b.coalitions || []).some(n => mine.has(n))) return 'Similar to bills you follow';
   if (/strongly/.test(b.hiphi_position || '')) return 'One of HIPHI’s top priorities';
   return 'Testimony is open this week';

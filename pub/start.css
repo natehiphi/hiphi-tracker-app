@@ -120,10 +120,16 @@
 .st-ok .strong { color: inherit; }
 .st-ok a { color: inherit; white-space: nowrap; }
 
-/* ---- step 3: where do you stand? One compact card per bill, three toggle chips ---- */
+/* ---- step 3: where do you stand? One compact card per idea, three toggle chips; three cards, the rest folded ---- */
 .st-stands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
 .st-stand { display: flex; flex-direction: column; gap: var(--s12); }
 .st-stand + .st-stand { margin-top: 0; }
+.st-standmore { margin-top: var(--s12); }
+.st-standmore > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; width: fit-content; cursor: pointer; list-style: none;
+  font-weight: 700; color: var(--p700); -webkit-tap-highlight-color: transparent; }
+.st-standmore > summary::-webkit-details-marker { display: none; }
+.st-standmore[open] > summary .st-tchev { transform: rotate(180deg); }
+.st-standmore > .st-stands { margin-top: var(--s8); }
 .st-sbody { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .st-smeta { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-size: var(--t13); color: var(--n500); }
 .st-chips { display: flex; flex-wrap: wrap; gap: var(--s8); }

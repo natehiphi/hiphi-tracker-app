@@ -57,6 +57,11 @@ with sync_playwright() as pw:
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the bills ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
     ok(not p.locator('main [data-helper]').count(), 'the stance step pushes no action')
+    # Three at most, the rest folded (Nate, 9/20), and one card per idea: a policy carried by two bills was asked twice (R-019).
+    shown = p.evaluate("[...document.querySelectorAll('.st-stand')].filter(e => e.offsetParent !== null).length")
+    heads = p.evaluate("[...document.querySelectorAll('.st-shead')].map(e => e.textContent.trim())")
+    ok(0 < shown <= 3, f'the stance step shows three ideas at most ({shown})')
+    ok(len(heads) == len(set(heads)), f'no idea is asked about twice ({heads})')
     chips = p.locator('main button[aria-pressed]'); n0 = chips.count()
     if n0: chips.first.click(); p.wait_for_timeout(400)
     st = p.evaluate("JSON.parse(localStorage.getItem('hiphi_stances_demo') || '{}')"); ok(len(st) >= 1, f'a stance is saved ({st})')
@@ -146,6 +151,20 @@ with sync_playwright() as pw:
     ok('Try again' in p.evaluate('document.body.innerText'), 'blocked data shows Try again'); c.close()
     c, p = ctx(b); fresh(p, '&season=off'); p.goto(BASE + '?demo=1&season=off#/'); p.reload(); p.wait_for_timeout(3000); t = text(p); shot(p, 'p_off_s1')
     ok('January 20' in t and not COMMUNITY.search(t), 'off-season step 1: January 20, no community totals')
+    # The between-sessions walk, pressing Next the whole way (R-019: Next went nowhere on the live site, every topic
+    # said "0 bills", the recap found nothing, and Home asked for the issues again - and nothing here pressed Next).
+    counts = re.findall(r'\d+ bills? in 20\d\d', t)[:3]
+    ok(re.search(r'(?<!\d)0 bills in', t) is None and re.search(r'[1-9]\d* bills in 20\d\d', t) is not None, f"off-season topics count last session's bills ({counts})")
+    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
+    ok(p.evaluate('location.hash') == '#/start/2' and 'What happened in' in t, f"off-season Next goes to the recap ({p.evaluate('location.hash')})")
+    ok('worked on 0 bills' not in t and 'HIPHI worked on' in t, 'the recap finds the topic’s bills')
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    ok(p.locator('main input[type=email]').count() == 1, f"the recap's Next goes on to the email ask ({p.evaluate('location.hash')})")
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(1500); p.locator('[data-stnext]').click(); p.wait_for_timeout(3000); t = text(p)
+    ok('Your issues' in t and 'Pick a few health issues' not in t, 'off-season Home names the issues just picked and does not ask again')
+    for extra in ('', '&season=off'):
+        fresh(p, extra); p.reload(); p.wait_for_timeout(3000); p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
+        ok(not p.evaluate('location.hash').startswith('#/start'), f"Skip with nothing picked leaves the start{' (off-season)' if extra else ''} ({p.evaluate('location.hash')})")
     follower(p, '&season=off'); visit(p, '/', '&season=off', 3200); t = text(p); shot(p, 'p_off_home', full=True)
     ok("didn't act" not in t and 'didn’t act' not in t, 'off-season Home does not scold'); ok(not COMMUNITY.search(t), 'off-season Home has no community totals')
     ok(len(p.evaluate("[...document.querySelectorAll('main input[type=email]')].filter(e=>e.offsetParent!==null)")) <= 1, 'off-season Home asks for an email at most once'); std(p, 'off_home', axe=True)

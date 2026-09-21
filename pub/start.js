@@ -13,7 +13,7 @@
 // on the right) and the bar sits at the end of the choices (start.css).
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, sessionInfo, billsForCoalitions, recommendations,
   loadBills, saveLocal, wiz, wizSet, followList, listBillsFor, HST, anyBill, myStance, setStance, sendEmailLink, validEmail,
-  friendly, toast, nudge, cmteLabel, legTitle, legPhoto } from './core.js';
+  friendly, toast, nudge, cmteLabel, legTitle, legPhoto, loadRecapPool, ensureRecapPool } from './core.js';
 import { btn, chip, posChip, row } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics, policies } from './topics.js';
@@ -119,15 +119,24 @@ const isPromoted = pol => { const b = pol.bills[0] || {}; return !!b.hiphi_recom
 // told a stranger nothing about what they had chosen. See pub/topics.js.
 const supports = b => /support/.test(b.hiphi_position || b.position || '');
 const poolBills = () => ((S.pool && S.pool.bills) || []).filter(supports);
-const topicList = () => topics(poolBills());
+// Between sessions nothing is moving and the pool is empty, so the topics are counted over last session's bills
+// instead (core loadRecapPool). Counting the empty pool is what printed "0 bills in 2026" on every topic (R-019).
+// Every bill HIPHI worked on counts here, not only the ones it supported: the recap's "HIPHI worked on 68 bills"
+// and Home's "Your issues" say the same number for the same topic (A-14).
+const recapBills = () => (S.recapPool && S.recapPool.bills) || [];
+const topicList = () => topics(isOff() ? recapBills() : poolBills());
 function issueRows(off, yr) {
   const sel = new Set(wiz().issues || []);
   // In session, issues() puts the ones with nothing moving after the rest, and General Public Health last. Between
   // sessions nothing is moving, so the busiest issues of the last session lead instead (still General last).
+  // Last session's bills load once and the screen redraws when they land; until then a count is left out rather
+  // than shown as a zero.
+  if (off) ensureRecapPool(sessionInfo().recapYear);
+  const counted = !off || !!(S.recapPool && S.recapPool.yr === sessionInfo().recapYear);
   const list = topicList().sort((a, b) => (b.bills || 0) - (a.bills || 0));
   return `<div class="st-issues" role="group" aria-labelledby="st-h">${list.map(i => {
     const on = sel.has(i.key) || i.names.some(n => sel.has(n));
-    const extra = `<span class="st-icount">${plural(i.bills || 0, 'bill')}${off ? ` in ${yr}` : ''}</span>`;
+    const extra = counted ? `<span class="st-icount">${plural(i.bills || 0, 'bill')}${off ? ` in ${yr}` : ''}</span>` : '';
     return `<button type="button" class="st-issue" data-stissue="${esc(i.names[0])}" aria-pressed="${on}">
       <span class="st-ilead">${icon(i.icon)}</span>
       <span class="st-ibody"><span class="st-iname">${esc(i.key)}</span>${extra}${i.description ? `<span class="st-idesc">${esc(i.description)}</span>` : ''}</span>
@@ -195,7 +204,10 @@ function load2(sig, sel, off) {
   S.stLoad = { sig };
   const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
   const work = (async () => {
-    const rows = poolBills().length ? poolBills() : await billsForCoalitions(sel.flatMap(i => i.names));
+    // Between sessions: every bill HIPHI took a position on last session. (Asking for them by coalition, as this
+    // did, found nothing once the start moved to topics on 9/20 - R-019.)
+    const rows = off ? await loadRecapPool(sessionInfo().recapYear)
+      : poolBills().length ? poolBills() : await billsForCoalitions(sel.flatMap(i => i.names));
     // Off-season: HIPHI's published lists, to offer "Follow HIPHI's list" on the issues they cover.
     if (off) await Promise.all((S.lists || []).map(l => listBillsFor(l.slug).catch(() => null)));
     return rows;
@@ -321,22 +333,32 @@ const STANCES = [['support', 'Support', 'thumbs-up'], ['oppose', 'Oppose', 'thum
 const tookStand = () => Object.values(S.stances || {}).some(v => v === 'support' || v === 'oppose');
 // The first "Took a stand" is a milestone (core MILESTONES). Kept calm: a small orange chip on that card, no burst.
 const mileChip = () => `<span class="chip yay st-mile">${flower(16)}Took a stand</span>`;
-function standCard(b) {
-  const mine = myStance(b.id), name = nick(b), hid = 'st-s-' + String(b.id).replace(/\W/g, '');
+// One card per idea, not per bill: the disposable vape ban is two bills (HB 2121, SB 2175) and was asked about twice.
+// The answer is saved on every bill carrying the idea. Ideas come in the order screen 2 offered them, most urgent first.
+function standCard(pol) {
+  const b = pol.bills[0], ids = pol.bills.map(x => x.id), mine = myStance(b.id), name = pol.name || nick(b), hid = 'st-s-' + String(b.id).replace(/\W/g, '');
+  const nums = pol.bills.map(x => spaced(x.bill_number)), numText = nums.length <= 2 ? nums.join(' and ') : `${nums.length} bills, incl. ${nums[0]}`;
   return `<li class="card st-stand">
     <div class="st-sbody"><h2 class="st-shead" id="${hid}">${esc(name || plainSum(b, 110))}</h2>
-      <p class="st-smeta"><span>${esc(spaced(b.bill_number))}</span>${posChip(b)}${S.stMile === b.id && (mine === 'support' || mine === 'oppose') ? mileChip() : ''}</p></div>
+      <p class="st-smeta"><span>${esc(numText)}</span>${posChip(b)}${ids.includes(S.stMile) && (mine === 'support' || mine === 'oppose') ? mileChip() : ''}</p></div>
     <div class="st-chips" role="group" aria-labelledby="${hid}">${STANCES.map(([v, label, ic]) =>
-      `<button type="button" class="chip" data-ststance="${esc(b.id)}|${v}" aria-pressed="${mine === v}">${ic ? icon(ic) : ''}${label}</button>`).join('')}</div></li>`;
+      `<button type="button" class="chip" data-ststance="${esc(ids.join(','))}|${v}" aria-pressed="${mine === v}">${ic ? icon(ic) : ''}${label}</button>`).join('')}</div></li>`;
 }
+// Three at most, the rest folded behind one control (Nate, 9/20: "only ask for decisions on 3 bills maximum, with
+// users given the opportunity to make a decision on others if they choose"). Recorded as built in 3.6; it was not
+// until R-019.
+const STAND_MAX = 3;
 function step3() {
   const bills = followedBills(), n = bills.length;
   if (!n) return skel(3, false);
+  const ideas = policies(bills), first = ideas.slice(0, STAND_MAX), rest = ideas.slice(STAND_MAX);
   return shell('st3', `${artFor(stepOf('stand', false), false)}${stepRow(stepOf('stand', false))}
     <p class="st-won st-mile" role="status">${flower(30)}<span>You’re following ${plural(n, 'bill')}. Mahalo!</span></p>
     <h2 class="st-ask" id="st-h">Where do you stand? <span class="st-opt">(optional)</span></h2>
     <p class="lede">Private — we never show your answer publicly, and you can change it any time.</p>`,
-    `<ul class="st-stands" role="list" aria-labelledby="st-h">${bills.map(standCard).join('')}</ul>
+    `<ul class="st-stands" role="list" aria-labelledby="st-h">${first.map(standCard).join('')}</ul>
+    ${rest.length ? `<details class="st-standmore"><summary><span>Say where you stand on ${rest.length} more</span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
+      <ul class="st-stands" role="list">${rest.map(standCard).join('')}</ul></details>` : ''}
     <p class="sr" role="status" id="st-live"></p>`);
 }
 
@@ -578,18 +600,21 @@ function step2off() {
   if (!L || L.sig !== sig || (!L.rows && !L.err)) { load2(sig, sel, true); return skel(2, true); }
   if (L.err) return loadErr(2, true);
   const used = new Set();
+  // A pick is a topic (its own matcher) or, for picks saved before 9/20, a coalition name. Matching topics by
+  // coalition name is what made this screen say "HIPHI worked on 0 bills" (R-019).
+  const inIssue = (i, b) => i.match ? i.match(b) : (b.coalitions || []).some(n => i.names.includes(n));
   // Good news first: the issues with the most bills that became law, then the busiest.
-  const lawsOn = i => L.rows.filter(b => b.stage === 'enacted' && hasPos(b) && (b.coalitions || []).some(n => i.names.includes(n))).length;
+  const lawsOn = i => L.rows.filter(b => b.stage === 'enacted' && hasPos(b) && inIssue(i, b)).length;
   const order = sel.slice().sort((a, b) => lawsOn(b) - lawsOn(a) || (b.bills || 0) - (a.bills || 0));
   const cards = order.map(i => {
-    const rows = L.rows.filter(b => hasPos(b) && (b.coalitions || []).some(n => i.names.includes(n)) && (!b.session_year || +b.session_year === yr));
+    const rows = L.rows.filter(b => hasPos(b) && inIssue(i, b) && (!b.session_year || +b.session_year === yr));
     const laws = rows.filter(b => b.stage === 'enacted').sort((a, b) => (POS_W[a.hiphi_position] ?? 9) - (POS_W[b.hiphi_position] ?? 9));
     const far = rows.filter(b => b.stage !== 'enacted').sort((a, b) => reach(b) - reach(a) || (POS_W[a.hiphi_position] ?? 9) - (POS_W[b.hiphi_position] ?? 9));
     const show = [...laws, ...far].slice(0, 2);
     const worked = Math.max(i.bills || 0, rows.length);
     const said = `HIPHI worked on ${plural(worked, 'bill')} on this issue in ${yr}. ${laws.length ? `${laws.length === 1 ? 'One' : laws.length} became law.` : show.length ? `None became law this time. ${show.length === 1 ? 'This one' : 'These'} went furthest:` : ''}`;
     // A published HIPHI list with bills on this issue (each list offered once).
-    const list = (S.lists || []).find(l => !used.has(l.slug) && (S.listBills[l.slug] || []).some(x => (x.b.coalitions || []).some(n => i.names.includes(n))));
+    const list = (S.lists || []).find(l => !used.has(l.slug) && (S.listBills[l.slug] || []).some(x => inIssue(i, x.b)));
     if (list) used.add(list.slug);
     const following = list && S.listFollows.has(list.id), hid = 'st-r-' + String(i.names[0]).replace(/\W/g, '');
     return `<section class="card st-recap" aria-labelledby="${hid}">
@@ -684,6 +709,9 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     const here = nameAt(step, off);
     if (here === 'name') return finish();   // nothing after it; Skip means done
+    // Nothing picked on the first screen: every screen after it needs a pick, and its redirect sent Skip straight
+    // back here, so Skip did nothing and the start could not be left (R-019). With no picks, Skip leaves the start.
+    if (here === 'topics' && !pickedIssues().length) return skipAll();
     if (here === 'bills') {
       // Skip still follows whatever is already ticked (the pre-ticked defaults, usually), the same
       // commit Next makes - it is "move on", not "undo my picks".
@@ -718,7 +746,9 @@ function wire(route) {
     const next = $('[data-stnext]');
     if (next) next.onclick = () => {
       if (!pickedIssues().length) { flash('Pick at least one issue, or select Skip.'); return; }
-      goStep(step, stepOf('bills', off));
+      // Between sessions the next screen is the recap: there is no "bills" screen in that flow, and asking for its
+      // number returned 0, which redrew this same screen - Next did nothing on the live site (R-019).
+      goStep(step, stepOf(off ? 'recap' : 'bills', off));
     };
   }
 
@@ -826,13 +856,16 @@ function wire(route) {
       // The row itself now says what happened. Between sessions core's toast would cheer "Following 0 bills" on top of it.
       const t = document.getElementById('toast'); if (t) t.innerHTML = '';
     });
-    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, stepOf('stand', off));
+    // On to the email ask (or the name, when signed in). This asked for "stand", which the between-sessions flow does
+    // not have, and went back to the first screen (R-019).
+    const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);
   }
 
   if (nameAt(step, off) === 'stand') {
     $$('[data-ststance]').forEach(el => el.onclick = () => {
-      const [id, v] = el.dataset.ststance.split('|'), had = tookStand(), now = myStance(id) === v ? null : v;
-      Promise.resolve(setStance(id, now)).catch(e => toast(e, true));
+      // One card is one idea, which may be several bills: the answer goes on each of them.
+      const [idList, v] = el.dataset.ststance.split('|'), ids = idList.split(','), id = ids[0], had = tookStand(), now = myStance(id) === v ? null : v;
+      Promise.all(ids.map(x => setStance(x, now))).catch(e => toast(e, true));
       // In place, so focus stays on the chip: the one selected, its neighbours cleared; the same chip again clears it.
       const card = el.closest('.st-stand');
       card.querySelectorAll('[data-ststance]').forEach(c => c.setAttribute('aria-pressed', String(!!now && c === el)));
@@ -842,7 +875,9 @@ function wire(route) {
         S.stMile = id; card.querySelector('.st-smeta')?.insertAdjacentHTML('beforeend', mileChip());
         if (live) live.textContent = 'Milestone: you took a stand.';
       } else if (S.stMile && !['support', 'oppose'].includes(myStance(S.stMile))) {
-        S.stMile = null; document.querySelector('.st-mile')?.remove(); if (live) live.textContent = '';
+        // Scoped to the cards: the "You're following N bills" banner above them carries .st-mile too, and a bare
+        // querySelector removed the banner instead of the chip.
+        S.stMile = null; document.querySelector('.st-stand .st-mile')?.remove(); if (live) live.textContent = '';
       }
     });
     const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);

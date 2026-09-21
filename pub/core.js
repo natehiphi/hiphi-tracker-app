@@ -3,6 +3,7 @@
 // Moved out of track.js on 9/19 for the mobile-first redesign; the data code is unchanged unless a comment says so.
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from '../stops.js';
 import { ICONS, icon } from '../icons.js';
+import { topicOf } from './topics.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, ICONS, icon };
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
@@ -463,6 +464,31 @@ export async function loadPool() {
   const { data: hs } = ids.length ? await S.supa.from('public_all_hearings').select('*').in('bill_id', ids).eq('status', 'scheduled').gt('scheduled_at', new Date(now - 864e5).toISOString()).lt('scheduled_at', until) : { data: [] };
   S.pool = { bills: (bills || []).filter(alive), hearings: hs || [] };
 }
+// Every bill HIPHI took a position on in one session, whatever became of it. The pool above holds only bills still
+// moving, so between sessions it is empty - which is how every topic came to say "0 bills in 2026" and the recap
+// "HIPHI worked on 0 bills" (9/21, REQUESTS R-019). Loaded once per visit, for the start's counts and recap and
+// for Home's "Your issues".
+export async function loadRecapPool(yr) {
+  if (S.recapPool && S.recapPool.yr === yr) return S.recapPool.bills;
+  let bills;
+  if (DEMO) bills = D.bills.filter(b => b.hiphi_position && b.hiphi_position !== 'monitor' && (!b.session_year || +b.session_year === yr));
+  else {
+    const { data, error } = await S.supa.from('public_all_bills').select('*').eq('session_year', yr).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').limit(1000);
+    if (error) throw error; bills = data || [];
+  }
+  S.recapPool = { yr, bills };
+  return bills;
+}
+// For a screen that only shows counts from it: start the load once and redraw when it lands. A failure is not retried
+// (a redraw would call this again and spin); the counts are simply left out for the rest of the visit.
+export function ensureRecapPool(yr) {
+  if ((S.recapPool && S.recapPool.yr === yr) || S.recapLoading || S.recapFailed === yr) return;
+  S.recapLoading = true;
+  loadRecapPool(yr).catch(e => { console.error(e); S.recapFailed = yr; }).finally(() => { S.recapLoading = false; app.render(); });
+}
+// The topic keys picked in the guided start ('food', 'tobacco'...). Since 9/20 the start stores topics, not
+// coalition names, so anything matching picks against b.coalitions has to ask topicOf() as well (R-019).
+export const pickedTopic = b => { const k = topicOf(b)?.key; return !!k && (wiz().issues || []).includes(k); };
 export function dismissed() { try { return new Set(JSON.parse(localStorage.getItem('hiphi_dismiss') || '[]')); } catch { return new Set(); } }
 export function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } }
 // What this person seems to care about: coalitions of the bills they follow,
@@ -491,6 +517,7 @@ export function recommendations(limit) {
     if (!kind) continue;
     const mine = (b.coalitions || []).filter(n => likes[n]);
     if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${cname(mine[0])}`); }
+    else if (pickedTopic(b)) { score += 3; why.push('matches an issue you picked'); }   // the weight interests() gives a picked issue
     else if (anyLikes) score -= 1;
     if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
     if (!why.length) why.push(kind === 'testify' ? 'testimony window is open' : 'needs a push');

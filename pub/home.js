@@ -14,7 +14,8 @@
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair,
   actedOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
-  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT } from './core.js';
+  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, ensureRecapPool, pickedTopic } from './core.js';
+import { topics } from './topics.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
@@ -268,7 +269,7 @@ function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
 // Why a suggestion is shown, in words (replaces the old "you follow X", which was wrong right after Step 1).
 function reasonFor(b) {
   const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.filter(x => x.id !== b.id).flatMap(x => x.coalitions || []));
-  if ((b.coalitions || []).some(c => picked.has(c))) return 'Matches an issue you picked';
+  if (pickedTopic(b) || (b.coalitions || []).some(c => picked.has(c))) return 'Matches an issue you picked';
   if ((b.coalitions || []).some(c => mine.has(c))) return 'Similar to bills you follow';
   return /strongly/.test(b.hiphi_position || '') ? 'One of HIPHI’s top priorities' : '';
 }
@@ -415,11 +416,21 @@ function exploreView() {
 // became of the bills they followed, acted on or not. Someone new is welcomed, never told what they "didn't do".
 // The issues they saved are named, with Edit. One email ask on the screen: the nudge card when core has one pending,
 // else the button in "Get ready for January", and neither right after a "Not now".
-function myIssues() {
-  const all = issues(), seen = new Set(), out = [];
+// The picks are topics since 9/20 (topics.js), or a coalition name saved before then. Looking them up among the
+// coalitions alone found none of the topics, so Home asked people who had just picked their issues to "pick a few
+// health issues now" (R-019). A topic is counted over every bill HIPHI worked on last session, as the start counts it.
+function myIssues(yr) {
+  const past = (S.recapPool && S.recapPool.yr === yr && S.recapPool.bills) || [];
+  const all = [...topics(past), ...issues()], seen = new Set(), out = [];
   for (const k of wiz().issues || []) { const g = all.find(x => x.key === k || x.names.includes(k)); if (g && !seen.has(g.key)) { seen.add(g.key); out.push(g); } }
+  if (out.some(g => g.topicKey)) ensureRecapPool(yr);
   return out;
 }
+// A topic has no page of its own yet (R-018 adds one), so its row states what it is and does not pretend to be a
+// link (A-12); an old coalition pick keeps its link to the coalition's page.
+const issueRow = (g, yr) => g.topicKey
+  ? `<div class="row"><span class="lead">${icon(g.icon)}</span><span class="body"><span class="title">${esc(g.key)}</span>${g.bills ? `<span class="sub">${plural(g.bills, 'bill')} in ${yr}</span>` : ''}</span></div>`
+  : row({ lead: g.icon, title: esc(g.key), sub: g.bills ? `${plural(g.bills, 'bill')} in ${yr}. See what happened.` : '', href: `#/find/issue/${encodeURIComponent(slugOf(g))}` });
 function offView(si) {
   const yr = si.recapYear, next = si.nextOpen, nextYr = next ? +next.slice(0, 4) : yr + 1, welcome = welcomed();
   const opens = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : '';
@@ -440,7 +451,7 @@ function offView(si) {
     ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} you followed became law.` : ''}`
     : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} you followed became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill you followed ' : 'bills you followed '}reached the Governor’s desk`])}.`
     : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} stopped for this session. Many bills come back the next year.`;
-  const mine = myIssues(), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
+  const mine = myIssues(yr), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
   const nothingYet = !rows.length && !mine.length && !lists.length;
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
   const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !emailGiven();
@@ -451,7 +462,7 @@ function offView(si) {
   // The saved issues and followed lists, named, with a way to change them. They sit under the recap's neighbour when
   // there is a recap (so the two columns stay even), else they lead the page: they are what the person just set up.
   const setup = `${mine.length ? `<section class="hm-sec" aria-labelledby="hm-mi"><div class="hm-sechead"><h2 id="hm-mi">Your issues</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', href: '#/start/1', attrs: { 'aria-label': 'Edit your issues' } })}</div>
-      <div class="rows">${mine.map(g => row({ lead: g.icon, title: esc(g.key), sub: g.bills ? `${plural(g.bills, 'bill')} in ${yr}. See what happened.` : '', href: `#/find/issue/${encodeURIComponent(slugOf(g))}` })).join('')}</div></section>` : ''}
+      <div class="rows">${mine.map(g => issueRow(g, yr)).join('')}</div></section>` : ''}
     ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-ml"><h2 id="hm-ml">Lists you follow</h2>
       <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: `HIPHI’s ${nextYr} bills will show up here as they are added.`, href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}`;
   return `<div class="hm hm-off">
