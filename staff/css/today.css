@@ -367,6 +367,8 @@
 .td-root .td-sugg { margin-top: var(--s16); padding-top: var(--s4); border-top: 2px solid var(--n200); }
 .td-root .td-sglist { display: flex; flex-direction: column; gap: var(--s8); }
 .td-root .td-sg { background: var(--n0); border: 1px dashed var(--n300); border-radius: var(--r12); padding: var(--s12) var(--s12) var(--s8) var(--s16); }
+/* on a teammate's list a card has no answer row under its button, so it needs its own bottom space */
+.td-root .td-sg.td-sgro { padding-bottom: var(--s16); }
 .td-root .td-sg .td-s { font-size: var(--t16); line-height: 22px; }
 .td-root .td-sgwhy { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
 .td-root .td-sgctl { display: flex; flex-wrap: wrap; gap: var(--s4); margin: var(--s4) calc(-1 * var(--s8)) 0; }

@@ -652,18 +652,23 @@ function loadPanel() {
 // a deadline closes are the work, so it is a button that opens them as suggestions in the list (Nate, 9/19). The
 // five-bucket breakdown stays on Bills. Off-season sessionClock() returns null and the panel is not drawn at all.
 const clockBills = (scope, who) => S.bills.filter(billsOf(scope, who));
+// When none of the bills in view races any deadline still ahead, sessionClock() falls back to the next one on the
+// calendar with nothing racing it. That used to read "0 bills must be heard by then. Every one of them has a hearing."
+const whoseBills = (scope, who) => scope === 'person' ? `${first(who)}’s bills` : scope === 'team' ? 'the team’s bills' : 'your bills';
+const ckDay = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');   // "Thu 3/19"
 function clockPanel(scope, who) {
   const c = sessionClock(clockBills(scope, who));
   if (!c) return '';
-  const when = new Date(c.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
+  const when = ckDay(c.date);
   const away = c.days <= 0 ? 'today' : c.days === 1 ? 'tomorrow' : `${plural(c.days, 'day')} away`;
   const n = c.noHearing.length, on = !!S.tdOpen?.sugg && S.tdSuggOnly === 'clock';
+  const heard = c.racing === 1 ? 'It has a hearing.' : c.racing === 2 ? 'Both have a hearing.' : 'Every one of them has a hearing.';
   const body = `<div class="td-ck">
     <p class="td-ckwhen"><b>${esc(when)}</b><span>${esc(away)}</span></p>
     <p class="td-cklab">${esc(c.name)}</p>
-    <p class="td-ckn">${esc(plural(c.racing, 'bill'))} must be heard by then.</p>
+    <p class="td-ckn">${esc(c.racing ? `${plural(c.racing, 'bill')} must be heard by then.` : `None of ${whoseBills(scope, who)} has to be heard by then.`)}</p>
     ${n ? `<button type="button" class="td-ckwork" data-clockwork aria-expanded="${on}">${icon('circle-dashed')}<span class="td-ckwt"><b>${esc(plural(n, 'bill'))} with no hearing yet</b><span>${esc(c.p1 ? `${c.p1} of them P1 · ` : '')}Show what could be done</span></span>${icon('chevron-right', { cls: 'chev' })}</button>`
-      : `<p class="td-ckok">${icon('check')}<span>Every one of them has a hearing.</span></p>`}
+      : c.racing ? `<p class="td-ckok">${icon('check')}<span>${heard}</span></p>` : ''}
   </div>`;
   return panel('clock', 'calendar-clock', 'Next deadline', '', body);
 }
@@ -693,41 +698,59 @@ const settle = () => { seenFlush(); flushLogs(); };
 addEventListener('pagehide', settle);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') settle(); });
 
+// The clock's button filters the section to the bills it counted (`only`). Uncapped first, so the note can say which
+// of them are not shown and why; model.js makes at most one suggestion per bill, so a card is a bill.
 function suggestFor(scope, who, r) {
-  const nh = S.tdSuggOnly === 'clock' ? sessionClock(clockBills(scope, who))?.noHearing || [] : null;
-  const only = nh && nh.length ? nh : null;
+  const clock = S.tdSuggOnly === 'clock' ? sessionClock(clockBills(scope, who)) : null;
+  const only = clock?.noHearing.length ? clock.noHearing : null;
   // A bill with a dated card today is already on the list; it must never also be a suggestion.
   const dated = new Set(r.cards.filter(c => c.b && (c.group === 'overdue' || c.group === 'today')).map(c => c.b.id));
-  return { only, list: suggestions(only || clockBills(scope, who), { cap: SUGGEST_CAP, skip: b => dated.has(b.id) }) };
+  const all = suggestions(only || clockBills(scope, who), { cap: only ? Infinity : SUGGEST_CAP, skip: b => dated.has(b.id) });
+  return { only, clock, dated, all, list: all.slice(0, SUGGEST_CAP) };
 }
-function sugCard(s, i) {
+// "HB1", "HB1 and HB2", "HB1, HB2 and HB3", "HB1, HB2 and 4 others".
+const billList = bs => { const ns = bs.map(billNum); return ns.length > 3 ? `${ns.slice(0, 2).join(', ')} and ${ns.length - 2} others` : ns.join(', ').replace(/, ([^,]+)$/, ' and $1'); };
+// On a teammate's list the cards are read-only (ro): Done, Not now and Not this bill are theirs to answer, and they
+// would be written into your own settings besides. The step's own button only opens something, so it stays.
+function sugCard(s, i, ro = false) {
   const ext = !!s.act.ext, mail = /^mailto:/i.test(s.act.href || '');
-  return `<article class="td-sg" data-sg="${esc(s.key)}" data-bill="${esc(s.b.id)}" aria-labelledby="td-sg${i}">
+  return `<article class="td-sg${ro ? ' td-sgro' : ''}" data-sg="${esc(s.key)}" data-bill="${esc(s.b.id)}" aria-labelledby="td-sg${i}">
     <div class="td-top"><a class="td-bill${s.b.nickname ? ' td-named' : ''}" href="#/bill/${esc(s.b.bill_number)}"><b class="td-num">${esc(billNum(s.b))}</b> ${s.b.priority === 1 ? P1 + ' ' : ''}${billName(s.b)}</a>${lookBtn(s.b)}</div>
     <p class="td-s" id="td-sg${i}">${esc(s.title)}</p>
     <p class="td-sgwhy">${esc(s.why)}</p>
     <div class="td-acts">${btn(esc(s.act.label), { kind: 'secondary', href: s.act.href, target: ext && !mail ? '_blank' : undefined, iconEnd: ext && !mail ? 'external-link' : undefined })}</div>
-    <div class="td-sgctl" role="group" aria-label="${esc('What to do with this suggestion for ' + billNum(s.b))}">
+    ${ro ? '' : `<div class="td-sgctl" role="group" aria-label="${esc('What to do with this suggestion for ' + billNum(s.b))}">
       <button type="button" data-sgdo="done" data-sgk="${esc(s.key)}">${icon('check')}<span>Done</span></button>
       <button type="button" data-sgdo="later" data-sgk="${esc(s.key)}">${icon('clock')}<span>Not now</span></button>
       <button type="button" data-sgdo="never" data-sgk="${esc(s.key)}">${icon('circle-x')}<span>Not this bill</span></button>
-    </div></article>`;
+    </div>`}</article>`;
 }
 function suggestHtml(scope, who, r) {
-  const { only, list } = suggestFor(scope, who, r);
-  LASTSG = new Map(list.map(s => [s.key, s]));
+  const { only, clock, dated, all, list } = suggestFor(scope, who, r), ro = !!who;
+  // A teammate's list has no suggestions of its own (see render); only the clock's button, pressed on purpose, shows
+  // theirs. If its bills have all been heard since, there is nothing to show.
+  if (ro && !only) { LASTSG = new Map(); return ''; }
+  LASTSG = new Map(ro ? [] : list.map(s => [s.key, s]));
   if (!list.length && !only) return '';
   const open = S.tdOpen ??= {};
   // On a quiet day the section is the point of the page, so it is open and says so. On a busy one it is a quiet
   // line under the work, folded, but always one click away: nothing here is ever hidden behind a busy day.
   const quiet = r.dueNow <= 2, shown = quiet || !!open.sugg;
-  const title = quiet ? 'Nothing urgent — good ways to spend an hour' : 'Also worth doing';
-  const head = quiet ? groupHead(esc(title), '', { id: 'td-g-sugg' }) : groupHead(esc(title), list.length, { fold: 'sugg', open: shown, id: 'td-g-sugg' });
+  // Opened from the clock, the section takes the button's own words and count. On a quiet day the cards it shows can
+  // be the very ones that were already there, and a heading that stayed the same made the tap look dead (9/21).
+  const title = only ? 'No hearing yet' : quiet ? 'Nothing urgent — good ways to spend an hour' : 'Also worth doing', n = only ? only.length : list.length;
+  const head = quiet ? groupHead(esc(title), only ? n : '', { id: 'td-g-sugg' }) : groupHead(esc(title), n, { fold: 'sugg', open: shown, id: 'td-g-sugg' });
+  // Every bill the button counted is accounted for: a card, already on today's list, or nothing to suggest now.
+  const onList = only ? only.filter(b => dated.has(b.id)) : [], withSugg = new Set(all.map(s => s.b.id));
+  const nothing = only ? only.filter(b => !dated.has(b.id) && !withSugg.has(b.id)) : [];
+  const why = only ? [`${only.length === 1 ? 'It has' : 'Each has'} to be heard by ${ckDay(clock.date)}.`,
+    onList.length ? `${billList(onList)} ${onList.length === 1 ? 'is' : 'are'} on today’s list above.` : '',
+    nothing.length ? `Nothing to suggest on ${billList(nothing)} right now.` : '',
+    all.length > list.length ? `Showing ${list.length} of ${all.length}.` : ''].filter(Boolean).join(' ') : '';
   const note = only
-    ? `<p class="td-sgnote">${icon('circle-dashed')}<span>${esc(`The ${plural(only.length, 'bill')} racing the next deadline with no hearing yet${only.length > list.length ? `, the first ${list.length} shown` : ''}.`)}</span>${btn('Show all suggestions', { kind: 'text', attrs: { 'data-sgall': '1' } })}</p>`
+    ? `<p class="td-sgnote">${icon('circle-dashed')}<span>${esc(why)}</span>${ro ? '' : btn('Show all suggestions', { kind: 'text', attrs: { 'data-sgall': '1' } })}</p>`
     : `<p class="td-sgnote"><span>Nothing here is on the clock. Each one says why it came up, so you can wave it off if it is already in hand.</span></p>`;
-  const body = list.length ? list.map(sugCard).join('')
-    : `<p class="td-sgnone">Nothing to suggest on those bills: each one is already on today’s list, or has been put off.</p>`;
+  const body = list.map((s, i) => sugCard(s, i, ro)).join('');
   return `<section class="td-group td-sugg" aria-labelledby="td-g-sugg"><h2 class="td-h">${head}</h2>
     ${shown ? `<div class="td-sglist">${note}${body}</div>` : ''}</section>`;
 }
@@ -849,8 +872,10 @@ function render(route) {
   if (!groups.length) body = `<div class="td-empty">${empty({ art: who ? '' : yay(), title: allClear, text: nextHearingText(scope, who), action: who ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn(scope === 'team' ? 'See all bills' : 'See your bills', { href: '#/bills' }) })}</div>`;
   else body = (clear ? `<div class="td-clear">${who ? '' : yay()}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '') + groups.map(groupHtml).join('');
   // Suggestions sit under the dated work and above the digest, and only for your own list: nobody should be handed
-  // ideas for someone else's bills from a screen that is read-only.
-  const sugg = who ? (LASTSG = new Map(), '') : suggestHtml(scope, who, r);
+  // ideas for someone else's bills from a screen that is read-only. The one exception is asked for: the deadline
+  // clock's button on a teammate's list shows their bills with no hearing yet, read-only. Without it the button was
+  // drawn there and did nothing when pressed (Nate, 9/21).
+  const sugg = who && S.tdSuggOnly !== 'clock' ? (LASTSG = new Map(), '') : suggestHtml(scope, who, r);
   // A phone has no rail, and the list has to start above the fold: the subline already names the next deadline, so
   // the clock sits under the work, right where the button it carries opens the suggestions.
   if (!desk) return `<div class="td-root">${toolbar(route)}${note}${oneNotice()}${hearingsToday(scope, who, 3)}${body}${clockPanel(scope, who)}${sugg}${digestHtml}</div>`;
@@ -975,21 +1000,22 @@ async function msgUnread(t) {
   redraw();
 }
 // One teammate's list. The picker shows each person's open cards, so a manager sees the load before choosing.
+// Another list is other bills: the deadline clock's filter belonged to the list it was pressed on.
 function setWho(id, refocus) {
   if (id === S.me?.id) { S.tdWho = null; S.tdScope = 'mine'; save('today_scope', 'mine'); }
   else S.tdWho = whoOf() === id ? null : id;   // the same person again: back to where you were
-  S.tdCur = null; S.tdRefocus = refocus || '[data-whopick]'; hooks.render();
+  S.tdCur = null; S.tdSuggOnly = null; S.tdRefocus = refocus || '[data-whopick]'; hooks.render();
 }
 function pickWho() {
   const rows = teamLoad().filter(x => x.a.id !== S.me.id).sort((x, y) => x.a.full_name.localeCompare(y.a.full_name));
   pickerSheet({ title: 'Whose list', value: whoOf() || 'all', help: 'Open cards for each teammate, counted the way their own Today counts them.',
     options: [['all', 'Everyone', 'users', 'The whole team’s list'], ...rows.map(({ a, n, late }) => [a.id, a.full_name, 'user-round', n ? `${plural(n, 'open card')}${late ? ` · ${late} overdue` : ''}` : 'Nothing open'])],
-    onPick: id => { if (id === 'all') { S.tdWho = null; S.tdScope = 'team'; save('today_scope', 'team'); } else S.tdWho = id; S.tdCur = null; S.tdRefocus = '[data-whopick]'; hooks.render(); } });
+    onPick: id => { if (id === 'all') { S.tdWho = null; S.tdScope = 'team'; save('today_scope', 'team'); } else S.tdWho = id; S.tdCur = null; S.tdSuggOnly = null; S.tdRefocus = '[data-whopick]'; hooks.render(); } });
 }
 
 function wire(route, root) {
   const main = root.querySelector('.td-root'); if (!main) return;
-  main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; save('today_scope', S.tdScope); S.tdCur = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; hooks.render(); });
+  main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; save('today_scope', S.tdScope); S.tdCur = null; S.tdSuggOnly = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; hooks.render(); });
   // List or Week swaps the page in place (no new history entry: Back still leaves Today, as it always has).
   main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(el.dataset.val === 'week' ? '#/?view=week' : '#/', { replace: true }); });
   main.querySelectorAll('[data-week]').forEach(el => el.onclick = () => { const w = +el.dataset.week || 0; S.tdRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.go(`#/?view=week${w ? '&w=' + w : ''}`, { replace: true, keepScroll: true }); });
@@ -1012,12 +1038,19 @@ function wire(route, root) {
   main.querySelectorAll('[data-also]').forEach(el => el.onclick = () => { const t = LAST.get(el.dataset.also); if (t) alsoMenu(t); });
   main.querySelectorAll('[data-look]').forEach(el => el.onclick = () => quickLook(el.closest('[data-bill]')));
   // The deadline clock's last line is the work it names: it opens those bills as suggestions, here, not a filtered
-  // Bills screen. Pressing it again puts the whole list of suggestions back.
+  // Bills screen (Nate, 9/19). Pressing it again closes them. Opening takes the focus and the view to what it opened:
+  // on a desktop that is in the other column, often a screen further down, and it has to be unmistakable that the
+  // press did something (DESIGN.md A-16). Closing leaves the focus on the button, where the person still is.
   main.querySelector('[data-clockwork]')?.addEventListener('click', () => {
     const open = S.tdOpen ??= {}, on = !!open.sugg && S.tdSuggOnly === 'clock';
     S.tdSuggOnly = on ? null : 'clock'; open.sugg = !on;
-    S.tdRefocus = '[data-clockwork]'; hooks.render();
-    if (!on) setTimeout(() => document.querySelector('.td-sugg')?.scrollIntoView({ block: 'start', behavior: mq('(prefers-reduced-motion: reduce)') ? 'auto' : 'smooth' }), 0);
+    if (on) { S.tdRefocus = '[data-clockwork]'; hooks.render(); return; }
+    hooks.render();
+    const sec = document.querySelector('.td-sugg'), h = document.getElementById('td-g-sugg');
+    if (!sec) return;
+    if (h && h.tagName !== 'BUTTON') h.tabIndex = -1;   // a quiet day's heading is not a button; it still takes the focus
+    h?.focus({ preventScroll: true });
+    sec.scrollIntoView({ block: 'start', behavior: mq('(prefers-reduced-motion: reduce)') ? 'auto' : 'smooth' });
   });
   main.querySelector('[data-sgall]')?.addEventListener('click', () => { S.tdSuggOnly = null; S.tdRefocus = '.td-sugg .td-bill'; hooks.render(); });
   main.querySelectorAll('[data-sgdo]').forEach(el => el.onclick = () => suggDo(el.dataset.sgk, el.dataset.sgdo, el));
