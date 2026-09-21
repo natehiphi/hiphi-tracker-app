@@ -246,8 +246,9 @@
   body[data-screen="bill"] .hdr { position: static; }
   .bl-page .bl-top { top: 0; }
 }
-/* small phones: the bigger-step row drops its chevron so "Write testimony · 5 min" stays on one line */
-@media (max-width: 360px) {
+/* small phones: the bigger-step row drops its chevron so "Write testimony · 5 min" stays on one line.
+   359px, not 360, to match every other small-phone breakpoint (DESIGN.md A-9: 360 is the floor). */
+@media (max-width: 359px) {
   .bl-page .bl-slot .bl-bigstep .chev { display: none; }
 }
 /* 200% zoom on a phone (about 195px wide): the bar sheds its fixed side widths and the word "Back", and the number may

@@ -402,30 +402,49 @@ const ART_KEY_CODE = { oahu: 'O', hawaii: 'H', maui: 'M', molokai: 'M', lanai: '
 const ROLE = { chair: 0, vice_chair: 1, member: 2 };
 const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';
 const rolesOf = l => (S.committeeMembers || []).filter(m => m.legislator_id === l.id).sort((a, b) => ROLE[a.role] - ROLE[b.role] || cmteLabel(a.committee).localeCompare(cmteLabel(b.committee)));
+// hearingsOf(b) only ever knows about a followed bill's hearings (S.hearings) or one loaded for a
+// single unfollowed bill by link (S.xh). A legislator's committee list now scans every live position
+// bill (S.pool.bills, below), most of which are neither - so an upcoming hearing on one of those has
+// to come from S.pool.hearings instead, merged in rather than replacing hearingsOf's own sources.
+const poolHearingsOf = b => {
+  const extra = ((S.pool && S.pool.hearings) || []).filter(h => h.bill_id === b.id);
+  return extra.length ? [...new Map([...hearingsOf(b), ...extra].map(h => [h.id, h])).values()] : hearingsOf(b);
+};
 // Where a bill stands with one legislator's committees: in one now (or heard there soon), or in one it goes to next
 // in the same chamber. The referral list is the whole path; origin_stops splits it between the two chambers.
 function billAt(b, roles) {
   if (!alive(b)) return null;
   const st = stopOf(b), now = Date.now(), refs = b.referrals || [], n = b.origin_stops || refs.length;
-  const here = [...codesOf(st.committee), ...hearingsOf(b).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).flatMap(h => codesOf(h.committee))];
+  const here = [...codesOf(st.committee), ...poolHearingsOf(b).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).flatMap(h => codesOf(h.committee))];
   const leg = st.leg === 'second' ? refs.slice(n) : refs.slice(0, n), i = leg.findIndex(c => codesOf(c).some(x => here.includes(x)));
   const next = i >= 0 ? leg.slice(i + 1).flatMap(codesOf) : [];
   const r1 = roles.find(r => here.includes(r.committee)); if (r1) return { r: r1, when: 'now' };
   const r2 = roles.find(r => next.includes(r.committee)); return r2 ? { r: r2, when: 'next' } : null;
 }
-const billsIn = roles => (S.bills || []).map(b => ({ b, ...billAt(b, roles) })).filter(x => x.r).sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1));
+// Every live bill HIPHI has a position on that touches one of their committees, not just the ones the
+// visitor happens to follow (that was the bug: a visitor with no follows saw an empty section here).
+// Followed bills join the pool so a followed monitor-position bill - excluded from S.pool.bills - still
+// shows. Sorted "now" before "next", and chair before vice-chair before member within each.
+function billsIn(roles) {
+  const all = new Map();
+  for (const b of S.bills || []) all.set(b.id, b);
+  for (const b of (S.pool && S.pool.bills) || []) if (!all.has(b.id)) all.set(b.id, b);
+  return [...all.values()].map(b => ({ b, ...billAt(b, roles) })).filter(x => x.r)
+    .sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || ROLE[x.r.role] - ROLE[y.r.role]);
+}
 const roleThe = r => r.role === 'chair' ? 'the chair' : r.role === 'vice_chair' ? 'the vice chair' : 'a member';
 function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
   if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
-  const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), follow = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
+  const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), committeeBills = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
   const onBill = b && billAt(b, roles), yours = mine(l) ? chip(yoursWord(l), 'info', 'user-check') : '';
   const chamber = l.chamber === 'S' ? 'Senate' : 'House';
   const billName = b ? `${esc(spaced(b.bill_number))}${nick(b) ? ` (${esc(nick(b))})` : ''}` : '';
   // A bill leads with its everyday name when staff have written one; what it does is the second line.
   const billRow = ({ b: x, r, when }) => {
     const meta = `${esc(spaced(x.bill_number))} · ${when === 'now' ? esc(plainStatus(x).short) : 'Comes to their committee next'}${r.role === 'chair' ? ` · ${when === 'now' ? 'they chair it' : 'they chair that committee'}` : ''}`;
-    return row({ title: esc(nick(x) || blurb(x, 160)), sub: nick(x) ? `<span class="pp-what">${esc(blurb(x, 160))}</span><span>${meta}</span>` : meta, href: billPath(x), cls: 'pp-billrow' });
+    const end = S.watch.has(x.id) ? chip('Following', 'info', 'star') : '';
+    return row({ title: esc(nick(x) || blurb(x, 160)), sub: nick(x) ? `<span class="pp-what">${esc(blurb(x, 160))}</span><span>${meta}</span>` : meta, end, href: billPath(x), cls: 'pp-billrow' });
   };
   // One page, two layouts. On a phone everything stacks: who they are, how to reach them, then their committees.
   // From 1100px the contact panel moves to the side and stays in view (wide.css .cols + .side), with "Your senator"
@@ -455,8 +474,8 @@ function personPage(route) {
         ${roles.length ? `<section class="pp-sec" aria-labelledby="pp-cm"><h2 id="pp-cm">Committees</h2>
           <p class="pp-explain">Committees look at bills before the full ${chamber} votes. The chair decides which bills get a hearing.</p>
           <ul class="pp-cmtes">${roles.map(r => `<li>${icon(r.role === 'member' ? 'users' : 'landmark')}<span><span class="strong">${roleWord(r.role)}</span> of the ${esc(cmteLabel(r.committee))}</span></li>`).join('')}</ul></section>` : ''}
-        ${follow.length ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Your bills in their committees</h2>
-          <div class="rows">${follow.map(billRow).join('')}</div></section>` : ''}
+        ${committeeBills.length ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Bills in their committees</h2>
+          <div class="rows">${committeeBills.map(billRow).join('')}</div></section>` : ''}
       </div>
     </div>
   </div>`;

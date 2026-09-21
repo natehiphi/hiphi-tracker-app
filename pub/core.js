@@ -28,18 +28,22 @@ export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute
 export const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
 // One message at a time, in one polite live region above the tab bar (a new one replaces the old). Errors are never
 // raw: friendly(e) turns them into a sentence. toast(msg, { undo }) adds an Undo button and stays 10 seconds.
+// toast(msg, { also: { label, action } }) offers a DIFFERENT action instead ("Follow both?"), not an undo of what
+// just happened - at most one button either way, so the toast never has to choose between two competing asks.
 export function toast(m, opt = {}) {
   if (opt === true) opt = { err: true };
   const box = $('#toast'); if (!box) return;
   box.innerHTML = '';
   const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.yay ? ' yay' : '');
+  const btnLabel = opt.also ? opt.also.label : opt.undo ? 'Undo' : '';
   el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
-    + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '');
-  if (opt.undo) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await opt.undo(); } catch (e) { toast(e, true); } app.render(); };
+    + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (btnLabel ? `<button type="button" class="toastundo">${esc(btnLabel)}</button>` : '');
+  const run = opt.also ? opt.also.action : opt.undo;
+  if (run) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await run(); } catch (e) { toast(e, true); } app.render(); };
   box.appendChild(el);
-  // A toast someone is reading or reaching for stays put; its clock starts again when they leave it. One with Undo gets
-  // 10 seconds. (Undo is never only here: the star and the done card both undo in place.)
-  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, opt.undo ? 10000 : 4000); };
+  // A toast someone is reading or reaching for stays put; its clock starts again when they leave it. One with a
+  // button gets 10 seconds. (Undo is never only here: the star and the done card both undo in place.)
+  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, run ? 10000 : 4000); };
   const hold = () => clearTimeout(toast.t);
   el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
   arm();
@@ -65,6 +69,10 @@ export function cleanDesc(t) {
 }
 // A bill's short everyday name ("Disposable vape ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
 export const nick = b => (b && (b.hiphi_nickname || b.nickname)) || '';
+// Bare bill numbers from bills.companions: not always one clean number per array element, so split and
+// normalize defensively. Excludes self-references.
+export const companionsOf = b => (b?.companions || []).flatMap(c => String(c).split(/[,\s]+/))
+  .map(c => c.trim().toUpperCase()).filter(c => /^[A-Z]+\d+$/.test(c) && c !== b.bill_number);
 // What the bill does, in a sentence or two: HIPHI's plain summary, else the cleaned official description. Cut at the
 // end of a sentence when one fits, never mid-word.
 export function blurb(b, n = 110) {

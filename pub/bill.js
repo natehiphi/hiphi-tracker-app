@@ -7,7 +7,7 @@
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
-  firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair } from './core.js';
+  firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
@@ -477,7 +477,7 @@ function versionText(v) {
   return `${v.toUpperCase()}: ${who} changed the bill ${n === 1 ? 'once' : n === 2 ? 'twice' : n + ' times'}. Each change gets a new draft number.`;
 }
 function details(b, x) {
-  const comp = (b.companions || []).flatMap(c => String(c).split(/[,\s]+/)).map(normNum).filter(c => /^[A-Z]+\d+$/.test(c) && c !== b.bill_number);
+  const comp = companionsOf(b);
   const path = pathHTML(b, x), spons = sponsorText(b);
   const rows = [
     b.title ? ['Official title', esc(titleCase(b.title))] : null,

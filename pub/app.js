@@ -11,12 +11,13 @@ import mybills from './mybills.js';
 import find from './find.js';
 import bill from './bill.js';
 import people from './people.js';
+import committees from './committees.js';
 import more from './more.js';
 import helper from './helper.js';
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
 const SCREENS = { start, home, bills: mybills, find, issue: find, list: find, bill, legislators: people, legislator: people,
-  more, help: more, signin: more, settings: more, privacy: more };
+  committees, committee: committees, more, help: more, signin: more, settings: more, privacy: more };
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My bills'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 
 // ---- routes ----
@@ -44,10 +45,12 @@ export function parseRoute(h = location.hash) {
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase() };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
+    case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home' };
   }
 }
-export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators' })[r.name] || '#/';
+export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
+  committee: `#/committee/${r.code}`, committees: '#/committees' })[r.name] || '#/';
 
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.
 function go(path, { replace = false, keepScroll = false } = {}) {

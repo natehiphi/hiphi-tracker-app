@@ -1,0 +1,6 @@
+/* Committee pages (HANDOFF 3.5/3.6). Deliberately its own small stylesheet rather than reusing
+   people.css's .pp-photo: that sizing rule is scoped to a .pp ancestor this page doesn't have, and
+   reusing the bare class name without it renders the photo at its full natural size (found live). */
+.cm-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 18%; background: var(--n100); border: 1px solid var(--n200); flex: none; }
+.cm-photo.none { display: flex; align-items: center; justify-content: center; background: var(--p50); color: var(--p700); font: 700 var(--t16)/1 var(--font-h); }
+.cm-back { margin-bottom: var(--s16); padding-left: 4px; }

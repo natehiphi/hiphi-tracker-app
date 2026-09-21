@@ -4,7 +4,7 @@
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
-  nick, myActions, agrees, sendEmailLink, validEmail } from './core.js';
+  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf } from './core.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -127,12 +127,25 @@ export function shareText(b, h) {
 }
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
   const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
-// Follow or unfollow with feedback, and Undo on unfollow.
+// Follow or unfollow with feedback, and Undo on unfollow. Following a bill with one companion (its
+// twin filed in the other chamber) offers to follow that too, right here rather than silently -
+// "never auto-follow silently" (HANDOFF 3.5 plan, wave 5c). Only ever offered, never done for them.
 export async function followToggle(id, label) {
   const was = S.watch.has(id);
   await toggleWatch(id);
-  if (was) toast(`Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } });
-  else toast(`Following ${label || 'this bill'}`.trim(), { yay: true });
+  if (was) { toast(`Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } }); return; }
+  const b = anyBill(id), cnums = b ? companionsOf(b) : [];
+  if (cnums.length === 1) {
+    try {
+      const comp = await ensureBill(cnums[0]);
+      if (comp && !S.watch.has(comp.id)) {
+        toast(`Following ${label || 'this bill'}`.trim(), { yay: true, also: { label: `Follow ${spaced(cnums[0])} too?`,
+          action: async () => { await toggleWatch(comp.id); toast(`Following ${spaced(cnums[0])} too`, { yay: true }); } } });
+        return;
+      }
+    } catch { /* decoration only; fall through to the plain toast */ }
+  }
+  toast(`Following ${label || 'this bill'}`.trim(), { yay: true });
 }
 
 // ---- wiring (called by every screen that shows action cards) ----

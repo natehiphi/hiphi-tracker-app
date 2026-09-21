@@ -249,6 +249,7 @@ function moreView() {
     <header class="pagehead"><h1 class="hero">More</h1></header>
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
+      ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
       ${row({ lead: 'circle-help', title: 'How it works', sub: 'Follow bills, say where you stand, speak up when it counts', href: '#/help' })}
       ${account}
     </nav>

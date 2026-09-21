@@ -3,7 +3,7 @@
 Public repo `natehiphi/hiphi-tracker-app`, deployed by GitHub Pages from `main` at
 https://natehiphi.github.io/hiphi-tracker-app/. The backend (schema, migrations, sync, runbooks, `HANDOFF.md`) is
 the private repo in `../backend`. **Read `../backend/HANDOFF.md` first** in any session: section 3 holds the
-newest entries (3.6, 3.5, 3.4, …) with every decision Nate has made and what is still open.
+newest entries (3.7, 3.6, 3.5, …) with every decision Nate has made and what is still open.
 
 ## Who this is for
 
