@@ -12,7 +12,25 @@ use the terminal, and reviews on his phone AND a laptop. He wants direct answers
 screenshots for anything visual. When he says something is bad, fix it rather than defend it. He approves
 direction; Claude builds, tests, pushes and verifies the published site.
 
-## Where things stand (2026-09-20, after 3.6)
+## Where things stand (2026-09-21)
+
+**People follow ISSUES, not bills (R-018, built 9/21; `../backend/HANDOFF.md` 3.14).** Six categories group
+91 issues (migration 063: `categories`, `issues`, `issue_categories`, `bill_issues`, `issue_follows`,
+`category_follows`, `bill_skips`, and the internal `follow_set` view that alerts and counts read). A person
+follows an issue, or a whole category ("Follow all" also brings issues HIPHI takes up there later), and every
+bill HIPHI takes a position on that is on a followed issue reaches them; following one bill still works, and
+"Not for me" drops one bill without leaving its issue. In `pub/core.js`: `S.watch` = bills followed on their
+own (`S.direct`) + the bills of followed issues and categories for `followYear()` - `S.skips`
+(`recomputeWatch`); `issueFollowed`, `issueBills`, `viaIssue`, `setFollows`, `unfollowIssue`. Signed out, follows
+live in localStorage (`hiphi_issue_follows`, `hiphi_cat_follows`, `hiphi_skips`, `_demo` in the sandbox). The
+first visit's first two screens are categories -> "Your issues"; the tab is **My issues** (one row per issue,
+`issueItem` in `pub/mybills.js`, shared with Find); Find has category and issue pages (`#/find/category/<key>`,
+`#/issue/<slug>`); a bill page says "Part of <issue>". Staff keep the list in Staff v2, Outreach > Issues
+(`staff/issues.js`). The first list came from the team's nicknames: `../backend/docs/issues_2026.json`, loaded with
+`node ../backend/tools/apply_issues.js` (it never overwrites wording staff have edited).
+
+**R-023 (another conversation) is reworking the rest of the first visit** (teaching screens, animation); it
+builds on the two issue screens above.
 
 **Read `../backend/HANDOFF.md` 3.6 before touching the public first visit.** The ten-screen restructure 3.5
 called for is built: topics -> a "your topics and their bills" screen (collapsible sections per topic, every
@@ -92,8 +110,8 @@ found because sessions start in the backend repo) walks the whole checklist.
 ## Public tracker (`track.html` + `pub/`)
 
 Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
-- `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills`, `#/find`, `#/find/issue/<slug>`,
-  `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/help`, `#/signin`,
+- `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills` (My issues), `#/find`, `#/find/category/<key>`,
+  `#/issue/<slug>`, `#/find/issue/<slug>` (the old coalition-group page), `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/help`, `#/signin`,
   `#/settings`, `#/privacy`; legacy `#bill=` links redirect). `pub/core.js` data + plain-language layer.
   `pub/ui.js`, `pub/actions.js` shared parts. One module + CSS per screen: `start`, `home`, `mybills`, `find`,
   `bill`, `people`, `more`, `helper`. `pub/art.js` drawings (`islands('oahu' | 'mauicounty' | …)`).
@@ -104,7 +122,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - Screen contract: `{ tab, tabs?, noTabs?, title?, render(route), wire(route), bar?(route) }`. Screens reach
   the frame through `app.render / app.go / app.openHelper` on the `app` object exported by `core.js`.
 - Nate's product rules (9/19):
-  1. A first visit is follow a few bills + maybe say where you stand. No action is pushed. Later visits prompt
+  1. A first visit is follow a few issues + maybe say where you stand (R-018, 9/21: people follow issues, and
+     bills reach them through the issue). No action is pushed. Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
   2. The email ask is a step in the flow (`sendEmailLink`); giving it is the consent for both hearing alerts
@@ -120,7 +139,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 Task-first. Tabs: Today, Bills, Legislators, Outreach. `staff/app.js` frame + router (`parseRoute`), `staff/ui.js`
 shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`today`, `review`, `bill` with
 `activity` `public` `pathway`, `bills` with `filters` `bulk`, `triage`, `memo`, `search`, `legislators`,
-`legislator`, `supporters`, `person`, `lists`, `list`, `emails`, `composer`, `me`, `setup`, `help`), plus
+`legislator`, `supporters`, `person`, `issues` (Outreach > Issues and `#/issue/:id`, R-018), `lists`, `list`,
+`emails`, `composer`, `me`, `setup`, `help`), plus
 `look.js` (the quick look, opened from Today and Bills) which is a component rather than a screen.
 - Look: `pub/base.css` tokens, five type sizes 13/14/16/18/22.
 - Desktop frame: from 1100px a left sidebar; 900–1099px header tabs; below that the phone frame. A screen's

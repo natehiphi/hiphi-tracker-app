@@ -270,7 +270,7 @@ function step2() {
   const groups = m.per.filter(p => p.rows.length), quiet = m.per.filter(p => !p.rows.length).map(p => p.c);
   const total = new Set(m.all.map(x => x.i.id)).size, rec = new Set(m.all.filter(x => x.promoted).map(x => x.i.id)).size;
   const lede = !total ? `Nothing is moving on ${namesHtml(quiet)} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
-    : off ? `${plural(total, 'issue')} HIPHI worked on in ${yr}, inside ${issuesPhrase(m.sel)}. Follow them now, and their ${next} bills come to you as soon as they’re introduced.`
+    : off ? `${plural(total, 'issue')} HIPHI worked on in ${yr}, inside ${issuesPhrase(m.sel)}. Follow the ones you care about, and their ${next} bills come to you as soon as they’re introduced.`
     : `HIPHI is working on ${plural(total, 'issue')} inside ${issuesPhrase(m.sel)}. ${rec ? `We ticked the ${rec === 1 ? 'one' : rec} HIPHI recommends. Untick any you don’t want.` : 'Tick the ones you care about.'}`;
   return shell('st2', `${artFor(st, off)}${stepRow(st)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>${total ? sureWide('info', SURE2) : ''}`,

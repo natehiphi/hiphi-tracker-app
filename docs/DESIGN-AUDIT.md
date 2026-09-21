@@ -67,10 +67,12 @@ header comment promises. Measured: every screen is within A-4.
 
 | App | Width | Screen | Arrival | all | kinds | nav | sizes | colours |
 |---|---|---|---|---|---|---|---|---|
-| public | 390 | start | 378 | 9 | 8 | 1 | 4 | 5 |
-| public | 390 | home | **314** | 11 | **5** | 6 | 6 | 7 |
-| public | 390 | mybills | **157** | 14 | **1** | 6 | 4 | 4 |
-| public | 390 | find | **287** | 12 | **2** | 6 | 5 | 2 |
+| public | 390 | start | 342 | 8 | 7 | 1 | 4 | 5 |
+| public | 390 | home | **225** | 9 | **3** | 6 | 6 | 6 |
+| public | 390 | my issues (9/21) | **205** | 16 | **2** | 6 | 6 | 5 |
+| public | 390 | category (9/21) | 379 | 14 | **3** | 6 | 5 | 6 |
+| public | 390 | issue (9/21) | **204** | 12 | **3** | 6 | 5 | 6 |
+| public | 390 | find | **258** | 13 | **2** | 6 | 5 | 2 |
 | public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
@@ -80,9 +82,11 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 390 | legislators | **244** | 19 | **6** | 6 | 3 | 4 |
 | staff2 | 390 | outreach | **257** | 24 | **10** | 6 | 3 | 4 |
 | public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
-| public | 1440 | home | **316** | 12 | **6** | 6 | 6 | 8 |
-| public | 1440 | mybills | **242** | 14 | **1** | 6 | 4 | 4 |
-| public | 1440 | find | 339 | 18 | **2** | 6 | 5 | 2 |
+| public | 1440 | home | **218** | 11 | **5** | 6 | 6 | 7 |
+| public | 1440 | my issues (9/21) | **246** | 16 | **2** | 6 | 6 | 5 |
+| public | 1440 | category (9/21) | 397 | 18 | **3** | 6 | 5 | 6 |
+| public | 1440 | issue (9/21) | **260** | 12 | **3** | 6 | 5 | 6 |
+| public | 1440 | find | **310** | 15 | **2** | 6 | 5 | 2 |
 | public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
@@ -94,9 +98,15 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 1440 | outreach | **295** | 53 | **8** | 14 | 4 | 6 |
 
 Bold = inside budget. **Every screen in both apps is now inside the A-2 content-control budget**, and
-only five sit between the arrival budget and the limit. Nothing in either app exceeds a limit.
+seven readings sit between the arrival budget and the limit (G-8). Nothing in either app exceeds a limit.
 
-Journeys (`tests/journeys.py`): **7 of 7 working and inside budget.**
+**Public rows re-measured 2026-09-21 after R-018** (people follow issues): My bills became My issues, one
+row per issue (the reading is its first issue); the category and issue pages are new. The category page's
+first issue was at 485px on a phone before its icon moved beside the title and a count said twice went
+(A-14); it now sits between the budget and the limit, below a full-width "Follow all" that is the page's
+other job.
+
+Journeys (`tests/journeys.py`): **7 of 7 working and inside budget** ("arrive → follow a first issue", 3 of 3).
 
 ## 2a. Two measurements that were wrong, and what they cost
 
@@ -150,6 +160,9 @@ the two blues of the selected "Week" and the Today marker, and red (overdue), am
 legislators 382/390, public find 339 (desktop), public home 314/316, staff Bills 386/364. Staff Bills
 is an accepted exception. One fresh observation: public start's 378 includes ~28px of the `?demo=1`
 sandbox banner, so real production arrival is nearer 350.
+*9/21, after R-018:* start 378 → 342, home 314/316 → 225/218 and find 339 → 310 are inside budget or
+closer; the new category page adds two readings, 379 (phone) and 397 (desktop), its first issue sitting
+under a full-width "Follow all".
 
 **G-9 — hooks warn, they do not block.** Nate's choice (2026-09-19). Three are live: JS that does not
 parse, staff data-layer parity, and the `?v=` bumps on a snapshot change.

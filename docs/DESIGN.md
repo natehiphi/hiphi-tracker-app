@@ -313,7 +313,7 @@ anything that lengthens one needs a reason in the commit message.
 
 | Journey | Budget |
 |---|---|
-| Public: arrive → follow a first bill | 3 steps |
+| Public: arrive → follow a first issue | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → action sent | 4 steps |
 | Public: give an email address (from the moment it is offered) | 2 steps |
@@ -334,6 +334,11 @@ it was really buying - one row per policy instead of eleven near-identical bills
 that moves whenever the product moves is worthless, so this is the standing test: a step earns its
 place here for a reason, recorded, not quietly absorbed. Measured by `tests/journeys.py`, which fails
 if any journey exceeds its budget.
+
+**Renamed "follow a first issue" on 2026-09-21, budget unchanged (R-018)**: people follow issues, not
+bills (Nate: "the user is not interested in bills, but instead about policies"). The same three steps -
+pick a category, see its issues, follow the ticked ones - now end on issues, and a bill reaches the person
+because it is on an issue they follow.
 
 ### B-3 No dead ends
 
@@ -437,8 +442,8 @@ feel like being welcomed by somebody who is glad you came.
 
 ### C-1 Show the value before asking for anything
 
-Somebody can see bills, read what they do, and follow one without an account, without an email
-address, and without a decision about alerts.
+Somebody can see the issues and their bills, read what they do, and follow an issue (or one bill)
+without an account, without an email address, and without a decision about alerts.
 
 *Reason.* GOV.UK and 18F both: asking before giving is the single biggest drop-off in a public
 service. It also happens to be the honest order — we are asking them to trust us with an address, and
@@ -452,7 +457,7 @@ One question, visible without scrolling, with a skip that costs nothing and is n
 
 ### C-3 The email ask comes after a success, once per visit, always skippable
 
-Never on arrival. It follows something that just worked — a bill followed, an action sent — and it says
+Never on arrival. It follows something that just worked — an issue followed, an action sent — and it says
 plainly what will arrive and how often. Skipping is a plain, equal-weight choice, never a greyed-out
 afterthought and never a dark pattern ("No thanks, I don't care about my community").
 
@@ -487,7 +492,7 @@ how to get back here. After: the same information on screen, not only in the ema
 
 ### C-7 Celebrate the first success — once, and proportionately
 
-The first followed bill and the first action sent get a genuine moment: orange, the celebration
+The first followed issue and the first action sent get a genuine moment: orange, the celebration
 colour, used here and almost nowhere else. One moment, not a streak counter, not a badge, not a
 progress bar that implies homework.
 
