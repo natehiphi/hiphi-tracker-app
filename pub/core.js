@@ -262,8 +262,13 @@ export async function loadUser() {
     const had = S.user.prefs || {}, first = !had.consent_at;
     const hearing_alerts = first ? !!pending.hearing_alerts : !!(had.hearing_alerts || pending.hearing_alerts);
     const action_alerts = first ? !!pending.action_alerts : !!(had.action_alerts || pending.action_alerts);
-    const changed = first || hearing_alerts !== !!had.hearing_alerts || action_alerts !== !!had.action_alerts;
-    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, consent_at: new Date().toISOString() };
+    // The name given in the wizard joins the account the same way issues do below: it fills in an account that
+    // has none, and never overwrites one the account already has (it may have been set on another device since).
+    // Read straight from this device's wiz() rather than the pending object: the magic link is opened on the
+    // same device, and the name step comes AFTER the email step, so it wasn't typed yet when the link was sent.
+    const name = had.name || (wiz().name || '').trim();
+    const changed = first || hearing_alerts !== !!had.hearing_alerts || action_alerts !== !!had.action_alerts || name !== (had.name || '');
+    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, ...(name ? { name } : {}), consent_at: new Date().toISOString() };
       const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; }
     try { localStorage.removeItem(CONSENT_KEY); } catch {}
   }
@@ -272,6 +277,9 @@ export async function loadUser() {
   { const mine = wiz().issues || [], theirs = (S.user.prefs || {}).issues || [];
     if (mine.length && !theirs.length) saveIssues(mine);
     else if (theirs.length && JSON.stringify(mine) !== JSON.stringify(theirs)) { const w = { ...wiz(), issues: theirs }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } } }
+  // Name: the account's name (now possibly just set above) comes to this device too, so a returning visit on
+  // another device is greeted by name without asking again.
+  { const acctName = (S.user.prefs || {}).name || ''; if (acctName && acctName !== (wiz().name || '')) wizSet({ name: acctName }); }
   try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
   // Lists followed on this device join the account (and stay in sync from here on).
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
@@ -888,10 +896,11 @@ export function waitingBills(bills) {
     .filter(x => x.st.phase === 'committee' && x.st.hearingState === 'none' && x.st.committee && x.st.deadline && !x.st.deadline.missed)
     .sort((x, y) => x.st.deadline.days - y.st.deadline.days);
 }
-// The email step (Nate, 9/19): asking for an email is part of the flow, and a step that says "email me when my bills
-// get a hearing" IS the consent for hearing alerts. HIPHI's own action alerts stay a separate, unticked choice.
-// The choices wait in this browser until the link is opened (loadUser applies them), exactly like the sign-in page.
-export async function sendEmailLink(email, { hearing_alerts = true, action_alerts = false } = {}) {
+// The email step (Nate, 9/19; bundled into one "keep me updated" ask per HANDOFF 3.5, 9/20): asking for an email
+// is part of the flow, and saying yes IS the consent for both hearing alerts and HIPHI's own advocacy alerts -
+// one opt-in, not two. The choices wait in this browser until the link is opened (loadUser applies them), exactly
+// like the sign-in page.
+export async function sendEmailLink(email, { hearing_alerts = true, action_alerts = true } = {}) {
   if (DEMO) return { demo: true };   // before anything is stored: sandbox play must not leave a consent the live page would apply
   try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ }
   const sb = await supa();

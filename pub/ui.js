@@ -26,6 +26,5 @@ export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href
 }
 export const empty = ({ art = '', title, text = '', action = '', h = 'h2' }) => `<div class="empty">${art ? `<div class="art">${art}</div>` : ''}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;
 export const skeleton = (n = 4) => `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:96px"></div>${Array.from({ length: n }, () => '<div class="skel" style="height:64px"></div>').join('')}</div>`;
-export const steps = (n, of) => `<div class="bar" aria-hidden="true">${Array.from({ length: of }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div><span class="eyebrow">Step ${n} of ${of}</span>`;
 export const notice = (tone, ic, html) => `<div class="notice ${tone}">${icon(ic)}<div>${html}</div></div>`;
 export const inlineErr = (id, text) => `<div class="inlinemsg" id="${id}" role="alert">${icon('circle-alert')}<span>${esc(text)}</span></div>`;

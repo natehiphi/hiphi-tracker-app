@@ -135,11 +135,16 @@
 .st-mile .flower { width: 16px; height: 16px; }
 @keyframes st-pop { from { transform: scale(.8); opacity: 0; } }
 
-/* ---- the email step: a labelled field, its own buttons next to it, the small print ---- */
+/* ---- the email step: a labelled field, its own buttons next to it, the small print ----
+   Skip/secondary-then-primary, top to bottom, matching the reading order the sticky bar (st-btns) uses
+   left to right everywhere else in the flow - these used to be primary-then-skip, which reversed order
+   right when the ask got more personal (HANDOFF 3.5). Stacked rather than a side-by-side grid: the
+   sent-card's "Use a different email" is long enough that a fixed-ratio grid let it spill under the
+   button beside it. */
 .st-form { display: flex; flex-direction: column; gap: var(--s16); }
 .st-form .err:empty { display: none; }
 .st-form .meta { max-width: 65ch; }
-.st-formbtns { display: flex; flex-direction: column; gap: var(--s4); }
+.st-formbtns { display: flex; flex-direction: column; gap: var(--s8); }
 .st-formbtns .btn { width: 100%; }
 .st-sent { display: flex; gap: var(--s12); align-items: flex-start; }
 .st-sentbody { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; flex: 1 1 auto; }
@@ -247,28 +252,68 @@
 }
 
 /* ---- Narrow it down: the sub-topics inside the picked topics ---- */
-.st-narrows { display: flex; flex-direction: column; gap: var(--s24); }
-.st-ngroup { display: flex; flex-direction: column; gap: var(--s8); }
-.st-nhead { display: flex; align-items: center; gap: var(--s8); margin: 0; font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
-.st-nhead .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
-.st-nsubs { display: flex; flex-wrap: wrap; gap: var(--s8); }
-.st-nsub { gap: 6px; }
-.st-nsub[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); }
-.st-nsub[aria-pressed="true"] .st-ncount { background: rgba(255,255,255,.22); color: var(--n0); }
-.st-ncount { min-width: 20px; padding: 0 5px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; }
+/* ---- screen 2: one <details> per topic, the fold doing the "too many bills" work for free ---- */
+.st-followall { margin: 0 0 var(--s16); }
+.st-tsecs { display: flex; flex-direction: column; gap: var(--s12); }
+.st-tsec { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s12) var(--s16); }
+.st-tsec > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.st-tsec > summary::-webkit-details-marker { display: none; }
+.st-tsum { flex: 1 1 auto; display: flex; align-items: center; gap: var(--s8); min-width: 0; font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.st-tsum .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
+.st-tname { flex: 1 1 auto; min-width: 0; }
+.st-tcount { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.st-tchev { width: 20px; height: 20px; color: var(--n500); flex: none; transition: transform .15s; }
+.st-tsec[open] > summary .st-tchev { transform: rotate(180deg); }
+.st-tbody2 { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s12); }
 
-/* ---- The explaining screens: tour, how a law is made, the calendar, hearings ---- */
-.st-teach-list, .st-lawsteps, .st-dates, .st-legs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
-.st-teach-list > li, .st-lawsteps > li, .st-dates > li, .st-legs > li { display: flex; gap: var(--s12); align-items: flex-start; }
-.st-tlabel { flex: 0 0 96px; font-weight: 700; color: var(--p800); font-size: var(--t14); padding-top: 1px; }
+/* ---- The explaining screens: tour, the session, hearings, what happens next ---- */
+.st-teach-list, .st-legs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+.st-teach-list > li, .st-legs > li { display: flex; gap: var(--s12); align-items: flex-start; }
 .st-tbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--n700); }
 .st-tbody b { color: var(--n900); }
-.st-lawn { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--p50); color: var(--p800);
-  font: 700 var(--t13)/26px var(--font); text-align: center; }
-.st-dwhen { flex: 0 0 96px; font-weight: 700; color: var(--p800); font-size: var(--t14); }
+/* what happens next: an icon leads each line instead of a text label, same shape as Home's hm-nextup */
+.st-tlabel-ic { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700);
+  display: flex; align-items: center; justify-content: center; }
 .st-tourcard { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
-.st-tournum { margin: 0 0 var(--s12); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.st-tournum { margin: 0 0 4px; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.st-tourname { margin: 0 0 var(--s8); }
+/* railHTML() (bill.js) is reused verbatim here; its own styling (bill.css) is scoped to .bl-page, so
+   the miniature's rail wrapper carries that class too (pub/start.js) rather than duplicating every
+   rule bill.css already has for .bl-rail/.bl-dots/.bl-steps and their responsive flip. */
+.st-minirail { margin: var(--s12) 0 var(--s16); }
 .st-tourlink { margin: var(--s16) 0 0; }
+/* tap-to-reveal callouts (reading a bill, what a hearing is): the number is the affordance, not a hover state */
+.st-callouts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.st-callout { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+.st-calnum { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 52px; padding: 0 var(--s12); text-align: left; -webkit-tap-highlight-color: transparent; }
+.st-calbadge { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--p50); color: var(--p800); font: 700 var(--t13)/26px var(--font); text-align: center; }
+.st-calnum span:not(.st-calbadge) { flex: 1 1 auto; font-weight: 700; color: var(--n900); }
+.st-calchev { flex: none; width: 18px; height: 18px; color: var(--n500); transition: transform .15s; }
+.st-calnum[aria-expanded="true"] .st-calchev { transform: rotate(180deg); }
+.st-calbody { display: none; margin: 0; padding: 0 var(--s12) var(--s12) 50px; color: var(--n700); }
+.st-callout.st-open .st-calbody { display: block; }
+/* the session, January to May: five tappable windows, one body below */
+.st-months { display: flex; gap: var(--s8); overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.st-monthbtn { flex: none; min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill); background: var(--n0); border: 1px solid var(--n300); color: var(--n900); font-weight: 700; font-size: var(--t14); display: inline-flex; align-items: center; gap: 4px; }
+.st-monthbtn.on { background: var(--p700); border-color: var(--p700); color: var(--n0); }
+.st-mine { display: inline-flex; color: inherit; }
+.st-mine .ic { width: 14px; height: 14px; }
+.st-monthbody { margin-top: var(--s16); }
+.st-monthbody h3 { font-size: var(--t18); margin: 0 0 var(--s8); }
+.st-mineline { display: flex; gap: var(--s8); align-items: center; margin: var(--s12) 0 0; font-weight: 700; color: var(--p800); }
+.st-mineline .ic { flex: none; }
+/* meet a committee chair (what a hearing is) */
+.st-chair { margin-top: var(--s16); }
+.st-chairlbl { font-size: var(--t13); font-weight: 700; color: var(--n500); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 var(--s8); }
+.st-chaircard { display: flex; align-items: center; gap: var(--s12); min-height: 56px; margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8);
+  border-radius: var(--r12); color: inherit; text-decoration: none; transition: background .12s; }
+.st-chaircard:hover { background: var(--n50); }
+.st-chaircard > span { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-chaircard b { color: var(--n900); }
+.st-chaircard > span span { color: var(--n700); font-size: var(--t14); }
+.st-chairchev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+/* what happens next */
+.st-nextlist { gap: var(--s16); }
 /* Who speaks for you */
 .st-legwrap { display: flex; flex-direction: column; gap: var(--s12); }
 .st-legs > li { align-items: center; }
@@ -280,15 +325,13 @@
   border-radius: var(--r12); background: var(--n0); border: 1px solid var(--n200); text-align: left; color: var(--n900); }
 .st-sug:hover { background: var(--p50); border-color: var(--p300); }
 .st-sug .ic { color: var(--n500); flex: none; }
+.st-orrow { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0; color: var(--n500); font-size: var(--t13); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.st-orrow::before, .st-orrow::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--n200); }
 .st-ok-small { display: flex; gap: var(--s8); align-items: center; margin: 0; font-weight: 700; color: var(--ok-text); }
 .st-ok-small .ic { flex: none; }
-@media (max-width: 400px) { .st-tlabel, .st-dwhen { flex-basis: 84px; } }
-
-@media (max-width: 599px) {
-  .st-teach-list > li { flex-direction: column; gap: 2px; }
-  .st-teach-list .st-tlabel { flex-basis: auto; font-size: var(--t13); text-transform: uppercase; letter-spacing: .04em; }
-}
 .st-legnote { margin: 0; color: var(--n700); }
 /* "We can't tell from the town" is information, not success: no green (A-5). */
 .st-info-small { display: flex; gap: var(--s8); align-items: center; margin: 0; font-weight: 700; color: var(--n900); }
 .st-info-small .ic { flex: none; color: var(--p700); }
+/* Motion here is decorative, not load-bearing: no listed rule depends on the chevrons animating (A-10). */
+@media (prefers-reduced-motion: reduce) { .st-tchev, .st-calchev { transition: none; } }

@@ -1,31 +1,37 @@
-// The guided start (plan section 3, reworked 9/19 to Nate's decision): a newcomer's first visit is "follow a few
-// bills and maybe say where you stand". No action is pushed here; the asks to act come on later visits, easiest
-// first. The email is asked as a natural step: "email me when my bills have a hearing" IS the consent for alerts.
-//   In session:   1 pick issues -> 2 follow a few bills -> 3 where do you stand? (optional) -> 4 get a heads-up
-//   Off-season:   1 pick issues -> 2 what happened last session -> 3 the same email step, in off-season words
-// Every step is its own route (#/start/1..4) and pushes history, so Back walks the steps. The step and the picks
-// live in hiphi_wiz (wiz()/wizSet()), so a reload resumes where the person left off. Every step can be skipped, and
-// a primary button is never disabled (selecting it with nothing picked says why, right above the choices).
+// The guided start (plan section 3, reworked 9/19 to Nate's decision, restructured 9/20 per HANDOFF 3.5): a
+// newcomer's first visit is "follow a few bills and maybe say where you stand", then a longer, skippable guided
+// look at how the whole thing works. No action is pushed here; the asks to act come on later visits, easiest
+// first. The email is asked as a natural step, now one "keep me updated" opt-in that covers both hearing alerts
+// and HIPHI's own advocacy alerts (HANDOFF 3.5 reverses the old separate-ask rule; see core.js sendEmailLink).
+// Every step is its own route (#/start/1..N) and pushes history, so Back walks the steps. The step and the picks
+// live in hiphi_wiz (wiz()/wizSet()), so a reload resumes where the person left off. Every step can be skipped,
+// "Skip" always means "go to the next page" (3.5 - it used to fast-forward some screens straight to the email
+// ask), and a primary button is never disabled (selecting it with nothing picked says why, right above the
+// choices). There is deliberately no "Step N of 11" indicator (3.5).
 // Someone who is already signed in never sees the email step. No tab bar here. On phones the sticky bottom bar
 // holds one Skip and the one primary; on wide screens the page is two columns (the story on the left, the choices
 // on the right) and the bar sits at the end of the choices (start.css).
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, issues, sessionInfo, billsForCoalitions, recommendations,
   loadBills, saveLocal, wiz, wizSet, followList, listBillsFor, HST, anyBill, myStance, setStance, sendEmailLink, validEmail,
-  friendly, toast, nudge, stopOf } from './core.js';
-import { btn, chip, posChip, row, steps } from './ui.js';
+  friendly, toast, nudge, cmteLabel, legTitle, legPhoto } from './core.js';
+import { btn, chip, posChip, row } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
-import { topics, policies, inSub } from './topics.js';
+import { topics, policies } from './topics.js';
 import { townMatches, lookupTown } from './people.js';
+import { createAddressPicker } from './addresspicker.js';
+import { situation, railHTML } from './bill.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The email step is the last one; a signed-in person does not get it, so their count is one shorter.
 // The guided start, as an ordered list of named screens rather than step numbers. Adding a screen
 // is adding a name here: every place that used to compare `step === 3` now asks for the name, so
 // inserting one in the middle stops renumbering the rest (Nate's longer flow, 9/20).
-// Nate's long first visit (9/20), in his order. Everything after `stand` is explaining rather than
-// asking, and every one of those screens is skippable - a person who wants to get on with it presses
-// Skip and lands on Home with their bills already followed.
-const FLOW_IN = ['topics', 'narrow', 'bills', 'stand', 'tour', 'howlaw', 'calendar', 'hearing', 'legislators'];
+// Nate's restructured first visit (HANDOFF 3.5, 9/20): "narrow" and "bills" merge into one screen (topics with
+// their bills, collapsible); "howlaw" and "calendar" merge into one new "session" screen; "whatsnext" is new,
+// moved here from Home's welcome card. Everything after `stand` is explaining rather than asking, and every one
+// of those screens is skippable - a person who wants to get on with it presses Skip and lands on Home with their
+// bills already followed.
+const FLOW_IN = ['topics', 'bills', 'stand', 'tour', 'session', 'hearing', 'whatsnext', 'legislators'];
 const FLOW_OFF = ['topics', 'recap'];
 const flowOf = off => [...(off ? FLOW_OFF : FLOW_IN), ...(S.session ? [] : ['email']), 'name'];
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
@@ -78,8 +84,9 @@ function finish() {
 const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 
 // ---------- the page frame of a step: the story (left on wide screens) and the choices (right) ----------
+// No "Step N of 11" here (HANDOFF 3.5) - just Back, when there is somewhere to go back to.
 const backBtn = step => btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stback': String(step) } });
-const stepRow = (step, off) => `<div class="steps st-steps">${step > 1 ? backBtn(step) : ''}${steps(step, total(off))}</div>`;
+const stepRow = step => step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : '';
 const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
 const artFor = (step, off) => { const n = nameAt(step, off);
@@ -101,7 +108,10 @@ const bar1 = label => `<div class="st-bar st-one">${btn(label, { kind: 'primary'
 const followLabel = n => n ? `Follow ${plural(n, 'bill')}` : 'Follow bills';
 // A policy HIPHI backs hardest: its lead bill carries a strongly_ position. These are offered and
 // ticked first, because they are the ones the team is actually campaigning on.
-const isStrong = pol => (pol.bills[0]?.hiphi_position || pol.bills[0]?.position || '') === 'strongly_support';
+// A policy HIPHI backs hardest, or one staff have flagged recommended (bills.recommended, migration 061 - a
+// P2 bill can be recommended over a P1, so this is independent of priority). These are offered and pre-ticked
+// first, because they are the ones the team is actually campaigning on (HANDOFF 3.5).
+const isPromoted = pol => { const b = pol.bills[0] || {}; return !!b.hiphi_recommended || (b.hiphi_position || b.position || '') === 'strongly_support'; };
 
 // ================= Step 1 (in session and off-season): welcome and issues =================
 // The six topics, counted over the pool of live bills HIPHI has taken a position on. This replaced
@@ -128,37 +138,19 @@ const SURE1 = 'Takes about a minute. No account needed.', SURE2 = 'You can chang
 function step1() {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
-  return shell('st1', `${artFor(stepOf('topics', off), off)}${stepRow(stepOf('topics', off), off)}
+  return shell('st1', `${artFor(stepOf('topics', off), off)}${stepRow(stepOf('topics', off))}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
     <p class="lede">${off ? `The Legislature is on break until ${esc(shortDay(si.nextOpen))}. Pick the issues you care about, and HIPHI’s bills for them will be ready when hearings start.`
       : 'Pick the issues you care about. We’ll show you a few bills you can follow.'}</p>${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${issueRows(off, yr)}`);
 }
 
-// ================= Narrow it down: the sub-topics inside the picked topics =================
-// Optional by design. Picking nothing means "all of it", and Skip says so - this screen exists to
-// let somebody who only cares about school meals avoid being handed SNAP and sugary drinks, not to
-// make everyone answer another question. Sub-topics with no live bills are not offered at all.
-function narrowGroups() {
-  const bills = poolBills();
-  return pickedIssues().map(i => ({ i, subs: (i.subs || []).filter(sx => sx.bills > 0) })).filter(g => g.subs.length > 1);
-}
-const pickedSubs = () => new Set(wiz().subs || []);
-function stepNarrow() {
-  const groups = narrowGroups(), sel = pickedSubs();
-  const n = groups.reduce((a, g) => a + g.subs.length, 0);
-  return shell('st1 st-narrow', `${artFor(stepOf('narrow', false), false)}${stepRow(stepOf('narrow', false), false)}
-    <h1 class="hero" id="st-h">Anything in particular?</h1>
-    <p class="lede">${n} kinds of bill sit inside what you picked. Choose the ones you care about, or leave it and we will show you all of them.</p>${sureWide('info', SURE2)}`,
-    `${sayRow('info', SURE2)}<div class="st-narrows" role="group" aria-labelledby="st-h">${groups.map(g => `
-      <section class="st-ngroup"><h2 class="st-nhead">${icon(g.i.icon)}<span>${esc(g.i.key)}</span></h2>
-        <div class="st-nsubs">${g.subs.map(sx => {
-          const on = sel.has(sx.key);
-          return `<button type="button" class="chip st-nsub" data-stsub="${esc(sx.key)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(sx.name)}</span><span class="st-ncount">${sx.bills}</span></button>`;
-        }).join('')}</div></section>`).join('')}</div>`);
-}
-
-// ================= Step 2 (in session): a few bills to follow =================
+// ================= Screen 2 (in session): your topics, and their bills =================
+// Replaces both the old "Anything in particular?" narrowing screen and the flat "Pick your bills" screen
+// (HANDOFF 3.5): one collapsible section per topic picked on screen 1, each showing every one of that
+// topic's policies (pub/topics.js policies(), one row per idea regardless of how many bills carry it).
+// A <details> per topic does the folding for free - no separate "More N bills" overflow mechanism needed
+// now that each topic keeps its own bills out of the way until opened.
 // Soonest upcoming hearing per bill, from what the page already loaded for suggestions (the next two weeks).
 function ranker() {
   const now = Date.now(), soon = new Map();
@@ -173,20 +165,17 @@ function ranker() {
     || (POS_W[a.hiphi_position] ?? 9) - (POS_W[b.hiphi_position] ?? 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }); };
   return { info, cmp };
 }
-const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.key).join('|')}|${[...(wiz().subs || [])].sort().join(',')}`;
+const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.key).join('|')}`;
 function model2() {
   const sel = pickedIssues(), sig = sigOf(false, sel), L = S.stLoad;
   if (!sel.length) return { none: true };
   if (!L || L.sig !== sig) return { loading: true, sig, sel };
   if (L.err) return { err: true, sig, sel };
   if (!L.rows) return { loading: true, sig, sel };
-  const R = ranker(), w = wiz(), seen = new Set(), per = sel.map(i => ({ i, bills: [] })), subSel = pickedSubs();
+  const R = ranker(), w = wiz(), seen = new Set(), per = sel.map(i => ({ i, bills: [] }));
   for (const b of L.rows) {
     if (seen.has(b.id) || !alive(b) || !hasPos(b)) continue;
     const g = per.find(p => (p.i.match ? p.i.match(b) : (b.coalitions || []).some(n => p.i.names.includes(n)))); if (!g) continue;
-    // Narrowed: if this topic has sub-topics picked, only bills in them count.
-    const mine = (g.i.subs || []).filter(sx => subSel.has(sx.key));
-    if (mine.length && !mine.some(sx => inSub(b, g.i.topicKey, sx.key))) continue;
     seen.add(b.id); g.bills.push(b);
   }
   // Bills become POLICIES here. Eleven bills say "Let counties regulate tobacco sales"; offering
@@ -195,27 +184,11 @@ function model2() {
   per.forEach(p => { p.bills.sort(R.cmp); p.pols = policies(p.bills);
     p.pols.forEach(x => x.bills.sort(R.cmp)); p.pols.sort((a, b) => R.cmp(a.bills[0], b.bills[0])); });
   const empty = per.filter(p => !p.pols.length).map(p => p.i);
-  let first = [], fallback = false;
-  if (!per.some(p => p.pols.length)) { first = policies(recommendations(3).map(r => r.b)); fallback = true; }
-  else {
-    // What gets offered, in Nate's order (9/20): every policy HIPHI STRONGLY backs and that is still
-    // alive, then the most urgent one from each picked topic so no topic arrives empty, then the next
-    // most urgent until there are eight. Capped at twelve so six topics does not become a wall; the
-    // rest sit behind "More <topic> bills". The old rule was a flat top-3, which buried strong bills.
-    const seen = new Set(), take = x => { if (!seen.has(x.key)) { seen.add(x.key); first.push(x); } };
-    for (const p of per) for (const x of p.pols) if (isStrong(x)) take(x);
-    for (const p of per) if (p.pols.length) take(p.pols[0]);
-    const qs = per.map(p => p.pols.filter(x => !seen.has(x.key)));
-    while (first.length < 8 && qs.some(q => q.length)) {
-      for (const q of qs.filter(x => x.length).sort((a, b) => R.cmp(a[0].bills[0], b[0].bills[0]))) { if (first.length < 8) take(q.shift()); }
-    }
-    first = first.slice(0, 12).sort((a, b) => R.cmp(a.bills[0], b.bills[0]));
-  }
-  const firstIds = new Set(first.map(x => x.key)), more = (w.moreFor === sig && w.more) || {};
-  const extras = per.map(p => { const rest = p.pols.filter(x => !firstIds.has(x.key)), n = Math.min(rest.length, (more[p.i.key] || 0) * 6);
-    return { i: p.i, shown: rest.slice(0, n), left: rest.length - n }; });
+  const allPols = per.flatMap(p => p.pols);
+  let fallback = false, fallbackPols = [];
+  if (!allPols.length) { fallbackPols = policies(recommendations(3).map(r => r.b)); fallback = true; }
   const picked = new Set(w.picksFor === sig ? (w.picks || []) : []);
-  return { sig, sel, first, fallback, empty, extras, picked, R };
+  return { sig, sel, per, empty, fallback, fallbackPols, allPols, picked, R };
 }
 function load2(sig, sel, off) {
   if (S.stLoad && S.stLoad.sig === sig && !S.stLoad.err) return;
@@ -231,12 +204,12 @@ function load2(sig, sel, off) {
     if (!S.stLoad || S.stLoad.sig !== sig) return;
     S.stLoad.rows = rows || [];
     if (!off) {
-      // New issues, new picks: the 3 that need voices soonest start ticked.
+      // New issues, new picks: every strongly-backed or staff-recommended policy starts ticked (3.5).
       const m = model2(), w = wiz();
-      if (m.first && w.picksFor !== sig) {
-        const lead = new Set(m.sel.map(i => m.first.find(x => i.match && i.match(x.bills[0]))?.key).filter(Boolean));
-        const tick = m.first.filter(x => isStrong(x) || lead.has(x.key));
-        wizSet({ picksFor: sig, picks: (tick.length ? tick : m.first.slice(0, 3)).flatMap(x => x.bills.map(b => b.id)), moreFor: sig, more: {} });
+      if (m.allPols && w.picksFor !== sig) {
+        const tick = m.allPols.filter(isPromoted);
+        const ids = (tick.length ? tick : m.allPols.slice(0, 3)).flatMap(x => x.bills.map(b => b.id));
+        wizSet({ picksFor: sig, picks: ids });
       }
     }
     app.render();
@@ -247,10 +220,12 @@ function load2(sig, sel, off) {
 // lines, not characters, so a wide screen simply shows more of it. Where it is cut, a small "What it does" button
 // opens it in place. That button sits on the card's bottom edge, beside the toggle rather than inside it (a button
 // cannot hold a button), so reading more never ticks or unticks the bill. HIPHI's position is always on the card.
+// No topic chip here any more (3.5): the card lives inside its topic's own <details> section now, so naming the
+// topic again on every row repeated what the heading just said.
 S.stWhat ??= new Set();
 function pickCard(pol, R, picked) {
   const b = pol.bills[0], n = pol.bills.length, ids = pol.bills.map(x => x.id);
-  const inf = R.info(b), iss = topicList().find(i => i.match && i.match(b));
+  const inf = R.info(b);
   const within8 = inf.h && new Date(inf.h.scheduled_at) - Date.now() < 8 * 864e5;
   const day = within8 ? new Date(inf.h.scheduled_at).toLocaleDateString('en-CA', { timeZone: HST }) === new Date().toLocaleDateString('en-CA', { timeZone: HST })
     ? 'today' : new Date(inf.h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }) : '';
@@ -260,7 +235,7 @@ function pickCard(pol, R, picked) {
     <button type="button" class="st-pick" data-stpick="${esc(ids.join(','))}" aria-pressed="${on}">
       <span class="st-tick" aria-hidden="true">${icon('check')}</span>
       <span class="st-pbody">
-        <span class="st-ptop">${iss ? `<span class="issueline">${icon(iss.icon)}<span>${esc(iss.key)}</span></span>` : '<span></span>'}${day ? chip(`Hearing ${day}`, 'info', 'calendar') : ''}</span>
+        ${day || isPromoted(pol) ? `<span class="st-ptop">${day ? chip(`Hearing ${day}`, 'info', 'calendar') : ''}${!day && isPromoted(pol) ? chip('HIPHI recommends', 'info', 'sparkles') : ''}</span>` : ''}
         ${name ? `<span class="st-phead">${esc(name)}</span><span class="st-pwhat st-clamp" id="${tid}">${esc(full)}</span>`
           : `<span class="st-phead st-clamp" id="${tid}">${esc(full)}</span>`}
         <span class="st-pmeta"><span>${n > 1 ? `${n} bills, incl. ${esc(spaced(b.bill_number))}` : esc(spaced(b.bill_number))}</span>${posChip(b)}</span>
@@ -278,53 +253,62 @@ function fitWhat() {
 // The cut moves when the window is resized, a phone is turned, or the web fonts arrive.
 let fitT = 0;
 window.addEventListener('resize', () => { cancelAnimationFrame(fitT); fitT = requestAnimationFrame(fitWhat); });
-function tickPhrase(first, R, picked) {
-  const on = first.filter(x => x.bills.every(b => picked.has(b.id)));
+function tickPhrase(allPols, picked) {
+  const on = allPols.filter(x => x.bills.every(b => picked.has(b.id)));
   if (!on.length) return '';
-  const strong = on.filter(isStrong).length;
-  // Only credit hearings for rows that are not ALREADY counted as strongly backed, or the sentence
-  // describes the same bills twice.
-  const hear = on.filter(x => !isStrong(x) && R.info(x.bills[0]).h).length;
+  const strong = on.filter(isPromoted).length;
   const bits = [];
-  if (strong) bits.push(`the ${strong === 1 ? 'one' : strong} HIPHI backs hardest`);
-  if (hear) bits.push(`${bits.length ? 'and the' : 'the'} ${hear === 1 ? 'one' : hear} with a hearing coming up`);
+  if (strong) bits.push(`the ${strong === 1 ? 'one' : strong} HIPHI recommends`);
   const what = bits.length ? bits.join(' ') : `${on.length === 1 ? 'one' : on.length}`;
   return `We checked ${what}. Uncheck anything you don’t want.`;
 }
-const skel = (step, off) => shell('', `${artFor(step, off)}${stepRow(step, off)}<p class="sr" role="status">Finding HIPHI’s picks for you</p>
+// One <details> per topic. The first always starts open, so the screen never arrives with nothing to
+// see (a fresh-eyes review caught two collapsed rows over a wall of empty space); a small one (three
+// policies or fewer) also starts open, so a person with one narrow interest never has to click twice;
+// a busy topic past the first starts folded so the screen does not open into a wall of bills instead.
+function topicSection(g, R, picked, isFirst) {
+  const n = g.pols.reduce((a, x) => a + x.bills.length, 0), open = isFirst || g.pols.length <= 3;
+  const allOn = g.pols.length > 0 && g.pols.every(x => x.bills.every(b => picked.has(b.id)));
+  return `<details class="st-tsec"${open ? ' open' : ''}>
+    <summary><span class="st-tsum">${icon(g.i.icon)}<span class="st-tname">${esc(g.i.key)}</span><span class="st-tcount">${plural(n, 'bill')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
+    <div class="st-tbody2">
+      ${g.pols.length > 1 ? btn(allOn ? `All ${plural(n, 'bill')} checked` : `Follow all ${plural(n, 'bill')} in ${esc(g.i.key)}`, { kind: 'text', sm: true, icon: allOn ? 'check' : 'star', attrs: allOn ? { disabled: 'true' } : { 'data-stfollowtopic': g.i.key } }) : ''}
+      <ul class="st-picks" role="list">${g.pols.map(x => pickCard(x, R, picked)).join('')}</ul>
+    </div></details>`;
+}
+const skel = (step, off) => shell('', `${artFor(step, off)}${stepRow(step)}<p class="sr" role="status">Finding HIPHI’s picks for you</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:128px"></div>'.repeat(3), true);
-const loadErr = (step, off) => shell('', `${artFor(step, off)}${stepRow(step, off)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the bills</h1><p>Check your connection and try again.</p></div>`);
+const loadErr = (step, off) => shell('', `${artFor(step, off)}${stepRow(step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the bills</h1><p>Check your connection and try again.</p></div>`);
 function step2() {
   const m = model2();
   if (m.none) return skel(2, false);
   if (m.loading) { load2(m.sig, m.sel, false); return skel(2, false); }
   if (m.err) return loadErr(2, false);
-  const { sel, first, fallback, empty, extras, picked, R } = m, w = wiz();
+  const { sel, per, fallback, fallbackPols, empty, picked, R } = m, w = wiz();
   const opened = w.ready && !S.watch.size;   // picked issues off-season; the session has opened since
-  // n counts BILLS, not rows: eight rows can carry eleven bills once policies are grouped, and
-  // "Start with these 8 bills" over a list that follows 11 is the copy telling a small lie.
-  const n = first.reduce((a, x) => a + x.bills.length, 0), rows = first.length;
-  const ticks = tickPhrase(first, R, picked), saved = `We saved your ${empty.length === 1 ? 'pick' : 'picks'}`;
+  const groups = per.filter(g => g.pols.length);
+  const n = groups.reduce((a, g) => a + g.pols.reduce((b, x) => b + x.bills.length, 0), 0), rows = groups.reduce((a, g) => a + g.pols.length, 0);
+  const allN = groups.reduce((a, g) => a + g.pols.reduce((b, x) => b + x.bills.length, 0), 0);
+  const ticks = tickPhrase(groups.flatMap(g => g.pols), picked), saved = `We saved your ${empty.length === 1 ? 'pick' : 'picks'}`;
   let h1, lede;
-  if (fallback && n) { h1 = n === 1 ? 'Start with this bill' : `Start with these ${n} bills`;
-    lede = `Nothing is moving on ${namesHtml(empty)} right now. ${saved}. Meanwhile, HIPHI is working on ${n === 1 ? 'this bill' : 'these bills'} this week.`; }
+  const fbN = fallbackPols.reduce((a, x) => a + x.bills.length, 0);
+  if (fallback && fbN) { h1 = fbN === 1 ? 'Start with this bill' : `Start with these ${fbN} bills`;
+    lede = `Nothing is moving on ${namesHtml(empty)} right now. ${saved}. Meanwhile, HIPHI is working on ${fbN === 1 ? 'this bill' : 'these bills'} this week.`; }
   else if (fallback) { h1 = 'Nothing is moving yet';
     lede = `There are no bills moving on ${namesHtml(empty)} right now. ${saved}, and your page will show bills as soon as they start moving.`; }
   else if (opened) { h1 = 'The session is open!'; lede = `Here are HIPHI’s picks for ${issuesPhrase(sel)}. ${n === 1 ? 'It’s checked for you.' : `${ticks} Uncheck any you don’t want.`}`; }
-  // One bill: there is nothing to uncheck "any" of (assessment, 9/19).
   else if (n === 1) { h1 = 'Start with this bill'; lede = `HIPHI picked it for ${issuesPhrase(sel)}. It’s checked for you.`; }
-  else { h1 = rows === 1 ? 'Start with this one' : `Start with these ${rows}`;
-    lede = `HIPHI picked them for ${issuesPhrase(sel)}${n > rows ? ` — ${plural(n, 'bill')} in all, because some of these are the same idea in more than one bill` : ''}. ${ticks}`; }
-  const more = extras.filter(x => x.shown.length).map(x => `<h2 class="st-subh">More ${esc(x.i.key)} bills</h2>
-    <ul class="st-picks" role="list">${x.shown.map(b => pickCard(b, R, picked)).join('')}</ul>`).join('');
-  const moreBtns = fallback ? '' : extras.filter(x => x.left > 0).map(x => btn(`More ${esc(x.i.key)} bills (${x.left})`, { kind: 'text', icon: 'plus', attrs: { 'data-stmore': x.i.key } })).join('');
-  return shell('st2', `${artFor(stepOf('bills', false), false)}${stepRow(stepOf('bills', false), false)}
+  else { h1 = 'Your topics, and their bills';
+    lede = `${plural(rows, 'idea')} inside ${issuesPhrase(sel)}${n > rows ? `, ${plural(n, 'bill')} in all` : ''}. Open a topic to see its bills. ${ticks}`; }
+  const followAllOverall = !fallback && rows > 1 ? btn(`Follow all ${plural(allN, 'bill')}`, { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-stfollowall': '1' } }) : '';
+  return shell('st2', `${artFor(stepOf('bills', false), false)}${stepRow(stepOf('bills', false))}
     <h1 class="hero" id="st-h">${h1}</h1>
     <p class="lede">${lede}</p>${n ? sureWide('info', SURE2) : ''}`,
-    `${n ? `${sayRow('info', SURE2)}<ul class="st-picks" role="list" aria-labelledby="st-h">${first.map(b => pickCard(b, R, picked)).join('')}</ul>` : ''}
-    ${more}
-    ${moreBtns ? `<div class="st-more">${moreBtns}</div>` : ''}
-    ${!fallback && empty.length ? `<p class="note">${icon('info')}<span>Nothing is moving on ${namesHtml(empty)} right now. ${saved}.</span></p>` : ''}`);
+    fallback
+      ? `${sayRow('info', SURE2)}<ul class="st-picks" role="list" aria-labelledby="st-h">${fallbackPols.map(b => pickCard(b, R, picked)).join('')}</ul>`
+      : `${sayRow('info', SURE2)}${followAllOverall ? `<div class="st-followall">${followAllOverall}</div>` : ''}
+    <div class="st-tsecs" role="group" aria-labelledby="st-h">${groups.map((g, i) => topicSection(g, R, picked, i === 0)).join('')}</div>
+    ${empty.length ? `<p class="note">${icon('info')}<span>Nothing is moving on ${namesHtml(empty)} right now. ${saved}.</span></p>` : ''}`);
 }
 
 // ================= Step 3 (in session): where do you stand? (optional) =================
@@ -348,7 +332,7 @@ function standCard(b) {
 function step3() {
   const bills = followedBills(), n = bills.length;
   if (!n) return skel(3, false);
-  return shell('st3', `${artFor(stepOf('stand', false), false)}${stepRow(stepOf('stand', false), false)}
+  return shell('st3', `${artFor(stepOf('stand', false), false)}${stepRow(stepOf('stand', false))}
     <p class="st-won st-mile" role="status">${flower(30)}<span>You’re following ${plural(n, 'bill')}. Mahalo!</span></p>
     <h2 class="st-ask" id="st-h">Where do you stand? <span class="st-opt">(optional)</span></h2>
     <p class="lede">Private — we never show your answer publicly, and you can change it any time.</p>`,
@@ -356,29 +340,51 @@ function step3() {
     <p class="sr" role="status" id="st-live"></p>`);
 }
 
-// ================= The explaining screens: tour, how a law is made, calendar, hearings =========
+// ================= The explaining screens: tour, the session, hearings, what happens next =========
 // Everything here teaches rather than asks. Each one is one idea, each is skippable, and each is
 // built from what the person has already chosen so it is about THEIR bills, not a generic tour.
 const stShell = (cls, name, h1, lede, body) => shell(cls,
-  `${artFor(stepOf(name, false), false)}${stepRow(stepOf(name, false), false)}
+  `${artFor(stepOf(name, false), false)}${stepRow(stepOf(name, false))}
    <h1 class="hero" id="st-h">${h1}</h1><p class="lede">${lede}</p>`, body);
 
-// A guided look at one of their own bills: the four things a bill page tells you, in order.
+// The bill used as the running example on every teaching screen (3.5: personalize instead of generic
+// examples). Prefers one with a hearing ahead - the most concrete story - else the first followed, in
+// the urgency order screen 2 offered them. Nate has asked to review which real bills read best here
+// once this is visually working; this is a reasonable default, not a final choice.
+function exampleBill() {
+  const bills = followedBills(); if (!bills.length) return null;
+  const soon = ((S.pool && S.pool.hearings) || []).filter(h => new Date(h.scheduled_at) > Date.now());
+  return bills.find(b => soon.some(h => h.bill_id === b.id)) || bills[0];
+}
+// Tap-to-reveal callouts, numbered: one line of explanation opens at a time (Nate: let the reader set
+// the pace). No hover - DESIGN B-9 bans a reveal that only works with a mouse.
+const callouts = (items, open, attr) => `<ol class="st-callouts" role="list">${items.map(([t, d], i) => `<li class="st-callout${open.has(i) ? ' st-open' : ''}">
+    <button type="button" class="st-calnum" data-${attr}="${i}" aria-expanded="${open.has(i)}" aria-controls="st-${attr}-${i}">
+      <span class="st-calbadge" aria-hidden="true">${i + 1}</span><span>${esc(t)}</span>${icon('chevron-down', { cls: 'st-calchev' })}
+    </button><p class="st-calbody" id="st-${attr}-${i}">${esc(d)}</p></li>`).join('')}</ol>`;
+
+// A guided, numbered look at a real bill, built from the real bill page's own parts (situation()/railHTML()
+// from bill.js) rather than redrawn from scratch, so the miniature and the real page can never disagree
+// (3.5: "mimic the look of a bill"). No new glossary or tooltip component: the real bill page already
+// proves jargon is better rewritten in plain words than glossed (DESIGN-AUDIT G-13), and this does the same.
+S.stCallout ??= new Set();
 function stepTour() {
-  const b = followedBills()[0];
-  if (!b) return stShell('st1 st-teach', 'tour', 'Reading a bill', 'Every bill page says the same four things.',
-    `<ol class="st-teach-list">${TOUR.map(t => `<li><span class="st-tlabel">${esc(t[0])}</span><span class="st-tbody">${esc(t[1])}</span></li>`).join('')}</ol>`);
-  const st = stopOf(b), name = nick(b) || blurb(b, 80);
+  const b = exampleBill();
+  if (!b) return stShell('st1 st-teach', 'tour', 'Reading a bill', 'Every bill page says the same few things.',
+    callouts(TOUR, S.stCallout, 'stcal'));
+  const x = situation(b), name = nick(b);
   const rows = [
-    ['Its everyday name', name],
-    ['What it does', plainSum(b, 180)],
-    ['Where it is now', (st && st.says) || 'Waiting for its next step.'],
+    ['Its everyday name', name ? `HIPHI calls it "${name}."` : 'This one has no everyday name yet - the plain summary below leads instead.'],
+    ['The official title, in plain words', `The Capitol calls it "${b.title || 'a bill'}." In plain words: ${plainSum(b, 180)}`],
+    ['Where it is now', (x.st && x.st.says) || 'Waiting for its next step.'],
     ['What you can do', whatNow(b)],
   ];
   return stShell('st1 st-teach', 'tour', 'Reading a bill',
-    `Here is one you just followed. Every bill page says these four things, in this order.`,
+    'Here is one you just followed, built the same way every bill page is. Tap each one to read more.',
     `<div class="st-tourcard"><p class="st-tournum">${esc(spaced(b.bill_number))}</p>
-      <ol class="st-teach-list">${rows.map(r => `<li><span class="st-tlabel">${esc(r[0])}</span><span class="st-tbody">${esc(r[1])}</span></li>`).join('')}</ol>
+      <h3 class="st-tourname">${esc(name || plainSum(b, 60))}</h3>${posChip(b)}
+      <div class="st-minirail bl-page">${railHTML(b, x)}</div>
+      ${callouts(rows, S.stCallout, 'stcal')}
       <p class="st-tourlink">${btn('Open this bill', { kind: 'text', iconEnd: 'arrow-right', href: billPath(b) })}</p></div>`);
 }
 // What this particular bill lets you do today. Said of a bill that already had a hearing on the
@@ -391,127 +397,167 @@ function whatNow(b) {
   return `It has a hearing ${d}. You can send written testimony before then — it usually closes a day ahead.`;
 }
 const TOUR = [['Its everyday name', 'What the team calls it, in plain words.'],
-  ['What it does', 'One or two sentences, no legal language.'],
+  ['The official title, in plain words', 'The Capitol’s own title never leads - a plain summary always does.'],
   ['Where it is now', 'Which committee has it, and what has to happen next.'],
   ['What you can do', 'A short email, or written testimony when a hearing is set.']];
 
-// How a bill becomes law here, in the same seven steps the bill pages use.
-const LAW_STEPS = [
-  ['Introduced', 'A legislator files it. Most bills never get further.'],
-  ['Committees', 'Two or three committees must each hold a hearing and vote it through.'],
-  ['First chamber vote', 'The whole House or Senate votes.'],
-  ['Moves to the other chamber (crossover)', 'It starts again there, with its own committees.'],
-  ['Second chamber vote', 'The other chamber votes.'],
-  ['Conference', 'If the two versions differ, a small group agrees one.'],
-  ['The Governor', 'Signs it, lets it become law, or vetoes it.'],
+// ================= Screen 5 (NEW, HANDOFF 3.5): the session, January to May =================
+// Replaces "How a bill becomes law" and "The session calendar" with one page: the stages AND when they
+// happen. Five windows instead of twelve deadline keys or seven abstract steps - the same story, once.
+// Tap a window to read it (a fuller scrubbable timeline is a real option later; five clear taps teach
+// the same thing without a drag gesture that has to work on every device before it teaches anything).
+const SESSION_MONTHS = [
+  ['Mid-January', 'The session opens', 'Legislators introduce bills — about three thousand of them. The window to file a new one closes after about three weeks.'],
+  ['February', 'First committees', 'Each bill’s first chamber holds hearings and votes on it, one to three committees deep. Most bills stop here — it is the biggest filter of the year.'],
+  ['Early March', 'Crossover', 'Bills that passed their first chamber cross to the other one and start over: new committees, new hearings, a new chance to stop.'],
+  ['March–April', 'Second committees, then a floor vote', 'The other chamber does its own hearings and votes. If the two chambers passed different versions, a small conference group agrees on one.'],
+  ['Late April–early May', 'The Governor, and Sine Die', 'The Governor signs bills, lets them become law without signing, or vetoes them. The session ends (Sine Die) on a fixed date in early May.'],
 ];
-function stepHowLaw() {
-  return stShell('st1 st-teach', 'howlaw', 'How a bill becomes law',
-    'Seven steps, and a bill can stop at any of them. Most bills stop somewhere along the way.',
-    `<ol class="st-lawsteps">${LAW_STEPS.map(([t, d], i) => `<li><span class="st-lawn">${i + 1}</span>
-      <span class="st-tbody"><b>${esc(t)}</b><span>${esc(d)}</span></span></li>`).join('')}</ol>`);
+// Roughly where a bill's current stage sits on the five windows above, for the "Yours is here" marker.
+function monthForStage(x) {
+  const st = x.st || {};
+  if (x.law || /governor|vetoed/.test(st.phase || '')) return 4;
+  if (st.phase === 'conference') return 3;
+  if (st.leg === 'second') return 3;
+  if (st.phase === 'floor' && st.leg === 'first') return 2;
+  if (st.leg === 'first' && st.phase === 'committee') return 1;
+  return 0;
 }
-
-// The dates that decide everything, from the session's own calendar.
-function stepCalendar() {
-  const si = sessionInfo(), today = new Date().toISOString().slice(0, 10);
-  const next = (S.deadlines || []).filter(d => d.deadline_date >= today).slice(0, 5);
-  const list = next.length ? next : (S.deadlines || []).slice(-5);
-  return stShell('st1 st-teach', 'calendar', 'The session calendar',
-    `Bills die on deadlines, not on opinions. ${next.length ? 'These are the next ones.' : `The ${esc(String(si.recapYear || si.yr))} session has finished; these were its deadlines.`}`,
-    `<ul class="st-dates" role="list">${list.map(d => `<li><span class="st-dwhen">${esc(shortDay(d.deadline_date))}</span>
-      <span class="st-tbody"><b>${esc(d.label)}</b><span>${esc(DEADLINE_WHY[d.key] || 'A bill must have cleared this stage by now, or it stops for the year.')}</span></span></li>`).join('')}</ul>`);
+S.stMonth ??= 0;
+function stepSession() {
+  const b = exampleBill(), x = b ? situation(b) : null;
+  const mine = x && !x.law && !x.stopped ? monthForStage(x) : null;
+  const m = SESSION_MONTHS[S.stMonth] || SESSION_MONTHS[0];
+  return stShell('st1 st-teach st-session', 'session', 'The session, January to May',
+    'Every bill moves through the same five windows. Most stop somewhere along the way; a few become law.',
+    `<div class="st-months" role="tablist" aria-label="Point in the session">${SESSION_MONTHS.map((mo, i) => `<button type="button" role="tab" class="st-monthbtn${S.stMonth === i ? ' on' : ''}" aria-selected="${S.stMonth === i}" data-stmonth="${i}">${esc(mo[0])}${mine === i ? `<span class="st-mine">${icon('map-pin')}</span>` : ''}</button>`).join('')}</div>
+    <div class="st-monthbody" role="tabpanel"><h3>${esc(m[1])}</h3><p>${esc(m[2])}</p>${mine === S.stMonth ? `<p class="st-mineline">${icon('map-pin')}<span>${b ? (nick(b) || spaced(b.bill_number)) : 'Yours'} is here right now.</span></p>` : ''}</div>`);
 }
-// Every key the session calendar actually uses (public_deadlines), each in one plain sentence. The
-// first draft missed second_triple, final_decking and fiscal, so those three fell through to a
-// generic line - the kind of copy that is true of everything and tells nobody anything.
-const DEADLINE_WHY = {
-  intro_cutoff: 'The last day a bill can be filed at all.',
-  first_triple: 'A bill sent to three committees must be through the first one.',
-  first_lateral: 'It must be through every committee except the money one.',
-  first_decking: 'The money committee must be done with it.',
-  first_crossover: 'It must pass its own chamber and move to the other one.',
-  second_triple: 'In the second chamber: a bill with three committees must be through the first.',
-  second_lateral: 'In the second chamber: through every committee except the money one.',
-  second_decking: 'In the second chamber: the money committee must be done.',
-  second_crossover: 'It must pass the second chamber and go back.',
-  final_decking: 'If the two chambers disagree, their final version must be agreed by now.',
-  fiscal: 'The last day for the final vote on bills that spend money.',
-  sine_die: 'The session ends. Anything unfinished is over for the year.',
-};
 
 // What a hearing is, and the one fact people miss: testimony closes before the hearing starts.
+S.stHearOpen ??= new Set();
 function stepHearing() {
+  const b = exampleBill(), x = b ? situation(b) : null, chairLeg = x?.chairs?.[0]?.leg;
+  const items = [
+    ['Notice', 'A hearing is posted about two days ahead.'],
+    ['Testimony', 'Anyone may send written testimony. It usually closes 24 hours before the hearing starts — the deadline people miss.'],
+    ['The hearing', 'The committee discusses it and votes. You can watch, or turn up and speak.'],
+    ['Afterwards', 'It moves on, or is put off — which usually means it stops for the year.'],
+  ];
   return stShell('st1 st-teach', 'hearing', 'What a hearing is',
-    'A committee meets in public, hears from anyone who wants to speak, and votes.',
-    `<ol class="st-teach-list">
-      <li><span class="st-tlabel">Notice</span><span class="st-tbody">A hearing is posted about two days ahead.</span></li>
-      <li><span class="st-tlabel">Testimony</span><span class="st-tbody"><span>Anyone may send written testimony. It usually closes <b>24 hours before</b> the hearing starts — the deadline people miss.</span></span></li>
-      <li><span class="st-tlabel">The hearing</span><span class="st-tbody">The committee discusses it and votes. You can watch, or turn up and speak.</span></li>
-      <li><span class="st-tlabel">Afterwards</span><span class="st-tbody">It moves on, or is put off — which usually means it stops for the year.</span></li>
-    </ol>`);
+    'A committee meets in public, hears from anyone who wants to speak, and votes. Tap each one to read more.',
+    `${callouts(items, S.stHearOpen, 'sthear')}
+    ${chairLeg ? `<div class="st-chair"><p class="st-chairlbl">Meet a committee chair</p>
+      <a class="st-chaircard" href="#/legislator/${chairLeg.id}">${legPhoto(chairLeg, 'st-legpic')}
+        <span><b>${esc(legTitle(chairLeg))} ${esc(chairLeg.name)}</b><span>Chair, ${esc(cmteLabel(x.code))}</span></span>${icon('chevron-right', { cls: 'st-chairchev' })}</a></div>` : ''}`);
 }
 
-// Who speaks for you: a town is enough, and it is optional.
-function stepLegs() {
-  const w = wiz(), town = w.town ? lookupTown(w.town) : null;
-  const q = S.stTown ?? '';
-  const sug = town ? [] : townMatches(q);
-  const card = l => `<li class="st-leg"><span class="st-legpic">${l.photo_url ? `<img src="${esc(l.photo_url)}" alt="" loading="lazy">` : icon('user')}</span>
-    <span class="st-tbody"><b>${esc(l.name)}</b><span>${l.chamber === 'S' ? 'Senator' : 'Representative'} · District ${esc(String(l.district))}</span></span></li>`;
-  const both = town && town.senator && town.rep, some = town && (town.senator || town.rep);
-  const found = town
-    ? `<p class="${both ? 'st-ok-small' : 'st-info-small'}">${icon(both ? 'circle-check' : 'info')}<span>${both ? `Your two in ${esc(town.label)}` : `In ${esc(town.label)}`}</span></p>
-       ${some ? `<ul class="st-legs" role="list">${[town.senator, town.rep].filter(Boolean).map(card).join('')}</ul>` : ''}
-       ${both ? '' : `<p class="st-legnote">From the town alone we can’t tell your ${!town.senator && !town.rep ? 'senator or representative' : !town.senator ? 'senator' : 'representative'} — it depends on your street. <a href="#/legislators">Look up your address</a> any time.</p>`}
-       ${btn('Use a different town', { kind: 'text', attrs: { 'data-sttownclear': '1' } })}`
-    : `<div class="field"><label for="st-town">Your town</label>
-        <input id="st-town" type="text" autocomplete="address-level2" placeholder="Kailua, Hilo, Waipahu…" value="${esc(q)}" data-sttown="1"></div>
-       ${sug.length ? `<div class="st-sugs" role="group" aria-label="Towns">${sug.map(x => `<button type="button" class="st-sug" data-sttownpick="${esc(x.key)}">${icon('map-pin')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : ''}`;
-  return stShell('st1 st-teach st-legstep', 'legislators', 'Who speaks for you',
-    'Two people at the Capitol represent where you live: one senator and one representative. They are the ones who vote on your bills. Optional — and only your town is kept, on this device.',
-    card_wrap(found));
+// ================= Screen 7 (NEW, HANDOFF 3.5): what happens next =================
+// The same three beats Home's welcome card says to a returning visitor (pub/home.js hm-nextup),
+// given their own onboarding screen, placed right before the address ask - "we'll tell you" comes
+// just before "so tell us where you are."
+// No celebration banner here (tried "You're all set up to stay in the loop" and cut it on review): the
+// email/advocacy-alerts ask is the NEXT screen and is skippable, so a line implying it is already done
+// was simply untrue for anyone who goes on to skip it. The one onboarding celebration stays on "where
+// do you stand" (st-won on followedBills), which a fresh-eyes review confirmed already works well.
+function stepWhatsNext() {
+  const soon = followedBills().some(b => ((S.pool && S.pool.hearings) || []).some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now()));
+  const step = (ic, title, text) => `<li><span class="st-tlabel-ic">${icon(ic)}</span><span class="st-tbody"><b>${esc(title)}</b><span>${esc(text)}</span></span></li>`;
+  return stShell('st1 st-teach', 'whatsnext', 'What happens next',
+    'Here is what HIPHI does for you from here.',
+    `<ul class="st-teach-list st-nextlist">
+      ${step('eye', 'We keep watch.', 'We check your bills every day, so you don’t have to.')}
+      ${step('calendar-clock', 'When a bill has a hearing, you can help.', `${soon ? 'One of your bills already has one coming up. ' : ''}We’ll show one simple way to help, right here. Most take a couple of minutes.`)}
+      ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My bills.')}
+    </ul>`);
 }
+
+// ================= Screen 8: who speaks for you, by street address =================
+// 3.5: street address, not town - the town lookup only fully resolves 80 of 265 towns. The debounced
+// address search is its own module (addresspicker.js) so this screen runs an independent instance from
+// the full Legislators finder rather than sharing its state. Town stays as a quick fallback underneath.
+const APstart = createAddressPicker();
+S.stAddr ??= { q: '', pick: null, finding: false, err: '' };
 const card_wrap = inner => `<div class="st-legwrap">${inner}</div>`;
+function stepLegs() {
+  const A = S.stAddr, w = wiz(), town = w.town ? lookupTown(w.town) : null;
+  const legCard = l => `<li class="st-leg">${legPhoto(l, 'st-legpic')}<span class="st-tbody"><b>${esc(legTitle(l))} ${esc(l.name)}</b><span>${l.chamber === 'S' ? 'Senator' : 'Representative'} · District ${esc(String(l.district))}</span></span></li>`;
+  let body;
+  if (A.pick) {
+    const legs = A.pick.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
+    body = `<p class="st-ok-small">${icon('circle-check')}<span>Your senator and representative</span></p>
+      <ul class="st-legs" role="list">${legs.map(legCard).join('')}</ul>
+      ${btn('Look up a different address', { kind: 'text', attrs: { 'data-staddrclear': '1' } })}`;
+  } else if (A.finding) {
+    body = `<p class="st-info-small" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding your districts…</span></p>`;
+  } else {
+    const q = A.q.trim(), results = APstart.results(q);
+    const sug = town ? [] : townMatches(S.stTown ?? '');
+    body = `<div class="field"><label for="st-addr">Your street address</label>
+        <input id="st-addr" type="text" autocomplete="street-address" placeholder="123 Main St, Kailua" value="${esc(A.q)}" data-staddr="1">
+        <span class="help">We use it only to look up your districts; it is not saved.</span></div>
+      ${A.err ? `<p class="st-info-small">${icon('info')}<span>${esc(A.err)}</span></p>` : ''}
+      ${results.length ? `<div class="st-sugs" role="group" aria-label="Addresses">${results.map((r, i) => `<button type="button" class="st-sug" data-staddrpick="${i}">${icon('map-pin')}<span>${esc(r.label)}</span></button>`).join('')}</div>` : ''}
+      <p class="st-orrow"><span>or, just your town</span></p>
+      ${town
+        ? `<p class="st-info-small">${icon('info')}<span>In ${esc(town.label)}: ${[town.senator, town.rep].filter(Boolean).map(l => l.name).join(' and ') || 'it depends on your street'}</span></p>${btn('Use a different town', { kind: 'text', sm: true, attrs: { 'data-sttownclear': '1' } })}`
+        : `<div class="field"><label for="st-town">Town</label><input id="st-town" type="text" autocomplete="address-level2" placeholder="Kailua, Hilo, Waipahu…" value="${esc(S.stTown ?? '')}" data-sttown="1"></div>
+           ${sug.length ? `<div class="st-sugs" role="group" aria-label="Towns">${sug.map(x => `<button type="button" class="st-sug" data-sttownpick="${esc(x.key)}">${icon('map-pin')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : ''}`}`;
+  }
+  return stShell('st1 st-teach st-legstep', 'legislators', 'Who speaks for you',
+    'Two people at the Capitol represent where you live: one senator and one representative. They are the ones who vote on your bills. Optional.',
+    card_wrap(body));
+}
 
-// The last thing asked, and the smallest: a name to greet them by.
+// The last thing asked, and the smallest: a name to greet them by. It stays on this device only when
+// no email was given this visit (3.5: the old copy claimed that unconditionally, which stopped being
+// true the moment the name started saving with the account - core.js loadUser()).
 function stepName() {
-  const w = wiz();
-  return stShell('st1 st-teach', 'name', 'One last thing',
-    'What should we call you? We’ll use it to greet you, nothing else — and it stays on this device.',
+  const w = wiz(), willSave = S.session || !!(S.stMail && S.stMail.sent);
+  const copy = willSave
+    ? 'What should we call you? We’ll use it to greet you, and save it with your account so it follows you between devices.'
+    : 'What should we call you? We’ll use it to greet you, nothing else — and it stays on this device unless you add your email.';
+  return stShell('st1 st-teach', 'name', 'One last thing', copy,
     `<div class="field"><label for="st-name">Your name</label>
       <input id="st-name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(w.name || '')}" data-stname="1"></div>`);
 }
 
-// ================= Step 4 (in session) and step 3 (off-season): the email step =================
+// ================= Screen 9 (in session) and step 3 (off-season): keep me updated =================
+// One opt-in for both hearing alerts and HIPHI's own advocacy alerts (HANDOFF 3.5, 9/20) - this reverses
+// the earlier rule that action alerts stayed a separate, off-by-default choice. frontend/CLAUDE.md's
+// public-tracker rule 2 and DESIGN.md C-4 are rewritten in the same commit as this code, per 3.5's own note.
 // S.stMail: this visit's email step. The typed address survives a trip to the privacy page and back.
 S.stMail ??= { email: '', sent: '', demo: false };
 const SMALL_PRINT = 'No password — we send a link to sign in, which can take a minute. It also keeps your bills on any device. HIPHI staff can see which bills people follow, so they know what the community cares about.';
+// A real link was sent earlier in this visit (core notes the address): a reload still says "check your inbox".
+function mailSent() {
+  if (!S.stMail.sent) { try { S.stMail.sent = sessionStorage.getItem('hiphi_link_sent') || ''; } catch { /* ignore */ } }
+  return S.stMail.sent;
+}
+// Buttons live in the sticky bar (bar(), below), not inside the card, so this screen keeps the same
+// Skip/primary rhythm as every other screen instead of its own one-off row (3.5/3.6: this screen used
+// to state its promise twice - once here, once in the bar - and put Skip in a different place than the
+// seven screens before it). The primary button submits the form by id from outside it (form="st-eform").
 function emailCard() {
-  const M = S.stMail;
-  // A real link was sent earlier in this visit (core notes the address): a reload still says "check your inbox".
-  if (!M.sent) { try { M.sent = sessionStorage.getItem('hiphi_link_sent') || ''; } catch { /* ignore */ } }
-  if (M.sent) return `<section class="card st-sent" aria-labelledby="st-sent-t">
+  const M = S.stMail, sent = mailSent();
+  if (sent) return `<section class="card st-sent" aria-labelledby="st-sent-t">
     <span class="st-ilead">${icon('mail-check')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">Check your inbox at <span class="st-break">${esc(M.sent)}</span></h2>
-      <p>Open the link on this device and your bills come with you. Hearing alerts start once you do.</p>
+    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">Check your inbox at <span class="st-break">${esc(sent)}</span></h2>
+      <p>Open the link on this device and your bills come with you. Hearing alerts and HIPHI’s updates start once you do.</p>
       <p class="small muted">${M.demo ? 'This is the sandbox, so nothing was sent.' : 'It can take a minute. If you don’t see it, check your spam folder.'}</p>
-      <div class="st-formbtns">${btn('Go to my page', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stdone': '1' } })}${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div>
+      <div class="st-formbtns">${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div>
   </section>`;
   return `<form class="card st-form" id="st-eform" novalidate>
     <div class="field"><label for="st-email">Your email</label>
       <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
       <span class="err" id="st-email-err" role="alert"></span></div>
-    <p class="st-promise">We’ll only email you when one of your bills gets a hearing. Unsubscribe in one tap.</p>
-    <div class="st-formbtns">${btn('Yes, email me a heads-up', { kind: 'primary', icon: 'bell', attrs: { type: 'submit', id: 'st-send' } })}${btn('Skip for now', { kind: 'text', attrs: { 'data-stdone': '1' } })}</div>
+    <p class="st-promise">We’ll email you when one of your bills gets a hearing, and when HIPHI has an update or a way to help. Unsubscribe in one tap, any time.</p>
     <p class="meta">${SMALL_PRINT} <a href="#/privacy">Read about privacy</a></p>
   </form>`;
 }
 function step4() {
-  const n = S.watch.size;
-  return shell('st4', `${artFor(stepOf('email', false), false)}${stepRow(stepOf('email', false), false)}
-    <h1 class="hero" id="st-h">Want a heads-up when a hearing is set?</h1>
-    <p class="lede">Hearings are posted about two days ahead. Add your email and we’ll tell you in time when ${n === 1 ? 'your bill has' : `one of your ${n} bills has`} one.</p>`,
+  return shell('st4', `${artFor(stepOf('email', false), false)}${stepRow(stepOf('email', false))}
+    <h1 class="hero" id="st-h">Keep me updated</h1>`,
     emailCard());
 }
 
@@ -556,7 +602,7 @@ function step2off() {
         <span class="st-idesc">${following ? `HIPHI’s ${nextYr} bills will show up on your page as they are added.` : `HIPHI’s ${nextYr} bills will show up on your page when they are added to it.`}</span></span></button>` : ''}
     </section>`;
   }).join('');
-  return shell('st2 st-off', `${artFor(stepOf('recap', true), true)}${stepRow(stepOf('recap', true), true)}
+  return shell('st2 st-off', `${artFor(stepOf('recap', true), true)}${stepRow(stepOf('recap', true))}
     <h1 class="hero" id="st-h">What happened in ${yr}</h1>
     <p class="lede">Here’s how HIPHI’s bills did on the ${sel.length === 1 ? 'issue' : 'issues'} you picked. Select a bill to read more.</p>`, cards);
 }
@@ -571,9 +617,9 @@ function step3off() {
   const intro = S.session
     ? `<h1 class="hero" id="st-h">You’re set for January</h1>
       <p class="lede">The ${nextYr} session opens on ${opens}. HIPHI’s bills for your issues will be here then, ready to follow.</p>`
-    : `<h1 class="hero" id="st-h">Want a heads-up when your bills have a hearing?</h1>
-      <p class="lede">Add your email now and you’re set for ${nextYr}: when a bill you follow has a hearing, we’ll tell you in time. It also keeps your bills and lists on any device.</p>`;
-  return shell('st3 st-off', `${artFor(stepOf('email', true), true)}${stepRow(stepOf('email', true), true)}${saved}${intro}`,
+    : `<h1 class="hero" id="st-h">Keep me updated</h1>
+      <p class="lede">Add your email now and you’re set for ${nextYr}: when a bill you follow has a hearing, or HIPHI has advocacy news, we’ll tell you in time. It also keeps your bills and lists on any device.</p>`;
+  return shell('st3 st-off', `${artFor(stepOf('email', true), true)}${stepRow(stepOf('email', true))}${saved}${intro}`,
     `${S.session ? '' : emailCard()}<h2 class="st-subh st-alsoh">One more thing you can do now</h2>${legs}`);
 }
 
@@ -619,9 +665,8 @@ function redirectFor(step, off) {
   const back = () => picked ? stepOf('bills', off) : stepOf('topics', off);
   if (step > T) return T;
   if (off) return n !== 'topics' && !picked ? stepOf('topics', off) : 0;
-  if (n === 'narrow') return !picked ? stepOf('topics', off) : narrowGroups().length ? 0 : stepOf('bills', off);
   if (n === 'bills') return picked ? 0 : stepOf('topics', off);
-  if (['stand', 'tour', 'howlaw', 'calendar', 'hearing', 'legislators'].includes(n)) return S.watch.size ? 0 : back();
+  if (['stand', 'tour', 'session', 'hearing', 'whatsnext', 'legislators'].includes(n)) return S.watch.size ? 0 : back();
   if (n === 'email') return S.session ? 'home' : S.watch.size ? 0 : back();
   return 0;
 }
@@ -633,28 +678,31 @@ function wire(route) {
   if (to) { setTimeout(() => (to === 'home' ? finish() : app.go('#/start/' + to, { replace: true })), 0); return; }
   if (wiz().step !== step) wizSet({ step });
 
-  // Skip used to leave the whole wizard from every step, which quietly cost the email ask: from
-  // step 3 it jumped past step 4 entirely, and from step 2 it left with no follows, so home's own
-  // ask never fired either. Skip now means "not this question" and only leaves from the last step.
+  // Skip always means "go to the next page" (HANDOFF 3.5) - it used to fast-forward the teaching
+  // screens straight to the email ask, and leave the wizard entirely from topics, bills or email,
+  // which quietly cost the email ask and, from bills, cost every follow too.
   $$('[data-stskip]').forEach(el => el.onclick = () => {
-    // In session the email ask is step 4, so Skip on step 3 owes them that step. OFF-SEASON step 3
-    // IS the email step and there is no step 4 - skipping there really does mean leaving.
-    const here = nameAt(step, off), emailAt = stepOf('email', off);
-    const TEACH = ['tour', 'howlaw', 'calendar', 'hearing', 'legislators'];
-    if (TEACH.includes(here) && emailAt && followedBills().length) return goStep(step, emailAt);
-    if (here === 'stand' && emailAt && followedBills().length) return goStep(step, emailAt);
+    const here = nameAt(step, off);
     if (here === 'name') return finish();   // nothing after it; Skip means done
-    if (here === 'narrow') return goStep(step, stepOf('bills', off));  // narrowing is optional; the bills are not
-    if (here === 'bills') nudge('follow');                             // let home make the ask instead
-    skipAll();
+    if (here === 'bills') {
+      // Skip still follows whatever is already ticked (the pre-ticked defaults, usually), the same
+      // commit Next makes - it is "move on", not "undo my picks".
+      const m = model2();
+      if (m.loading || m.err || m.none) return skipAll();
+      const w = wiz(), ids = w.picksFor === m.sig ? (w.picks || []) : [];
+      if (!ids.length) { nudge('follow'); return skipAll(); }   // nothing ticked at all: let Home ask later
+      Promise.resolve(followIds(ids, (w.followed || []).filter(id => !ids.includes(id)))).then(() => {
+        wizSet({ step: 3, done: true, ready: null, followed: ids });
+        welcome();
+        goStep(step, stepOf('stand', off));
+      });
+      return;
+    }
+    goStep(step, step + 1);
   });
   $$('[data-stback]').forEach(el => el.onclick = () => goBack(+el.dataset.stback));
   $$('[data-stretry]').forEach(el => el.onclick = () => { S.stLoad = null; app.render(); });
-  $$('[data-stdone]').forEach(el => el.onclick = () => {
-    const after = stepOf('name', off);
-    if (nameAt(step, off) === 'email' && after > step && !/go to my page/i.test(el.innerText || '')) return goStep(step, after);
-    finish();
-  });
+  $$('[data-stdone]').forEach(el => el.onclick = () => finish());
   // "Find my legislators" leaves the start for good; the link itself does the navigating.
   $$('[data-stready]').forEach(el => el.addEventListener('click', () => { wizSet({ done: true, step: 1, ready: sessionInfo().nextOpen }); welcome(); }));
 
@@ -670,16 +718,45 @@ function wire(route) {
     const next = $('[data-stnext]');
     if (next) next.onclick = () => {
       if (!pickedIssues().length) { flash('Pick at least one issue, or select Skip.'); return; }
-      // Straight past the narrowing when there is nothing to narrow: a single sub-topic is not a choice.
-      goStep(step, narrowGroups().length ? step + 1 : stepOf('bills', off));
+      goStep(step, stepOf('bills', off));
     };
   }
 
-  // The explaining screens: Next simply moves on; the two with a field remember what was typed.
-  if (['tour', 'howlaw', 'calendar', 'hearing'].includes(nameAt(step, off))) {
+  // The explaining screens: Next simply moves on; the ones with a field remember what was typed.
+  if (['tour', 'session', 'hearing', 'whatsnext'].includes(nameAt(step, off))) {
     const next = $('[data-stnext]'); if (next) next.onclick = () => goStep(step, step + 1);
   }
+  // Tap-to-reveal callouts (tour, hearing): toggled in place, so nothing else on the page moves.
+  if (['tour', 'hearing'].includes(nameAt(step, off))) {
+    $$('[data-stcal], [data-sthear]').forEach(el => el.onclick = () => {
+      const open = el.getAttribute('aria-expanded') !== 'true';
+      el.setAttribute('aria-expanded', String(open)); el.closest('.st-callout')?.classList.toggle('st-open', open);
+      const set = el.hasAttribute('data-stcal') ? S.stCallout : S.stHearOpen, i = +(el.dataset.stcal ?? el.dataset.sthear);
+      if (open) set.add(i); else set.delete(i);
+    });
+  }
+  if (nameAt(step, off) === 'session') {
+    $$('[data-stmonth]').forEach(el => el.onclick = () => { S.stMonth = +el.dataset.stmonth; app.render();
+      requestAnimationFrame(() => document.querySelector(`[data-stmonth="${S.stMonth}"]`)?.focus({ preventScroll: true })); });
+  }
   if (nameAt(step, off) === 'legislators') {
+    const abox = $('[data-staddr]');
+    if (abox) abox.oninput = () => {
+      S.stAddr.q = abox.value; S.stAddr.err = '';
+      APstart.search(abox.value.trim(), () => app.render());
+      app.render();
+      requestAnimationFrame(() => { const again = document.querySelector('[data-staddr]'); if (again) { again.focus({ preventScroll: true }); again.setSelectionRange(again.value.length, again.value.length); } });
+    };
+    $$('[data-staddrpick]').forEach(el => el.onclick = async () => {
+      const r = APstart.results(S.stAddr.q.trim())[+el.dataset.staddrpick]; if (!r) return;
+      S.stAddr.finding = true; app.render();
+      try {
+        const res = await APstart.resolve(r.label, r);
+        if (!res || res.none || !res.ids?.length) { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t find that address. Try your town instead.'; app.render(); return; }
+        S.stAddr.pick = { ids: res.ids }; S.stAddr.finding = false; app.render();
+      } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up. Try your town instead.'; app.render(); }
+    });
+    const aclear = $('[data-staddrclear]'); if (aclear) aclear.onclick = () => { S.stAddr = { q: '', pick: null, finding: false, err: '' }; app.render(); };
     const box = $('[data-sttown]');
     if (box) box.oninput = () => { S.stTown = box.value; app.render();
       const again = document.querySelector('[data-sttown]');
@@ -693,16 +770,6 @@ function wire(route) {
     const next = $('[data-stnext]'); if (next) next.onclick = () => { if (box) wizSet({ name: box.value.trim().slice(0, 40) }); finish(); };
   }
 
-  if (nameAt(step, off) === 'narrow') {
-    $$('[data-stsub]').forEach(el => el.onclick = () => {
-      const on = el.getAttribute('aria-pressed') !== 'true', set = pickedSubs();
-      if (on) set.add(el.dataset.stsub); else set.delete(el.dataset.stsub);
-      wizSet({ subs: [...set] });
-      app.render();
-    });
-    const next = $('[data-stnext]');
-    if (next) next.onclick = () => goStep(step, stepOf('bills', off));
-  }
   if (nameAt(step, off) === 'bills') {
     const m = model2();
     $$('[data-stpick]').forEach(el => el.onclick = () => {
@@ -720,14 +787,20 @@ function wire(route) {
     });
     fitWhat();
     document.fonts?.ready?.then(fitWhat);
-    $$('[data-stmore]').forEach(el => el.onclick = () => {
-      const w = wiz(), more = { ...((w.moreFor === m.sig && w.more) || {}) }, k = el.dataset.stmore;
-      const before = new Set([...document.querySelectorAll('[data-stpick]')].map(x => x.dataset.stpick));
-      more[k] = (more[k] || 0) + 1; wizSet({ moreFor: m.sig, more });
+    // Follow all in one topic: tick every policy in that <details>, without touching the others.
+    $$('[data-stfollowtopic]').forEach(el => el.onclick = () => {
+      const g = m.per.find(p => p.i.key === el.dataset.stfollowtopic); if (!g) return;
+      const w = wiz(), set = new Set(w.picksFor === m.sig ? (w.picks || []) : []);
+      g.pols.forEach(x => x.bills.forEach(b => set.add(b.id)));
+      wizSet({ picksFor: m.sig, picks: [...set] });
       app.render();
-      // Keep keyboard and screen-reader users where the new cards start.
-      const added = [...document.querySelectorAll('[data-stpick]')].find(x => !before.has(x.dataset.stpick));
-      if (added) { added.focus({ preventScroll: true }); added.scrollIntoView({ block: 'center', behavior: reduce() ? 'auto' : 'smooth' }); }
+    });
+    // Follow all, overall: every policy in every open topic.
+    $$('[data-stfollowall]').forEach(el => el.onclick = () => {
+      const set = new Set();
+      m.per.forEach(g => g.pols.forEach(x => x.bills.forEach(b => set.add(b.id))));
+      wizSet({ picksFor: m.sig, picks: [...set] });
+      app.render();
     });
     const next = $('[data-stnext]');
     if (next) next.onclick = async () => {
@@ -779,7 +852,9 @@ function wire(route) {
   const form = $('#st-eform'), sentCard = $('.st-sent');
   if (form || sentCard) { S.nudge = null; S.nudgedThisVisit = true; }
   if (form) {
-    const inp = form.querySelector('#st-email'), err = form.querySelector('#st-email-err'), send = form.querySelector('#st-send');
+    // The submit button lives in the sticky bar now, outside this form (form="st-eform"), so the bar
+    // stays consistent with every other screen; look it up by id, not as a descendant of the form.
+    const inp = form.querySelector('#st-email'), err = form.querySelector('#st-email-err'), send = document.getElementById('st-send');
     const showErr = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'st-email-err'); err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; };
     inp.oninput = () => { S.stMail.email = inp.value; if (err.innerHTML) { err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); } };
     form.onsubmit = async e => {
@@ -787,10 +862,10 @@ function wire(route) {
       if (send.getAttribute('aria-busy') === 'true') return;
       const email = inp.value.trim();
       // Checked only now, never while typing.
-      if (!validEmail(email)) { showErr(email ? 'That doesn’t look like an email. Try one like name@example.com.' : 'Enter your email, or select Skip for now.'); inp.focus(); return; }
+      if (!validEmail(email)) { showErr(email ? 'That doesn’t look like an email. Try one like name@example.com.' : 'Enter your email, or select Skip.'); inp.focus(); return; }
       const label = send.innerHTML; busy(send, 'Sending…');
       try {
-        const r = await sendEmailLink(email, { hearing_alerts: true });
+        const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true });
         S.stMail = { email, sent: email, demo: !!(r && r.demo) };
         app.render();
         document.getElementById('st-sent-t')?.focus({ preventScroll: true });
@@ -804,10 +879,10 @@ function wire(route) {
   });
 }
 
-const TITLE = { topics: 'Pick your issues', narrow: 'Narrow it down', bills: 'Pick your bills',
-  stand: 'Where do you stand?', tour: 'Reading a bill', howlaw: 'How a bill becomes law',
-  calendar: 'The session calendar', hearing: 'What a hearing is', legislators: 'Who speaks for you',
-  email: 'Get a heads-up', name: 'Your name', recap: 'What happened' };
+const TITLE = { topics: 'Pick your issues', bills: 'Your topics, and their bills',
+  stand: 'Where do you stand?', tour: 'Reading a bill', session: 'The session, January to May',
+  hearing: 'What a hearing is', whatsnext: 'What happens next', legislators: 'Who speaks for you',
+  email: 'Keep me updated', name: 'Your name', recap: 'What happened' };
 export default {
   tab: 'home',
   tabs: false,
@@ -817,13 +892,12 @@ export default {
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)), off);   // wire() sends them on
     switch (nameAt(step, off)) {
       case 'topics': return step1();
-      case 'narrow': return stepNarrow();
       case 'bills':  return step2();
       case 'stand':  return step3();
       case 'tour':   return stepTour();
-      case 'howlaw': return stepHowLaw();
-      case 'calendar': return stepCalendar();
+      case 'session': return stepSession();
       case 'hearing': return stepHearing();
+      case 'whatsnext': return stepWhatsNext();
       case 'legislators': return stepLegs();
       case 'name':   return stepName();
       case 'recap':  return step2off();
@@ -837,21 +911,22 @@ export default {
     if (redirectFor(step, off)) return '';
     switch (nameAt(step, off)) {
       case 'topics': return bar2(off ? 'Next' : 'Show me bills', { iconEnd: 'arrow-right' });
-      case 'narrow': return bar2('Show me bills', { iconEnd: 'arrow-right' });
       case 'recap':  { const L = S.stLoad, sig = sigOf(true, pickedIssues());
         return L && L.sig === sig && L.err ? barRetry() : bar2('Next', { iconEnd: 'arrow-right' }); }
       case 'bills': {
         const m = model2();
         if (m.err) return barRetry();
         if (m.loading || m.none) return barBusy();
-        if (m.fallback && !m.first.length) return bar1('Go to my page');
+        if (m.fallback && !m.fallbackPols.length) return bar1('Go to my page');
         return bar2(followLabel(m.picked.size), { icon: 'star' });
       }
       case 'stand': return bar2('Next', { iconEnd: 'arrow-right' });
-      case 'tour': case 'howlaw': case 'calendar': case 'hearing': case 'legislators':
-        return bar2('Next', { iconEnd: 'arrow-right' }, undefined, 'Skip the tour');
+      case 'tour': case 'session': case 'hearing': case 'whatsnext': case 'legislators':
+        return bar2('Next', { iconEnd: 'arrow-right' });   // Skip defaults to plain "Skip" (3.5)
       case 'name': return bar2('Done', { iconEnd: 'check' });
-      default: return '';   // the email step holds its own buttons, next to the field
+      case 'email': return mailSent() ? bar2('Go to my page', { iconEnd: 'arrow-right' }, { 'data-stdone': '1' })
+        : bar2('Yes, keep me updated', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
+      default: return '';
     }
   },
 };

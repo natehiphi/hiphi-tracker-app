@@ -11,14 +11,18 @@
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
 import { S, app, esc, icon, blurb, nick, spaced, billPath, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
-  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, fetchAddrSuggest, legLookupAddress, markDone, yay } from './core.js';
+  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
+import { createAddressPicker } from './addresspicker.js';
 
 const KEY = 'hiphi_districts';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
-const P = { q: '', addr: null, loading: false, pick: null, finding: null, err: '', changing: false, remember: true,
+const P = { q: '', pick: null, finding: null, err: '', changing: false, remember: true,
   mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '' };
+// The debounced address fetch is the one stateful, async part of this page; it is its own module (addresspicker.js)
+// so the onboarding wizard can run a second, independent instance rather than sharing this one.
+const AP = createAddressPicker();
 
 // ---------------- places and islands (Hawaiʻi-specific) ----------------
 // Hawaiʻi's 2022 district maps, in use until the 2032 redistricting: Senate 1-4 and House 1-8 are on Hawaiʻi
@@ -199,7 +203,7 @@ function suggest(q) {
     out.person = seated().filter(l => (' ' + norm(l.name)).includes(' ' + k) || norm(l.sort_name).startsWith(k)).slice(0, 3)
       .map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, sub: `${CHAMBER_WORD[l.chamber]} District ${l.district} · ${ISLAND_NAME[islandOf(l)]}`, ids: [l.id] }));
   }
-  if (P.addr && P.addr.q === t) out.addr = P.addr.results.slice(0, digits ? 8 : 4).map(addrSug);
+  out.addr = AP.results(t).slice(0, digits ? 8 : 4).map(addrSug);
   if (digits && /^\d/.test(t) && t.length >= 5 && !out.addr.some(x => x.exact)) out.addr.push({ kind: 'typed', label: 'Look up this address', sub: t, q: t });
   return (digits ? [...out.district, ...out.addr, ...out.place, ...out.person] : [...out.place, ...out.person, ...out.addr]).slice(0, 10);
 }
@@ -219,7 +223,7 @@ function sugHTML() {
   if (list.length === 1 && list[0].kind === 'nozip') return `<p class="pp-sugnote">${icon('info')}<span>That ZIP code is not in Hawaiʻi. Try your street address or your town.</span></p>`;
   if (list.length === 1 && list[0].kind === 'zipunknown') return `<p class="pp-sugnote">${icon('info')}<span>That ZIP code is for post office boxes. Try your street address or your town.</span></p>`;
   const rows = list.map((x, i) => `<button type="button" class="pp-sugrow" data-pp-sug="${i}"><span class="pp-sugic">${icon(SUG_ICON[x.kind])}</span><span class="pp-sugtext"><span class="pp-sugtitle">${esc(x.kind === 'addr' ? x.street : x.label)}</span>${x.sub ? `<span class="pp-sugsub">${esc(x.sub)}</span>` : ''}</span></button>`).join('');
-  const wait = P.loading && looksLikeAddress(P.q) && (/\d/.test(P.q) || !list.length) ? `<p class="pp-sugnote" aria-hidden="true">${icon('loader-circle', { cls: 'pp-spin' })}<span>Looking up street addresses…</span></p>` : '';
+  const wait = AP.isLoading() && looksLikeAddress(P.q) && (/\d/.test(P.q) || !list.length) ? `<p class="pp-sugnote" aria-hidden="true">${icon('loader-circle', { cls: 'pp-spin' })}<span>Looking up street addresses…</span></p>` : '';
   return rows || wait ? `<div class="pp-sugs" role="group" aria-label="Suggestions">${rows}${wait}</div>` : '';
 }
 
@@ -476,21 +480,12 @@ function wireSug() {
     };
   });
 }
-let addrTimer = 0;
 function onType(v) {
   P.q = v; P.err = ''; P.pick = null;
   const clear = $('[data-pp-clear]'); if (clear) clear.hidden = !v;
   const inp = $('#pp-q'); if (inp) { inp.removeAttribute('aria-invalid'); $('#pp-err')?.remove(); }
-  const q = v.trim();
-  clearTimeout(addrTimer);
-  // Street addresses come from the database: wait for a pause in typing. A ZIP alone has no street to match.
-  if (looksLikeAddress(q) && !/^\d{5}$/.test(q) && !(P.addr && P.addr.q === q)) {
-    P.loading = true;
-    addrTimer = setTimeout(async () => {
-      try { const results = await fetchAddrSuggest(q); if (P.q.trim() === q) P.addr = { q, results }; } catch { if (P.q.trim() === q) P.addr = { q, results: [] }; }
-      if (P.q.trim() === q) { P.loading = false; paintSug(); }
-    }, 250);
-  } else P.loading = false;
+  // Street addresses come from the database: AP waits for a pause in typing. A ZIP alone has no street to match.
+  AP.search(v.trim(), paintSug);
   paintSug();
 }
 async function choose(x) {

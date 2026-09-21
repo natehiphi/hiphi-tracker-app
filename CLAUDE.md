@@ -3,7 +3,7 @@
 Public repo `natehiphi/hiphi-tracker-app`, deployed by GitHub Pages from `main` at
 https://natehiphi.github.io/hiphi-tracker-app/. The backend (schema, migrations, sync, runbooks, `HANDOFF.md`) is
 the private repo in `../backend`. **Read `../backend/HANDOFF.md` first** in any session: section 3 holds the
-newest entries (3.1y, 3.1x, 3.1w, …) with every decision Nate has made and what is still open.
+newest entries (3.6, 3.5, 3.4, …) with every decision Nate has made and what is still open.
 
 ## Who this is for
 
@@ -12,17 +12,21 @@ use the terminal, and reviews on his phone AND a laptop. He wants direct answers
 screenshots for anything visual. When he says something is bad, fix it rather than defend it. He approves
 direction; Claude builds, tests, pushes and verifies the published site.
 
-## Where things stand (2026-09-20, after 3.5)
+## Where things stand (2026-09-20, after 3.6)
 
-**Read `../backend/HANDOFF.md` 3.5 before touching the public first visit.** It holds Nate's verbatim review of
-the eleven-screen onboarding and the target shape for the next build. In short: the "narrow" and bill-picking
-steps merge into collapsible topic sections with bills pre-ticked (every live strongly-supported bill plus
-staff-recommended ones - a new `bills` column is needed) and a Follow all button; "where do you stand" asks about
-three bills at most (decided earlier, NOT yet built); "Reading a bill" becomes a miniature of the real bill page
-with numbered callouts; "How a bill becomes law" and "The session calendar" are replaced by ONE friendly
-January-to-May session page; Home's "What happens next" card becomes its own screen; the legislator step takes a
-street address, not a town; the email step becomes one "keep me updated" opt-in covering hearing AND advocacy
-alerts; the name is saved with the account; no "Step 4 of 11" counter; and "Skip" moves to the next page.
+**Read `../backend/HANDOFF.md` 3.6 before touching the public first visit.** The ten-screen restructure 3.5
+called for is built: topics -> a "your topics and their bills" screen (collapsible sections per topic, every
+live strongly-supported or staff-recommended policy pre-ticked, a Follow all button per topic and overall) ->
+where you stand (three bills at most) -> reading a bill (a miniature of the real bill page, reusing its own
+stage rail, with tap-to-reveal numbered callouts) -> the session, January to May (replaces "how a bill becomes
+law" and "the session calendar") -> what a hearing is (tap-to-reveal, meets the committee chair when one is
+known) -> what happens next (new, lifted from Home's welcome card) -> who speaks for you (a street address
+first, town still offered underneath) -> keep me updated (one opt-in for hearing alerts AND HIPHI's advocacy
+alerts - `frontend/CLAUDE.md`'s old product rule 2 and `DESIGN.md` C-4 were rewritten in the same commit) ->
+your name (saved with the account once an email is given, `public_users.prefs.name`, no migration). No step
+counter anywhere; "Skip" always means "go to the next page". Migration 061 added `bills.recommended` and a
+Staff v2 toggle for it. Needs Nate: which real bills to use as the personalized teaching example, and the
+"Follow all" button placement/wording, per screenshots in 3.6.
 
 **The team is moving to Staff v2** (Nate, 9/20; logins later). Until the old app is retired, data-layer changes
 still go into both staff apps. The move's steps are in the backend CLAUDE.md "Open items".
@@ -103,11 +107,11 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   1. A first visit is follow a few bills + maybe say where you stand. No action is pushed. Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
-  2. The email ask is a step in the flow (`sendEmailLink`); giving it is the consent for hearing alerts. One
-     ask per visit, always skippable. HIPHI's own action alerts stay a separate choice, off by default. An
-     existing account only ever GAINS choices from an ask. **CHANGING (Nate, 9/20, HANDOFF 3.5):** the ask becomes
-     one "keep me updated" opt-in that covers hearing alerts AND HIPHI's advocacy alerts. Rewrite this rule, and
-     DESIGN.md C-4, in the same commit as that code. Email to the public stays paused either way.
+  2. The email ask is a step in the flow (`sendEmailLink`); giving it is the consent for both hearing alerts
+     AND HIPHI's own advocacy alerts, in one "keep me updated" opt-in (Nate, 9/20, HANDOFF 3.5 - this reverses
+     the earlier rule that action alerts stayed a separate, off-by-default choice). One ask per visit, always
+     skippable. An existing account only ever GAINS choices from an ask, never loses one. Email to the public
+     stays paused regardless of what an ask would consent to.
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 

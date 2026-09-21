@@ -313,7 +313,7 @@ anything that lengthens one needs a reason in the commit message.
 
 | Journey | Budget |
 |---|---|
-| Public: arrive → follow a first bill | 5 steps |
+| Public: arrive → follow a first bill | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → action sent | 4 steps |
 | Public: give an email address (from the moment it is offered) | 2 steps |
@@ -327,10 +327,13 @@ bad fix for a crowded screen: moving things one level deeper, which trades a loo
 problem and usually makes the app worse overall.
 
 **Raised from 4 to 5 for the first journey on 2026-09-20**, on Nate's decision to build a deliberately
-longer first visit that narrows by sub-topic before offering bills. A budget that moves whenever the
-product moves is worthless, so this is the standing test: the step was *bought* for something — a
-list of eleven near-identical bills became one row per policy — and it is recorded here rather than
-quietly absorbed. Measured by `tests/journeys.py`, which fails if any journey exceeds its budget.
+longer first visit that narrowed by sub-topic before offering bills. **Back to 3 on 2026-09-20, same
+day, HANDOFF 3.5**: Nate's review folded that narrowing screen into the topics-and-bills screen itself
+(collapsible sections per topic, opened on demand), so the extra tap it bought is gone, while the thing
+it was really buying - one row per policy instead of eleven near-identical bills - stayed. A budget
+that moves whenever the product moves is worthless, so this is the standing test: a step earns its
+place here for a reason, recorded, not quietly absorbed. Measured by `tests/journeys.py`, which fails
+if any journey exceeds its budget.
 
 ### B-3 No dead ends
 
@@ -458,12 +461,15 @@ lands best at the moment somebody has just felt the thing work.
 
 ### C-4 Consent is specific, and an account only ever gains choices
 
-Giving an address for hearing alerts is consent for hearing alerts. HIPHI's own action alerts are a
-separate, opt-in choice, off by default. An existing account never silently loses a preference or
-gains a subscription.
+Giving an email for "keep me updated" is consent for both hearing alerts and HIPHI's own advocacy
+alerts, named plainly as one choice at the point of asking - not two separate switches, and not a
+hearing-alerts ask that quietly turns on advocacy email too (Nate, 9/20, HANDOFF 3.5, reversing this
+rule's earlier "action alerts stay separate, off by default"). An existing account never silently
+loses a preference or gains a subscription beyond what a specific ask named.
 
 *Reason.* Specific consent is both the legal standard and the reason people open the next email.
-Anything else spends the trust C-1 earned.
+Bundling two named things into one plainly-described ask is still specific; a vague ask, or one that
+grants something it never mentioned, is what spends the trust C-1 earned.
 
 ### C-5 Ask for the least, at the latest possible moment
 

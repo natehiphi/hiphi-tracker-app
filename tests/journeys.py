@@ -25,10 +25,9 @@ PUBLIC = HOST + '/track.html?demo=1'
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
- dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=5, start='#/', steps=[
+ dict(name='public: arrive -> follow a first bill', app=PUBLIC, budget=3, start='#/', steps=[
    dict(what='pick a topic', do="""(()=>{const e=[...document.querySelectorAll('.st-issue')].find(x=>/Food/.test(x.innerText)); if(!e)return false; e.click(); return true;})()""", reach=seen('Food')),
-   dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('particular')),
-   dict(what='past the narrowing',   do=click_text('.actionbar .btn', 'Show me bills'), reach=seen('Start with these')),
+   dict(what='ask for bills',        do=click_text('.btn', 'Show me bills'),  reach=seen('topics, and their bills|Start with')),
    dict(what='follow the picked bills', do=click_text('.actionbar .btn', 'Follow \\d+ bill'), reach=seen("following")),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
@@ -42,11 +41,11 @@ JOURNEYS = [
    dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),
- dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/10', wiz_at_4=True, steps=[
+ dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/9', wiz_at_4=True, steps=[
    dict(what='type the address', do="(()=>{const i=document.querySelector('input[type=email]'); if(!i)return false;"
         "i.value='someone@example.com'; i.dispatchEvent(new Event('input',{bubbles:true})); return true;})()",
         reach="(()=>{const i=document.querySelector('input[type=email]'); return !!i && i.value.includes('@');})()"),
-   dict(what='send it', do=click_text('.btn,button', 'Yes, email me a heads-up|Send me alerts'), reach="(()=>true)()"),
+   dict(what='send it', do=click_text('.btn,button', 'Yes, keep me updated|Send me alerts'), reach="(()=>true)()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

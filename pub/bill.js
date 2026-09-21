@@ -131,7 +131,9 @@ const goBack = () => { if (history.state?.arrived || !history.state?.blRoot) his
 // so core neither counts nor uploads it. A mark from before this change (the usual key, with no committee mark on
 // the bill at all) still counts, for every committee.
 const asked = askedChair;   // the rule lives in core, shared with Home
-function situation(b) {
+// Exported so the onboarding wizard's "Reading a bill" miniature (pub/start.js) can reuse the real
+// stage rail instead of re-deriving it - the miniature and the real page must never disagree.
+export function situation(b) {
   const st = stopOf(b), hs = hearingsOf(b), pos = posInfo(b), law = b.stage === 'enacted' || st.phase === 'law';
   const stopped = !law && (b.stage === 'dead' || b.stage === 'vetoed' || (!alive(b) && b.stage !== 'governor'));
   const live = !law && !stopped, differs = agrees(b) === false;
@@ -244,7 +246,7 @@ function railInfo(b, x) {
 }
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
-function railHTML(b, x) {
+export function railHTML(b, x) {
   const r = railInfo(b, x), at = s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
   const align = r.idx <= 1 ? 'l' : r.idx >= 5 ? 'r' : 'c';
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.

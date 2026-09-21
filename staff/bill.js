@@ -231,11 +231,14 @@ const PRI_SUB = { 1: 'Top tier: leads every list and alert', 2: 'Active, behind 
 // Initials on the owner chip (ui.avatar says "You" at this size, and the chip's label already does).
 const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" style="--av:24px" aria-hidden="true">${esc(a.initials || firstName(a)[0] || '?')}</span>`;
 const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
+// Boolean, so it saves on tap with no picker sheet — Position/Priority/Owner need one because they're multi-valued.
+const toggle = (key, label, on, aria) => `<button type="button" class="sv-pick sv-toggle${on ? ' on' : ''}" data-bwpick="${key}" aria-pressed="${on}" aria-label="${esc(aria)}">${icon(on ? 'sparkles' : 'circle-dashed')}<span>${esc(label)}</span></button>`;
 const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
   return [['Position', pick('pos', POS_WORD[pos] || pos, posIcons(pos), `Position: ${POS_WORD[pos] || pos}. Change`)],
     ['Priority', pick('pri', b.priority ? 'P' + b.priority : 'No priority', '', `Priority: ${b.priority ? 'P' + b.priority : 'none'}. Change`)],
-    ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)]];
+    ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)],
+    ['Recommended', toggle('rec', b.recommended ? 'Recommended' : 'Not recommended', !!b.recommended, `Recommended to visitors picking their bills: ${b.recommended ? 'yes' : 'no'}. Change`)]];
 };
 const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : !isOwner(b) && S.follows?.has(b.id) ? chip('Following', '', 'bell') : '';
 // Phones: a row of chips under the status sentence.
@@ -261,6 +264,9 @@ function pickPriority(b) {
   pickerSheet({ title: `Priority of ${b.bill_number}`, value: b.priority ? String(b.priority) : '',
     options: [['1', 'P1', 'flag', PRI_SUB[1]], ['2', 'P2', 'flag', PRI_SUB[2]], ['3', 'P3', 'flag', PRI_SUB[3]], ['', 'No priority', 'circle-dashed']],
     onPick: v => saveWithUndo(b, { priority: v ? +v : null }, '[data-bwpick="pri"]') });
+}
+function toggleRecommended(b) {
+  saveWithUndo(b, { recommended: !b.recommended }, '[data-bwpick="rec"]');
 }
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
@@ -866,6 +872,7 @@ export default {
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
     page.querySelector('[data-bwpick="pri"]').onclick = () => pickPriority(b);
     page.querySelector('[data-bwpick="own"]').onclick = () => pickOwner(b);
+    page.querySelector('[data-bwpick="rec"]').onclick = () => toggleRecommended(b);
     // Next up
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));

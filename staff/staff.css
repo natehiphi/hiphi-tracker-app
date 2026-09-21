@@ -48,6 +48,8 @@ body.staff2.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe
 .sv-pick:hover { border-color: var(--p700); background: var(--p50); }
 .sv-pick .ic { width: 18px; height: 18px; }
 .sv-pick .chev { width: 16px; height: 16px; color: var(--n500); }
+.sv-pick.sv-toggle.on { border-color: var(--p700); background: var(--p50); color: var(--p800); }
+.sv-pick.sv-toggle.on .ic { color: var(--p700); }
 .sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t14); font-weight: 700; color: var(--n700); white-space: nowrap; }
 .sv-count .ic { width: 16px; height: 16px; }
 .sv-count.soon { color: var(--warn-text); }
