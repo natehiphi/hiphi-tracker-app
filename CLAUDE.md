@@ -204,6 +204,12 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
 `staff/data.js` and `staff/model.js` are hand copies of `app.js`'s data layer and helpers.
 - After ANY change to a Supabase call or shared helper, make the same change in both, then run
   `node staff/tools/parity.mjs` (must print `parity ok`).
+- **Supabase hands back at most 1,000 rows per request** (the API's Max rows) and says nothing when it cuts:
+  `.limit(2000)` still gets 1,000. A load that can grow goes through `allRows(o => S.supa.from('t').select('...', o)...)`
+  (both files) and orders by something unique, ending with `id` or the primary key, or a row can repeat or fall
+  between pages. Measured 9/21 (backend HANDOFF 3.20, R-034): in session the 60-day hearings load holds up to 4,000
+  rows, and tracked bills pass 1,000 once 2027's are added to 2026's. The public page asks by id in slices
+  (`inChunks`) or with a limit of 1,000 at most.
 - Both write only these `bills` columns: `tracked`, `position`, `priority`, `stage_override`, `internal_notes`,
   `is_public`, `public_summary`, `public_action`, `public_action_until`, `nickname`. The database grants UPDATE
   column by column; a new column needs a migration first (see backend 057) or saves fail with

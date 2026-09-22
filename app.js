@@ -118,6 +118,18 @@ const av = (a, cls='avatar') =>
   `<span class="${cls}" style="background:${a?.color || '#8FA1AD'}" title="${esc(a?.full_name||'')}">${esc(a?.initials || '?')}</span>`;
 
 // ---------------- data layer ----------------
+// Supabase answers one request with at most 1,000 rows (the project's API "Max rows"), whatever .limit() asks for, and
+// says nothing when it cuts: .limit(2000) on 1,400 tracked bills quietly returns the first 1,000 by number, and 60 days
+// of hearings in session (up to 4,000 rows) came back as the oldest 1,000, without the week ahead. So every load that
+// can grow is read in pages. make(opts) builds the query afresh for each page, passes opts to select(), and orders by
+// something unique, or a row can repeat or fall between two pages. The first page also asks for the total; the rest
+// then come together, each the size the server gave the first. Resolves like one query: { data, error }.
+async function allRows(make) {
+  const first = await make({ count: 'exact' }).range(0, 999), n = first.data?.length || 0;
+  if (first.error || !n || !(first.count > n)) return first;
+  const rest = await Promise.all(Array.from({ length: Math.ceil(first.count / n) - 1 }, (_, i) => make().range(n * (i + 1), n * (i + 2) - 1)));
+  return rest.find(r => r.error) || { ...first, data: first.data.concat(...rest.map(r => r.data)) };
+}
 const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
@@ -154,18 +166,20 @@ const DB = {
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
+    // One clock for the whole load, so every page of a paged query asks for the same window.
+    const loadedAt = Date.now(), daysBack = d => new Date(loadedAt - d * 864e5).toISOString();
     const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
-      S.supa.from('bills').select('*').eq('tracked', true).order('bill_number').limit(2000),
-      S.supa.from('bill_assignments').select('bill_id,advocate_id'),
+      allRows(o => S.supa.from('bills').select('*', o).eq('tracked', true).order('bill_number').order('id')),
+      allRows(o => S.supa.from('bill_assignments').select('bill_id,advocate_id', o).order('bill_id').order('advocate_id')),
       S.supa.from('campaigns').select('*').order('sort_order'),
-      S.supa.from('bill_campaigns').select('bill_id,campaign_id'),
-      S.supa.from('hearings').select('*').gte('scheduled_at', new Date(Date.now()-60*864e5).toISOString()),
-      S.supa.from('bill_pulse').select('*'),
+      allRows(o => S.supa.from('bill_campaigns').select('bill_id,campaign_id', o).order('bill_id').order('campaign_id')),
+      allRows(o => S.supa.from('hearings').select('*', o).gte('scheduled_at', daysBack(60)).order('id')),
+      allRows(o => S.supa.from('bill_pulse').select('*', o).order('bill_id')),
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
-      S.supa.from('bill_todos').select('*').order('sort_order').order('created_at'),
-      S.supa.from('testimony_drafts').select('*').order('created_at'),
+      allRows(o => S.supa.from('bill_todos').select('*', o).order('sort_order').order('created_at').order('id')),
+      allRows(o => S.supa.from('testimony_drafts').select('*', o).order('created_at').order('id')),
       S.supa.from('committees').select('*'),
       S.supa.from('app_settings').select('value').eq('key', 'slack').maybeSingle(),
       S.supa.from('app_settings').select('value').eq('key', 'calendar').maybeSingle(),
@@ -173,24 +187,24 @@ const DB = {
       S.supa.from('app_settings').select('value').eq('key', 'sync').maybeSingle(),
       S.supa.from('session_deadlines').select('*'),
       S.supa.from('committee_slots').select('*'),
-      S.supa.from('bill_follows').select('advocate_id,bill_id'),
-      S.supa.from('hearing_attendance').select('hearing_id,advocate_id'),
-      S.supa.from('hearing_outcomes').select('*').gte('scheduled_at', new Date(Date.now() - 14 * 864e5).toISOString()),
-      S.supa.from('bill_messages').select('*').is('deleted_at', null).gte('created_at', new Date(Date.now() - 90 * 864e5).toISOString()).order('created_at'),
-      S.supa.from('bill_message_reads').select('*'),
+      allRows(o => S.supa.from('bill_follows').select('advocate_id,bill_id', o).order('advocate_id').order('bill_id')),
+      allRows(o => S.supa.from('hearing_attendance').select('hearing_id,advocate_id', o).order('hearing_id').order('advocate_id')),
+      allRows(o => S.supa.from('hearing_outcomes').select('*', o).gte('scheduled_at', daysBack(14)).order('hearing_id')),
+      allRows(o => S.supa.from('bill_messages').select('*', o).is('deleted_at', null).gte('created_at', daysBack(90)).order('created_at').order('id')),
+      allRows(o => S.supa.from('bill_message_reads').select('*', o).order('advocate_id').order('bill_id')),
       S.supa.rpc('my_inbox', { p_limit: 300 }),
       S.supa.from('session_calendar').select('*'),
       S.supa.from('public_lists').select('*').is('archived_at', null).order('sort_order').order('created_at'),
       S.supa.from('public_list_bills').select('*').order('sort_order').order('added_at'),
       S.supa.rpc('list_follow_counts'),
       S.supa.from('legislators').select('*').eq('active', true).order('chamber').order('district'),
-      S.supa.from('committee_members').select('*'),
+      allRows(o => S.supa.from('committee_members').select('*', o).order('session_year').order('committee').order('legislator_id')),
       S.supa.from('committee_counterparts').select('*'),
-      S.supa.from('legislator_stances').select('*'),
+      allRows(o => S.supa.from('legislator_stances').select('*', o).order('bill_id').order('legislator_id')),
       S.supa.from('action_alerts').select('*').order('created_at', { ascending: false }).limit(200),
       S.supa.from('people_segments').select('*').order('name'),
       S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }),
-      S.supa.from('bill_mutes').select('advocate_id,bill_id').is('unmuted_at', null),
+      allRows(o => S.supa.from('bill_mutes').select('advocate_id,bill_id', o).is('unmuted_at', null).order('advocate_id').order('bill_id')),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -250,8 +264,8 @@ const DB = {
     try {
       const nums = [...new Set(S.bills.flatMap(b => b.companions || []))];
       if (nums.length) {
-        const ci = await S.supa.from('bills').select('bill_number,stage,stage_override')
-          .in('bill_number', nums);
+        const ci = await allRows(o => S.supa.from('bills').select('bill_number,stage,stage_override', o)
+          .in('bill_number', nums).order('id'));
         S.compStage = Object.fromEntries((ci.data || [])
           .map(r => [r.bill_number, r.stage_override || r.stage || 'introduced']));
       }
@@ -564,7 +578,7 @@ const DB = {
   // ---- people (CRM) ----
   async loadPeople() {
     if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;
-    try { const { data, error } = await S.supa.from('people_overview').select('*').order('last_active', { ascending: false, nullsFirst: false }).limit(5000); if (error) throw error; S.people = data || []; S.peopleLoaded = true; }
+    try { const { data, error } = await allRows(o => S.supa.from('people_overview').select('*', o).order('last_active', { ascending: false, nullsFirst: false }).order('id')); if (error) throw error; S.people = data || []; S.peopleLoaded = true; }
     finally { S.peopleLoading = false; }
   },
   async ensurePerson(id) { if (personById(id)) return personById(id); if (DEMO) return null; return this.refreshPerson(id); },
@@ -632,7 +646,7 @@ const DB = {
   async legLatestNotes() {
     if (S.legLast) return S.legLast;
     if (DEMO) return (S.legLast = {});
-    const { data, error } = await S.supa.from('legislator_notes').select('id,legislator_id,advocate_id,body,created_at').order('created_at', { ascending: false }).limit(2000); if (error) throw error;
+    const { data, error } = await allRows(o => S.supa.from('legislator_notes').select('id,legislator_id,advocate_id,body,created_at', o).order('created_at', { ascending: false }).order('id')); if (error) throw error;
     const out = {}; for (const r of data || []) if (!out[r.legislator_id]) out[r.legislator_id] = r;
     return (S.legLast = out);
   },
