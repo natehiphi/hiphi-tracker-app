@@ -1,0 +1,58 @@
+/* Motion and celebration (pub/fx.js; R-023, DESIGN.md A-10 and C-7). Orange is the celebration colour. Everything
+   here stops under Reduce Motion: bursts are not drawn at all, the moments appear without movement. */
+:root { --spring: cubic-bezier(.34, 1.4, .64, 1); }
+
+/* ---- a small burst of petals ---- */
+.fx-burst { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 95; }
+.fx-burst i { position: absolute; left: -4px; top: -6px; width: 8px; height: 12px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: var(--c); opacity: 0; animation: fx-petalfly .85s var(--ease) forwards; }
+@keyframes fx-petalfly { 0% { opacity: 0; transform: translate(0, 0) scale(.4) rotate(0); } 20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1) rotate(160deg); } }
+
+/* ---- the big moments: a card over a pale veil, waiting for Continue ---- */
+.fx-moment { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(244, 247, 249, .95);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: fx-fadein .2s var(--ease); }
+.fx-moment[hidden] { display: none; }
+.fx-moment.fx-out { animation: fx-fadeout .24s var(--ease) forwards; }
+.fx-mcard { text-align: center; max-width: 380px; }
+.fx-mtitle { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--o700); letter-spacing: -.02em; animation: fx-rise .35s var(--ease) .35s both; }
+.fx-msub { margin: 8px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .35s var(--ease) .5s both; }
+.fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n500); animation: fx-rise .35s var(--ease) .65s both; }
+.fx-mgo { margin-top: 24px; min-width: 200px; animation: fx-rise .3s var(--ease) .8s both; }
+.fx-bloom { width: 120px; height: 120px; margin: 0 auto 8px; }
+.fx-bloom svg { width: 100%; height: 100%; overflow: visible; }
+.fx-bloom .fx-petal { transform-box: fill-box; transform-origin: 50% 100%; animation: fx-petal .5s var(--spring) both; }
+.fx-bloom .fx-heart { transform-box: fill-box; transform-origin: center; animation: fx-pop .35s var(--spring) .45s both; }
+.fx-bloom .fx-spark { transform-box: fill-box; transform-origin: center; animation: fx-spark .9s var(--ease) .5s both; }
+.fx-learn { width: 220px; margin: 0 auto 12px; }
+.fx-learn .fx-ticks { display: flex; justify-content: center; gap: 22px; margin-bottom: 6px; }
+.fx-learn .fx-tk { position: relative; display: grid; place-items: center; width: 44px; height: 44px; color: var(--p800); animation: fx-rise .3s var(--ease) both; }
+.fx-learn .fx-tk > .ic { width: 28px; height: 28px; }
+.fx-learn .fx-tk b { position: absolute; right: -6px; bottom: -4px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ok-text); color: #fff; box-shadow: 0 0 0 3px var(--n50); animation: fx-pop .35s var(--spring) both; animation-delay: inherit; }
+.fx-learn .fx-tk b .ic { width: 14px; height: 14px; }
+.fx-learn .fx-cap svg { width: 100%; height: auto; display: block; }
+
+@keyframes fx-fadein { from { opacity: 0; } }
+@keyframes fx-fadeout { to { opacity: 0; } }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fx-pop { 0% { opacity: 0; transform: scale(.4); } 70% { opacity: 1; transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes fx-petal { from { opacity: 0; transform: scale(.2) rotate(-30deg); } }
+@keyframes fx-spark { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--sx), var(--sy)); } }
+
+/* ---- screen changes in the first visit slide the way the person is going (A-10: 200-300 ms) ---- */
+body[data-screen="start"] main { view-transition-name: fx-main; }
+::view-transition-old(fx-main), ::view-transition-new(fx-main) { animation-duration: .26s; animation-timing-function: var(--ease); }
+html[data-fxdir="fwd"]::view-transition-old(fx-main) { animation-name: fx-out-l; }
+html[data-fxdir="fwd"]::view-transition-new(fx-main) { animation-name: fx-in-r; }
+html[data-fxdir="back"]::view-transition-old(fx-main) { animation-name: fx-out-r; }
+html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l; }
+@keyframes fx-out-l { to { opacity: 0; transform: translateX(-32px); } }
+@keyframes fx-in-r { from { opacity: 0; transform: translateX(32px); } }
+@keyframes fx-out-r { to { opacity: 0; transform: translateX(32px); } }
+@keyframes fx-in-l { from { opacity: 0; transform: translateX(-32px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-moment, .fx-moment *, .fx-moment *::before { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
+  ::view-transition-old(fx-main), ::view-transition-new(fx-main) { animation: none; }
+}

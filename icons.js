@@ -170,7 +170,8 @@ export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "folder-open":"<path d=\"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2\"/>",
 "users-round":"<path d=\"M18 21a8 8 0 0 0-16 0\"/> <circle cx=\"10\" cy=\"8\" r=\"5\"/> <path d=\"M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3\"/>",
 "badge-check":"<path d=\"M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z\"/> <path d=\"m16 9-5.5 5.5L8 12\"/>",
-"building":"<path d=\"M12 10h.01\"/> <path d=\"M12 14h.01\"/> <path d=\"M12 6h.01\"/> <path d=\"M16 10h.01\"/> <path d=\"M16 14h.01\"/> <path d=\"M16 6h.01\"/> <path d=\"M8 10h.01\"/> <path d=\"M8 14h.01\"/> <path d=\"M8 6h.01\"/> <path d=\"M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3\"/> <rect x=\"4\" y=\"2\" width=\"16\" height=\"20\" rx=\"2\"/>"};
+"building":"<path d=\"M12 10h.01\"/> <path d=\"M12 14h.01\"/> <path d=\"M12 6h.01\"/> <path d=\"M16 10h.01\"/> <path d=\"M16 14h.01\"/> <path d=\"M16 6h.01\"/> <path d=\"M8 10h.01\"/> <path d=\"M8 14h.01\"/> <path d=\"M8 6h.01\"/> <path d=\"M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3\"/> <rect x=\"4\" y=\"2\" width=\"16\" height=\"20\" rx=\"2\"/>",
+"chart-column":"<path d=\"M3 3v16a2 2 0 0 0 2 2h16\"/> <path d=\"M18 17V9\"/> <path d=\"M13 17V5\"/> <path d=\"M8 17v-3\"/>"};
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
   const p = ICONS[name] || ICONS['circle'] || '';

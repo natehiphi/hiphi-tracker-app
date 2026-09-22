@@ -15,7 +15,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   actedOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
-  issueFollowed, issueBills, catOf, setFollows, app, toast } from './core.js';
+  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel } from './core.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
@@ -352,6 +352,19 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
 
 // The first visit (Nate, 9/19): they followed a few bills and maybe said where they stand, and that is enough for
 // today. No deadline shouts here. Anything they could do this week waits behind one quiet line.
+// Right after the first visit's last screen (R-023): the issues just followed, one line each, with a hearing day when
+// there is one. The finale has just celebrated; badges, a stats panel and "What's new" here would say it all again, and
+// counted differently (the review, 9/21: "said where you stand on one of them" beside "2 stands taken").
+function yourIssues() {
+  const iss = followedIssues(); if (!iss.length) return '';
+  const soon = new Map(); for (const h of S.hearings) if (h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5) {
+    const c = soon.get(h.bill_id); if (!c || h.scheduled_at < c) soon.set(h.bill_id, h.scheduled_at); }
+  const rows = iss.slice(0, 6).map(i => { const ids = issueBills(i), live = ids.map(id => S.bills.find(b => b.id === id)).filter(b => b && alive(b));
+    const day = ids.map(id => soon.get(id)).filter(Boolean).sort()[0];
+    return `<li><span class="hm-yname"><b>${esc(i.name)}</b><span>${live.length ? plural(live.length, 'bill') + ' moving' : 'Nothing moving yet'}</span></span>${day ? chip(new Date(day).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }), 'info', 'calendar') : ''}</li>`; }).join('');
+  return `<section class="card hm-yours" aria-labelledby="hm-yi"><h2 id="hm-yi" class="hm-eyebrow">Your issues</h2><ul class="hm-ylist">${rows}</ul>
+    ${btn(iss.length > 6 ? `See all ${iss.length}` : 'See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</section>`;
+}
 function welcomeView(si, { cards, asks, total }) {
   // What they follow, in words ("all of Food & Nutrition and 3 more issues", "7 issues"); a stand counts once per issue.
   const said = followSummary() || plural(S.bills.length, 'bill'), stances = S.stances || {}, took = id => ['support', 'oppose'].includes(stances[id]);
@@ -362,26 +375,39 @@ function welcomeView(si, { cards, asks, total }) {
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
-  return `<div class="hm hm-follow hm-welcome">
+  // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
+  // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to
+  // help (B-3: the lessons need somewhere to go). Nothing is pushed: the rest still waits behind one line.
+  const fin = !!wiz().finale, name = (wiz().name || '').trim();
+  const week = fin ? cards.filter(x => x.h && new Date(x.h.scheduled_at) > Date.now()).sort((a, b) => a.h.scheduled_at.localeCompare(b.h.scheduled_at))[0] : null;
+  const due = week ? dueInfo(week.h) : null;
+  const weekCard = week ? `<section class="card hm-week" aria-labelledby="hm-wk"><p class="hm-eyebrow">This week</p>
+      <h2 id="hm-wk">${esc(spaced(week.b.bill_number))} has a hearing ${esc(dayWord(week.h.scheduled_at))}</h2>
+      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${esc(due.text)}${S.session ? '; we’ll remind you' : ''}.` : ''}</p>
+      ${btn('See how to help', { kind: 'text', iconEnd: 'arrow-right', href: billPath(week.b), cls: 'hm-link' })}</section>` : '';
+  const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
+  const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;
+  return `<div class="hm hm-follow hm-welcome${fin ? ' hm-fin' : ''}">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head hm-hello">${flower(32)}<h1 class="hero">${(wiz().name || '').trim() ? `You’re all set, ${esc(wiz().name.trim())}` : 'You’re all set'}</h1>
-        <p class="lede">You follow ${esc(said)}${stood}. That’s all you need to do today.</p>
-        ${chipsHtml(ms.got)}
-        ${btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
-      <section class="card hm-nextup" aria-labelledby="hm-nu"><h2 id="hm-nu">What happens next</h2>
+      <header class="hm-head hm-hello">${flower(32)}<h1 class="hero">${heading}</h1>
+        <p class="lede">${lede}</p>
+        ${fin ? '' : chipsHtml(ms.got)}
+        ${fin ? '' : btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
+      ${weekCard}${fin ? yourIssues() : ''}
+      ${fin ? '' : `<section class="card hm-nextup" aria-labelledby="hm-nu"><h2 id="hm-nu">What happens next</h2>
         <ul class="hm-steps">
           ${step('eye', 'We keep watch.', 'We check every bill on your issues each day, so you don’t have to.')}
           ${step('calendar-clock', 'When a bill has a hearing, you can help.', `${soon ? `${soon === 1 ? 'One bill on your issues has' : `${n(soon)} bills on your issues have`} one coming up. ` : ''}We’ll show one simple way to help, right here. Most take a couple of minutes.`)}
           ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My issues.')}
-        </ul></section>
+        </ul></section>`}
       ${ask}
       ${total ? `<section class="hm-later">${toggle('ready', 'hm-readybox', `Ready now? ${plural(total, 'thing')} you can do this week`, 'Hide these for now')}
         <div id="hm-readybox" class="hm-readybox"${S.hmOpen.ready ? '' : ' hidden'}>${todoBlock(cards, asks, { calm: true })}</div></section>` : ''}
-    </div><div class="side hm-side">
+    </div>${fin ? '' : `<div class="side hm-side">
       ${sessionPanel(si, { welcome: true })}
       ${whatsNew(new Set())}
-    </div></div>
+    </div>`}</div>
   </div>`;
 }
 
@@ -472,7 +498,7 @@ function offView(si) {
   return `<div class="hm hm-off">
     ${accountCards()}
     <header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
-      <div class="hm-breakt"><h1 class="hero">${welcome ? `You’re all set for ${nextYr}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
+      <div class="hm-breakt"><h1 class="hero">${welcome ? `${wiz().finale ? 'Aloha' : `You’re all set for ${nextYr}`}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
         <p class="lede">${lede}</p>
         ${next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : ''}</div></header>
     <div class="cols even"><div class="hm-col">

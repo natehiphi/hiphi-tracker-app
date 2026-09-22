@@ -172,10 +172,15 @@ others do not. That is disharmony with a measurable cause. See `DESIGN-AUDIT.md`
 
 ### A-10 Motion is short, purposeful and optional
 
-150–250ms, `--ease`, and only to show where something came from or went. Everything respects
-`prefers-reduced-motion`.
+Screen changes take 200-300 ms and slide the way the person is going. Feedback on a tap takes
+150-250 ms. A celebration may play for up to about 2 seconds and waits for the person to continue.
+Teaching scenes move only when the person taps, and each step's movement is over within about 4
+seconds, in beats that follow its caption. Nothing moves by itself for more than 5 seconds. Under
+Reduce Motion everything still works, with no movement. (Rewritten 9/21 for R-023, Nate's decision 5;
+`pub/fx.js` holds the shared pieces.)
 
-*Reason.* WCAG 2.3.3. Motion that decorates becomes motion that delays, every single time.
+*Reason.* WCAG 2.2.2 and 2.3.3; NN/g on animation duration; lessons the learner steps through
+teach, lessons that play at them don't.
 
 ### A-11 No emoji on the public page or Staff v2
 
@@ -490,15 +495,20 @@ how to get back here. After: the same information on screen, not only in the ema
 
 *Reason.* Magic-link sign-in moves a person to another app and back; that gap is where they are lost.
 
-### C-7 Celebrate the first success — once, and proportionately
+### C-7 Celebrate each real step, in proportion
 
-The first followed issue and the first action sent get a genuine moment: orange, the celebration
-colour, used here and almost nowhere else. One moment, not a streak counter, not a badge, not a
-progress bar that implies homework.
+A small win gets a small burst on the thing just done: a stance taken, a right answer, an address
+found, an email sent, a part of the first visit finished. The first followed issue and the first
+action sent get a moment that fills the screen and waits for Continue. The end of the first visit is
+the peak: the recap of everything the person did, with the petals and the flowers. Orange is the
+celebration colour and is used for these and almost nowhere else. Never a streak counter, a badge, a
+score, or a progress bar that implies homework. (Rewritten 9/21 for R-023, Nate's decision 4: "add
+more celebration animations at different stages".)
 
-*Reason.* Nate's word is "joyous", and the way to get it is scarcity — celebration works precisely
-because the rest of the app is calm. Progress belongs to the person (Nate's rule); community numbers
-appear only inside a bill or hearing, and only from 10 people.
+*Reason.* Nate's words are "joyous" and "more celebration at different stages"; celebration works
+because the rest of the app is calm, so each one is sized to what was done, and the biggest comes
+last (peak-end). Progress belongs to the person (Nate's rule); community numbers appear only inside a
+bill or hearing, and only from 10 people.
 
 ### C-8 A returning person is never made to start again
 
@@ -531,6 +541,17 @@ everywhere else, no decorative element that does nothing, and nothing that looks
 *Reason.* The public tracker's entry screens are its landing page, and a public-health body asking for
 an email address is asking for trust it has about four seconds to earn. Better presentation moves this
 far more than more features do.
+
+### C-12 Teaching is shown, not hidden
+
+What the first visit teaches (reading a bill, the session, a hearing) is one idea per step, on the
+person's own bill, with every word visible when its step is showing: never behind a tap-to-open box
+or a tab. The primary button walks the steps and then moves on; Skip moves on at once; a question
+comes only after the lesson that answers it. (Added 9/21 for R-023.)
+
+*Reason.* Nate, 9/21: the old lessons were "important information ... done in a very boring and
+tedious manner". The review measured 60% of "Reading a bill" and 54% of "What a hearing is" hidden
+behind taps, so anyone who pressed Next learned almost nothing.
 
 ---
 

@@ -192,3 +192,20 @@
   .hm .hm-break .hm-art svg { max-height: none; }
   .hm .hm-breakt { flex: 1 1 auto; min-width: 0; }
 }
+
+/* ---- after the new first visit (R-023): the week's first hearing, with a quiet way in to help (B-3) ---- */
+.hm .hm-week { display: flex; flex-direction: column; gap: var(--s8); }
+.hm .hm-week h2 { font-size: var(--t18); line-height: 1.3; }
+.hm .hm-week p { margin: 0; color: var(--n700); }
+.hm .hm-eyebrow { margin: 0; font-size: var(--t13); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--p700); }
+.hm .hm-week .hm-link { align-self: flex-start; margin-left: -12px; }
+.hm .hm-yours { display: flex; flex-direction: column; gap: var(--s8); }
+.hm .hm-ylist { list-style: none; margin: 0; padding: 0; }
+.hm .hm-ylist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: 10px 0; border-bottom: 1px solid var(--n100); }
+.hm .hm-ylist li:last-child { border-bottom: 0; }
+.hm .hm-ylist .hm-yname { display: flex; flex-direction: column; min-width: 0; }
+.hm .hm-ylist b { color: var(--n900); }
+.hm .hm-ylist .hm-yname > span { font-size: var(--t14); color: var(--n500); }
+.hm .hm-ylist .chip { flex: none; }
+.hm .hm-yours .hm-link { align-self: flex-start; margin-left: -12px; }
+@media (min-width: 900px) { .hm.hm-fin .cols { grid-template-columns: minmax(0, 720px); } }   /* one calm column after the first visit */

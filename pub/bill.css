@@ -27,10 +27,18 @@
 .bl-page .bl-mi .bl-ext { width: 16px; height: 16px; margin-left: auto; color: var(--n500); }
 
 /* ---- "New here?" ---- */
-.bl-page .bl-new { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); padding: 0 var(--s4) 0 var(--s12);
-  background: var(--p50); border-radius: var(--r12); font-size: var(--t14); color: var(--p900); }
-.bl-page .bl-new p { flex: 1 1 auto; }
-.bl-page .bl-new .btn { flex: none; }
+/* a newcomer on a shared bill (R-023): what they can do now, or follow it; the main button stays where it always is */
+.bl-page .bl-newbie { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); border: 1.5px solid var(--p300); }
+.bl-page .bl-nbtext { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; color: var(--n700); }
+.bl-page .bl-nbtext .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
+.bl-page .bl-nbtext b { color: var(--n900); }
+.bl-page .bl-nbbtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.bl-page .bl-nbbtns .btn.text { margin-left: auto; }
+.bl-side .bl-newbie { margin-top: 0; }
+.bl-barnew { display: flex; align-items: center; gap: var(--s8); width: 100%; }
+.bl-barnew > .btn.primary { flex: 1 1 auto; }
+.bl-barnew > .btn.text { flex: none; }
+.bl-notnow { display: flex; justify-content: center; margin-top: 4px; }
 
 /* ---- top of the page: the everyday name (or, without one, what the bill does), then the chips ---- */
 .bl-page .bl-head { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s24); }

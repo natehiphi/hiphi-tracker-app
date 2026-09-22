@@ -1,0 +1,260 @@
+/* The three lessons of the first visit (pub/lessons.js, R-023): reading a bill, the session, a hearing. Ported from the
+   approved prototype (backend docs/first-visit-prototype, version 3). Every class starts lx- so nothing here reaches the
+   rest of the app; colours, type sizes and shadows are base.css tokens (A-4, A-5, A-17). Motion follows A-10: teaching
+   scenes move only when the person taps, each step is over within about 4 seconds, and under Reduce Motion everything is
+   shown in its end state (see the end of this file). The pictures are aria-hidden; the caption carries the meaning. */
+
+.lx { position: relative; display: flex; flex-direction: column; gap: var(--s12); min-width: 0; width: 100%; }
+.lx-h1 { text-wrap: balance; }
+.lx-pic { position: relative; width: 100%; }
+.lx-scene { border-radius: var(--r16); background: var(--p50); overflow: hidden; border: 1px solid var(--p100); }
+.lx-scene svg.lx-sv { display: block; width: 100%; height: auto; }
+
+/* ---- the caption (aria-live) and the step dots ---- */
+/* lessons.js sets min-height to the longest step's caption, so nothing under it jumps as the steps change */
+.lx-caption { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: var(--s12); align-items: start; scroll-margin-top: 80px; }
+.lx-caption.lx-nonum { grid-template-columns: minmax(0, 1fr); }
+.lx-capnum { width: 36px; height: 36px; border-radius: 50%; background: var(--p700); color: var(--n0); display: grid; place-items: center; font-weight: 700; font-size: var(--t16); }
+.lx-caption h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.2; text-wrap: balance; }
+.lx-caption p { margin-top: var(--s4); font-size: var(--t16); color: var(--n700); }
+.lx-caption.lx-swap > * { animation: lx-rise .28s var(--ease) both; }
+/* Step dots: real buttons, 44px targets (A-6); the current one is a long pill, so the state is a shape as well as a
+   colour (A-5); the dots are --n400 and --p600 so each still reads against the page at 3:1 (A-7). */
+.lx-beats { display: flex; gap: var(--s8); }
+.lx-beat { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
+.lx-beat::before { content: ''; width: 10px; height: 10px; border-radius: 5px; background: var(--n400); transition: width .25s var(--ease), background-color .25s var(--ease); }
+.lx-beat.lx-done::before { background: var(--p600); }
+.lx-beat[aria-current="step"]::before { width: 26px; background: var(--p700); }
+.lx-beat:hover { background: var(--p50); }
+.lx-beat:active::before { transform: scale(.9); }
+
+/* ================= 1. Reading a bill: the bill page in miniature ================= */
+.lx-mini { position: relative; max-width: 440px; width: 100%; margin: 0 auto; background: var(--n50); border-radius: 22px; border: 1px solid var(--n200);
+  box-shadow: var(--sh2); padding: 0 12px 14px; }
+.lx-mbar { display: flex; align-items: center; justify-content: space-between; height: 42px; margin: 0 -12px 10px; padding: 0 14px; background: var(--n0);
+  border-bottom: 1px solid var(--n200); border-radius: 22px 22px 0 0; font-weight: 700; font-size: var(--t14); color: var(--n900); }
+.lx-mbar .ic { width: 18px; height: 18px; color: var(--p700); }
+/* The parts not being explained sit back at 0.76, their text dark enough to keep 4.5:1 while they do (A-7). The
+   numbered pins look pressable, so the parts they mark are (A-12). */
+.lx-msec { position: relative; border-radius: var(--r12); padding: 6px 8px; cursor: pointer; opacity: .76;
+  transition: opacity .3s var(--ease), box-shadow .3s var(--ease), background-color .3s var(--ease), transform .3s var(--ease); }
+.lx-msec + .lx-msec { margin-top: 2px; }
+.lx-msec.lx-cur { opacity: 1; background: var(--n0); box-shadow: 0 0 0 3px var(--p500), var(--sh3); transform: scale(1.02); z-index: 1; }
+.lx-mname { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.lx-mnum { font-size: var(--t13); color: var(--n700); font-weight: 700; margin-top: 2px; }
+.lx-msum { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lx-msec .chip { margin-top: var(--s8); white-space: normal; }
+.lx-mstatus { font-size: var(--t14); color: var(--n900); line-height: 1.4; }
+/* the bill page's own rail (railHTML), drawn the way a phone shows it: seven dots and one "Now" line */
+.lx-mrail { margin-top: var(--s4); }
+.lx-mini .bl-page .bl-rail { row-gap: var(--s4); }
+.lx-mini .bl-page .bl-dlbl { display: none; }
+.lx-mini .bl-page .bl-nowlbl { display: block; font-size: var(--t13); color: var(--n900); }
+.lx-mini .bl-page .bl-nowlbl b { color: var(--p800); }   /* --p700 falls to 3.6:1 at 0.76 */
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:is(.bl-done, .bl-now, .bl-stop) .bl-dot { animation: lx-fill .35s var(--ease) both; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(2) .bl-dot { animation-delay: 110ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(3) .bl-dot { animation-delay: 220ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(4) .bl-dot { animation-delay: 330ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(5) .bl-dot { animation-delay: 440ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(6) .bl-dot { animation-delay: 550ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(7) .bl-dot { animation-delay: 660ms; }
+/* the page's action button, as a picture of one (--p800, so white text keeps 4.5:1 while dimmed) */
+.lx-mcta { display: flex; align-items: center; justify-content: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill);
+  background: var(--p800); color: var(--n0); font-weight: 700; font-size: var(--t14); text-align: center; }
+.lx-mcta .ic { width: 18px; height: 18px; flex: none; }
+.lx-mcta.lx-done { background: var(--ok-wash); color: #03431F; }   /* darker than --ok-text: it must pass 4.5:1 while dimmed */
+.lx-mcta.lx-stop { background: var(--n100); color: var(--n900); }
+.lx-mdue { font-size: var(--t13); color: var(--n700); text-align: center; margin-top: 6px; }
+.lx-pin { position: absolute; top: -8px; right: -12px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; background: var(--p700); color: var(--n0);
+  font-weight: 700; font-size: var(--t14); display: grid; place-items: center; box-shadow: 0 0 0 3px var(--n0); opacity: 0; transform: scale(.4);
+  transition: opacity .2s, transform .3s var(--spring, cubic-bezier(.34, 1.4, .64, 1)), background-color .2s; }
+.lx-msec.lx-seen .lx-pin { opacity: 1; transform: scale(.85); background: var(--p800); }   /* dimmed with its part: --p800 keeps the number readable */
+.lx-msec.lx-cur .lx-pin { opacity: 1; transform: scale(1); background: var(--p700); }
+
+/* ================= 2. The session: the Capitol, and the month buttons ================= */
+.lx-jl { position: absolute; transform: translate(-50%, -50%); font: 700 var(--t13)/1 var(--font); letter-spacing: .08em; color: var(--p900); pointer-events: none; }
+.lx-jl-gov { color: var(--p800); }
+.lx-journey .lx-gov { opacity: .35; transition: opacity .4s; }
+.lx-journey[data-beat="4"] .lx-gov { opacity: 1; }
+.lx-journey .lx-cone { fill: var(--p300); transition: fill .4s; }
+.lx-journey .lx-cone.lx-lit { fill: var(--p400); }
+.lx-journey .lx-tray { fill: var(--n200); stroke: var(--n200); opacity: 0; transition: opacity .4s var(--ease); }
+.lx-journey:is([data-beat="2"], [data-beat="3"], [data-beat="4"]) .lx-tray { opacity: 1; }
+.lx-journey .lx-xarc { opacity: 0; transition: opacity .4s var(--ease); }
+.lx-journey[data-beat="3"] .lx-xarc { opacity: 1; }
+.lx-journey .lx-future { opacity: 0; transition: opacity .5s var(--ease) .6s; }
+.lx-journey[data-beat="4"] .lx-future { opacity: 1; }
+/* the other bills: one thing moves at a time, so they wait for --od (300 ms, or 1.4 s in March when yours goes first) */
+.lx-journey .lx-tok { transition: transform .7s var(--ease), opacity .4s var(--ease); transition-delay: calc(var(--od, 0ms) + var(--d, 0ms)); }
+.lx-journey .lx-tok rect { fill: var(--n0); stroke: var(--p600); stroke-width: 1.2; }
+.lx-journey .lx-tok.lx-dead { opacity: .8; }
+.lx-journey .lx-tok.lx-dead rect { fill: var(--n300); stroke: var(--n400); }
+.lx-journey .lx-tok.lx-pre, .lx-journey .lx-mine.lx-pre, .lx-jbill.lx-pre { opacity: 0; }
+/* the person's bill, the outline where it was, and the tick when it became law */
+.lx-journey .lx-mine { transition: opacity .25s var(--ease); }
+.lx-journey .lx-mine .lx-paper { fill: var(--n0); stroke: var(--p800); stroke-width: 2; }
+.lx-journey .lx-mine .lx-tab { fill: var(--p700); }
+.lx-journey .lx-mine .lx-mi { transition: transform .4s var(--ease); transform-origin: 0 0; }
+.lx-journey .lx-mine.lx-atgov .lx-mi { transform: scale(.7); }
+.lx-journey .lx-mine.lx-dead .lx-paper { fill: var(--n200); stroke: var(--n500); }
+.lx-journey .lx-mine.lx-dead .lx-tab { fill: var(--n500); }
+.lx-journey .lx-ghost rect { fill: none; stroke: var(--p700); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.lx-journey .lx-ghost { opacity: 0; transition: opacity .3s var(--ease); }
+.lx-journey .lx-ghost.lx-on { opacity: .6; }
+.lx-journey .lx-lawmark { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.lx-journey .lx-lawmark.lx-on { opacity: 1; }
+.lx-journey .lx-lawmark.lx-play { animation: lx-pop .45s var(--spring, cubic-bezier(.34, 1.4, .64, 1)); }
+/* the names on the picture: new bills in January, the stopped pile from February, crossover in March */
+.lx-jtag { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: var(--s4); padding: 0 var(--s8); border-radius: var(--pill);
+  font: 700 var(--t13)/20px var(--font); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .35s var(--ease); }
+.lx-jtag .ic { width: 13px; height: 13px; }
+.lx-jnew { background: var(--n0); color: var(--p900); box-shadow: var(--sh1); }
+.lx-jstop { background: var(--n0); color: var(--n700); border: 1px solid var(--n300); transform: translate(0, -50%); }
+.lx-jcross { background: var(--p700); color: var(--n0); }
+.lx-journey[data-beat="1"] .lx-jnew { opacity: 1; }
+.lx-journey:is([data-beat="2"], [data-beat="3"], [data-beat="4"]) .lx-jstop { opacity: 1; transition-delay: .6s; }
+.lx-journey[data-beat="3"] .lx-jcross { opacity: 1; transition-delay: .2s; }
+/* one label under the bill: its number, then its status in the bill page's own words */
+.lx-jbill { position: absolute; transform: translate(-50%, 0); display: grid; justify-items: center; padding: 1px 10px; background: var(--n0); border: 1px solid var(--p300);
+  border-radius: 12px; font: 700 var(--t13)/19px var(--font); color: var(--p900); white-space: nowrap; pointer-events: none; box-shadow: var(--sh1);
+  transition: opacity .2s, border-color .2s; }
+.lx-jbill b { font-weight: 700; color: var(--n900); }
+.lx-jbill .lx-jst { display: none; font-weight: 700; color: var(--n700); }
+.lx-jbill.lx-st-on .lx-jst { display: block; }
+.lx-jbill.lx-play .lx-jst { animation: lx-rise .3s var(--ease) both; }
+.lx-jbill.lx-ok { border-color: var(--ok-text); }
+.lx-jbill.lx-ok .lx-jst { color: var(--ok-text); }
+.lx-jbill.lx-here { border-color: var(--p700); }
+.lx-jbill.lx-here .lx-jst { color: var(--p800); }
+.lx-jbill.lx-next { border: 1.5px dashed var(--p700); }
+.lx-jbill.lx-next .lx-jst { color: var(--p800); }
+.lx-jbill.lx-stop { border-color: var(--n500); }
+.lx-jbill.lx-stop .lx-jst { color: var(--n700); }
+/* The months are the steps. The chosen one is a light button, so the page's only filled button is Next (A-3). */
+/* 1fr, not minmax(0, 1fr): a month whose word is longest ("Committees" at 320px) takes the room it needs, never breaking the word */
+.lx-months { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: var(--s4); }
+.lx-month { position: relative; min-height: 54px; padding: 10px 4px 6px; border-radius: var(--r12); border: 1.5px solid var(--n300); background: var(--n0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; text-align: center;
+  font-weight: 700; font-size: var(--t14); color: var(--n700); transition: border-color .2s var(--ease), background-color .2s var(--ease), color .2s; }
+.lx-month small { font-size: var(--t13); font-weight: 400; color: var(--n500); }
+.lx-month:hover { border-color: var(--p700); }
+.lx-month:active { background: var(--p50); }
+.lx-month[aria-current="step"] { border-color: var(--p700); background: var(--p50); color: var(--p800); box-shadow: inset 0 0 0 1px var(--p700); }
+.lx-month[aria-current="step"] small { color: var(--p800); }
+.lx-today { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 0 var(--s8); border-radius: var(--pill); background: var(--n900); color: var(--n0);
+  font-size: var(--t13); font-weight: 700; line-height: 18px; white-space: nowrap; }
+
+/* ================= 3. What a hearing is: the committee room ================= */
+.lx-room .lx-fig { transition: transform .4s var(--ease), opacity .4s; }
+.lx-room .lx-hand { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(.2);
+  transition: transform .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)), opacity .2s; transition-delay: var(--d, 0ms); }
+.lx-room[data-beat="2"] .lx-hand { opacity: 1; transform: scaleY(1); }
+.lx-room .lx-bubble { opacity: 0; transform-box: fill-box; transform-origin: 0% 100%; transform: scale(.4); }
+.lx-room[data-beat="2"] .lx-bubble.lx-b1 { animation: lx-talk 2.2s var(--ease) .2s 1; }
+.lx-room[data-beat="2"] .lx-bubble.lx-b2 { animation: lx-talk 2.2s var(--ease) .9s 1; }
+.lx-room .lx-chairring { opacity: 0; transition: opacity .3s; }
+.lx-room[data-beat="2"] .lx-chairring { opacity: 1; }
+.lx-room .lx-stackp { opacity: 0; transition: opacity .3s .7s; }
+.lx-room.lx-phase2 .lx-stackp, .lx-room[data-beat="2"] .lx-stackp { opacity: 1; }
+.lx-room .lx-phone { opacity: 0; transition: opacity .3s; }
+.lx-room:is(.lx-phase2, .lx-rmstill, [data-beat="2"]) .lx-phone { opacity: 1; }
+.lx-room .lx-dim { opacity: 0; transition: opacity .3s; pointer-events: none; }
+.lx-room[data-beat="1"]:not(.lx-phase2) .lx-dim { opacity: 1; }
+/* the notice: drops in over the dimmed room, is held 3 s, then goes up as "Notice posted <day>" */
+.lx-notice { position: absolute; left: 50%; top: 10px; width: min(88%, 300px); z-index: 2; transform: translate(-50%, -140%); opacity: 0; padding: 12px 14px;
+  background: #FFFEF8; color: var(--n900); border-radius: 6px; border-top: 5px solid var(--p800); box-shadow: var(--sh3); font-size: var(--t13); line-height: 1.35;
+  transition: transform .45s var(--spring, cubic-bezier(.34, 1.4, .64, 1)), opacity .25s; }
+.lx-room[data-beat="1"]:not(.lx-phase2) .lx-notice { transform: translate(-50%, 0); opacity: 1; }
+.lx-notice .lx-nt { font-weight: 700; letter-spacing: .08em; font-size: var(--t13); color: var(--p800); }
+.lx-notice .lx-nc { font: 700 var(--t14)/1.25 var(--font-h); margin-top: 2px; }
+.lx-notice .lx-nw { margin-top: var(--s4); font-weight: 700; }
+.lx-notice .lx-nb { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px dashed var(--n300); }
+.lx-posted { position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; background: #FFFEF8;
+  border-radius: 6px; border-top: 3px solid var(--p800); box-shadow: var(--sh2); font-size: var(--t13); font-weight: 700; color: var(--n900);
+  opacity: 0; transform: translateY(-6px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+.lx-posted .ic { width: 16px; height: 16px; color: var(--p800); }
+.lx-room.lx-phase2 .lx-posted { opacity: 1; transform: none; }
+/* "Testimony is open", then "Testimony due ..." once the question is answered */
+/* centred by its margins (not a -50% shift), so on the smallest phones it can use the room's whole width and break after "due" */
+.lx-closes { position: absolute; left: 8px; right: 8px; bottom: 10px; z-index: 2; width: fit-content; max-width: calc(100% - 16px); margin: 0 auto;
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; background: var(--n0); border-radius: 14px; box-shadow: var(--sh2);
+  font-size: var(--t13); line-height: 1.3; font-weight: 700; color: var(--n900); opacity: 0; transform: translateY(6px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+.lx-closes .ic { width: 18px; height: 18px; flex: none; color: var(--p700); }
+.lx-closes .lx-nobr { white-space: nowrap; }
+.lx-room.lx-phase2 .lx-closes { opacity: 1; transform: none; transition-delay: 1.2s; }
+.lx-room.lx-rmstill .lx-closes { opacity: 1; transform: none; }
+.lx-closes.lx-known { animation: lx-known .45s var(--spring, cubic-bezier(.34, 1.4, .64, 1)); }
+/* at the hearing: LIVE, then the three ways it can go along the top ("Put off" in the grey of "Stopped for the year") */
+.lx-live { position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; background: var(--n900);
+  color: var(--n0); font: 700 var(--t13)/1 var(--font); opacity: 0; transition: opacity .3s; }
+.lx-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--n0); }
+.lx-room[data-beat="2"] .lx-live { opacity: 1; }
+.lx-room[data-beat="2"] .lx-live i { animation: lx-blink 1.2s ease-in-out 3; }
+.lx-room[data-beat="2"].lx-voted .lx-live { opacity: 0; transition: opacity .2s; }
+.lx-outcomes { position: absolute; left: 0; right: 0; top: 10px; display: flex; justify-content: center; flex-wrap: wrap; gap: var(--s4); padding: 0 var(--s8); }
+.lx-outcomes .chip { min-height: 0; padding: 3px 8px; box-shadow: var(--sh1); opacity: 0; transform: translateY(-8px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+.lx-outcomes .chip .ic { width: 15px; height: 15px; }
+.lx-outcomes .chip.lx-putoff { background: var(--n0); color: var(--n700); border: 1px solid var(--n300); }
+.lx-room[data-beat="2"].lx-voted .lx-outcomes .chip { opacity: 1; transform: none; transition-delay: var(--d); }
+
+/* ---- "Try it": three answers side by side, so they sit above the bar on a small phone ---- */
+.lx-quiz { display: grid; gap: var(--s8); scroll-margin-top: 80px; }
+.lx-q { font-weight: 700; color: var(--n900); font-size: var(--t16); }
+.lx-q:focus { outline: none; }
+.lx-q:focus-visible { outline: 2px solid var(--p700); outline-offset: 4px; }
+.lx-qtag { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: var(--pill); background: var(--p700); color: var(--n0); font-size: var(--t13); vertical-align: 1px; }
+.lx-qopts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s8); }
+.lx-qopt { min-height: 64px; min-width: 0; padding: 8px 6px; border-radius: var(--r12); border: 1.5px solid var(--n400); background: var(--n0);
+  display: grid; align-content: center; justify-items: center; text-align: center; line-height: 1.25; font-weight: 700; color: var(--n900); overflow-wrap: anywhere;
+  transition: border-color .15s, background-color .15s, transform .15s; }
+.lx-qopt span + span { font-weight: 400; font-size: var(--t14); color: var(--n700); }
+.lx-qopt:hover { border-color: var(--p700); background: var(--p50); }
+.lx-qopt:active { transform: scale(.98); }
+.lx-qopt[aria-disabled="true"] { cursor: default; transform: none; }
+.lx-qopt[aria-disabled="true"]:hover { border-color: var(--n400); background: var(--n0); }
+.lx-qopt.lx-right, .lx-qopt.lx-right:hover { border-color: var(--ok-text); background: var(--ok-wash); }
+.lx-qopt.lx-wrong, .lx-qopt.lx-wrong:hover { border-color: var(--n500); background: var(--n100); }
+.lx-qopt.lx-answer, .lx-qopt.lx-answer:hover { border: 2px solid var(--ok-text); }
+.lx-qfeed { display: flex; gap: 10px; align-items: flex-start; padding: var(--s12); border-radius: var(--r12); background: var(--ok-wash); color: var(--n900); animation: lx-rise .3s var(--ease); }
+.lx-qfeed > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--ok-text); }
+.lx-qfeed.lx-meh { background: var(--p50); }
+.lx-qfeed.lx-meh > .ic { color: var(--p700); }
+/* the chairs, with small photos */
+.lx-chairline { display: flex; align-items: center; gap: 10px; font-size: var(--t14); color: var(--n700); animation: lx-rise .3s var(--ease); }
+.lx-chairline .lx-pics { display: flex; flex: none; }
+.lx-chairline .lx-pics > * + * { margin-left: -8px; }
+.lx-legmini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--p100); border: 2px solid var(--n0); flex: none; }
+.lx-legmini.none { display: inline-grid; place-items: center; font-size: var(--t13); font-weight: 700; color: var(--p800); }
+
+/* ---- the smallest phones ---- */
+@media (max-width: 359px) {
+  .lx-jl:not(.lx-jl-gov) { transform: translate(-50%, -25%); }
+  .lx-jbill { line-height: 17px; }
+  .lx-months { gap: 4px; }
+  .lx-month { padding-left: 3px; padding-right: 3px; }
+  .lx-qopt { padding: 8px 4px; font-size: var(--t14); }
+  .lx-qopt span + span { font-size: var(--t13); }
+}
+
+/* ---- wide screens: the picture stays a readable size beside the story (the page grid is start.css's) ---- */
+@media (min-width: 900px) {
+  .lx { max-width: 540px; }
+  .lx-l-bill { max-width: 440px; }
+  /* On a laptop the button sits under the lesson, not in a bar: the committee room gives up width on a short window so
+     the question and Next stay in view under it (1280x800, 1024x768) */
+  .lx-room { max-width: clamp(380px, calc((100vh - 510px) * 1.525), 100%); }
+}
+
+@keyframes lx-pop { 0% { transform: scale(.55); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes lx-rise { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-fill { from { transform: scale(.5); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes lx-talk { 0%, 100% { opacity: 0; transform: scale(.4); } 12%, 45% { opacity: 1; transform: scale(1); } 60% { opacity: 0; transform: scale(.9); } }
+@keyframes lx-blink { 50% { opacity: .25; } }
+@keyframes lx-known { 0% { transform: scale(.9); } 60% { transform: scale(1.06); } 100% { transform: none; } }
+
+/* Reduce Motion: the same states, with no movement (A-10). base.css zeroes durations but not delays, and some states
+   here wait on a delay, so both go. The JS side (fx.reduced) skips the timers, the trips and the bursts. */
+@media (prefers-reduced-motion: reduce) {
+  .lx, .lx *, .lx *::before, .lx *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; transition-delay: 0ms !important; }
+}

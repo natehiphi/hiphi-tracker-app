@@ -1,4 +1,4 @@
-# End-to-end checks for the public tracker after the 9/19 follow-ups. python3 journey2.py [base_url]
+# End-to-end checks for the public tracker (9/19 follow-ups; the first visit rebuilt 9/21, R-023). python3 tests/public_journey.py [base_url]
 import json, sys, os, re
 from playwright.sync_api import sync_playwright
 import checks
@@ -42,58 +42,111 @@ def std(p, name, desktop=False, axe=False):
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
-    # ---- 1. the new first visit on a phone: issues -> bills -> where you stand -> email -> calm Home ----
+    # ---- 1. the first visit on a phone (R-023, rebuilt 9/21): topics -> issues (the Mahalo moment) -> where you stand ->
+    # three lessons (the "Now you know" moment) -> who speaks for you -> coming up, THEN the ask -> you're all set -> Home ----
     c, p = ctx(b); fresh(p); p.reload(); p.wait_for_timeout(3000)
     ok(p.evaluate('location.hash') == '#/start/1', 'first visit lands on step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
-    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    # The flow gained a "narrow it down" screen (9/20) and may gain more, so the walk advances by
-    # pressing Next and checks WHAT it is looking at, not which number the step happens to be.
-    if p.locator('[data-stsub]').count():
-        std(p, 'narrow', axe=True); shot(p, 'p_narrow')
-        ok('particular' in text(p).lower(), 'narrow step offers sub-topics')
-        p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
-    # Screen 2 offers ISSUES, not bills (R-018): one row per issue, one "Follow all" per category and no overall one
-    # (Nate's answer 4), and the button counts issues.
+    # Three named parts and no counting, no bar (Nate 9/21), and they are not controls (A-12).
+    parts = p.evaluate("[...document.querySelectorAll('.st-chapters li')].map(li => li.textContent.replace(/\\(done\\)/, '').trim())")
+    ok(parts == ['Your issues', 'How it works', 'Stay connected'], f'the three named parts ({parts})')
+    ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'Your issues', 'step 1 is in "Your issues"')
+    ok(p.locator('[role=progressbar], progress').count() == 0 and not re.search(r'step \d+ of \d+', text(p), re.I), 'no progress bar and no "Step N of M"')
+    ok(p.locator('.st-chapters button, .st-chapters a').count() == 0, 'the named parts are a signpost, not buttons')
+    ok(p.locator('[data-stissue]').count() == 6 and 'About 4 minutes' in text(p), 'six category tiles, and an honest time promise')
+    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    # Screen 2 offers ISSUES, not bills (R-018), most important first: four per category, the rest behind "Show N more".
     ok(p.locator('[data-stpick]').count() > 0, f"issues step offers issues ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
     t2 = text(p); ok('Relating to' not in t2, 'issues step has no "Relating to" headlines')
     ok(p.locator('[data-stfollowcat]').count() >= 1 and p.locator('[data-stfollowall]').count() == 0, 'one "Follow all" per category, and no overall one')
     lbl = p.inner_text('.st-bar'); ok(re.search(r'Follow \d+ issues?', lbl) is not None, f'the button counts issues ("{lbl.strip()}")')
+    vis = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => [...d.querySelectorAll('.st-pcard')].filter(li => !li.hidden).length)")
+    ok(vis and all(n <= 4 for n in vis), f'each category shows its four most important issues at most ({vis})')
+    hidden_ticked = p.evaluate("[...document.querySelectorAll('.st-pcard[hidden] [data-stpick][aria-pressed=true]')].length")
+    ok(hidden_ticked == 0, 'nothing out of sight starts ticked')
+    if p.locator('[data-stmore]').count():
+        before = p.locator('.st-pcard:not([hidden])').count(); p.locator('[data-stmore]').first.click(); p.wait_for_timeout(500)
+        ok(p.locator('.st-pcard:not([hidden])').count() > before and p.locator('[data-stmore]').first.get_attribute('aria-expanded') == 'true', '"Show N more issues" shows the rest in place')
+        std(p, 'start2_more', axe=True)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    # The first success: a moment that fills the screen and waits for Continue (C-7, WCAG 2.2.1).
+    ok(p.locator('#fx-moment:not([hidden]) [role=dialog]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
+    std(p, 'moment_follow', axe=True); shot(p, 'p_moment')
+    p.wait_for_timeout(2500); ok(p.locator('#fx-moment:not([hidden])').count() == 1, 'the moment waits for Continue')
+    p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
     ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the issues ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
     ok(not p.locator('main [data-helper]').count(), 'the stance step pushes no action')
-    # Three at most, the rest folded (Nate, 9/20), and one card per idea: a policy carried by two bills was asked twice (R-019).
-    shown = p.evaluate("[...document.querySelectorAll('.st-stand')].filter(e => e.offsetParent !== null).length")
-    heads = p.evaluate("[...document.querySelectorAll('.st-shead')].map(e => e.textContent.trim())")
-    ok(0 < shown <= 3, f'the stance step shows three ideas at most ({shown})')
+    # Three at most, one at a time, one card per idea (Nate, 9/20; R-019).
+    cards = p.locator('.st-scard').count(); heads = p.evaluate("[...document.querySelectorAll('.st-scard .st-shead')].map(e => e.textContent.trim())")
+    ok(0 < cards <= 3 and p.locator('.st-scard[data-pos="0"]').count() == 1, f'the stance step asks about three ideas at most, one at a time ({cards})')
     ok(len(heads) == len(set(heads)), f'no idea is asked about twice ({heads})')
-    chips = p.locator('main button[aria-pressed]'); n0 = chips.count()
-    if n0: chips.first.click(); p.wait_for_timeout(400)
+    p.locator('.st-scard[data-pos="0"] [data-ststance$="|support"]').click(); p.wait_for_timeout(800)
     st = p.evaluate("JSON.parse(localStorage.getItem('hiphi_stances_demo') || '{}')"); ok(len(st) >= 1, f'a stance is saved ({st})')
-    p.locator('[data-stnext]').click(); p.wait_for_timeout(1200)
-    # The explaining screens (9/20): a bill tour, how a bill becomes law, the calendar, what a hearing
-    # is, and who speaks for you. Walk them with Next, checking each teaches and asks for nothing.
-    teach = []
-    for _ in range(8):
-        if p.locator('main input[type=email]').count(): break
-        teach.append(p.evaluate("document.querySelector('main h1')?.innerText || ''"))
-        std(p, f'teach{len(teach)}', axe=True); shot(p, f'p_teach{len(teach)}')
-        ok(not p.locator('main [data-helper]').count(), f'teaching screen "{teach[-1]}" pushes no action')
-        p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(len(teach) == 5, f'five explaining screens between the stance and the email ({teach})')
-    ok(p.locator('main input[type=email]').count() == 1, f"the email step follows them ({p.evaluate('location.hash')})"); std(p, 'start4', axe=True); shot(p, 'p_s4')
-    # skip the email: skipping the EMAIL must not skip the name step after it
-    p.evaluate("(() => { const b=[...document.querySelectorAll('main button, main a')].find(x=>/skip|not now|later/i.test(x.innerText)); b && b.click(); })()"); p.wait_for_timeout(1800)
-    ok(p.locator('#st-name').count() == 1, f"skipping the email lands on the name step ({p.evaluate('location.hash')})"); std(p, 'name', axe=True); shot(p, 'p_name')
-    p.fill('#st-name', 'Leilani'); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    # How it works: three lessons, every word visible (C-12), stepped through with the primary button.
+    seen = []
+    for _ in range(24):
+        h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
+        if h1 not in seen:
+            seen.append(h1); std(p, f'lesson{len(seen)}', axe=True); shot(p, f'p_lesson{len(seen)}')
+            ok(p.locator('main details:not([open]), main [role=tab]').count() == 0, f'"{h1}" hides nothing behind a tap (C-12)')
+            if h1 in ('Reading a bill', 'The session, January to May', 'What a hearing is'):
+                ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How it works', f'"{h1}" is in "How it works"')
+        if 'Who speaks for you' in h1: break
+        p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
+        if p.locator('#fx-moment:not([hidden])').count():
+            ok('how it works' in p.inner_text('#fx-moment').lower(), 'finishing the lessons shows the "Now you know how it works" moment')
+            std(p, 'moment_learned', axe=True); p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
+    ok(seen[:3] == ['Reading a bill', 'The session, January to May', 'What a hearing is'], f'three lessons, in order ({seen[:3]})')
+    # Stay connected: a street address only; nothing is pushed before one is found.
+    ok('Who speaks for you' in seen and p.locator('#st-addr').count() == 1 and p.locator('#st-town').count() == 0, 'who speaks for you asks for a street address only')
+    ok(p.locator('.actionbar .btn.primary').count() == 0 and p.locator('[data-stskip]').count() == 1, 'before an address there is only Skip')
+    std(p, 'you', axe=True); shot(p, 'p_you')
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
+    # The value first, then the one ask (Nate 9/21: ask for the email after the value).
+    ts = text(p); ok('Coming up on your issues' in ts, f"then coming up on your issues ({p.evaluate('location.hash')})")
+    order = p.evaluate("(() => { const l = document.querySelector('.st-soon'), f = document.querySelector('#st-eform'); return !!l && !!f && (l.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) ? 1 : 0; })()")
+    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up comes before the ask')
+    ok('testimony is due' in ts.lower() and 'closes' not in ts.lower(), 'the ask names the value, and testimony is "due", never "closes"')
+    std(p, 'soon', axe=True); shot(p, 'p_soon')
+    p.fill('#st-email', 'leilani@example.com'); p.fill('#st-name', 'Leilani'); p.locator('#st-send').click(); p.wait_for_timeout(1200)
+    ok('Check your inbox' in text(p), 'the ask says to check the inbox'); std(p, 'soon_sent', axe=True)
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(3200)
+    # The peak: what they did, then what happens next; nothing asks for anything (Nate 9/21: end on a high).
+    td = text(p); ok('You’re all set, Leilani!' in td and 'What happens next' in td, f"the last screen celebrates what they did ({p.evaluate('location.hash')})")
+    ok(p.locator('.st-did li').count() >= 3 and p.locator('main input').count() == 0, 'the recap lists what they did, and asks for nothing')
+    ok(p.evaluate("document.querySelectorAll('.st-chapters li.done').length") == 3, 'all three parts are ticked')
+    std(p, 'done', axe=True); shot(p, 'p_done', full=True)
+    p.locator('[data-stdone]').click(); p.wait_for_timeout(2500)
     ok(p.evaluate('location.hash') in ('#/', ''), f"finishing lands on Home ({p.evaluate('location.hash')})"); shot(p, 'p_home_welcome', full=True)
-    ok('Leilani' in text(p), 'Home greets them by the name they gave')
-    th = text(p); vis_primary = p.evaluate("[...document.querySelectorAll('main .acard .btn.primary')].filter(e=>e.offsetParent!==null).length")
+    th = text(p); ok('Aloha, Leilani' in th and 'What happens next' not in th, 'Home greets them by name and does not repeat "What happens next" (A-14)')
+    vis_primary = p.evaluate("[...document.querySelectorAll('main .acard .btn.primary')].filter(e=>e.offsetParent!==null).length")
     ok(vis_primary == 0, f'welcome Home pushes no action ({vis_primary} primary action buttons visible)')
     ok(not COMMUNITY.search(th), 'welcome Home has no community-wide totals'); std(p, 'home_welcome', axe=True)
-    # Back walks the steps
+    c.close()
+
+    # ---- 1b. a shared bill (R-023 decision 7): the easiest action first, "Follow this issue" second ----
+    c, p = ctx(b); fresh(p); visit(p, '/bill/HB2121', wait=3000)
+    ok(p.locator('.bl-newbie').count() == 1 and 'New here?' in text(p), 'a newcomer on a shared bill gets the "New here?" card')
+    ok('email' in p.inner_text('.actionbar').lower(), 'the easiest action leads (the quick email)')
+    ok(p.get_by_role('button', name='Follow this issue', exact=True).count() == 1 and 'instead' not in text(p), '"Follow this issue" once, without "instead"')
+    std(p, 'arrive', axe=True); shot(p, 'p_arrive')
+    ok(p.locator('.actionbar [data-bl-newlater]').count() == 1, '"Not now" sits beside the action it turns down')
+    p.locator('.actionbar [data-bl-newlater]').click(); p.wait_for_timeout(2000)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill' and 'HB 2121' in text(p).replace('\xa0', ' '), f"Not now goes straight on to the lessons, on the bill they opened ({p.evaluate('location.hash')})")
+    fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(1500)
+    ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable vape ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
+    p.locator('#fx-mgo').click(); p.wait_for_timeout(2000)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', 'following from the card goes on to the lessons, without asking again')
+    std(p, 'link_lesson', axe=True)
+    fresh(p); p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); visit(p, '/start/1', wait=3000)
+    ok('Want us to tell you next time?' in text(p), 'after a quick email, "Want us to tell you next time?" asks about following'); std(p, 'followask', axe=True)
+    c.close()
+    c, p = ctx(b, 1440, 900); fresh(p); visit(p, '/bill/HB2121', wait=3000)
+    top = p.evaluate("(() => { const b = [...document.querySelectorAll('main .btn.primary')].find(x => /email/i.test(x.innerText)); return b ? Math.round(b.getBoundingClientRect().top) : -1; })()")
+    ok(0 < top < 700, f'on a laptop the quick email is in view at the top, beside the bill ({top}px)'); shot(p, 'd_arrive')
     c.close()
 
     # ---- 2. a return visit: the ladder ----
@@ -122,7 +175,8 @@ with sync_playwright() as pw:
     folded = [x for x in secs if not x['open']]
     ok(folded and all((x['line'].startswith(f"{x['n']} ticked") if x['n'] else not x['line']) for x in folded), f'a folded category says what is ticked inside it ({folded})')
     ok(f"Follow {sum(x['n'] for x in secs)} issue" in p.inner_text('.st-bar'), 'the button counts exactly the ticks, folded or not')
-    ok('your 3 categories' in text(p) and 'your 3 issues' not in text(p), 'three picks are called categories, not issues')
+    order = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => d.dataset.stsec)")
+    ok(len(order) == 3, f'three categories, most important first ({order})')
     # ---- issues (063, R-018): categories and issues in Find, an issue's page, My issues, and the issue on a bill page ----
     visit(p, '/find', wait=2800); tf = text(p); ok('Food & Nutrition' in tf and 'Getting Around Safely' in tf, 'Find browses the six categories')
     visit(p, '/find/category/food', wait=2800); tc = text(p); std(p, 'category', axe=True); shot(p, 'p_category', full=True)
@@ -184,18 +238,23 @@ with sync_playwright() as pw:
     ok('January 20' in t and not COMMUNITY.search(t), 'off-season step 1: January 20, no community totals')
     # The between-sessions walk, pressing Next the whole way (R-019: Next went nowhere on the live site, every topic
     # said "0 bills", the recap found nothing, and Home asked for the issues again - and nothing here pressed Next).
-    counts = re.findall(r'\d+ issues? in 20\d\d', t)[:3]
-    ok(re.search(r'(?<!\d)0 (bills|issues) in', t) is None and re.search(r'[1-9]\d* issues? in 20\d\d', t) is not None, f"off-season categories count last session's issues ({counts})")
+    counts = re.findall(r'\d+ (?:issues?|wins?) in 20\d\d', t)[:3]
+    ok(re.search(r'(?<!\d)0 (bills|issues|wins) in', t) is None and re.search(r'[1-9]\d* (?:issues?|wins?) in 20\d\d', t) is not None, f"off-season categories count last session's issues and wins ({counts})")
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
-    ok(re.search(r'[1-9]\d* issues? HIPHI worked on in 20\d\d', t) is not None, 'the issues screen finds last session\u2019s issues')
-    p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
-    ok(p.locator('main input[type=email]').count() == 1, f"its Next follows them and goes on to the email ask ({p.evaluate('location.hash')})")
-    p.locator('[data-stskip]').click(); p.wait_for_timeout(1500); p.locator('[data-stnext]').click(); p.wait_for_timeout(3000); t = text(p)
+    ok(re.search(r'HIPHI worked on in 20\d\d', t) is not None and p.locator('[data-stpick]').count() > 0, 'the issues screen finds last session\u2019s issues')
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
+    for _ in range(24):
+        if p.locator('main input[type=email]').count(): break
+        if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
+        (p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')).first.click(); p.wait_for_timeout(1300)
+    ok(p.locator('main input[type=email]').count() == 1 and 'start moving' in text(p), f"between sessions the lessons lead on to the ask, in off-season words ({p.evaluate('location.hash')})")
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(2600); p.locator('[data-stdone]').click(); p.wait_for_timeout(3000); t = text(p)
     ok('Your issues' in t and 'Pick a few health issues' not in t, 'off-season Home names the issues just picked and does not ask again')
     for extra in ('', '&season=off'):
-        fresh(p, extra); p.reload(); p.wait_for_timeout(3000); p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
-        ok(not p.evaluate('location.hash').startswith('#/start'), f"Skip with nothing picked leaves the start{' (off-season)' if extra else ''} ({p.evaluate('location.hash')})")
+        fresh(p, extra); p.goto(BASE + '?demo=1' + extra + '#/start/1'); p.reload(); p.wait_for_timeout(3000); p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
+        ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', f"Skip with nothing picked goes on to the lessons, never back to the start{' (off-season)' if extra else ''} ({p.evaluate('location.hash')})")
     follower(p, '&season=off'); visit(p, '/', '&season=off', 3200); t = text(p); shot(p, 'p_off_home', full=True)
     ok("didn't act" not in t and 'didn’t act' not in t, 'off-season Home does not scold'); ok(not COMMUNITY.search(t), 'off-season Home has no community totals')
     ok(len(p.evaluate("[...document.querySelectorAll('main input[type=email]')].filter(e=>e.offsetParent!==null)")) <= 1, 'off-season Home asks for an email at most once'); std(p, 'off_home', axe=True)

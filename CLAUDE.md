@@ -36,22 +36,21 @@ first visit's first two screens are categories -> "Your issues"; the tab is **My
 (`staff/issues.js`). The first list came from the team's nicknames: `../backend/docs/issues_2026.json`, loaded with
 `node ../backend/tools/apply_issues.js` (it never overwrites wording staff have edited).
 
-**R-023 (another conversation) is reworking the rest of the first visit** (teaching screens, animation); it
-builds on the two issue screens above.
-
-**Read `../backend/HANDOFF.md` 3.6 before touching the public first visit.** The ten-screen restructure 3.5
-called for is built: topics -> a "your topics and their bills" screen (collapsible sections per topic, every
-live strongly-supported or staff-recommended policy pre-ticked, a Follow all button per topic and overall) ->
-where you stand (three bills at most) -> reading a bill (a miniature of the real bill page, reusing its own
-stage rail, with tap-to-reveal numbered callouts) -> the session, January to May (replaces "how a bill becomes
-law" and "the session calendar") -> what a hearing is (tap-to-reveal, meets the committee chair when one is
-known) -> what happens next (new, lifted from Home's welcome card) -> who speaks for you (a street address
-first, town still offered underneath) -> keep me updated (one opt-in for hearing alerts AND HIPHI's advocacy
-alerts - `frontend/CLAUDE.md`'s old product rule 2 and `DESIGN.md` C-4 were rewritten in the same commit) ->
-your name (saved with the account once an email is given, `public_users.prefs.name`, no migration). No step
-counter anywhere; "Skip" always means "go to the next page". Migration 061 added `bills.recommended` and a
-Staff v2 toggle for it. Needs Nate: which real bills to use as the personalized teaching example, and the
-"Follow all" button placement/wording, per screenshots in 3.6.
+**The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
+`../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,
+with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
+topics (six tiles, most important first) -> "Your issues" (the top four per category by importance, then "Show N more";
+importance uses `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!"
+moment -> "Where do you stand?" (at most three cards, one at a time) -> three lessons on the person's own bill
+(`pub/lessons.js`: reading a bill, the session, a hearing; stepped with the primary button, every word visible, DESIGN
+C-12) -> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
+issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
+the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
+page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
+shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
+and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
+staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
+is still taken, marked late).
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).
@@ -275,13 +274,15 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
 
 Serve first: `python3 -m http.server 8832` in this folder.
 ```bash
-python3 tests/public_journey.py     # public: 306 checks, phone + desktop, first visit, ladder, off-season (walked with Next, R-019)
+python3 tests/public_journey.py     # public: 408 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
 python3 tests/suggest.py            # header search suggestions (R-032), both apps: 180 checks at 1024-1440 and short windows, keys, redraw, live bills
+python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes
+python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 36 checks, every Supabase request intercepted
 ```
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
 `public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`

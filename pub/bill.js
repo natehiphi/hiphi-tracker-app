@@ -8,10 +8,12 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
+import { celebrate as moment } from './fx.js';
+import { logVisit } from './visitlog.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -279,10 +281,34 @@ function topbar(num, b) {
   return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1">${icon('arrow-left')}<span>Back</span></button>
     <p class="bl-num">${esc(sp)}</p>${w ? '' : `<div class="bl-tools">${tools}</div>`}</div>`;
 }
-function newHere() {
-  if (!history.state?.arrived && !firstVisit()) return '';
-  return `<div class="bl-new"><p>New here? We help you speak up on Hawaiʻi health bills.</p>${btn('Start', { kind: 'text', sm: true, href: '#/start/1' })}</div>`;
+// ---------------- a newcomer on a shared bill (R-023, decision 7): the easiest action first, following second ----------------
+// Someone whose first visit starts on a bill someone sent them sees what the bill is, then this card: help right now (the
+// page's own main button, "Send a quick email · 2 min" when there is a hearing), "Follow this issue" (no "instead", Nate
+// 9/21), or "Not now". Whatever they choose, the rest of the first visit follows on THIS bill (start.js, wiz().via):
+// follow it next time?, the lessons on this bill, who speaks for you, coming up, and the finale. On a phone the card sits
+// under the bill's name with the main button in the bottom bar; on a laptop it tops the side panel, right above the
+// main button (Nate 9/21: "Send a quick email" was hidden at the bottom of the page).
+S.blNew ??= new Set();
+const whenWord = iso => { const days = (new Date(iso) - Date.now()) / 864e5, d = dayWord(iso);
+  return /^(today|tomorrow)/.test(d) ? d.replace(/\s*\(.*\)$/, '') : days < 7 ? `on ${new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' })}` : `on ${d}`; };
+function newcomer(b, x) {
+  if (!firstVisit()) return '';
+  if (!S.blNew.has(b.id)) logVisit('arrive', 'view', { path: 'link' });   // counted privately (R-023 decision 8)
+  S.blNew.add(b.id);
+  const h = x.act?.h, i = issuesOf(b)[0];
+  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}. You can help right now, in about 2 minutes, or follow it and we’ll tell you when.`
+    : x.kind === 'ask' ? 'This bill is waiting for a hearing. You can ask the chair for one, in about 2 minutes, or follow it and we’ll tell you when.'
+    : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
+  return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">
+    <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
+    <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${x.act || x.kind === 'ask' ? '' : notNow()}</div>
+  </section>`;
 }
+// "Not now" turns down acting, so it sits beside the main button (the phone bar; the side panel on a laptop) and goes
+// straight on to the lessons, without asking about following again (the review, 9/21).
+const notNow = () => btn('Not now', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
+// On to the rest of the first visit, on this bill.
+const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // Without an everyday name the headline is what the bill does: HIPHI's plain summary; without one, the first sentence
 // of the official description (the whole of it sits under More details, so nothing is lost to "..."). With neither,
 // what the official title is about.
@@ -310,7 +336,7 @@ function issueLine(b) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const i = iss[0], on = issueFollowed(i), cat = catOf(i.category);
   return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${on ? ' · you follow this issue' : ''}</span>
-    ${on ? '' : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id } })}</p>`;
+    ${on || firstVisit() ? '' : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id } })}</p>`;   // a newcomer has it on their own card (A-14)
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
@@ -369,7 +395,7 @@ function actionSection(b, x) {
   const title = done ? 'Mahalo for speaking up' : x.act.late ? 'You can still be heard' : 'Speak up before the hearing';
   const ask = S.nudge && done ? nudgeCard('action') : '';
   const big = x.kind === 'email' && !x.act.late ? `<button type="button" class="mwrow bl-bigstep" data-helper="${esc(h.id)}" data-bill="${esc(b.id)}"><span class="lead">${icon('notebook-pen')}</span><span class="body"><span class="title">Write testimony · 5 min</span><span class="sub">The bigger step, and the strongest way to be heard. First time, the Capitol site asks for a free account.</span></span>${icon('chevron-right', { cls: 'chev' })}</button>` : '';
-  const main = wide() ? mainButton(b, x) : '';
+  const main = wide() ? mainButton(b, x) + (S.blNew.has(b.id) && firstVisit() ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
   return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
     ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
@@ -506,14 +532,14 @@ function details(b, x) {
 function page(num, b) {
   const x = situation(b);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${newHere()}${head(b, x)}
+  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
   return `<div class="bl-page bl-wide">${topbar(num, b)}<div class="cols bl-cols">
-    <div class="bl-main">${newHere()}${head(b, x)}${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>
+    <div class="bl-main">${head(b, x)}${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
-      ${actionSection(b, x) || doCard(b, x)}
+      ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
     </aside></div></div>`;
 }
@@ -610,8 +636,10 @@ export default {
   // Phones and tablets: the main button in the sticky bottom bar. Wide screens have it in the side panel instead.
   bar(route) {
     if (wide()) return '';
-    const b = drawn(normNum(route.num));
-    return b ? mainButton(b, situation(b)) : '';
+    const b = drawn(normNum(route.num)); if (!b) return '';
+    const x = situation(b), main = mainButton(b, x);
+    // A newcomer on a shared bill can turn the action down right beside it (R-023).
+    return main && firstVisit() && (x.act || x.kind === 'ask') ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
   },
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
@@ -669,8 +697,27 @@ export default {
       if (el.dataset.blSent === 'yes') {
         await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
         if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
+        // A first visit that began on this bill: the first action gets its moment (C-7), then the rest of the visit.
+        if (S.blNew.has(b.id) && firstVisit()) {
+          logVisit('act', 'next', { path: 'link' });
+          moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`, small: 'That’s how bills move. Most people never do it.' },
+            () => viaStart(b, { viaActed: true }));
+          return;
+        }
       }
       app.render();
+    }));
+    each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); viaStart(b, { viaSkipAsk: true }); }));
+    each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
+      if (el.getAttribute('aria-busy') === 'true') return;
+      el.setAttribute('aria-busy', 'true');
+      const i = issuesOf(b)[0];
+      const ok = i ? await setFollows({ issuesOn: [i.id] }) : (S.watch.has(b.id) || await toggleWatch(b.id) !== false);
+      if (!ok) { el.removeAttribute('aria-busy'); return; }
+      logVisit('arrive', 'next', { path: 'link' });
+      const moving = i ? (i.bill_ids || []).filter(id => S.watch.has(id)).map(id => S.bills.find(y => y.id === id)).filter(y => y && alive(y)).length : 1;
+      moment({ title: 'Mahalo!', sub: `You’re following ${i ? i.name : nick(b) || spaced(b.bill_number)}.`,
+        small: moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.' }, () => viaStart(b));
     }));
     sideWatch?.disconnect();
     const side = root.querySelector('.bl-side');

@@ -181,8 +181,13 @@ export async function demoLoad() {
     const byId = new Map(D.bills.map(b => [b.id, b])), byIssue = {}, ofBill = {};
     for (const r of snap.billIssues || []) { const b = byId.get(r.bill_id); if (!b || !b.hiphi_position || b.hiphi_position === 'monitor') continue;
       (byIssue[r.issue_id] ??= []).push(b); (ofBill[b.id] ??= []).push(r.issue_id); }
+    // As public_issues does (R-023): top_priority is true when one of the issue's position bills in the latest session is the
+    // team's priority 1 (only that flag is public, never a bill's priority); first_visit is the staff switch "Show in the
+    // first visit" (true unless staff turned it off).
+    const prio = new Map(snap.bills.map(x => [x.id, x.priority])), latest = Math.max(...snap.bills.map(x => +x.session_year || 0));
     D.issues = (snap.issues || []).map(i => { const bs = (byIssue[i.id] || []).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
-      return { ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)], bill_ids: bs.map(b => b.id), bill_years: bs.map(b => b.session_year), followers: 0 }; });
+      return { ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)], bill_ids: bs.map(b => b.id), bill_years: bs.map(b => b.session_year), followers: 0,
+        first_visit: i.first_visit !== false, top_priority: bs.some(b => +b.session_year === latest && prio.get(b.id) === 1) }; });
     for (const b of D.bills) b.hiphi_issues = ofBill[b.id] || null; }
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
