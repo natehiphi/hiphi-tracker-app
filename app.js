@@ -122,12 +122,18 @@ const av = (a, cls='avatar') =>
 // says nothing when it cuts: .limit(2000) on 1,400 tracked bills quietly returns the first 1,000 by number, and 60 days
 // of hearings in session (up to 4,000 rows) came back as the oldest 1,000, without the week ahead. So every load that
 // can grow is read in pages. make(opts) builds the query afresh for each page, passes opts to select(), and orders by
-// something unique, or a row can repeat or fall between two pages. The first page also asks for the total; the rest
-// then come together, each the size the server gave the first. Resolves like one query: { data, error }.
+// something unique, or a row can repeat or fall between two pages. A short first page is the whole answer and costs
+// one request, exactly as before; only a full page asks how many there are and fetches the rest together. Asking for
+// the total up front instead made every load count its rows a second time, which doubled the slowest query of Nate's
+// sign-in (R-034). Resolves like one query: { data, error }. PAGE is the server's cap: lower it if "Max rows" is.
+const PAGE = 1000;
 async function allRows(make) {
-  const first = await make({ count: 'exact' }).range(0, 999), n = first.data?.length || 0;
-  if (first.error || !n || !(first.count > n)) return first;
-  const rest = await Promise.all(Array.from({ length: Math.ceil(first.count / n) - 1 }, (_, i) => make().range(n * (i + 1), n * (i + 2) - 1)));
+  const first = await make().range(0, PAGE - 1);
+  if (first.error || (first.data || []).length < PAGE) return first;
+  const { count, error } = await make({ count: 'exact', head: true });
+  if (error) return { ...first, data: null, error };
+  const rest = await Promise.all(Array.from({ length: Math.max(0, Math.ceil(count / PAGE) - 1) },
+    (_, i) => make().range(PAGE * (i + 1), PAGE * (i + 2) - 1)));
   return rest.find(r => r.error) || { ...first, data: first.data.concat(...rest.map(r => r.data)) };
 }
 const DB = {

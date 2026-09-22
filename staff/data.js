@@ -93,12 +93,18 @@ export const sponsorText = b => {
 // says nothing when it cuts: .limit(2000) on 1,400 tracked bills quietly returns the first 1,000 by number, and 60 days
 // of hearings in session (up to 4,000 rows) came back as the oldest 1,000, without the week ahead. So every load that
 // can grow is read in pages. make(opts) builds the query afresh for each page, passes opts to select(), and orders by
-// something unique, or a row can repeat or fall between two pages. The first page also asks for the total; the rest
-// then come together, each the size the server gave the first. Resolves like one query: { data, error }.
+// something unique, or a row can repeat or fall between two pages. A short first page is the whole answer and costs
+// one request, exactly as before; only a full page asks how many there are and fetches the rest together. Asking for
+// the total up front instead made every load count its rows a second time, which doubled the slowest query of Nate's
+// sign-in (R-034). Resolves like one query: { data, error }. PAGE is the server's cap: lower it if "Max rows" is.
+const PAGE = 1000;
 export async function allRows(make) {
-  const first = await make({ count: 'exact' }).range(0, 999), n = first.data?.length || 0;
-  if (first.error || !n || !(first.count > n)) return first;
-  const rest = await Promise.all(Array.from({ length: Math.ceil(first.count / n) - 1 }, (_, i) => make().range(n * (i + 1), n * (i + 2) - 1)));
+  const first = await make().range(0, PAGE - 1);
+  if (first.error || (first.data || []).length < PAGE) return first;
+  const { count, error } = await make({ count: 'exact', head: true });
+  if (error) return { ...first, data: null, error };
+  const rest = await Promise.all(Array.from({ length: Math.max(0, Math.ceil(count / PAGE) - 1) },
+    (_, i) => make().range(PAGE * (i + 1), PAGE * (i + 2) - 1)));
   return rest.find(r => r.error) || { ...first, data: first.data.concat(...rest.map(r => r.data)) };
 }
 export const DB = {
@@ -139,6 +145,28 @@ export const DB = {
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
     // One clock for the whole load, so every page of a paged query asks for the same window.
     const loadedAt = Date.now(), daysBack = d => new Date(loadedAt - d * 864e5).toISOString();
+    // These four need nothing from the main load, so they go out with it instead of one after another after it. They
+    // used to be four more round trips, each with its own CORS preflight: about three of the eight seconds Nate's
+    // sign-in took on 9/21 (R-034). Each falls back to empty, as before; none of them can fail the load.
+    const extras = Promise.all([
+      // Freshness indicator data
+      S.supa.from('sync_runs').select('finished_at,ok').order('started_at', { ascending: false }).limit(10),
+      // Official actions found since this person's previous visit
+      S.supa.from('activity_log').select('bill_id,title,occurred_at,created_at')
+        .eq('source', 'auto').gt('created_at', new Date(S.sinceVisit).toISOString())
+        .order('created_at', { ascending: false }).limit(200),
+      // Everything that happened on tracked bills in the last eight days, every source. Eight days covers "since
+      // yesterday", "since Friday", "since your last visit" and "the last 7 days". It used to be 72 hours across all
+      // 6,000 bills, capped at 300 rows: the Capitol stamps its actions 08:00, so on a Monday after 8 AM all of
+      // Friday's fell outside the window, and on a busy day the cap dropped most of the rest (R-022). The inner join
+      // keeps it to the bills the team tracks.
+      allRows(o => S.supa.from('activity_log')
+        .select('bill_id,title,details,occurred_at,type,advocate_id,source,bills!inner(tracked)', o)
+        .eq('bills.tracked', true)
+        .gt('occurred_at', daysBack(8))
+        .order('occurred_at', { ascending: false }).order('id')),
+      this.loadIssues(),
+    ].map(p => Promise.resolve(p).catch(() => null)));
     const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       allRows(o => S.supa.from('bills').select('*', o).eq('tracked', true).order('bill_number').order('id')),
@@ -225,44 +253,13 @@ export const DB = {
     S.mutes = new Set((mut?.data || []).filter(r => S.me && r.advocate_id === S.me.id).map(r => r.bill_id));
     // Nothing owned or followed yet: the empty "My bills" page helps nobody.
     if (S.me && S.owner === 'me' && !S.bills.some(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id))) S.owner = 'all';
-    // Freshness indicator data - never let this block the app
-    try {
-      const sr = await S.supa.from('sync_runs').select('finished_at,ok')
-        .order('started_at', { ascending: false }).limit(10);
-      S.syncRuns = sr.data || [];
-    } catch { S.syncRuns = []; }
-    await this.loadIssues();
-    // Companion stages for the "companion alive" chip (non-fatal)
-    try {
-      const nums = [...new Set(S.bills.flatMap(b => b.companions || []))];
-      if (nums.length) {
-        const ci = await allRows(o => S.supa.from('bills').select('bill_number,stage,stage_override', o)
-          .in('bill_number', nums).order('id'));
-        S.compStage = Object.fromEntries((ci.data || [])
-          .map(r => [r.bill_number, r.stage_override || r.stage || 'introduced']));
-      }
-    } catch { S.compStage = {}; }
-    // Official actions found since this person's previous visit (non-fatal)
-    try {
-      const ev = await S.supa.from('activity_log')
-        .select('bill_id,title,occurred_at,created_at')
-        .eq('source', 'auto').gt('created_at', new Date(S.sinceVisit).toISOString())
-        .order('created_at', { ascending: false }).limit(200);
-      S.sinceEvents = ev.data || [];
-    } catch { S.sinceEvents = []; }
-    // Everything that happened on tracked bills in the last eight days, every source (non-fatal). Eight days covers
-    // "since yesterday", "since Friday", "since your last visit" and "the last 7 days". It used to be 72 hours across
-    // all 6,000 bills, capped at 300 rows: the Capitol stamps its actions 08:00, so on a Monday after 8 AM all of
-    // Friday's fell outside the window, and on a busy day the cap dropped most of the rest (R-022). The inner join
-    // keeps it to the bills the team tracks.
-    try {
-      const rc = await allRows(o => S.supa.from('activity_log')
-        .select('bill_id,title,details,occurred_at,type,advocate_id,source,bills!inner(tracked)', o)
-        .eq('bills.tracked', true)
-        .gt('occurred_at', daysBack(8))
-        .order('occurred_at', { ascending: false }).order('id'));
-      S.recentEvents = (rc.data || []).map(({ bills: _b, ...e }) => e);
-    } catch { S.recentEvents = []; }
+    // The four that went out with the main load, in the same order as above.
+    const [sr, ev, rc] = await extras;
+    S.syncRuns = sr?.data || [];
+    S.sinceEvents = ev?.data || [];
+    S.recentEvents = (rc?.data || []).map(({ bills: _b, ...e }) => e);
+    // No companion-stage load here: the "companion alive" chip is the old app's, and Staff v2 never reads
+    // S.compStage. It was a round trip of its own for 400 rows nothing looked at (R-034).
   },
   async timeline(billId) {
     if (DEMO) return DEMO_TL.filter(t => t.bill_id === billId);
