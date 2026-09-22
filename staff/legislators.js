@@ -7,7 +7,7 @@
 // committees that matter, the bills of ours they hear this week and the last logged contact; the whole row opens
 // the legislator. Kept from the current app's renderLegislators: the chamber choice, the committee filter, the
 // address lookup (geoSuggest -> geoDistricts) and the text match over name, towns and district.
-import { S, DB, esc, DEMO, hooks, advocate, fmtDate, islandOf } from './data.js';
+import { S, DB, esc, DEMO, hooks, advocate, fmtDate, fmtDT, islandOf } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, cmteName, blurb } from './model.js';
 import { icon, btn, iconBtn, empty, toast, segmented, pickerChip, pickerSheet, keysOn } from './ui.js';
 import { photo, partyDist, legName, legHref, seatsOf, seatsText, roleWord, RANK, wireLinks, surname } from './pathway.js';
@@ -25,7 +25,8 @@ const setChip = (v, k) => { v.scope = k === 'week' ? 'week' : 'all'; v.chamber =
 // ---- data ----
 // Our bills = tracked, with a position (not Monitor), the same set the current app's profile counts.
 export const ourBill = b => b.tracked !== false && !!b.position && b.position !== 'monitor';
-// Who hears our bills in the next 7 days: legislator id -> { bills: Set(bill id), roles: { code: role }, when: Map(bill id -> first hearing) }
+// Who hears our bills in the next 7 days: legislator id -> { bills: Set(bill id), roles: { code: role }, when: Map(bill id -> first
+// hearing), hid: Map(bill id -> that hearing's id) } (hid: each line of "Hearing this week" opens its hearing, R-022 #16)
 export function weekIndex() {
   const now = Date.now(), ours = new Set(S.bills.filter(ourBill).map(b => b.id)), out = new Map();
   for (const h of S.hearings) {
@@ -34,8 +35,10 @@ export function weekIndex() {
     const cs = codesOf(h.committee);
     for (const m of S.committeeMembers || []) {
       if (!cs.includes(m.committee)) continue;
-      const x = out.get(m.legislator_id) || { bills: new Set(), roles: {}, when: new Map() };
-      x.bills.add(h.bill_id); x.roles[m.committee] = m.role; x.when.set(h.bill_id, Math.min(t, x.when.get(h.bill_id) ?? Infinity)); out.set(m.legislator_id, x);
+      const x = out.get(m.legislator_id) || { bills: new Set(), roles: {}, when: new Map(), hid: new Map() };
+      x.bills.add(h.bill_id); x.roles[m.committee] = m.role;
+      if (t < (x.when.get(h.bill_id) ?? Infinity)) { x.when.set(h.bill_id, t); x.hid.set(h.bill_id, h.id); }
+      out.set(m.legislator_id, x);
     }
   }
   return out;
@@ -241,7 +244,11 @@ function weekBills(w, per) {
   if (!w) return { n: 0, html: '', all: '' };
   const bs = [...w.bills].map(id => S.bills.find(b => b.id === id)).filter(Boolean).sort((a, b) => (w.when.get(a.id) || 0) - (w.when.get(b.id) || 0) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const shown = bs.slice(0, per), more = bs.length - shown.length;
-  const one = (b, i) => `<span class="lg-bl"><span class="lg-blt">${b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(blurb(b, 60))}</span><span class="lg-bln">${esc(b.bill_number)}</span>${more > 0 && i === shown.length - 1 ? `<span class="lg-morebills">and ${more} more</span>` : ''}</span>`;
+  // Each line opens the hearing the legislator hears it at (#/hearing/:id); the row around it still opens the legislator.
+  const one = (b, i) => { const hid = w.hid?.get(b.id), h = hid && S.hearings.find(x => x.id === hid);
+    const inner = `<span class="lg-blt">${b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(blurb(b, 60))}</span><span class="lg-bln">${esc(b.bill_number)}</span>`;
+    const say = h ? `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}: the ${h.committee} hearing, ${fmtDT(h.scheduled_at)}` : '';
+    return `<span class="lg-bl">${h ? `<a class="lg-hl" href="#/hearing/${encodeURIComponent(h.id)}" title="${esc(`Open the ${h.committee} hearing, ${fmtDT(h.scheduled_at)}`)}" aria-label="${esc(say)}">${inner}</a>` : inner}${more > 0 && i === shown.length - 1 ? `<span class="lg-morebills">and ${more} more</span>` : ''}</span>`; };
   return { n: bs.length, html: `<span class="lg-bls${per > 2 && shown.length > 1 ? ' two' : ''}">${shown.map(one).join('')}</span>`, all: bs.map(b => `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}`).join('\n') };
 }
 function tableHTML(v, ls, week, mode) {

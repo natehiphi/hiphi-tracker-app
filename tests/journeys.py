@@ -52,9 +52,14 @@ JOURNEYS = [
    dict(what='it is already there', do='true',
         reach="(()=>{const c=document.querySelector('.td-card,.td-root .row'); return !!c && c.getBoundingClientRect().top < window.innerHeight;})()"),
  ]),
- dict(name='staff: a bill number in hand -> that bill page', app=STAFF, budget=2, start='#/search?q=HB1562', steps=[
-   dict(what='open the result', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
-        reach="(()=>/#\\/bill\\/HB/i.test(location.hash))()"),
+ # Starts where a person really starts, on Today, with the number typed into the header search and Enter pressed
+ # (R-022). It used to start on the results page, so it counted 1 step while a real person took 3 or 4. The header
+ # search is a desktop control (a phone has the magnifier), and the team works on desktops, so this one runs at 1440.
+ dict(name='staff: a bill number in hand -> that bill page', app=STAFF, budget=2, start='#/', desk=True, steps=[
+   dict(what='type the number into the header search', fill=('#hq', 'HB1562'),
+        reach="(()=>{const i=document.getElementById('hq'); return !!i && i.offsetParent!==null && i.value==='HB1562';})()"),
+   dict(what='press Enter', press=('#hq', 'Enter'),
+        reach="(()=>/^#\\/bill\\/HB1562$/i.test(location.hash) && !!document.querySelector('main h1, main .bw-page'))()"),
  ]),
  dict(name='staff: bill page -> position changed and saved', app=STAFF, budget=3, start='#/bill/HB1562', steps=[
    dict(what='open the position control', do=click_text('button,.btn,.sv-pick', 'Position|Support|Oppose|Monitor|No position'),
@@ -65,7 +70,8 @@ JOURNEYS = [
 ]
 
 def run_one(br, j):
-    c = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+    # A phone unless the journey says it is done at a desk (`desk`: a 1440x900 window with a mouse).
+    c = br.new_context(viewport={'width': 1440, 'height': 900}) if j.get('desk') else br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
     p = c.new_page(); errs = []
     p.on('pageerror', lambda e: errs.append(str(e)[:120]))
     p.goto(j['app'] + '#/'); p.wait_for_timeout(4000)
@@ -80,7 +86,13 @@ def run_one(br, j):
     p.goto(j['app'] + j['start']); p.reload(); p.wait_for_timeout(2800)
     steps, failed = 0, None
     for s in j['steps']:
-        did = p.evaluate(s['do'])
+        # A step is a click done in the page (`do`), or real typing (`fill`) or a real key press (`press`) into a field,
+        # so a form's own Enter handling is what is tested rather than a script calling it.
+        try:
+            if 'fill' in s: p.fill(*s['fill']); did = True
+            elif 'press' in s: p.press(*s['press']); did = True
+            else: did = p.evaluate(s['do'])
+        except Exception as e: did = False
         if did is False: failed = f"could not: {s['what']}"; break
         p.wait_for_timeout(1600)
         if not p.evaluate(s['reach']): failed = f"did not arrive after: {s['what']}"; break

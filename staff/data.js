@@ -14,8 +14,10 @@ export const DEMO = new URLSearchParams(location.search).has('demo');
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
 // clock starts there and runs forward for the length of the visit, so
-// countdowns tick but nothing new ever arrives.
-export const DEMO_ASOF = '2026-03-16T09:00:00-10:00';
+// countdowns tick but nothing new ever arrives. `&season=off` previews the months between sessions: the clock is
+// 18 September instead and the session has ended, as pub/core.js does (R-022).
+const DEMO_OFF = DEMO && new URLSearchParams(location.search).get('season') === 'off';
+export const DEMO_ASOF = DEMO_OFF ? '2026-09-18T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
 if (DEMO) {
   const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
@@ -26,10 +28,10 @@ export let RECOVERY = HASH_Q.get('type') === 'recovery';
 // Surfacing it matters: without it the app showed a bare sign-in form, the link
 // looked like it had done nothing, and clicking again burned the next token too.
 export const LINK_ERR = HASH_Q.get('error_description') || '';
-// Own origin + path, so the GitHub Pages subpath is picked up automatically.
-// Recovery links must land on an address on Supabase's redirect list; until staff.html is added there, send them to
-// the current app (the same folder, index.html). Everything else uses this only as the tracker's base address.
-export const APP_URL = location.origin + location.pathname.replace(/staff\.html$/, '');
+// Own origin + path, so the GitHub Pages subpath is picked up automatically: the tracker's folder address, which since
+// 9/21 is Staff v2 itself (index.html; staff.html is the same page). Recovery links land there, an address already on
+// Supabase's redirect list, and every Slack, email and calendar link the database writes points there too (R-022).
+export const APP_URL = location.origin + location.pathname.replace(/(staff|index)\.html$/, '');
 // January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
 // here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
 export let SESSION_YEAR = 2026;   // overwritten from session_deadlines at load (applySessionDeadlines)
@@ -248,13 +250,18 @@ export const DB = {
         .order('created_at', { ascending: false }).limit(200);
       S.sinceEvents = ev.data || [];
     } catch { S.sinceEvents = []; }
-    // Everything that happened in the last 72 hours, every source (non-fatal)
+    // Everything that happened on tracked bills in the last eight days, every source (non-fatal). Eight days covers
+    // "since yesterday", "since Friday", "since your last visit" and "the last 7 days". It used to be 72 hours across
+    // all 6,000 bills, capped at 300 rows: the Capitol stamps its actions 08:00, so on a Monday after 8 AM all of
+    // Friday's fell outside the window, and on a busy day the cap dropped most of the rest (R-022). The inner join
+    // keeps it to the bills the team tracks.
     try {
-      const rc = await S.supa.from('activity_log')
-        .select('bill_id,title,details,occurred_at,type,advocate_id,source')
-        .gt('occurred_at', new Date(Date.now() - 72 * 3600e3).toISOString())
-        .order('occurred_at', { ascending: false }).limit(300);
-      S.recentEvents = rc.data || [];
+      const rc = await allRows(o => S.supa.from('activity_log')
+        .select('bill_id,title,details,occurred_at,type,advocate_id,source,bills!inner(tracked)', o)
+        .eq('bills.tracked', true)
+        .gt('occurred_at', daysBack(8))
+        .order('occurred_at', { ascending: false }).order('id'));
+      S.recentEvents = (rc.data || []).map(({ bills: _b, ...e }) => e);
     } catch { S.recentEvents = []; }
   },
   async timeline(billId) {
@@ -297,12 +304,13 @@ export const DB = {
     const { error } = await S.supa.rpc('set_bill_mute', { p_bill: billId, p_muted: on });
     if (error) { if (on) S.mutes.delete(billId); else S.mutes.add(billId); throw error; }
   },
-  async attend(hearingId, on) {
+  // who defaults to you; an admin may pass a teammate's id (064), and that teammate is told by Slack.
+  async attend(hearingId, on, who = S.me.id) {
     S.attend ??= {}; const cur = S.attend[hearingId] || [];
-    S.attend[hearingId] = on ? [...new Set([...cur, S.me.id])] : cur.filter(id => id !== S.me.id);
+    S.attend[hearingId] = on ? [...new Set([...cur, who])] : cur.filter(id => id !== who);
     if (DEMO) return;
-    const r = on ? await S.supa.from('hearing_attendance').insert({ hearing_id: hearingId, advocate_id: S.me.id })
-                 : await S.supa.from('hearing_attendance').delete().eq('hearing_id', hearingId).eq('advocate_id', S.me.id);
+    const r = on ? await S.supa.from('hearing_attendance').insert({ hearing_id: hearingId, advocate_id: who })
+                 : await S.supa.from('hearing_attendance').delete().eq('hearing_id', hearingId).eq('advocate_id', who);
     if (r.error) { S.attend[hearingId] = cur; throw r.error; }
   },
   async setOwner(billId, advocateId) {
@@ -729,16 +737,65 @@ export const DB = {
   },
   async legNotes(legId) {
     if (S.legNotes[legId]) return S.legNotes[legId];
-    if (DEMO) return (S.legNotes[legId] = []);
+    if (DEMO) return (S.legNotes[legId] = (S.demoNotes || []).filter(n => n.legislator_id === legId));
     const { data, error } = await S.supa.from('legislator_notes').select('*').eq('legislator_id', legId).order('created_at', { ascending: false }).limit(50); if (error) throw error;
     return (S.legNotes[legId] = data || []);
   },
-  async addLegNote(legId, billId, body) {
-    const row = { legislator_id: legId, bill_id: billId || null, advocate_id: S.me?.id, body, created_at: new Date().toISOString(), id: 'tmp' + Date.now() };
-    if (!DEMO) { const { data, error } = await S.supa.from('legislator_notes').insert({ legislator_id: legId, bill_id: billId || null, advocate_id: S.me?.id, body }).select('*').single(); if (error) throw error; Object.assign(row, data); }
-    (S.legNotes[legId] ??= []).unshift(row); return row;
+  // A conversation with a legislator is about an issue more than a bill (Nate, 9/21; migration 064). One meeting with
+  // several legislators is one row per legislator sharing conversation_id. opts: { issueId, metOn (YYYY-MM-DD),
+  // conversationId }. Returns the row.
+  async addLegNote(legId, billId, body, opts = {}) {
+    const fields = { legislator_id: legId, bill_id: billId || null, advocate_id: S.me?.id, body,
+      issue_id: opts.issueId || null, met_on: opts.metOn || null, conversation_id: opts.conversationId || null };
+    const row = { ...fields, created_at: new Date().toISOString(), id: 'tmp' + Date.now() + Math.random().toString(36).slice(2, 6) };
+    if (!DEMO) { const { data, error } = await S.supa.from('legislator_notes').insert(fields).select('*').single(); if (error) throw error; Object.assign(row, data); }
+    else (S.demoNotes ??= []).unshift(row);
+    // Only a legislator whose notes are already loaded gets the row added; creating the cache here would make their
+    // page show this one note and skip loading the rest.
+    if (S.legNotes[legId]) S.legNotes[legId].unshift(row);
+    S.convCache = {}; S.legLast = null; return row;
   },
-  async delLegNote(id, legId) { if (!DEMO) { const { error } = await S.supa.from('legislator_notes').delete().eq('id', id); if (error) throw error; } S.legNotes[legId] = (S.legNotes[legId] || []).filter(n => n.id !== id); },
+  // Your own note can be corrected for ten minutes (the database enforces it; 064).
+  async updateLegNote(id, patch) {
+    const all = [...Object.values(S.legNotes || {}).flat(), ...(S.demoNotes || [])].filter(n => String(n.id) === String(id));
+    const before = all.map(n => Object.fromEntries(Object.keys(patch).map(k => [k, n[k]])));
+    const put = (i, v) => all.forEach((n, j) => Object.assign(n, i === 'patch' ? v : before[j]));
+    put('patch', patch); S.convCache = {};
+    if (DEMO) return;
+    try {
+      const { data, error } = await S.supa.from('legislator_notes').update(patch).eq('id', id).select('id');
+      if (error) throw error;
+      if (!(data || []).length) throw new Error('This note can no longer be changed: notes can be corrected for ten minutes after they are saved.');
+    } catch (e) { put('before'); S.convCache = {}; throw e; }   // put it back as the database still has it
+  },
+  async delLegNote(id, legId) {
+    if (!DEMO) { const { error } = await S.supa.from('legislator_notes').delete().eq('id', id); if (error) throw error; }
+    else S.demoNotes = (S.demoNotes || []).filter(n => String(n.id) !== String(id));
+    if (S.legNotes[legId]) S.legNotes[legId] = S.legNotes[legId].filter(n => n.id !== id);
+    S.convCache = {}; S.legLast = null;
+  },
+  // Every row of the given conversations (one per legislator at the meeting), so a legislator's page can name the
+  // others who were there.
+  async conversationRows(ids) {
+    if (!ids.length) return [];
+    if (DEMO) return (S.demoNotes || []).filter(n => ids.includes(n.conversation_id));
+    const { data, error } = await S.supa.from('legislator_notes').select('*').in('conversation_id', ids).limit(500);
+    if (error) throw error; return data || [];
+  },
+  // Every conversation about a bill: logged on the bill itself, or under any issue the bill carries. Newest first.
+  async conversations({ billId = null, issueIds = [] } = {}) {
+    const key = (billId || '') + '|' + [...issueIds].sort().join(',');
+    if ((S.convCache ??= {})[key]) return S.convCache[key];
+    let rows;
+    if (DEMO) rows = (S.demoNotes || []).filter(n => (billId && n.bill_id === billId) || (n.issue_id && issueIds.includes(n.issue_id)));
+    else {
+      const ors = [billId ? `bill_id.eq.${billId}` : null, issueIds.length ? `issue_id.in.(${issueIds.join(',')})` : null].filter(Boolean);
+      if (!ors.length) return [];
+      const { data, error } = await S.supa.from('legislator_notes').select('*').or(ors.join(',')).order('created_at', { ascending: false }).limit(100);
+      if (error) throw error; rows = data || [];
+    }
+    return (S.convCache[key] = rows.slice().sort((a, b) => String(b.met_on || b.created_at).localeCompare(String(a.met_on || a.created_at))));
+  },
   async saveCounterparts(pairs) {
     S.counterparts = pairs;
     if (DEMO) return;
@@ -851,6 +908,7 @@ export async function demoInit() {
   applySessionDeadlines(snap.deadlines);
   S.sessionCal = snap.calendar || [];
   S.alerts = [];
+  S.emailCfg = { enabled: false };   // as on production: email is paused until Nate says so
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); hooks.afterLoad(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
@@ -861,6 +919,11 @@ export async function demoInit() {
     templates: { hearing_alert: '📅 *{{bill}}* · {{position}}{{priority}}{{owner}}\n{{title}}\n{{committee}} hearing · {{hearing}} · {{room}}\nWritten testimony due *{{deadline}}*\n<{{tracker}}|Open in tracker> · <{{pdf}}|Notice PDF>',
       draft_thread: '📝 Draft ready{{owner_for}}: <{{draft}}|Google Doc> · <{{tracker}}|tracker>' } };
   const sc = snapshotScenario(snap);
+  // Between sessions (&season=off): the imagined end of 2026, as pub/core.js has it. Anything still moving stops, except
+  // strongly supported bills that got far, which become law, so Today's "how the session ended" has laws to show.
+  if (DEMO_OFF) { let n = 100; for (const b of sc.bills) if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
+    if (b.position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage)) { b.stage = 'enacted'; b.last_action = `Act ${n++}, on 07/01/2026`; }
+    else { b.stage = 'dead'; b.died_deadline ||= 'Sine die'; } } }
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   // A testimony draft on the soonest upcoming hearing, so the drawer section
@@ -870,23 +933,37 @@ export async function demoInit() {
   // soonest hearing if it has one, so the Desk link appears too when that
   // hearing is inside the 48-hour window.
   S.drafts = {};
-  const anchor = S.bills.find(b => b.priority === 1 && b.stage !== 'dead' && (sc.assignments[b.id] || []).includes(S.me.id) && sc.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now())) || S.bills.find(b => b.stage !== 'dead') || S.bills[0];
-  if (anchor) {
+  // Drafts exist only for an actionable position, as live: sync/testimony.js never makes one for Monitor (R-022).
+  const ACTIONABLE = ['strongly_support', 'strongly_oppose', 'support', 'support_amend', 'oppose', 'neutral'];
+  const heardSoon = b => sc.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now());
+  const positioned = S.bills.filter(b => b.stage !== 'dead' && ACTIONABLE.includes(b.position));
+  // The one in review (Approve / Request changes) sits on a bill with a position; when "as" has no P1 bill with a
+  // hearing ahead it used to fall back to the first bill of all, a Monitor one ("HIPHI only monitors this bill").
+  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(S.me.id) && heardSoon(b))
+    || positioned.find(heardSoon) || positioned[0] || S.bills[0];
+  if (anchor && !DEMO_OFF) {   // between sessions nothing is in review
     const b0 = anchor;
-    const h0 = sc.hearings.filter(h => h.bill_id === b0.id)
+    // Its next hearing: the earliest of all was often one already past, so the card said "No hearing is scheduled".
+    const h0 = sc.hearings.filter(h => h.bill_id === b0.id && new Date(h.scheduled_at) > Date.now())
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
       status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
       doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
-  // And one per hearing in the coming week, so whichever bills the Desk
-  // "hearing posted" band shows under the current lens, a link is there.
-  // (Demo hearings carry no testimony_deadline; scheduled_at is the key.)
-  let n = 2, approvedSeeded = false;
+  // And one per hearing in the coming week on a bill with a position, as the live job does: sync/testimony.js makes
+  // drafts only for an actionable position, never for Monitor (the sandbox used to seed every hearing, which made
+  // Today look twice as busy as live; R-022). Each draft is the bill owner's, and returned drafts carry different
+  // notes, as real reviews would.
+  const NOTES = ['Cite the 2024 BRFSS numbers in paragraph two.', 'Lead with the fiscal note; the chair asked for it.',
+    'Name the two amendments we want in the first paragraph.', 'Shorten it to one page and list the coalition sign-ons.'];
+  let n = 2, approvedSeeded = false, noteN = 0;
   for (const h of sc.hearings.filter(h => new Date(h.scheduled_at) > new Date()
       && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
+    const hb = S.bills.find(b => b.id === h.bill_id);
+    if (!hb || !ACTIONABLE.includes(hb.position)) continue;
     if ((S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
+    const owner = (sc.assignments[h.bill_id] || [])[0] || null;
     // Cycle through the workflow states so every button shows up somewhere.
     let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
     // The Desk opens on "my bills", so make sure one of Nate's has the
@@ -895,12 +972,12 @@ export async function demoInit() {
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: ago(30), submitted_by: st === 'draft' ? null : byIni.KR, submitted_at: st === 'draft' ? null : ago(20),
+      created_at: ago(30), submitted_by: st === 'draft' ? null : owner, submitted_at: st === 'draft' ? null : ago(20),
       approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
       second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(6),
-      filed_by: st === 'filed' ? byIni.KR : null, filed_at: st === 'filed' ? ago(2) : null,
+      filed_by: st === 'filed' ? owner : null, filed_at: st === 'filed' ? ago(2) : null,
       version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
-      review_note: st === 'draft' ? 'Cite the 2024 BRFSS numbers in paragraph two.' : null });
+      review_note: st === 'draft' ? NOTES[noteN++ % NOTES.length] : null });
   }
   // Drafts that already existed on the sandbox's day (R-027): filed, on the earlier hearings where HIPHI really filed
   // testimony in 2026 (tools/build_snapshot.js), so the Testimony tab has a history to show. A bill and committee that
@@ -913,8 +990,13 @@ export async function demoInit() {
   S.follows = new Set(); S.mutes = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
   S.demoTriaged = new Set();
   // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
+  // A message reaches the bill's owners and followers, anyone who wrote on it lately, and anyone @mentioned, as the
+  // live trigger does (queue_message_dms); the sandbox used to hand every message to everyone (R-022).
   S.buildDemoInbox = () => { const mineIds = new Set(S.bills.filter(isMine).map(b => b.id)); const out = [];
-    for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
+    const first = (S.me.full_name || '').split(' ')[0];
+    const named = body => new RegExp('@(' + S.me.initials + (first ? '|' + first.replace(/[^\w]/g, '') : '') + ')\\b', 'i').test(body || '');
+    for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id
+      && (mineIds.has(bid) || list.some(x => x.advocate_id === S.me.id) || named(m.body))) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
       if (d.status === 'review' && S.me?.is_admin) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
       if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
@@ -963,6 +1045,8 @@ export async function demoInit() {
   S.recentEvents = [...sc.since.map(e => ({ ...e, source: 'auto', type: 'status_auto' })), ...DEMO_TL]
     .filter(e => e.occurred_at).sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)));
   S.session = { user: { email: 'nate@hiphi.org' } };
+  // Between sessions the seeds above would be March's work, 184 days overdue: no chat, to-dos or follow-ups.
+  if (DEMO_OFF) { S.messages = {}; S.todos = {}; S.followups = []; }
   S.inbox = S.buildDemoInbox();
 }
 
@@ -976,7 +1060,7 @@ export const isOwner = b => !!S.me && (S.assignments[b.id] || []).includes(S.me.
 export const isMuted = b => !!S.mutes?.has(b.id);
 export const isMine = b => !!S.me && (isOwner(b) || !!S.follows?.has(b.id)) && !isMuted(b);
 // The first hearing still ahead, which is what keeps a bill from being muted.
-export let SESSION_OVER = DEMO ? false : true;   // set from the calendar at load: over once sine die has passed
+export let SESSION_OVER = DEMO ? DEMO_OFF : true;   // set from the calendar at load: over once sine die has passed
 // Official session calendar (LRB, 2026). One place to update each December.
 // The sandbox uses the same calendar, frozen at DEMO_ASOF.
 export let DEADLINES = {   // fallback only; the real calendar comes from session_deadlines
@@ -1008,7 +1092,7 @@ export function applySessionDeadlines(rows) {
   for (const r of mine) { const k = bucket[r.key] || r.key; (dl[k] ??= []).push([r.label, String(r.deadline_date).slice(0, 10)]); }
   if (Object.keys(dl).length >= 8) { DEADLINES = dl; SESSION_YEAR = yr; }
   const sine = mine.find(r => r.key === 'sine_die');
-  SESSION_OVER = DEMO ? false : !!sine && Date.now() > new Date(sine.deadline_date + 'T23:59:59-10:00').getTime() + 864e5;
+  SESSION_OVER = DEMO ? DEMO_OFF : !!sine && Date.now() > new Date(sine.deadline_date + 'T23:59:59-10:00').getTime() + 864e5;
 }
 // Dying-quietly radar: committee stages where "no hearing scheduled" is the
 // death signal, and the deadline each stage races. Bills still at Introduced

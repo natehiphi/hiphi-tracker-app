@@ -87,7 +87,7 @@ function dropFilter(f, key, val) {
 }
 
 // ---- the Outreach switcher (Issues, Lists and Emails show the same four links) ----
-export const outreachNav = cur => `<nav class="sv-seg sp-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
+export const outreachNav = cur => `<nav class="sv-seg sp-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
   .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 
 // ---- rows ----

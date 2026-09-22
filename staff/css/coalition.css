@@ -1,0 +1,130 @@
+/* The coalition pages (R-022 wave 3 #19): the index (#/coalition, .co-index, in the Lists look: lists.css .le-page and
+   .le-table) and one coalition (#/coalition/:id, .co-page, the look of a hearing's or a legislator's page). Tokens only;
+   the five staff type sizes (A-4); 44px targets (A-6). Phone first; the desktop's two columns are at the end. */
+
+/* ---- the index ---- */
+.co-index .co-list { margin-top: var(--s12); }
+.co-index .co-irow { min-height: 64px; }
+.co-index .co-irow .lead { background: var(--n100); color: var(--n700); }
+.co-index .co-irow .sub { display: flex; flex-direction: column; }
+.co-index .co-pub { color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-index .co-cnt { overflow-wrap: anywhere; }   /* the counts may take two lines on a phone; cut, they lost "this week" */
+.co-index .co-you { display: flex; align-items: center; gap: 4px; font-weight: 700; color: var(--n700); }
+.co-index .co-you .ic { width: 16px; height: 16px; color: var(--p700); }
+.co-index .co-none { color: var(--n500); }
+
+/* ---- one coalition ---- */
+.co-page .co-deskback { display: none; }
+.co-head { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s4) 0 var(--s8); }
+.co-icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: 2px; border-radius: 50%; background: var(--n100); color: var(--n700); flex: none; }
+.co-icon .ic { width: 24px; height: 24px; }
+.co-hbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* 18px on a phone, 22px on a desktop; two classes, to outrank body.staff2 h1 */
+.co-page .co-head h1 { font-size: var(--t18); line-height: 1.2; overflow-wrap: anywhere; padding-top: 12px; }
+.co-trow { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s16); }
+.co-trow > .btn { flex: none; }
+.co-pubname { font-size: var(--t14); color: var(--n700); }
+/* the description is the public tile's sentence; staff know their coalitions, so a phone keeps the 40px for the week */
+.co-desc { display: none; font-size: var(--t14); color: var(--n700); }
+.co-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); margin-top: var(--s4); font-size: var(--t14); color: var(--n500); }
+.co-own { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.co-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin: var(--s4) 0 var(--s12); }
+.co-card { padding: var(--s4) var(--s16); }
+.co-card + .co-card { margin-top: var(--s12); }
+.co-page > .co-sup { margin-top: var(--s24); }
+.co-sup .sv-switchrow { min-height: 56px; padding: var(--s8) 0; }
+
+/* sections */
+.co-sec { margin-top: var(--s24); }
+.co-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 32px; margin-bottom: var(--s8); }
+.co-sech h2 { font-size: var(--t18); }
+.co-n { margin-left: 4px; font: 700 var(--t14)/1 var(--font); color: var(--n500); }
+.co-empty { display: flex; align-items: center; gap: var(--s8); min-height: 32px; font-size: var(--t14); color: var(--n700); }
+.co-empty .ic { width: 18px; height: 18px; color: var(--ok-text); flex: none; }
+.co-clear { margin-top: var(--s24); }
+.co-more { justify-content: center; gap: 6px; min-height: 44px; color: var(--p700); font-size: var(--t14); font-weight: 700; }
+.co-more .ic { width: 18px; height: 18px; }
+.co-rows .title { font-weight: 400; color: var(--n700); }
+.co-rows .title b { color: var(--n900); font-weight: 700; }
+
+/* a hearing this week: the day in a block, then time, committee and room, its bills, and who is going */
+.co-hrow { gap: var(--s12); min-height: 72px; padding: var(--s8) var(--s12) var(--s8) var(--s12); }
+.co-date { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 48px; height: 48px; border-radius: var(--r8); background: var(--n100); color: var(--n700); line-height: 1.1; }
+.co-date b { font-size: var(--t13); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.co-date span { font: 700 var(--t18)/1.1 var(--font-h); color: var(--n900); }
+.co-hrow .title { font-weight: 700; color: var(--n900); }
+.co-hrow .sub { color: var(--n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-hrow .co-hbills b { color: var(--n900); font-weight: 700; }
+.co-going, .co-test { display: flex; align-items: center; gap: 6px; font-size: var(--t14); color: var(--n700); }
+.co-going .ic, .co-test .ic { width: 16px; height: 16px; color: var(--n500); flex: none; }
+/* testimony not filed yet: the countdown's amber inside 24 hours and its red once past, with words and an icon (A-5) */
+.co-test.soon, .co-test.soon .ic { color: var(--warn-text); font-weight: 700; }
+.co-test.late, .co-test.late .ic { color: var(--bad-text); font-weight: 700; }
+
+/* a bill at risk: its name, what it needs and by when, its owner; the days left at the right */
+.co-brow { gap: var(--s8); min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.co-brow .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.co-brow .sub { color: var(--n700); }
+.co-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); font-size: var(--t14); color: var(--n500); }
+.co-brow .end .sv-count { font-size: var(--t14); }
+
+/* a row with one action beside its link: a bill with no owner, a to-do anyone can take */
+.co-arow { gap: var(--s8); min-height: 64px; padding: 0 var(--s12) 0 var(--s16); }
+.co-amain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.co-amain .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.co-amain .co-ttl { color: var(--n900); font-weight: 700; }
+.co-amain .sub { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
+.co-amain .sub b { color: var(--n700); font-weight: 700; }
+.co-arow > .btn { flex: none; }
+.co-late, .co-soon { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.co-late { color: var(--bad-text); }
+.co-soon { color: var(--warn-text); }
+.co-late .ic, .co-soon .ic { width: 16px; height: 16px; }
+
+/* share with partners */
+.co-share { padding: var(--s12) var(--s16) var(--s16); margin-top: var(--s24); }
+.co-share h2 { margin-bottom: var(--s4); }
+.co-sh { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); padding: var(--s12) 0; border-bottom: 1px solid var(--n100); }
+.co-shl { display: flex; align-items: center; gap: var(--s8); font-weight: 700; color: var(--n900); }
+.co-shl .ic { width: 18px; height: 18px; color: var(--n500); }
+.co-url { display: flex; align-items: center; min-height: 44px; max-width: 100%; font-size: var(--t14); overflow-wrap: anywhere; }
+.co-shd { font-size: var(--t14); color: var(--n700); }
+.co-shnote { display: flex; gap: var(--s8); padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); }
+.co-shnote > .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
+.co-sh .btn { margin-top: var(--s4); }
+.co-iss { margin-top: var(--s8); }
+.co-iss > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8); margin: 0 calc(-1 * var(--s8)); border-radius: var(--r8);
+  color: var(--p700); font-size: var(--t14); font-weight: 700; cursor: pointer; list-style: none; }
+.co-iss > summary::-webkit-details-marker { display: none; }
+.co-iss > summary .ic { width: 18px; height: 18px; flex: none; }
+.co-iss > summary .chev { margin-left: auto; }
+.co-iss > summary:hover { background: var(--p50); }
+.co-iss[open] > summary .chev { transform: rotate(180deg); }
+.co-iss ul { list-style: none; margin: var(--s4) 0 0; padding: 0; }
+.co-iss li a { display: flex; align-items: center; min-height: 44px; font-size: var(--t14); border-top: 1px solid var(--n100); }
+
+/* ---- desktop (900px and wider) ---- */
+@media (min-width: 900px) {
+  /* the index table: the name takes the rest */
+  .co-index .co-table th.c-owner { width: 200px; }
+  .co-index .co-table th.c-bills { width: 120px; }
+  .co-index .co-table th.c-hear { width: 188px; }
+  .co-index .co-table th.c-you { width: 168px; }
+  /* one coalition: the week on the left, support and sharing in the side panel */
+  .co-page.co-desk { max-width: 1056px; margin: 0 auto; }
+  .co-page .co-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
+  .co-page .co-deskback:hover { background: var(--p50); }
+  .co-page .co-deskback .ic { width: 20px; height: 20px; }
+  .co-head { padding: 0 0 var(--s4); }
+  .co-desc { display: block; }
+  .co-page .co-head h1 { font-size: var(--t22); padding-top: 8px; }
+  .co-desk .co-head + .co-sec { margin-top: var(--s16); }
+  .co-desk .co-hrow { min-height: 64px; padding-top: 6px; padding-bottom: 6px; }
+  .co-hrow:hover .title, .co-brow:hover .title b, .co-amain:hover .title { text-decoration: underline; text-underline-offset: 3px; }
+  .co-cols > .co-side { padding-bottom: 2px; }   /* room for the cards' shadow */
+  .co-side .co-card { margin-top: 0; }
+  .co-side .co-card h2 { font-size: var(--t16); }   /* two classes, to outrank body.staff2 h2 */
+  .co-side .co-share { margin-top: 0; }
+  .co-shd a:hover, .co-url:hover { text-decoration: underline; }
+  .co-arow .btn:hover { background: var(--p50); }
+}

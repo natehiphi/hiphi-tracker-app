@@ -43,7 +43,8 @@ export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 export function countdown(iso, { prefix = '' } = {}) {
   if (!iso) return '';
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
-  const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.round(h)}h left` : `${prefix}${Math.ceil(h / 24)} days left`;
+  // Never round a deadline up: 2 days 6 hours is "2 days left", not 3 (R-022). A day early is safe; a day late is not.
+  const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.floor(h)}h left` : `${prefix}${Math.floor(h / 24)} days left`;
   const tone = ms <= 0 ? 'late' : h <= 24 ? 'soon' : '';
   return `<span class="sv-count ${tone}">${icon(ms <= 0 ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
 }
@@ -126,7 +127,7 @@ export function urgentMark(iso, { done = false } = {}) {
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
   const big = ms <= 0 ? (over >= 48 ? `${Math.round(over / 24)}d` : `${Math.max(1, Math.round(over))}h`)
-    : h < 1 ? '<1h' : h < 48 ? `${Math.round(h)}h` : `${Math.ceil(h / 24)}d`;
+    : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
   const word = ms <= 0 ? 'overdue' : h < 48 ? 'left' : 'to go';
   const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
   return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;

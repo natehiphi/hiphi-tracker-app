@@ -1,10 +1,11 @@
 // Staff v2 · Bills: what the list shows (scope, search, filters) and the one Filter sheet (plan 3.4).
-// The facet logic is the current app's, unchanged: any value inside a group, every group together, a live count on
-// every option, and options that would leave nothing are disabled. passes() from model.js does the shared facets and
-// flags; this file adds the two groups the current app handled elsewhere (owner, which was the teammate scope, and
-// committee) so every count in the sheet comes from one function, passAll().
-import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, hooks } from './data.js';
-import { factsOf, facets, FACTS, passes, diedish, codesOf, plain } from './model.js';
+// The facet logic is the current app's: any value inside a group, every group together, a live count on every
+// option, and options that would leave nothing are disabled. passFacets() walks model.js's facets and flags, reading
+// three of them on the bill itself (see "what a filter means" below); this file adds the two groups the current app
+// handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
+// function, passAll().
+import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
+import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain } from './model.js';
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
@@ -26,20 +27,44 @@ export const typingIn = el => !!el && (el.tagName === 'INPUT' || el.tagName === 
 // where it was (the frame does that for data-back); opened from the sidebar or a link, it goes to the list.
 // While a page renders, body[data-screen] still names the page before it (the frame sets it after render()).
 const SUB = { key: '', fromList: false };
-export function deskBack(key) {   // key: 'triage' | 'memo' | 'muted' (muted bills is a page of the 'bills' screen)
+// `to` ({ href, label }): the page was opened from somewhere else that the link named (the memo's ?from=, R-022), so
+// the way back goes there, and is real Back when the person came from inside the app, as hearing.js's does.
+export function deskBack(key, to) {   // key: 'triage' | 'memo' | 'muted' (muted bills is a page of the 'bills' screen)
   const v = bl(), prev = document.body.dataset.screen || '';
   const again = SUB.key === key && (key === 'muted' ? prev === 'bills' && !!v.lastMuted : prev === key);   // a redraw of the same page
   if (!again) { SUB.key = key; SUB.fromList = prev === 'bills' && !v.lastMuted; }
+  if (to) return `<a class="bl-deskback" href="${esc(to.href)}" data-back>${icon('chevron-left')}<span>${esc(to.label)}</span></a>`;
   return `<a class="bl-deskback" href="#/bills"${SUB.fromList ? ' data-back' : ''}>${icon('chevron-left')}<span>Bills</span></a>`;
 }
 
-// Everything the Bills screens remember. The shared facet sets (S.pris, S.poss…) live on S because passes() reads
-// them there; the rest lives on S.bl so nothing else in the app is touched.
+// ---- whose bills: Mine, My coalitions, Everyone (R-022, decision 7) ----
+// Support staff help with whole coalitions rather than owning bills: Kris supports every coalition, Saya CTFH. Their
+// choice lives in advocates.prefs.coalitions ('all', or a list of campaign ids) and is made in My settings. The third
+// scope appears only for someone who supports at least one, so everyone else keeps the two they know.
+// Asked for on every row the list filters, so the set is kept until the choice (or the coalitions) change. Read only.
+let MC = null;
+export const myCoalitions = () => {
+  const c = S.me?.prefs?.coalitions;
+  if (MC && MC.c === c && MC.camps === S.campaigns && MC.n === S.campaigns.length) return MC.set;
+  const ids = S.campaigns.map(x => x.id);
+  MC = { c, camps: S.campaigns, n: ids.length, set: new Set(c === 'all' ? ids : Array.isArray(c) ? c.filter(id => ids.includes(id)) : []) };
+  return MC.set;
+};
+export const scopeOpts = () => [['me', 'Mine'], ...(myCoalitions().size ? [['coal', 'My coalitions']] : []), ['all', 'Everyone']];
+// Somebody who owns and follows nothing but supports a coalition starts on that coalition's bills: an empty "Mine"
+// told Kris "You have no bills yet" in the busiest week of the session.
+export const defaultScope = () => !S.bills.some(isMine) && myCoalitions().size ? 'coal' : 'me';
+const okScope = s => s === 'all' || s === 'me' || (s === 'coal' && myCoalitions().size > 0);
+
+// Everything the Bills screens remember. The shared facet sets (S.pris, S.poss…) live on S because model.js's facets
+// read them there; the rest lives on S.bl so nothing else in the app is touched.
 export function bl() {
   if (!S.bl) {
     S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '' };
     load();
   }
+  // Coalitions can be given up in My settings while the list is on "My coalitions"; it falls back rather than going blank.
+  if (S.bl.scope === 'coal' && !myCoalitions().size) S.bl.scope = defaultScope();
   return S.bl;
 }
 // The starting state, and the shape a saved view stores: every filter, and nothing about how the table is drawn
@@ -59,9 +84,9 @@ function applyFilters(f) {
   v.owners = new Set(); v.cmtes = new Set();
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
-  v.scope = f.scope === 'all' ? 'all' : 'me';
+  v.scope = okScope(f.scope) ? f.scope : 'me';
   S.pris = new Set(ok(f.pris, [1, 2, 3]));
-  S.poss = new Set(ok(f.poss, ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor']));
+  S.poss = new Set(ok(f.poss, ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor', 'none']));
   S.stands = new Set(ok(f.stands, ['a', 'b', 'c', 'done', 'dead']));
   S.camps = new Set(ok(f.camps, S.campaigns.map(c => c.id)));
   S.lsts = new Set(ok(f.lsts, (S.lists || []).map(l => l.id)));
@@ -74,6 +99,8 @@ function load() {
   const v = S.bl;
   let f = null; try { f = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { /* private window: start clean */ }
   applyFilters(f);
+  // A "Mine" with nothing in it is never where someone who supports a coalition should land (see defaultScope).
+  if (!f || (v.scope === 'me' && defaultScope() === 'coal')) v.scope = defaultScope();
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.cols = new Set(ok(f.cols, ['cmte', 'coal', 'last', 'pulse']));
@@ -89,23 +116,50 @@ export function save() {
 export const cmtesOf = b => [...new Set([...(b.referrals || []), b.committee].flatMap(codesOf))];
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
   return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
-// Whose bills: Mine = owned or followed and not muted (the current app's isMine); Everyone = every tracked bill.
+// Whose bills: Mine = owned or followed and not muted (the current app's isMine); My coalitions = every bill in a
+// coalition you support, less the ones you muted (a mute is "off my lists"); Everyone = every tracked bill.
 // Monitor bills that died stay out (234 of Nate's 289 monitor bills are dead clerical noise); a search finds them.
+const inMyCoalition = b => { const mc = myCoalitions(); return (S.billCampaigns[b.id] || []).some(id => mc.has(id)); };
 export function baseBills(scope = bl().scope) {
   const q = plain(bl().q.trim());
-  return (scope === 'me' ? S.bills.filter(isMine) : S.bills).filter(b => (!q || matchQ(b, q)) && (q || b.position !== 'monitor' || !diedish(b)));
+  const pool = scope === 'me' ? S.bills.filter(isMine) : scope === 'coal' ? S.bills.filter(b => !isMuted(b) && inMyCoalition(b)) : S.bills;
+  return pool.filter(b => (!q || matchQ(b, q)) && (q || b.position !== 'monitor' || !diedish(b)));
+}
+
+// ---- what a filter means (R-022, decision 5, A-14: one meaning per word) ----
+// Monitor is a position the team decided, and the list keeps monitored bills in a group of their own. So every other
+// word on Bills counts bills with a position, and a word means the same thing wherever it appears. The sheet's
+// "Hearing scheduled" is the strip's "Hearing scheduled", and "Hearing this week" is the part of it heard in the next
+// 7 days (both used to count monitored bills too, so Nate saw "Hearing this week 17" beside "Hearing scheduled 8").
+// "Monitoring" is only the bills the team monitors (the old "No position yet" chip counted them, because factsOf
+// reads a missing position as monitor); "No position yet" means exactly that, and shows only when a tracked bill
+// really has none. model.js's facets read factsOf as it is, so these three are answered on the bill itself.
+export const posIs = (b, v) => v === 'none' ? !b.position : b.position === v;
+export const hearWeek = (f, b) => f.hear && b.position !== 'monitor';
+export const standIs = (f, b, v) => f.stand === v && (v === 'dead' || b.position !== 'monitor');
+export const posWord = p => p === 'monitor' ? 'Monitoring' : p === 'none' || !p ? 'No position yet' : POS_WORD[p] || p;
+const OWN_TEST = { poss: (f, b, v) => posIs(b, v), stands: (f, b, v) => standIs(f, b, v) };
+function passFacets(b, skip) {
+  const f = factsOf(b);
+  for (const g of facets()) {
+    const on = S[g.key]; if (g.key === skip || !on.size) continue;
+    const own = OWN_TEST[g.key];
+    if (![...on].some(v => own ? own(f, b, v) : g.has(f, v))) return false;
+  }
+  for (const [k, , , test] of FLAGS) if (k !== skip && S[k] && !(k === 'aliveF' && S.view === 'dead') && !(k === 'hearF' ? hearWeek(f, b) : test(f))) return false;
+  return !S.stageF || effStage(b) === S.stageF;
 }
 const ownerHas = (b, o) => o === 'none' ? !(S.assignments[b.id] || []).length : (S.assignments[b.id] || []).includes(o);
 export function passAll(b, skip) {
   const v = bl();
-  if (!passes(b, skip)) return false;
+  if (!passFacets(b, skip)) return false;
   if (skip !== 'owners' && v.owners.size && ![...v.owners].some(o => ownerHas(b, o))) return false;
   if (skip !== 'cmtes' && v.cmtes.size && !cmtesOf(b).some(c => v.cmtes.has(c))) return false;
   return true;
 }
 export const shownBills = (scope) => baseBills(scope).filter(b => passAll(b));
 export const liveCount = list => list.filter(b => b.position !== 'monitor' && factsOf(b).stand !== 'dead').length;
-// passes() has no "skip" for the one-value stage filter, so its own count lifts it for a moment (picking another
+// passFacets() has no "skip" for the one-value stage filter, so its own count lifts it for a moment (picking another
 // stage replaces the current one, so each stage shows what it would give on its own).
 const cnt = (list, skip, test) => {
   const st = S.stageF; if (skip === 'stageF') S.stageF = '';
@@ -116,8 +170,12 @@ export const freshFacts = () => FACTS.clear();   // positions, coalitions and li
 
 // ---- what is switched on ----
 // The quick chips are three of the same filters, one tap away. Muted is a place, not a filter, so it is a link.
-export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this week', f => f.hear], ['poss:monitor', 'No position yet', f => f.posx === 'monitor']];
-const STAND_WORD = { a: 'Waiting for a hearing', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
+// "At risk" is atRisk() (model.js, RISK_DAYS: no hearing and the deadline 7 days away or less) here, in the strip and
+// in the weekly memo alike.
+export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this week', (f, b) => hearWeek(f, b)], ['poss:monitor', 'Monitoring', (f, b) => b.position === 'monitor']];
+// "Needs a hearing" is at risk and waiting together (the table's "Waiting for a hearing" group is only the ones not
+// at risk, so the sheet no longer borrows its name for a bigger number).
+const STAND_WORD = { a: 'Needs a hearing', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
 const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
 export const isOn = spec => { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (i < 0) return !!S[k];
@@ -161,15 +219,20 @@ export function applyView(id) {
   const w = views().find(x => x.id === id); if (!w) return false;
   const v = bl(); applyFilters(w.f); v.q = ''; changed(); v.view = id; save(); return true;
 }
-// Back to how Bills looks on a first visit: your own bills, no filters, no search. Columns and row height stay.
-export function resetView() { const v = bl(); applyFilters(BLANK); v.q = ''; changed(); }
-export const isDefault = () => { const f = viewState(); return !activeFilters().length && f.scope === 'me' && !bl().q.trim(); };
+// A link that opens Bills on one coalition (#/bills?coalition=<id or slug>, from the coalition page, R-022): every one
+// of its bills (Everyone), and nothing else switched on. A one-off: it is not a saved view and is not written over what
+// this browser remembers, so a reload comes back to the person's own list. Whatever they change after it is theirs.
+export function openCoalition(id) { const v = bl(); applyFilters({ ...BLANK, scope: 'all', camps: [id] }); v.q = ''; v.view = ''; v.folds = {}; }
+// Back to how Bills looks on a first visit: your own bills (or your coalitions', for someone who owns none), no
+// filters, no search. Columns and row height stay.
+export function resetView() { const v = bl(); applyFilters(BLANK); v.scope = defaultScope(); v.q = ''; changed(); }
+export const isDefault = () => { const f = viewState(); return !activeFilters().length && f.scope === defaultScope() && !bl().q.trim(); };
 
 // ---- the two sheets: name a view, and look after the ones you have ----
 // A real form, so openSheet (never window.prompt, which no phone shows well and no screen reader announces).
 const suggestName = () => {
   const on = activeFilters().map(([, l]) => l);
-  return (on.length ? on.slice(0, 3).join(' · ') : bl().scope === 'all' ? 'Everyone’s bills' : 'My bills').slice(0, 40);
+  return (on.length ? on.slice(0, 3).join(' · ') : bl().scope === 'all' ? 'Everyone’s bills' : bl().scope === 'coal' ? 'My coalitions’ bills' : 'My bills').slice(0, 40);
 };
 const nameTaken = (name, notId) => views().some(w => w.id !== notId && w.name.toLowerCase() === name.toLowerCase());
 // One name form for both jobs: Save this view, and Rename. `after` redraws whatever opened it.
@@ -239,7 +302,7 @@ const cmteName = c => S.committees?.[c]?.name || '';
 export function activeFilters() {
   const v = bl(), out = [];
   for (const o of v.owners) out.push([`owners:${o}`, ownerWord(o)]);
-  for (const p of S.poss) out.push([`poss:${p}`, p === 'monitor' ? 'No position yet' : POS_WORD[p] || p]);
+  for (const p of S.poss) out.push([`poss:${p}`, posWord(p)]);
   for (const p of [...S.pris].sort()) out.push([`pris:${p}`, `P${p}`]);
   for (const s of S.stands) out.push([`stands:${s}`, STAND_WORD[s] || s]);
   if (S.stageF) out.push([`stageF:${S.stageF}`, `Stage: ${STAGES.find(([k]) => k === S.stageF)?.[1] || S.stageF}`]);
@@ -264,11 +327,13 @@ function sheetBody() {
   const inBase = test => v => v.on || base.some(b => test(b, v.id));
   const owners = [...ads.map(a => ({ id: a.id, l: a.id === S.me?.id ? 'You' : a.full_name })), { id: 'none', l: 'No owner' }].map(o => ({ ...o, on: v.owners.has(o.id) }))
     .filter(inBase(ownerHas)).map(({ id, l }) => opt(`owners:${id}`, l, cnt(base, 'owners', (x, b) => ownerHas(b, id)))).join('');
-  const poss = f.poss.opts.map(([k]) => opt(`poss:${k}`, k === 'monitor' ? 'No position yet' : POS_WORD[k] || k, cnt(base, 'poss', x => x.posx === k), { ic: POS_ICON[k === 'monitor' ? '' : k] })).join('');
+  // The team's seven positions, strongest first, then "No position yet" only while some bill here really has none.
+  const posKeys = [...f.poss.opts.map(([k]) => k), ...(S.poss.has('none') || base.some(b => !b.position) ? ['none'] : [])];
+  const poss = posKeys.map(k => opt(`poss:${k}`, posWord(k), cnt(base, 'poss', (x, b) => posIs(b, k)), { ic: POS_ICON[k === 'none' ? '' : k] })).join('');
   const pris = [1, 2, 3].map(p => opt(`pris:${p}`, `P${p}`, cnt(base, 'pris', x => x.pri === p))).join('');
-  const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => opt(`stands:${k}`, STAND_WORD[k], cnt(base, 'stands', x => x.stand === k))).join('');
+  const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => opt(`stands:${k}`, STAND_WORD[k], cnt(base, 'stands', (x, b) => standIs(x, b, k)), k === 'a' ? { title: 'At risk or waiting: no hearing yet' } : {})).join('');
   const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => n || S.stageF === k).map(([k, l, n]) => opt(`stageF:${k}`, l, n)).join('');
-  const hear = opt('hearF', 'This week', cnt(base, 'hearF', x => x.hear), { title: 'A hearing in the next 7 days' }) + opt('riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), { title: 'No hearing, and the deadline is a week away or less' });
+  const hear = opt('hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), { title: 'A hearing in the next 7 days' }) + opt('riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), { title: 'No hearing, and the deadline is a week away or less' });
   const camps = S.campaigns.map(c => ({ id: c.id, l: c.name, on: S.camps.has(c.id) })).filter(inBase((b, id) => factsOf(b).camps.includes(id)))
     .map(({ id, l }) => opt(`camps:${id}`, l, cnt(base, 'camps', x => x.camps.includes(id)))).join('');
   const lists = (S.lists || []).map(l => ({ id: l.id, l: l.title, on: S.lsts.has(l.id) })).filter(inBase((b, id) => factsOf(b).lsts.includes(id)))

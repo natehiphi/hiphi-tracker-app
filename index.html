@@ -3,15 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HIPHI Bill Tracker</title>
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="robots" content="noindex">
+<title>Bill Tracker staff</title>
+<link rel="icon" href="pub/icon-192.png">
+<link rel="apple-touch-icon" href="pub/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pub/base.css">
+<link rel="stylesheet" href="staff/staff.css">
+<link rel="stylesheet" href="staff/css/today.css">
+<link rel="stylesheet" href="staff/css/bill.css">
+<link rel="stylesheet" href="staff/css/testimony.css">
+<link rel="stylesheet" href="staff/css/bills.css">
+<link rel="stylesheet" href="staff/css/legislators.css">
+<link rel="stylesheet" href="staff/css/triage.css">
+<link rel="stylesheet" href="staff/css/supporters.css">
+<link rel="stylesheet" href="staff/css/lists.css">
+<link rel="stylesheet" href="staff/css/issues.css">
+<link rel="stylesheet" href="staff/css/conversation.css">
+<link rel="stylesheet" href="staff/css/hearing.css">
+<link rel="stylesheet" href="staff/css/coalition.css">
 </head>
-<body>
-<div id="app"><div class="boot">Loading HIPHI Bill Tracker…</div></div>
-<div id="toast"></div>
-<script type="module" src="app.js"></script>
+<body class="staff2">
+<!-- Drawn by the page itself, before any script arrives: on a slow Capitol connection the 30-odd module files take
+     seconds, and an empty page reads as broken. If the code never arrives, this becomes "Try again". -->
+<style>
+.boot0 { min-height: 100vh; display: flex; flex-direction: column; background: #F2F6F9; font-family: Lato, system-ui, sans-serif; color: #33464F; }
+.boot0 .bar { height: 56px; background: #fff; border-bottom: 1px solid #DDE5EA; display: flex; align-items: center; padding: 0 16px; font: 700 18px/1 Roboto, system-ui, sans-serif; color: #0F2A36; }
+.boot0 .msg { padding: 32px 16px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.boot0 h1 { font: 700 22px/1.25 Roboto, system-ui, sans-serif; color: #0F2A36; margin: 0 0 8px; }
+.boot0 p { margin: 0 0 16px; font-size: 16px; }
+.boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #00698E; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
+</style>
+<div id="app"><div class="boot0" role="status"><div class="bar">Bill Tracker</div><div class="msg"><p>Loading the tracker…</p></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0"><div class="bar">Bill Tracker</div><main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
+window.__bootT = setTimeout(bootFail, 20000);
+</script>
+<script type="module" src="staff/app.js" onerror="bootFail()"></script>
 </body>
 </html>

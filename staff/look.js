@@ -39,6 +39,9 @@ const lastActionLine = b => {
 
 function body(b, { list, index }) {
   const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
+  // Filing is offered only at the filing step, once the testimony is approved (R-022): never beside "waiting for a second
+  // approval", where it invited someone to file testimony nobody had signed off.
+  const fileOk = d?.status === 'approved';
   const pos = POS_WORD[b.position || ''] || b.position || 'No position';
   const own = ownerOf(b);
   const next = h
@@ -46,7 +49,7 @@ function body(b, { list, index }) {
         <p>${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(h.room)}` : ''}</p>
         ${h.testimony_deadline ? `<p>Testimony due ${esc(fmtDT(h.testimony_deadline))} ${countdown(h.testimony_deadline)}</p>` : ''}
         <p class="small muted">Testimony: ${d ? esc(d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not filed yet' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written') : 'no draft yet'}</p>
-        <div class="lk-acts">${btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' })}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div></div>`
+        ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`
     : `<div class="lk-card next sv-stick"><h3>No hearing on the books</h3><p class="small">${esc(st.says || '')}</p>
         ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(st.deadline.label)}, ${esc(fmtDate(st.deadline.date))}.</p>` : ''}
         ${st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : ''}</div>`;

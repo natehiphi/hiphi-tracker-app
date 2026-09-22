@@ -6,6 +6,7 @@ import checks
 BASE = 'http://localhost:8832/staff.html?demo=1'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'desk_final'); os.makedirs(OUT, exist_ok=True)
 ALLOWED = {13, 14, 16, 18, 22}
+HEAL = '979b46c2-8bb8-44ee-a5e6-fca6235de48c'   # a coalition whose sandbox week has hearings (R-022)
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 def ctx(b, w, h, **kw):
@@ -22,7 +23,8 @@ USED = """(() => { const m = document.querySelector('main'); if (!m) return [0, 
   m.querySelectorAll('*').forEach(e => { if (e.offsetParent === null || e.closest('.actionbar')) return; const r = e.getBoundingClientRect(); if (r.width > 40 && r.height > 8 && r.right > right && r.right <= mr.right + 2) right = r.right; });
   return [Math.round(right - mr.left), Math.round(innerWidth)]; })()"""
 ROUTES = ['/', '/review', '/bills', '/bills/new', '/bills/memo', '/bills/muted', '/bill/HB1562', '/bill/HB1562/activity', '/bill/HB1562/pathway', '/bill/HB1562/public', '/bill/HB2121',
-          '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help', '/help/keys']
+          '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help', '/help/keys',
+          '/coalition', '/coalition/' + HEAL]
 NARROW_OK = {'/review', '/me', '/help', '/help/keys', '/setup', '/bills/memo', '/bills/muted', '/email/new', '/search?q=vaping'}   # focused tasks, forms and reading: a column is right
 
 with sync_playwright() as pw:
@@ -32,7 +34,11 @@ with sync_playwright() as pw:
         visit(p, '/', 3800)
         leg = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/legislator/\"]'); return a && a.getAttribute('href') })()")
         per = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/person/\"]'); return a && a.getAttribute('href') })()")
-        for r in ROUTES:
+        # R-022: one hearing page. Hearing ids change when the snapshot is rebuilt, so take one from HEAL's week.
+        visit(p, '/coalition/' + HEAL)
+        hr = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/hearing/\"]'); return a && a.getAttribute('href').slice(1).split('?')[0] })()")
+        ok(bool(hr), f'coalition@{W}: the HEAL coalition page links a hearing')
+        for r in ROUTES + ([hr] if hr else []):
             visit(p, r)
             name = (r.strip('/').replace('/', '_').replace('?', '_').replace('=', '_') or 'today')
             if W in (1440, 390) or (W == 1280 and r in ('/', '/bill/HB1562', '/bills')): p.screenshot(path=f'{OUT}/{W}_{name}.png')

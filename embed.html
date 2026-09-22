@@ -145,7 +145,7 @@ addEventListener('resize', tellHeight);
     rows.sort((a, b) => alive(b) - alive(a) || (POS[a.position] || POS.monitor)[2] - (POS[b.position] || POS.monitor)[2] || ORDER.indexOf(b.stage) - ORDER.indexOf(a.stage) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
     ALL = rows;
     const name = COAL && rows[0]?.campaign; if (name) document.getElementById('title').textContent = `${name}: bills we are working on`;
-    if (LISTINFO) { document.getElementById('title').textContent = `${LISTINFO.icon ? LISTINFO.icon + ' ' : ''}${LISTINFO.title}`; document.getElementById('all').href = TRACK + '#list=' + LIST; document.getElementById('all').textContent = 'Follow this list on the HIPHI tracker ›'; }
+    if (LISTINFO) { document.getElementById('title').textContent = LISTINFO.title; document.getElementById('all').href = TRACK + '#list=' + LIST; document.getElementById('all').textContent = 'Follow this list on the HIPHI tracker ›'; }
     document.getElementById('sub').textContent = LISTINFO ? (LISTINFO.description || 'Curated by the Hawaiʻi Public Health Institute') : 'Hawaiʻi Public Health Institute · positions and status update through the day';
     const q = document.getElementById('q'); if (rows.length > 10) { q.hidden = false; q.oninput = draw; }
     draw();

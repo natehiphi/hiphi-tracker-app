@@ -7,6 +7,8 @@ body.staff2 h2 { font-size: var(--t18); }
 body.staff2 h3 { font-size: var(--t16); letter-spacing: -.005em; }
 body.staff2 .btn.sm, body.staff2 .btn { min-height: 44px; }
 body.staff2 .actionbar .btn, body.staff2 .sv-sheet .btn.primary { min-height: 48px; }
+/* A 320px phone: two bar buttons side by side. Review's "Request changes" and "Approve" ran 10px off the screen (A-6). */
+@media (max-width: 359px) { body.staff2 .actionbar .btn { padding: 0 12px; min-width: 0; } }
 body.staff2 main { max-width: 720px; padding-top: var(--s12); }
 body.staff2.wide main { max-width: 1200px; }
 
@@ -132,7 +134,7 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
   .sv-hdr .sv-nav .sv-badge { position: static; margin-left: 2px; }
   .sv-hdr .sv-search { display: block; width: 320px; }
   .sv-hdr .sv-search input { min-height: 40px; padding: 8px 12px 8px 38px; border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n50); width: 100%; }
-  .sv-hdr .sv-search .ic { position: absolute; margin: 10px 0 0 12px; width: 18px; height: 18px; color: var(--n500); }
+  .sv-hdr .sv-search > .ic { position: absolute; margin: 10px 0 0 12px; width: 18px; height: 18px; color: var(--n500); }   /* the magnifier only: the suggestion rows' icons sit in the list inside this form */
   .sv-hdr .sv-srchbtn { display: none; }
   .sv-tabs { display: none; }
   body.staff2 main, body.staff2.hasbar main { padding-bottom: var(--s48); }
@@ -338,3 +340,22 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .sv-avchev { width: 16px; height: 16px; color: var(--n500); flex: none; }
 /* Two thumbs for a strong position: the pair should read as one mark (see ui.js posIcons). */
 .sv-posic .ic + .ic, .bl-cell .ic + .ic, .sv-pick .ic + .ic { margin-left: -5px; }
+
+/* R-022: the sandbox band's "Practise as" picker, the header search's suggestions, and how fresh the data is. */
+.band .band-as { display: inline-flex; align-items: center; gap: 2px; font: inherit; color: inherit; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.35); border-radius: var(--pill); padding: 0 6px 0 8px; min-height: 22px; cursor: pointer; }
+.band .band-as:hover, .band .band-as:focus-visible { background: rgba(255,255,255,.26); }
+.sv-hdr .sv-search { position: relative; }
+.sv-sugg { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; background: var(--n0); border: 1px solid var(--n200);
+  border-radius: var(--r12); box-shadow: var(--sh3); padding: 6px; display: grid; gap: 2px; }
+.sv-sugg a { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border-radius: var(--r8); color: var(--n900); text-decoration: none; }
+.sv-sugg a .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); }
+.sv-sugg a > span { display: grid; min-width: 0; }
+.sv-sugg a > span .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-sugg a:hover, .sv-sugg a.on { background: var(--p50); }
+.sv-sync { display: flex; align-items: center; gap: 6px; margin: 4px 12px 6px; font-size: 13px; color: var(--n500); }
+.sv-sync .ic { flex: none; }
+.sv-sync.late { color: var(--bad-text); }
+body.sidenarrow .sv-sync span { display: none; }
+/* The band stays one line on a phone (a second line pushed Bills past the 400px arrival limit, A-1). */
+@media (max-width: 599px) { .band .band-hint { display: none; } }

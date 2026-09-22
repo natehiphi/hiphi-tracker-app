@@ -74,7 +74,7 @@ export const pageHead = (cur, title, lede, action) => {
 
 // The Outreach switcher: the same four links, in the same place, on Supporters, Issues, Lists and Emails.
 export function outreachNav(cur) {
-  return `<nav class="sv-seg le-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
+  return `<nav class="sv-seg le-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
     .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 }
 

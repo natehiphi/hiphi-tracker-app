@@ -1,6 +1,6 @@
 /* Today (#/) and review mode (#/review): plan 3.1 and 3.2. Every selector sits under .td-root or .td-rv.
    Budget on a phone: sandbox band 28 + header 56 + subline 56 + group header 44 = the first card at 184px
-   (a day with hearings adds the "Hearings today" strip above it).
+   (an admin's one notice adds its height; "Hearings today" sits under your own work since R-022, so it no longer does).
    Layouts: a phone column below 900px; from 900px the list with a side panel (.sv-cols + .sv-aside); from 1100px
    (mouse and keyboard) tighter rows and the Week view. Cards choose their own shape from the width of their column. */
 
@@ -59,6 +59,8 @@
 .td-root .td-nick { font-weight: 700; color: var(--n900); }
 .td-root .td-bill .td-nick { font-size: var(--t14); overflow-wrap: anywhere; }
 .td-root .td-bill.td-named { display: block; }   /* number and nickname run on as one line of text, so a long name wraps under the number */
+/* On a phone a long name wraps over three or four lines: at 24px they looked double-spaced (fresh-eyes review, 9/21). */
+@media (max-width: 899px) { .td-root .td-bill.td-named, .td-root .td-bill.td-named .td-num { line-height: 20px; } }
 .td-root .td-bill.td-named .td-num, .td-root .td-bill.td-named .sv-p1 { margin-right: var(--s4); }
 .td-root .td-bill.td-named .sv-p1 { vertical-align: 2px; }
 .td-root .td-t { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -145,12 +147,20 @@
 .td-root .td-wk tr.today th, .td-root .td-wk tr.today td { background: var(--p50); color: var(--n900); font-weight: 700; }
 .td-root .td-wk tr.past th, .td-root .td-wk tr.past td, .td-root .td-wk tr.past td b { color: var(--n500); }
 .td-root .td-now { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--pill); background: var(--p100); color: var(--p900); font: 700 var(--t13)/20px var(--font); vertical-align: 1px; }
-/* waiting on others */
-.td-root .td-wrow { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 6px var(--s12) 6px var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
+/* waiting on others: the step (a link to its bill), then what you can do about someone else's step (R-022):
+   message them, or give a to-do to someone else. Two small text buttons, never more (A-20). */
 .td-root .td-wrow + .td-wrow { border-top: 1px solid var(--n100); }
-.td-root .td-wrow:hover { background: var(--n50); }
+.td-root .td-wmain { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 6px var(--s12) 6px var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
+.td-root .td-wmain:hover { background: var(--n50); }
 .td-root .td-wt { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-.td-root .td-wrow .sv-count { flex: none; font-size: var(--t13); }
+.td-root .td-wmain .sv-count { flex: none; font-size: var(--t13); }
+.td-root .td-wacts { display: flex; flex-wrap: wrap; gap: 0 var(--s4); margin: -6px 0 0; padding: 0 var(--s8) var(--s4) var(--s8); }
+.td-root .td-wact { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s8); border-radius: var(--r8); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
+.td-root .td-wact:hover { background: var(--p50); }
+.td-root .td-wact .ic { width: 16px; height: 16px; flex: none; }
+/* a phone's folded copy under the list */
+.td-root .td-wlist { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.td-root .td-h .sv-group .ic.td-hic { width: 18px; height: 18px; color: var(--n500); margin-right: 6px; vertical-align: -3px; }
 /* team load: a teammate, a bar for the eye, the number for the record */
 .td-root .td-loads { padding: var(--s4) 0; }
 .td-root .td-load { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; padding: 0 var(--s12) 0 var(--s16); text-align: left; font-size: var(--t14); line-height: 20px; color: var(--n700); }
@@ -268,13 +278,13 @@
   .td-root .td-acts .btn .ic { width: 16px; height: 16px; }
   .td-root .td-also { min-height: 36px; }
   .td-root .td-hrow { min-height: 48px; }
-  .td-root .td-wrow, .td-root .td-load { min-height: 40px; }
+  .td-root .td-wmain, .td-root .td-load { min-height: 40px; }
+  .td-root .td-wact { min-height: 32px; font-size: var(--t13); }   /* a pointer's dense panel (A-6) */
   .td-root .td-pmore { min-height: 36px; }
 
   .td-root.td-weekroot { max-width: 1600px; margin-left: auto; margin-right: auto; }
   .td-root .td-wnav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin-bottom: var(--s12); }
-  .td-root .td-wtitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s12); font-size: var(--t18); }
-  .td-root .td-wrange { font: 400 var(--t14)/20px var(--font); letter-spacing: 0; color: var(--n500); }
+  .td-root .td-wtitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s12); font-size: var(--t18); color: var(--n700); }
   .td-root .td-wbtns { display: flex; align-items: center; gap: var(--s4); }
   .td-root .td-wbtns .iconbtn { width: 36px; height: 36px; background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); }
   .td-root .td-wbtns .iconbtn:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
@@ -282,12 +292,6 @@
   .td-root .td-wbtns .btn.text { min-height: 36px; font-size: var(--t14); }
   .td-root .td-wbtns .btn.text:hover { background: var(--p50); text-decoration: none; }
   .td-root .td-wsum { margin-left: auto; font-size: var(--t14); color: var(--n500); }
-  .td-root .td-wwho { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-bottom: var(--s12); }
-  .td-root .td-wwlab { font-size: var(--t13); color: var(--n500); }
-  .td-root .td-wchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--s12) 0 6px; border-radius: var(--pill); background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); font-size: var(--t14); color: var(--n700); }
-  .td-root button.td-wchip:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
-  .td-root .td-wchip b { color: var(--n900); }
-  .td-root .td-wnone { background: transparent; }
   .td-root .td-weekgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s12); align-items: start; }
   .td-root .td-day { min-height: 220px; padding-bottom: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
   .td-root .td-dh { position: sticky; top: var(--header); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); padding: var(--s8) var(--s12); background: var(--n0); border-bottom: 1px solid var(--n100); border-radius: var(--r12) var(--r12) 0 0; }
@@ -333,19 +337,13 @@
 .td-root .td-ckok { display: flex; align-items: center; gap: 6px; margin-top: var(--s8); padding-bottom: var(--s4); font-size: var(--t13); line-height: 18px; color: var(--n500); }
 .td-root .td-ckok .ic { width: 16px; height: 16px; color: var(--ok-text); flex: none; }
 
-/* ---- suggestions. Not tasks: no urgency block, no countdown, a dashed card that never looks like the work above,
-   and three plain answers on every one of them. ---- */
+/* ---- suggestions. Not tasks: no urgency block, no countdown, a dashed card that never looks like the work above.
+   One button, and the three answers (Done, Not now, Not this bill) in its "…" (A-20, R-022). ---- */
 .td-root .td-sugg { margin-top: var(--s16); padding-top: var(--s4); border-top: 2px solid var(--n200); }
 .td-root .td-sglist { display: flex; flex-direction: column; gap: var(--s8); }
-.td-root .td-sg { background: var(--n0); border: 1px dashed var(--n300); border-radius: var(--r12); padding: var(--s12) var(--s12) var(--s8) var(--s16); }
-/* on a teammate's list a card has no answer row under its button, so it needs its own bottom space */
-.td-root .td-sg.td-sgro { padding-bottom: var(--s16); }
+.td-root .td-sg { background: var(--n0); border: 1px dashed var(--n300); border-radius: var(--r12); padding: var(--s12) var(--s12) var(--s16) var(--s16); }
 .td-root .td-sg .td-s { font-size: var(--t16); line-height: 22px; }
 .td-root .td-sgwhy { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
-.td-root .td-sgctl { display: flex; flex-wrap: wrap; gap: var(--s4); margin: var(--s4) calc(-1 * var(--s8)) 0; }
-.td-root .td-sgctl button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s12); border-radius: var(--r8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
-.td-root .td-sgctl button:hover { background: var(--n100); color: var(--n900); }
-.td-root .td-sgctl button .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
 .td-root .td-sgnote { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); padding: var(--s8) var(--s8) var(--s8) var(--s12); border-radius: var(--r8); background: var(--n100); font-size: var(--t14); line-height: 20px; color: var(--n700); }
 .td-root .td-sgnote > .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
 .td-root .td-sgnote > span { flex: 1 1 200px; min-width: 0; }
@@ -395,17 +393,32 @@
   /* a hearing is an event at a place */
   .td-root .wk-hr { background: var(--n100); }
   .td-root .wk-hr .wk-bh .ic { color: var(--n700); }
-  .td-root .wk-held { background: none; padding: 0; }
-  .td-root .wk-held > summary { display: flex; align-items: flex-start; gap: 6px; padding: 6px var(--s8); border-radius: 6px; list-style: none; cursor: pointer; font-size: var(--t13); line-height: 18px; color: var(--n500); }
-  .td-root .wk-held > summary::-webkit-details-marker { display: none; }
-  .td-root .wk-held > summary:hover { background: var(--n100); }
-  .td-root .wk-held > summary:focus-visible { outline-offset: -2px; }
-  .td-root .wk-held > summary .ic { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--n500); }
+  /* a sitting that is over (wk-held), or one that only hears bills we monitor (wk-fold, shown on request): one quiet
+     line that opens to its bills */
+  .td-root .wk-held, .td-root .wk-fold { background: none; padding: 0; }
+  .td-root :is(.wk-held, .wk-fold) > summary { display: flex; align-items: flex-start; gap: 6px; padding: 6px var(--s8); border-radius: 6px; list-style: none; cursor: pointer; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+  .td-root :is(.wk-held, .wk-fold) > summary::-webkit-details-marker { display: none; }
+  .td-root :is(.wk-held, .wk-fold) > summary:hover { background: var(--n100); }
+  .td-root :is(.wk-held, .wk-fold) > summary:focus-visible { outline-offset: -2px; }
+  .td-root :is(.wk-held, .wk-fold) > summary .ic { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--n500); }
   .td-root .wk-heldt { flex: 1 1 auto; min-width: 0; }
   .td-root .wk-heldt b { color: var(--n700); }
-  .td-root .wk-held > summary .chev { transition: transform 150ms var(--ease); }
-  .td-root .wk-held[open] > summary .chev { transform: rotate(180deg); }
-  .td-root .wk-held .wk-bills { margin: 0 0 var(--s4) 22px; }
+  .td-root .wk-heldsub { display: block; }
+  .td-root :is(.wk-held, .wk-fold) > summary .chev { transition: transform 150ms var(--ease); }
+  .td-root :is(.wk-held, .wk-fold)[open] > summary .chev { transform: rotate(180deg); }
+  .td-root :is(.wk-held, .wk-fold) .wk-bills { margin: 0 0 var(--s4) 22px; }
+  /* the sitting's own page (R-022): the title of an open block, and a quiet link inside a folded one */
+  .td-root a.wk-hl { color: inherit; text-decoration: none; border-radius: 4px; }
+  .td-root a.wk-hl:hover b { text-decoration: underline; color: var(--p800); }
+  .td-root a.wk-hl:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; }
+  .td-root .wk-hpage { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 var(--s4) 22px; padding: 2px var(--s8); border-radius: 6px; font-size: var(--t13); line-height: 18px; font-weight: 700; color: var(--p700); text-decoration: none; }
+  .td-root .wk-hpage:hover { background: var(--p50); }
+  .td-root .wk-hpage .ic { width: 14px; height: 14px; }
+  /* "+10 on bills you monitor" in the week's header line */
+  .td-root .td-wmon { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--s12); border-radius: var(--pill); background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); font-size: var(--t14); font-weight: 700; color: var(--n700); }
+  .td-root .td-wmon:hover { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); color: var(--p800); }
+  .td-root .td-wmon[aria-pressed="true"] { background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); color: var(--p800); }
+  .td-root .td-wmon .ic { width: 16px; height: 16px; }
   /* one bill: number and state, then its name on one line, in one style (the nickname, or a monitor bill's summary) */
   .td-root .wk-bills { margin: var(--s4) 0 0; padding: 0; list-style: none; }
   .td-root .wk-bill { display: block; padding: 3px var(--s8); border-radius: 6px; color: var(--n700); text-decoration: none; }
@@ -459,9 +472,151 @@
   .td-root .td-aside { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s16); align-items: start; }
   .td-root .td-rail { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
 }
+/* Next deadline stays in view while the page scrolls only where it has a rail of its own (1600px and wider). Below
+   that the side panel is one column, and a sticky first panel slid over the panels under it as the page scrolled
+   (R-022), so there it scrolls with the rest. The near rail is stretched to the side panel's height, or a sticky card
+   has no room to stick in. */
 @media (min-width: 900px) {
-  /* the first panel in a rail stays in view while the page scrolls (.sv-stick); repeated here because a rail is in
-     the way of the shared `.sv-aside > .sv-stick` selector */
+  .td-root .td-aside .td-panel.sv-stick { position: static; }
+}
+@media (min-width: 1600px) {
+  .td-root .td-aside > .td-rail:first-child { align-self: stretch; }
   .td-root .td-aside .td-panel.sv-stick { position: sticky; top: calc(var(--header) + var(--s16)); z-index: 2; }
   body.staff2:has(.band) .td-root .td-aside .td-panel.sv-stick { top: calc(var(--header) + 28px + var(--s16)); }
+}
+
+/* ============================================================================
+   R-022 (9/21): chat as one quiet row, the deadline after the next, Team by
+   person, a coalition's week, catching up, between sessions, how fresh the data is.
+   ========================================================================= */
+
+/* ---- a bill whose only item is chat: one quiet row, "2 new messages · Reply", not a card with a filled button (A-13) */
+.td-root .td-card.td-msg { display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s4) 0 0; box-shadow: none; }
+.td-root .td-msgl { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); min-height: 56px; padding: var(--s8) var(--s8) var(--s8) var(--s16); border-radius: var(--r12) 0 0 var(--r12); color: inherit; text-decoration: none; }
+.td-root .td-msgl:hover { background: var(--n50); }
+.td-root .td-msgl:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+.td-root .td-msgt { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; }
+.td-root .td-msgb { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }   /* a nickname names the bill: it wraps, never cut */
+.td-root .td-msgb .td-num { font-size: var(--t14); line-height: 20px; margin-right: 4px; }
+.td-root .td-msgb .sv-p1 { height: 18px; margin-right: 4px; vertical-align: 1px; }
+.td-root .td-msg .td-s { margin-top: 0; font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.td-root .td-msgc { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--p700); white-space: nowrap; }
+.td-root .td-msgc .ic { width: 18px; height: 18px; }
+.td-root .td-msgc .sv-chip { font-weight: 400; }
+.td-root .td-msg .td-more { margin: 0; }
+.td-root .td-card.td-msg.td-seen .td-msgc { color: var(--n500); }
+
+/* ---- Hearings today: "+3 on bills you monitor" at the foot of the strip (decision 4) ---- */
+.td-root .td-hnone { padding: var(--s12) var(--s16) var(--s4); font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.td-root .td-p-hear .td-monbtn .ic { width: 16px; height: 16px; }
+.td-root .td-p-hear .td-monbtn[aria-pressed="true"] { color: var(--n700); }
+
+/* ---- Next deadline: the bills with no hearing, by name (links), and the deadline after it with its own button ---- */
+.td-root .td-cknames { list-style: none; margin: 0 calc(-1 * var(--s16)) var(--s4); padding: 0 0 var(--s4); }
+.td-root .td-cknames a { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 2px var(--s12) 2px 44px; color: var(--n700); text-decoration: none; font-size: var(--t14); line-height: 20px; }
+.td-root .td-cknames a:hover { background: var(--p50); }
+.td-root .td-cknames a:focus-visible { outline-offset: -2px; }
+.td-root .td-cknames .td-num { font-size: var(--t14); line-height: 20px; }
+.td-root .td-cknames .sv-p1 { height: 18px; flex: none; }
+.td-root .td-ckname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .td-cknames .sv-av { flex: none; }
+.td-root .td-ckmore { padding: 2px var(--s12) 2px 44px; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-ckthen { padding: var(--s12) var(--s16) var(--s8); border-top: 1px solid var(--n100); }
+.td-root .td-ckw2 b { font-size: var(--t18); line-height: 24px; }
+.td-root .td-cktag { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+
+/* ---- Team: everyone else's work, one group per person ---- */
+.td-root .td-pg + .td-pg { margin-top: var(--s12); }
+.td-root .td-pgh { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s12); min-height: 44px; padding: var(--s4) 0; }
+.td-root .td-pgt { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--t16); }
+.td-root .td-pgt:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+.td-root .td-pgname { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8) 0 var(--s4); margin-left: calc(-1 * var(--s4)); border-radius: var(--r8); font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); text-align: left; }
+.td-root button.td-pgname:hover { background: var(--n100); }
+.td-root .td-pgname .sv-av + .sv-av { margin-left: -10px; box-shadow: 0 0 0 2px var(--n50); }
+.td-root .td-pgn { font-size: var(--t14); color: var(--n500); }
+.td-root .td-pgn .sv-count { font-size: var(--t14); vertical-align: -1px; }
+.td-root .td-pgmore { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; margin-top: var(--s4); padding: 0 var(--s12); border-radius: var(--r8); font-size: var(--t14); color: var(--n700); text-align: left; }
+.td-root button.td-pgmore { font-weight: 700; color: var(--p700); }
+.td-root button.td-pgmore:hover { background: var(--p50); }
+.td-root .td-pgmore .chev { width: 18px; height: 18px; flex: none; margin-left: auto; }
+
+/* ---- a quiet line where "All clear" would be wrong (a coalition's week below it, or between sessions) ---- */
+.td-root .td-quiet { display: flex; align-items: center; gap: var(--s8); padding: var(--s8) var(--s4); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-quiet .ic { width: 18px; height: 18px; color: var(--ok-text); flex: none; }
+.td-root .td-quiet:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+
+/* ---- a coalition's week (Coalitions I support), and the session's results: a white box of short rows ---- */
+/* A coalition's header says what is in it under its title ("11 hearings · 2 with no hearing"): a count that long beside
+   the title squeezed both into ragged columns on a phone. What changed may carry a long title; it wraps in place. */
+.td-root .td-coal .sv-group { padding-top: 4px; padding-bottom: 4px; }
+.td-root .td-ght { display: block; }
+.td-root .td-ghs { display: block; font: 400 var(--t13)/18px var(--font); color: var(--n500); }
+.td-root .td-dig .sv-group > span:first-child { flex: 0 1 auto; min-width: 0; padding: 4px 0; }
+.td-root .td-dig .sv-group .n { flex: none; white-space: nowrap; }
+.td-root .td-coal, .td-root .td-res { margin-top: var(--s12); }
+.td-root .td-cbox { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); padding: var(--s4) 0 var(--s8); }
+.td-root .td-ch { display: flex; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; padding: var(--s4) var(--s16); font: 700 var(--t14)/20px var(--font); letter-spacing: 0; color: var(--n700); }
+.td-root .td-ch .ic { width: 16px; height: 16px; color: var(--n500); flex: none; }
+.td-root .td-crow { display: flex; align-items: flex-start; gap: var(--s12); min-height: 48px; padding: var(--s8) var(--s16); color: inherit; text-decoration: none; }
+.td-root a.td-crow:hover, .td-root .td-ctodo a.td-cbody:hover { background: var(--n50); }
+.td-root .td-crow + .td-crow { border-top: 1px solid var(--n100); }
+.td-root .td-ctime { flex: none; width: 84px; display: flex; flex-direction: column; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+@media (max-width: 359px) { .td-root .td-ctime { width: 68px; } .td-root .td-crow { gap: var(--s8); } }   /* the small-phone floor (A-9) */
+.td-root .td-ctime b { font-size: var(--t14); line-height: 20px; color: var(--n900); }
+.td-root .td-cbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; }
+.td-root .td-cbills { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.td-root .td-cbills .td-num { font-size: var(--t14); line-height: 20px; }
+.td-root .td-cbills .sv-p1 { height: 18px; margin: 0 2px 0 4px; vertical-align: 1px; }
+.td-root .td-cmeta { font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-cnone { display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
+.td-root .td-cnone .ic { width: 14px; height: 14px; }
+.td-root .td-crace { align-items: center; }
+.td-root .td-cwho { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t13); color: var(--n500); }
+.td-root .td-ctodo { align-items: center; padding-top: 0; padding-bottom: 0; }
+.td-root .td-ctodo a.td-cbody { align-self: stretch; justify-content: center; min-height: 48px; margin-left: calc(-1 * var(--s16)); padding: var(--s8) 0 var(--s8) var(--s16); }
+.td-root .td-ctodo .btn { flex: none; }
+.td-root .td-rsum { padding: var(--s8) var(--s16) 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-rsum b { color: var(--n900); }
+.td-root .td-chlaw .ic { color: var(--o600); }   /* a bill that became law is the one achievement here: orange (A-5, C-7) */
+.td-root .td-rrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); min-height: 44px; padding: var(--s8) var(--s16); color: var(--n700); text-decoration: none; font-size: var(--t14); line-height: 20px; }
+.td-root .td-rrow:hover { background: var(--n50); }
+.td-root .td-rrow + .td-rrow { border-top: 1px solid var(--n100); }
+.td-root .td-rrow .td-num { font-size: var(--t14); line-height: 20px; }
+.td-root .td-act { font-weight: 700; color: var(--o600); }
+.td-root .td-rname { flex: 1 1 200px; min-width: 0; }
+.td-root .td-rwhy { flex: 1 1 100%; font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-res .td-pgmore { width: calc(100% - 2 * var(--s8)); margin: var(--s8) var(--s8) 0; }
+/* getting ready for January (between sessions) */
+.td-root .td-jan { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding: var(--s12) var(--s16) var(--s16); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-jan b { color: var(--n900); }
+.td-root .td-janw { color: var(--n500); }
+
+/* ---- catching up: how far back, and a search, above the rows ---- */
+.td-root .td-digbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s4) 0 var(--s8); }
+.td-root .td-digbar .sv-seg { flex: none; max-width: 100%; overflow-x: auto; }
+.td-root .td-digbar .sv-seg button { white-space: nowrap; }
+.td-root .td-digq { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); }
+.td-root .td-digq:focus-within { border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
+.td-root .td-digq .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.td-root .td-digq input { flex: 1 1 auto; min-width: 0; align-self: stretch; min-height: 42px; border: 0; outline: 0; background: transparent; font-size: var(--t16); color: var(--n900); }   /* the whole pill is the target (A-6) */
+.td-root .td-dnone2 { padding: var(--s12) var(--s16); font-size: var(--t14); color: var(--n500); }
+
+/* ---- how fresh the Capitol data is: at the foot of Today where there is no sidebar to say it (B-7) ---- */
+.td-root .td-sync { display: flex; align-items: center; gap: 6px; margin: var(--s24) 0 var(--s8); font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-sync .ic { width: 14px; height: 14px; flex: none; }
+.td-root .td-sync.late { color: var(--bad-text); }
+
+@media (min-width: 1100px) {
+  .td-root .td-sync { display: none; }   /* the sidebar says it */
+  .td-root .td-crow, .td-root .td-rrow { min-height: 40px; }
+  .td-root .td-ctodo a.td-cbody { min-height: 40px; }
+  .td-root .td-ctodo .btn { min-height: 36px; font-size: var(--t14); padding: 0 var(--s16); }
+  .td-root .td-digbar .sv-seg button { min-height: 36px; }
+  .td-root .td-digq { min-height: 36px; }
+  .td-root .td-digq input { font-size: var(--t14); min-height: 34px; }
+  .td-root .td-cknames a { min-height: 36px; }   /* a pointer's dense panel (A-6) */
+  .td-root .td-pgname { min-height: 40px; }
+  .td-root .td-pgmore { min-height: 36px; }
+  .td-root .td-msgl { min-height: 48px; }
+  .td-root .td-jan .btn { min-height: 36px; font-size: var(--t14); }
 }

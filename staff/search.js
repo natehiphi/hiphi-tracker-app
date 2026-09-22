@@ -4,7 +4,7 @@
 // the session from DB.searchUntracked, each with a Track button (DB.track) that acts at once. On a phone the page has
 // its own box; on a desktop the header's box drives this page as you type ("/" focuses it, handled by the frame).
 import { S, DB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, capitolUrl, SESSION_YEAR } from './data.js';
-import { plain, diedish, personName, whereOf, titleCaseSmart } from './model.js';
+import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from './model.js';
 // Build 3, desktop: the groups sit side by side (bills on the left, legislators and supporters on the right), each
 // with its count; the arrow keys move through the results from the search box (Down enters the list, Up and Down
 // move, Left and Right change column, Home and End jump, Enter opens, Esc returns to the box). Bills are named the
@@ -153,10 +153,13 @@ export default {
     const keys = e => { if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) moveResult(e, boxNow); };
     res.addEventListener('keydown', keys);
     boxes.forEach(b => b.addEventListener('keydown', e => { if (e.key === 'ArrowDown') keys(e); }));
-    // Enter in either box keeps this page (the header's own submit would push another history entry).
-    root.querySelector('[data-lgsform]').onsubmit = e => { e.preventDefault(); own.blur(); };
+    // Enter in either box: a bill number that names exactly one tracked bill opens that bill (B-2: a number in hand is
+    // two steps from its page, and a results page in between made it four; R-022). The header box does the same on
+    // every other page. Anything else keeps this page (the header's own submit would push another history entry).
+    const openExact = q => { const b = exactBill(q); if (!b) return false; S.go(`#/bill/${b.bill_number.replace(/\s/g, '')}`); return true; };
+    root.querySelector('[data-lgsform]').onsubmit = e => { e.preventDefault(); if (!openExact(own.value)) own.blur(); };
     const hf = hdr?.closest('form');
-    if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); onType(hdr); }, { capture: true });
+    if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); if (!openExact(hdr.value)) onType(hdr); }, { capture: true });
     // Focus the box that is on screen (the page's on a phone, the header's on a desktop).
     // With a keyboard and a mouse the box takes the focus on arrival even with words in it (type on, or press Down for
     // the results); a phone only when it is empty, so its keyboard does not cover the results.

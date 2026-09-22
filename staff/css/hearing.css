@@ -1,0 +1,120 @@
+/* The hearing page, #/hearing/:id (R-022 wave 3 #16): one committee sitting, its agenda, who is going and the members.
+   Tokens only; the five staff type sizes (A-4); 44px targets (A-6); the look of a legislator's page, which it sits
+   beside in the Legislators tab. Phone first; the desktop's two columns are at the end. */
+
+/* ---- the sitting ---- */
+.hr-page .hr-deskback { display: none; }
+.hr-head { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s4) 0 var(--s8); }
+/* the landmark is identity on a desktop; on a phone its 60px of width would push the name onto a third line (A-1) */
+.hr-hicon { display: none; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: 2px; border-radius: 50%; background: var(--n100); color: var(--n700); flex: none; }
+.hr-hicon .ic { width: 24px; height: 24px; }
+.hr-hbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hr-kind { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.hr-kind .hr-code { color: var(--n700); }
+/* 18px on a phone: a joint committee's full name runs to three lines at 22px. Two classes, to outrank body.staff2 h1. */
+.hr-page .hr-head h1 { font-size: var(--t18); line-height: 1.2; overflow-wrap: anywhere; margin-bottom: var(--s4); }
+/* text that flows (the icon hangs in the margin), so a long date wraps under itself and the countdown wraps whole */
+.hr-line { position: relative; padding-left: 24px; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.hr-line > .ic { position: absolute; left: 0; top: 2px; width: 16px; height: 16px; color: var(--n500); }
+.hr-line .sv-count { margin-left: var(--s8); vertical-align: top; line-height: 20px; }
+.hr-due { font-weight: 700; color: var(--n900); }
+/* the notice and the video, as links under the heading on a phone (the side panel has them on a desktop) */
+.hr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s4); margin: 0 0 0 -12px; }
+.hr-links .btn.text { padding: 0 12px; }
+.hr-note { margin-top: var(--s12); }
+.hr-note .notice b { color: inherit; }
+.hr-next { margin: var(--s8) 0 0; padding-left: var(--s16); }
+.hr-next li + li { margin-top: var(--s4); }
+
+/* ---- sections ---- */
+.hr-sec { margin-top: var(--s24); }
+.hr-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 32px; margin-bottom: var(--s8); }
+.hr-sech h2 { font-size: var(--t18); }
+.hr-n { margin-left: 4px; font: 700 var(--t14)/1 var(--font); color: var(--n500); }
+.hr-empty { padding: var(--s4) 0; font-size: var(--t14); color: var(--n500); }
+.hr-hint { margin-bottom: var(--s8); font-size: var(--t14); color: var(--n700); }
+
+/* a bill on the agenda. Phone: the name across the whole first line (two lines at most), then position, P1 and owner
+   with the state chip at the end; the chevron down the right. Desktop: the chip moves up beside the name. */
+.hr-bill { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; grid-template-areas: "t t c" "f s c"; align-items: center; gap: 4px var(--s8);
+  min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.hr-bt { grid-area: t; min-width: 0; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hr-bt b { color: var(--n900); font-weight: 700; }
+.hr-bt .hr-num { white-space: nowrap; }
+.hr-bs { grid-area: s; justify-self: end; display: flex; }
+.hr-bs .sv-chip { flex: none; }
+.hr-bf { grid-area: f; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); font-size: var(--t14); color: var(--n500); }
+.hr-bill > .chev { grid-area: c; }
+.hr-fact { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.hr-fact .ic { width: 16px; height: 16px; }
+.hr-bf .sv-p1 { height: 20px; }
+/* below 360px (the small-phone floor, A-9) the chip would leave the name 140px, so it takes its own line under it */
+@media (max-width: 359px) {
+  .hr-bill { grid-template-columns: minmax(0, 1fr) 20px; grid-template-areas: "t c" "s c" "f c"; }
+  .hr-bs { justify-self: start; }
+}
+/* bills we only monitor, folded away (R-022 decision 4) */
+.hr-fold { margin-top: var(--s8); }
+.hr-fold > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); width: fit-content; border-radius: var(--r8);
+  color: var(--p700); font-size: var(--t14); font-weight: 700; cursor: pointer; list-style: none; }
+.hr-fold > summary::-webkit-details-marker { display: none; }
+.hr-fold > summary .ic { width: 18px; height: 18px; flex: none; }
+.hr-fold > summary:hover { background: var(--p50); }
+.hr-fold[open] > summary .chev { transform: rotate(180deg); }
+.hr-fold > .rows { margin-top: var(--s4); }
+
+/* who is going */
+.hr-gcard { padding: var(--s8) var(--s16) var(--s12); }
+.hr-goers { list-style: none; margin: 0; padding: 0; }
+.hr-goers li { display: flex; align-items: center; gap: var(--s12); min-height: 44px; }
+.hr-goers li + li { border-top: 1px solid var(--n100); }
+.hr-gname { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--n900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-goers .iconbtn { margin-right: -10px; color: var(--n500); }
+.hr-goers .iconbtn .ic { width: 20px; height: 20px; }
+.hr-goers .iconbtn:hover { color: var(--n900); }
+.hr-none { display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-size: var(--t14); color: var(--n700); }
+.hr-none .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.hr-gacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s8); }
+.hr-gobtn .ic { width: 18px; height: 18px; }
+.hr-gacts .btn.text { padding: 0 12px; }
+
+/* the members, chair first, with where they stand on these bills */
+.hr-mem { min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.hr-mem .title, .hr-mem .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-st { display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.hr-st > span { display: inline-flex; align-items: center; gap: 2px; }
+.hr-st .ic { width: 16px; height: 16px; }
+.hr-more { justify-content: center; gap: 6px; min-height: 44px; color: var(--p700); font-size: var(--t14); font-weight: 700; }
+.hr-more .ic { width: 18px; height: 18px; }
+
+/* ---- desktop (900px and wider): the agenda and the members on the left, going and the links in a panel that stays
+   in view (.sv-cols, .sv-aside and .sv-stick in staff.css) ---- */
+@media (min-width: 900px) {
+  .hr-page.hr-desk { max-width: 1056px; margin: 0 auto; }
+  .hr-page .hr-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
+  .hr-page .hr-deskback:hover { background: var(--p50); }
+  .hr-page .hr-deskback .ic { width: 20px; height: 20px; }
+  .hr-head { padding: 0 0 var(--s4); }
+  .hr-page .hr-head h1 { font-size: var(--t22); }
+  .hr-desk .hr-head + .hr-sec, .hr-desk .hr-note + .hr-sec { margin-top: var(--s16); }
+  .hr-desk .hr-bill, .hr-desk .hr-mem { min-height: 56px; padding: 6px var(--s12) 6px var(--s16); }
+  .hr-desk .hr-bill { grid-template-areas: "t s c" "f f c"; }
+  .hr-desk .hr-bt { -webkit-line-clamp: 1; }
+  .hr-bill:hover .hr-bt b, .hr-mem:hover .title { text-decoration: underline; text-underline-offset: 3px; }
+  .hr-hicon { display: flex; }
+  .hr-cols > .hr-side { padding-bottom: 2px; }   /* room for the cards' shadow */
+  .hr-card { padding: var(--s16); }
+  .hr-side .hr-card h2 { margin-bottom: var(--s4); font-size: var(--t16); }   /* two classes, to outrank body.staff2 h2 */
+  /* the panel is 340px: "I'm going" and "Put someone down…" stack, left edges in line, rather than wrap unevenly */
+  .hr-card .hr-gacts { flex-direction: column; align-items: flex-start; gap: var(--s4); margin-top: var(--s12); }
+  .hr-card .hr-gacts .btn.text { margin-left: -12px; }
+  .hr-card .hr-gacts .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .hr-link { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: 6px 0; border-top: 1px solid var(--n100); color: var(--n900); text-decoration: none; }
+  .hr-card h2 + .hr-link { border-top: 0; }
+  .hr-link > .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+  .hr-lb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .hr-lt { font-size: var(--t14); font-weight: 700; color: var(--p700); }
+  .hr-ls { font-size: var(--t13); color: var(--n500); }
+  .hr-link:hover .hr-lt { text-decoration: underline; }
+  .hr-link .hr-ext { width: 16px; height: 16px; color: var(--n500); flex: none; }
+}

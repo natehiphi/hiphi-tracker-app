@@ -238,6 +238,10 @@ div.lg-brow:hover { background: var(--n0); }
   .lg-blt b { color: var(--n900); font-weight: 700; }
   .lg-bln { flex: none; white-space: nowrap; }
   .lg-morebills { flex: none; white-space: nowrap; color: var(--n500); }
+  /* a line that opens its hearing: the table's own look, underlined like a link inside a row (A-12) */
+  .lg-hl { display: flex; align-items: baseline; gap: 6px; flex: 0 1 auto; min-width: 0; color: inherit; text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; border-radius: 4px; }
+  .lg-hl:hover { text-decoration-color: currentColor; color: var(--n900); }
+  .lg-hl:focus-visible { outline-offset: 1px; }
   .lg-dash, .lg-when .lg-who { color: var(--n500); }
   .lg-wait { display: inline-block; width: 72px; height: 10px; border-radius: 5px; background: var(--n100); }
   .lg-tbl .lg-ss { font-weight: 700; }

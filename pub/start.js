@@ -180,7 +180,8 @@ function issueInfo(i, R) {
   const lead = (off ? bills : live).slice().sort(R.cmp)[0] || bills[0] || null;
   const law = bills.some(b => b.stage === 'enacted'), strong = bills.some(b => b.hiphi_position === 'strongly_support');
   return { i, bills, live, lead, law, pos: issuePos(off ? bills : live.length ? live : bills),
-    promoted: !!i.recommended || (strong && !(off && law)), inf: lead && !off ? R.info(lead) : null };
+    // A staff pre-tick on the issue or on any of its bills (bills.recommended, 061) ticks it too, silently (R-022).
+    promoted: !!i.recommended || bills.some(b => b.hiphi_recommended) || (strong && !(off && law)), inf: lead && !off ? R.info(lead) : null };
 }
 const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.topicKey || i.key).join('|')}`;
 function model2() {
@@ -216,7 +217,7 @@ function issueCard(x, m, secKey) {
   const h = x.inf && x.inf.h, within8 = h && new Date(h.scheduled_at) - Date.now() < 8 * 864e5;
   const day = within8 ? (hstDay(h.scheduled_at) === hstDay(Date.now()) ? 'today' : new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' })) : '';
   const top = day ? chip(`Hearing ${day}`, 'info', 'calendar') : m.off && x.law ? chip(`Became law in ${sessionInfo().recapYear}`, 'ok', 'circle-check')
-    : x.promoted ? chip('HIPHI recommends', 'info', 'sparkles') : '';
+    : '';   // a pre-ticked issue carries no "HIPHI recommends" label: the recommendation is silent (Nate, 9/21, R-022)
   // In session the bills still moving (the category page says the same); between sessions all of last session's.
   const n = m.off ? x.bills.length : x.live.length, b = x.lead, billsText = n > 1 ? `${n} bills${b ? `, incl. ${spaced(b.bill_number)}` : ''}` : b ? spaced(b.bill_number) : '';
   return `<li class="st-pcard${on ? ' on' : ''}${open ? ' st-open' : ''}">
@@ -280,7 +281,7 @@ function step2() {
   const total = new Set(m.all.map(x => x.i.id)).size, rec = new Set(m.all.filter(x => x.promoted).map(x => x.i.id)).size;
   const lede = !total ? `Nothing is moving on ${namesHtml(quiet)} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
     : off ? `${plural(total, 'issue')} HIPHI worked on in ${yr}, inside ${issuesPhrase(m.sel)}. Follow the ones you care about, and their ${next} bills come to you as soon as they’re introduced.`
-    : `HIPHI is working on ${plural(total, 'issue')} inside ${issuesPhrase(m.sel)}. ${rec ? `We ticked the ${rec === 1 ? 'one' : rec} HIPHI recommends. Untick any you don’t want.` : 'Tick the ones you care about.'}`;
+    : `HIPHI is working on ${plural(total, 'issue')} inside ${issuesPhrase(m.sel)}. ${rec ? `We ticked ${rec === 1 ? 'one' : rec} to start you off. Untick any you don’t want.` : 'Tick the ones you care about.'}`;
   return shell('st2', `${artFor(st, off)}${stepRow(st)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>${total ? sureWide('info', SURE2) : ''}`,
     `${sayRow('info', SURE2)}${groups.length ? `<div class="st-tsecs" role="group" aria-labelledby="st-h">${groups.map((p, k) => catSection(p, m, k === 0)).join('')}</div>` : ''}

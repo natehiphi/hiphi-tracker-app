@@ -23,6 +23,12 @@
    marked, and a caption that names it. It is the same on all four tabs, so Pathway holds the detail, not the fact. */
 .bw-ribwrap { margin-top: var(--s12); max-width: 46em; }
 .bw-ribwrap .sv-riblab { margin-bottom: 0; }
+/* A stage set by hand (R-022, A-14): the line under the ribbon says so, with what the Capitol says and Change for admins,
+   so the ribbon's own "set by the team" gives way to it. */
+.bw-ribset .sv-riblab .set { display: none; }
+.bw-stset { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; margin-top: 2px; font-size: var(--t13); color: var(--n700); }
+.bw-stset > .ic { width: 14px; height: 14px; color: var(--n500); }
+.bw-stset .btn.text { margin-left: -6px; }
 .bw-status { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
 .bw-status > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); }
 .bw-chips { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-top: var(--s12); }
@@ -57,10 +63,20 @@
 .bw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s12); }
 .bw-next .bw-acts .btn { flex: 1 1 auto; }
 .bw-links { display: flex; flex-wrap: wrap; margin: var(--s4) 0 0 -12px; }
-.bw-hfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
-.bw-going { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12); }
+.bw-hfoot { display: flex; flex-direction: column; align-items: stretch; gap: var(--s8); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+/* Who from the team is going (R-022 wave 3 #16): the names, or plainly nobody yet; then I'm going and, for an admin,
+   Send a teammate. The hearing's own page and its video sit under them. */
+.bw-going { display: flex; flex-direction: column; gap: var(--s8); }
+.bw-gwho { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t14); color: var(--n900); }
+.bw-gwho.none { color: var(--n500); }
+.bw-gwho > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
+.bw-gacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 .bw-going .chip .ic { width: 18px; height: 18px; }
-.bw-watch { margin-left: -12px; }
+.bw-hfoot > .bw-watch { align-self: flex-start; margin-left: -12px; }
+/* The hearing's own page (R-022 wave 3), from the card's head beside its ⋯ */
+.bw-nhacts { display: flex; align-items: center; gap: 2px; }
+.bw-nexthead .bw-hpage { padding: 0 8px 0 12px; gap: 2px; }
+.bw-hpage .ic { width: 18px; height: 18px; }
 .bw-recent { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
 .bw-next > .bw-recent:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .bw-rh { margin-top: var(--s8); font-size: var(--t14); }
@@ -126,6 +142,8 @@
 .bw-line .sub { font-size: var(--t13); font-weight: 700; }
 .bw-line .title { font-weight: 400; overflow-wrap: anywhere; }
 .bw-line .btn.text { flex: none; margin-right: -8px; }
+/* a coalition opens its own page (R-022 wave 3); a full-size target on a phone, 32px with a mouse */
+.bw-line .title a.bw-coal { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; font-weight: 700; }
 
 /* details */
 .bw-dl { margin: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); padding: 0 var(--s16); }
@@ -211,6 +229,9 @@
 /* ---- sheets opened from this page ---- */
 .bw-shlink { margin: var(--s8) 0 0 -12px; }
 .bw-shhelp { margin-bottom: var(--s8); }
+/* Log activity's first line: a meeting with a legislator is a conversation (R-022 review), one tap away */
+.bw-lcv { display: flex; flex-wrap: wrap; align-items: center; column-gap: 2px; margin: -8px 0 var(--s12); font-size: var(--t14); color: var(--n700); }
+.bw-lcv .btn.text { margin-left: -6px; padding: 0 8px; }
 .bw-types { border: 0; margin: 0 0 var(--s16); padding: 0; min-width: 0; }
 .bw-types legend { padding: 0; margin-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
 .bw-types .chip .ic { width: 16px; height: 16px; }
@@ -281,8 +302,8 @@
   .bw-page .bw-aside button.chip { min-height: 36px; padding: 4px 12px; }
   .bw-page .bw-aside button.chip[aria-pressed="true"] { padding: 3px 11px; }
   .bw-aside .bw-tb, .bw-aside .bw-acts, .bw-aside .bw-due { margin-top: var(--s8); }
-  .bw-aside .bw-hfoot { margin-top: var(--s8); padding-top: var(--s8); row-gap: 0; }
-  .bw-aside .bw-watch { margin: 0 0 0 -12px; }
+  .bw-aside .bw-hfoot { margin-top: var(--s8); padding-top: var(--s8); row-gap: var(--s4); }
+  .bw-aside .bw-going { gap: var(--s4); }
   .bw-side > .bw-nexthead { margin-bottom: var(--s4); min-height: 24px; margin-top: 0; margin-right: 0; }
   .bw-ctl { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; }
   .bw-ctl + .bw-ctl { border-top: 1px solid var(--n100); }
@@ -291,12 +312,15 @@
   .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
   .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bw-ctl .sv-av { font-size: var(--t13); }
+  /* who follows the bill: a fact, not a control, so plain text where the pickers sit (R-022 wave 3) */
+  .bw-ctlv { min-width: 0; font-size: var(--t14); color: var(--n900); text-align: right; overflow-wrap: anywhere; }
 
   /* Overview: a readable column; the details line up as label and value */
   .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
   .bw-dl .bw-dt dt { margin: 1px 0 0; }
   .bw-todo { min-height: 48px; }
-  .bw-page .bw-inline, .bw-more, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"] { min-height: 32px; }
+  .bw-page .bw-inline, .bw-more, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"], .bw-line .title a.bw-coal { min-height: 32px; }
+  .bw-line .title a.bw-coal { min-width: 0; }
   .bw-addrow { max-width: 560px; }
   .bw-addrow .btn { min-height: 44px; }
   .bw-page .bw-sec textarea#bw-note { max-width: 70ch; }
@@ -415,6 +439,13 @@
 }
 /* a legislator named inside a detail line (the chair) is still a full-size target on phones */
 .bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ---- Review cards (review.js, R-022): the bill's facts on one line that wraps. Here because review.js has no stylesheet
+   of its own; its other rules are in today.css (.td-rv*). ---- */
+.td-rv .td-rvfacts { flex-wrap: wrap; row-gap: 2px; }
+.td-rv .td-rvfacts > span { display: inline-flex; align-items: center; gap: 4px; }
+.td-rv .td-rvfacts .ic { width: 16px; height: 16px; color: var(--n500); }
+.td-rv .td-rvdot { color: var(--n500); }
 
 /* ---- five tabs (R-027): the strip fits its labels to the room it has, measured on itself, so the fifth tab never
    wraps out of sight (the desktop strip hides a second line). A container, as .bw-panel is, not a new breakpoint:

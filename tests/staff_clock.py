@@ -2,7 +2,11 @@
 # tapped nothing happens"). python3 tests/staff_clock.py
 # The button drops the bills it counted into the list as suggestions (Nate, 9/19). These checks press it on your own
 # list, a teammate's list (where it used to do nothing), a quiet day (where it only swapped one line of text), and in
-# the rarer states its note has to explain: a counted bill already on today's list, one put off, more than five.
+# the rarer states its note has to explain: a counted bill already on your list, one put off, more than five.
+# R-022 (9/21): the panel names the bills with no hearing (links), shows the deadline after it with its own button
+# (decision 3), "Showing 5 of N" gets a "See all … in Bills" link, a suggestion shows one button and a "…" holding
+# Done / Not now / Not this bill, a P1 bill with a dated "Ask the chair" card is never also a suggestion, and the
+# section never says "Nothing urgent" or "Nothing here is on the clock" over a suggestion racing a deadline.
 import os, sys, re
 from playwright.sync_api import sync_playwright
 BASE = os.environ.get('STAFF_BASE', 'http://localhost:8832/staff.html?demo=1')
@@ -16,9 +20,15 @@ STATE = r"""(() => {
   return { btn: !!b, expanded: b ? b.getAttribute('aria-expanded') : null, count: b ? +((b.innerText.match(/(\d+) bills? with no hearing yet/) || [])[1] || 0) : 0,
     sugg: !!s, head: h ? h.innerText.replace(/\s+/g, ' ').trim() : '', inView: !!r && r.top >= 0 && r.top < innerHeight - 80,
     bills: [...new Set([...document.querySelectorAll('.td-sugg .td-sg')].map(e => e.dataset.bill))].length,
-    answers: document.querySelectorAll('.td-sugg [data-sgdo]').length, showAll: !!document.querySelector('.td-sugg [data-sgall]'),
+    answers: document.querySelectorAll('.td-sugg [data-sgmore]').length, showAll: !!document.querySelector('.td-sugg [data-sgall]'),
+    names: [...document.querySelectorAll('.td-cknames a[href^="#/bill/"]')].map(a => a.querySelector('.td-num')?.innerText.trim()),
+    then: document.querySelector('[data-clockwork="then"]') ? +((document.querySelector('[data-clockwork="then"]').innerText.match(/(\d+) bills? with no hearing yet/) || [])[1] || 0) : 0,
+    bills2: document.querySelector('.td-sugg [data-sgbills]')?.innerText.replace(/\s+/g, ' ').trim() || '',
+    words: [...document.querySelectorAll('#td-g-sugg, .td-sugg .td-sgnote > span, .td-sugg .td-sgwhy, .td-sugg .td-sg > .td-s')].map(e => e.innerText).join(' · ').replace(/\s+/g, ' '),
+    cards: [...document.querySelectorAll('.td-sugg .td-sg')].map(e => e.querySelector('.td-num')?.innerText.trim()),
     note: document.querySelector('.td-sugg .td-sgnote')?.innerText.replace(/\s+/g, ' ').trim() || '',
     clock: document.querySelector('.td-ck')?.innerText.replace(/\s+/g, ' ').trim() || '',
+    panel: document.querySelector('.td-p-clock')?.innerText.replace(/\s+/g, ' ').trim() || '',
     focusHead: !!a && !!h && (a === h || h.contains(a)) };
 })()"""
 
@@ -34,7 +44,7 @@ def load(p, extra='', setup=None):
     if setup: p.evaluate(setup)
     p.reload(); p.wait_for_timeout(3500)
 
-def press(p, sel='[data-clockwork]'):
+def press(p, sel='[data-clockwork]'):   # the first is the nearest deadline's
     el = p.locator(sel).first; el.scroll_into_view_if_needed(); p.wait_for_timeout(150)
     el.tap() if p.viewport_size['width'] < 600 else el.click()
     p.wait_for_timeout(900)   # the smooth scroll
@@ -44,10 +54,19 @@ def opened(tag, s, ro=False):
     ok(s['sugg'] and s['head'].startswith('No hearing yet'), f'{tag}: the section is named in the button\'s words ("{s["head"]}")')
     ok(s['inView'], f'{tag}: what it opened is on screen')
     ok(s['focusHead'], f'{tag}: the focus moved to what it opened')
-    ok(s['bills'] >= 1, f'{tag}: it shows the bills ({s["bills"]} of {s["count"]})')
+    # every bill it counted is a card here, or named as already on the list (a P1 bill's dated chair ask, R-022)
+    ok(s['bills'] >= 1 or ' above.' in s['note'], f'{tag}: it shows the bills, or says where they are ({s["bills"]} of {s["count"]}; "{s["note"][:90]}")')
     ok('has to be heard by' in s['note'], f'{tag}: the note says by when ("{s["note"][:70]}")')
-    if ro: ok(s['answers'] == 0 and not s['showAll'], f'{tag}: read-only on a teammate\'s list ({s["answers"]} answer buttons, Show all {s["showAll"]})')
-    else: ok(s['answers'] == 3 * s['bills'] and s['showAll'], f'{tag}: Done / Not now / Not this bill on each card, and Show all suggestions')
+    if ro: ok(s['answers'] == 0 and not s['showAll'], f'{tag}: read-only on a teammate\'s list ({s["answers"]} answer menus, Show all {s["showAll"]})')
+    else: ok(s['answers'] == s['bills'] and s['showAll'], f'{tag}: one "…" (Done / Not now / Not this bill) on each card, and Show all suggestions ({s["answers"]} of {s["bills"]})')
+    ok(not re.search(r'\b(over)?due\b', s['words'], re.I), f'{tag}: the suggestions never say "due" ("{s["words"][:60]}")')
+
+def menu_pick(p, card_sel, label):
+    # a suggestion's "…" opens its answers; each is a menu item
+    el = p.locator(card_sel).first; el.scroll_into_view_if_needed(); el.click(); p.wait_for_timeout(500)
+    items = p.evaluate("[...document.querySelectorAll('dialog[open] .sv-menu button .title')].map(e => e.innerText.trim())")
+    p.locator('dialog[open] .sv-menu button').filter(has_text=label).first.click(); p.wait_for_timeout(800)
+    return items
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
@@ -56,6 +75,8 @@ with sync_playwright() as pw:
         c, p = ctx(b, W, H); load(p)
         s0 = p.evaluate(STATE)
         ok(s0['btn'] and s0['count'] >= 1 and s0['expanded'] == 'false', f'{tag} mine: the button is there, closed ({s0["count"]} bills)')
+        ok(len(s0['names']) == min(s0['count'], 4) and all(s0['names']), f'{tag} mine: the bills with no hearing are named, each a link to its bill ({s0["names"]})')
+        ok(s0['then'] >= 1 and 'Then Mon 3/30' in s0['panel'] and 'Second lateral' in s0['panel'], f'{tag} mine: the deadline after it has its own row and button ({s0["then"]} bills; "{s0["panel"][-90:]}")')
         press(p); s1 = p.evaluate(STATE); p.screenshot(path=f'{OUT}/{tag}_mine_open.png')
         opened(f'{tag} mine', s1)
         ok(s1['bills'] == s1['count'], f'{tag} mine: one card for each bill counted ({s1["bills"]}/{s1["count"]})')
@@ -108,10 +129,43 @@ with sync_playwright() as pw:
       (d.S.todos[b.id] ??= []).push({ id: 'test-clock', bill_id: b.id, title: 'Call the committee clerk', due_date: '2026-03-16', assignee_id: d.S.me.id, done: false });
       d.hooks.render(); return m.billNum(b); })()""")
     p.wait_for_timeout(500); press(p); s = p.evaluate(STATE)
-    ok(f'{first} is on today’s list above.' in s['note'] and s['bills'] == s['count'] - 1, f'a counted bill with a card today is named, not dropped ("{s["note"]}")')
-    # Not now on the other one: it is named as having nothing to suggest right now
-    p.locator('.td-sugg [data-sgdo="later"]').first.click(); p.wait_for_timeout(700); s = p.evaluate(STATE)
-    ok('Nothing to suggest on' in s['note'] and 'right now' in s['note'] and s['bills'] == 0, f'a bill put off is named too ("{s["note"]}")')
+    ok(f'{first} is on your list above.' in s['note'] and s['bills'] == s['count'] - 1, f'a counted bill with a card today is named, not dropped ("{s["note"]}")')
+    press(p)   # closed again
+    # the deadline after it: its own button opens its own bills, five at a time, with a way to see them all in Bills
+    press(p, '[data-clockwork="then"]'); s = p.evaluate(STATE)
+    ok(s['head'].startswith('No hearing yet') and 'has to be heard by Mon 3/30' in s['note'] and s['focusHead'] and s['inView'], f'the deadline after: its button opens its bills ("{s["head"]}", "{s["note"][:60]}")')
+    ok(s['bills'] == min(5, s['then']) and (s['then'] <= 5 or f'Showing 5 of {s["then"]}.' in s['note']), f'the deadline after: five shown of {s["then"]}, and the note says so ("{s["note"]}")')
+    ok(s['then'] <= 5 or (s['bills2'].startswith('See ') and s['bills2'].endswith('in Bills')), f'"Showing 5 of N" has a link to Bills ("{s["bills2"]}")')
+    # Not now on one of them, from its "…": it is named as having nothing to suggest right now, and Undo brings it back
+    gone = s['cards'][0]
+    items = menu_pick(p, '.td-sugg [data-sgmore]', 'Not now'); s = p.evaluate(STATE)
+    ok(items == ['Done', 'Not now', 'Not this bill'], f'the "…" holds the three answers ({items})')
+    ok(f'Nothing to suggest on {gone} right now' in s['note'] and gone not in s['cards'], f'a bill put off is named ("{s["note"]}")')
+    toast = p.evaluate("document.querySelector('.toastmsg')?.innerText || ''")
+    ok('comes back in two weeks' in toast and 'Undo' in toast, f'Not now says what it did, with Undo ("{toast}")')
+    p.locator('.toastmsg .toastundo').first.click(); p.wait_for_timeout(700); s = p.evaluate(STATE)
+    ok(gone in s['cards'], f'Undo puts {gone} back ({s["cards"]})')
+    # See all in Bills: the Bills list, filtered to hold them
+    if s['bills2']:
+        n = int(re.search(r'(\d+)', s['bills2']).group(1))
+        p.locator('.td-sugg [data-sgbills]').first.click(); p.wait_for_timeout(1500)
+        rows = p.evaluate("[...new Set([...document.querySelectorAll('main [data-bill]')].map(e => e.dataset.bill))].length")
+        ok(p.evaluate('location.hash') == '#/bills' and rows == n, f'See all in Bills opens Bills with the {n} it named ({p.evaluate("location.hash")}, {rows} rows)')
+    c.close()
+    # a P1 bill with a dated "Ask the chair" card is never also a suggestion (Lauren's HB1779, due to race 3/30)
+    c, p = ctx(b, 1440, 900); load(p, '&as=LR'); s = p.evaluate(STATE)
+    chair = p.evaluate("[...document.querySelectorAll('.td-card')].filter(e => /Ask the chairs? for a hearing/.test(e.innerText)).map(e => e.dataset.num)")
+    if not chair:   # folded under "Coming up": open it
+        p.locator('[data-fold="later"]').first.click(); p.wait_for_timeout(500)
+        chair = p.evaluate("[...document.querySelectorAll('.td-card')].filter(e => /Ask the chairs? for a hearing/.test(e.innerText)).map(e => e.dataset.num)"); s = p.evaluate(STATE)
+    ok(len(chair) >= 1 and not any(n in (s['cards'] or []) for n in chair), f'Lauren: a P1 chair ask on the list is not also a suggestion (cards {chair}, suggestions {s["cards"]})')
+    c.close()
+    # a quiet day whose suggestions race this week's deadline: the heading is truthful, and still never says "due"
+    c, p = ctx(b, 1440, 900); load(p, '&as=JM'); s = p.evaluate(STATE)
+    racing = p.evaluate("(async () => { const m = await import('./staff/model.js'), d = await import('./staff/data.js'); return m.suggestions(d.S.bills.filter(d.isMine)).filter(x => x.urgent).length; })()")
+    ok(racing >= 1 and s['sugg'], f'James: a quiet day with {racing} suggestion(s) racing a deadline this week')
+    ok('Nothing urgent' not in s['head'] and 'Nothing here is on the clock' not in s['note'] and 'deadline in the next seven days' in s['note'], f'James: no "Nothing urgent" over a deadline ("{s["head"]}", "{s["note"][:90]}")')
+    ok(not re.search(r'\b(over)?due\b', s['words'], re.I), f'James: the heading, the note and the cards never say "due" ("{s["words"][:80]}")')
     c.close()
     # more than five: copies of a no-hearing bill, in the team's list
     c, p = ctx(b, 1440, 900); load(p, setup="localStorage.setItem('hiphi2_today_scope_demo', 'team')")

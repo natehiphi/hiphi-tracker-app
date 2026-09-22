@@ -54,6 +54,11 @@ SV = [
   ('testimony',   '/bill/HB1779/testimony', 'the last testimony', '.tm-row, .tm-crow, #tm-body .empty'),
   ('legislators', '/legislators',  'the first legislator', '.lg-row, .lg-page .row, main tbody tr'),
   ('outreach',    '/outreach',     'the first person',     '.sp-page .row, .sp-page tbody tr'),
+  # R-022: the coalition pages and the hearing page. A hearing's id changes when the snapshot is rebuilt, so the
+  # hearing row has no route of its own: it opens the first hearing the coalition page before it links to.
+  ('coalitions',  '/coalition',    'the first coalition',  '.co-irow, .co-table tbody tr'),
+  ('coalition',   '/coalition/979b46c2-8bb8-44ee-a5e6-fca6235de48c', "the coalition's week", '.co-hrow, .co-sec .row, .co-empty'),
+  ('hearing',     None,            'the first bill heard', '.hr-bill'),
 ]
 
 TOP_JS = """(sel) => { for (const e of document.querySelectorAll(sel)) {
@@ -105,6 +110,8 @@ def run(br, base, routes, app, W, H, tag, seed):
     p = c.new_page()
     p.goto(base + '#/'); p.reload(); p.wait_for_timeout(4000)
     for name, route, want, sel in routes:
+        if route is None:   # the hearing row: the first hearing the page before it links to
+            route = (p.evaluate("(document.querySelector('a[href^=\"#/hearing/\"]') || { getAttribute: () => '#/' }).getAttribute('href')") or '#/')[1:]
         p.goto(base + '#' + route); p.reload(); p.wait_for_timeout(2500)
         top = p.evaluate(TOP_JS, sel)
         p.screenshot(path=f'{OUT}/{app}_{tag}_{name}.png')

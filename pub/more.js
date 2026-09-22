@@ -293,7 +293,7 @@ function wireMore() {
 // say where you stand. Ways to help come on later visits, easiest first. Nothing here promises community totals.
 const STEPS = [
   ['Pick what you care about', 'Choose a category or two, like Food & Nutrition or Tobacco, Vaping & Alcohol.'],
-  ['Follow the issues inside it', 'Free school meals, the disposable vape ban, free bus rides for kids. HIPHI ticks the ones it recommends. Their bills come to you, this session’s and next session’s, and show up in My issues.'],
+  ['Follow the issues inside it', 'Free school meals, the disposable vape ban, free bus rides for kids. Some start ticked; untick any you don’t want. Their bills come to you, this session’s and next session’s, and show up in My issues.'],
   ['Say where you stand', 'Support, oppose or not sure yet. It’s your view, and it doesn’t have to match HIPHI’s. That’s a whole first visit.'],
   ['Speak up when it counts', 'When a bill on one of your issues gets a hearing, Home shows ways to help, easiest first: a two-minute email to the chair, then testimony, a short letter we help you write.'],
 ];

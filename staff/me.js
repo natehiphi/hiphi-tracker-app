@@ -3,6 +3,9 @@
 // ({ reminders, workflow }), written with DB.saveMyPrefs, plus DB.slackTest. "Only in the app" is not a new setting:
 // it is every nudge switched off, which is exactly what the database reads as "send nothing" (the Inbox in Today
 // never depends on these), so it works the same whichever app wrote it.
+// R-022 (decision 7): "Coalitions I support" - support staff help with whole coalitions rather than owning bills (Kris
+// supports every one, Saya CTFH). Saved as advocates.prefs.coalitions ('all' or a list of campaign ids) with
+// DB.patchPrefs, so it follows the person; Bills then offers "My coalitions" beside Mine and Everyone.
 import { S, DB, DEMO, APP_URL, esc, hooks } from './data.js';
 import { WORKFLOW_KINDS } from './model.js';
 import { icon, btn, switchRow, field, toast, keysOn, setKeys } from './ui.js';
@@ -26,6 +29,25 @@ function current() {
   const w = Object.fromEntries(WORKFLOW_KINDS.map(([k]) => [k, wf[k] !== false]));
   const quiet = !r.morning_on && !r.before_on && !r.after_on && Object.values(w).every(x => !x);
   return { me, prefs, r, w, mode: quiet ? 'app' : me.slack_dm !== false ? 'slack' : 'email' };
+}
+
+// ---- Coalitions I support ----
+// A tick box per coalition, named as the public knows it with the team's own name under it where they differ (two are
+// "General Public Health" to the public). "All coalitions" also covers any added later, so it hides the list rather
+// than ticking ten boxes that would then have to be unticked one by one.
+function coalSection() {
+  const c = S.me?.prefs?.coalitions, all = c === 'all', on = new Set(Array.isArray(c) ? c : []);
+  const camps = S.campaigns.slice().sort((a, b) => (a.public_name || a.name).localeCompare(b.public_name || b.name) || a.name.localeCompare(b.name));
+  const same = t => String(t || '').toLowerCase().replace(/[^a-z]/g, '');   // "Climate & Health" is "Climate Health": no second line
+  const box = (id, title, sub, checked, attr) => `<label class="st-cbox" for="${id}"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''} ${attr}><span class="st-cmark" aria-hidden="true">${icon('check')}</span><span class="body"><span class="title">${esc(title)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span></label>`;
+  return `<section class="st-sec" aria-labelledby="st-coals">
+    <h2 id="st-coals">Coalitions I support</h2>
+    <p class="small muted st-note st-top">For helping with a coalition’s bills without owning them: Today shows their week, and Bills lists them under <b>My coalitions</b>.</p>
+    <div class="card st-coalpick">
+      ${box('st-coal-all', 'All coalitions', 'Every coalition, and any added later', all, 'data-coalall')}
+      ${all ? '' : `<div class="st-cgrid" role="group" aria-label="Coalitions">${camps.map(x => box('st-coal-' + x.id, x.public_name || x.name, x.public_name && same(x.public_name) !== same(x.name) ? x.name : '', on.has(x.id), `data-coal="${esc(x.id)}"`)).join('')}</div>`}
+    </div>
+  </section>`;
 }
 
 export default {
@@ -62,6 +84,7 @@ export default {
           ${r.before_on ? field('st-befh', 'Hours before', `<input id="st-befh" type="number" min="0.5" max="48" step="0.5" inputmode="decimal" value="${esc(r.hours_before)}" data-remv="hours_before">`) : ''}
           ${r.after_on ? field('st-aftt', 'Missed-deadline reminder', `<input id="st-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>
       </section>` : ''}`}
+      ${coalSection()}
       <section class="st-sec st-keysec" aria-labelledby="st-keys">
         <h2 id="st-keys">Keyboard shortcuts</h2>
         <div class="card st-list">${switchRow('st-keyson', 'Use keyboard shortcuts', keysOn(), 'For a laptop or desktop. Off means a stray letter never does anything. Approving always takes Shift+A.', { 'data-keys': '1' })}</div>
@@ -109,6 +132,19 @@ export default {
       const { me, prefs, rem, wf } = collect();
       if (i.dataset.remv === 'hours_before' && !(Number(i.value) >= 0.5 && Number(i.value) <= 48)) { toast('Use a number of hours from 0.5 to 48.', { err: true }); return; }
       save(me.slack_dm !== false, { ...prefs, reminders: rem, workflow: wf });
+    });
+    // Coalitions I support: each tick saves at once (as everything on this page does), and says what changed.
+    const coals = async (value, msg, focusId) => {
+      try { await DB.patchPrefs({ coalitions: value }); toast(msg, { ok: true }); }
+      catch (e) { toast(e, { err: true }); }
+      const y = window.scrollY; hooks.render(); window.scrollTo(0, y); document.getElementById(focusId)?.focus({ preventScroll: true });
+    };
+    const all = root.querySelector('[data-coalall]');
+    if (all) all.onchange = () => coals(all.checked ? 'all' : [], all.checked ? 'Saved. You support every coalition.' : 'Saved. Pick the coalitions you support.', 'st-coal-all');
+    root.querySelectorAll('[data-coal]').forEach(el => el.onchange = () => {
+      const ids = [...root.querySelectorAll('[data-coal]')].filter(x => x.checked).map(x => x.dataset.coal);
+      const c = S.campaigns.find(x => x.id === el.dataset.coal), name = c ? c.public_name || c.name : 'that coalition';
+      coals(ids, `Saved. ${el.checked ? `You support ${name}.` : `You no longer support ${name}.`}`, el.id);
     });
     const ks = root.querySelector('[data-keys]');
     if (ks) ks.onchange = () => { setKeys(ks.checked); toast(ks.checked ? 'Keyboard shortcuts are on.' : 'Keyboard shortcuts are off.', { ok: true }); };

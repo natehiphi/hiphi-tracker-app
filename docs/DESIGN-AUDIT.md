@@ -76,12 +76,15 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
-| staff2 | 390 | today | **294** | 23 | **4** | 6 | 4 | 8 |
+| staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
 | staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |
-| staff2 | 390 | bill | **178** | 18 | **10** | 7 | 4 | 7 |
+| staff2 | 390 | bill | **178** | 19 | **11** | 7 | 4 | 7 |
 | staff2 | 390 | testimony tab (9/21) | **154** | 21 | **10** | 8 | 4 | 6 |
 | staff2 | 390 | legislators | **244** | 19 | **6** | 6 | 3 | 4 |
-| staff2 | 390 | outreach | **257** | 24 | **10** | 6 | 3 | 4 |
+| staff2 | 390 | outreach | **257** | 26 | **12** | 6 | 3 | 4 |
+| staff2 | 390 | coalitions (9/21) | **211** | 18 | **6** | 6 | 2 | 4 |
+| staff2 | 390 | one coalition (9/21) | 349 | 12 | **3** | 7 | 4 | 5 |
+| staff2 | 390 | hearing (9/21) | **308** | 15 | **6** | 7 | 4 | 5 |
 | public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
 | public | 1440 | home | **218** | 11 | **5** | 6 | 6 | 7 |
 | public | 1440 | my issues (9/21) | **246** | 16 | **2** | 6 | 6 | 5 |
@@ -91,13 +94,16 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
-| staff2 | 1440 | today | **214** | 51 | **10** | 12 | 4 | 9 |
-| staff2 | 1440 | week (9/21) | **272** | 45 | **7** | 12 | 5 | 8 |
+| staff2 | 1440 | today (9/21, R-022) | **290** | 44 | **11** | 12 | 5 | 9 |
+| staff2 | 1440 | week (9/21, R-022) | 348 | 39 | **15** | 12 | 5 | 8 |
 | staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |
-| staff2 | 1440 | bill | **269** | 33 | 20 | 13 | 5 | 7 |
+| staff2 | 1440 | bill (9/21, R-022) | **269** | 37 | 24 | 13 | 5 | 7 |
 | staff2 | 1440 | testimony tab (9/21) | 466 | 33 | 17 | 13 | 5 | 6 |
 | staff2 | 1440 | legislators | **294** | 35 | **7** | 11 | 4 | 4 |
-| staff2 | 1440 | outreach | **295** | 53 | **8** | 14 | 4 | 6 |
+| staff2 | 1440 | outreach | **295** | 55 | **8** | 16 | 4 | 6 |
+| staff2 | 1440 | coalitions (9/21) | **210** | 30 | **1** | 16 | 3 | 4 |
+| staff2 | 1440 | one coalition (9/21) | 335 | 39 | **10** | 16 | 5 | 5 |
+| staff2 | 1440 | hearing (9/21) | **313** | 26 | **7** | 11 | 5 | 5 |
 
 Bold = inside budget. **Every screen in both apps is now inside the A-2 content-control budget**, and
 seven readings sit between the arrival budget and the limit (G-8). Nothing in either app exceeds a limit.
@@ -115,6 +121,15 @@ so every tab's content starts under it, Overview's first heading at 434, Activit
 Testimony's heading at 434. Not an accepted exception; a question for Nate if it bothers anyone: a tab reached by a
 link could bring its strip to the top on a laptop too, as it does on a phone. The bill's own kinds went from 18 to
 20 at 1440 since 9/20 (the issue line and the fifth tab), now between the A-2 budget and the limit.
+
+**Staff v2 re-measured 2026-09-21 after R-022** (the staff review's waves 1-3, backend HANDOFF 3.19; new rows for the
+coalition pages and the hearing page). Every reading is inside its limit. Today's first item on a phone now starts
+higher, at 260px (it was 294: your own tasks come first); on a laptop lower, at 290 (it was 214), still inside the
+budget, under the email-paused note and the new Mine | Team row. Three readings sit between the A-1 budget and the limit: the Week view at 1440 (348, the "This week" heading
+and the Then row above the grid), one coalition on a phone (349, its heading, owner line and "Write a partner update"
+come first) and the Testimony tab at 1440 (unchanged, above). The bill page at 1440 has 24 kinds of control against a
+limit of 25 (it was 20): "Send a teammate…", the hearing page link and the Following line were added on Next up, the
+Stage row went. The next control added to the bill page's first screen has to replace one.
 
 Journeys (`tests/journeys.py`): **7 of 7 working and inside budget** ("arrive → follow a first issue", 3 of 3).
 

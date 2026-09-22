@@ -72,6 +72,21 @@
 .st-opt .title { font-weight: 700; color: var(--n900); }
 .st-opt .sub { font-size: var(--t14); color: var(--n500); }
 .st-opt .sub b { color: var(--n700); }
+/* tick boxes (My settings: Coalitions I support, R-022). Native checkboxes, so Tab and Space work; the box is drawn, and
+   a ticked box is filled AND carries a tick (never colour alone). Two columns where there is room. */
+.st-coalpick { padding: 0; overflow: hidden; }
+.st-cbox { position: relative; display: flex; align-items: flex-start; gap: var(--s12); min-height: 56px; padding: var(--s12) var(--s16); cursor: pointer; }
+.st-cbox:hover { background: var(--n50); }
+.st-cbox input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.st-cmark { flex: none; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-top: 1px; border: 2px solid var(--n400); border-radius: 6px; background: var(--n0); color: transparent; }
+.st-cmark .ic { width: 16px; height: 16px; }
+.st-cbox input:checked + .st-cmark { background: var(--p700); border-color: var(--p700); color: #fff; }
+.st-cbox input:focus-visible + .st-cmark { outline: 2px solid var(--p700); outline-offset: 2px; }
+.st-cbox .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st-cbox .title { font-weight: 700; color: var(--n900); }
+.st-cbox .sub { font-size: var(--t14); color: var(--n500); }
+.st-cgrid { display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--n100); padding: var(--s4) 0; }
+@media (min-width: 600px) { .st-cgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .st-always { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); margin-bottom: var(--s16); max-width: 65ch; }
 .st-always .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .st-acct { margin-top: var(--s16); }
@@ -101,14 +116,17 @@
 .st-why .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .st-why.muted .ic { color: var(--n400); }
 .st-why b { color: var(--n900); }
-.st-tpick { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); display: flex; flex-direction: column; gap: var(--s16); }
-.st-pickrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); }
-.st-pickrow .st-lab { flex: 0 0 100%; font-size: var(--t14); font-weight: 700; color: var(--n900); }
-.st-pickrow .sv-seg { display: flex; width: 100%; max-width: 360px; }
-.st-pickrow .sv-seg button { flex: 1 1 0; padding: 0 8px; }
+.st-tpick { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); display: flex; flex-direction: column; gap: var(--s12); }
+/* The four choices (R-022): a label on the left, its control beside it, one row each, so the card grows by rows of
+   44px rather than a label line plus a control line each. A long choice ("Support with changes") is cut, never wrapped. */
+.st-pickrow { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: var(--s8); }
+.st-pickrow .st-lab { font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.st-pickrow .sv-pick { justify-self: start; max-width: 100%; min-width: 0; }
+.st-pickrow .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-pickrow .sv-seg { display: inline-flex; justify-self: start; }
+.st-pickrow .sv-seg button { min-width: 64px; padding: 0 16px; }
 @media (min-width: 600px) {
-  .st-tpick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s16) var(--s24); align-items: start; }
-  .st-pickrow .sv-seg { max-width: none; }
+  .st-tpick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s12) var(--s24); align-items: center; }
 }
 .st-keys { margin-top: var(--s12); }
 .st-keys kbd, .st-page kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
@@ -145,10 +163,7 @@
   .st-tdesk .st-tfoot { margin-top: var(--s12); }
   .st-tside { gap: var(--s16); }
   .st-tside .st-decide { padding: var(--s16); }
-  .st-tside .st-tpick { display: flex; flex-direction: column; gap: var(--s12); margin: var(--s8) 0 0; padding: 0; border: 0; }
-  .st-tside .st-pickrow .sv-seg { max-width: none; }
-  .st-tside .st-pickrow .sv-pick { max-width: 100%; }
-  .st-tside .st-pickrow .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st-tside .st-tpick { display: flex; flex-direction: column; align-items: stretch; gap: var(--s12); margin: var(--s8) 0 0; padding: 0; border: 0; }
   .st-dbtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
   .st-dbtns .btn { flex: none; }
   .st-dbtns .btn.text { margin-left: auto; }

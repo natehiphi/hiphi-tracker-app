@@ -6,6 +6,7 @@ import checks
 BASE = 'http://localhost:8832/staff.html?demo=1'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'final'); os.makedirs(OUT, exist_ok=True)
 ALLOWED = {13.0, 14.0, 16.0, 18.0, 22.0}
+HEAL = '979b46c2-8bb8-44ee-a5e6-fca6235de48c'   # a coalition whose sandbox week has hearings (R-022)
 GLYPH = r"""(() => { const bad = /[\p{Extended_Pictographic}✓✕★☆↗→←▸▾▴◷☰＋‹›▶⌂✉▤⚖☺⚙✎↺«☀]/u, out = [];
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
   while ((n = w.nextNode())) { const p = n.parentElement; if (p && p.offsetParent !== null && bad.test(n.nodeValue) && !p.closest('.band')) out.push(n.nodeValue.trim().slice(0, 50)); }
@@ -33,6 +34,11 @@ with sync_playwright() as pw:
         leg = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/legislator/\"]'); return a && a.getAttribute('href') })()")
         routes = ['/', '/review', '/bills', '/bills/new', '/bills/memo', '/bills/muted', '/bill/HB1562', '/bill/HB1562/activity', '/bill/HB1562/pathway', '/bill/HB1562/public',
                   '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help']
+        # R-022: the coalition and hearing pages. Hearing ids change when the snapshot is rebuilt, so take one from HEAL's week.
+        visit(p, '/coalition/' + HEAL, 3000)
+        hr = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/hearing/\"]'); return a && a.getAttribute('href').slice(1).split('?')[0] })()")
+        ok(bool(hr), f'{tag}: the HEAL coalition page links a hearing')
+        routes += ['/coalition', '/coalition/' + HEAL] + ([hr] if hr else [])
         for r in routes:
             visit(p, r, 3000)
             name = r.strip('/').replace('/', '_').replace('?', '_') or 'today'

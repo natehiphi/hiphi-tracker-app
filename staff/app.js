@@ -1,9 +1,11 @@
-// HIPHI Staff v2: the frame and the router (plan section 2). The current staff app (index.html + app.js) is option 1
-// and stays untouched; this is option 2, a task-first, phone-first companion. Screens are modules with
+// HIPHI Staff v2: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
+// own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
+// back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
+import { exactBill } from './model.js';
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import bill from './bill.js';
@@ -24,13 +26,18 @@ import me from './me.js';
 import setup from './setup.js';
 import help from './help.js';
 import devui from './devui.js';
+import hearing from './hearing.js';
+import coalition from './coalition.js';
 
 // ---- routes ----
-const SCREENS = { today, review, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui };
+const SCREENS = { today, review, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   const dh = decodeURIComponent(h || '');
   let m;
   if ((m = /^#bill=([A-Za-z]+\s?\d+)/.exec(dh))) return { name: 'bill', num: m[1].replace(/\s/g, '').toUpperCase(), tab: 'overview', legacy: true };
+  // The old app's other addresses, still written into Slack and calendar links: approvals, and the calendar connect.
+  if (/^#emails\b/.test(dh)) return { name: 'review', id: '', q: {}, legacyTo: '#/review' };
+  if ((m = /^#calendar=(.*)$/.exec(dh))) return { name: 'me', q: {}, legacyTo: '#/me', note: m[1] };
   const [p, qs] = dh.replace(/^#/, '').split('?'), q = Object.fromEntries(new URLSearchParams(qs || '')), seg = p.split('/').filter(Boolean);
   switch (seg[0]) {
     case undefined: return { name: 'today', q };
@@ -39,6 +46,8 @@ export function parseRoute(h = location.hash) {
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase(), tab: seg[2] || 'overview', q };
     case 'legislators': return { name: 'legislators', q };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
+    case 'hearing': return { name: 'hearing', id: seg[1] || '', q };
+    case 'coalition': return { name: 'coalition', id: seg[1] || '', q };
     case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q } : { name: 'supporters', q };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
@@ -101,9 +110,9 @@ const SIDE = [
   ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review']]],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
-  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
+  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
-const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
@@ -119,8 +128,17 @@ function sidebar(route, scr) {
       <a class="sv-sitem" href="${href}" title="${label}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
       ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
     <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" title="${l}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${l}</span></a>`).join('')}
+      ${syncLine()}
       <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${sideNarrow()}">${icon(sideNarrow() ? 'panel-left-open' : 'panel-left-close')}<span>Collapse</span></button></nav>
   </aside>`;
+}
+// How fresh the Capitol data is, for everyone (the old app showed it to all; v2 had it for admins only; B-7).
+function syncLine() {
+  if (DEMO) return `<p class="sv-sync">${icon('refresh-cw', { size: 14 })}<span>Sandbox data, as of ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' })}</span></p>`;
+  const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; if (!last) return '';
+  const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5), stale = h >= 12;
+  const ago = h < 1 ? 'less than an hour ago' : h < 48 ? `${h} hour${h === 1 ? '' : 's'} ago` : `${Math.floor(h / 24)} days ago`;
+  return `<p class="sv-sync${stale ? ' late' : ''}">${icon(stale ? 'circle-alert' : 'refresh-cw', { size: 14 })}<span>Capitol data synced ${ago}</span></p>`;
 }
 function tabbar(scr) {
   const bd = badge();
@@ -145,7 +163,9 @@ export function render() {
   // One h1 per page: the page's own when it has one, else the frame's title (hidden visually on desktop).
   // The action bar lives inside <main>, as its last child: fixed to the bottom on phones, and on a wide screen it
   // sits right under the content it acts on (staff.css), never a screen-height away from it.
-  const band = DEMO ? `<div class="band">Sandbox · Mar 16, 2026 · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved</div>` : '';
+  // Sandbox: practise as anyone on the team from your menu (it used to take editing the address, &as=LR, which nobody
+  // would find). The band stays plain text: a control inside a 28px band cannot be a 44px target (A-6).
+  const band = DEMO ? `<div class="band">Sandbox · ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved<span class="band-hint"> · switch person in your menu</span></div>` : '';
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route, scr)}<div class="sv-page">${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabs ? tabbar(scr) : ''}`;
   // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the header
   // already shows the title), which left 12 of 22 screens with no heading at all: where the page's h1 is not drawn,
@@ -177,15 +197,56 @@ function wireFrame(app) {
   const skip = app.querySelector('[data-skip]');
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
-  if (f) f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); go('#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
+  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? `#/bill/${b.bill_number.replace(/\s/g, '')}` : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); }; suggestOn(f); }
+  app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
+}
+function practiseAs() {
+  menuSheet({ title: 'Practise as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
+    label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.is_reviewer ? 'Reviewer: second approvals' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
+    run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
+}
+const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
+// Suggestions under the header search as you type: tracked bills (number, nickname, title) and legislators. Enter
+// on a highlighted row opens it; Enter with none highlighted still goes to the full search.
+function suggestOn(f) {
+  const input = f.querySelector('input'); if (!input) return;
+  let list = null, rows = [], at = -1, timer = 0;
+  const close = () => { list?.remove(); list = null; rows = []; at = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
+  const pick = i => { const r = rows[i]; if (!r) return; close(); input.value = ''; go(r.href); };
+  const show = () => {
+    const q = input.value.trim().toLowerCase(); if (q.length < 2) return close();
+    const qn = q.replace(/\s+/g, '');
+    const bills = S.bills.filter(b => b.bill_number.toLowerCase().replace(/\s/g, '').includes(qn) || (b.nickname || '').toLowerCase().includes(q) || (b.title || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.bill_number.toLowerCase().replace(/\s/g, '').startsWith(qn) ? 0 : 1) - (b.bill_number.toLowerCase().replace(/\s/g, '').startsWith(qn) ? 0 : 1) || (a.priority || 9) - (b.priority || 9))
+      .slice(0, 5).map(b => ({ href: `#/bill/${b.bill_number.replace(/\s/g, '')}`, t: b.bill_number, s: b.nickname || b.title || '', ic: 'scroll-text' }));
+    const legs = (S.legislators || []).filter(l => (l.name || '').toLowerCase().includes(q)).slice(0, 3).map(l => ({ href: `#/legislator/${l.id}`, t: l.name, s: `${l.chamber === 'S' ? 'Senate' : 'House'} ${l.district || ''}`.trim(), ic: 'landmark' }));
+    rows = [...bills, ...legs]; at = -1;
+    if (!rows.length) return close();
+    if (!list) { list = document.createElement('div'); list.className = 'sv-sugg'; list.id = 'hq-sugg'; list.setAttribute('role', 'listbox'); f.appendChild(list); input.setAttribute('aria-controls', 'hq-sugg'); }
+    input.setAttribute('aria-expanded', 'true');
+    list.innerHTML = rows.map((r, i) => `<a role="option" id="hq-o${i}" href="${esc(r.href)}" data-i="${i}">${icon(r.ic)}<span><b>${esc(r.t)}</b><span class="small muted">${esc(r.s)}</span></span></a>`).join('');
+    list.querySelectorAll('a').forEach(a => a.addEventListener('mousedown', e => { e.preventDefault(); pick(+a.dataset.i); }));
+  };
+  const mark = () => list?.querySelectorAll('a').forEach((a, i) => { a.classList.toggle('on', i === at); if (i === at) input.setAttribute('aria-activedescendant', a.id); });
+  input.setAttribute('role', 'combobox'); input.setAttribute('aria-autocomplete', 'list'); input.setAttribute('aria-expanded', 'false');
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(show, 120); });
+  input.addEventListener('blur', () => setTimeout(close, 150));
+  input.addEventListener('keydown', e => {
+    if (!list) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(rows.length - 1, at + 1); mark(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(-1, at - 1); mark(); }
+    else if (e.key === 'Enter' && at >= 0) { e.preventDefault(); pick(at); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
 }
 
 function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
+    DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
-    { label: 'Open the current app', icon: 'external-link', sub: 'The look you know, same data', run: () => { location.href = APP_URL + (DEMO ? '?demo=1' : ''); } },
+    { label: 'Open the old app', icon: 'external-link', sub: 'Kept for a week as the way back, same data', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ] });
 }
@@ -211,7 +272,7 @@ function renderLogin() {
       <div id="l-err" role="alert">${LINK_ERR ? `<p class="inlinemsg">${icon('circle-alert')}${esc(LINK_ERR)}. Each link works only once. Request a new one.</p>` : ''}</div>
       ${btn('Sign in', { kind: 'primary', full: true, attrs: { type: 'submit', id: 'l-go' } })}
       ${btn('Forgot your password?', { kind: 'text', attrs: { id: 'l-forgot' } })}
-    </form><p class="small muted">This is the new staff look. <a href="${esc(APP_URL)}">Open the current app</a></p></main>`;
+    </form></main>`;
   const err = m => { document.getElementById('l-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; };
   document.getElementById('lf').onsubmit = async e => { e.preventDefault(); err('');
     const b = document.getElementById('l-go'); b.setAttribute('aria-busy', 'true');
@@ -256,6 +317,7 @@ async function boot() {
     // Slack and email links use #bill=HB123: they land on the bill page, and Back goes to Today.
     const r = parseRoute();
     if (r.legacy) { history.replaceState({ y: 0 }, '', '#/'); history.pushState({ y: 0 }, '', `#/bill/${r.num}`); }
+    else if (r.legacyTo) { history.replaceState({ y: 0 }, '', r.legacyTo); if (r.note) setTimeout(() => toast(decodeURIComponent(r.note)), 300); }
     render();
   } catch (e) {
     console.error(e);
@@ -266,11 +328,16 @@ async function boot() {
 // (the snapshot has none): one submitted by Kevin waiting for approval, one sent, with its numbers.
 function sandboxExtras() {
   const as = new URLSearchParams(location.search).get('as');
-  if (as) { const a = S.advocates.find(x => (x.initials || '').toUpperCase() === as.toUpperCase()); if (a) { S.me = a; if (S.buildDemoInbox) S.inbox = S.buildDemoInbox(); } }
-  if (!S.alertsSeeded) {
+  if (as) { const a = S.advocates.find(x => (x.initials || '').toUpperCase() === as.toUpperCase());
+    if (a) { S.me = a;
+      // Follows are per person: the seeded one is Nate's, so a teammate starts from their own, as live (R-022).
+      S.follows = new Set(Object.entries(S.followersBy || {}).filter(([, ids]) => ids.includes(a.id)).map(([id]) => id));
+      if (S.buildDemoInbox) S.inbox = S.buildDemoInbox(); } }
+  if (!S.alertsSeeded && !SESSION_OVER) {   // between sessions (&season=off) nothing is waiting for approval
     S.alertsSeeded = true;
     const kev = S.advocates.find(x => /^KV$/i.test(x.initials)) || S.advocates.find(x => !x.is_admin);
-    const bill1 = S.bills.find(b => b.is_public && /support/.test(b.position || '')), now = Date.now();
+    const now = Date.now(), alive = b => !['dead', 'law', 'vetoed'].includes(b.stage) && S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > now);
+    const bill1 = S.bills.find(b => b.is_public && /support/.test(b.position || '') && alive(b)) || S.bills.find(b => b.is_public && /support/.test(b.position || ''));
     if (kev && bill1) S.alerts = [
       { id: -101, status: 'submitted', author_id: kev.id, bill_id: bill1.id, subject: `Testify on ${bill1.bill_number} this week`, body: `The committee hears ${bill1.bill_number} on Wednesday. Can you send testimony? It takes five minutes.`, body_html: `<p>The committee hears ${bill1.bill_number} on Wednesday. Can you send testimony? It takes five minutes.</p>`, ask: 'Send testimony by Tuesday', created_at: new Date(now - 3 * 36e5).toISOString(), submitted_at: new Date(now - 3 * 36e5).toISOString() },
       { id: -102, status: 'sent', author_id: S.me?.id, bill_id: bill1.id, subject: `Mahalo: ${bill1.bill_number} passed its first committee`, body: 'Thanks to everyone who testified.', body_html: '<p>Thanks to everyone who testified.</p>', created_at: new Date(now - 6 * 864e5).toISOString(), sent_at: new Date(now - 5 * 864e5).toISOString(), recipients: 31, opens: 14, clicks: 5, bounces: 0 },

@@ -228,47 +228,90 @@ export function inboxRows() {
     : (x, y) => (y.unread - x.unread) || String(y.at).localeCompare(String(x.at));
   return rows.sort(cmp);
 }
+// ---- the weekly memo (memo.js). Two audiences (R-022, wave 3 #19). The team's keeps where our testimony stands, in
+// plain words. The partners' can go to a coalition as it is: HIPHI's position on every line, the Capitol's steps in
+// plain words (plainAction, never its raw sentence cut mid-name), the coalition's public name, a link to each bill's
+// public page and the public ask - and nothing internal (no testimony steps, owners or priorities).
+// "At risk" is riskOf() (RISK_DAYS, 7 days), the same as Bills and Today; it used to mean 14 days here. The bills
+// racing the deadline after it have their own heading, named for its day ("Needs a hearing by Mon 3/30").
+const MEMO_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
+  strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
+const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for a second approval', approved: 'approved, not filed yet', filed: 'filed' };
+const memoDay = d => fmtDate(d, { weekday: 'short' }).replace(',', '');   // "Mon 3/30"
+// The Capitol's step in plain words. The vote count goes first: it is where the old memo cut a name in half at 140
+// characters ("…Representative(s) Garrett, Am"). A sentence plainAction has no words for is kept whole when short, or
+// cut at a word.
+function memoStep(t) {
+  const s = String(t || '').replace(/\s+/g, ' ').replace(/[.;]?\s*(The votes were|\bAyes?[,:(]|\bAye\(s\)).*$/i, '').trim().replace(/\.$/, '');
+  if (/Passed Final Reading/i.test(s)) return /amend/i.test(s) ? 'Passed final reading, amended' : 'Passed final reading';
+  const [p] = plainAction(s);
+  if (p !== s && !p.endsWith('…')) return p;
+  return s.length <= 140 ? s : s.slice(0, 139).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…';
+}
 export function memoData() {
-  const v = S.memoView ??= { who: 'me', coalition: '' }, now = Date.now(), wk = 7 * 864e5;
-  // The memo is about the reader's bills: the ones they own or follow. "Everyone" is one choice away for a team or board memo.
-  const mineB = isMine;
-  const inScope = b => b.position !== 'monitor' && (v.who !== 'me' || mineB(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
+  const v = S.memoView ??= { who: 'me', coalition: '', audience: 'team' }, partners = v.audience === 'partners', now = Date.now(), wk = 7 * 864e5;
+  // The team's memo is about the reader's bills, the ones they own or follow ("Everyone" is one choice away). A partner
+  // memo is about the coalition, whoever owns the bills, and only the ones where HIPHI has taken a position.
+  const mine = !partners && v.who === 'me';
+  const inScope = b => (partners ? !!MEMO_SAYS[b.position] : b.position !== 'monitor') && (!mine || isMine(b)) && (!v.coalition || (S.billCampaigns[b.id] || []).includes(v.coalition));
   const bills = S.bills.filter(inScope).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   const live = bills.filter(b => !diedish(b)), ids = new Set(bills.map(b => b.id));
   const short = b => { if (b.nickname) return b.nickname;   // the memo names a bill the way the team does
     const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
-  const name = b => `${billNum(b).replace(/^(\D+)/, '$1 ')} (${short(b)})`;
-  const gates = sessionGates(bills).filter(g => !g.past), g = gates[0], g2 = gates.find(x => x.racing.length);
+  // One line of the memo: the bill, HIPHI's position, then what the section says about it. A partner's line links the
+  // bill's public page, where the bill is on it.
+  const line = (b, text) => ({ num: billNum(b).replace(/^(\D+)/, '$1 '), name: short(b), text: `${MEMO_SAYS[b.position] ? MEMO_SAYS[b.position] + '. ' : ''}${text}`,
+    href: partners && b.is_public && b.tracked !== false ? `${PUBLIC_APP()}#/bill/${b.bill_number.replace(/\s/g, '')}` : '' });
+  const more = (n, what = 'more') => n > 0 ? [`…and ${n} ${what}.`] : [];
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
   const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();
-  const coal = v.coalition ? S.campaigns.find(c => c.id === v.coalition) : null;
-  const title = `${coal ? (coal.public_name || coal.name) + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
-  const ld = legislativeDay();
-  const intro = `${ld ? ld.text + '. ' : ''}${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${bills.filter(b => b.priority === 1).length ? ` (${bills.filter(b => b.priority === 1).length} top priority)` : ''}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${g2 ? ` ${g2.racing.length} must clear committee by ${g2.name.toLowerCase()} on ${fmtDate(g2.date)}${g2.noHearing.length ? `; ${g2.noHearing.length} of those have no hearing yet` : ''}.` : ''}`;
+  const coal = v.coalition ? S.campaigns.find(c => c.id === v.coalition) : null, coalName = coal ? coal.public_name || coal.name : '';
+  const clock = sessionClock(bills), g = sessionGates(bills).find(x => !x.past);
+  const title = `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
+  const ld = legislativeDay(), p1 = bills.filter(b => b.priority === 1).length;
+  // The next two deadlines, as Bills shows them (decision 3).
+  const race = (x, then) => `${x.racing}${then ? '' : ' must clear committee'} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
+  const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
+  const who = partners ? `HIPHI has a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${coal ? ` in ${coalName}` : ''}` : `${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${p1 ? ` (${p1} top priority)` : ''}`;
+  const intro = `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${races}`;
   const sections = [];
-  // hearings in the next seven days
+  // hearings in the next seven days. The team reads where our testimony stands; partners read when theirs is due.
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
-  if (hs.length) sections.push(['Hearings this week', hs.map(h => { const b = billById(h.bill_id), d = draftFor(b.id, h.committee);
-    return `${name(b)}: ${h.committee}, ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomShortMemo(h.room) : ''}. Testimony ${d ? (d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not yet filed' : 'in progress') : 'not started'}${(!d || !['filed', 'approved'].includes(d.status)) && h.testimony_deadline && new Date(h.testimony_deadline) > now ? `, due ${fmtDT(h.testimony_deadline)}` : ''}.`; })]);
+  if (hs.length) sections.push(['Hearings this week', hs.map(h => { const b = billById(h.bill_id), d = draftFor(b.id, h.committee), open = h.testimony_deadline && new Date(h.testimony_deadline) > now;
+    const at = `${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomShortMemo(h.room) : ''}.`;
+    if (partners) return line(b, `${at}${open ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}`);
+    return line(b, `${at} ${d ? `Our testimony is ${MEMO_TESTIMONY[d.status] || 'started'}` : 'No testimony started yet'}${(!d || !['filed', 'approved'].includes(d.status)) && open ? `, due ${fmtDT(h.testimony_deadline)}` : ''}.`); })]);
   // moved in the last seven days
   const sig = /pass(ed)? (second|third|final) reading|recommend(s|ed)? (that the measure be )?pass|reported from|transmitted to|received from|conference committee|enrolled|governor|became law|act \d+/i;
   const moved = live.filter(b => b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && sig.test(b.last_action || ''));
-  if (moved.length) sections.push(['Moving', moved.slice(0, 12).map(b => `${name(b)}: ${(b.last_action || '').replace(/\s+/g, ' ').slice(0, 140)} (${fmtDate(b.last_action_date)}).`).concat(moved.length > 12 ? [`…and ${moved.length - 12} more.`] : [])]);
-  // no hearing, deadline inside two weeks
-  const risk = live.map(b => ({ b, st: stopOf(b) })).filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed && x.st.deadline.days <= 14).sort((x, y) => x.st.deadline.days - y.st.deadline.days || (x.b.priority || 9) - (y.b.priority || 9));
-  if (risk.length) sections.push(['At risk: no hearing yet', risk.slice(0, 12).map(({ b, st }) => `${name(b)}: waiting in ${st.committee || 'the ' + CHAMBER_NAME[st.chamber] + ' for a referral'}; needs a hearing by ${fmtDate(st.deadline.date)} (${when(st.deadline)}).`).concat(risk.length > 12 ? [`…and ${risk.length - 12} more in the same position.`] : [])]);
+  if (moved.length) sections.push(['Moving', moved.slice(0, 12).map(b => line(b, `${memoStep(b.last_action)} (${fmtDate(b.last_action_date)}).`)).concat(more(moved.length - 12))]);
+  // no hearing yet: at risk (riskOf, a week or less), then the bills racing the next deadline after that
+  const waiting = live.map(b => ({ b, st: stopOf(b) })).filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed && !SESSION_OVER);
+  const where = st => st.committee ? `Waiting in ${st.committee}` : `Waiting for a ${CHAMBER_NAME[st.chamber] || 'committee'} referral`;
+  const risk = waiting.filter(x => riskOf(x.b)).sort((x, y) => x.st.deadline.days - y.st.deadline.days || (x.b.priority || 9) - (y.b.priority || 9));
+  if (risk.length) sections.push(['At risk: no hearing yet', risk.slice(0, 12).map(({ b, st }) => line(b, `${where(st)}; needs a hearing by ${memoDay(st.deadline.date)} (${when(st.deadline)}).`)).concat(more(risk.length - 12, 'more in the same position'))]);
+  const later = waiting.filter(x => !riskOf(x.b)), next = later.map(x => x.st.deadline.date).sort()[0];
+  const racing = later.filter(x => x.st.deadline.date === next).sort((x, y) => (x.b.priority || 9) - (y.b.priority || 9) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
+  if (racing.length) sections.push([`Needs a hearing by ${memoDay(next)}`, racing.slice(0, 12).map(({ b, st }) => line(b, `${where(st)}.`)).concat(more(racing.length - 12, 'more in the same position'))]);
   // stopped in the last seven days
   const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
-  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => `${name(b)}: ${whyDead(b).replace(/<[^>]+>/g, '')}`).concat(died.length > 12 ? [`…and ${died.length - 12} more.`] : [])]);
-  // what supporters can do
+  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => line(b, whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&'))).concat(more(died.length - 12))]);
+  // what supporters (and partners) can do: the ask on each bill's public page
   const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || !b.public_action_until || b.public_action_until >= today));
-  if (asks.length) sections.push(['How you can help', asks.slice(0, 8).map(b => `${name(b)}: ${b.public_action.replace(/\s+/g, ' ').trim()}`)]);
-  const foot = `Every bill, with hearing dates and how to testify: ${new URL('track.html', location.href).href.split('?')[0]}`;
-  return { title, intro, sections, foot, empty: !sections.length };
+  if (asks.length) sections.push(['How you can help', asks.slice(0, 8).map(b => ({ ...line(b, b.public_action.replace(/\s+/g, ' ').trim()), text: b.public_action.replace(/\s+/g, ' ').trim() }))]);
+  // The foot points a partner at the coalition's own public page (a coalition's slug opens it, pub/find.js).
+  const foot = partners && coal?.slug ? { text: `Every ${coalName} bill, with hearing dates and how to testify:`, href: `${PUBLIC_APP()}#/issue/${encodeURIComponent(coal.slug)}` }
+    : { text: 'Every bill, with hearing dates and how to testify:', href: PUBLIC_APP() };
+  return { title, intro, sections, foot, partners, empty: !sections.length };
 }
 export const roomShortMemo = r => String(r || '').replace(/Conference Room/i, 'Rm').replace(/\s*&.*$/, '').trim();
-export const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(i => '• ' + i)]), '', m.foot].join('\n');
-export const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(i => `<li>${esc(i).replace(/^([A-Z]+ \d+(?: [A-Z]+\d+)?)/, '<b>$1</b>')}</li>`).join('')}</ul>`).join('')}<p>${esc(m.foot)}</p>`;
+// Both copies come from the same lines. In plain text a partner's link goes on its own line under the bill; for email
+// the bill number is the link. A line is an object; "…and 3 more" is a plain string.
+const memoLineText = i => typeof i === 'string' ? '• ' + i : `• ${i.num} (${i.name}): ${i.text}${i.href ? `\n  ${i.href}` : ''}`;
+const memoLineHTML = i => typeof i === 'string' ? `<li>${esc(i)}</li>`
+  : `<li>${i.href ? `<a href="${esc(i.href)}" target="_blank" rel="noopener"><b>${esc(i.num)}</b></a>` : `<b>${esc(i.num)}</b>`} (${esc(i.name)}): ${esc(i.text)}</li>`;
+export const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(memoLineText)]), '', `${m.foot.text} ${m.foot.href}`].join('\n');
+export const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(memoLineHTML).join('')}</ul>`).join('')}<p>${esc(m.foot.text)} <a href="${esc(m.foot.href)}" target="_blank" rel="noopener">${esc(m.foot.href)}</a></p>`;
 export const STANCES = [['yes', 'Yes', 'st-yes'], ['leaning_yes', 'Leaning yes', 'st-lean'], ['unknown', 'Unknown', 'st-unk'], ['leaning_no', 'Leaning no', 'st-leanno'], ['no', 'No', 'st-no']];
 export const plain = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ʻ‘’`]/g, '').toLowerCase();
 export const legById = id => (S.legislators || []).find(l => l.id === Number(id));
@@ -400,7 +443,7 @@ export function draftActions(d) {
   }
 }
 export const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed';   // callers say "deadline passed"
-  const h = Math.round(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.ceil(ms / 864e5)}d`; };
+  const h = Math.floor(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.floor(ms / 864e5)}d`; };   // never rounded up (R-022)
 export const blurb = (b, n = 90) => { const t = (b.public_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
 export const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; P1 rows are double height
@@ -462,13 +505,24 @@ export const sponsorName = n => String(n || '').toLowerCase().replace(/(^|[\s\-'
 // The next deadline these bills are racing, and how they stand against it. This is the only portfolio number that
 // earns a place on Today: "2 have no hearing yet" is not a statistic, it is the work. The full five-bucket
 // breakdown stays on Bills, where every count is one click from the rows it describes.
+// It also carries the deadline after (`then`, decision 3 of R-022): in the week of 16 March the nearest deadline bound 4
+// team bills and the next one 51, 37 of them with no hearing, so the nearest alone hid the bigger job.
 export function sessionClock(list) {
   if (SESSION_OVER) return null;
   const ahead = sessionGates(list).filter(g => !g.past);
-  const g = ahead.find(x => x.racing.length) || ahead[0];
+  const i = ahead.findIndex(x => x.racing.length), g = i >= 0 ? ahead[i] : ahead[0];
   if (!g) return null;
-  return { name: g.name, label: g.label, date: g.date, days: g.days, racing: g.racing.length, p1: g.p1,
-    noHearing: g.noHearing.map(x => x.b) };
+  const g2 = ahead.slice((i >= 0 ? i : 0) + 1).find(x => x.racing.length) || null;
+  const shape = x => ({ name: x.name, label: x.label, date: x.date, days: x.days, racing: x.racing.length, p1: x.p1,
+    noHearing: x.noHearing.map(y => y.b) });
+  return { ...shape(g), then: g2 ? shape(g2) : null };
+}
+// When the notice for a bill's last chance must go up: a committee must post a hearing 48 hours ahead (Help), so a
+// bill that dies Thursday really has until the notice for its committee's last slot, often Tuesday (R-022).
+export function noticeByFor(st) {
+  if (!st?.committee || !st.deadline?.date) return null;
+  const ls = lastSlotBefore(st.committee, st.deadline.date, S.slots);
+  return ls && ls.noticeBy > Date.now() - 864e5 ? ls.noticeBy : null;
 }
 
 // ---- suggestions ----
@@ -510,7 +564,8 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
       const m = chairMail(st.committee), two = m && m.n > 1;
       add({ kind: 'chair', key: `sg:chair:${b.id}:${st.deadline.date}`, b,
         title: `Ask the chair${two ? 's' : ''} of ${st.committee} for a hearing`,
-        why: `No hearing yet · ${st.deadline.label} deadline ${fmtDate(st.deadline.date)}, ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}${m ? ` · ${m.who}` : ''}`,
+        why: `No hearing yet · ${st.deadline.label} deadline ${fmtDate(st.deadline.date)}, ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}${noticeByFor(st) ? ` · the notice has to post by ${fmtDate(noticeByFor(st), { weekday: 'short' }).replace(',', '')}` : ''}${m ? ` · ${m.who}` : ''}`,
+        urgent: st.deadline.days <= RISK_DAYS,
         act: m ? { label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(`Aloha ${m.who},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${name ? ` (${name})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(S.me?.full_name || '').split(' ')[0]}`)}`, ext: true }
           : { label: 'Open the bill', href: `#/bill/${b.bill_number}` },
         log: { type: 'meeting', title: `Asked ${m ? m.who : 'the chair'} for a hearing` } });
@@ -586,4 +641,42 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     if (!seen.has(s.b.id)) { seen.add(s.b.id); picked.push(s); }
   }
   return picked;
+}
+
+// ---- the Capitol's actions in plain words (moved from today.js, R-022: Today's "what changed" and the weekly memo
+// both use it) ----
+const clipPlain = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s; };
+export const OUT_PLAIN = { passed: c => `Passed ${c}`, passed_amended: c => `Passed ${c} with amendments`, deferred: c => `Deferred by ${c}`, recommitted: c => `Sent back to ${c}` };
+export function plainAction(t) {
+  const s = String(t || '').replace(/\s+/g, ' ').trim(), cm = x => String(x).replace(/\s+/g, '').replace(/,/g, '/');
+  let m;
+  if ((m = /committee(?:\(s\))? on\s+([A-Z/, ]+?)\s+recommend(?:s|\(s\))? that the measure be PASSED, WITH AMENDMENTS/i.exec(s))) return [`Passed ${cm(m[1])} with amendments`, 1];
+  if ((m = /committee(?:\(s\))? on\s+([A-Z/, ]+?)\s+recommend(?:s|\(s\))? that the measure be PASSED/i.exec(s))) return [`Passed ${cm(m[1])}`, 1];
+  if ((m = /committee(?:\(s\))? on\s+([A-Z/, ]+?)\s+deferred/i.exec(s))) return [`Deferred by ${cm(m[1])}`, 1];
+  if ((m = /(?:on\s+([A-Z/, ]+?)\s+has scheduled a public hearing on|to be heard by\s+([A-Z/, ]+?)\s+on\s+\w+,)\s*(\d\d)-(\d\d)-(\d\d)\s+(\d{1,2}:\d\d\s*[AP]M)/i.exec(s))) {
+    const wd = new Date(`20${m[5]}-${m[3]}-${m[4]}T12:00:00-10:00`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
+    return [`Hearing set: ${cm(m[1] || m[2])} ${wd} ${+m[3]}/${+m[4]}, ${m[6].replace(/\s*([AP]M)/i, ' $1')}`, 2]; }
+  if ((m = /on\s+([A-Z/, ]+?)\s+will hold a public decision making on\s*(\d\d)-(\d\d)/i.exec(s))) return [`Decision making set: ${cm(m[1])} ${+m[2]}/${+m[3]}`, 2];
+  if (/transmitted to (the )?governor/i.test(s)) return ['Sent to the Governor', 1];
+  if (/veto/i.test(s)) return ['Vetoed', 1];
+  if ((m = /\bAct\s+(\d{2,3})\b/.exec(s))) return [`Became law: Act ${m[1]}`, 1];
+  if (/Passed Third Reading/i.test(s)) return [/amended/i.test(s) ? 'Passed third reading, amended' : 'Passed third reading', 1];
+  if ((m = /Reported from\s+([A-Z/]+)/i.exec(s))) return [`Reported out of ${m[1]}`, 2];
+  if (/Passed Second Reading/i.test(s)) return [/amended/i.test(s) ? 'Passed second reading, amended' : 'Passed second reading', 3];
+  if ((m = /Received from (House|Senate)/i.exec(s))) return [`Arrived from the ${m[1]}`, 3];
+  if ((m = /referred to (?:the committee\(s\) on\s+)?([A-Z]{2,4}(?:\s*[,/]\s*[A-Z]{2,4})*)/i.exec(s))) return [`Referred to ${m[1].replace(/\s*,\s*/g, ', ')}`, 4];
+  if (/conferee/i.test(s)) return ['Conference committee named', 3];
+  if (/carried over/i.test(s)) return ['Carried over to the next session', 5];
+  if (/hours? notice|day notice/i.test(s)) return ['Hearing notice posted', 6];
+  return [clipPlain(s.replace(/\.$/, ''), 90), 5];
+}
+
+// A bill number typed into a search (HB1523, "hb 1523", or just 1523 when only one tracked bill has it) opens the bill:
+// B-2's budget is two steps from a number in hand to its page, and a results page in between made it four (R-022).
+export function exactBill(q) {
+  const t = String(q || '').trim().toUpperCase().replace(/\s+/g, '');
+  let m = /^(HB|SB|HR|SR|HCR|SCR|GM)(\d{1,4})$/.exec(t);
+  if (m) return S.bills.find(b => b.bill_number.replace(/\s/g, '').toUpperCase() === m[1] + m[2]) || null;
+  if ((m = /^(\d{1,4})$/.exec(t))) { const hits = S.bills.filter(b => b.bill_number.replace(/\D/g, '') === m[1]); return hits.length === 1 ? hits[0] : null; }
+  return null;
 }

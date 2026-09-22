@@ -3,11 +3,15 @@
 // Mine/Team scope and whatever the bill's position), then action-alert emails someone else wrote. The buttons call the
 // same DB.transition / DB.alertStep as the current app; the toast is written from the state the server hands back
 // (a first testimony moves to second review, and the old app wrongly said "the owner gets a DM to file it").
+// Each card also shows the bill as it stands (R-022): its position, priority and owner, where it is, and a plain warning
+// when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
+// that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks } from './data.js';
-import { billNum, blurb, alertTarget, billById } from './model.js';
-import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn } from './ui.js';
+import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf } from './model.js';
+import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
+import { statusSentence } from './bill.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} minutes ago` : m < 48 * 60 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? '' : 's'} ago` : fmtDT(iso); };
@@ -40,6 +44,32 @@ function resolve(key) {
 const actionable = it => it.type === 'email' ? it.a.status === 'submitted' && S.me?.is_admin && it.a.author_id !== S.me?.id
   : (it.d.status === 'review' && S.me?.is_admin) || (it.d.status === 'second_review' && S.me?.is_reviewer);
 
+// ---- the bill as it stands ----
+// One line of the team's facts (position, priority, owner), then the bill page's own sentence for where it is. A bill
+// that is dead, only monitored, or has no hearing to testify at gets a warning instead, which carries that sentence, so
+// nothing is said twice (A-14). For an email the bill is named too: the subject line may not say which bill it is about.
+function billLine(b, { named = false, pos = true } = {}) {
+  const own = ownerOf(b), p = b.position || '';
+  const bits = [named ? `<b>${esc(billNum(b))}</b>${b.nickname ? ` ${esc(b.nickname)}` : ''}` : '',
+    pos ? `${posIcons(p)} ${esc(POS_WORD[p] || p || 'No position')}` : '', b.priority ? `P${b.priority}` : '',
+    own ? esc(own.id === S.me?.id ? 'You own it' : `${first(own.id)} owns it`) : 'No owner'].filter(Boolean);
+  return `<p class="td-rvline td-rvfacts">${bits.map(x => `<span>${x}</span>`).join('<span class="td-rvdot" aria-hidden="true">·</span>')}</p>`;
+}
+function billState(b, { email = false, d = null, h = null } = {}) {
+  if (diedish(b)) return notice('bad', 'circle-x', `<b>This bill is dead.</b> ${whyDead(b)} ${email ? 'This email would ask people to act on a bill that can no longer move.' : 'Testimony on it can no longer help.'}`);
+  const monitor = b.position === 'monitor', said = statusSentence(b, { hearing: email });
+  // A draft is for one committee's hearing, so it warns whenever that hearing is missing. An email warns only while the
+  // bill waits in committee: on the floor or at the Governor a call or an email is the ask, and no hearing is due.
+  const noHearing = email ? stopOf(b).phase === 'committee' && !hearingAhead(b) : !h;
+  const where = !email && d ? ` in ${esc(d.committee)}` : '';
+  // One box, however many things are wrong, so a card never stacks two warnings (A-14).
+  const head = noHearing && monitor ? `No hearing is scheduled${where}, and HIPHI only monitors this bill.` : noHearing ? `No hearing is scheduled${where}.`
+    : monitor ? 'HIPHI only monitors this bill.' : '';
+  if (!head) return `<p class="td-rvline">${icon('route')}<span>${said}</span></p>`;
+  const why = monitor ? ` It has no position ${email ? 'for supporters to back' : 'to testify for'}.` : '';
+  const then = noHearing && email ? ' If this email asks people to testify, there is nothing to testify at yet.' : '';
+  return notice('warn', noHearing ? 'calendar' : 'eye', `<b>${head}</b>${why} ${said}${then}`);
+}
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
   return `<div class="td-rvbar">
@@ -56,7 +86,9 @@ function draftBody(it) {
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
     <p class="td-rveb">${icon('file-text')}${two ? 'Second approval' : 'Testimony'}${own ? chip('Your own draft', 'info', 'user-round') : ''}</p>
     <h3 id="td-rvb" class="td-rvtitle"><span class="td-num">${esc(billNum(b))}</span> <span class="td-rvt">${esc(blurb(b, 160))}</span></h3>
-    ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : `<p class="td-rvline muted">${icon('landmark')}<span>${esc(d.committee)} · no hearing date yet</span></p>`}
+    ${billLine(b, { pos: b.position !== 'monitor' })}
+    ${billState(b, { d, h })}
+    ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : ''}
     ${due != null ? `<p class="td-rvline">${cd(due, 'due')}</p>` : ''}
     <p class="td-rvline">${icon('user-round')}<span>${who}</span></p>
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.`) : ''}
@@ -70,6 +102,7 @@ function emailBody(it) {
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
     <p class="td-rveb">${icon('mail')}Email to supporters</p>
     <h3 id="td-rvb" class="td-rvtitle">${esc(a.subject || '(no subject)')}</h3>
+    ${it.b ? billLine(it.b, { named: true, pos: it.b.position !== 'monitor' }) + billState(it.b, { email: true }) : ''}
     <p class="td-rvline">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${esc(alertTarget(a))}</span></p>
     <p class="td-rvline">${icon('user-round')}<span>Sent by ${esc(first(a.author_id))} ${esc(ago(a.submitted_at || a.created_at))}</span></p>
     ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; nothing sends until it is turned back on.') : ''}
@@ -127,15 +160,44 @@ const markNotices = billId => { const keys = (S.inbox || []).filter(i => i.direc
 const ARM_MS = 1000;
 let shown = { key: '', at: 0 };
 const armed = key => shown.key === key && performance.now() - shown.at >= ARM_MS;
-// Undo: the server steps the item back, the decision leaves the log, and review returns to that item.
-async function unapprove(r, it, entry) {
-  if (it.type === 'email') await DB.alertStep(it.a.id, 'unapprove'); else await DB.transition(it.b.id, it.d.id, 'unapprove');
+// Undo: the decision leaves the log, and review returns to that item.
+function backTo(r, it, entry, msg) {
   const at = r.log.indexOf(entry); if (at >= 0) r.log.splice(at, 1);
   const i = r.keys.indexOf(it.key); if (i < 0) r.keys.splice(r.i = Math.min(r.i, r.keys.length), 0, it.key); else r.i = i;
   r.done = false;
-  toast('Approval undone. It is waiting for you again.');
+  toast(msg);
   if (S.route?.name === 'review') S.go(`#/review/${encodeURIComponent(it.key)}`, { replace: true }); else hooks.render();
 }
+// An approval is stepped back by the server (migration 058).
+async function unapprove(r, it, entry) {
+  if (it.type === 'email') await DB.alertStep(it.a.id, 'unapprove'); else await DB.transition(it.b.id, it.d.id, 'unapprove');
+  backTo(r, it, entry, 'Approval undone. It is waiting for you again.');
+}
+
+// ---- Send back, held for ten seconds (B-5; R-022) ----
+// The database has no step that takes a send-back back: the writer is told at once, and a draft in second review would
+// lose its first approval. So the send waits out the Undo instead of being reversed after it. Every screen shows the
+// result at once (the item is back with its writer, the queue moves on); Undo puts it back before anyone is told; if
+// the page is hidden or closed, what is waiting goes at once. The bill page's Request changes uses the same hold.
+// holdBack({ key, target, patch, send, onFail }) -> undo(), which resolves false when it has already gone.
+const HOLD_MS = 10000, held = new Map();
+export function holdBack({ key, target, patch, send, onFail }) {
+  const prev = Object.fromEntries(Object.keys(patch).map(k => [k, target[k] ?? null]));
+  Object.assign(target, patch);                     // what the database will do, shown now
+  const h = { t: 0, go: async () => {
+    if (held.get(key) !== h) return;
+    held.delete(key); clearTimeout(h.t);
+    try { await send(); } catch (e) { Object.assign(target, prev); onFail?.(e); }
+  } };
+  h.t = setTimeout(h.go, HOLD_MS); held.set(key, h);
+  return async () => {
+    if (held.get(key) !== h) { toast('Too late to undo: it has already gone back. It can be resubmitted as it was.'); return false; }
+    clearTimeout(h.t); held.delete(key); Object.assign(target, prev); return true;
+  };
+}
+const flushHeld = () => { for (const h of [...held.values()]) h.go(); };
+addEventListener('pagehide', flushHeld);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushHeld(); });
 async function approve(route, el) {
   const { r, it } = current(route); if (!it || !actionable(it)) return;
   if (!armed(it.key)) return;   // too soon after this item appeared: a leftover tap, not a decision
@@ -168,7 +230,7 @@ function changes(route) {
   const to = first(it.type === 'email' ? it.a.author_id : it.d.submitted_by || (S.assignments[it.b.id] || [])[0]);
   const name = to === 'Someone' ? 'the writer' : to;
   openSheet({ title: 'What should change?', size: 'auto',
-    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus></textarea><span class="help" id="td-note-h">${esc(name === 'the writer' ? 'The writer' : name)} sees this note with the ${it.type === 'email' ? 'email' : 'draft'}.</span></div>`,
+    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus>${esc(S.rvNotes?.[it.key] || '')}</textarea><span class="help" id="td-note-h">${esc(name === 'the writer' ? 'The writer' : name)} sees this note with the ${it.type === 'email' ? 'email' : 'draft'}.</span></div>`,
     foot: btn(`Send back to ${esc(name)}`, { attrs: { 'data-send': '1' } }),
     wire: dlg => {
       const ta = dlg.querySelector('#td-note'), go = dlg.querySelector('[data-send]'); ta.focus();
@@ -177,13 +239,18 @@ function changes(route) {
         const note = ta.value.trim();
         if (!note) { ta.setAttribute('aria-invalid', 'true'); if (!dlg.querySelector('#td-note-e')) ta.insertAdjacentHTML('afterend', `<span class="err" id="td-note-e" role="alert">${icon('circle-alert')}Write what should change first.</span>`); ta.setAttribute('aria-describedby', 'td-note-e td-note-h'); ta.focus(); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
-        try {
-          if (it.type === 'email') await DB.alertStep(it.a.id, 'return', note);
-          else { await DB.transition(it.b.id, it.d.id, 'request_changes', note); markNotices(it.b.id); }
-          closeSheet({ silent: true }); await afterBack();
-          const msg = `Sent back to ${name} with your note.`;
-          toast(msg); advance(r, { num: it.type === 'email' ? (it.b ? `Email on ${billNum(it.b)}` : 'Email') : billNum(it.b), what: `Sent back: “${note.length > 80 ? note.slice(0, 78) + '…' : note}”`, icon: 'undo-2' });
-        } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
+        const num = it.type === 'email' ? (it.b ? `Email on ${billNum(it.b)}` : 'Email') : billNum(it.b);
+        const entry = { num, what: `Sent back: “${note.length > 80 ? note.slice(0, 78) + '…' : note}”`, icon: 'undo-2' };
+        // Held ten seconds (holdBack above): the Undo in the toast cancels it before the writer is told.
+        const undo = holdBack({ key: it.key, target: it.type === 'email' ? it.a : it.d,
+          patch: it.type === 'email' ? { status: 'returned', review_note: note } : { status: 'draft', review_note: note },
+          send: () => (it.type === 'email' ? DB.alertStep(it.a.id, 'return', note) : DB.transition(it.b.id, it.d.id, 'request_changes', note).then(() => markNotices(it.b.id)))
+            .then(() => { delete S.rvNotes[it.key]; }),
+          onFail: () => { toast(`${num} was not sent back. It is still waiting for you; try again.`, { err: true }); hooks.render(); } });
+        (S.rvNotes ??= {})[it.key] = note;             // an Undo brings the note back with the item
+        closeSheet({ silent: true }); await afterBack();
+        toast(`Sent back to ${name} with your note.`, { undo: async () => { if (await undo()) backTo(r, it, entry, 'Not sent back. It is waiting for you again, with your note.'); } });
+        advance(r, entry);
       };
     } });
 }

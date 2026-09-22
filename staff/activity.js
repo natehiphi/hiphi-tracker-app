@@ -5,10 +5,14 @@
 // clerical and many (a day can bring five), so each day is condensed to one line that opens to the full text.
 // Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits at the end of the
 // stream, inside the column, and says what Enter and Shift+Enter do. Typing @ offers teammates to notify.
+// Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
+// conversation.js): a conversation is about an issue more than a bill, so one logged on the Senate twin shows here too.
 import { S, DB, DEMO, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
+import { issuesOfBill } from './issues.js';
+import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
 
 const LOG_LABEL = Object.fromEntries(LOG_TYPES);
 const LOG_ICON = { testimony: 'file-text', coalition: 'users', meeting: 'handshake', action_alert: 'megaphone', note: 'notebook-pen' };
@@ -126,10 +130,20 @@ function streamInner(b) {
   if (all.length > shown.length) html += btn(`Show earlier activity (${all.length - shown.length})`, { kind: 'text', icon: 'history', attrs: { 'data-earlier': '1' }, cls: 'bw-earlier' });
   return html;
 }
+// ---- conversations with legislators: this bill's, and its issues' ----
+const convQ = b => ({ billId: b.id, issueIds: issuesOfBill(b.id).map(i => i.id) });
+function convOpts(b) {
+  const n = issuesOfBill(b.id).length;
+  // Two at most before "Show all": the message box below is what this tab is used for most (desktop draws it on top).
+  return { id: 'bw-cv', q: convQ(b), here: { billId: b.id, issueIds: convQ(b).issueIds }, limit: 2, log: { bill: b },
+    none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
+}
+
 // inline: on desktop the message box is drawn here, ABOVE the stream, not as the page's bottom bar.
 export function renderActivity(b, { inline = false } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
-  return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
+  return `${convSectionHTML({ ...convOpts(b), title: 'Conversations', kind: 'bw' })}
+  <section class="bw-sec bw-act" aria-labelledby="bw-act-h">
     <h2 id="bw-act-h" class="sr">Activity</h2>
     <div class="bw-sech"><p class="meta">The owner, followers and anyone you @mention get a Slack DM.${DEMO ? ' The sandbox stops at Mar 16, 2026.' : ''}</p>${inline ? '' : logBtn}</div>
     ${inline ? `<div class="bw-inbox bw-inbox-top">${composerBar(b, { hint: true })}</div>` : ''}
@@ -170,6 +184,7 @@ export function wireActivity(pnl, b, route, root) {
   // Nothing to scroll to on open any more: the newest entry is the first one.
   if (unreadCount(b)) DB.markChatSeen(b.id).catch(() => {});
   pnl.querySelector('[data-log]').onclick = () => logSheet(b);
+  wireConvSection(pnl, convOpts(b));
   wireStream(pnl.querySelector('#bw-stream'), b);
   const form = root.querySelector('.bw-composer'); if (!form) return;
   keepAboveKeyboard();
@@ -211,8 +226,17 @@ export function wireActivity(pnl, b, route, root) {
       rerender('#bw-chat'); requestAnimationFrame(toTop);
     } catch (x) { send.removeAttribute('aria-busy'); ta.readOnly = false; toast(x, { err: true }); }
   };
+  // "Message James" elsewhere (Today) opens this tab with ?mention=JM (initials; a first name works too): the box starts
+  // "@James " with the cursor after it, so the message reaches him (R-022 wave 3). "Message both" (a second approval
+  // either reviewer can give) sends a comma list, ?mention=JS,JN -> "@Jess @Jaylen ". Unknown initials are skipped, and
+  // whatever was typed before stays after the names.
+  const asked = entry && route.q?.mention ? String(route.q.mention).split(',').map(x => x.trim()).filter(Boolean) : [];
+  const mentioned = [...new Set(asked.map(w => S.advocates.find(a => a.id !== S.me?.id
+    && ((a.initials || '').toUpperCase() === w.toUpperCase() || firstName(a).toLowerCase() === w.toLowerCase()))).filter(Boolean))];
+  const missing = mentioned.filter(a => !new RegExp(`(^|\\s)@${firstName(a).replace(/[^\wʻ'-]/g, '')}\\b`, 'i').test(ta.value));
+  if (missing.length) { ta.value = `${missing.map(a => '@' + firstName(a)).join(' ')} ${ta.value.trim() ? ta.value : ''}`; drafts.set(key, ta.value); grow(); }
   // A Reply button elsewhere (Today) opens this tab with ?reply=1: the cursor goes straight into the box.
-  if (entry && (route.q?.reply || route.q?.compose)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  if (entry && (route.q?.reply || route.q?.compose || mentioned.length)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
 }
 function wireStream(box, b) {
   if (!box) return;
@@ -235,11 +259,18 @@ async function delMsg(b, m) {
 }
 
 // ---- Log activity: something the team did that the Capitol's record will not show ----
+// No "Meeting" type here any more (R-022 review, 9/21): a meeting logged as an activity stayed on this one bill and never
+// reached the legislator's page, right under "No conversations with legislators logged yet". A meeting with a legislator
+// is a conversation, so the sheet's first line hands over to that dialog, taking what was typed; a meeting with anyone
+// else is Coalition or Note. Old meeting rows (the type still exists) keep showing in the stream.
+const TYPES = LOG_TYPES.filter(([v]) => v !== 'meeting');
+const deskKeys = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 function logSheet(b) {
-  let type = LOG_LABEL[S.logType] ? S.logType : 'testimony';
+  let type = TYPES.some(([v]) => v === S.logType) ? S.logType : 'testimony';
   openSheet({ title: 'Log activity', size: 'auto',
-    body: `<fieldset class="bw-types"><legend>Type</legend><div class="chips">${LOG_TYPES.map(([v, l]) => `<button type="button" class="chip" data-lt="${v}" aria-pressed="${v === type}">${icon(LOG_ICON[v])}${esc(l)}</button>`).join('')}</div></fieldset>
-      <div class="field"><label for="bw-lt">What happened</label><input id="bw-lt" maxlength="200" autocomplete="off" aria-describedby="bw-lt-e" placeholder="${esc(LOG_HINT[type])}"><span class="err" id="bw-lt-e" hidden>${icon('circle-alert')}Write what happened first.</span></div>
+    body: `<p class="bw-lcv">Met or spoke with a legislator? ${btn('Log a conversation', { kind: 'text', sm: true, icon: 'message-square-plus', attrs: { 'data-lcv': '1', 'aria-haspopup': 'dialog' } })}</p>
+      <fieldset class="bw-types"><legend>Type</legend><div class="chips">${TYPES.map(([v, l]) => `<button type="button" class="chip" data-lt="${v}" aria-pressed="${v === type}">${icon(LOG_ICON[v])}${esc(l)}</button>`).join('')}</div></fieldset>
+      <div class="field"><label for="bw-lt">What happened</label><input id="bw-lt" maxlength="200" autocomplete="off" aria-describedby="bw-lt-e" placeholder="${esc(LOG_HINT[type])}"${deskKeys() ? ' autofocus' : ''}><span class="err" id="bw-lt-e" hidden>${icon('circle-alert')}Write what happened first.</span></div>
       ${field('bw-ld', 'Details (optional)', '<textarea id="bw-ld" rows="3" placeholder="Who, what was said, what comes next."></textarea>')}
       <p class="meta">It is dated now and shows in this bill’s activity with your name.</p>`,
     foot: btn('Add to activity', { kind: 'primary', attrs: { 'data-go': '1' } }),
@@ -247,6 +278,11 @@ function logSheet(b) {
       const t = d.querySelector('#bw-lt'), er = d.querySelector('#bw-lt-e');
       d.querySelectorAll('[data-lt]').forEach(el => el.onclick = () => { type = el.dataset.lt; S.logType = type; d.querySelectorAll('[data-lt]').forEach(x => x.setAttribute('aria-pressed', String(x === el))); t.placeholder = LOG_HINT[type]; });
       t.oninput = () => { er.hidden = true; t.removeAttribute('aria-invalid'); };
+      // The conversation dialog takes over this sheet, with the words typed so far.
+      d.querySelector('[data-lcv]').onclick = () => {
+        const text = [t.value.trim(), d.querySelector('#bw-ld').value.trim()].filter(Boolean).join('\n\n');
+        logConversation({ bill: b, text, onDone: refreshConversations });
+      };
       d.querySelector('[data-go]').onclick = async e => {
         const title = t.value.trim();
         if (!title) { er.hidden = false; t.setAttribute('aria-invalid', 'true'); t.focus(); return; }

@@ -3,7 +3,7 @@
 Public repo `natehiphi/hiphi-tracker-app`, deployed by GitHub Pages from `main` at
 https://natehiphi.github.io/hiphi-tracker-app/. The backend (schema, migrations, sync, runbooks, `HANDOFF.md`) is
 the private repo in `../backend`. **Read `../backend/HANDOFF.md` first** in any session: section 3 holds the
-newest entries (3.7, 3.6, 3.5, …) with every decision Nate has made and what is still open.
+newest entries (3.19, 3.18, …) with every decision Nate has made and what is still open.
 
 ## Who this is for
 
@@ -13,6 +13,13 @@ screenshots for anything visual. When he says something is bad, fix it rather th
 direction; Claude builds, tests, pushes and verifies the published site.
 
 ## Where things stand (2026-09-21)
+
+**Staff v2 is the staff app, at the old address (R-022, 9/21; `../backend/HANDOFF.md` 3.19).** `index.html` and
+`staff.html` are the same page (both load `staff/app.js`), so every bookmark, Slack link and email link opens Staff v2
+without a redirect. The old staff app is at `classic.html` for a week as a way back (until about 9/28; its avatar
+menu in Staff v2 is "Open the old app"), then its code is deleted. Old links are mapped by the router (`#emails` ->
+`#/review`, `#calendar=msg` -> `#/me`, `#bill=` as before). The same build added conversations with legislators
+filed by issue, a hearing page, coalition pages, and the Today and Week rework from the staff review (3.13).
 
 **People follow ISSUES, not bills (R-018, built 9/21; `../backend/HANDOFF.md` 3.14).** Six categories group
 91 issues (migration 063: `categories`, `issues`, `issue_categories`, `bill_issues`, `issue_follows`,
@@ -46,21 +53,21 @@ counter anywhere; "Skip" always means "go to the next page". Migration 061 added
 Staff v2 toggle for it. Needs Nate: which real bills to use as the personalized teaching example, and the
 "Follow all" button placement/wording, per screenshots in 3.6.
 
-**The team is moving to Staff v2** (Nate, 9/20; logins later). Until the old app is retired, data-layer changes
-still go into both staff apps. The move's steps are in the backend CLAUDE.md "Open items".
+**Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
+checked with `node staff/tools/parity.mjs`).
 
 ## The three apps (all in this repo, all static, no build step)
 
 | App | Entry | Code | Who |
 |---|---|---|---|
 | Public tracker | `track.html` | `pub/` | residents new to advocacy |
-| Staff app (current) | `index.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | the team today |
-| Staff v2 | `staff.html` | `staff/` | the team, to compare |
+| Staff v2, the staff app | `index.html` = `staff.html` | `staff/` | the team, from 9/21 |
+| Old staff app | `classic.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | a way back, until about 9/28 |
 
-**The team is moving to Staff v2 (Nate, 9/20).** Until the current app is retired, every data-layer change
-still goes into BOTH (see "Two staff apps" below). Links in Slack and email still open the current app until the
-move's steps are done: Nate adds `staff.html` to the Supabase Auth redirect URLs, then the links are repointed,
-then the other app's screens are deleted.
+**The old address is Staff v2 (Nate, 9/21: "make the old webpage be the new site").** Keep `index.html` and
+`staff.html` identical (same stylesheets, same script). Until `classic.html` and its code are deleted, every
+data-layer change still goes into BOTH (see "Two staff apps" below). `APP_URL` in `staff/data.js` is the folder
+itself, so links made by either app open the root.
 
 `public.html` + `public.js` is an older public page that is still live and out of scope (Nate has been asked
 whether it should redirect to `track.html`). `mockup-hybrid.html` is a reference mock.
@@ -71,8 +78,11 @@ Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**,
 `demo/snapshot.json`; nothing is saved and nothing reaches Supabase. Use it for ALL UI work while the live
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions).
-- Staff v2: `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer); default is Nate (admin).
-- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921i`. **Whenever `demo/snapshot.json`
+- Staff v2: `&as=LR` (Lauren), `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer), `&as=KR` (Kris,
+  supports every coalition), `&as=SY` (Saya, supports CTFH); default is Nate (admin). The avatar menu has "Practise
+  as someone else". `&season=off` shows the between-sessions app. The sandbox follows live rules: drafts only on
+  bills with a position, messages only to the people they are for, email shown paused.
+- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921m`. **Whenever `demo/snapshot.json`
   changes, bump that `v` in `app.js`, `staff/data.js` and `pub/core.js` in the same commit**, or browsers keep
   the old copy and Nate reports the change as not working.
 - Rebuild: `node ../backend/tools/build_snapshot.js` (reads production; read-only).
@@ -150,8 +160,10 @@ Task-first. Tabs: Today, Bills, Legislators, Outreach. `staff/app.js` frame + ro
 shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`today`, `review`, `bill` with
 `activity` `public` `pathway` `testimony` (R-027), `bills` with `filters` `bulk`, `triage`, `memo`, `search`, `legislators`,
 `legislator`, `supporters`, `person`, `issues` (Outreach > Issues and `#/issue/:id`, R-018), `lists`, `list`,
-`emails`, `composer`, `me`, `setup`, `help`), plus
-`look.js` (the quick look, opened from Today and Bills) which is a component rather than a screen.
+`emails`, `composer`, `me`, `setup`, `help`, and from R-022 `hearing` (`#/hearing/:id`, one committee sitting) and
+`coalition` (`#/coalition`, `#/coalition/:id`, Outreach > Coalitions)), plus
+`look.js` (the quick look, opened from Today and Bills) and `conversation.js` (conversations with legislators), which are
+components rather than screens.
 - Bill page tabs: Overview, Activity, Pathway, Public, Testimony (keys 1-5). Testimony lists every testimony draft the
   tracker made that someone sent for review: this bill's filed ones and its companion's, then its issue's, a search,
   then its category folded. `onNextUp` (testimony.js) decides what the Next up card keeps, so a filed draft shows once.
@@ -200,13 +212,38 @@ shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`tod
 - A toast raised while a sheet is open is appended INTO the sheet (`ui.js`). An open `<dialog>` is in the
   browser's top layer, so an Undo left in `#toast` underneath it can be read but never clicked.
 
+### Shared pieces added 9/21 (R-022; backend HANDOFF 3.19)
+
+- **Conversations with legislators are filed by issue** (`conversation.js`; migration 064): `logConversation({ bill,
+  issueId, legislatorIds, text })` opens the dialog; `convSectionHTML` / `wireConvSection` draw a list for a bill (and
+  its issues), a legislator or an issue. One meeting with three legislators is three `legislator_notes` rows sharing a
+  `conversation_id`. `DB.conversations({ billId, issueIds })`, `DB.conversationRows(ids)`, `DB.addLegNote(legId,
+  billId, body, { issueId, metOn, conversationId })`, `DB.updateLegNote(id, patch)` (refused after ten minutes, and the
+  screen puts the note back), `DB.delLegNote`.
+- **A hearing sitting** is every hearing row with the same committee and start time: `sittingOf(h)`, `agendaOf(h)`,
+  `goersOf(rows)`, `goingWords` in `hearing.js`. "Going" is written on ONE row per sitting and read for the whole
+  sitting, so a person is one Slack message, not one per bill. `DB.attend(hearingId, on, who = S.me.id)`; an admin may
+  set anyone (064), and the database sends the Slack message; the screen only says so in its toast.
+- **Handing work to one person**: change `bill_todos.assignee_id` or add `hearing_attendance` and the database sends
+  the Slack message (064 `notify_assignment`); undone within two minutes, nobody is told (065). Never broadcast.
+- `model.js`: `exactBill(q)` (an exact bill number opens the bill from any search box), `noticeByFor(stop)` (when the
+  hearing notice must post, the 48-hour rule), `sessionClock(list).then` (the deadline after next, same shape),
+  `plainAction(text)` and `OUT_PLAIN` (the Capitol's actions in plain words, once for every screen). Countdowns in
+  `ui.js` round down, never up.
+- `advocates.prefs` keys: `coalitions` (`'all'` or campaign ids: the coalitions a person supports; Kris all, Saya
+  CTFH), `showMonitor` (Today shows hearings on monitor bills), `memo` (the memo's audience and coalition), plus
+  `seen`, `sugg`, `views`.
+- The header search suggests bills and legislators as you type (`suggestOn` in `app.js`).
+
 ### Rules the suggestion feed must keep (Nate, 9/19)
 
 Today's promise is a list you can clear. Suggestions are fenced off from it and must stay that way:
 at most `SUGGEST_CAP` (5), **never counted in the Today badge**, never the word "due" or "overdue", never an
 `urgentMark`. Every card prints its `why` line verbatim — that line is how someone spots that the app does not
 know Kevin already rang the chair. Every card can be finished, put off for a fortnight, or refused for that bill
-for good, each with Undo. "Done" also writes the step onto the bill's timeline (`DB.addActivity`), deferred for
+for good, each with Undo; since R-022 the three sit in the card's "…" menu beside one button (A-20). The heading says
+"Nothing urgent" only on a day with nothing due at all; when a suggestion races this week's deadline it says "Worth
+doing this week", and the P1 chair ask stays a dated task (Nate declined making it dated for every bill, 9/21). "Done" also writes the step onto the bill's timeline (`DB.addActivity`), deferred for
 the life of the toast so Undo can cancel it; there is no call that removes an activity row.
 
 ## Two staff apps, one data layer
@@ -274,11 +311,9 @@ resume them by id rather than respawning.
 ## Open items
 
 Nate's, not code's — do not start any of these without him:
-1. **The team is moving to Staff v2 (decided 9/20).** In this order: Nate adds `staff.html` to the Supabase
-   Auth redirect URLs (until then a password-reset link lands on the current app); point the Slack and email
-   links at it (`APP_URL` in `staff/data.js:32`, the share link in `staff/bill.js`, the `APP_URL` env for
-   emails); then delete the current app's screens and make `staff/data.js` the only data layer — which retires
-   `parity.mjs` and the 67-call hand copy with it. Hold the deletion a week so there is a way back.
+1. **Staff v2 is at the old address (9/21).** Left: from about 9/28, delete `classic.html` and the old app's code
+   and make `staff/data.js` the only data layer, which retires `parity.mjs` and the 67-call hand copy with it
+   (backend REQUESTS R-010). One real password reset confirms the Supabase redirect needs nothing (R-002).
 2. Parked at Nate's request (9/19): rehearsing the January session flip. The 2027 calendar load itself is not
    parked — it has to happen before Wed 20 Jan 2027.
 3. Should `public.html` (the old public page, still live) redirect to `track.html`?

@@ -11,6 +11,7 @@ import { S, DB, SESSION_YEAR, hooks, esc } from './data.js';
 import { billById, billNum, plain, PUBLIC_APP } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
+import { convSectionHTML, wireConvSection } from './conversation.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -53,7 +54,7 @@ export function openIssueForm(i = null, { bill = null } = {}) {
     <fieldset class="is-cats"><legend>Category</legend>${cats.map(c => `<label class="check is-cat"><input type="radio" name="is-cat" value="${esc(c.key)}" ${c.key === cur ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
     <fieldset class="is-cats"><legend>Also in <span class="is-opt">(optional)</span></legend><p class="help is-alsoh">When it belongs to two, like the DUI limit: alcohol, and getting around safely.</p>
       ${cats.map(c => `<label class="check is-cat" data-also="${esc(c.key)}"${c.key === cur ? ' hidden' : ''}><input type="checkbox" name="is-also" value="${esc(c.key)}" ${also.has(c.key) ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
-    ${switchRow('is-rec', 'Recommended', !!i?.recommended, 'Ticked for first-time visitors who pick its category. Untick it any time.')}
+    ${switchRow('is-rec', 'Pre-tick for new visitors', !!i?.recommended, 'Silent: first-time visitors who pick its category find it already ticked. Nothing on the public page says it was recommended.')}
   </div>`;
   openSheet({ title: i ? 'Edit issue' : 'New issue', size: 'auto', body,
     foot: btn(i ? 'Save changes' : 'Create issue', { icon: i ? 'check' : 'plus', attrs: { 'data-issave': '1' } }),
@@ -129,7 +130,7 @@ function issueRow(i) {
   const bills = billsOn(i), now = bills.filter(thisSession), f = followers(i);
   const meta = [plural(now.length, 'bill') + (SESSION_YEAR ? ` in ${SESSION_YEAR}` : ''), f && f.own ? plural(f.own, 'follower') : ''].filter(Boolean).join(' · ');
   return row({ title: esc(i.name), sub: `<span class="is-meta">${esc(meta)}</span>${i.description ? `<span class="is-desc">${esc(i.description)}</span>` : ''}`,
-    end: i.recommended ? chip('Recommended', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
+    end: i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
 }
 function needsHTML(v) {
   const need = needsIssue(); if (!need.length) return '';
@@ -221,7 +222,7 @@ function pageRender(route) {
       <span class="le-licon">${icon(c?.icon || 'tag')}</span>
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
         ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
-        <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Recommended to first-time visitors' : ''}</p></div>
+        <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
     ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}
@@ -238,8 +239,13 @@ function pageRender(route) {
         : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
       ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
     </section>
+    ${convSectionHTML(convOpts(i))}
   </div>`;
 }
+// Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
+// conversation.js): an issue carries across sessions where a bill does not.
+const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id },
+  none: 'None logged yet. A conversation logged under this issue, from any of its bills or a legislator’s page, shows here.' });
 async function takeOff(i, b) {
   try {
     await DB.setBillIssue(b.id, i.id, false); hooks.render();
@@ -296,9 +302,10 @@ export const issuePage = {
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;
+    wireConvSection(root, convOpts(i));
     const st = P();
     root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
-      { label: 'Edit', icon: 'pencil', sub: 'Name, description, category, recommended', run: async () => { await afterClose(); openIssueForm(i); } },
+      { label: 'Edit', icon: 'pencil', sub: 'Name, description, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
       { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
       { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at, reason: 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },

@@ -148,10 +148,10 @@ function renderIndex() {
       </div>
     </section>`;
   // Desktop: the checklist is the page (its heading is the h1); the list of parts is also in the left column.
-  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h1>Ready for session?</h1><p class="st-lede">For admins. Everything the season needs, one part at a time.</p></div>${recheck}</div>
+  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h1>Ready for session?</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
     <section class="st-sec" aria-label="Readiness checklist">${ready}</section>${parts}`);
   return `<div class="st-page st-setup">
-    <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time.</p></div>
+    <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>
     <section class="st-sec" aria-labelledby="st-rh">
       <div class="st-sechead"><h2 id="st-rh">Ready for session?</h2>${recheck}</div>
       ${ready}
@@ -245,11 +245,19 @@ const PAGES = {
       <div class="card st-form st-list">${switchRow('st-wfdm', 'Send testimony steps as Slack DMs', c.workflow_dm !== false, 'Off sends them to everyone by email.')}
         ${switchRow('st-health', 'Tell admins when the pipeline has a problem', c.health_dm !== false, 'A DM to each admin.')}
         ${switchRow('st-quiet', 'Tell admins when a notice alerts nobody', c.quiet_dm !== false, 'A hearing notice for bills we do not track, or have no position on.')}</div>`; },
-    // The position chips are switches too: a press saves, and a failed save puts the chip back.
+    // The position chips are switches too: a press saves, a failed save puts the chip back, and Undo takes that one
+    // position back out (or in) again for ten seconds (B-5, R-022).
     wire(root, { refresh }) { const paint = (b, v) => { b.setAttribute('aria-pressed', v); b.innerHTML = (v ? icon('check') : '') + esc(POS_OPTS.find(p => p[0] === b.dataset.pos)[1]); };
-      root.querySelectorAll('[data-pos]').forEach(b => b.onclick = async () => { const now = b.getAttribute('aria-pressed') !== 'true', before = S.slackCfg; paint(b, now);
-        try { await DB.saveSlackSettings({ ...(before || {}), positions: [...root.querySelectorAll('[data-pos][aria-pressed="true"]')].map(x => x.dataset.pos) }, []); refresh(); toast('Saved.', { ok: true }); }
-        catch (e) { S.slackCfg = before; paint(b, !now); toast(e, { err: true }); } }); },
+      const withPos = (pos, on) => { const set = new Set((S.slackCfg || {}).positions || []); if (on) set.add(pos); else set.delete(pos); return POS_OPTS.map(([k]) => k).filter(k => set.has(k)); };
+      root.querySelectorAll('[data-pos]').forEach(b => b.onclick = async () => { const pos = b.dataset.pos, now = b.getAttribute('aria-pressed') !== 'true', before = S.slackCfg; paint(b, now);
+        try { await DB.saveSlackSettings({ ...(before || {}), positions: withPos(pos, now) }, []); refresh(); }
+        catch (e) { S.slackCfg = before; paint(b, !now); toast(e, { err: true }); return; }
+        const word = POS_OPTS.find(p => p[0] === pos)[1];
+        toast(`Saved. ${now ? 'Alerts now post' : 'Alerts no longer post'} for “${word}”.`, { ok: true, undo: async () => {
+          await DB.saveSlackSettings({ ...(S.slackCfg || {}), positions: withPos(pos, !now) }, []);
+          const chip = document.querySelector(`[data-pos="${pos}"]`); if (chip) paint(chip, !now);
+          refresh(); toast('Undone.');
+        } }); }); },
     auto: Object.fromEntries([['st-d-on', 'enabled', 1], ['st-d-empty', 'post_when_empty', 1], ['st-wfdm', 'workflow_dm'], ['st-health', 'health_dm'], ['st-quiet', 'quiet_dm']]
       .map(([id, k, daily]) => [id, { cfg: 'slackCfg', save: c => DB.saveSlackSettings(c, []), apply: (c, v) => daily ? { ...c, daily: { ...(c.daily || {}), [k]: v } } : { ...c, [k]: v } }])),
     saveLabel: 'Save channels and times',
@@ -559,16 +567,24 @@ export default {
     const p = PAGES[key], form = root.querySelector('[data-stform]'), s = st();
     const refresh = () => { const el = root.querySelector('[data-ststatus]'); if (el) el.innerHTML = statusHTML(p); p.after && p.after(form); };
     p.wire && p.wire(form, { refresh });
-    // Switches: flip, save, say so. A failed save puts the switch and the setting back.
+    // Switches: flip, save, say so, with Undo for ten seconds (B-5, R-022: they saved on the spot and could only be
+    // flipped back by hand). A failed save puts the switch and the setting back. Undo is the same flip the other way:
+    // one that would turn email ON asks first, exactly as the switch does - a stray tap must never start mail.
+    const flip = async (id, a, v) => {
+      const ask = a.confirm && a.confirm(v);
+      if (ask && !(await confirmSheet(ask))) return false;
+      const before = S[a.cfg];
+      try { await a.save(a.apply({ ...(before || {}) }, v)); }
+      catch (e) { S[a.cfg] = before; toast(e, { err: true }); return false; }
+      const el = document.getElementById(id); if (el) el.checked = v;
+      refresh(); return true;
+    };
     for (const [id, a] of Object.entries(p.auto || {})) {
       const el = form.querySelector('#' + id); if (!el) continue;
       el.onchange = async () => {
-        const v = el.checked, ask = a.confirm && a.confirm(v);
-        if (ask && !(await confirmSheet(ask))) { el.checked = !v; el.focus(); return; }
-        const before = S[a.cfg];
-        try { await a.save(a.apply({ ...(before || {}) }, v)); }
-        catch (e) { S[a.cfg] = before; el.checked = !v; toast(e, { err: true }); return; }
-        refresh(); toast(a.msg ? a.msg(v) : 'Saved.', { ok: true });
+        const v = el.checked;
+        if (!(await flip(id, a, v))) { el.checked = !v; el.focus(); return; }
+        toast(a.msg ? a.msg(v) : 'Saved.', { ok: true, undo: async () => { if (await flip(id, a, !v)) toast(a.msg ? `Undone. ${a.msg(!v).replace(/^Saved\.\s*/, '')}` : 'Undone.'); } });
       };
     }
     if (!p.save) return;

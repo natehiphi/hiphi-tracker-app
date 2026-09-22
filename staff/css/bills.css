@@ -93,9 +93,14 @@
 .bl-phone .bl-stgs > * { flex: none; }
 /* Says which row this is without costing a line: the quick chips above filter the list, these jump to a group. */
 .bl-phone .bl-stlab { display: inline-flex; align-items: center; align-self: stretch; padding-right: var(--s4); font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
-/* The deadline reads as one sentence that wraps, rather than two stacked lines with a rule over them. */
+/* The next two deadlines, one line each (R-022, decision 3): the day, the deadline, then the work. The deadline's
+   name is what gives way on a narrow phone; the day and "N with no hearing yet" are never cut. */
 .bl-phone .bl-clock { align-items: center; gap: var(--s4); padding-top: 0; border-top: 0; }
-.bl-phone .bl-cl { flex-direction: row; flex-wrap: wrap; gap: 0 var(--s8); }
+.bl-phone .bl-cl { flex: 1 1 auto; gap: 0; }
+.bl-phone .bl-dl { display: flex; flex-direction: row; align-items: baseline; gap: var(--s8); min-width: 0; white-space: nowrap; }
+.bl-phone .bl-dld { flex: none; color: var(--n900); }
+.bl-phone .bl-dln { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--n700); }
+.bl-phone .bl-dlw { flex: none; color: var(--n500); }
 .bl-stg { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-size: var(--t14); font-weight: 700; text-align: left; }
 .bl-stg .n { font: 700 var(--t16)/1 var(--font); color: var(--p800); }
 .bl-stg:hover { border-color: var(--p700); background: var(--p50); }
@@ -105,12 +110,13 @@
 .bl-stg2:hover { background: var(--n100); color: var(--n900); }
 .bl-clock { display: flex; align-items: flex-start; gap: var(--s8); padding-top: var(--s8); border-top: 1px solid var(--n100); font-size: var(--t13); color: var(--n700); }
 .bl-clock > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); margin-top: 1px; }
-.bl-cl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bl-cl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bl-dl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .bl-cl1 b { color: var(--n900); }
 .bl-cl2 { color: var(--n500); }
-.bl-cl2 .bl-nh { color: var(--n900); }
-/* amber only inside a day of the deadline; the words say it too */
-.bl-clock.soon > .ic, .bl-clock.soon .bl-cl1 b { color: var(--warn-text); }
+.bl-cl2 .bl-nh, .bl-dlw .bl-nh { color: var(--n900); }
+/* amber only inside a day of the deadline, and only on that deadline; the words ("today", "tomorrow") say it too */
+.bl-clock.soon > .ic, .bl-dl.soon .bl-cl1 b, .bl-dl.soon .bl-dld { color: var(--warn-text); }
 
 /* ---- phone list: one card, sticky group headers (no overflow:hidden, which would stop them sticking) ---- */
 .bl-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
@@ -169,6 +175,9 @@
 .bl-bar-h::before { content: '· '; }
 .bl-bar > .btn { flex: 0 0 auto; padding: 0 16px; }
 .bl-bar > .btn:disabled { box-shadow: none; }
+/* Follow and Unfollow change only your own list; the rest change the bills for everyone. A rule keeps the two apart. */
+.bl-barsep { flex: none; align-self: stretch; width: 1px; margin: 6px 2px; background: var(--n200); }
+.bl-bar > .btn[aria-disabled="true"] { color: var(--n500); border-color: var(--n200); background: var(--n50); box-shadow: none; }
 
 /* ---- sheets: the filter sheet, the bulk pickers, the columns popover ---- */
 dialog.sv-sheet.bl-fsheet { height: 72vh; transition: height .2s var(--ease); }
@@ -211,7 +220,17 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-mctl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s12) var(--s16); margin-bottom: var(--s16); }
 .bl-mctl .field { flex: 1 1 200px; margin: 0; }
 .bl-mlabel { display: block; font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 6px; }
-.bl-mwho .sv-seg button { white-space: nowrap; }
+.bl-mwho .sv-seg button, .bl-maud .sv-seg button { white-space: nowrap; }
+/* On a phone the two choices keep their label beside them, not above: the memo starts 52px higher (R-022 added "For"). */
+@media (max-width: 899px) {
+  .bl-mctl { gap: var(--s12); }
+  .bl-mctl .bl-maud, .bl-mctl .bl-mwho { flex: 1 1 100%; display: flex; align-items: center; gap: var(--s12); }
+  .bl-mctl .bl-maud .bl-mlabel, .bl-mctl .bl-mwho .bl-mlabel { flex: 0 0 88px; margin: 0; }
+}
+@media (max-width: 359px) {   /* no room beside it: the label goes back above its control */
+  .bl-mctl .bl-maud, .bl-mctl .bl-mwho { flex-wrap: wrap; gap: 6px; }
+  .bl-mctl .bl-maud .bl-mlabel, .bl-mctl .bl-mwho .bl-mlabel { flex-basis: 100%; }
+}
 .bl-memo { padding: var(--s16); }
 .bl-memo h2 { font-size: var(--t18); margin-bottom: var(--s8); }
 .bl-memo h3 { font-size: var(--t16); margin: var(--s16) 0 var(--s4); }
@@ -219,6 +238,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-memo ul { margin: 0; padding-left: 20px; }
 .bl-memo li { margin: var(--s4) 0; }
 .bl-memo li b { color: var(--n900); }
+/* a partner memo's bill numbers link the public page (they open in a new tab, never over the app) */
+.bl-memo li a { color: var(--p700); text-underline-offset: 2px; }
+.bl-memo li a b { color: inherit; }
 .bl-memo p:last-child { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
 .bl-memo .bl-quiet { font-size: var(--t16); color: var(--n700); }
 /* the phone's bottom bar: the two buttons share the width and shrink with it (the bar needed 383px before, so
@@ -265,7 +287,18 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-wide .bl-stg2 { min-height: 32px; }
   /* min-width: 0 on both halves, or the row refuses to give and the page itself scrolls sideways at 1100px,
      where the sidebar arrives and the page loses 248px in one step. */
-  .bl-wide .bl-clock { flex: 0 1 auto; min-width: 0; max-width: 42%; padding-top: 0; border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s16); }
+  .bl-wide .bl-clock { flex: 0 1 auto; min-width: 0; max-width: 48%; padding-top: 0; border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s16); line-height: 1.35; }
+  .bl-wide .bl-cl { gap: 4px; }
+  .bl-wide .bl-dl { gap: 1px; }
+  .bl-wide .bl-stgs { flex-basis: 360px; }
+  /* Two deadlines need about 350px. Where the strip has less than 1000px (a 1280 window beside the sidebar, or 900 to
+     1047 without it) the heading steps back to screen readers, as it does on a phone, so the counts and the deadlines
+     still sit side by side and the strip is no taller than it was with one deadline. */
+  .bl-wide .bl-stq { container: blst / inline-size; }
+  @container blst (max-width: 999px) {
+    .bl-stands-h { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .bl-wide .bl-stands { gap: var(--s12); }
+  }
 
   /* the link back to Bills on Sort new bills, the weekly memo and muted bills (the frame's arrow is for phones) */
   .bl-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
@@ -283,7 +316,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-mcopy .btn { flex: none; }
   .bl-memopage .bl-lede { margin: var(--s4) 0 var(--s16); }
   .bl-mctl { align-items: flex-end; }
-  .bl-mctl .bl-mwho { flex: none; }
+  .bl-mctl .bl-mwho, .bl-mctl .bl-maud { flex: none; }
   .bl-mctl .field { flex: 0 1 280px; }
   .bl-mctl .input { min-height: 48px; }
   .bl-memo { padding: 40px 72px 48px; }
@@ -356,6 +389,16 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-noown { display: inline-flex; color: var(--n500); }
   .bl-table .bl-noown .ic { width: 24px; height: 24px; }
   .bl-table thead th.bl-h-look, .bl-table td.bl-lk { padding: 0; text-align: center; }
+  /* "Quick look" beside the button the moment the pointer or the keyboard reaches it (A-12, A-18). It opens to the
+     left, over the row's own cells, so the cell lets it out. */
+  .bl-table td.bl-lk { overflow: visible; }
+  .bl-table .bl-lkb { position: relative; }
+  .bl-table .bl-lkb::after { content: attr(data-tip); position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); z-index: 3; padding: 4px 8px; border-radius: 6px;
+    background: var(--n900); color: #fff; font: 700 var(--t13)/1.2 var(--font); white-space: nowrap; box-shadow: var(--sh2); pointer-events: none; opacity: 0; transition: opacity .15s var(--ease); }
+  .bl-table .bl-lkb:hover::after, .bl-table .bl-lkb:focus-visible::after { opacity: 1; }
+  /* a bill you follow but do not own, under Mine (there is no Owner column there) */
+  .bl-table .bl-fol { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--n500); }
+  .bl-table .bl-fol .ic { width: 16px; height: 16px; }
   .bl-table .bl-lkb { width: 32px; height: 32px; min-height: 0; margin: 0 auto; color: var(--n400); border-radius: var(--r8); }
   .bl-table .bl-lkb .ic { width: 18px; height: 18px; }
   .bl-table tbody tr:hover .bl-lkb { color: var(--p700); }
@@ -413,14 +456,22 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 
 /* ---- phones: 44px segmented buttons; very narrow screens (320px, or 200% zoom) stack the top row ---- */
 @media (max-width: 899px) {
-  .bl-top .sv-seg button, .bl-mwho .sv-seg button { min-height: 44px; }
+  .bl-top .sv-seg button, .bl-mwho .sv-seg button, .bl-maud .sv-seg button { min-height: 44px; }
+  /* Three scopes (Mine | My coalitions | Everyone, R-022 decision 7) do not fit beside Filter on a phone: they take the
+     first row, and the search shares the second with Filter and "…" - two rows, as with two scopes, so the first
+     bill starts no lower. */
+  .bl-top.bl-three { flex-wrap: wrap; }
+  .bl-three .sv-seg { flex: 1 1 100%; }
+  .bl-three .sv-seg button { flex: 1 1 0; padding: 0 8px; }
+  .bl-three .bl-search { flex: 1 1 0; min-width: 0; margin: 0; }
 }
 @media (max-width: 359px) {
   .bl-top { flex-wrap: wrap; }
   .bl-top .sv-seg { flex: 1 1 100%; }
   .bl-top .sv-seg button { flex: 1 1 0; padding: 0 8px; }
   .bl-top .bl-sp { display: none; }
-  .bl-top .iconbtn { margin-left: auto; }
+  .bl-top > .iconbtn { margin-left: auto; }
+  .bl-three .bl-search { flex: 1 1 100%; order: 3; }   /* too narrow to share: the same three rows as with two scopes */
 }
 @media (max-width: 380px) {
   .bl-bar > .btn { padding: 0 12px; }

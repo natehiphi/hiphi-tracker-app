@@ -9,19 +9,27 @@
 // decisions" lists the last ten with an Undo each; (b) the keys wait for keysOn() (My settings can switch shortcuts
 // off); (c) they act only from the page itself, never while a button, a link, a field or a toast's button has the focus.
 // On a desktop the page is two columns: the bill with its full text on the left, and a panel that stays in view on the
-// right (coalition, position, Track / Not for us / Later, progress, recent decisions) instead of a bottom bar.
+// right (coalition, owner, position, priority, Track / Not for us / Later, progress, recent decisions) instead of a
+// bottom bar.
+// R-022 (wave 3 #21): the decision is the whole decision. The review found a sorted bill could not be given an owner,
+// P1 or a strong position, and bills tracked under General HIPHI arrived with nobody. The panel now sets the owner
+// (the coalition's owner unless you pick someone; General HIPHI and HIPHI are Nate's), P1 or P2, and any of the seven
+// positions. Coalition, owner and position are pickers (the bill page's own control for a position), so every choice
+// is a Tab and an arrow key away; P1 and P2 are two buttons.
 import { S, DB, esc, advocate, SESSION_YEAR, hooks } from './data.js';
 import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
-import { icon, btn, pickerChip, segmented, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD } from './ui.js';
+import { icon, btn, pickerChip, segmented, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON } from './ui.js';
 import { iconName } from './setup.js';
 import { deskBack } from './filters.js';
 
 const T = () => S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
-const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.done ??= 0; t.hist ??= []; return t; };
+const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.pri ??= {}; t.done ??= 0; t.hist ??= []; return t; };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 // Keyboard hints and keys only where there is a mouse to hover with (never on touch screens, plan 3.5).
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-const POS = [['support', 'Support'], ['oppose', 'Oppose'], ['monitor', 'Monitor']];
+// Every position the team takes, in the order the team reads them (the bill page's words, POS_WORD).
+const POS7 = ['strongly_support', 'support', 'support_amend', 'neutral', 'oppose', 'strongly_oppose', 'monitor'];
+const PRI = [['1', 'P1'], ['2', 'P2']];
 const POS_PAST = { strongly_support: 'strongly supported', support: 'supported', support_amend: 'supported with amendments', strongly_oppose: 'strongly opposed', oppose: 'opposed', neutral: 'commented on', monitor: 'monitored' };
 const capitol = r => `https://www.capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${encodeURIComponent(r.bill_number.replace(/\d+/, ''))}&billnumber=${encodeURIComponent(r.bill_number.replace(/\D+/, ''))}&year=${SESSION_YEAR}`;
 
@@ -53,6 +61,11 @@ function suggested(r) {
   return S.campaigns.find(c => c.name === 'General HIPHI') || S.campaigns[0];
 }
 const campOf = (t, r) => S.campaigns.find(c => c.id === t.pick[r.id]) || suggested(r);
+// What the card says, before anyone changes it: the coalition's owner, Monitor, P2 (what triage_track sets). An owner
+// picked on the card stays put when the coalition changes; one that was not picked follows the coalition.
+const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (campOf(t, r)?.owner_id || null) : o === 'none' ? null : o; };
+const posOf = (t, r) => t.pos[r.id] || 'monitor';
+const priOf = (t, r) => Number(t.pri[r.id] || 2);
 // Real suggestions first, then look-alikes, then bills whose keyword only sat inside another word.
 const order = rows => rows.map((r, i) => [r, i]).sort(([a, i], [b, j]) => {
   const rank = r => realMatches(r).real.length ? 0 : r.lookalike ? 1 : 2; return rank(a) - rank(b) || i - j; }).map(([r]) => r);
@@ -81,7 +94,8 @@ function progress(t) {
     <p class="st-progt"><b>${left.exact ? left.n.toLocaleString() : left.n + '+'} left</b>${t.done ? ` · ${t.done} decided this sitting` : ''}${c.tracked != null ? ` · ${c.tracked.toLocaleString()} tracked` : ''}</p></div>`;
 }
 // The last ten decisions, newest first, each with its own Undo (U takes the newest).
-const HIST_WORD = { track: h => `Tracked for ${h.camp || 'the tracker'}${h.pos && h.pos !== 'monitor' ? ` · ${POS_WORD[h.pos] || h.pos}` : ''}`, skip: () => 'Not for us', later: () => 'Moved to the back' };
+const HIST_WORD = { track: h => `Tracked for ${h.camp || 'the tracker'}${h.pos && h.pos !== 'monitor' ? ` · ${POS_WORD[h.pos] || h.pos}` : ''}${h.pri === 1 ? ' · P1' : ''} · ${h.own || 'no owner'}`,
+  skip: () => 'Not for us', later: () => 'Moved to the back' };
 function recent(t) {
   const rows = t.hist.slice(0, 10), more = t.hist.length - rows.length;
   return `<section class="st-recent" aria-labelledby="st-rech"><h2 class="st-rech" id="st-rech">Recent decisions</h2>
@@ -97,10 +111,12 @@ function why(r) {
   if (!out.length) out.push(`<p class="st-why muted">${icon('circle-dashed')}<span>No coalition keyword matches this bill.</span></p>`);
   return out.join('');
 }
-const pickers = (t, r) => { const c = campOf(t, r), own = advocate(c?.owner_id), pos = t.pos[r.id] || 'monitor';
+const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)), pos = posOf(t, r);
   return `<div class="st-tpick">
-      <div class="st-pickrow"><span class="st-lab" id="st-clab">Coalition</span>${pickerChip(c?.name || 'Choose', { 'data-tcoal': '1', 'aria-describedby': 'st-clab st-cown' }, iconName(c?.icon))}<span class="small muted" id="st-cown">${own ? `${esc(own.full_name)} will own it` : 'No owner yet'}</span></div>
-      <div class="st-pickrow"><span class="st-lab" id="st-plab">Our position</span>${segmented('tpos', POS, pos, 'Our position')}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-clab">Coalition</span>${pickerChip(c?.name || 'Choose', { 'data-tcoal': '1', 'aria-describedby': 'st-clab' }, iconName(c?.icon))}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-plab">Position</span>${pickerChip(POS_WORD[pos] || pos, { 'data-tposp': '1', 'aria-describedby': 'st-plab' }, POS_ICON[pos])}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-prlab">Priority</span>${segmented('tpri', PRI, String(priOf(t, r)), 'Priority')}</div>
     </div>`; };
 const decideBtns = () => `${btn('Track', { kind: 'primary', sm: true, icon: 'check', attrs: { 'data-ttrack': '1' } })}${btn('Not for us', { kind: 'secondary', sm: true, attrs: { 'data-tskip': '1' } })}${btn('Later', { kind: 'text', sm: true, attrs: { 'data-tlater': '1' } })}`;
 const keysLine = () => HOVER() && keysOn() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
@@ -135,7 +151,7 @@ export default {
     const how = S.triageFirstVisit || t.how;
     const head = `${deskBack('triage')}<div class="st-head st-thead"><h1>Sort new bills</h1>${t.rows && !desk ? progress(t) : ''}</div>`;
     const filters = `<div class="st-tfilters">${pickerChip(t.camp ? campName(t) : 'All coalitions', { 'data-tcamp': '1', 'aria-label': `Coalition: ${campName(t)}. Change` }, t.camp ? iconName(S.campaigns.find(x => x.id === t.camp)?.icon) : null)}${pickerChip(t.matchedOnly ? 'Suggested bills' : 'Every undecided bill', { 'data-tmatch': '1', 'aria-label': `Showing ${t.matchedOnly ? 'suggested bills' : 'every undecided bill'}. Change` })}</div>`;
-    const howBox = how ? `<div class="notice info st-how">${icon('info')}<div><p><b>Track</b> puts the bill on the tracker under the coalition you pick, with that coalition's owner, at P2, with the position you pick. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p>${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-thow': '0' } })}</div></div>` : '';
+    const howBox = how ? `<div class="notice info st-how">${icon('info')}<div><p><b>Track</b> puts the bill on the tracker under the coalition you pick, with the owner, position and priority you pick: unless you change them, the coalition's owner, Monitor and P2. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p>${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-thow': '0' } })}</div></div>` : '';
     const foot = `<div class="btnrow st-tfoot">${how ? '' : btn('How this works', { kind: 'text', sm: true, icon: 'circle-help', attrs: { 'data-thow': '1' } })}${btn('Search all introduced bills', { kind: 'text', sm: true, icon: 'search', href: '#/search' })}</div>`;
     const cls = `st-page st-triage${desk ? ' st-tdesk' : ''}`;
     if (t.rows === null) return `<div class="${cls}">${head}${filters}${skeleton(2)}</div>`;
@@ -181,15 +197,24 @@ export default {
     root.querySelectorAll('[data-tundo]').forEach(b => b.onclick = () => undoEntry(t.hist.find(h => String(h.key) === b.dataset.tundo)));
     if (!r) return;
     $('[data-tcoal]').onclick = e => { const cur = campOf(t, r), real = realMatches(r).real, back = after(e, '[data-tcoal]');
-      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: 'The coalition\'s owner gets the bill.',
+      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: t.own[r.id] === undefined ? 'The coalition\'s owner gets the bill, unless you pick an owner.' : '',
         options: S.campaigns.map(c => { const m = real.find(x => x.campaign_id === c.id), o = advocate(c.owner_id);
           return [c.id, c.name, iconName(c.icon), [m ? `Suggested: matches ${m.terms.join(', ')}` : '', o ? `${o.full_name} owns it` : 'No owner'].filter(Boolean).join(' · ')]; }),
         onPick: v => { t.pick[r.id] = v; rerender(back); } }); };
+    // Owner: you first, then everyone else; the coalition's owner says so. "No owner" is a choice too.
+    $('[data-town]').onclick = e => { const back = after(e, '[data-town]'), c = campOf(t, r);
+      const ads = S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name));
+      pickerSheet({ title: `Who owns ${r.bill_number}`, value: ownIdOf(t, r) || 'none',
+        options: [...ads.map(a => [a.id, a.id === S.me?.id ? `You (${a.full_name})` : a.full_name, 'user-round', c && a.id === c.owner_id ? `Owns ${c.name}` : '']), ['none', 'No owner', 'circle-dashed']],
+        onPick: v => { t.own[r.id] = v; rerender(back); } }); };
+    $('[data-tposp]').onclick = e => { const back = after(e, '[data-tposp]');
+      pickerSheet({ title: `Our position on ${r.bill_number}`, value: posOf(t, r), options: POS7.map(k => [k, POS_WORD[k] || k, POS_ICON[k]]),
+        onPick: v => { t.pos[r.id] = v; rerender(back); } }); };
     const more = $('[data-tmore]');
     if (more) more.onclick = () => { const open = more.getAttribute('aria-expanded') !== 'true', d = $('#st-tdesc');
       d.classList.toggle('clamp', !open); more.setAttribute('aria-expanded', open); more.innerHTML = `<span>${open ? 'Show less' : 'Read all'}</span>${icon(open ? 'chevron-up' : 'chevron-down')}`; };
-    root.querySelectorAll('[data-seg="tpos"]').forEach(b => b.onclick = e => { t.pos[r.id] = b.dataset.val;
-      root.querySelectorAll('[data-seg="tpos"]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    root.querySelectorAll('[data-seg="tpri"]').forEach(b => b.onclick = e => { t.pri[r.id] = b.dataset.val;
+      root.querySelectorAll('[data-seg="tpri"]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       if (e.detail > 0) $('#st-tnum')?.focus({ preventScroll: true }); });
     $('[data-ttrack]').onclick = () => decide('track');
     $('[data-tskip]').onclick = () => decide('skip');
@@ -208,13 +233,19 @@ async function decide(kind) {
   const idx = t.focus;
   try {
     if (kind === 'track') {
-      const c = campOf(t, r), pos = t.pos[r.id] || 'monitor';
+      const c = campOf(t, r), pos = posOf(t, r), pri = priOf(t, r), own = ownIdOf(t, r);
       const b = await DB.triageTrack(r, c?.id);
-      // triage_track tracks at Monitor; a position picked on the card is saved straight after.
-      if (b && pos !== 'monitor') await DB.updateBill(b.id, { position: pos });
-      const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos }; t.hist.unshift(h); t.last = { ...r, tracked: true };
+      // triage_track tracks at Monitor and P2 with the coalition's owner (and keeps what a bill tracked before, then
+      // undone, still has). What the card says is written straight after, so the bill leaves here fully decided.
+      if (b) {
+        const patch = {}; if (b.position !== pos) patch.position = pos; if (b.priority !== pri) patch.priority = pri;
+        if (Object.keys(patch).length) await DB.updateBill(b.id, patch);
+        await DB.setOwner(b.id, own);
+      }
+      const who = own ? (own === S.me?.id ? 'You' : advocate(own)?.full_name || 'Someone') : '';
+      const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who }; t.hist.unshift(h); t.last = { ...r, tracked: true };
       count(t, r, -1, true); done(t, idx);
-      toast(`${r.bill_number} tracked for ${c?.name || 'the tracker'}.`, { ok: true, undo: () => undoEntry(h), action: { label: 'Open', run: () => S.go('#/bill/' + r.bill_number) } });
+      toast(`${r.bill_number} tracked for ${c?.name || 'the tracker'}. ${!own ? 'No owner yet.' : own === S.me?.id ? 'You own it.' : `${who} owns it.`}`, { ok: true, undo: () => undoEntry(h), action: { label: 'Open', run: () => S.go('#/bill/' + r.bill_number) } });
     } else {
       await DB.triageSkip(r);
       const h = { key: ++seq, kind: 'skip', row: r, idx }; t.hist.unshift(h); t.last = { ...r, tracked: false };

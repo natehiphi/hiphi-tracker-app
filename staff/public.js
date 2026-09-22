@@ -5,14 +5,19 @@
 // through approval).
 // Desktop (build 3): the form stays a readable column, and where the column has room a small card beside it shows,
 // as you type, how the public page will name the bill (nickname, summary, the ask).
+// The staff "recommended" flag lives here now, as "Pre-tick for new visitors" (R-022 #13). Nate: "the language shouldn't
+// be so transparent to the public at the moment. It should be a silent recommendation." So it is labelled for staff by
+// what it does, and the preview never shows it: nothing on the public page says a bill was recommended.
+// Saving has Undo (B-5): the whole form goes back to what it was before the save.
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
 import { icon, btn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot } from './issues.js';
 
-const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
-const saved = (b, k) => k === 'is_public' ? !!b.is_public : (b[k] || '');
+const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
+const BOOL = new Set(['is_public', 'recommended']);
+const saved = (b, k) => BOOL.has(k) ? !!b[k] : (b[k] || '');
 // Typed but unsaved values survive the re-render a list change causes; they live here until Save.
 const draftOf = b => drafts.get(b.id + ':pub') || {};
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
@@ -71,6 +76,7 @@ export function renderPublic(b) {
     <div class="bw-pubcols">
     <form class="bw-pubform" data-pubform novalidate>
       ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'), 'Anyone can find it, follow it and get its hearing alerts.')}
+      ${switchRow('bw-prec', 'Pre-tick for new visitors', valOf(b, 'recommended'), 'Silent: new visitors find it already ticked on their first visit. Nothing on the public page says it was recommended.')}
       <div class="field"><label for="bw-nick">Nickname</label>
         <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable vape ban">
         <span class="help" id="bw-nick-h">A short everyday name people can say. It names the bill everywhere on the public page.</span>${count(nickname.length, 'bw-nick-n', 40)}</div>
@@ -107,15 +113,15 @@ export function renderPublic(b) {
 
 export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
-  const f = { is_public: form.querySelector('#bw-ispub'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
+  const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
   const errBox = form.querySelector('#bw-perr');
-  const note = () => { const d = {}; for (const k of FIELDS) { const v = k === 'is_public' ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
+  const note = () => { const d = {}; for (const k of FIELDS) { const v = BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) drafts.set(key, d); else drafts.delete(key);
     const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.small');
     if (Object.keys(d).length && !hint) s.insertAdjacentHTML('beforeend', '<span class="small muted">Not saved yet</span>'); else if (!Object.keys(d).length && hint) hint.remove(); };
   const prev = pnl.querySelector('[data-prev]');
   const paint = () => { if (prev) prev.innerHTML = previewInner(b, { is_public: f.is_public.checked, nickname: f.nickname.value, public_summary: f.public_summary.value, public_action: f.public_action.value, public_action_until: f.public_action_until.value }); };
-  for (const [k, el] of Object.entries(f)) el.addEventListener(k === 'is_public' ? 'change' : 'input', () => {
+  for (const [k, el] of Object.entries(f)) el.addEventListener(BOOL.has(k) ? 'change' : 'input', () => {
     note(); paint(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
     if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
@@ -132,10 +138,12 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     if (nickname && nickname.length < 3) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}A nickname needs at least 3 characters.</p>`; f.nickname.setAttribute('aria-invalid', 'true'); f.nickname.focus(); return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
+    const before = { nickname: b.nickname || null, public_summary: b.public_summary || null, public_action: b.public_action || null,
+      public_action_until: b.public_action_until || null, is_public: !!b.is_public, recommended: !!b.recommended };
     try {
-      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked });
+      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked });
       drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
-      toast('Public page saved.', { ok: true });
+      toast('Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, before); drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     } catch (x) { sub.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
   // "Write it" on Today lands here: the ask is in view, right under the pinned tabs, with the cursor in it (the way
