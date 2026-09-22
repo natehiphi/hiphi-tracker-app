@@ -106,7 +106,7 @@ export function suggest(input, { source, open, seeAll = null, when = () => true,
   // Leaving the box closes the list. A redraw also removes the box, and then what was typed is kept for the new one.
   input.addEventListener('blur', () => setTimeout(() => { if (!input.isConnected || document.activeElement === input) return; close(); keep(''); }, 150));
   input.addEventListener('keydown', e => {
-    if (e.isComposing) return;
+    if (e.isComposing || !when()) return;   // switched off here (Find, the staff Search page): the page's own keys have the box
     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && waiting()) { e.preventDefault(); return; }   // rows being replaced cannot be chosen
     if (e.key === 'ArrowDown') { e.preventDefault(); if (!box) { run(); if (box && done) mark(0); } else mark(Math.min(opts.length - 1, at + 1)); }
     else if (e.key === 'ArrowUp') { if (box) { e.preventDefault(); mark(Math.max(-1, at - 1)); } }

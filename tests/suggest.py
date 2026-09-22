@@ -1,4 +1,5 @@
 # Suggestions under the header search as you type (R-032, pub/suggest.js). python3 tests/suggest.py [host]
+# Both apps: the public tracker's header box, then Staff v2's (the same component, its own list).
 # The public tracker's header box (900px and wider): issues and bills listed from the third character, the arrow keys,
 # Enter, Esc, a click, "See all results", nothing on Find itself (its own results are the list), what was typed kept
 # when the page redraws, the list inside the window at every laptop size, and the live site's bills from the database.
@@ -30,7 +31,7 @@ def state(p):
           icpos: getComputedStyle(o.querySelector('.ic')).position,
           beside: !!o.querySelector('.sg-s') && Math.abs(o.querySelector('.sg-s').getBoundingClientRect().top - o.querySelector('.sg-l').getBoundingClientRect().top) < 6 })) : [],
         note: b && b.querySelector('.sg-note') ? b.querySelector('.sg-note').textContent : '',
-        status: (document.querySelector('.hsearch [role=status]') || {}).textContent || '', hdr: (document.querySelector('.hdr') || { getBoundingClientRect: () => ({ bottom: 0 }) }).getBoundingClientRect().bottom,
+        status: (document.querySelector('[data-hsearch] [role=status]') || {}).textContent || '', hdr: (document.querySelector('.hdr, .sv-hdr') || { getBoundingClientRect: () => ({ bottom: 0 }) }).getBoundingClientRect().bottom,
         busy: !!(b && b.classList.contains('sg-busy')), height: r ? r.height : 0 }; }""")
 
 with sync_playwright() as pw:
@@ -111,6 +112,49 @@ with sync_playwright() as pw:
         ok(s['opts'][-1]['t'].startswith('See all results'), f'{w}x{h}: See all results is still the last row ({len(s["opts"])} rows)')
         if w == 1280: p.screenshot(path=f'{OUT}/short_{w}x{h}.png')
         c.close()
+
+    # ---- Staff v2's header box: tracked bills, issues, legislators and supporters (the sandbox) ----
+    def staff(p, h='/'):
+        p.goto(f'{HOST}/staff.html?demo=1#{h}'); p.reload(); p.wait_for_timeout(3200)
+    for (w, h) in [(1280, 800), (1440, 900), (1024, 768)]:
+        tag = f'staff {w}x{h}'
+        c, p = ctx(b, w, h); staff(p)
+        typein(p, 'HB15'); s = state(p)
+        ok(s['open'] and s['groups'] == ['Bills'] and all(o['s'].startswith('HB 15') for o in s['opts'][:-1]), f'{tag}: "HB15" lists its bills {[o["s"] for o in s["opts"]][:4]}')
+        ok(s['opts'][-1]['t'] == 'See all results for “HB15”' and s['opts'][-1]['href'] == '#/search?q=HB15', f'{tag}: See all results opens Search')
+        ok(abs(s['rect'][2] - s['hdr']) <= 1.5 and s['rect'][1] <= s['w'] and s['rect'][3] <= s['h'], f'{tag}: the list starts on the header line and fits ({s["rect"]}, header {s["hdr"]})')
+        ok(all(o['hgt'] >= 44 and o['icpos'] == 'static' and o['lw'] > 120 for o in s['opts']), f'{tag}: rows 44px or taller, icons beside the words')
+        if w == 1280: p.screenshot(path=f'{OUT}/staff_hb15_{w}.png')
+        typein(p, 'kusch'); s = state(p)
+        ok(s['groups'] == ['Legislators'] and s['opts'][0]['t'] == 'Matthias Kusch', f'{tag}: a legislator by name, not the bills they sponsored {[o["t"] for o in s["opts"]]}')
+        typein(p, 'sd 12'); s = state(p)
+        ok('Supporters' in s['groups'] and all('SD 12' in o['s'] or 'Senate district 12' in o['s'] for o in s['opts'][:-1]), f'{tag}: "sd 12" is Senate district 12 {[o["s"] for o in s["opts"]]}')
+        typein(p, 'school'); s = state(p)
+        ok('Issues' in s['groups'] and all('school' in o['t'].lower() for o in s['opts'] if o['href'].startswith('#/bill/')), f'{tag}: "school" lists issues, and bills whose names say school {s["groups"]}')
+        if w == 1280: p.screenshot(path=f'{OUT}/staff_school_{w}.png')
+        typein(p, 'sample'); ok('Supporters' in state(p)['groups'], f'{tag}: supporters by name')
+        p.keyboard.press('ArrowDown'); first = state(p)['opts'][0]['href']; p.keyboard.press('Enter'); p.wait_for_timeout(900)
+        ok(state(p)['hash'] == first, f'{tag}: Down and Enter open the first row ({first})')
+        staff(p); typein(p, 'HB1562'); p.keyboard.press('Enter'); p.wait_for_timeout(1200)
+        ok(state(p)['hash'].startswith('#/bill/HB1562'), f'{tag}: Enter on an exact bill number still opens that bill ({state(p)["hash"]})')
+        staff(p); typein(p, 'school'); p.keyboard.press('Escape'); s = state(p)
+        ok(not s['open'] and s['value'] == 'school', f'{tag}: Esc closes the list and keeps the words')
+        typein(p, 'school'); rows = state(p)['opts']; p.locator(f'#{rows[2]["id"]}').hover(); p.keyboard.press('ArrowDown'); p.wait_for_timeout(100)
+        lit = p.evaluate("[...document.querySelectorAll('.sg [role=option]')].filter(o => getComputedStyle(o).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(o).backgroundColor !== 'rgb(255, 255, 255)').length")
+        ok(lit == 1, f'{tag}: one row lit when the pointer and the keys disagree ({lit})')
+        typein(p, 'school'); p.evaluate("window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }))"); p.wait_for_timeout(500); s = state(p)
+        ok(s['value'] == 'school' and s['focused'] and s['open'], f'{tag}: a redraw keeps the words, the focus and the list ({s["value"]!r})')
+        typein(p, 'zzqxw'); s = state(p)
+        ok(s['note'] == 'Nothing tracked matches “zzqxw”.' and s['opts'][-1]['t'] == 'Search every bill for “zzqxw”', f'{tag}: nothing tracked matching offers every bill ("{s["note"]}")')
+        # on Search itself the results under the box are the list, and Down still walks them
+        staff(p, '/search'); typein(p, 'school', 700); s = state(p)
+        ok(not s['open'] and 'q=school' in s['hash'], f'{tag}: no list on Search; its results follow the header box ({s["hash"]})')
+        p.keyboard.press('ArrowDown'); p.wait_for_timeout(150)
+        ok(p.evaluate("!!document.activeElement.closest('#lg-sres')"), f'{tag}: Down from the header box goes into Search\'s results')
+        c.close()
+    c, p = ctx(b, 390, 844); staff(p)
+    ok(not p.locator('#hq').is_visible() and p.locator('.sv-srchbtn').is_visible(), 'staff phone: a search button, no header box')
+    c.close()
 
     # ---- a phone: no header box (the magnifier opens Find, whose own results appear as you type) ----
     c, p = ctx(b, 390, 844); visit(p, '/more')

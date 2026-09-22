@@ -14,7 +14,8 @@ import triage from './triage.js';
 import memo from './memo.js';
 import legislators from './legislators.js';
 import legislator from './legislator.js';
-import search from './search.js';
+import search, { headerHits } from './search.js';
+import { suggest } from '../pub/suggest.js';
 import supporters from './supporters.js';
 import person from './person.js';
 import lists from './lists.js';
@@ -197,7 +198,12 @@ function wireFrame(app) {
   const skip = app.querySelector('[data-skip]');
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
-  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? `#/bill/${b.bill_number.replace(/\s/g, '')}` : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); }; suggestOn(f); }
+  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? `#/bill/${b.bill_number.replace(/\s/g, '')}` : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
+    // Bills, issues, legislators and supporters listed as you type (R-032, the same list as the public header's). On the
+    // Search page the results under the box are the list.
+    suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested bills, issues, legislators and supporters',
+      busy: 'Looking for supporters', empty: q => `Nothing tracked matches “${q}”.`,
+      seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Search every bill for “${q}”` }) }); }
   app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
 }
 function practiseAs() {
@@ -206,40 +212,6 @@ function practiseAs() {
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
-// Suggestions under the header search as you type: tracked bills (number, nickname, title) and legislators. Enter
-// on a highlighted row opens it; Enter with none highlighted still goes to the full search.
-function suggestOn(f) {
-  const input = f.querySelector('input'); if (!input) return;
-  let list = null, rows = [], at = -1, timer = 0;
-  const close = () => { list?.remove(); list = null; rows = []; at = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
-  const pick = i => { const r = rows[i]; if (!r) return; close(); input.value = ''; go(r.href); };
-  const show = () => {
-    const q = input.value.trim().toLowerCase(); if (q.length < 2) return close();
-    const qn = q.replace(/\s+/g, '');
-    const bills = S.bills.filter(b => b.bill_number.toLowerCase().replace(/\s/g, '').includes(qn) || (b.nickname || '').toLowerCase().includes(q) || (b.title || '').toLowerCase().includes(q))
-      .sort((a, b) => (a.bill_number.toLowerCase().replace(/\s/g, '').startsWith(qn) ? 0 : 1) - (b.bill_number.toLowerCase().replace(/\s/g, '').startsWith(qn) ? 0 : 1) || (a.priority || 9) - (b.priority || 9))
-      .slice(0, 5).map(b => ({ href: `#/bill/${b.bill_number.replace(/\s/g, '')}`, t: b.bill_number, s: b.nickname || b.title || '', ic: 'scroll-text' }));
-    const legs = (S.legislators || []).filter(l => (l.name || '').toLowerCase().includes(q)).slice(0, 3).map(l => ({ href: `#/legislator/${l.id}`, t: l.name, s: `${l.chamber === 'S' ? 'Senate' : 'House'} ${l.district || ''}`.trim(), ic: 'landmark' }));
-    rows = [...bills, ...legs]; at = -1;
-    if (!rows.length) return close();
-    if (!list) { list = document.createElement('div'); list.className = 'sv-sugg'; list.id = 'hq-sugg'; list.setAttribute('role', 'listbox'); f.appendChild(list); input.setAttribute('aria-controls', 'hq-sugg'); }
-    input.setAttribute('aria-expanded', 'true');
-    list.innerHTML = rows.map((r, i) => `<a role="option" id="hq-o${i}" href="${esc(r.href)}" data-i="${i}">${icon(r.ic)}<span><b>${esc(r.t)}</b><span class="small muted">${esc(r.s)}</span></span></a>`).join('');
-    list.querySelectorAll('a').forEach(a => a.addEventListener('mousedown', e => { e.preventDefault(); pick(+a.dataset.i); }));
-  };
-  const mark = () => list?.querySelectorAll('a').forEach((a, i) => { a.classList.toggle('on', i === at); if (i === at) input.setAttribute('aria-activedescendant', a.id); });
-  input.setAttribute('role', 'combobox'); input.setAttribute('aria-autocomplete', 'list'); input.setAttribute('aria-expanded', 'false');
-  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(show, 120); });
-  input.addEventListener('blur', () => setTimeout(close, 150));
-  input.addEventListener('keydown', e => {
-    if (!list) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(rows.length - 1, at + 1); mark(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(-1, at - 1); mark(); }
-    else if (e.key === 'Enter' && at >= 0) { e.preventDefault(); pick(at); }
-    else if (e.key === 'Escape') { e.preventDefault(); close(); }
-  });
-}
-
 function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,

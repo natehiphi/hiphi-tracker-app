@@ -341,18 +341,11 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 /* Two thumbs for a strong position: the pair should read as one mark (see ui.js posIcons). */
 .sv-posic .ic + .ic, .bl-cell .ic + .ic, .sv-pick .ic + .ic { margin-left: -5px; }
 
-/* R-022: the sandbox band's "Practise as" picker, the header search's suggestions, and how fresh the data is. */
+/* R-022: the sandbox band's "Practise as" picker, and how fresh the data is. The header search's suggestions are pub/suggest.js,
+   styled in pub/base.css (.sg, R-032); its 8px gap under this 42px box starts the list on the header's bottom line. */
 .band .band-as { display: inline-flex; align-items: center; gap: 2px; font: inherit; color: inherit; background: rgba(255,255,255,.14);
   border: 1px solid rgba(255,255,255,.35); border-radius: var(--pill); padding: 0 6px 0 8px; min-height: 22px; cursor: pointer; }
 .band .band-as:hover, .band .band-as:focus-visible { background: rgba(255,255,255,.26); }
-.sv-hdr .sv-search { position: relative; }
-.sv-sugg { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; background: var(--n0); border: 1px solid var(--n200);
-  border-radius: var(--r12); box-shadow: var(--sh3); padding: 6px; display: grid; gap: 2px; }
-.sv-sugg a { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border-radius: var(--r8); color: var(--n900); text-decoration: none; }
-.sv-sugg a .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); }
-.sv-sugg a > span { display: grid; min-width: 0; }
-.sv-sugg a > span .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-sugg a:hover, .sv-sugg a.on { background: var(--p50); }
 .sv-sync { display: flex; align-items: center; gap: 6px; margin: 4px 12px 6px; font-size: 13px; color: var(--n500); }
 .sv-sync .ic { flex: none; }
 .sv-sync.late { color: var(--bad-text); }

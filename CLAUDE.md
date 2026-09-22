@@ -164,6 +164,12 @@ shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`tod
 `coalition` (`#/coalition`, `#/coalition/:id`, Outreach > Coalitions)), plus
 `look.js` (the quick look, opened from Today and Bills) and `conversation.js` (conversations with legislators), which are
 components rather than screens.
+- **The header search suggests as you type (R-032, 9/21),** from 900px, through the public header's `pub/suggest.js`:
+  `headerHits()` in `search.js` lists tracked bills whose number or shown name match (a leading number first, moving
+  bills before dead ones), issues, legislators (`matchLegs`) and supporters (loaded on first use), a row for each kind
+  in turn up to seven, then "See all results" into Search, which also has untracked bills. Enter with nothing
+  highlighted keeps `exactBill`: an exact number opens that bill. No list on the Search page itself. "sd 12" and
+  "house 3" mean that district for supporters too (`districtQ`, exported from `legislators.js`).
 - Bill page tabs: Overview, Activity, Pathway, Public, Testimony (keys 1-5). Testimony lists every testimony draft the
   tracker made that someone sent for review: this bill's filed ones and its companion's, then its issue's, a search,
   then its category folded. `onNextUp` (testimony.js) decides what the Next up card keeps, so a filed draft shows once.
@@ -274,7 +280,7 @@ python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer par
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
-python3 tests/suggest.py            # the public header's suggestions (R-032): 131 checks at 1024-1440 and short windows, keys, redraw, live bills
+python3 tests/suggest.py            # header search suggestions (R-032), both apps: 180 checks at 1024-1440 and short windows, keys, redraw, live bills
 ```
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
 `public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`
