@@ -8,7 +8,8 @@ import { skeleton, btn } from './ui.js';
 import start from './start.js';
 import home from './home.js';
 import mybills from './mybills.js';
-import find from './find.js';
+import find, { headerSuggest } from './find.js';
+import { suggest } from './suggest.js';
 import bill from './bill.js';
 import people from './people.js';
 import committees from './committees.js';
@@ -137,7 +138,12 @@ function wireFrame() {
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const hs = $app().querySelector('[data-hsearch]');
   if (hs) { const inp = hs.querySelector('input'); const r = parseRoute(); if (r.name === 'find' && r.q) inp.value = r.q;
-    hs.onsubmit = e => { e.preventDefault(); const q = inp.value.trim(); go('#/find' + (q ? '?q=' + encodeURIComponent(q) : '')); }; }
+    hs.onsubmit = e => { e.preventDefault(); const q = inp.value.trim(); go('#/find' + (q ? '?q=' + encodeURIComponent(q) : '')); };
+    // Matching issues and bills listed as you type (R-032). On Find itself the results under the page's box are the list.
+    suggest(inp, { source: headerSuggest, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
+      busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
+      empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
+      seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } }); }
 }
 const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
 

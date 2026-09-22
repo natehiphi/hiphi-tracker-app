@@ -13,11 +13,11 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch } from './core.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions } from './actions.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
-  issueList, issueOrder, billsOfIssue } from './mybills.js';
+  issueList, issueOrder, billsOfIssue, what } from './mybills.js';
 
 // Find's own state, kept across renders: the query being searched, its results, a small cache, and which lists
 // and issues have loaded.
@@ -378,11 +378,76 @@ function issuePageNew(i) {
   return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${none}${nowSecs}${earlier.length ? fold('fd-ie-' + i.id, `Earlier sessions (${earlier.length})`, billList(earlier, { why: true }), { ic: 'history' }) : ''}</div>`;
 }
-// Search finds issues by name and description too, and they come first: an issue is what people follow.
+// Search finds issues by name and description too, and they come first: an issue is what people follow. Words match
+// where a word starts, as they do for bills ("bus" finds "buses", not the "bus" inside "abuse"; R-032).
 function issueMatches(q) {
   const words = plain(q).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP.has(w)); if (!words.length) return [];
+  const res = words.map(w => new RegExp(`(?:^|[^a-z0-9])(?:${termsFor(w).map(t => reEsc(plain(t))).join('|')})`));
   const hay = i => plain(`${i.name} ${i.description || ''}`);
-  return S.issues.filter(i => words.every(w => termsFor(w).some(t => hay(i).includes(plain(t))))).slice(0, 6);
+  return S.issues.filter(i => res.every(re => re.test(hay(i)))).slice(0, 6);
+}
+
+// ---------------- suggestions under the header's search box (R-032) ----------------
+// Nate, 9/21: "the search function should autopopulate options to select from." On a wide screen the header's box
+// lists what the words so far match, as they are typed (suggest.js draws the list): topics and issues at once, since
+// they are loaded, then bills from this page's own search, ranked the same way, so the first bill suggested is the
+// first result Find would show. On a phone, and on this page, the results already appear under the box as you type.
+const SUG = new Map();   // query key -> ranked bills, the last 20 asked
+const sugKeep = (key, res) => { SUG.set(key, res); if (SUG.size > 20) SUG.delete(SUG.keys().next().value); return res; };
+function catMatches(q) {
+  const words = plain(q).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP.has(w)); if (!words.length) return [];
+  return S.cats.filter(c => words.every(w => termsFor(w).some(t => plain(c.name).includes(plain(t)))));
+}
+// Where a bill ended up, when that is settled. A moving bill's step depends on its hearings, which a suggestion does
+// not load, so it shows only the number rather than risk saying "waiting" for a bill that has a hearing set.
+const settled = b => b.stage === 'enacted' ? 'Became law' : b.stage === 'vetoed' ? 'Vetoed' : b.stage === 'governor' ? plainStatus(b).short : moving(b) ? '' : 'Stopped';
+const sugBill = b => ({ href: billPath(b), title: nick(b) || what(b, 90), sub: [spaced(b.bill_number), settled(b)].filter(Boolean).join(' · '), icon: 'scroll-text', inline: true });
+// Seven rows at most, so the list fits a laptop screen with "See all results" under it (suggest.js drops rows a short
+// window has no room for). A word search names policies: a bill on an issue is represented by that issue, so a House
+// bill and its Senate twin are one row, the issue that people follow (R-018), instead of three rows with one name that
+// can even disagree ("Became law" and "Stopped"); only bills on no issue are listed as bills. The issues whose own
+// words match come first, then those of the matching bills. A bill number lists bills: that is what was typed.
+// Which bills: HIPHI's own (each has a plain summary, and an issue once it has a position), and the rest of the session
+// only when HIPHI has nothing on these words. A HIPHI bill, or the issue it brings in, is listed only when the words
+// are in its nickname or HIPHI's summary, the words a person sees ("tourism" found only in an official description
+// listed a green-bonds bill with no visible reason). Governor's messages (appointments, 596 of the 6,728 measures)
+// come up for their number only.
+const SUG_ROWS = 7;
+const bucket = b => moving(b) ? 0 : becameLaw(b) ? 1 : 2;   // Find's order: still moving, then became law, then the rest
+const hiphis = b => !!(b.hiphi_follows || b.hiphi_position);
+const shows = (b, P) => P.words.every(w => fieldsOf(b).some(([t, wt]) => wt >= 6 && w.re.test(t)));   // nickname 8, HIPHI summary 6
+export function headerSuggest(q) {
+  const off = offSeason(), P = parse(q);
+  const cats = catMatches(q).slice(0, 1).map(c => { const n = catCount(c);
+    return { href: `#/find/category/${c.key}`, title: c.name, sub: off ? plural(n, 'issue') : n ? `${plural(n, 'issue')} moving` : 'Quiet now', icon: issueIcon(c.icon) }; });
+  // An issue's line is what it is about (its topic would repeat the row above it, or the topic's own row).
+  const issueRow = i => ({ href: `#/issue/${i.slug}`, title: i.name,
+    sub: [issueFollowed(i) ? 'Following' : '', i.description || catBySlug(i.category)?.name].filter(Boolean).join(' · '), icon: issueIcon(catBySlug(i.category)?.icon) });
+  const direct = issueMatches(q);
+  const groups = found => {
+    const bills = found.map((b, k) => [b, k]).sort((x, y) => bucket(x[0]) - bucket(y[0]) || x[1] - y[1]).map(x => x[0]);
+    let iss = direct, lone = bills;
+    if (!P.num) {
+      const seen = new Set(direct.map(i => i.id)); iss = [...direct]; lone = [];
+      for (const b of bills) {
+        if (/^GM/i.test(b.bill_number)) continue;
+        const on = issuesOf(b); if (!on.length) { lone.push(b); continue; }
+        if (shows(b, P)) for (const i of on) if (!seen.has(i.id)) { seen.add(i.id); iss.push(i); }
+      }
+      // A row's own words are why it is there: HIPHI's bills show their nickname or summary, so the words must be in them
+      // (other bills show the official description, which is where they matched).
+      const visible = lone.filter(b => !hiphis(b) || shows(b, P)), mine = visible.filter(hiphis);
+      lone = mine.length || iss.length || cats.length ? mine : visible;
+    }
+    const top = [...cats, ...iss.map(issueRow)].slice(0, SUG_ROWS - Math.min(lone.length, 2));
+    return [{ label: 'Issues', items: top }, { label: 'Bills', items: lone.slice(0, SUG_ROWS - top.length).map(sugBill) }];
+  };
+  if (P.words && !P.words.length) return { groups: groups([]) };
+  if (SUG.has(P.key)) return { groups: groups(SUG.get(P.key)) };
+  if (DEMO) return { groups: groups(sugKeep(P.key, rank([...D.bills, ...D.index], P))) };
+  const more = (async () => { let res = rank(await serverSearch(P), P); if (!res.length && P.words?.length > 1) res = rank(await serverSearch(P, true), P); return res; })()
+    .then(res => groups(sugKeep(P.key, res)));
+  return { groups: groups([]), more };
 }
 async function followIssueNow(i, on) {
   const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };

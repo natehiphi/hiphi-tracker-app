@@ -12,7 +12,8 @@
   .hdr .hnav { margin-left: var(--s16); }
   .hdr .hsearchbtn { display: none; }
   .hdr .hsearch { display: block; position: relative; width: clamp(200px, 24vw, 320px); }
-  .hdr .hsearch .ic { position: absolute; left: 14px; top: 12px; width: 18px; height: 18px; color: var(--n500); pointer-events: none; }
+  .hdr .hsearch > .ic { position: absolute; left: 14px; top: 12px; width: 18px; height: 18px; color: var(--n500); pointer-events: none; }
+  .hdr .hsearch .sg { top: calc(100% + (var(--header) - 42px) / 2); }   /* the list starts on the header's bottom line, not 3px above it */
   .hdr .hsearch input { width: 100%; height: 42px; padding: 0 14px 0 40px; border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n50); font-size: var(--t16); }   /* 16px: a tablet in landscape would zoom a smaller field */
   .hdr .hsearch input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); background: var(--n0); }
   .hdr .hbtn.hacct { display: inline-flex; font-size: var(--t14); text-decoration: none; white-space: nowrap; }

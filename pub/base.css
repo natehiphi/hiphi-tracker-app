@@ -251,6 +251,40 @@ dialog.sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35), 
   body.hasbar.withtabs .actionbar { bottom: 0; padding-bottom: calc(var(--s12) + var(--safe-b)); }
 }
 
+/* ---- suggestions under a search box, as you type (suggest.js, R-032) ---- */
+.sg-host { position: relative; }
+.sg { position: absolute; top: calc(100% + var(--s8)); right: 0; z-index: 60; width: max(100%, 440px); max-width: calc(100vw - 32px);
+  max-height: min(560px, calc(100vh - 120px)); overflow-y: auto; overscroll-behavior: contain; padding: var(--s4) 0; text-align: left;
+  background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+.sg-g + .sg-g, .sg-g + .sg-skel, .sg-g + .sg-note, .sg-g + .sg-all, .sg-skel + .sg-all { border-top: 1px solid var(--n100); margin-top: var(--s4); padding-top: var(--s4); }
+.sg-h { padding: var(--s8) var(--s16) var(--s4); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.sg-o { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--s12); align-items: start; min-height: 44px; padding: var(--s8) var(--s16);
+  color: var(--n900); text-decoration: none; }
+.sg-host .sg .sg-o .ic, .sg-host .sg .sg-bspin .ic { position: static; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }   /* four classes:
+   a host's own rule for its magnifier (".hdr .hsearch .ic") must not reach these, even from a stylesheet cached before it was scoped */
+.sg-o .ic { margin-top: 1px; }
+.sg-t { display: grid; min-width: 0; }
+.sg-l, .sg-s { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
+.sg-l { font-weight: 700; }
+.sg-s { font-size: var(--t14); color: var(--n500); }
+/* A bill: its name with the number in grey beside it, which never gives way. A nickname fits one line; a plain summary
+   (a bill without a nickname) may take two, so the words that matched are not cut off after four of them. */
+.sg-o1 .sg-t { display: flex; align-items: baseline; gap: var(--s8); }
+.sg-o1 .sg-l { min-width: 0; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.sg-o1 .sg-s { flex: none; }
+/* The highlighted row, by the keys or the pointer (suggest.js moves one highlight; no :hover, or two rows could light up) */
+.sg-o[aria-selected="true"] { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }   /* a bar as well as a colour (A-5) */
+.sg-all { align-items: center; position: sticky; bottom: calc(-1 * var(--s4)); background: var(--n0); }   /* in view even if a tiny window scrolls the list */
+.sg-all .sg-l { font-weight: 400; color: var(--p700); }
+.sg-note { padding: var(--s8) var(--s16); font-size: var(--t14); color: var(--n500); }
+/* Waiting for the database: the list on screen stays put, dimmed and not choosable, until the answer replaces it */
+.sg-bspin { display: none; position: absolute; top: var(--s8); right: var(--s12); }
+.sg-busy .sg-bspin { display: block; }
+.sg-busy .sg-o { opacity: .5; pointer-events: none; }
+.sg-spin { animation: spin 1s linear infinite; }
+.sg-skel { display: grid; gap: var(--s8); padding: var(--s8) var(--s16); }
+.sg-skel .skel { height: 28px; border-radius: var(--r8); }
+
 /* ---- motion off when asked ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
