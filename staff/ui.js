@@ -1,6 +1,7 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
 import { S, STAGES, effStage, esc, advocate } from './data.js';
+import { stopOf } from './model.js';
 import { icon } from '../icons.js';
 export { icon };
 
@@ -85,16 +86,35 @@ export function stepBar(status, { second = false } = {}) {
 // current app; assessment 9/19). Twelve steps: 'vetoed' and 'dead' are outcomes, not steps, so they colour the
 // ribbon rather than adding a segment to it. A stopped bill still shows how far it got. ----
 const RIBBON = STAGES.filter(([k]) => k !== 'vetoed' && k !== 'dead');
+// Which step is dark. Each committee step is a deadline (Triple filing, Lateral, Decking) and the dark one is the
+// deadline the bill is racing. The sync's 'first_crossover' is the exception: it means the bill has ALREADY passed
+// its first chamber and has no committee activity in the second yet (session_deadlines ends it at the second
+// Lateral, not at Crossover). Drawn on Crossover, a bill waiting for its first House hearing read as not yet crossed
+// over (SB2175, Nate 9/21), so it goes on the deadline the sentence under the ribbon names, with Crossover behind it.
+// A stopped bill is marked where it stopped. Its stage is only 'dead'; died_at_stage says where, and died_deadline,
+// quoted under the ribbon, names the deadline that ended it: 'introduced' at the first Lateral, 'first_crossover' at
+// the second. Reading b.stage here drew every stopped bill as "Stopped after Introduced", the 45 of 2026 that died in
+// conference included.
+function ribbonKey(b, st) {
+  if (st === 'vetoed') return 'governor';
+  if (st === 'dead') {
+    const at = b.died_at_stage || (b.stage !== 'dead' ? b.stage : null);   // the team set it dead: the sync's stage
+    return at === 'introduced' ? 'first_lateral' : at === 'first_crossover' ? 'second_lateral' : at;
+  }
+  if (st !== 'first_crossover') return st;
+  const k = stopOf(b).deadlineKey;   // second_triple | second_lateral | second_decking, or second_crossover once through
+  return k === 'second_crossover' ? 'second_decking' : /^second_(triple|lateral|decking)$/.test(k || '') ? k : 'second_lateral';
+}
 export function stageRibbon(b, { labels = true } = {}) {
   const st = effStage(b), dead = st === 'dead', vetoed = st === 'vetoed';
-  // Where it stopped: the last real stage the sync recorded, not the word 'dead'.
-  const key = dead ? (b.stage && b.stage !== 'dead' ? b.stage : 'introduced') : vetoed ? 'governor' : st;
-  const i = Math.max(0, RIBBON.findIndex(([k]) => k === key)), last = RIBBON.length - 1;
+  // No record of where it stopped (2 bills in 2026): no step is marked, rather than claiming Introduced.
+  const key = ribbonKey(b, st), last = RIBBON.length - 1;
+  const i = key ? Math.max(0, RIBBON.findIndex(([k]) => k === key)) : -1;
   const now = RIBBON[i]?.[1] || '';
-  const said = dead ? `Stopped after ${now}` : vetoed ? 'Vetoed by the Governor' : i === last ? 'Signed into law' : now;
+  const said = dead ? (now ? `Stopped at ${now}` : 'Stopped') : vetoed ? 'Vetoed by the Governor' : i === last ? 'Signed into law' : now;
   const tone = dead || vetoed ? ' stopped' : i === last ? ' done' : '';
   const set = b.stage_override ? ' · set by the team' : '';
-  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}. Step ${i + 1} of ${RIBBON.length}.`)}">${
+  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}.${i >= 0 ? ` Step ${i + 1} of ${RIBBON.length}.` : ''}`)}">${
     RIBBON.map(([, l], n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}" title="${esc(l)}"></i>`).join('')
   }</div>${labels ? `<p class="sv-riblab"><span>${esc(RIBBON[0][1])}</span><b>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
 }
