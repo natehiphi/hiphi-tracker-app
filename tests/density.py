@@ -50,6 +50,8 @@ SV = [
   ('week',        '/?view=week',   'the week\'s first entry', '.wk-blk, .wk-timed, .td-card'),
   ('bills',       '/bills',        'the first bill',       '.bl-prow, .bl-grp .row, .bl-table tbody tr'),
   ('bill',        '/bill/HB1562',  'the bill status',      '.bw-ribwrap, .sv-rib, .bw-page .card'),
+  # R-027: the Testimony tab; a person comes to see what HIPHI already wrote on this bill and its issue
+  ('testimony',   '/bill/HB1779/testimony', 'the last testimony', '.tm-row, .tm-crow, #tm-body .empty'),
   ('legislators', '/legislators',  'the first legislator', '.lg-row, .lg-page .row, main tbody tr'),
   ('outreach',    '/outreach',     'the first person',     '.sp-page .row, .sp-page tbody tr'),
 ]

@@ -542,6 +542,25 @@ export const DB = {
     await S.supa.from('bill_message_reads').upsert({ advocate_id: S.me.id, bill_id: billId, seen_at: S.chatSeen[billId] });
   },
 
+  // ---- earlier testimony (R-027): Staff v2 loads 60 days of hearings, but a draft can point to an older hearing, and
+  // its bill may no longer be tracked. The Testimony tab asks for both once, the first time it opens, in batches of 100
+  // ids so the request stays short. Returns true when anything new arrived, so the tab knows to redraw.
+  async loadDraftHearings() {
+    if (DEMO) return false;
+    S.draftHearings ??= {}; S.draftBills ??= {};
+    const drafts = Object.values(S.drafts).flat();
+    const hIds = [...new Set(drafts.map(d => d.hearing_id).filter(id => id && !S.hearings.some(h => h.id === id) && !S.draftHearings[id]))];
+    const bIds = [...new Set(drafts.map(d => d.bill_id).filter(id => id && !S.bills.some(b => b.id === id) && !S.draftBills[id]))];
+    const chunks = ids => Array.from({ length: Math.ceil(ids.length / 100) }, (_, i) => ids.slice(i * 100, i * 100 + 100));
+    const res = await Promise.all([
+      ...chunks(hIds).map(ids => S.supa.from('hearings').select('id,bill_id,committee,scheduled_at,status').in('id', ids).then(r => ['h', r])),
+      ...chunks(bIds).map(ids => S.supa.from('bills').select('id,bill_number,session_year,nickname,public_summary,title,companions').in('id', ids).then(r => ['b', r])),
+    ]);
+    let got = 0;
+    for (const [k, r] of res) { if (r.error) throw r.error; for (const x of r.data || []) { (k === 'h' ? S.draftHearings : S.draftBills)[x.id] = x; got++; } }
+    return got > 0;
+  },
+
   // ---- issues (063, R-018): Staff v2 only; the current app is retiring and has no Issues page ----
   // Non-fatal like the other additive loads: without them the rest of the app still works.
   async loadIssues() {
@@ -808,7 +827,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260921j', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260921m', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -869,6 +888,11 @@ export async function demoInit() {
       version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
       review_note: st === 'draft' ? 'Cite the 2024 BRFSS numbers in paragraph two.' : null });
   }
+  // Drafts that already existed on the sandbox's day (R-027): filed, on the earlier hearings where HIPHI really filed
+  // testimony in 2026 (tools/build_snapshot.js), so the Testimony tab has a history to show. A bill and committee that
+  // already has a seeded draft keeps it: one Doc per bill and committee, as live.
+  for (const d of snap.drafts || []) if (!(S.drafts[d.bill_id] || []).some(x => x.committee === d.committee)) (S.drafts[d.bill_id] ??= []).push({ ...d });
+  S.draftHearings = { ...(snap.draftHearings || {}) };
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.

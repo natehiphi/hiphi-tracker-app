@@ -78,7 +78,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
 | staff2 | 390 | today | **294** | 23 | **4** | 6 | 4 | 8 |
 | staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |
-| staff2 | 390 | bill | **178** | 17 | **9** | 7 | 4 | 7 |
+| staff2 | 390 | bill | **178** | 18 | **10** | 7 | 4 | 7 |
+| staff2 | 390 | testimony tab (9/21) | **154** | 21 | **10** | 8 | 4 | 6 |
 | staff2 | 390 | legislators | **244** | 19 | **6** | 6 | 3 | 4 |
 | staff2 | 390 | outreach | **257** | 24 | **10** | 6 | 3 | 4 |
 | public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
@@ -93,7 +94,8 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 1440 | today | **214** | 51 | **10** | 12 | 4 | 9 |
 | staff2 | 1440 | week (9/21) | **272** | 45 | **7** | 12 | 5 | 8 |
 | staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |
-| staff2 | 1440 | bill | **269** | 31 | **18** | 13 | 5 | 7 |
+| staff2 | 1440 | bill | **269** | 33 | 20 | 13 | 5 | 7 |
+| staff2 | 1440 | testimony tab (9/21) | 466 | 33 | 17 | 13 | 5 | 6 |
 | staff2 | 1440 | legislators | **294** | 35 | **7** | 11 | 4 | 4 |
 | staff2 | 1440 | outreach | **295** | 53 | **8** | 14 | 4 | 6 |
 
@@ -105,6 +107,14 @@ row per issue (the reading is its first issue); the category and issue pages are
 first issue was at 485px on a phone before its icon moved beside the title and a count said twice went
 (A-14); it now sits between the budget and the limit, below a full-width "Follow all" that is the page's
 other job.
+
+**Staff bill page re-measured 2026-09-21 with its fifth tab, Testimony (R-027).** On a phone the tab opens with its strip
+under the header, so the first testimony is at 154px. On a laptop it is at 466px, over the A-1 limit, and that is the
+bill page rather than the tab: the bill's heading, ribbon and status sit above all five tabs (the strip ends at 410px),
+so every tab's content starts under it, Overview's first heading at 434, Activity 458, Pathway 497, Public 514,
+Testimony's heading at 434. Not an accepted exception; a question for Nate if it bothers anyone: a tab reached by a
+link could bring its strip to the top on a laptop too, as it does on a phone. The bill's own kinds went from 18 to
+20 at 1440 since 9/20 (the issue line and the fifth tab), now between the A-2 budget and the limit.
 
 Journeys (`tests/journeys.py`): **7 of 7 working and inside budget** ("arrive → follow a first issue", 3 of 3).
 

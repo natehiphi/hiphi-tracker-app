@@ -71,9 +71,11 @@
 
 /* ---- sticky tabs: pinned under the 56px header ---- */
 .bw-tabsent { height: 0; }
-.bw-tabs { position: sticky; top: var(--header); z-index: 30; display: grid; grid-template-columns: repeat(4, 1fr); margin: var(--s16) calc(-1 * var(--gutter)) 0; padding: 0 var(--s8);
+.bw-tabs { position: sticky; top: var(--header); z-index: 30; display: grid; grid-template-columns: repeat(5, auto); margin: var(--s16) calc(-1 * var(--gutter)) 0; padding: 0 var(--s8);
   background: var(--n0); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); }
-.bw-tabs a { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 4px; color: var(--n500); font-weight: 700; font-size: var(--t16); text-decoration: none; white-space: nowrap; }
+.bw-tabs a { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 2px; color: var(--n500); font-weight: 700; font-size: var(--t16); text-decoration: none; white-space: nowrap; }
+/* Five tabs since R-027: columns sized to their labels, the spare room shared out, fit in one row down to 320px with every
+   tab at least 44px wide (measured 9/21: the labels take 311px at 16px, 271px at 14px). */
 .bw-tabs a:hover { color: var(--n900); }
 .bw-tabs a[aria-current="page"] { color: var(--p700); }
 .bw-tabs a[aria-current="page"]::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--p700); }
@@ -413,3 +415,17 @@
 }
 /* a legislator named inside a detail line (the chair) is still a full-size target on phones */
 .bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ---- five tabs (R-027): the strip fits its labels to the room it has, measured on itself, so the fifth tab never
+   wraps out of sight (the desktop strip hides a second line). A container, as .bw-panel is, not a new breakpoint:
+   the room depends on the sidebar and side panel, not on the window. Measured 9/21: the five labels take 311px at
+   16px, 271 at 14px and 252 at 13px, and an unread badge adds 26. */
+.bw-tabs { container: bwtabs / inline-size; }
+@media (max-width: 899px) {
+  @container bwtabs (max-width: 356px) { .bw-tabs a { font-size: var(--t14); } }
+  @container bwtabs (max-width: 316px) { .bw-tabs a { font-size: var(--t13); min-width: 44px; } }
+}
+@media (min-width: 900px) {
+  @container bwtabs (max-width: 512px) { .bw-tabs a { padding: 0 var(--s8); } }
+  @container bwtabs (max-width: 432px) { .bw-tabs a { font-size: var(--t14); } }
+}

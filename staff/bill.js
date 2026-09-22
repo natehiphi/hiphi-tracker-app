@@ -19,6 +19,7 @@ import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countd
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
 import { renderPublic, wirePublic } from './public.js';
+import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp } from './testimony.js';
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -61,7 +62,7 @@ export function afterBack(fn) {
 export const drafts = new Map();
 
 // ---- which bill, which tab ----
-const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'Pathway'], ['public', 'Public']];
+const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'Pathway'], ['public', 'Public'], ['testimony', 'Testimony']];
 // Old links (the current app's tab names, Slack's #bill=…&tab=chat) land where the content lives now.
 const TAB_ALIAS = { chat: 'activity', timeline: 'activity', notes: 'overview', details: 'overview', team: 'overview' };
 const tabOf = r => { const t = TAB_ALIAS[r.tab] || r.tab; return TABS.some(([k]) => k === t) ? t : 'overview'; };
@@ -196,7 +197,7 @@ document.addEventListener('keydown', e => {
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
   const b = billOf(S.route); if (!b) return;
-  if (/^[1-4]$/.test(e.key)) { e.preventDefault(); switchTab(TABS[+e.key - 1][0]); return; }
+  if (/^[1-5]$/.test(e.key)) { e.preventDefault(); switchTab(TABS[+e.key - 1][0]); return; }
   if (e.key === '[' || e.key === ']') { const nb = neighbours(b), to = nb && (e.key === '[' ? nb.prev : nb.next); if (to) { e.preventDefault(); goBill(to); } return; }
   if (e.key === 'Escape') { const a = document.querySelector('.bw-top [data-back]'); if (a) { e.preventDefault(); a.click(); } }
 });
@@ -349,9 +350,14 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
   else if (d.status === 'cancelled') main = chip('Hearing cancelled', '', 'circle-x');
   const stale = b.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
+  const earlier = d.status === 'draft' && tabOf(S.route || {}) !== 'testimony' ? earlierCount(b) : 0;
   const links = [
     d.doc_url ? btn('Open Doc', { kind: 'text', icon: 'file-text', href: d.doc_url, target: '_blank' }) : '',
     d.filed_url ? btn('Confirmation', { kind: 'text', icon: 'external-link', href: d.filed_url, target: '_blank' }) : '',
+    // R-027: earlier testimony on this bill, its companion and its issue, one tap away while this one is being written
+    // (only then: in review nobody is writing). An open book: a clock would read as this Doc's version history, a scroll as the Bills tab.
+    // A plain link, not a button (A-3), and not shown while the Testimony tab is open beside this card (A-14).
+    earlier ? btn(`Earlier testimony (${earlier})`, { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-earlier': '1' } }) : '',
   ].join('');
   return `<div class="bw-tb" data-tb="${esc(d.id)}">
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
@@ -442,7 +448,9 @@ function nextCards(b) {
   const cards = ups.map((h, i) => hearingCard(b, h, i));
   if (!ups.length && !dead && st.phase === 'committee') cards.push(needsHearingCard(b));
   // Testimony not tied to a hearing still ahead (in review after the hearing moved, approved but not filed…)
-  const other = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && d.status !== 'cancelled')
+  // Unfinished only: once its hearing has passed, a filed draft lives on the Testimony tab (R-027), so this card
+  // does not grow all session and nothing is said twice (A-14).
+  const other = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && onNextUp(d))
     .sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
   if (other.length) cards.push(`<section class="card bw-next" aria-labelledby="bw-nx-t"><div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-t">${cards.length ? 'Other testimony' : 'Testimony'}</h2>${other.some(d => draftActions(d).some(a => ['withdraw', 'unfile'].includes(a[0]))) ? iconBtn('ellipsis', 'More for this testimony', { 'data-tmenu': other[0].id }) : ''}</div>
     ${other.map((d, i) => testimonyBlock(b, d, { primary: i === 0 && !ups.length, title: `For ${esc(cmteFull(d.committee))}` })).join('')}</section>`);
@@ -768,12 +776,13 @@ function tabsNav(b, tab) {
   const n = unreadCount(b), keys = keysOn();
   // The number keys are named on each tab (title, aria-keyshortcuts) and once at the end of the strip on desktop.
   return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(b.bill_number)} sections">${TABS.map(([k, l], i) =>
-    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}${keys ? `<span class="bw-khint" aria-hidden="true">${icon('keyboard')}1 to 4</span>` : ''}</nav>`;
+    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}${keys ? `<span class="bw-khint" aria-hidden="true">${icon('keyboard')}1 to 5</span>` : ''}</nav>`;
 }
 function panel(b, tab) {
   if (tab === 'activity') { loadTimeline(b); return renderActivity(b, { inline: DESK() }); }
   if (tab === 'pathway') { try { return renderPathway(b); } catch (e) { console.error(e); return empty({ title: 'The pathway could not be drawn', text: 'Try again in a moment.' }); } }
   if (tab === 'public') return renderPublic(b);
+  if (tab === 'testimony') return renderTestimony(b);
   loadCompanions(b);
   return overview(b);
 }
@@ -877,6 +886,8 @@ export default {
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
+    // "Earlier testimony" moves to the tab the way a tab does: this history entry is replaced, so Back leaves the bill.
+    page.querySelectorAll('[data-earlier]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); switchTab('testimony'); }));
     page.querySelectorAll('[data-tmenu]').forEach(el => el.onclick = () => testimonyMenu(b));
     // panels
     const pnl = page.querySelector('#bw-panel');
@@ -888,10 +899,11 @@ export default {
     else if (tab === 'activity') wireActivity(pnl, b, route, root);
     else if (tab === 'pathway') { try { wirePathway(pnl, b); } catch (e) { console.error(e); } }
     else if (tab === 'public') wirePublic(pnl, b, { focusAsk });
+    else if (tab === 'testimony') wireTestimony(pnl, b);
     // A deep link to a tab (#/bill/HB1562/pathway) on a phone: the strip goes under the header so the tab's content
     // is what shows, as a tap on the tab does. After the frame's own scroll to the top, hence the frame's next paint.
     // Activity and the ask bring themselves into view; on desktop the content is on the first screen already.
-    if (arrival && !DESK() && (tab === 'pathway' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
+    if (arrival && !DESK() && (tab === 'pathway' || tab === 'testimony' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
   },
 };
 

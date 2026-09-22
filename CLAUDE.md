@@ -138,10 +138,15 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 
 Task-first. Tabs: Today, Bills, Legislators, Outreach. `staff/app.js` frame + router (`parseRoute`), `staff/ui.js`
 shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`today`, `review`, `bill` with
-`activity` `public` `pathway`, `bills` with `filters` `bulk`, `triage`, `memo`, `search`, `legislators`,
+`activity` `public` `pathway` `testimony` (R-027), `bills` with `filters` `bulk`, `triage`, `memo`, `search`, `legislators`,
 `legislator`, `supporters`, `person`, `issues` (Outreach > Issues and `#/issue/:id`, R-018), `lists`, `list`,
 `emails`, `composer`, `me`, `setup`, `help`), plus
 `look.js` (the quick look, opened from Today and Bills) which is a component rather than a screen.
+- Bill page tabs: Overview, Activity, Pathway, Public, Testimony (keys 1-5). Testimony lists every testimony draft the
+  tracker made that someone sent for review: this bill's filed ones and its companion's, then its issue's, a search,
+  then its category folded. `onNextUp` (testimony.js) decides what the Next up card keeps, so a filed draft shows once.
+  Hearings load for 60 days; `DB.loadDraftHearings()` fetches the older ones drafts point to. The tab strip fits five
+  tabs by its own width (container `bwtabs` in bill.css), never wrapping one out of sight.
 - Look: `pub/base.css` tokens, five type sizes 13/14/16/18/22.
 - Desktop frame: from 1100px a left sidebar; 900–1099px header tabs; below that the phone frame. A screen's
   default export may set `wide` (whole window: tables) or `narrow` (760px: review, forms); default 1120px. The
