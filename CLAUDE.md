@@ -239,7 +239,8 @@ components rather than screens.
 - `advocates.prefs` keys: `coalitions` (`'all'` or campaign ids: the coalitions a person supports; Kris all, Saya
   CTFH), `showMonitor` (Today shows hearings on monitor bills), `memo` (the memo's audience and coalition), plus
   `seen`, `sugg`, `views`.
-- The header search suggests bills and legislators as you type (`suggestOn` in `app.js`).
+- The header search is `pub/suggest.js` since R-032 (above); an exact bill number plus Enter still opens the bill
+  (`exactBill`).
 
 ### Rules the suggestion feed must keep (Nate, 9/19)
 
