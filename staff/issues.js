@@ -6,12 +6,14 @@
 // on issues (also from a bill's Public tab, and from the queue below).
 // The index leads with what would otherwise go unnoticed: position bills this session that no issue carries, which
 // nobody following issues would ever hear of. #/issue/:id is one issue: its bills, its followers and its ⋯ menu, laid
-// out like a list's page.
+// out like a list's page. Its "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first
+// visit only. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
 import { S, DB, SESSION_YEAR, hooks, esc } from './data.js';
 import { billById, billNum, plain, PUBLIC_APP } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
+import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -40,6 +42,8 @@ function followers(i) {
 }
 const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopleTried) { S.isPeopleTried = true; DB.loadPeople().then(() => hooks.render()).catch(() => {}); } };
 const catIcon = k => catByKey(k)?.icon || 'tag';
+// In the first visit unless staff switched it off (066; an issue from before 066, or the sandbox's, has no value: on).
+export const inFirstVisit = i => i?.first_visit !== false;
 
 // ---- the issue form: New issue, and Edit on an issue's page ----
 // With `bill`, a new issue is made for that bill and the bill goes on it.
@@ -129,8 +133,9 @@ const V = () => S.isIdx ??= { q: '', needsAll: false };
 function issueRow(i) {
   const bills = billsOn(i), now = bills.filter(thisSession), f = followers(i);
   const meta = [plural(now.length, 'bill') + (SESSION_YEAR ? ` in ${SESSION_YEAR}` : ''), f && f.own ? plural(f.own, 'follower') : ''].filter(Boolean).join(' · ');
+  // Left out of the first visit: a quiet grey mark, which also stands in for "Pre-ticked" (a pre-tick does nothing then).
   return row({ title: esc(i.name), sub: `<span class="is-meta">${esc(meta)}</span>${i.description ? `<span class="is-desc">${esc(i.description)}</span>` : ''}`,
-    end: i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
+    end: !inFirstVisit(i) && !i.archived_at ? chip('Not in first visit', '', 'eye-off') : i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
 }
 function needsHTML(v) {
   const need = needsIssue(); if (!need.length) return '';
@@ -154,23 +159,30 @@ function indexBody(v) {
   return `${secs || `<p class="le-none">No issue matches “${esc(v.q.trim())}”.</p>`}
     ${gone.length ? `<details class="is-arch"><summary>${icon('archive')}<span>Archived (${gone.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><div class="rows">${gone.map(issueRow).join('')}</div></details>` : ''}`;
 }
+// First visit (?view=first-visit) and Make a link (?view=links) are views of this screen (firstvisit.js), so the frame's
+// router needs no new route. Make a link is a form, so it is a reading column on a desktop.
 const index = {
   tab: 'outreach',
-  title: () => 'Outreach',
-  wide: () => true,
-  render() {
+  title: route => fvTitle(route) || 'Outreach',
+  back: route => fvBack(route),
+  wide: route => !fvView(route),
+  narrow: route => fvView(route) === 'links',
+  render(route) {
+    if (fvView(route)) return renderFirstVisit(route);
     wantPeople();
     const v = V(), n = live().length;
     const newBtn = btn('New issue', { icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } });
     if (!(S.categories || []).length) return `<div class="le-page is-index">${pageHead('issues', 'Issues', 'What the public follows.', '')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
     return `<div class="le-page is-index">
       ${pageHead('issues', 'Issues', `What the public follows. A bill reaches everyone who follows an issue it is on. <span class="le-sum">${plural(n, 'issue')}</span>`, newBtn)}
+      <a class="is-fvlink" href="${FV_HREF}">${icon('footprints')}<span>First visit: numbers and links</span></a>
       ${needsHTML(v)}
       <div class="le-search is-find">${icon('search')}<input id="is-q" type="search" placeholder="Find an issue" value="${esc(v.q)}" autocomplete="off" aria-label="Find an issue" aria-controls="is-body">${iconBtn('x', 'Clear the search', { 'data-is': 'qclear', hidden: !v.q })}</div>
       <div id="is-body">${indexBody(v)}</div>
     </div>`;
   },
   wire(route, root) {
+    if (fvView(route)) return wireFirstVisit(route, root);
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
     root.querySelector('[data-is="needsall"]')?.addEventListener('click', () => { v.needsAll = true; hooks.render(); });
@@ -226,7 +238,9 @@ function pageRender(route) {
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
     ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}
-    <section class="card le-pubcard is-folcard" aria-label="Followers"><div class="le-sharerow">${fol}${i.archived_at ? '' : btn('See it', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>
+    <section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
+      ${i.archived_at ? '' : switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')}
+      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>
     <section class="le-sec" aria-labelledby="is-bh">
       <div class="le-sechead"><h2 id="is-bh">Bills</h2><span class="meta">${now.length ? `${plural(now.length, 'bill')} in ${SESSION_YEAR}${reachN < now.length ? ` · ${reachN} reach followers` : ''}` : ''}</span></div>
       <div class="le-add">
@@ -283,6 +297,16 @@ function mergeSheet(i) {
       d.querySelector('#is-mq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
     } });
 }
+// "Show in the first visit" (066, R-023). Off leaves the issue out of a newcomer's first visit only: it is still on Find
+// and its own page, and everyone following it still gets its bills. The page is redrawn with the switch still in focus.
+async function setFirstVisit(i, on) {
+  const redraw = () => { const y = scrollY; hooks.render(); document.getElementById('is-fv')?.focus({ preventScroll: true }); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); };
+  try {
+    await DB.updateIssue(i.id, { first_visit: on }); redraw();
+    toast(on ? `${i.name} is back in the first visit.` : `Left out of the first visit.${i.recommended ? ' Its pre-tick does nothing while it is left out.' : ''}`,
+      { ok: on, undo: async () => { await DB.updateIssue(i.id, { first_visit: !on }); redraw(); } });
+  } catch (e) { redraw(); toast(e, { err: true }); }
+}
 async function archive(i, on) {
   if (on) {
     const f = followers(i);
@@ -311,6 +335,7 @@ export const issuePage = {
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));
     root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));
+    const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
     // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
     const q = root.querySelector('#is-bq'), clear = root.querySelector('[data-is="bqclear"]'), box = root.querySelector('#is-hits'), said = root.querySelector('#is-hitn');

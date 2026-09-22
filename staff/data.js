@@ -660,6 +660,46 @@ export const DB = {
     if (S.peopleLoaded) { S.peopleLoaded = false; await this.loadPeople().catch(() => {}); }
   },
 
+  // ---- the first visit (067-068, R-023): Staff v2 only, like Issues ----
+  // The public first visit's weekly roll-up, staff only; the rows themselves nobody can read. The sandbox has no visits:
+  // firstvisit.js draws numbers labelled as samples instead of calling this.
+  async firstVisitFunnel(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('first_visit_funnel', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error;
+    return data || [];
+  },
+  // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
+  async firstVisitSources(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('first_visit_sources', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error;
+    return data || [];
+  },
+  // Partners behind a first-visit link (track.html?via=slug): staff read and write them; the public reads only the slug
+  // and the welcome line (public_partners). The sandbox has one sample partner, kept in memory like everything there.
+  async loadPartners() {
+    if (DEMO) { S.partners ??= [{ slug: 'keiki-health-fair', name: 'Keiki health fair (sample)', welcome: 'Welcome, friends from the keiki health fair!', created_at: DEMO_ASOF }]; S.partnersLoaded = true; return S.partners; }
+    const { data, error } = await S.supa.from('partners').select('slug,name,welcome,created_at').order('name').order('slug');
+    if (error) throw error;
+    S.partners = data || []; S.partnersLoaded = true; return S.partners;
+  },
+  async addPartner({ slug, name, welcome = null }) {
+    const row = { slug, name, welcome: welcome || null };
+    if (!DEMO) { const { error } = await S.supa.from('partners').insert(row); if (error) throw error; }
+    S.partners = [...(S.partners || []), { ...row, created_at: new Date().toISOString() }];
+    return row;
+  },
+  // Name and welcome line only: the slug is in links already given out, so it never changes.
+  async updatePartner(slug, patch) {
+    const p = (S.partners || []).find(x => x.slug === slug); if (!p) return;
+    const before = { name: p.name, welcome: p.welcome };
+    Object.assign(p, patch);
+    if (DEMO) return;
+    const { error } = await S.supa.from('partners').update({ name: p.name, welcome: p.welcome }).eq('slug', slug);
+    if (error) { Object.assign(p, before); throw error; }
+  },
+
   // ---- people (CRM) ----
   async loadPeople() {
     if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;

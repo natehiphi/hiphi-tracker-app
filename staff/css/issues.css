@@ -34,9 +34,21 @@
 .is-arch[open] > summary .is-chev { transform: rotate(180deg); }
 .is-arch > .rows, .is-arch > .le-bills { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
 
+/* The way to the first visit's numbers and links (R-023): a link of its own under the top line (A-12: it goes somewhere,
+   so it looks like a link, not a button), its icon kept with its words, one line at every width. On a touch screen the
+   target reaches 44px into the space around it (A-6) without pushing the list further down. */
+.is-index .is-fvlink, .fv-page .fv-golink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
+.is-index .is-fvlink + .is-find, .is-index .is-fvlink + .is-needs { margin-top: var(--s12); }
+.is-index .is-fvlink .ic, .fv-page .fv-golink .ic { width: 16px; height: 16px; flex: none; }
+.is-index .is-fvlink:hover span, .fv-page .fv-golink:hover span { text-decoration: underline; }
+.is-index .is-fvlink:focus-visible, .fv-page .fv-golink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 899px) { .is-index .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
+
 /* ---- one issue (inside .le-page.le-list) ---- */
 .is-page .is-folcard { padding: 0 var(--s16); }
 .is-page .is-folcard .le-sharerow { border-top: 0; }
+/* "Show in the first visit" (066) sits over the followers row, as Publish does on a list's page */
+.is-page .is-folcard.is-hasfv .le-sharerow { border-top: 1px solid var(--n100); }
 .is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
 .is-page > .sv-notice { margin: var(--s12) 0 0; }
 .is-page .le-brow .iconbtn { flex: none; }
@@ -68,6 +80,95 @@
 /* ---- a bill's Public tab: the issues it is on ---- */
 .bw-issues { align-items: center; }
 
+/* ---- the first visit: its numbers, and a link for a partner (firstvisit.js, R-023; inside .le-page.fv-page) ---- */
+.fv-page .fv-head { margin: var(--s4) 0 var(--s16); }
+.fv-page .fv-head h1 { font-size: var(--t22); }
+.fv-page .fv-head .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+.fv-controls { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s16); }
+.fv-page > .sv-notice { margin-bottom: var(--s16); }
+.fv-page > .le-empty .empty { margin-top: 0; }
+.fv-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); }
+.fv-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
+.fv-tile .fv-n { font: 700 var(--t22)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); font-variant-numeric: tabular-nums; }
+.fv-tile .fv-l { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.fv-tile .fv-s { font-size: var(--t13); color: var(--n500); }
+.fv-sec { margin-top: var(--s24); }
+.fv-sec .le-sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.fv-sec .le-sechead h2 { font-size: var(--t18); }
+/* Screen by screen: on a phone each screen is a small block (name and count, the bar, skips and time); from 900px the
+   same list lines up as a table under a header row. The unit words are kept for screen readers there. */
+.fv-screens { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name num" "bar bar" "skip time"; gap: 4px var(--s12); padding: var(--s12) var(--s16); }
+.fv-srow + .fv-srow { border-top: 1px solid var(--n100); }
+.fv-shead { display: none; }
+.fv-reach { display: contents; }
+.fv-sname { grid-area: name; font-weight: 700; color: var(--n900); font-size: var(--t14); }
+.fv-rn { grid-area: num; font-size: var(--t14); color: var(--n700); font-variant-numeric: tabular-nums; text-align: right; }
+.fv-rn b { color: var(--n900); }
+.fv-bar { grid-area: bar; display: block; height: 8px; border-radius: 4px; background: var(--n100); overflow: hidden; }
+.fv-bar i { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--p700); }
+.fv-skip { grid-area: skip; font-size: var(--t13); color: var(--n500); font-variant-numeric: tabular-nums; }
+.fv-time { grid-area: time; font-size: var(--t13); color: var(--n500); text-align: right; }
+.fv-srow .fv-none { display: none; }
+.fv-tablewrap { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-table { width: 100%; border-collapse: collapse; font-size: var(--t14); }
+.fv-table th, .fv-table td { padding: var(--s8) var(--s8); text-align: left; vertical-align: middle; border-top: 1px solid var(--n100); color: var(--n700); }
+.fv-table th:first-child { padding-left: var(--s16); }
+.fv-table th:last-child, .fv-table td:last-child { padding-right: var(--s16); }
+.fv-table thead th { height: 40px; border-top: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.fv-table tbody th { font-weight: 700; color: var(--n900); overflow-wrap: break-word; }
+.fv-table tr.fv-sub th, .fv-table tr.fv-sub td { border-top-color: var(--n50); font-size: var(--t13); }
+.fv-table tr.fv-sub th { padding-left: var(--s32); font-weight: 400; color: var(--n700); }
+.fv-table .fv-word.none { color: var(--n500); }
+.fv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fv-table .fv-kind { display: block; font-size: var(--t13); font-weight: 400; color: var(--n500); }
+.fv-table .fv-pc { display: block; font-size: var(--t13); color: var(--n500); }
+.fv-how { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s24) 0 0; max-width: 70ch; }
+.fv-how .ic { flex: none; margin-top: 2px; }
+/* Make a link (a reading column on a desktop; the link and its QR code side by side from 900px) */
+.fv-card { padding: var(--s16); }
+.fv-none p { margin: 0 0 var(--s12); }
+.fv-card + .fv-card { margin-top: var(--s16); }
+.fv-card h2 { font-size: var(--t18); }
+.fv-card > .small.muted { margin: var(--s4) 0 var(--s12); }
+.fv-card .field + .field { margin-top: var(--s16); }
+.fv-card .is-opt { font-weight: 400; color: var(--n500); }
+.fv-prow { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s4); }
+.fv-prow .sv-pick { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+.fv-prow .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.fv-welcome { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.fv-urlbox { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); }
+.fv-urlbox .label { font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.fv-url { width: 100%; margin: 0; padding: var(--s8) var(--s12); background: var(--n50); border: 1px solid var(--n200); border-radius: var(--r8); font-size: var(--t14); color: var(--n900); overflow-wrap: anywhere; user-select: all; }
+.fv-qrbox { display: flex; align-items: center; justify-content: center; width: 208px; height: 208px; margin: var(--s12) auto; background: #fff; border: 1px solid var(--n200); border-radius: var(--r8); text-align: center; }
+.fv-qrbox svg { display: block; width: 192px; height: 192px; }
+.fv-qrerr { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s12); color: var(--bad-text); }
+.fv-qracts { display: flex; justify-content: center; gap: var(--s8); }
+.fv-pform .field + .field { margin-top: var(--s16); }
+.fv-pform input[readonly] { background: var(--n50); color: var(--n700); }
+
 @media (min-width: 900px) {
   .is-index .is-row .is-desc { -webkit-line-clamp: 2; }
+  /* the first-visit switch and the followers side by side, so the bills start no lower than before (A-1) */
+  .is-page .is-folcard.is-hasfv { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s24); align-items: center; }
+  .is-page .is-folcard.is-hasfv .le-sharerow { border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s24); }
+  .fv-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* the period sits beside the title, so the numbers start one row higher (A-1) */
+  .fv-page .fv-nhead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s24); }
+  .fv-page .fv-nhead .fv-hmain { min-width: 0; }
+  .fv-page .fv-nhead .fv-controls { flex: none; margin-top: 0; }
+  .fv-linkgrid { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: var(--s16); align-items: start; }
+  .fv-linkgrid .fv-card + .fv-card { margin-top: 0; }
+  .fv-linkgrid .fv-qrbox { width: 100%; max-width: 208px; }
+  .fv-srow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 84px 96px; grid-template-areas: none; align-items: center; min-height: 48px; padding: var(--s8) var(--s16); }
+  .fv-reach { display: flex; align-items: center; gap: var(--s12); min-width: 0; }
+  .fv-sname, .fv-rn, .fv-bar, .fv-skip, .fv-time { grid-area: auto; }
+  .fv-bar { flex: 1 1 auto; }
+  .fv-rn { flex: none; min-width: 76px; }
+  .fv-skip, .fv-time { font-size: var(--t14); color: var(--n700); text-align: right; }
+  .fv-srow .fv-none { display: inline; color: var(--n500); }
+  .fv-srow .fv-w { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .fv-shead { display: grid; min-height: 40px; padding-top: 0; padding-bottom: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .fv-shead span:nth-child(n+3) { text-align: right; }
+  .fv-table .fv-pc { display: inline; margin-left: 4px; }
 }
