@@ -82,7 +82,7 @@ session is dark (until January 2027).
   supports every coalition), `&as=SY` (Saya, supports CTFH); default is Nate (admin). The avatar menu has "Practise
   as someone else". `&season=off` shows the between-sessions app. The sandbox follows live rules: drafts only on
   bills with a position, messages only to the people they are for, email shown paused.
-- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921m`. **Whenever `demo/snapshot.json`
+- The snapshot is fetched with `cache: 'force-cache'` plus `?v=20260921n`. **Whenever `demo/snapshot.json`
   changes, bump that `v` in `app.js`, `staff/data.js` and `pub/core.js` in the same commit**, or browsers keep
   the old copy and Nate reports the change as not working.
 - Rebuild: `node ../backend/tools/build_snapshot.js` (reads production; read-only).

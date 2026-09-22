@@ -71,8 +71,10 @@ def menu_pick(p, card_sel, label):
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     for W, H, tag in ((390, 844, 'phone'), (1440, 900, 'desk'), (1024, 768, 'd1024')):
-        # ---- your own list ----
-        c, p = ctx(b, W, H); load(p)
+        # ---- your own list, as James: his nearest deadline (Triple filing, 3/19) has a bill with no hearing and the one
+        # after (3/30) has four. Nate's had one only because of R-036: HB1732's Senate referrals read as three stops, so
+        # it raced 3/19. They are two (HOU, WAM), it races 3/30, and Nate's 3/19 bill has its hearing (backend 3.24).
+        c, p = ctx(b, W, H); load(p, '&as=JM')
         s0 = p.evaluate(STATE)
         ok(s0['btn'] and s0['count'] >= 1 and s0['expanded'] == 'false', f'{tag} mine: the button is there, closed ({s0["count"]} bills)')
         ok(len(s0['names']) == min(s0['count'], 4) and all(s0['names']), f'{tag} mine: the bills with no hearing are named, each a link to its bill ({s0["names"]})')
@@ -121,17 +123,19 @@ with sync_playwright() as pw:
     ok('1 bill must be heard by then.' in s['clock'] and 'It has a hearing.' in s['clock'], f'May Rose: one bill, heard ("{s["clock"]}")')
     c.close()
 
-    # ---- the note accounts for every bill counted ----
-    c, p = ctx(b, 1440, 900); load(p)
-    # a to-do due today puts the first of Nate's no-hearing bills on today's list
+    # ---- the note accounts for every bill counted (as James, see above) ----
+    c, p = ctx(b, 1440, 900); load(p, '&as=JM')
+    # a to-do due today puts the first of James's no-hearing bills on today's list
     first = p.evaluate("""(async () => { const d = await import('./staff/data.js'), m = await import('./staff/model.js');
       const nh = m.sessionClock(d.S.bills.filter(d.isMine)).noHearing, b = nh[0];
       (d.S.todos[b.id] ??= []).push({ id: 'test-clock', bill_id: b.id, title: 'Call the committee clerk', due_date: '2026-03-16', assignee_id: d.S.me.id, done: false });
       d.hooks.render(); return m.billNum(b); })()""")
     p.wait_for_timeout(500); press(p); s = p.evaluate(STATE)
     ok(f'{first} is on your list above.' in s['note'] and s['bills'] == s['count'] - 1, f'a counted bill with a card today is named, not dropped ("{s["note"]}")')
-    press(p)   # closed again
+    c.close()
     # the deadline after it: its own button opens its own bills, five at a time, with a way to see them all in Bills
+    # (Nate: nine bills with no hearing race 3/30, so "Showing 5 of 9" and the link to Bills both show)
+    c, p = ctx(b, 1440, 900); load(p)
     press(p, '[data-clockwork="then"]'); s = p.evaluate(STATE)
     ok(s['head'].startswith('No hearing yet') and 'has to be heard by Mon 3/30' in s['note'] and s['focusHead'] and s['inView'], f'the deadline after: its button opens its bills ("{s["head"]}", "{s["note"][:60]}")')
     ok(s['bills'] == min(5, s['then']) and (s['then'] <= 5 or f'Showing 5 of {s["then"]}.' in s['note']), f'the deadline after: five shown of {s["then"]}, and the note says so ("{s["note"]}")')
@@ -167,11 +171,12 @@ with sync_playwright() as pw:
     ok('Nothing urgent' not in s['head'] and 'Nothing here is on the clock' not in s['note'] and 'deadline in the next seven days' in s['note'], f'James: no "Nothing urgent" over a deadline ("{s["head"]}", "{s["note"][:90]}")')
     ok(not re.search(r'\b(over)?due\b', s['words'], re.I), f'James: the heading, the note and the cards never say "due" ("{s["words"][:80]}")')
     c.close()
-    # more than five: copies of a no-hearing bill, in the team's list
+    # more than five: five copies of a no-hearing bill in the team's list, so there are more than five whatever the list
+    # held (since R-036 the team's 3/19 list holds one bill: HB1732 left it)
     c, p = ctx(b, 1440, 900); load(p, setup="localStorage.setItem('hiphi2_today_scope_demo', 'team')")
     p.evaluate("""(async () => { const d = await import('./staff/data.js'), m = await import('./staff/model.js');
       const b = m.sessionClock(d.S.bills).noHearing[0];
-      for (let i = 0; i < 4; i++) d.S.bills.push({ ...b, id: 990000 + i, bill_number: 'HB' + (9901 + i) });
+      for (let i = 0; i < 5; i++) d.S.bills.push({ ...b, id: 990000 + i, bill_number: 'HB' + (9901 + i) });
       d.hooks.render(); })()""")
     p.wait_for_timeout(500); press(p); s = p.evaluate(STATE)
     ok(s['count'] > 5 and s['bills'] == 5 and f'Showing 5 of {s["count"]}.' in s['note'], f'more than five: five shown, and the note says so ({s["count"]} counted, "{s["note"]}")')
