@@ -182,6 +182,15 @@ Reduce Motion everything still works, with no movement. (Rewritten 9/21 for R-02
 *Reason.* WCAG 2.2.2 and 2.3.3; NN/g on animation duration; lessons the learner steps through
 teach, lessons that play at them don't.
 
+**Implementation note, added 9/22.** `pub/fx.js` stays the one place motion lives; no animation
+library is added (no build step). For a *new* animation, reach for the browser's own primitives
+before hand-rolling `requestAnimationFrame` math: CSS Motion Path (`offset-path`/`offset-distance`)
+for anything that follows a drawn route (compositor-smooth, `offset-rotate: auto` faces the path for
+free), the Web Animations API (`element.animate()`) for tweens, fades and bursts (native
+pause/reverse/`.finished`, easy to gate on Reduce Motion). Don't rewrite `travel()`, `burst()` or
+`swap()` for cleanliness alone — they are shipped, tested and already meet this rule; only reach for
+the native primitives on the next new animation, still routed through `fx.js`.
+
 ### A-11 No emoji on the public page or Staff v2
 
 Icons are Lucide via `icons.js`. Every icon that carries meaning also has a text label or an
