@@ -601,6 +601,21 @@ comes only after the lesson that answers it. (Added 9/21 for R-023.)
 tedious manner". The review measured 60% of "Reading a bill" and 54% of "What a hearing is" hidden
 behind taps, so anyone who pressed Next learned almost nothing.
 
+### C-13 Every question changes what the person sees next
+
+A question in the first visit (and anywhere a person is asked about themselves) earns its place only if
+the answer visibly changes what they see soon after: which issues appear, which bill the lessons use,
+whose names come up, what their reminders are about. If nothing downstream uses the answer, make it
+matter or drop the question. A quiz that checks a lesson is not covered. (Added 9/23, R-052.)
+
+**Nate may waive it case by case.** A question that stays without a visible effect needs his yes, recorded
+as an exception in `DESIGN-AUDIT.md` with the reason and date. Without that, it is a defect.
+
+*Reason.* Every question is a place to stop (C-5), and people answer more willingly when they can see the
+answer being used; evidence **strong** that relevant, personalized experiences keep people engaged, and a
+short questionnaire whose answers go nowhere reads as data collection. Checked by `first_visit_funnel`: how
+many skip a question, and how many finish after it.
+
 ---
 
 ## The review checklist
@@ -626,6 +641,8 @@ behind taps, so anyone who pressed Next learned almost nothing.
     step was skipped.
 15. **Honest nudges.** Every prompt, default, reminder and alert added: would it still work if the
     person saw exactly why it is there? (P-5)
+16. **Questions pay off.** For each question the person is asked, what does the answer change on a
+    later screen? Nothing, and no recorded waiver from Nate, is a defect. (C-13)
 
 ## Budgets, in one place
 
