@@ -19,7 +19,9 @@ first visit.* Everything below is an attempt to make that checkable by somebody 
 1. **Cite a rule when you make a design decision.** Every rule has an id (`A-1`, `B-4`, `C-2`).
    Commit messages and HANDOFF entries say which rules a change serves or breaks. That is the whole
    mechanism by which "best practice is referenced in every design choice" becomes true rather than
-   claimed.
+   claimed. **Cite the rules that decided it, usually one to three**, not the whole checklist: a list of
+   every rule touched buries the one that mattered. The full pass is for `/design-review` before shipping.
+   (Added 9/23, R-051.)
 2. **A rule you disagree with is a rule to change, not to skip.** Open the document, change the rule,
    say why in the commit. A standard that gets quietly ignored is worse than none, because it lies.
 3. **Every rule carries its reason.** The reason is the part that generalises to a screen this
@@ -47,9 +49,9 @@ the order of precedence.
 
 ---
 
-## Part 0 — the three promises
+## Part 0 — the promises
 
-Everything else is these three made specific. When two rules collide, the promise decides.
+Everything else is these made specific. When two rules collide, the promise decides.
 
 - **P-1 — Say the thing they came for, first.** Every screen exists to deliver one thing. That thing
   appears before anything that helps you find, filter, sort or act on it. Chrome earns its place; content
@@ -64,6 +66,13 @@ Everything else is these three made specific. When two rules collide, the promis
   sentence of instruction to be usable, the screen is wrong, not the reader. **A tooltip, a help link
   or an explanatory paragraph is evidence of a design problem, not a solution to one** — write it if it
   helps today, but record what it was covering for.
+- **P-5 — Every nudge helps the person who follows it.** Before adding a prompt, a default, a reminder, a
+  count or an alert, ask: does this help the person who acts on it, or does it only work through pressure,
+  guilt, false urgency, confusion or friction? If the second, leave it out and find the honest version. This
+  covers the whole public side and staff alerts, not only the email ask (C-3 is this promise applied there).
+  *Reason:* people trust a public-health body with their address and their name on testimony; one tactic that
+  feels like a trick costs more trust than it wins in sign-ups, and some are against consumer and email law.
+  (Added 9/23, R-051.)
 
 ---
 
@@ -585,6 +594,8 @@ behind taps, so anyone who pressed Next learned almost nothing.
 13. **States.** Press, hover, focus, disable and load every control you added. (A-15, A-16)
 14. **Look at the screenshots.** Phone and desktop, both. Several bad screens shipped when this
     step was skipped.
+15. **Honest nudges.** Every prompt, default, reminder and alert added: would it still work if the
+    person saw exactly why it is there? (P-5)
 
 ## Budgets, in one place
 
