@@ -462,9 +462,12 @@ which makes people hesitate before a form they were going to complete.
 **Defaults, added 9/23 (R-052).** A choice may start filled in only when we are highly confident it is what
 the person would pick for themselves: our own numbers show most people choose it, or it is plainly in the
 person's interest, it is visible and one tap undoes it. When we are not that sure, leave it empty or ask. Never
-pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses. (The
-first visit's screen 2 starts with some issues ticked, Nate's 9/21 decision; whether that meets this bar is
-an open question in R-052.) *Reason.* Most people keep a default and read
+pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses.
+**HIPHI's own recommendations are the one other thing that may start selected** (Nate, 9/23): the issues and
+bills the team recommends are what we are asking people to back, and a tick is how we say so. Three
+conditions: every selected item is on screen when the person decides (nothing is chosen unseen), one tap
+removes it, and skipping the step selects nothing. The first visit's screen 2 is the example: HIPHI's
+strongly supported and staff-recommended issues among the four shown start ticked, and Skip follows nothing. *Reason.* Most people keep a default and read
 it as advice, so a default is a recommendation made in their name; evidence **mixed** (defaults are strongly
 sticky; "fewer choices is better" is not reliable). A pre-ticked box is not valid consent under EU law
 (Planet49); a lawyer should confirm what US email and state privacy law require of the sign-up.
