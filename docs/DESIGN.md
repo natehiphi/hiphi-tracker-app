@@ -46,6 +46,16 @@ the order of precedence.
 | **Hick's law; Fitts's law** | The choice budget (A-2) and target sizes (A-6) | The two places where "overwhelming" and "fiddly" have actual arithmetic behind them. |
 | **UI/UX Design Fundamentals** (Nate, 2026-09-19) | Signifiers, hierarchy, component states, shadows, micro-interactions | Brought in by Nate. Rules A-12 to A-22 come from it. |
 | **Turning a Vibe-Coded App Into Professional Software** (Nate, 2026-09-19) | Repetition, secondary-action cleanup, form and navigation discipline, first-impression quality | Brought in by Nate. Its central warning - that generated software repeats itself and never decides what matters - is the one most worth guarding against here, because these apps were built fast. |
+| **Design Principles Reference** (Nate, 2026-09-23) | Defaults (B-12), honest progress (C-7), motion never alone (A-10), how strong the evidence is | Brought in by Nate (R-052). Most of it was already here (C-1, C-3 to C-5, C-7, P-5, A-10); the subscription, App Store, habit and community parts do not fit a free public tracker and were left out. |
+
+**How strong is the evidence?** A rule that rests on behavioural research says so, in one word:
+**strong** (well replicated), **mixed** (real, but depends on the situation) or **contested** (researchers
+actively disagree). Popular figures are not quoted as fact: "losses hurt twice as much" is contested, and the
+jam study (6 flavours against 24) is weak support for choice overload, which a 2010 review of 50 experiments
+found close to zero on average. A principle graded mixed or contested is a guess to test against our own
+numbers (`first_visit_funnel`, follows, actions sent), not a rule to apply on its say-so. (Added 9/23, R-052.)
+*Reason.* A rule borrowed from a popular summary carries the summary's confidence, not the research's. Grading
+it keeps us from building on a claim that does not hold, and tells the next reader how hard to defend it.
 
 ---
 
@@ -186,7 +196,10 @@ Screen changes take 200-300 ms and slide the way the person is going. Feedback o
 Teaching scenes move only when the person taps, and each step's movement is over within about 4
 seconds, in beats that follow its caption. Nothing moves by itself for more than 5 seconds. Under
 Reduce Motion everything still works, with no movement. (Rewritten 9/21 for R-023, Nate's decision 5;
-`pub/fx.js` holds the shared pieces.)
+`pub/fx.js` holds the shared pieces.) **Motion is never the only way something is said:** whatever a
+movement shows (a tick, a count going up, a bill moving to its next stage) is also there in words or in
+the finished still picture, so a person who blinks, uses a screen reader or has Reduce Motion on misses
+nothing. (Added 9/23, R-052; Apple HIG, Motion.)
 
 *Reason.* WCAG 2.2.2 and 2.3.3; NN/g on animation duration; lessons the learner steps through
 teach, lessons that play at them don't.
@@ -446,6 +459,16 @@ why, if the reason is not obvious.
 *Reason.* Every field is a place to stop. A sparse flyout also reads as "something is missing here",
 which makes people hesitate before a form they were going to complete.
 
+**Defaults, added 9/23 (R-052).** A choice may start filled in only when we are highly confident it is what
+the person would pick for themselves: our own numbers show most people choose it, or it is plainly in the
+person's interest, it is visible and one tap undoes it. When we are not that sure, leave it empty or ask. Never
+pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses. (The
+first visit's screen 2 starts with some issues ticked, Nate's 9/21 decision; whether that meets this bar is
+an open question in R-052.) *Reason.* Most people keep a default and read
+it as advice, so a default is a recommendation made in their name; evidence **mixed** (defaults are strongly
+sticky; "fewer choices is better" is not reliable). A pre-ticked box is not valid consent under EU law
+(Planet49); a lawyer should confirm what US email and state privacy law require of the sign-up.
+
 ### B-13 Navigation earns its place
 
 A destination in the tab bar or sidebar is something people go to often. Anything reached rarely, or
@@ -525,7 +548,11 @@ more celebration animations at different stages".)
 
 *Reason.* Nate's words are "joyous" and "more celebration at different stages"; celebration works
 because the rest of the app is calm, so each one is sized to what was done, and the biggest comes
-last (peak-end). Progress belongs to the person (Nate's rule); community numbers appear only inside a
+last (peak-end). **Progress starts only from real steps (added 9/23, R-052):** anything that shows
+how far someone has come may start above zero only for something they really did (picked an issue, found
+their legislators), never a made-up head start; evidence **strong** that a real head start helps people
+finish (Nunes and Drèze 2006), and a faked one costs trust once noticed. Whether it helps here is a guess
+until `first_visit_funnel` shows it. Progress belongs to the person (Nate's rule); community numbers appear only inside a
 bill or hearing, and only from 10 people.
 
 ### C-8 A returning person is never made to start again
