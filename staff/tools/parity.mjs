@@ -14,7 +14,8 @@ const calls = src => {
 // Calls only Staff v2 makes, on purpose: features built after the team chose to move to Staff v2 (9/20), which the
 // current app, being retired, does not get. Everything else must still match.
 const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_categories', 'table bill_issues', 'rpc merge_issues {p_from,p_into}',   // Issues (063, R-018)
-  'rpc first_visit_funnel {weeks}', 'rpc first_visit_sources {weeks}', 'table partners']);   // the first visit's numbers and links (067-069, R-023)
+  'rpc first_visit_funnel {weeks}', 'rpc first_visit_sources {weeks}', 'table partners',   // the first visit's numbers and links (067-069, R-023)
+  'rpc triage_followed']);   // Sort new bills: untracked bills the public follows (074, R-059)
 const cur = calls(read('app.js')), v2 = new Set([...calls(read('staff/data.js')), ...calls(read('staff/model.js'))].filter(x => !V2_ONLY.has(x)));
 // Calls the current app makes only from its screens (none expected: every call lives in DB) would show up here.
 const onlyCur = [...cur].filter(x => !v2.has(x)), onlyV2 = [...v2].filter(x => !cur.has(x));

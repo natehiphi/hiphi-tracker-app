@@ -16,7 +16,7 @@
 // (the coalition's owner unless you pick someone; General HIPHI and HIPHI are Nate's), P1 or P2, and any of the seven
 // positions. Coalition, owner and position are pickers (the bill page's own control for a position), so every choice
 // is a Tab and an arrow key away; P1 and P2 are two buttons.
-import { S, DB, esc, advocate, SESSION_YEAR, hooks } from './data.js';
+import { S, DB, esc, advocate, SESSION_YEAR, hooks, fmtDate } from './data.js';
 import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
 import { icon, btn, pickerChip, segmented, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON } from './ui.js';
 import { iconName } from './setup.js';
@@ -73,8 +73,21 @@ const order = rows => rows.map((r, i) => [r, i]).sort(([a, i], [b, j]) => {
 function load() {
   if (S.st2TriageBusy) return; S.st2TriageBusy = true;
   // The queue comes back capped at 400 (app.js asks for p_limit 400); remember that, so the count says "400+".
-  loadTriage().then(() => { const t = T(); if (t.rows) { t.capped = t.rows.length >= 400; t.rows = order(t.rows); } })
+  const followed = DB.triageFollowed().then(rows => { T().followed = rows; }, () => { T().followed = []; });
+  Promise.all([loadTriage().then(() => { const t = T(); if (t.rows) { t.capped = t.rows.length >= 400; t.rows = order(t.rows); } }), followed])
     .finally(() => { S.st2TriageBusy = false; if (S.route?.name === 'triage') hooks.render(); });
+}
+// Bills people follow on the public tracker that the team does not track (R-059, 9/26: before this the team never
+// heard of them). Most followed first. "Sort it" puts one on the card, where it is decided like any new bill; one the
+// team set aside is listed again only when someone followed it after that decision (migration 074). A follow kept only
+// in a browser, without an account, never reaches the database, so it cannot be counted.
+const people = n => `${n} ${n === 1 ? 'person follows' : 'people follow'} it`;
+function followedPanel(t) {
+  const onCard = t.rows?.[t.focus]?.id;
+  const list = (t.followed || []).filter(r => r.id !== onCard && !S.bills.some(b => b.id === r.id));
+  if (!list.length) return '';
+  return `<section class="st-recent st-follow" aria-labelledby="st-folh"><h2 class="st-rech" id="st-folh">Followed on the public tracker</h2>
+    <ul class="st-reclist">${list.map(r => `<li><span class="st-recb"><span class="st-rect"><b>${esc(r.bill_number)}</b> ${esc(titleCaseHI(r.title || '').replace(/^Relating to /i, '').replace(/\.$/, ''))}</span><span>${people(r.followers)}${r.set_aside_at ? ` · set aside ${esc(fmtDate(r.set_aside_at))}` : ''}</span></span>${btn('Sort it', { kind: 'secondary', sm: true, attrs: { 'data-tfol': r.id, 'aria-label': `Sort ${r.bill_number}, which ${people(r.followers).replace(/ it$/, '')}` } })}</li>`).join('')}</ul></section>`;
 }
 const campName = t => t.camp ? (S.campaigns.find(x => x.id === t.camp)?.name || 'this coalition') : 'all coalitions';
 
@@ -104,6 +117,7 @@ function recent(t) {
 }
 function why(r) {
   const { real, loose } = realMatches(r), out = [];
+  if (r.followers) out.push(`<p class="st-why">${icon('users-round')}<span>${people(r.followers)} on the public tracker${r.set_aside_at ? `, since it was set aside ${esc(fmtDate(r.set_aside_at))}` : ''}.</span></p>`);
   if (real.length) out.push(`<p class="st-why">${icon('sparkles')}<span>Why it's suggested: matches ${real.map(m => `${m.terms.map(k => `<b>${esc(k)}</b>`).join(', ')} for ${esc(m.name)}`).join('; ')}</span></p>`);
   else if (loose.length) out.push(`<p class="st-why">${icon('sparkles')}<span>Suggested for ${esc(loose[0].name)} because of "${esc(loose[0].terms[0])}", but only inside another word.</span></p>`);
   const l = r.lookalike;
@@ -160,19 +174,19 @@ export default {
         text: `${t.done ? `You decided ${t.done} bill${t.done === 1 ? '' : 's'} this sitting. ` : ''}${t.matchedOnly ? `Nothing suggested is waiting${t.camp ? ` for ${esc(campName(t))}` : ''}. New bills show up here as they are introduced.` : 'No undecided bills are left.'}`,
         action: `<div class="btncol">${btn('Back to bills', { href: '#/bills' })}${t.matchedOnly ? btn('Look through every undecided bill', { kind: 'text', attrs: { 'data-tall': '1' } }) : ''}</div>` })}</div>`;
       // The decisions just made can still be undone from here.
-      return desk ? `<div class="${cls}">${head}${filters}<div class="sv-cols st-tcols"><div class="st-tmain">${doneCard}${foot}</div><aside class="sv-aside st-tside" aria-label="Your decisions">${recent(t)}</aside></div></div>`
-        : `<div class="${cls}">${head}${filters}${doneCard}${t.hist.length ? recent(t) : ''}${foot}</div>`;
+      return desk ? `<div class="${cls}">${head}${filters}<div class="sv-cols st-tcols"><div class="st-tmain">${doneCard}${followedPanel(t)}${foot}</div><aside class="sv-aside st-tside" aria-label="Your decisions">${recent(t)}</aside></div></div>`
+        : `<div class="${cls}">${head}${filters}${doneCard}${followedPanel(t)}${t.hist.length ? recent(t) : ''}${foot}</div>`;
     }
     t.focus = Math.min(Math.max(0, t.focus), t.rows.length - 1);
     const r = t.rows[t.focus];
     if (desk) return `<div class="${cls}">${head}${filters}<div class="sv-cols st-tcols">
-        <div class="st-tmain">${card(t, r, true)}${howBox}${foot}</div>
+        <div class="st-tmain">${card(t, r, true)}${followedPanel(t)}${howBox}${foot}</div>
         <aside class="sv-aside st-tside" aria-label="Decide on ${esc(r.bill_number)}">
           <section class="card st-decide" aria-labelledby="st-dech"><h2 class="st-rech" id="st-dech">Decide on ${esc(r.bill_number)}</h2>${pickers(t, r)}<div class="st-dbtns">${decideBtns()}</div>${keysLine()}</section>
           <section class="st-progbox" aria-label="Progress">${progress(t)}</section>
           ${recent(t)}
         </aside></div></div>`;
-    return `<div class="${cls}">${head}${filters}${card(t, r, false)}${keysLine()}${t.hist.length ? recent(t) : ''}${howBox}${foot}</div>`;
+    return `<div class="${cls}">${head}${filters}${card(t, r, false)}${keysLine()}${followedPanel(t)}${t.hist.length ? recent(t) : ''}${howBox}${foot}</div>`;
   },
   // Phones decide from a bar at the bottom; a desktop has the buttons in the side panel, next to what they decide.
   bar() {
@@ -216,6 +230,10 @@ export default {
     root.querySelectorAll('[data-seg="tpri"]').forEach(b => b.onclick = e => { t.pri[r.id] = b.dataset.val;
       root.querySelectorAll('[data-seg="tpri"]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       if (e.detail > 0) $('#st-tnum')?.focus({ preventScroll: true }); });
+    root.querySelectorAll('[data-tfol]').forEach(b => b.onclick = () => {
+      const f = (t.followed || []).find(x => x.id === b.dataset.tfol); if (!f) return;
+      t.rows = [f, ...(t.rows || []).filter(x => x.id !== f.id)]; t.focus = 0; rerender('#st-tnum'); window.scrollTo(0, 0);
+    });
     $('[data-ttrack]').onclick = () => decide('track');
     $('[data-tskip]').onclick = () => decide('skip');
     $('[data-tlater]').onclick = () => later();
@@ -249,6 +267,7 @@ async function decide(kind) {
     } else {
       await DB.triageSkip(r);
       const h = { key: ++seq, kind: 'skip', row: r, idx }; t.hist.unshift(h); t.last = { ...r, tracked: false };
+      if (t.followed) t.followed = t.followed.filter(x => x.id !== r.id);   // set aside now: not asked again until a new follow
       count(t, r, -1, false); done(t, idx);
       toast(`${r.bill_number} is off the list.`, { undo: () => undoEntry(h) });
     }

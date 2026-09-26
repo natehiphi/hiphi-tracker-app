@@ -497,6 +497,17 @@ export const DB = {
     if (DEMO) { const q = demoTriageQueue(null, false); return { year: SESSION_YEAR, introduced: S.bills.length + (S.snapshot?.index || []).length, tracked: S.bills.length, undecided: q.length, suggested: q.filter(r => r.matches).length }; }
     const { data, error } = await S.supa.rpc('triage_counts'); if (error) throw error; return data;
   },
+  // Bills people follow on the public tracker that the team does not track (migration 074, R-059). The sandbox has no
+  // public accounts, so it shows two bills with sample counts, the way it has sample supporters.
+  async triageFollowed() {
+    if (DEMO) {
+      const done = S.demoTriaged || new Set(), tracked = new Set(S.bills.map(b => b.id));
+      return (S.snapshot?.index || []).filter(b => /^(HB|SB)\d+$/.test(b.bill_number) && /TOBACCO|VAP|SCHOOL MEAL|SUGAR/i.test(b.title || '') && !done.has(b.id) && !tracked.has(b.id))
+        .slice(0, 2).map((b, i) => ({ id: b.id, bill_number: b.bill_number, chamber: b.chamber, title: b.title, description: null, introduced_at: null,
+          companions: [], matches: null, lookalike: null, followers: [4, 1][i], followed_at: '2026-03-14T20:00:00Z', set_aside_at: null }));
+    }
+    const { data, error } = await S.supa.rpc('triage_followed'); if (error) throw error; return data || [];
+  },
   async triageTrack(row, campaignId) {
     const camp = S.campaigns.find(c => c.id === campaignId);
     if (DEMO) {
