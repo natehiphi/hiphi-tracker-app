@@ -482,6 +482,15 @@ function connection(E, legs) {
 // our own address list, which a new street or a slow connection can leave empty (Enter does the same).
 const typed = (q, results) => q.length >= 5 && /^\d/.test(q) && !results.some(r => r.exact);
 const lastName = l => { const s = String(l.sort_name || '').split(',')[0].trim(); return s || String(l.name || '').split(' ').slice(-1)[0]; };
+// The error and the address suggestions under the box. Typing repaints only this (R-040): redrawing the whole screen
+// on every letter replaced the box itself, which on a phone threw the cursor to the end and broke the keyboard's own
+// word suggestions mid-word.
+function addrSugsHTML() {
+  const A = S.stAddr, q = A.q.trim(), results = APstart.results(q);
+  return `${A.err ? `<p class="st-info-small">${icon('info')}<span>${esc(A.err)}</span></p>` : ''}
+    ${results.length || typed(q, results) ? `<div class="st-sugs" role="group" aria-label="Addresses">${results.map((r, i) => `<button type="button" class="st-sug" data-staddrpick="${i}">${icon('map-pin')}<span>${esc(r.label)}</span></button>`).join('')}
+      ${typed(q, results) ? `<button type="button" class="st-sug" data-staddrtyped="1">${icon('search')}<span>Look up “${esc(q)}” as typed</span></button>` : ''}</div>` : ''}`;
+}
 function stepYou(step) {
   const A = S.stAddr, E = example();
   let body;
@@ -496,13 +505,10 @@ function stepYou(step) {
   } else if (A.finding) {
     body = `<p class="st-info-small" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding your districts…</span></p>`;
   } else {
-    const q = A.q.trim(), results = APstart.results(q);
     body = `<div class="field"><label for="st-addr">Your street address</label>
         <input id="st-addr" type="text" autocomplete="street-address" placeholder="Start typing, like 45-600 Keaahala Rd" value="${esc(A.q)}" data-staddr="1">
         <span class="help">We use it only to find your districts. It isn’t saved.</span></div>
-      ${A.err ? `<p class="st-info-small">${icon('info')}<span>${esc(A.err)}</span></p>` : ''}
-      ${results.length || typed(q, results) ? `<div class="st-sugs" role="group" aria-label="Addresses">${results.map((r, i) => `<button type="button" class="st-sug" data-staddrpick="${i}">${icon('map-pin')}<span>${esc(r.label)}</span></button>`).join('')}
-        ${typed(q, results) ? `<button type="button" class="st-sug" data-staddrtyped="1">${icon('search')}<span>Look up “${esc(q)}” as typed</span></button>` : ''}</div>` : ''}`;
+      <div id="st-addrsugs">${addrSugsHTML()}</div>`;
   }
   return shell('st1 st-you', `${topRow('you', step)}${artFor('you')}
     <h1 class="hero" id="st-h">Who speaks for you</h1>
@@ -858,11 +864,12 @@ function wire(route) {
 
   if (name === 'you') {
     const abox = $('[data-staddr]');
+    // Only the list under the box is redrawn while typing; the box itself stays, with the cursor where the person put it.
+    const paintSugs = () => { const box = document.getElementById('st-addrsugs'); if (!box) return; box.innerHTML = addrSugsHTML(); wireSugs(); };
     if (abox) abox.oninput = () => {
       S.stAddr.q = abox.value; S.stAddr.err = '';
-      APstart.search(abox.value.trim(), () => app.render());
-      app.render();
-      requestAnimationFrame(() => { const again = document.querySelector('[data-staddr]'); if (again) { again.focus({ preventScroll: true }); again.setSelectionRange(again.value.length, again.value.length); } });
+      APstart.search(abox.value.trim(), paintSugs);
+      paintSugs();
     };
     const look = async r => {
       S.stAddr.finding = true; app.render();
@@ -877,8 +884,11 @@ function wire(route) {
         later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
       } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
     };
-    $$('[data-staddrpick]').forEach(el => el.onclick = () => { const r = APstart.results(S.stAddr.q.trim())[+el.dataset.staddrpick]; if (r) look({ label: r.label, pt: r }); });
-    $$('[data-staddrtyped]').forEach(el => el.onclick = () => look({ label: S.stAddr.q.trim(), pt: null }));
+    function wireSugs() {
+      $$('[data-staddrpick]').forEach(el => el.onclick = () => { const r = APstart.results(S.stAddr.q.trim())[+el.dataset.staddrpick]; if (r) look({ label: r.label, pt: r }); });
+      $$('[data-staddrtyped]').forEach(el => el.onclick = () => look({ label: S.stAddr.q.trim(), pt: null }));
+    }
+    wireSugs();
     if (abox) abox.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault();
       const q = abox.value.trim(), r = APstart.results(q)[0];
       if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null }); };
