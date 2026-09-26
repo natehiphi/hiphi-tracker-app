@@ -117,8 +117,54 @@ export function stageRibbon(b, { labels = true } = {}) {
   const set = b.stage_override ? ' · set by the team' : '';
   return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}.${i >= 0 ? ` Step ${i + 1} of ${RIBBON.length}.` : ''}`)}">${
     RIBBON.map(([, l], n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}" title="${esc(l)}"></i>`).join('')
-  }</div>${labels ? `<p class="sv-riblab"><span>${esc(RIBBON[0][1])}</span><b>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
+  }</div>${labels ? `<p class="sv-riblab" data-at="${i}"><span>${esc(RIBBON[0][1])}</span><b>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
 }
+
+// The caption names the current step right under its own bar (R-005, option A, Nate 9/26). It used to sit halfway
+// between "Introduced" and "Law" wherever the step was, up to two whole bars away, so it read as a mistake. Placing it
+// needs the drawn bars, so it is measured after each redraw; until then (or with no step marked) the caption stays
+// centred between the ends. An end label that the caption would touch is hidden, and so is the end the bill is at
+// ("Introduced" under "Introduced"); the ribbon's own label still says it.
+function anchorRibbons() {
+  for (const p of document.querySelectorAll('.sv-riblab[data-at]')) {
+    const at = +p.dataset.at, bars = p.previousElementSibling, seg = bars?.children?.[at], b = p.querySelector('b');
+    const [first, last] = [p.firstElementChild, p.lastElementChild];
+    p.classList.remove('anch'); first.classList.remove('hid'); last.classList.remove('hid'); b.style.left = '';
+    if (!(at >= 0) || !seg || !b || !p.offsetWidth) continue;
+    p.classList.add('anch');
+    const W = p.clientWidth, w = b.offsetWidth, box = p.getBoundingClientRect(), r = seg.getBoundingClientRect();
+    if (w > W) { p.classList.remove('anch'); continue; }
+    const x = Math.min(Math.max(0, r.left + r.width / 2 - box.left - w / 2), W - w);
+    b.style.left = Math.round(x) + 'px';
+    const gap = 8, n = bars.children.length;
+    if (at === 0 || first.offsetWidth + gap > x) first.classList.add('hid');
+    if (at === n - 1 || W - last.offsetWidth - gap < x + w) last.classList.add('hid');
+  }
+}
+// Desktop: a page's own back link ("Bills", "Legislators", "Emails", "Help"...) sits at the top of the page and scrolled
+// away with it, so going back from far down meant scrolling up first (R-005; plan wave 6a: the person, legislator,
+// composer, list, Bills filter and Help pages, then the hearing and coalition pages). Once it has gone under the
+// header, the same link comes back pinned just below the header; pressing it presses the page's own link, so real
+// Back, the leave guards and the label all stay the page's. (The bill page pins its own top bar, R-042.)
+const DESKBACK = '.co-deskback, .hr-deskback, .bl-deskback, .lg-deskback, .le-deskback, .sp-deskback, .st-crumb';
+function floatBack() {
+  let fb = document.getElementById('sv-floatback');
+  const main = document.getElementById('main');
+  const src = main && matchMedia('(min-width: 900px)').matches ? [...main.querySelectorAll(DESKBACK)].find(a => a.offsetParent) : null;
+  const hdr = document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 56;
+  if (!src || src.getBoundingClientRect().bottom > hdr || document.querySelector('dialog[open]')) { if (fb) fb.hidden = true; return; }
+  if (!fb) { fb = document.createElement('button'); fb.type = 'button'; fb.id = 'sv-floatback'; fb.className = 'sv-floatback'; document.body.appendChild(fb);
+    fb.onclick = () => fb.src?.isConnected && fb.src.click(); }
+  const label = src.textContent.trim();
+  if (fb.src !== src) { fb.src = src; fb.innerHTML = `${icon('chevron-left')}<span>${esc(label)}</span>`; fb.setAttribute('aria-label', src.getAttribute('aria-label') || `Back to ${label}`); }
+  fb.style.top = Math.round(hdr + 8) + 'px'; fb.style.left = Math.round(src.getBoundingClientRect().left) + 'px'; fb.hidden = false;
+}
+let ribRaf = 0;
+const ribSoon = () => { if (!ribRaf) ribRaf = requestAnimationFrame(() => { ribRaf = 0; anchorRibbons(); floatBack(); }); };
+if (typeof MutationObserver === 'function' && document.body) new MutationObserver(recs => { if (recs.some(r => r.addedNodes.length)) ribSoon(); }).observe(document.body, { childList: true, subtree: true });
+addEventListener('resize', ribSoon);
+let fbRaf = 0;
+addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() => { fbRaf = 0; floatBack(); }); }, { passive: true });
 
 // ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long
 // list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----

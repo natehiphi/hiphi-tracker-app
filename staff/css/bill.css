@@ -6,6 +6,10 @@
 /* The frame gives this page its whole width (wide: true in bill.js); the page caps itself. Phones and small tablets
    keep the 720px column they had (688px inside the gutters). */
 .bw-page { max-width: 688px; margin-left: auto; margin-right: auto; }
+/* The team note is the last thing on the page: room under it, so "Save note" can scroll clear of the "Note saved"
+   message and its Undo, which sits over the page's foot for ten seconds (bottom left on a laptop, above the tabs on a
+   phone). */
+.bw-page { padding-bottom: 72px; }
 
 /* ---- phones: the frame's header is the top bar; the number is its h1 and ⋯ sits beside search ---- */
 .bw-ver { color: var(--n500); }

@@ -243,6 +243,22 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
 .sv-riblab b .set { color: var(--n500); font-weight: 400; }
 .sv-rib.stopped + .sv-riblab b { color: var(--n700); }
 .sv-rib.done + .sv-riblab b { color: var(--o600); }
+/* A page's own back link, pinned under the header once it has scrolled away (ui.js floatBack; desktop only). */
+.sv-floatback { position: fixed; z-index: 40; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px 0 6px;
+  border: 1px solid var(--n200); border-radius: var(--pill); background: var(--n0, #fff); box-shadow: 0 2px 8px rgba(20, 43, 53, .12);
+  color: var(--p700); font: 700 var(--t14)/1 var(--font); cursor: pointer; }
+.sv-floatback[hidden] { display: none; }
+.sv-floatback:hover { background: var(--p50); }
+.sv-floatback:focus-visible { outline: 3px solid var(--p300); outline-offset: 2px; }
+.sv-floatback .ic { width: 18px; height: 18px; }
+@media (max-width: 899px) { .sv-floatback { display: none; } }
+/* Placed (ui.js anchorRibbons): the caption sits centred under the current bar, the ends at the edges. */
+.sv-riblab.anch { position: relative; display: block; height: 1.45em; }
+.sv-riblab.anch > span { position: absolute; top: 0; }
+.sv-riblab.anch > span:first-child { left: 0; }
+.sv-riblab.anch > span:last-child { right: 0; }
+.sv-riblab.anch > b { position: absolute; top: 0; white-space: nowrap; }
+.sv-riblab.anch > .hid { visibility: hidden; }
 /* The ends stay on a phone: without them the ribbon is twelve unlabelled dashes (A-12, P-4). */
 @media (max-width: 420px) { .sv-riblab { gap: var(--s4); font-size: var(--t13); } .sv-riblab span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 

@@ -62,6 +62,13 @@ export function afterBack(fn) {
 }
 // Text typed but not saved yet (a team note, a message, the public copy) outlives the re-render a save elsewhere causes.
 export const drafts = new Map();
+// A team note typed and not saved lives only in this tab: moving between bills keeps it, but a reload or closing the
+// tab would lose it without a word (R-005; DESIGN C-9). The browser asks first.
+addEventListener('beforeunload', e => {
+  for (const [k, v] of drafts) { if (!k.endsWith(':note')) continue;
+    const b = (S.bills || []).find(x => String(x.id) === k.slice(0, -5));
+    if (b && v.trim() !== (b.internal_notes || '').trim()) { e.preventDefault(); e.returnValue = ''; return; } }
+});
 
 // ---- which bill, which tab ----
 const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'Pathway'], ['public', 'Public'], ['testimony', 'Testimony']];
@@ -1031,8 +1038,10 @@ function wireOverview(pnl, b) {
   const note = pnl.querySelector('#bw-note');
   note.oninput = () => drafts.set(b.id + ':note', note.value);
   pnl.querySelector('[data-savenote]').onclick = async e => {
-    const v = note.value.trim(); const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
-    try { await DB.updateBill(b.id, { internal_notes: v || null }); drafts.delete(b.id + ':note'); rerender('[data-savenote]'); toast('Note saved.'); }
+    const v = note.value.trim(), before = b.internal_notes ?? null; const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
+    // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).
+    try { await DB.updateBill(b.id, { internal_notes: v || null }); drafts.delete(b.id + ':note'); rerender('[data-savenote]');
+      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: before }); drafts.delete(b.id + ':note'); rerender('#bw-note'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } }); }
     catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
   pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);
