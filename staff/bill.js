@@ -146,10 +146,10 @@ function goBill(b, tab) {
 
 // ---- the tab strip: where it pins, and bringing a tab's content into view ----
 const stickTop = () => { const h = document.querySelector('.sv-hdr'); return h ? h.getBoundingClientRect().height : 56; };
-// Desktop: the heading and the strip pin together as one block (.bw-stick). Its height is not a constant — a long
-// name or a two-line status sentence makes it taller — so it is measured and published as --bw-under, the line under
-// which a tab's content begins. The Pathway table's header row and the Public tab's preview stick to that line.
-const stickBlock = () => { const el = document.querySelector('.bw-stick'); return el && getComputedStyle(el).position === 'sticky' ? el : null; };
+// Desktop: the top bar and the strip stay pinned, the heading scrolls away (R-042). Where the strip's bottom edge sits
+// is measured and published as --bw-under, the line under which a tab's content begins. The Pathway table's header row
+// and the Public tab's preview stick to that line.
+const stickBlock = () => { const el = document.querySelector('.bw-desk .bw-tabs'); return el && getComputedStyle(el).position === 'sticky' ? el : null; };
 function measureStick() {
   const page = document.querySelector('.bw-page'); if (!page) return;
   const el = stickBlock();
@@ -158,12 +158,20 @@ function measureStick() {
 }
 // How far the page scrolls to put the strip right under the header (where position: sticky holds it from then on).
 function pinY() {
-  // Desktop: the whole block pins, so the resting place is the top of the main column, less the header it tucks under.
-  const el = stickBlock();
-  if (el) return Math.max(0, Math.round(el.parentElement.getBoundingClientRect().top + window.scrollY - stickTop()));
+  // The strip pins at its own sticky top: under the header on a phone, under the header and the top bar on desktop.
   const sent = document.querySelector('.bw-tabsent'), nav = document.querySelector('.bw-tabs'); if (!sent || !nav) return 0;
-  return Math.max(0, Math.round(sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - stickTop()));
+  const top = parseFloat(getComputedStyle(nav).top);
+  return Math.max(0, Math.round(sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - (Number.isFinite(top) ? top : stickTop())));
 }
+// Desktop: once the heading has scrolled under the top bar, the top bar names the bill, so the pinned rows still say
+// which bill this is.
+let topRaf = 0;
+function markScrolled() {
+  topRaf = 0;
+  const bar = document.querySelector('.bw-desk .bw-top'), num = document.querySelector('.bw-desk h1.bw-num'); if (!bar || !num) return;
+  bar.classList.toggle('bw-scrolled', num.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
+}
+addEventListener('scroll', () => { if (!topRaf && S.route?.name === 'bill') topRaf = requestAnimationFrame(markScrolled); }, { passive: true });
 // The bottom edge of the pinned block: a field brought into view (the ask on the Public tab) goes below this line.
 export const underTabs = () => { const el = stickBlock();
   return el ? (parseFloat(getComputedStyle(el).top) || 0) + el.offsetHeight : stickTop() + (document.querySelector('.bw-tabs')?.offsetHeight || 0); };
@@ -847,6 +855,7 @@ function topBar(b, route) {
   const o = origin(route), nb = neighbours(b);
   return `<div class="bw-top">
     <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
+    <span class="bw-topnum" aria-hidden="true"><b>${esc(b.bill_number)}</b>${b.nickname ? ` · ${esc(b.nickname)}` : ''}</span>
     ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
       ${nb.prev ? `<a class="btn text bw-pn" href="${billHref(nb.prev, tabOf(route))}" data-nav="prev" aria-label="Previous bill: ${esc(nb.prev.bill_number)}" title="${esc(nb.prev.bill_number)} ([)">${icon('chevron-left')}<span>Previous</span></a>` : `<span class="btn text bw-pn" aria-disabled="true">${icon('chevron-left')}<span>Previous</span></span>`}
       <span class="meta">${nb.i + 1} of ${nb.n}</span>
@@ -986,6 +995,7 @@ export default {
     // opens Activity at the message box. A tab tap never does: it would raise the keyboard uninvited.
     const focusAsk = tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
     measureStick();                        // publishes --bw-under before the tab's own sticky pieces are placed
+    markScrolled();
     if (tab === 'overview') wireOverview(pnl, b);
     else if (tab === 'activity') wireActivity(pnl, b, route, root);
     else if (tab === 'pathway') { try { wirePathway(pnl, b); } catch (e) { console.error(e); } }

@@ -271,11 +271,20 @@
   .bw-head { padding-top: 0; }
   .bw-title { margin-top: var(--s4); }
   .bw-lede { font-size: var(--t16); }
-  /* The heading and the tab strip pin under the app header as ONE block: on a long Activity stream or a long Pathway
-     you keep both your place and the tabs. bill.js measures this block and publishes --bw-under, the line the tab's
-     own sticky pieces (the Pathway table's header row, the Public tab's preview) hold themselves to. */
-  .bw-stick { position: sticky; top: var(--header); z-index: 20; background: var(--n50); }
-  .bw-stick .bw-tabs { position: static; }
+  /* What stays pinned under the app header is the page's slim top bar (Back, Previous / Next, and the bill's number
+     once its heading has scrolled away) and the tab strip, about 90px. The heading, the ribbon and the status sentence
+     scroll away (R-042, Nate 9/22: pinned together they took 250px of an 800px screen and left the tabs' content
+     little room). bill.js measures the strip and publishes --bw-under, the line the tab's own sticky pieces (the
+     Pathway table's header row, the Public tab's preview) hold themselves to. */
+  .bw-top { position: sticky; top: var(--header); z-index: 21; background: var(--n50); }
+  .bw-stick { display: contents; }
+  .bw-stick .bw-tabs { position: sticky; top: calc(var(--header) + var(--bw-toph)); z-index: 20; }
+  .bw-desk { --bw-toph: 44px; }
+  .bw-topnum { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); color: var(--n700); opacity: 0; visibility: hidden; }
+  .bw-topnum b { color: var(--n900); }
+  .bw-scrolled .bw-topnum { opacity: 1; visibility: visible; }
+  .bw-scrolled .bw-back { margin-right: 0; }
+  @media (prefers-reduced-motion: no-preference) { .bw-topnum { transition: opacity .15s ease, visibility .15s; } }
   /* one line, 45px: where the column is too narrow for the key hint it wraps to a second line, which is cut off */
   .bw-tabs { display: flex; flex-wrap: wrap; align-items: stretch; column-gap: var(--s4); row-gap: var(--s8); max-height: 45px; overflow: hidden; margin: var(--s16) 0 0; padding: 0; border-top: 0; background: var(--n50); }
   .bw-tabs a { min-height: 44px; padding: 0 var(--s16); border-radius: var(--r8) var(--r8) 0 0; }
@@ -290,10 +299,10 @@
   /* Stretched to the row, not sized to its own cards: the panel is shorter than the main column, and without this
      its sticky first card would scroll away with the panel a screen into a long Activity stream. */
   .bw-cols > .bw-aside { padding: 2px; margin: -2px; align-self: stretch; }
-  /* Next up docks on the same line as the pinned heading, with no gap: the Team card behind it then passes under the
+  /* Next up docks just under the pinned top bar, with no gap: the Team card behind it then passes under the
      app header instead of showing a stray card edge in the space between. (The shared .sv-stick keeps 16px there,
      and adds the band's 28px from 900px although the band is only sticky from 1100px.) */
-  .bw-cols > .bw-aside > .sv-stick, body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: var(--header); }
+  .bw-cols > .bw-aside > .sv-stick, body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + var(--bw-toph)); }
   .bw-page .bw-aside .card { margin-top: 0; }
   .bw-next .bw-acts .btn { flex: 0 1 auto; }
   /* tighter than the phone card, so Next up and Team both show on a 1280x800 screen */
@@ -413,11 +422,12 @@
   }
 }
 /* From 1100px the sandbox band is sticky and the app header sits 28px under it (staff.css's body.staff2:has(.band)
-   rules). The pinned heading follows the header down, or it would cover the header's lower half. Below 1100px the
-   band scrolls away and the header holds the top, so the plain top: var(--header) above is right there. */
+   rules). The pinned top bar and strip follow the header down, or they would cover the header's lower half. Below
+   1100px the band scrolls away and the header holds the top, so the plain tops above are right there. */
 @media (min-width: 1100px) {
-  body.staff2:has(.band) .bw-stick,
-  body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + 28px); }
+  body.staff2:has(.band) .bw-top { top: calc(var(--header) + 28px); }
+  body.staff2:has(.band) .bw-stick .bw-tabs,
+  body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + 28px + var(--bw-toph)); }
 }
 
 /* Pointers that hover get a wash under everything clickable, not only a colour change. */
