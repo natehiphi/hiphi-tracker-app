@@ -419,7 +419,7 @@ function attendRow(h) {
 }
 function watchLink(h) {
   const v = streamOf(h); if (!v) return '';
-  const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch the hearing';
+  const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch the hearing';
   return `<a class="btn text bw-watch" data-watch="${esc(h.id)}" href="${esc(v.url)}" target="_blank" rel="noopener"${v.hint ? ` title="${esc(v.hint)}"` : ''}>${icon('video')}<span>${label}</span></a>`;
 }
 function hearingCard(b, h, i) {
@@ -773,7 +773,25 @@ function overview(b) {
   const sum = summaryOf(b) ? '' : `<section class="bw-sec bw-sum" aria-labelledby="bw-sum-h"><h2 id="bw-sum-h" class="sr">Summary</h2>
       <p>${desc ? esc(desc) : '<span class="muted">No summary yet. Write one on the Public tab.</span>'}</p>
       ${desc ? '<p class="meta">The official description. A plain summary can be written on the Public tab.</p>' : ''}</section>`;
-  return `${sum}${detailsSection(b)}${teamSection(b, desk)}${todoSection(b)}${noteSection(b)}`;
+  return `${sum}${detailsSection(b)}${teamSection(b, desk)}${todoSection(b)}${noteSection(b)}${allHearings(b)}`;
+}
+// Every hearing the bill has had, newest first, each with its recording (R-033, 9/26): Next up keeps the last 14 days,
+// and before this a hearing and its video left the page after that. Loaded once per bill (DB.billHearings); the
+// recording opens at the bill's own minute where the video's description has one ("Watch this bill’s part").
+S.billHist ??= {};
+function allHearings(b) {
+  const got = S.billHist[b.id];
+  if (!got) { S.billHist[b.id] = 'loading';
+    DB.billHearings(b.id).then(r => { S.billHist[b.id] = r; for (const o of r.outcomes) if (!S.outcomes[o.hearing_id]) S.outcomes[o.hearing_id] = o; if (S.route?.name === 'bill' && billOf(S.route)?.id === b.id) rerender(); })
+      .catch(e => { console.warn('bill hearings', e); S.billHist[b.id] = 'error'; }); }
+  const rows = (got && got.hearings ? got.hearings : S.hearings.filter(h => h.bill_id === b.id))
+    .filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) <= Date.now()).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
+  if (!rows.length) return '';
+  const tone = o => ({ passed: ['ok', 'check'], passed_amended: ['ok', 'check'], deferred: ['', 'circle-x'], recommitted: ['', 'rotate-ccw'] }[o] || ['', 'hourglass']);
+  return `<section class="bw-sec" aria-labelledby="bw-allh-h"><h2 id="bw-allh-h">Hearings <span class="bw-n">${rows.length}</span></h2>
+    <ul class="rows bw-allh">${rows.map(h => { const o = S.outcomes?.[h.id], [t, ic] = tone(o?.outcome);
+      return `<li class="bw-ah"><div><p><b>${esc(cmteFull(h.committee))}</b></p><p class="small muted">${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(roomOf(h.room))}` : ''}</p></div>
+        <div class="bw-ahend">${chip(o?.outcome ? (OUTCOME_LABEL[o.outcome] || o.outcome) : 'No report', t, ic)}${watchLink(h)}</div></li>`; }).join('')}</ul></section>`;
 }
 
 // ---- To do, note, coalitions, stage: wiring ----

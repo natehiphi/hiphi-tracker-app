@@ -722,6 +722,24 @@ export async function browseCoalition(name) {
 // ---------------- helpers ----------------
 export const bill = id => S.bills.find(b => b.id === id);
 export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || ((S.recapPool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
+// A bill page shows every hearing of the bill, not only the 30 days the lists load (R-033, 9/26): its whole history,
+// each with its recording, which since 9/26 opens at the bill's own minute where the video's description has one
+// (public_bill_hearing_history, migration 075). Asked for once per bill and merged in; a failure leaves the 30 days.
+S.hist ??= {};
+export async function ensureHistory(b) {
+  if (DEMO || !b || S.hist[b.id]) return false;
+  S.hist[b.id] = 'loading';
+  try {
+    const { data, error } = await (await supa()).rpc('public_bill_hearing_history', { bill: b.id });
+    if (error) throw error;
+    const have = new Map(hearingsOf(b).map(h => [h.id, h]));
+    // A row already loaded keeps its place; it only gains a recording found since the lists loaded.
+    for (const h of data || []) { const o = have.get(h.id); if (o && !o.stream_url && h.stream_url) o.stream_url = h.stream_url; }
+    S.xh[b.id] = [...(S.xh[b.id] || []), ...(data || []).filter(h => !have.has(h.id)).map(({ outcome, ...h }) => h)];
+    for (const h of data || []) if (h.outcome && !S.outcomes[h.id]) S.outcomes[h.id] = { hearing_id: h.id, bill_id: h.bill_id, outcome: h.outcome };
+    S.hist[b.id] = true; return true;
+  } catch (e) { delete S.hist[b.id]; console.warn('hearing history', e); return false; }
+}
 export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {

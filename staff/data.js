@@ -584,6 +584,16 @@ export const DB = {
   // ---- earlier testimony (R-027): Staff v2 loads 60 days of hearings, but a draft can point to an older hearing, and
   // its bill may no longer be tracked. The Testimony tab asks for both once, the first time it opens, in batches of 100
   // ids so the request stays short. Returns true when anything new arrived, so the tab knows to redraw.
+  // Every hearing of one bill, any year, with what the committee did (R-033, 9/26). The app loads 60 days of hearings
+  // (14 of outcomes) for Today and the Week; a bill page asks for the rest of its own history once. The sandbox
+  // already holds the whole frozen session.
+  async billHearings(billId) {
+    if (DEMO) return { hearings: S.hearings.filter(h => h.bill_id === billId), outcomes: [] };
+    const [h, o] = await Promise.all([S.supa.from('hearings').select('*').eq('bill_id', billId).order('scheduled_at').order('id'),
+      S.supa.from('hearing_outcomes').select('*').eq('bill_id', billId)]);
+    if (h.error) throw h.error; if (o.error) throw o.error;
+    return { hearings: (h.data || []).filter(x => !/^\[TEST\]/.test(x.description || '')), outcomes: o.data || [] };
+  },
   async loadDraftHearings() {
     if (DEMO) return false;
     S.draftHearings ??= {}; S.draftBills ??= {};

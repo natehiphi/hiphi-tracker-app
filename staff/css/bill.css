@@ -139,6 +139,11 @@
 .bw-addrow .input { flex: 1 1 auto; min-width: 0; }
 .bw-addrow .btn { flex: none; min-height: 48px; }
 .bw-page .bw-sec textarea#bw-note { min-height: 88px; }
+/* Every hearing the bill has had (R-033): committee and when on the left, what happened and the recording on the right. */
+.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
+.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--n200); }
+.bw-page .bw-ah p { margin: 0; }
+.bw-page .bw-ahend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 
 /* team rows */
 .bw-line { min-height: 56px; }

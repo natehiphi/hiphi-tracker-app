@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
@@ -537,7 +537,7 @@ function hearingRow(b, h, now) {
   const acts = [
     !past && !off && posInfo(b) && alive(b) && agrees(b) !== false && due && !due.late ? btn('Write testimony', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': h.id, 'data-bill': b.id } }) : '',
     !past && !off ? (S.chips?.[k + 'ics'] ? chip('Calendar file ready', 'ok', 'check') : btn('Add to calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: { 'data-ics': k } })) : '',
-    v ? btn(v.state === 'live' ? 'Watch live' : past ? 'Watch the recording' : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
+    v ? btn(v.state === 'live' ? 'Watch live' : past ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
   ].filter(Boolean).join('');
   return `<li class="bl-hr${past ? ' bl-past' : ''}"><span class="bl-hico">${icon(past ? 'calendar-days' : 'calendar')}</span><div class="bl-hbody">
     <p class="bl-htitle">${esc(cmteLabel(h.committee))}</p>
@@ -612,6 +612,8 @@ function details(b, x) {
     <p class="bl-cap">${btn('Capitol bill page', { kind: 'text', sm: true, icon: 'landmark', iconEnd: 'external-link', href: capitolUrl(b), attrs: { target: '_blank', rel: 'noopener' } })}</p></details>`;
 }
 function page(num, b) {
+  // Every hearing of the bill, with its recording (R-033): the lists load only 30 days, so the rest comes once, here.
+  if (!S.hist?.[b.id]) ensureHistory(b).then(more => { if (more && normNum(numFromHash()) === normNum(b.bill_number)) app.render(); });
   const x = situation(b);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}
