@@ -284,7 +284,7 @@ function fromBill(num) {
   if (!P.bills[num]) { P.bills[num] = 'loading'; ensureBill(num).then(x => { P.bills[num] = x || 'none'; if (x) app.render(); }).catch(() => { P.bills[num] = 'none'; }); }
   return typeof P.bills[num] === 'object' ? P.bills[num] : null;
 }
-const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)}">${icon('arrow-left')}<span>${esc(label)}</span></a>`;
+const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)}" data-back>${icon('arrow-left')}<span>${esc(label)}</span></a>`;
 
 // ---------------- the finder ----------------
 function finderPage(route) {

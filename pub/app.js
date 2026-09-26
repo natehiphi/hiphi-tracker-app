@@ -60,7 +60,8 @@ function go(path, { replace = false, keepScroll = false } = {}) {
   if (!replace && path === (location.hash || '#/')) { window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
   const y = window.scrollY;
   try { history.replaceState({ ...(history.state || {}), y }, ''); } catch { /* ignore */ }
-  if (replace) history.replaceState({ y: 0 }, '', path); else history.pushState({ y: 0 }, '', path);
+  // prev: the page this step was opened from, so a back link can tell whether real Back leads where it says (R-041).
+  if (replace) history.replaceState({ y: 0, prev: history.state?.prev }, '', path); else history.pushState({ y: 0, prev: location.hash || '#/' }, '', path);
   render();
   if (!keepScroll) window.scrollTo(0, 0);
 }
@@ -126,11 +127,18 @@ function focusKey(el) {
   return href ? { sel: `a[href="${CSS.escape(href)}"]` } : null;
 }
 const findByKey = k => { try { return $app().querySelector(k.sel); } catch { return null; } };
+const pathOf = h => String(h || '').split('?')[0];   // "#/find?q=vape" and "#/find" are the same page
 function wireFrame() {
   // Plain <a href="#/..."> links push history on their own; keep them in-app and reset scroll.
   $app().querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-    e.preventDefault(); go(a.getAttribute('href'));
+    e.preventDefault();
+    // A back link ("Back to HB 1234", "All issues") is real Back when the page behind is the one it names. Otherwise it
+    // takes this page's place instead of stacking a new one on top (R-041): stacking made a loop with the bill page's
+    // own Back, which is real Back - bill -> senator -> "Back to HB 1234" (a new bill page) -> Back (the senator again).
+    if (a.hasAttribute('data-back')) { const to = a.getAttribute('href'), prev = history.state?.prev;
+      if (prev && pathOf(prev) === pathOf(to)) history.back(); else go(to, { replace: true }); return; }
+    go(a.getAttribute('href'));
     if (a.hasAttribute('data-focussearch')) setTimeout(() => document.getElementById('q')?.focus(), 30);
   }));
   // "Skip to content" moves focus into the page. It used to be a #main link, which the router read as a page name.

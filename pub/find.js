@@ -165,7 +165,7 @@ function issueBySlug(slug) {
   return issues().find(g => [g.key, ...g.names, ...g.names.map(n => (S.coalitions || []).find(c => c.name === n)?.slug)].filter(Boolean).some(x => canon(x) === want)) || null;
 }
 const listBySlug = slug => (S.lists || []).find(l => l.slug === slug) || null;
-const back = (href, label) => `<a class="fd-back" href="${href}">${icon('arrow-left')}<span>${label}</span></a>`;
+const back = (href, label) => `<a class="fd-back" href="${href}" data-back>${icon('arrow-left')}<span>${label}</span></a>`;
 
 // One issue: a row on a phone, a tile in a grid on a wide screen (.mb-tiles). The count is a number over a word
 // (bills, not people, so it is always shown) and keeps to a narrow column so the issue's name gets the width.

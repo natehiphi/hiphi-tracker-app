@@ -46,7 +46,7 @@ function billsAt(code) {
 }
 const billRow = b => row({ title: esc(nick(b) || blurb(b, 160)), sub: `${esc(spaced(b.bill_number))} · ${esc(plainStatus(b).short)}`, href: billPath(b), cls: 'cm-billrow' });
 const memberRow = m => row({ leadHtml: legPhoto(m.l, 'cm-photo'), title: `${esc(legTitle(m.l))} ${esc(m.l.name)}`, sub: roleWord(m.role), href: `#/legislator/${m.l.id}` });
-const backLink = () => `<a class="btn text cm-back" href="#/committees">${icon('arrow-left')}<span>All committees</span></a>`;
+const backLink = () => `<a class="btn text cm-back" href="#/committees" data-back>${icon('arrow-left')}<span>All committees</span></a>`;
 
 function detailPage(route) {
   const c = (S.committees || {})[route.code];
