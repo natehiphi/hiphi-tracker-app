@@ -25,11 +25,17 @@ PUBLIC = HOST + '/track.html?demo=1'
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
- # People follow issues, not bills (R-018, 9/21): a bill comes to them because it is on an issue they follow.
+ # People follow issues, not bills (R-018, 9/21): a bill comes to them because it is on an issue they follow. Walks the
+ # first visit rebuilt 9/21 (R-023, pub/start.js): tick a category tile, Next, then the issues screen, where HIPHI's own
+ # picks among the four shown start ticked (B-12), so reading them and deciding is the same step as "Follow N issues".
+ # Following is done when the "Mahalo!" moment says so; its Continue belongs to the next part of the visit.
  dict(name='public: arrive -> follow a first issue', app=PUBLIC, budget=3, start='#/', steps=[
-   dict(what='pick a category', do="""(()=>{const e=[...document.querySelectorAll('.st-issue')].find(x=>/Food/.test(x.innerText)); if(!e)return false; e.click(); return true;})()""", reach=seen('Food')),
-   dict(what='ask for its issues',   do=click_text('.btn', 'Show me the issues'),  reach=seen('Your issues')),
-   dict(what='follow the ticked issues', do=click_text('.st-bar .btn', 'Follow \\d+ issue'), reach=seen("following")),
+   dict(what='tick a category', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null); if(!e)return false; e.click(); return true;})()""",
+        reach="(()=>!!document.querySelector('[data-stissue][aria-pressed=true]'))()"),
+   dict(what='Next, to its issues', do=click_text('.st-bar [data-stnext]', '^Next$'),
+        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Your issues' && !!document.querySelector('[data-stpick]'))()"),
+   dict(what='read the ticked issues and follow them', do=click_text('.st-bar [data-stnext]', 'Follow \\d+ issue'),
+        reach="(()=>{const m=document.querySelector('#fx-moment:not([hidden])'); return !!m && /following/i.test(m.innerText);})()"),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
@@ -42,11 +48,14 @@ JOURNEYS = [
    dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),
- dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/9', wiz_at_4=True, steps=[
-   dict(what='type the address', do="(()=>{const i=document.querySelector('input[type=email]'); if(!i)return false;"
-        "i.value='someone@example.com'; i.dispatchEvent(new Event('input',{bubbles:true})); return true;})()",
-        reach="(()=>{const i=document.querySelector('input[type=email]'); return !!i && i.value.includes('@');})()"),
-   dict(what='send it', do=click_text('.btn,button', 'Yes, keep me updated|Send me alerts'), reach="(()=>true)()"),
+ # Counted from the moment the address is offered (B-2): the one ask sits under "Coming up on your issues", the last
+ # screen before the finale (R-023). The walk there is a newcomer's (a category, its ticked issues, the lessons, no
+ # street address) and is not counted. The first name is optional, so it is not a step.
+ dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/1', pick_cat=True,
+      walk_to="(()=>{const i=document.getElementById('st-email'); return !!i && i.offsetParent!==null;})()", steps=[
+   dict(what='type the address', fill=('#st-email', 'someone@example.com'),
+        reach="(()=>document.getElementById('st-email')?.value==='someone@example.com')()"),
+   dict(what='send it', do=click_text('.st-bar #st-send', 'Remind me|Keep me posted'), reach=seen('Check your inbox')),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',
@@ -79,11 +88,21 @@ def run_one(br, j):
         p.evaluate("try{localStorage.setItem('hiphi_wiz',JSON.stringify({done:true,issues:['tobacco']}));"
                    "localStorage.setItem('hiphi_watch_ids_demo',JSON.stringify("
                    "['5f8d9c39-8a21-415c-a725-2b4dbc8cb7d9','8ef79794-9605-4c2c-924f-0f706ab99f8d']));}catch(e){}")
-    if j.get('wiz_at_4'):                        # somebody who has reached the email ask honestly
-        p.evaluate("try{localStorage.setItem('hiphi_wiz',JSON.stringify({step:4,issues:['tobacco']}));"
-                   "localStorage.setItem('hiphi_watch_ids_demo',JSON.stringify("
-                   "['5f8d9c39-8a21-415c-a725-2b4dbc8cb7d9','8ef79794-9605-4c2c-924f-0f706ab99f8d']));}catch(e){}")
+    if j.get('pick_cat'):                        # a newcomer who ticked the first category on the first screen
+        p.goto(j['app'] + '#/start/1'); p.wait_for_timeout(1500)
+        p.evaluate("document.querySelector('[data-stissue]')?.click()")
     p.goto(j['app'] + j['start']); p.reload(); p.wait_for_timeout(2800)
+    if j.get('walk_to'):                         # getting to where the journey starts; these taps are not counted
+        for _ in range(16):
+            if p.evaluate(j['walk_to']): break
+            if p.locator('#fx-moment:not([hidden]) #fx-mgo').count(): p.click('#fx-mgo')
+            else:
+                at = p.evaluate('location.hash')
+                if p.locator('.st-bar [data-stnext]:visible').count(): p.click('.st-bar [data-stnext]')
+                p.wait_for_timeout(1200)
+                if p.evaluate('location.hash') == at and not p.locator('#fx-moment:not([hidden])').count() \
+                   and p.locator('.st-bar [data-stskip]:visible').count(): p.click('.st-bar [data-stskip]')
+            p.wait_for_timeout(1500)
     steps, failed = 0, None
     for s in j['steps']:
         # A step is a click done in the page (`do`), or real typing (`fill`) or a real key press (`press`) into a field,
