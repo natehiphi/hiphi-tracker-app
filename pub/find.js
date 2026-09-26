@@ -92,7 +92,8 @@ async function serverSearch(P, any = false) {
   const inner = w => w.terms.map(clean).filter(Boolean).flatMap(t => cols.map(c => `${c}.ilike."*${t}*"`)).join(',');
   const filter = P.num ? `bill_number.ilike.${P.num.pre}*${P.num.n}*` : any ? P.words.map(inner).join(',') : `and(${P.words.map(w => `or(${inner(w)})`).join(',')})`;
   const q = () => sb.from('public_all_bills').select('*').or(filter);
-  const [a, b] = await Promise.all([q().not('hiphi_position', 'is', null).limit(150), q().order('bill_number').limit(80)]);
+  // The rest of the session: the 80 most recently active that match (the first 80 by number cut off the latest ones).
+  const [a, b] = await Promise.all([q().not('hiphi_position', 'is', null).limit(150), q().order('last_action_date', { ascending: false, nullsFirst: false }).limit(80)]);
   const bad = a.error || b.error;
   if (bad && NICK_COL && !P.num && /hiphi_nickname/.test(bad.message || '')) { NICK_COL = false; return serverSearch(P, any); }
   if (bad) throw bad;
@@ -407,8 +408,9 @@ const sugBill = b => ({ href: billPath(b), title: nick(b) || what(b, 90), sub: [
 // bill and its Senate twin are one row, the issue that people follow (R-018), instead of three rows with one name that
 // can even disagree ("Became law" and "Stopped"); only bills on no issue are listed as bills. The issues whose own
 // words match come first, then those of the matching bills. A bill number lists bills: that is what was typed.
-// Which bills: HIPHI's own (each has a plain summary, and an issue once it has a position), and the rest of the session
-// only when HIPHI has nothing on these words. A HIPHI bill, or the issue it brings in, is listed only when the words
+// Which bills: HIPHI's own (each has a plain summary, and an issue once it has a position), and beside them the rest of
+// the session's (Nate, 9/26: "This should search every bill, not just those that the app is actively tracking"; they
+// had come up only when HIPHI had nothing on the words). A HIPHI bill, or the issue it brings in, is listed only when the words
 // are in its nickname or HIPHI's summary, the words a person sees ("tourism" found only in an official description
 // listed a green-bonds bill with no visible reason). Governor's messages (appointments, 596 of the 6,728 measures)
 // come up for their number only.
@@ -426,7 +428,7 @@ export function headerSuggest(q) {
   const direct = issueMatches(q);
   const groups = found => {
     const bills = found.map((b, k) => [b, k]).sort((x, y) => bucket(x[0]) - bucket(y[0]) || x[1] - y[1]).map(x => x[0]);
-    let iss = direct, lone = bills;
+    let iss = direct, lone = bills, others = [];
     if (!P.num) {
       const seen = new Set(direct.map(i => i.id)); iss = [...direct]; lone = [];
       for (const b of bills) {
@@ -436,11 +438,14 @@ export function headerSuggest(q) {
       }
       // A row's own words are why it is there: HIPHI's bills show their nickname or summary, so the words must be in them
       // (other bills show the official description, which is where they matched).
-      const visible = lone.filter(b => !hiphis(b) || shows(b, P)), mine = visible.filter(hiphis);
-      lone = mine.length || iss.length || cats.length ? mine : visible;
+      const visible = lone.filter(b => !hiphis(b) || shows(b, P));
+      lone = visible.filter(hiphis); others = visible.filter(b => !hiphis(b));
     }
-    const top = [...cats, ...iss.map(issueRow)].slice(0, SUG_ROWS - Math.min(lone.length, 2));
-    return [{ label: 'Issues', items: top }, { label: 'Bills', items: lone.slice(0, SUG_ROWS - top.length).map(sugBill) }];
+    // HIPHI's bills and the others each keep up to two rows; the issues take what is left, then bills fill the rest.
+    const top = [...cats, ...iss.map(issueRow)].slice(0, SUG_ROWS - Math.min(lone.length, 2) - Math.min(others.length, 2));
+    const nb = Math.min(lone.length, SUG_ROWS - top.length - Math.min(others.length, 2));
+    return [{ label: 'Issues', items: top }, { label: P.num || !others.length ? 'Bills' : 'HIPHI’s bills', items: lone.slice(0, nb).map(sugBill) },
+      { label: nb || top.length ? 'Other bills' : 'Bills', items: others.slice(0, SUG_ROWS - top.length - nb).map(sugBill) }];
   };
   if (P.words && !P.words.length) return { groups: groups([]) };
   if (SUG.has(P.key)) return { groups: groups(SUG.get(P.key)) };

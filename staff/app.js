@@ -199,11 +199,12 @@ function wireFrame(app) {
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
   if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? `#/bill/${b.bill_number.replace(/\s/g, '')}` : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
-    // Bills, issues, legislators and supporters listed as you type (R-032, the same list as the public header's). On the
-    // Search page the results under the box are the list.
+    // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
+    // header's). On the Search page the results under the box are the list. With nothing named that way, Search still
+    // looks through sponsors, owners and committees, so the last row says so.
     suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested bills, issues, legislators and supporters',
-      busy: 'Looking for supporters', empty: q => `Nothing tracked matches “${q}”.`,
-      seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Search every bill for “${q}”` }) }); }
+      busy: 'Looking through every bill', empty: q => `No bill, issue, legislator or supporter matches “${q}”.`,
+      seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` }) }); }
   app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
 }
 function practiseAs() {

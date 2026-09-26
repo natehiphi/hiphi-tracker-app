@@ -28,7 +28,7 @@ def state(p):
         groups: b ? [...b.querySelectorAll('.sg-h')].map(x => x.textContent) : [],
         opts: b ? [...b.querySelectorAll('[role=option]')].map(o => ({ id: o.id, t: o.querySelector('.sg-l').textContent, s: (o.querySelector('.sg-s') || {}).textContent || '',
           href: o.getAttribute('href'), sel: o.getAttribute('aria-selected'), hgt: o.getBoundingClientRect().height, lw: o.querySelector('.sg-l').getBoundingClientRect().width,
-          icpos: getComputedStyle(o.querySelector('.ic')).position,
+          icpos: getComputedStyle(o.querySelector('.ic')).position, other: /^(Other bills|Not tracked yet)$/.test((o.closest('.sg-g')?.querySelector('.sg-h') || {}).textContent || ''),
           beside: !!o.querySelector('.sg-s') && Math.abs(o.querySelector('.sg-s').getBoundingClientRect().top - o.querySelector('.sg-l').getBoundingClientRect().top) < 6 })) : [],
         note: b && b.querySelector('.sg-note') ? b.querySelector('.sg-note').textContent : '',
         status: (document.querySelector('[data-hsearch] [role=status]') || {}).textContent || '', hdr: (document.querySelector('.hdr, .sv-hdr') || { getBoundingClientRect: () => ({ bottom: 0 }) }).getBoundingClientRect().bottom,
@@ -43,7 +43,7 @@ with sync_playwright() as pw:
         typein(p, 'vap'); s = state(p)
         ok(s['open'] and s['expanded'] == 'true', f'{tag}: typing "vap" opens the list')
         ok(s['groups'][:1] == ['Issues'], f'{tag}: issues first {s["groups"]}')
-        titles = [o['t'] for o in s['opts']]; ok(len(titles) == len(set(titles)), f'{tag}: no name listed twice (A-14) {titles}')
+        titles = [o['t'] for o in s['opts'] if not o.get('other')]; ok(len(titles) == len(set(titles)), f'{tag}: no issue or HIPHI bill listed twice (A-14) {titles}')
         ok(3 <= len(s['opts']) <= 8, f'{tag}: seven rows at most, plus See all ({len(s["opts"])})')
         ok(s['opts'] and s['opts'][-1]['t'] == 'See all results for “vap”' and s['opts'][-1]['href'] == '#/find?q=vap', f'{tag}: the last row is See all results')
         ok(any(re.search(r'vap', o['t'], re.I) for o in s['opts']), f'{tag}: a vaping issue or bill is offered')
@@ -86,6 +86,10 @@ with sync_playwright() as pw:
         # nothing matches: says so, and See all is still there
         visit(p, '/more'); typein(p, 'zzqxw'); s = state(p)
         ok(s['open'] and s['note'].startswith('No issues or bills match “zzqxw”') and s['opts'][-1]['t'] == 'Browse all issues' and s['opts'][-1]['href'] == '#/find', f'{tag}: nothing matching says so and offers the issues ("{s["note"]}")')
+        # every bill, not only HIPHI's (Nate, 9/26): a word lists the session's other bills beside HIPHI's
+        typein(p, 'water'); s = state(p); oth = [o for o in s['opts'] if o['other']]
+        ok('Other bills' in s['groups'] and oth and all(o['href'].startswith('#/bill/') for o in oth), f'{tag}: "water" lists other bills too {s["groups"]}')
+        if w == 1280 and not touch: p.screenshot(path=f'{OUT}/water_{w}.png')
         # a word that names a policy lists it once: the issue, not its House and Senate bills beside it
         typein(p, 'disposable vape'); s = state(p); names = [o['t'] for o in s['opts']]
         ok(names.count('Disposable vape ban') == 1 and not any(o['href'].startswith('#/bill/') and o['t'] == 'Disposable vape ban' for o in s['opts']), f'{tag}: a policy is one row {names}')
@@ -120,7 +124,7 @@ with sync_playwright() as pw:
         tag = f'staff {w}x{h}'
         c, p = ctx(b, w, h); staff(p)
         typein(p, 'HB15'); s = state(p)
-        ok(s['open'] and s['groups'] == ['Bills'] and all(o['s'].startswith('HB 15') for o in s['opts'][:-1]), f'{tag}: "HB15" lists its bills {[o["s"] for o in s["opts"]][:4]}')
+        ok(s['open'] and s['groups'][0] == 'Bills' and all(o['s'].startswith('HB 15') for o in s['opts'][:-1]), f'{tag}: "HB15" lists its bills {[o["s"] for o in s["opts"]][:4]}')
         ok(s['opts'][-1]['t'] == 'See all results for “HB15”' and s['opts'][-1]['href'] == '#/search?q=HB15', f'{tag}: See all results opens Search')
         ok(abs(s['rect'][2] - s['hdr']) <= 1.5 and s['rect'][1] <= s['w'] and s['rect'][3] <= s['h'], f'{tag}: the list starts on the header line and fits ({s["rect"]}, header {s["hdr"]})')
         ok(all(o['hgt'] >= 44 and o['icpos'] == 'static' and o['lw'] > 120 for o in s['opts']), f'{tag}: rows 44px or taller, icons beside the words')
@@ -145,7 +149,14 @@ with sync_playwright() as pw:
         typein(p, 'school'); p.evaluate("window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }))"); p.wait_for_timeout(500); s = state(p)
         ok(s['value'] == 'school' and s['focused'] and s['open'], f'{tag}: a redraw keeps the words, the focus and the list ({s["value"]!r})')
         typein(p, 'zzqxw'); s = state(p)
-        ok(s['note'] == 'Nothing tracked matches “zzqxw”.' and s['opts'][-1]['t'] == 'Search every bill for “zzqxw”', f'{tag}: nothing tracked matching offers every bill ("{s["note"]}")')
+        ok(s['note'] == 'No bill, issue, legislator or supporter matches “zzqxw”.' and s['opts'][-1]['t'] == 'Look for “zzqxw” in sponsors, owners and committees', f'{tag}: nothing matching says so and offers Search ("{s["note"]}")')
+        # every bill, not only the tracked ones (Nate, 9/26): a bill not tracked opens Search at it, where Track is
+        typein(p, 'firearm'); s = state(p); un = [o for o in s['opts'] if o['href'].startswith('#/search?q=') and not o['t'].startswith(('See all', 'Look for'))]
+        ok('Not tracked yet' in s['groups'] and un, f'{tag}: "firearm" lists bills not tracked yet {s["groups"]}')
+        if un:
+            p.locator(f'#{un[0]["id"]}').click(); p.wait_for_timeout(1500)
+            ok(p.evaluate("location.hash").startswith('#/search?q=') and p.locator('#lg-sres [data-lgtrack]').count() >= 1, f'{tag}: it opens Search at that bill, with its Track button ({p.evaluate("location.hash")})')
+        staff(p)
         # on Search itself the results under the box are the list, and Down still walks them
         staff(p, '/search'); typein(p, 'school', 700); s = state(p)
         ok(not s['open'] and 'q=school' in s['hash'], f'{tag}: no list on Search; its results follow the header box ({s["hash"]})')

@@ -133,7 +133,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - **The header search suggests as you type (R-032, 9/21).** From 900px the header box lists what the words so far
   match, seven rows at most, then "See all results" (Find). A word search lists policies: issues (a matching topic
   first), with a bill on an issue shown as that issue, so a House bill and its Senate twin are one row; then HIPHI's
-  bills on no issue, and the rest of the session's only when HIPHI has nothing. A bill number lists bills. The
+  bills on no issue and, beside them, the session's other bills (Nate, 9/26: search every bill). A bill number lists
+  every bill with it. The database search takes the 80 most recently active other bills, not the first 80 by number. The
   behaviour is `pub/suggest.js`, a combobox written for both apps' header boxes: arrow keys, Enter, Esc, ARIA, only the
   rows the window has room for, the list kept in place (dimmed) while the database answers, and what was typed kept
   through a redraw, since both frames rebuild the header on every render. What matches is `headerSuggest()` in
@@ -165,7 +166,9 @@ shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`tod
 components rather than screens.
 - **The header search suggests as you type (R-032, 9/21),** from 900px, through the public header's `pub/suggest.js`:
   `headerHits()` in `search.js` lists tracked bills whose number or shown name match (a leading number first, moving
-  bills before dead ones), issues, legislators (`matchLegs`) and supporters (loaded on first use), a row for each kind
+  bills before dead ones), bills not tracked yet (`DB.searchUntracked`, which matches every word in the title or
+  official description, 9/26; a row opens Search at that bill, where its Track button is, since the bill page knows
+  only tracked bills), issues, legislators (`matchLegs`) and supporters (loaded on first use), a row for each kind
   in turn up to seven, then "See all results" into Search, which also has untracked bills. Enter with nothing
   highlighted keeps `exactBill`: an exact number opens that bill. No list on the Search page itself. "sd 12" and
   "house 3" mean that district for supporters too (`districtQ`, exported from `legislators.js`).
@@ -280,7 +283,7 @@ python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer par
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
-python3 tests/suggest.py            # header search suggestions (R-032), both apps: 180 checks at 1024-1440 and short windows, keys, redraw, live bills
+python3 tests/suggest.py            # header search suggestions (R-032), both apps: 190 checks at 1024-1440 and short windows, keys, redraw, live bills
 python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes
 python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 36 checks, every Supabase request intercepted
 ```

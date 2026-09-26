@@ -44,17 +44,21 @@ function peopleHits(q) {
 
 // ---- the header's suggestions as you type (R-032; pub/suggest.js draws them, the public header's too) ----
 // Seven rows at most under the header box on a desktop, shared out so every kind that matches shows: tracked bills
-// (this page's matches in this page's order, an exact or leading number first), issues, legislators (by name,
-// district, town or committee, as the Legislators page finds them) and supporters. "See all results" opens this page,
-// which also looks through the bills not tracked yet. Supporters load on first use on the live tracker, as here.
+// (this page's matches in this page's order, an exact or leading number first), bills not tracked yet (Nate, 9/26:
+// "This should search every bill, not just those that the app is actively tracking"), issues, legislators (by name,
+// district, town or committee, as the Legislators page finds them) and supporters. A bill not tracked yet opens this
+// page at that bill, where its Track button is: the bill page only knows tracked bills. Supporters load on first use
+// on the live tracker, as here; bills not tracked come from the database, from the third character, as here.
 const ROWS = 7;
 const numOf = b => b.bill_number.toLowerCase().replace(/\s/g, '');
+const spacedNum = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 function share(lists) {   // a row for each kind in turn, until seven
   const n = lists.map(() => 0); let left = ROWS, more = true;
   while (left && more) { more = false; lists.forEach((l, k) => { if (left && n[k] < l.length) { n[k]++; left--; more = true; } }); }
   return lists.map((l, k) => l.slice(0, n[k]));
 }
 let peopleP = null;
+const unCache = new Map();   // query -> bills not tracked, the last 20 asked
 export function headerHits(q) {
   // Words match where a word starts, as on the public page ("bus" finds buses, not the "bus" inside "abuse").
   const res = plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
@@ -67,17 +71,26 @@ export function headerHits(q) {
   const bills = billHits(q).filter(shows).map((b, k) => [b, k])
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({   // a number's matches: moving ones first, in number order
     href: `#/bill/${b.bill_number.replace(/\s/g, '')}`, title: name(b), icon: 'scroll-text', inline: true,
-    sub: [b.bill_number.replace(/^([A-Z]+)\s*(\d)/, '$1 $2'), STAGE_LABEL[effStage(b)]].filter(Boolean).join(' · ') }));
+    sub: [spacedNum(b.bill_number), STAGE_LABEL[effStage(b)]].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
   const issues = (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`))))
     .map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || '', icon: cat(i.category)?.icon || 'tag' }));
   const legs = matchLegs(q).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
   const people = () => peopleHits(q).map(p => ({ href: `#/person/${encodeURIComponent(p.id)}`, title: personName(p), sub: whereOf(p) || p.email || '', icon: 'user-round' }));
-  const groups = ppl => { const [b, i, l, p] = share([bills, issues, legs, ppl]);
-    return [{ label: 'Bills', items: b }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Supporters', items: p }]; };
-  if (S.peopleLoaded || (S.people || []).length) return { groups: groups(people()) };
-  peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
-  return { groups: groups([]), more: peopleP.then(() => groups(people())) };
+  // Bills not tracked: the same rule, their number or the words they show (the database also matches inside words).
+  // Governor's messages (appointments) only by their number; a district ("sd 12") is not a bill search.
+  const dist = districtQ(plain(q).trim()), ids = new Set(S.bills.map(b => b.id));
+  const unRows = rows => (rows || []).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || !/^gm/i.test(r.bill_number) && res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
+    .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true,
+      sub: [spacedNum(r.bill_number), STAGE_LABEL[r.stage]].filter(Boolean).join(' · ') }));
+  const groups = (ppl, un) => { const [b, u, i, l, p] = share([bills, un, issues, legs, ppl]);
+    return [{ label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Supporters', items: p }]; };
+  const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
+  if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
+  if (!peopleReady) peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
+  const un = !lookUn ? Promise.resolve([]) : unCache.has(key) ? Promise.resolve(unCache.get(key))
+    : DB.searchUntracked(q).then(r => { unCache.set(key, r || []); if (unCache.size > 20) unCache.delete(unCache.keys().next().value); return r || []; });
+  return { groups: groups(peopleReady ? people() : [], []), more: Promise.all([peopleP, un]).then(([, r]) => groups(people(), unRows(r))) };
 }
 
 // ---- rows ----

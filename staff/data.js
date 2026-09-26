@@ -413,13 +413,20 @@ export const DB = {
       .in('bill_number', nums);
     if (error) throw error; return data;
   },
+  // Every bill not tracked yet, by its number, or with every word somewhere in its title or official description (R-032,
+  // 9/26: search looks through every bill, not only the tracked ones; the title alone is "RELATING TO HEALTH." and
+  // missed most words). The most recently active first. Used by Search and by the header's suggestions.
   async searchUntracked(q) {
-    if (DEMO) { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return (S.snapshot?.index || []).filter(b => b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql)).slice(0, 40).map(b => ({ ...b, last_action: null, last_action_date: null })); }
-    const safe = q.replace(/[%,()]/g, ' ').trim();
+    const words = String(q).toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(w => w.length > 1), num = words.join('');
+    if (DEMO) return (S.snapshot?.index || []).filter(b => b.bill_number.toLowerCase().includes(num) || (words.length && words.every(w => (b.title || '').toLowerCase().includes(w))))
+      .slice(0, 40).map(b => ({ ...b, description: null, stage: null, last_action: null, last_action_date: null }));
+    if (!num) return [];
+    const byWords = words.length ? `,and(${words.map(w => `or(title.ilike.*${w}*,description.ilike.*${w}*)`).join(',')})` : '';
     const { data, error } = await S.supa.from('bills')
-      .select('id,bill_number,title,last_action,last_action_date')
+      .select('id,bill_number,title,description,stage,last_action,last_action_date')
       .eq('tracked', false)
-      .or(`bill_number.ilike.%${safe.replace(/\s/g,'')}%,title.ilike.%${safe}%`)
+      .or(`bill_number.ilike.*${num}*${byWords}`)
+      .order('last_action_date', { ascending: false, nullsFirst: false })
       .limit(15);
     if (error) throw error; return data;
   },
