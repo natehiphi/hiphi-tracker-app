@@ -39,9 +39,10 @@ first visit's first two screens are categories -> "Your issues"; the tab is **My
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,
 with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
-topics (six tiles, most important first) -> "Your issues" (the top four per category by importance, then "Show N more";
-importance uses `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!"
-moment -> "Where do you stand?" (at most three cards, one at a time) -> three lessons on the person's own bill
+topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
+topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
+`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> three
+lessons on the person's own bill (R-053, 9/26: "Where do you stand?" left the first visit; the bill page asks it)
 (`pub/lessons.js`: reading a bill, the session, a hearing; stepped with the primary button, every word visible, DESIGN
 C-12) -> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
 issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
