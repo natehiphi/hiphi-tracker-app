@@ -1,7 +1,7 @@
 // The first visit (R-023, rebuilt 9/21 from the prototype Nate approved; backend docs/FIRST-VISIT-PLAN.md). Three named
 // parts at the top, "Your issues · How it works · Stay connected", and no counting (HANDOFF 3.5; Nate 9/21: keep the
 // named steps, remove the progress bar):
-//   Your issues     topics -> issues (followed, then the "Mahalo!" moment) -> where you stand (optional, in session)
+//   Your issues     topics -> issues (the four most important, then three per category; followed, then "Mahalo!")
 //   How it works    three short lessons on the person's own bill: reading a bill, the session, a hearing
 //                   (pub/lessons.js), then the "Now you know how it works" moment
 //   Stay connected  who speaks for you (street address only) -> coming up on your issues, THEN the one ask for an
@@ -28,9 +28,9 @@ import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonStop, LESSON_TI
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
-// The first visit as named screens. Between sessions nothing is moving, so there is no stand to take. From a shared
-// bill (wiz().via is its number), the first part happened on the bill page.
-const FLOW_IN = ['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
+// The first visit as named screens (the same in and out of session since "Where do you stand?" left it, R-053). From a
+// shared bill (wiz().via is its number), the first part happened on the bill page.
+const FLOW_IN = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
 const flowOf = off => wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN;
@@ -70,8 +70,6 @@ function goStep(from, to) {
 function goBack(step) {
   const off = isOff();
   let to = step - 1;
-  // "Where do you stand" is passed over when nothing followed is moving yet, so Back passes over it too.
-  if (nameAt(to, off) === 'stand' && !standIdeas().length) to -= 1;
   if (to < 1) { history.back(); return; }
   track(nameAt(step, off), 'back');
   lessonStop();
@@ -98,7 +96,7 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // a quiet name. No rings or boxes (they read as radio buttons), no bar, no numbers. Below 360px only the current name
 // is written out (start.css); a screen reader hears all three.
 const CHAPTERS = ['Your issues', 'How it works', 'Stay connected'];
-const CHAPTER_OF = { topics: 0, issues: 0, stand: 0, followask: 0, bill: 1, session: 1, hearing: 1, you: 2, soon: 2, done: 3 };
+const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, session: 1, hearing: 1, you: 2, soon: 2, done: 3 };
 let lastChapter = -1;
 function chaptersRow(name) {
   const k = CHAPTER_OF[name] ?? -1; if (k < 0) return '';
@@ -117,7 +115,7 @@ const backBtn = step => btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st
 const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : ''}`;
 const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'stand' || name === 'followask' ? VOICES : CAPITOL}</div>`;
+const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -184,6 +182,10 @@ function issueInfo(i, R) {
 }
 const byScore = (x, y) => y.score - x.score || (x.i.sort_order ?? 100) - (y.i.sort_order ?? 100) || x.i.name.localeCompare(y.i.name);
 const TOP = 4;
+// R-039 (Nate 9/22: "the list is way too long"): the four most important issues across the chosen categories come
+// first, then three more in each category, and nothing else on this screen. The rest stay in Find, and later visits
+// can suggest them.
+const TOP_PICKS = 4, PER_CAT = 3;
 const catScore = rows => rows.slice(0, TOP).reduce((n, x) => n + x.score, 0);
 // The six categories, most important first (R-018's categories; if they did not load, the old six from topics.js
 // stand in, counted by bills, so the screen still works).
@@ -253,20 +255,23 @@ function model2() {
   // important one, so it is never ticked in one place and hidden in another (the review, 9/21).
   const once = new Set();
   per.forEach(p => { p.rows = p.rows.filter(x => !once.has(x.i.id) && once.add(x.i.id)); });
-  per.forEach((p, k) => { p.open = S.stOpen[p.c.topicKey] ?? (k < 2 || p.rows.length <= TOP); });
-  const all = per.flatMap(p => p.rows);
+  // full: every issue of the category in play (what "Follow all" counts and follows); rows: the three shown under it.
+  per.forEach(p => { p.full = p.rows; });
+  const top = per.flatMap(p => p.full).sort(byScore).slice(0, TOP_PICKS), topIds = new Set(top.map(x => x.i.id));
+  per.forEach(p => { p.rows = p.full.filter(x => !topIds.has(x.i.id)).slice(0, PER_CAT); p.open = S.stOpen[p.c.topicKey] ?? true; });
+  const all = [...top, ...per.flatMap(p => p.rows)];
   // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
   let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
   if (!picks) {
-    // Ticked for you only where the person can see it: among the four shown in a category that starts open.
-    const ids = [];
-    for (const p of per.filter(q => q.open)) { const top = p.rows.slice(0, TOP), pro = top.filter(x => x.promoted); (pro.length ? pro : top.slice(0, 1)).forEach(x => ids.push(x.i.id)); }
-    picks = { issues: [...new Set(ids)], cats: [] };
+    // Ticked for you only where the person can see it, and only at the top (B-12): the staff-recommended and strongly
+    // supported among the four most important, else the first of them.
+    const pro = top.filter(x => x.promoted);
+    picks = { issues: (pro.length ? pro : top.slice(0, 1)).map(x => x.i.id), cats: [] };
   }
   const catOn = new Set(picks.cats), issueOn = new Set(picks.issues);
   const ticked = x => issueOn.has(x.i.id) || x.i.categories.some(c => catOn.has(c));
   const count = new Set(all.filter(ticked).map(x => x.i.id)).size;
-  return { off, sig, sel, per, all, picks, catOn, issueOn, ticked, count, R };
+  return { off, sig, sel, per, top, all, picks, catOn, issueOn, ticked, count, R };
 }
 // One issue to follow. The whole card is the toggle (a real button). Where its description is cut, a small "What it
 // does" button opens it in place, on the card's bottom edge beside the toggle rather than inside it.
@@ -306,16 +311,16 @@ S.stOpen ??= {};
 S.stMore ??= {};
 function pickedLine(p, m) {
   if (m.catOn.has(p.c.topicKey)) return 'Following all';
-  const on = p.rows.filter(m.ticked).map(x => x.i.name);
+  const on = p.full.filter(m.ticked).map(x => x.i.name);
   return !on.length ? '' : `${on.length} ticked: ${andList(on)}`;
 }
-function catSection(p, m, isFirst) {
-  const c = p.c, n = p.rows.length, open = p.open, said = pickedLine(p, m), extra = Math.max(0, n - TOP), more = !!S.stMore[c.topicKey];
+function catSection(p, m) {
+  const c = p.c, n = p.full.length, open = p.open, said = pickedLine(p, m);
   return `<details class="st-tsec"${open ? ' open' : ''} data-stsec="${esc(c.topicKey)}">
     <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span><span class="st-tcount">${plural(n, 'issue')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
     <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
-      <ul class="st-picks" role="list">${p.rows.map((x, k) => issueCard(x, m, c.topicKey, k >= TOP)).join('')}</ul>
-      ${extra ? `<button type="button" class="st-morebtn" data-stmore="${esc(c.topicKey)}" aria-expanded="${more}">${icon('chevron-down')}<span>${more ? 'Show fewer' : `Show ${plural(extra, 'more issue')}`}</span></button>` : ''}
+      ${p.rows.length ? `<ul class="st-picks" role="list">${p.rows.map(x => issueCard(x, m, c.topicKey, false)).join('')}</ul>`
+        : `<p class="st-catnote">${n === 1 ? 'Its issue is' : 'Its issues are'} in the list above.</p>`}
     </div></details>`;
 }
 // A category with nothing in play right now can still be followed whole: its issues and bills come as they start.
@@ -330,21 +335,24 @@ function stepIssues(step) {
   if (m.none || m.loading) return skel(step);
   if (m.err) return loadErr(step);
   const si = sessionInfo(), yr = off ? si.recapYear : si.yr, next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
-  const groups = m.per.filter(p => p.rows.length), quiet = m.per.filter(p => !p.rows.length).map(p => p.c);
+  const groups = m.per.filter(p => p.full.length), quiet = m.per.filter(p => !p.full.length).map(p => p.c);
   const total = new Set(m.all.map(x => x.i.id)).size, ticked = m.count;
   const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
     : off ? `Here’s what HIPHI worked on in ${yr}, most important first. Follow an issue, and its ${next} bills come to you.`
     : ticked ? `Most important first. We ticked ${ticked === 1 ? 'one' : ticked} to start you off; change them any time.` : 'Most important first. Tick the ones you care about.';
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
-    `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>${groups.length ? `<div class="st-tsecs" role="group" aria-labelledby="st-h">${groups.map((p, k) => catSection(p, m, k === 0)).join('')}</div>` : ''}
+    `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
+    ${m.top.length ? `<section class="st-topsec" aria-labelledby="st-toph"><h2 class="st-toph" id="st-toph">${off ? `Most important in ${yr}` : 'Most important right now'}</h2>
+      <ul class="st-picks" role="list">${m.top.map(x => issueCard(x, m, 'top', false)).join('')}</ul></section>` : ''}
+    ${groups.length ? `${m.top.length ? `<h2 class="st-toph st-moreh">More in your topics</h2>` : ''}<div class="st-tsecs" role="group" aria-label="More in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
 }
 
-// ================= Your issues, 3 (in session): where do you stand? (optional) =================
-// At most three cards, one at a time, from the issues just followed, most urgent first (then bills followed on their
-// own). A card covers every bill of its issue that is still moving, and the answer is saved on each of them. A small
-// burst on each Support or Oppose (C-7). Never shown publicly.
+// ================= What was followed, still moving =================
+// The issues just followed, most urgent first, each with its bills still moving (then bills followed on their own).
+// "Coming up" and the finale read it. (It also fed a "Where do you stand?" screen here, removed 9/26, R-053: the
+// answer changed nothing the person saw next (C-13), and the bill page asks it where it matters.)
 function standIdeas() {
   const R = ranker(), w = wiz(), seen = new Set(), out = [];
   for (const id of [...(w.followedIssues || []), ...followedIssues().map(i => i.id)]) {
@@ -357,33 +365,6 @@ function standIdeas() {
   return out;
 }
 const followedBills = () => standIdeas().flatMap(x => x.bills);
-const STAND_MAX = 3;
-S.stStandAt ??= 0;
-function stepStand(step) {
-  const ideas = standIdeas().slice(0, STAND_MAX);
-  if (!ideas.length) return skel(step);   // redirectFor moves on: nothing is moving yet
-  const at = Math.min(S.stStandAt, ideas.length), doneAll = at >= ideas.length;
-  // The card speaks for the issue: HIPHI's position on the issue (not on whichever bill comes first), and an answer is
-  // saved only on the bills that go the issue's way. "Higher liquor taxes" holds a bill that raises the tax and one that
-  // cuts it; supporting the issue must never be saved as support for the cut (the review, 9/21).
-  const card = (x, k) => { const b = x.bills[0], dir = issuePos(x.bills) || '', pos = k - at, hid = `st-sn${k}`, nums = x.bills.length;
-    const way = /support/.test(dir) ? /support/ : /oppose/.test(dir) ? /oppose/ : null;
-    const aligned = way ? x.bills.filter(y => way.test(y.hiphi_position || '')) : x.bills, ids = (aligned.length ? aligned : [b]).map(y => y.id).join(',');
-    return `<article class="st-scard" data-k="${k}" data-pos="${pos < 0 ? 'gone' : pos}" aria-hidden="${pos !== 0}"${pos < 0 ? ' hidden' : ''}>
-      <p class="st-seyebrow">${ideas.length > 1 ? `${k + 1} of ${ideas.length}` : 'Just one'}</p>
-      <h2 class="st-shead" id="${hid}">${esc(x.name || blurb(b, 90))}</h2>
-      <p class="st-smeta"><span>${plural(nums, 'bill')} this session</span>${dir ? posChip({ hiphi_position: dir }) : ''}</p>
-      ${x.desc ? `<p class="st-sdesc">${esc(x.desc)}</p>` : ''}
-      <div class="st-sbtns" role="group" aria-labelledby="${hid}">
-        ${[['support', 'Support', 'thumbs-up'], ['oppose', 'Oppose', 'thumbs-down'], ['unsure', 'Not sure yet', '']].map(([v, label, ic]) =>
-          `<button type="button" class="btn secondary${v === 'unsure' ? ' st-swide' : ''}" data-ststance="${esc(ids)}|${v}"${pos !== 0 ? ' tabindex="-1"' : ''}>${ic ? icon(ic) : ''}<span>${label}</span></button>`).join('')}</div></article>`; };
-  return shell('st3', `${topRow('stand', step)}${artFor('stand')}
-    <h1 class="hero" id="st-h">Where do you stand?</h1>
-    <p class="lede">Optional, and never shown publicly. If you add your email, HIPHI staff can see your answers.</p>`,
-    `<div class="st-stack" id="st-stack"${doneAll ? ' hidden' : ''}>${ideas.map(card).join('')}</div>
-    <div id="st-standdone"${doneAll ? '' : ' hidden'}>${doneAll ? standDone() : ''}</div><p class="sr" role="status" id="st-live"></p>`);
-}
-const standDone = () => `<div class="st-standdone">${icon('circle-check')}<p><b>Thanks.</b> Change your answers any time on a bill’s page.</p></div>`;
 
 // ================= How it works: three lessons on the person's own bill (pub/lessons.js) =================
 // The example (decision 6, which answers R-020). In session: the first followed issue, in the order the person picked
@@ -688,8 +669,6 @@ function redirectFor(step, off) {
   if (step > T) return T;
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);
-  // Nothing followed is moving (an issue whose bills are still to come, or nothing followed): no stand to take.
-  if (n === 'stand') return standIdeas().length ? 0 : step + 1;
   return 0;
 }
 
@@ -754,7 +733,7 @@ function wire(route) {
       $$('[data-stpick]').forEach(t => { const x = m.all.find(r => r.i.id === t.dataset.stpick), on = !!x && m.ticked(x);
         t.setAttribute('aria-pressed', String(on)); t.closest('.st-pcard')?.classList.toggle('on', on); });
       $$('[data-stcatall]').forEach(box => { const k = box.dataset.stcatall, p = m.per.find(q => q.c.topicKey === k);
-        if (p) box.innerHTML = catAll(p.c, p.rows.length, m.catOn.has(k)); });
+        if (p) box.innerHTML = catAll(p.c, p.full.length, m.catOn.has(k)); });
       $$('[data-stpicked]').forEach(el => { const p = m.per.find(q => q.c.topicKey === el.dataset.stpicked); if (!p) return;
         const said = pickedLine(p, m); el.textContent = said; el.hidden = !said; });
       wireCatAll();
@@ -779,7 +758,7 @@ function wire(route) {
         // Taking one issue out of a category followed whole: the category becomes its other issues, one by one.
         for (const c of x.i.categories.filter(k => picks.cats.includes(k))) {
           picks.cats = picks.cats.filter(k => k !== c);
-          for (const r of m.per.find(p => p.c.topicKey === c)?.rows || []) if (r.i.id !== id && !picks.issues.includes(r.i.id)) picks.issues.push(r.i.id);
+          for (const r of m.per.find(p => p.c.topicKey === c)?.full || []) if (r.i.id !== id && !picks.issues.includes(r.i.id)) picks.issues.push(r.i.id);
         }
       }
       save(picks); paint();
@@ -822,29 +801,6 @@ function wire(route) {
     };
   }
 
-  if (name === 'stand') {
-    const ideas = standIdeas().slice(0, STAND_MAX);
-    $$('[data-ststance]').forEach(el => el.onclick = () => {
-      const card = el.closest('.st-scard'), k = +card.dataset.k; if (k !== S.stStandAt) return;
-      const [idList, v] = el.dataset.ststance.split('|'), ids = idList.split(',');
-      const first = !Object.values(S.stances || {}).some(x => x === 'support' || x === 'oppose');
-      Promise.all(ids.map(x => setStance(x, v))).catch(e => toast(e, true));
-      if (v !== 'unsure') burst(el, first ? 14 : 10, first ? 52 : 44);          // a small celebration for each stand (C-7)
-      card.classList.add('st-gone-' + v); card.dataset.pos = 'gone'; card.setAttribute('aria-hidden', 'true');
-      later(() => { card.hidden = true; }, 420);
-      S.stStandAt = k + 1;
-      $$('.st-scard').forEach(c => { const j = +c.dataset.k; if (j > k) { c.dataset.pos = j - S.stStandAt; c.setAttribute('aria-hidden', String(j !== S.stStandAt));
-        c.querySelectorAll('button').forEach(x => { x.tabIndex = j === S.stStandAt ? 0 : -1; }); } });
-      const live = document.getElementById('st-live'); if (live) live.textContent = v === 'unsure' ? 'Noted: not sure yet.' : `Noted: you ${v} it.`;
-      // The first answer turns the quiet Skip into Next, in place.
-      if (!S.stStood) { S.stStood = true; const bar = document.querySelector('.actionbar .inner');
-        if (bar) { bar.innerHTML = bar1('Next'); bar.querySelector('[data-stnext]').onclick = next; } }
-      if (S.stStandAt >= ideas.length) later(() => { const st = $('#st-stack'); if (st) st.hidden = true; const d = $('#st-standdone'); if (d) { d.hidden = false; d.innerHTML = standDone(); } }, 380);
-      else later(() => document.querySelector(`.st-scard[data-k="${S.stStandAt}"] [data-ststance]`)?.focus({ preventScroll: true }), 380);
-    });
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
-  }
-
   if (['bill', 'session', 'hearing'].includes(name)) {
     const E = example();
     // A redraw of the same screen (data landing) restores the step the person was on, without replaying motion.
@@ -861,6 +817,7 @@ function wire(route) {
       next();
     };
   }
+
 
   if (name === 'you') {
     const abox = $('[data-staddr]');
@@ -948,7 +905,7 @@ function wire(route) {
   }
 }
 
-const TITLE = { topics: 'What do you care about?', issues: 'Your issues', stand: 'Where do you stand?', ...LESSON_TITLES,
+const TITLE = { topics: 'What do you care about?', issues: 'Your issues', ...LESSON_TITLES,
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?' };
 export default {
   tab: 'home',
@@ -960,7 +917,6 @@ export default {
     switch (nameAt(step, off)) {
       case 'topics': return stepTopics(step);
       case 'issues': return stepIssues(step);
-      case 'stand': return stepStand(step);
       case 'bill': case 'session': case 'hearing': return stepLesson(nameAt(step, off), step);
       case 'you': return stepYou(step);
       case 'soon': return stepSoon(step);
@@ -981,7 +937,6 @@ export default {
         if (m.loading || m.none) return barBusy();
         return bar2(followLabel(m.count), { icon: 'star' });
       }
-      case 'stand': return S.stStood ? bar1('Next') : barSkip();
       case 'bill': case 'session': case 'hearing': return bar2('Next', { iconEnd: 'arrow-right' });
       case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
       case 'soon': return S.session || mailSent() ? bar1('Next') : bar2(off ? 'Keep me posted' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
