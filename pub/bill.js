@@ -134,6 +134,41 @@ const goBack = () => { if (history.state?.arrived || !history.state?.blRoot) his
 // so core neither counts nor uploads it. A mark from before this change (the usual key, with no committee mark on
 // the bill at all) still counts, for every committee.
 const asked = askedChair;   // the rule lives in core, shared with Home
+
+// After the committees (R-056, Nate 9/24-9/26): a bill on the floor, in conference or on the Governor's desk offered
+// only Share. Each of those stages has someone to reach: the floor vote -> the person's own legislator in that chamber
+// (members listen closest to the people they represent); conference -> the conference chairs, named in the Capitol's
+// appointment notice; the Governor -> the Governor's own "Comments on Legislation" page (the office takes comments
+// there; checked 9/26). A stopped bill already offers its issue to follow, and a bill waiting for its next committee
+// already asks that committee's chair.
+const GOV_URL = 'https://governor.hawaii.gov/comments-on-legislation/';
+const plainName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
+const surname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
+const myLeg = ch => { const d = myDistricts(), n = d && (ch === 'S' ? d.senate : d.house); return n ? (S.legislators || []).find(l => l.chamber === ch && +l.district === +n) || null : null; };
+const billActs = b => [...(S.activity || []), ...((S.xa || {})[b.id] || [])].filter(a => a.bill_id === b.id).sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
+// "House Conferees Appointed: Belatti, Garrett, Morikawa Co-Chairs; Iwamoto, Souza." and "Senate Conferees Appointed:
+// Fukunaga Chair; Kim, Lee, C. Co-Chairs." -> each chamber's latest list, matched to legislators by surname (and the
+// first initial where the Capitol gives one, as for the two Lees). Chairs first.
+export function conferees(b) {
+  const rows = billActs(b).filter(a => /conferees appointed:/i.test(a.title || '')), out = [];
+  for (const ch of ['H', 'S']) {
+    const row = rows.find(a => (ch === 'H' ? /^\s*House/i : /^\s*Senate/i).test(a.title)); if (!row) continue;
+    for (const grp of row.title.replace(/^.*?appointed:\s*/i, '').replace(/\.\s*$/, '').split(';')) {
+      const chair = /\bco-?chairs?\b|\bchair\b/i.test(grp), names = [];
+      for (const t of grp.replace(/\b(co-?chairs?|chair)\b/ig, '').split(',').map(v => v.trim()).filter(Boolean)) {
+        if (/^[A-Z]\.?$/.test(t) && names.length) names[names.length - 1] += ' ' + t; else names.push(t); }
+      for (const nm of names) {
+        const m = /^(.*?)\s+([A-Z])\.?$/.exec(nm), last = plainName(m ? m[1] : nm), ini = m ? m[2] : '';
+        const l = (S.legislators || []).find(x => x.chamber === ch && plainName(surname(x)) === last && (!ini || String(x.sort_name || '').split(',')[1]?.trim()[0] === ini));
+        if (l && !out.some(o => o.l.id === l.id)) out.push({ l, chair });
+      }
+    }
+  }
+  return out.sort((x, y) => (y.chair ? 1 : 0) - (x.chair ? 1 : 0));
+}
+const vetoNotice = b => billActs(b).some(a => /intent to veto/i.test(a.title || ''));
+// A legislator as someone to email: "Dear Representative Iwamoto", or "Dear Chair Matayoshi" for a conference chair.
+const contactOf = (l, chair) => ({ last: surname(l), email: l.email, greet: `${chair ? 'Chair' : l.chamber === 'S' ? 'Senator' : 'Representative'} ${surname(l)}` });
 // Exported so the onboarding wizard's "Reading a bill" miniature (pub/start.js) can reuse the real
 // stage rail instead of re-deriving it - the miniature and the real page must never disagree.
 export function situation(b) {
@@ -152,7 +187,19 @@ export function situation(b) {
   else if (act && (act.late || newToActing())) kind = didKind(b, act.h, 'email') ? 'share' : 'email';
   else if (act) kind = didKind(b, act.h, 'testimony') ? 'share' : 'testify';
   else if (waiting && pos && chairs.length && !asked(b, code)) kind = differs ? 'capitol' : /oppose/.test(b.hiphi_position) ? 'hold' : 'ask';
-  return { st, hs, pos, law, stopped, live, differs, act, code, chairs, waiting, kind, k: act ? `${b.id}|${act.h.id}` : '', qKey: `${b.id}|sentq` };
+  // After the committees (see GOV_URL above). Only where HIPHI supports or opposes it, so there is a clear ask; once the
+  // person says they sent it, this stage is not offered again (askMark with the stage as its key).
+  const stepKey = !live || act || !/support|oppose/.test(b.hiphi_position || '') ? ''
+    : b.stage === 'governor' || st.phase === 'governor' ? 'governor' : st.phase === 'conference' ? 'conference' : st.phase === 'floor' ? 'floor-' + st.chamber : '';
+  let to = [], conf = false;
+  if (kind === 'share' && stepKey && !S.done.has(askMark(b, stepKey))) {
+    if (stepKey === 'governor') kind = 'governor';
+    else if (stepKey === 'conference') { const cs = conferees(b).filter(c => c.chair); conf = cs.length > 0;
+      to = conf ? cs.map(c => c.l) : ['H', 'S'].map(myLeg).filter(Boolean); kind = 'conference'; }
+    else { to = [myLeg(st.chamber)].filter(Boolean); kind = 'floor'; }
+    to = to.filter(l => l.email);
+  }
+  return { st, hs, pos, law, stopped, live, differs, act, code, chairs, waiting, kind, stepKey, to, conf, k: act ? `${b.id}|${act.h.id}` : '', qKey: `${b.id}|sentq` };
 }
 
 // A ready-to-send email to one or more chairs. Greeting by surname ("Dear Chair San Buenaventura"), the person's
@@ -160,7 +207,7 @@ export function situation(b) {
 // mode 'own' is for someone who sees the bill differently from HIPHI: what the bill does, and room for their words.
 function mailFor(b, x, chairs, mode) {
   const m = me(), p = posInfo(b), sp = spaced(b.bill_number);
-  const dear = chairs.length ? chairs.map(c => `Chair ${c.last}`).join(' and ') : 'Chair';
+  const dear = chairs.length ? chairs.map(c => c.greet || `Chair ${c.last}`).join(' and ') : 'Chair';
   const who = m.name ? `My name is ${m.name}${m.town ? ` and I live in ${m.town}` : ''}. ` : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';
@@ -173,6 +220,14 @@ function mailFor(b, x, chairs, mode) {
   } else if (mode === 'ask') {
     subject = `${sp}: please give it a hearing`;
     body = `${who}I am writing to ask you to schedule a hearing for ${sp}. ${about}${ask}\n\n${dl ? `It needs a hearing by ${dl} to stay alive this session. ` : ''}Please give it a hearing so the public can weigh in.`;
+  } else if (mode === 'floor') {
+    const yes = p.verb === 'oppose' ? 'no' : 'yes', ch = N[x.st.chamber] || 'full chamber';
+    subject = `${sp}: please vote ${yes}`;
+    body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nIt comes to a vote of the full ${ch} soon. Please vote ${yes}.`;
+  } else if (mode === 'conference') {
+    const want = p.verb === 'oppose' ? 'let it go' : 'agree on one version and pass it';
+    subject = `${sp}: please ${p.verb === 'oppose' ? 'let it go' : 'pass it'} in conference`;
+    body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nThe House and Senate are working out one version in conference. ${x.conf ? 'Please' : 'Please urge the conference committee to'} ${want}.`;
   } else if (mode === 'hold') {
     subject = `${sp}: please hold this bill`;
     body = `${who}I am writing to oppose ${sp}. ${about}${ask}\n\nPlease do not schedule it for a hearing.`;
@@ -191,7 +246,8 @@ const mailMode = x => x.differs ? 'own' : x.kind === 'hold' ? 'hold' : x.kind ==
 // main button, so this one steps aside (two blue buttons competed before).
 function mainButton(b, x) {
   // After the mail app opened: one question, so a sent email counts.
-  if (S.sentq?.[x.qKey]) return `<div class="bl-barq" role="group" aria-label="Did you send your email?"><p class="bl-barq-t">Did you send your email?</p>
+  const sentWord = x.kind === 'governor' ? 'message' : 'email';
+  if (S.sentq?.[x.qKey]) return `<div class="bl-barq" role="group" aria-label="Did you send your ${sentWord}?"><p class="bl-barq-t">Did you send your ${sentWord}?</p>
     ${btn('Yes, I sent it', { kind: 'primary', sm: true, attrs: { 'data-bl-sent': 'yes' } })}${btn('Not yet', { kind: 'text', sm: true, attrs: { 'data-bl-sent': 'no' } })}</div>`;
   if (x.act && S.compose === x.k) return '';
   switch (x.kind) {
@@ -200,6 +256,15 @@ function mainButton(b, x) {
     case 'capitol': return btn(x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: capitolUrl(b), attrs: { 'data-bl-go': 'capitol', target: '_blank', rel: 'noopener' } });
     case 'ask': return btn(x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
     case 'hold': return btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });
+    case 'floor': case 'conference': {
+      if (!x.to.length) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(b.bill_number)}` });
+      const one = x.to.length === 1 ? x.to[0] : null, yes = /oppose/.test(b.hiphi_position || '') ? 'no' : 'yes';
+      const label = x.differs ? (x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : one ? `Email ${legTitle(one)} ${surname(one)}` : 'Email your legislators')
+        : x.kind === 'floor' ? `Ask ${legTitle(one)} ${surname(one)} to vote ${yes}` : x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : 'Email your legislators';
+      return btn(label, { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.to.map(l => contactOf(l, x.conf)), x.differs ? 'own' : x.kind), attrs: { 'data-bl-main': x.kind, 'data-bl-mail': '-' } });
+    }
+    case 'governor': return btn(x.differs ? 'Tell the Governor what you think' : /oppose/.test(b.hiphi_position || '') ? 'Ask the Governor to veto it' : 'Ask the Governor to sign it',
+      { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: GOV_URL, attrs: { 'data-bl-main': 'governor', 'data-bl-mail': '-', target: '_blank', rel: 'noopener' } });
     case 'law': return btn(x.differs ? 'Share this bill' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
     case 'stopped': {
       // Between sessions nothing is moving: the useful step is getting ready for January.
@@ -382,6 +447,7 @@ function statusCard(b, x) {
   return `<section class="card bl-status" aria-labelledby="bl-st-h"><h2 class="sr" id="bl-st-h">Where it is now</h2>
     <p class="bl-say">${x.law ? flower(22) : ''}<span>${esc(plainStatus(b).text)}${extra ? ` ${esc(extra)}` : ''}</span></p>
     ${b.hiphi_action && !x.act && x.live && !x.differs ? `<p class="bl-ask">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(b.hiphi_action)}</span></p>` : ''}
+    ${!wide() && stepCard(b, x) ? `<p class="bl-next"><b>${esc(stepCard(b, x)[0])}.</b> ${esc(stepCard(b, x)[1])}</p>` : ''}
     ${railHTML(b, x)}
   </section>`;
 }
@@ -399,11 +465,26 @@ function actionSection(b, x) {
   return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
     ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
+// The floor, conference and the Governor: what the step is and why, in one line (the side card on a wide screen, the
+// status card on a phone, where the button sits in the bottom bar).
+function stepCard(b, x) {
+  const opp = /oppose/.test(b.hiphi_position || ''), ch = N[x.st.chamber] || '', rep = x.st.chamber === 'S' ? 'senator' : 'representative';
+  if (x.kind === 'floor') return x.to.length
+    ? [`Ask for a ${opp ? 'no' : 'yes'} vote`, `The full ${ch} votes on it next. Lawmakers listen closest to the people they represent, so a short email from you counts.`]
+    : [`Ask for a ${opp ? 'no' : 'yes'} vote`, `The full ${ch} votes on it next. Find your own ${rep}, then send a short email: lawmakers listen closest to the people they represent.`];
+  if (x.kind === 'conference') return x.conf
+    ? ['Write to the conference chairs', 'The House and Senate passed different versions. A few members of each are working out one version, led by these chairs. A short, polite email helps.']
+    : ['Ask your legislators to speak up', 'The House and Senate passed different versions and are working out one. Your own legislators can speak up for it.'];
+  if (x.kind === 'governor') return vetoNotice(b) && !opp
+    ? ['The Governor may veto it', 'The Governor has given notice of a possible veto. Tell the Governor’s office why it should become law, on its Comments on Legislation page.']
+    : ['On the Governor’s desk', `It passed the House and Senate. The Governor decides whether it becomes law. Tell the Governor’s office ${x.differs ? 'what you think' : opp ? 'why it should be vetoed' : 'why it should be signed'}, on its Comments on Legislation page.`];
+  return null;
+}
 // Wide screens, no hearing ahead: the side panel still leads with the one thing worth doing, and says why.
 function doCard(b, x) {
   const main = mainButton(b, x); if (!main) return '';
   const off = sessionInfo().phase !== 'in', many = x.chairs.length > 1;
-  const [title, text] = {
+  const [title, text] = stepCard(b, x) || {
     ask: ['Ask for a hearing', `The committee ${many ? 'chairs decide' : 'chair decides'} if this bill gets a hearing. A short, polite email helps.`],
     hold: ['Ask the chair to hold it', 'HIPHI opposes this bill. A short, polite note asking the chair not to hear it helps.'],
     capitol: ['Have your say', 'You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.'],
@@ -697,6 +778,7 @@ export default {
       if (el.dataset.blSent === 'yes') {
         await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
         if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
+        if (x.stepKey && ['floor', 'conference', 'governor'].includes(x.kind)) { S.done.add(askMark(b, x.stepKey)); saveDone(); }   // this stage, done
         // A first visit that began on this bill: the first action gets its moment (C-7), then the rest of the visit.
         if (S.blNew.has(b.id) && firstVisit()) {
           logVisit('act', 'next', { path: 'link' });

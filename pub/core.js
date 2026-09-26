@@ -1056,6 +1056,13 @@ export async function ensureBill(num) {
     if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
     S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
   }
+  // The bill page's conference and Governor steps read the bill's recent Capitol actions (who chairs the conference, a
+  // veto notice); a bill opened without being followed has none loaded yet (R-056). Decoration: a failure leaves the
+  // step with its fallback (your own legislators), never an error.
+  if (!S.bills.some(x => x.id === b.id) && !(S.xa ??= {})[b.id] && ['conference', 'governor'].includes(b.stage)) {
+    if (DEMO) S.xa[b.id] = (D.activity || []).filter(a => a.bill_id === b.id);
+    else { const { data, error } = await S.supa.from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
+  }
   return b;
 }
 // Where a person is in the guided start: a first visit is someone who has not finished or skipped it and follows nothing.
