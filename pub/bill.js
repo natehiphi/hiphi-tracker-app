@@ -10,7 +10,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
-import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit } from './visitlog.js';
@@ -184,6 +184,7 @@ export function situation(b) {
   if (law) kind = 'law';
   else if (stopped) kind = 'stopped';
   else if (act && differs) kind = 'capitol';
+  else if (act && RANKED) { const n = nextStep(b, act.h); kind = n === 'testimony' ? 'testify' : n === 'email' ? 'email' : 'share'; }   // R-005, ?rank=1 only
   else if (act && (act.late || newToActing())) kind = didKind(b, act.h, 'email') ? 'share' : 'email';
   else if (act) kind = didKind(b, act.h, 'testimony') ? 'share' : 'testify';
   else if (waiting && pos && chairs.length && !asked(b, code)) kind = differs ? 'capitol' : /oppose/.test(b.hiphi_position) ? 'hold' : 'ask';
