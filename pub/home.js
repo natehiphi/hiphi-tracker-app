@@ -12,7 +12,7 @@
 // On wide screens Home is two columns (wide.css .cols): things to do on the left, your session, what's new and the
 // suggestion on the right. The full bill list lives in My bills.
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair,
-  actedOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
+  actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel } from './core.js';
@@ -258,7 +258,7 @@ const moreRows = (id, rows) => `${toggle(id, 'hm-' + id, `Show ${rows.length} mo
 // Open actions first (two cards, then one line each), then up to two "ask the chair" cards. calm: inside the first
 // visit's "Ready now?" fold, where no card is singled out.
 function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
-  const first = calm ? null : cards.find(x => !actedOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
+  const first = calm ? null : cards.find(x => !settledOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
   const card = x => actionCard(x.b, x.h, { focus: x === first });
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
       ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
@@ -299,8 +299,8 @@ function followView(si) {
   // Anything already done when the person arrived on Home folds into "Done this week", so the page opens on what is
   // still open. A card finished while they are here stays where it was, in its done state: nothing jumps under a finger.
   const arrived = S.hmArrived || new Set(), wasDone = x => KINDS.some(k => arrived.has(doneKey(x.b.id, x.h.id, k)));
-  const folded = all.filter(x => actedOn(x.b, x.h) && wasDone(x)), cards = all.filter(x => !folded.includes(x));
-  const open = cards.filter(x => !actedOn(x.b, x.h)), asks = askList(), total = open.length + asks.length;
+  const folded = all.filter(x => settledOn(x.b, x.h) && wasDone(x)), cards = all.filter(x => !folded.includes(x));
+  const open = cards.filter(x => !settledOn(x.b, x.h)), asks = askList(), total = open.length + asks.length;
   const inCards = new Set(all.map(x => x.b.id));
   if (!welcome) {
     if (!sug && total < 2) sug = pickSuggestion(new Set([...inCards, ...asks.map(x => x.b.id)]));
@@ -371,7 +371,7 @@ function welcomeView(si, { cards, asks, total }) {
   const iss = followedIssues(), stands = iss.length ? iss.filter(i => issueBills(i).some(took)).length : S.bills.filter(b => took(b.id)).length;
   const ms = milestoneState(myActions());
   const stood = !stands ? '' : ` and said where you stand on ${stands === 1 ? 'one of them' : n(stands)}`;
-  const soon = cards.filter(x => !actedOn(x.b, x.h)).length;
+  const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;

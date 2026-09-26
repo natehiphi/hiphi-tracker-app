@@ -1040,6 +1040,12 @@ export function openActions(bills, hearings) {
 // Every action counts: any kind done on a hearing means the card is done for "Do this now".
 export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id, k)));
 export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
+// Settled: the person has taken a real step for this hearing - testimony, an email to the chair, or going in person.
+// A two-second Share alone settles it only once testimony can no longer be sent (late, or HIPHI's letter is not theirs
+// to send). It used to count as done, which folded the card into "Done this week" with testimony still open (R-005,
+// Nate 9/26). actedOn still says "they did something" (the card's Mahalo line); settledOn decides what folds away.
+export const settledOn = (b, h) => ['testimony', 'email', 'attend'].some(k => didKind(b, h, k))
+  || (didKind(b, h, 'share') && (!!dueInfo(h)?.late || agrees(b) === false || !posInfo(b)));
 // A bill by number ("HB1563"), loaded with its hearings and outcomes even when nobody follows it (shared links, search).
 export async function ensureBill(num) {
   const n = String(num || '').replace(/\s/g, '').toUpperCase();
