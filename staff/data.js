@@ -419,16 +419,18 @@ export const DB = {
   async searchUntracked(q) {
     const words = String(q).toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(w => w.length > 1), num = words.join('');
     if (DEMO) return (S.snapshot?.index || []).filter(b => b.bill_number.toLowerCase().includes(num) || (words.length && words.every(w => (b.title || '').toLowerCase().includes(w))))
+      .sort((x, y) => (y.bill_number.toLowerCase() === num) - (x.bill_number.toLowerCase() === num))
       .slice(0, 40).map(b => ({ ...b, description: null, stage: null, last_action: null, last_action_date: null }));
     if (!num) return [];
+    const cols = 'id,bill_number,title,description,stage,last_action,last_action_date';
     const byWords = words.length ? `,and(${words.map(w => `or(title.ilike.*${w}*,description.ilike.*${w}*)`).join(',')})` : '';
-    const { data, error } = await S.supa.from('bills')
-      .select('id,bill_number,title,description,stage,last_action,last_action_date')
-      .eq('tracked', false)
-      .or(`bill_number.ilike.*${num}*${byWords}`)
-      .order('last_action_date', { ascending: false, nullsFirst: false })
-      .limit(15);
-    if (error) throw error; return data;
+    // A bill number typed whole comes first, even when fifteen more recently active bills contain it ("HB13").
+    const exact = /^[a-z]{1,3}\d{1,4}$/.test(num) ? S.supa.from('bills').select(cols).eq('tracked', false).eq('bill_number', num.toUpperCase()) : null;
+    const [a, b] = await Promise.all([exact || { data: [] }, S.supa.from('bills').select(cols).eq('tracked', false)
+      .or(`bill_number.ilike.*${num}*${byWords}`).order('last_action_date', { ascending: false, nullsFirst: false }).limit(15)]);
+    if (a.error || b.error) throw a.error || b.error;
+    const seen = new Set((a.data || []).map(r => r.id));
+    return [...(a.data || []), ...(b.data || []).filter(r => !seen.has(r.id))];
   },
   async saveMyPrefs({ slack_dm, prefs }) {
     Object.assign(S.me, { slack_dm, prefs });
