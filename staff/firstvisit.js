@@ -26,13 +26,13 @@ const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm';
 // The screens of the first visit, in the order a person meets them (pub/start.js FLOW_IN, FLOW_OFF, FLOW_LINK). Someone
 // who arrives on a shared bill starts with the bill's card, its quick email and "Follow this issue" instead of the first
 // three screens, so those visits get a list of their own, and every percentage is of the visits that could reach that
-// screen. In session and between sessions never share a week (the path follows the calendar), so they are one list, in
-// which "Where do you stand?" counts against in-session visits only: between sessions it is left out, nothing is moving.
+// screen. In session and between sessions never share a week (the path follows the calendar), so they are one list.
+// ("Where do you stand?" left the first visit on 9/26, R-053; its name stays here for visits counted before that.)
 const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
   stand: 'Where do you stand?', bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is',
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home' };
 const FLOWS = {
-  in: ['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  in: ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
   off: ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
   link: ['arrive', 'act', 'followask', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
 };
@@ -54,8 +54,8 @@ const redraw = sel => { const y = scrollY; hooks.render(); if (sel) document.que
 function sampleRows(weeks) {
   const srcs = [['direct', 9], ['instagram.com', 7], ['keiki-health-fair', 5], ['facebook.com', 3], ['newsletter', 2]];
   const mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
-  const reach = { topics: 1, issues: .9, stand: .78, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
-  const time = { topics: 21, issues: 58, stand: 24, bill: 46, session: 64, hearing: 52, you: 37, soon: 31, done: 14, followask: 12, arrive: 40, act: 95 };
+  const reach = { topics: 1, issues: .9, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
+  const time = { topics: 21, issues: 58, bill: 46, session: 64, hearing: 52, you: 37, soon: 31, done: 14, followask: 12, arrive: 40, act: 95 };
   const rows = [];
   for (let w = 0; w < weeks; w++) {
     const wk = new Date(mon.getTime() - w * 7 * 864e5).toISOString().slice(0, 10);
@@ -63,7 +63,7 @@ function sampleRows(weeks) {
       const n = Math.max(1, Math.round(base * (1 + ((w * 7 + k * 3) % 5) / 6)));
       const off = src === 'newsletter' && w % 2 === 1, path = off ? 'off' : 'in', flow = FLOWS[path];
       const reached = Object.fromEntries(flow.map(s => [s, Math.max(0, Math.round(n * reach[s]))]));
-      const skips = { stand: Math.round(n * .18), you: Math.round(n * .12), soon: Math.round(n * .2) };
+      const skips = { you: Math.round(n * .12), soon: Math.round(n * .2) };
       rows.push({ week: wk, source: src, path, visits: n, reached, finished: reached.done, gave_email: Math.round(n * .28),
         median_seconds: Object.fromEntries(flow.map(s => [s, time[s] + ((w + k) % 7)])), skips: Object.fromEntries(Object.entries(skips).filter(([s, v]) => v && flow.includes(s))),
         quiz_right: Math.round(n * .45), quiz_answered: Math.round(n * .6), quiz_shown: Math.round(n * .05) });

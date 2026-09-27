@@ -42,7 +42,7 @@ def std(p, name, desktop=False, axe=False):
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
-    # ---- 1. the first visit on a phone (R-023, rebuilt 9/21): topics -> issues (the Mahalo moment) -> where you stand ->
+    # ---- 1. the first visit on a phone (R-023, rebuilt 9/21; R-039 and R-053, 9/26): topics -> issues (the Mahalo moment) ->
     # three lessons (the "Now you know" moment) -> who speaks for you -> coming up, THEN the ask -> you're all set -> Home ----
     c, p = ctx(b); fresh(p); p.reload(); p.wait_for_timeout(3000)
     ok(p.evaluate('location.hash') == '#/start/1', 'first visit lands on step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
@@ -55,19 +55,21 @@ with sync_playwright() as pw:
     ok(p.locator('.st-chapters button, .st-chapters a').count() == 0, 'the named parts are a signpost, not buttons')
     ok(p.locator('[data-stissue]').count() == 6 and 'About 4 minutes' in text(p), 'six category tiles, and an honest time promise')
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
-    # Screen 2 offers ISSUES, not bills (R-018), most important first: four per category, the rest behind "Show N more".
+    # Screen 2 offers ISSUES, not bills (R-018): the four most important first, then three more per category, and nothing
+    # else (R-039, Nate 9/22: the list was way too long).
     ok(p.locator('[data-stpick]').count() > 0, f"issues step offers issues ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
     t2 = text(p); ok('Relating to' not in t2, 'issues step has no "Relating to" headlines')
     ok(p.locator('[data-stfollowcat]').count() >= 1 and p.locator('[data-stfollowall]').count() == 0, 'one "Follow all" per category, and no overall one')
     lbl = p.inner_text('.st-bar'); ok(re.search(r'Follow \d+ issues?', lbl) is not None, f'the button counts issues ("{lbl.strip()}")')
-    vis = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => [...d.querySelectorAll('.st-pcard')].filter(li => !li.hidden).length)")
-    ok(vis and all(n <= 4 for n in vis), f'each category shows its four most important issues at most ({vis})')
-    hidden_ticked = p.evaluate("[...document.querySelectorAll('.st-pcard[hidden] [data-stpick][aria-pressed=true]')].length")
-    ok(hidden_ticked == 0, 'nothing out of sight starts ticked')
-    if p.locator('[data-stmore]').count():
-        before = p.locator('.st-pcard:not([hidden])').count(); p.locator('[data-stmore]').first.click(); p.wait_for_timeout(500)
-        ok(p.locator('.st-pcard:not([hidden])').count() > before and p.locator('[data-stmore]').first.get_attribute('aria-expanded') == 'true', '"Show N more issues" shows the rest in place')
-        std(p, 'start2_more', axe=True)
+    top = p.locator('.st-topsec .st-pcard').count()
+    ok(1 <= top <= 4 and 'Most important' in p.inner_text('.st-topsec h2'), f'the four most important issues come first ({top})')
+    vis = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => d.querySelectorAll('.st-pcard').length)")
+    ok(all(n <= 3 for n in vis), f'then three more per category at most ({vis})')
+    ids = p.evaluate("[...document.querySelectorAll('[data-stpick]')].map(e => e.dataset.stpick)")
+    ok(len(ids) == len(set(ids)), 'no issue is shown twice')
+    ok(p.locator('[data-stmore]').count() == 0 and p.locator('.st-pcard[hidden]').count() == 0, 'no "Show more", nothing hidden')
+    ticked_below = p.evaluate("[...document.querySelectorAll('[data-stsec] [data-stpick][aria-pressed=true]')].length")
+    ok(ticked_below == 0 and p.locator('.st-topsec [data-stpick][aria-pressed=true]').count() >= 1, 'only the top issues start ticked (B-12)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     # The first success: a moment that fills the screen and waits for Continue (C-7, WCAG 2.2.1).
     ok(p.locator('#fx-moment:not([hidden]) [role=dialog]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
@@ -76,15 +78,10 @@ with sync_playwright() as pw:
     p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
-    ok(re.search(r'where do you stand', text(p), re.I) is not None, f"stance step follows the issues ({p.evaluate('location.hash')})"); std(p, 'start3', axe=True); shot(p, 'p_s3')
-    ok(not p.locator('main [data-helper]').count(), 'the stance step pushes no action')
-    # Three at most, one at a time, one card per idea (Nate, 9/20; R-019).
-    cards = p.locator('.st-scard').count(); heads = p.evaluate("[...document.querySelectorAll('.st-scard .st-shead')].map(e => e.textContent.trim())")
-    ok(0 < cards <= 3 and p.locator('.st-scard[data-pos="0"]').count() == 1, f'the stance step asks about three ideas at most, one at a time ({cards})')
-    ok(len(heads) == len(set(heads)), f'no idea is asked about twice ({heads})')
-    p.locator('.st-scard[data-pos="0"] [data-ststance$="|support"]').click(); p.wait_for_timeout(800)
-    st = p.evaluate("JSON.parse(localStorage.getItem('hiphi_stances_demo') || '{}')"); ok(len(st) >= 1, f'a stance is saved ({st})')
-    p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    # "Where do you stand?" left the first visit (R-053, 9/26): the answer changed nothing the person saw next (C-13).
+    # The bill page asks it instead (checked below). After "Mahalo!" comes the first lesson.
+    ok(re.search(r'where do you stand', text(p), re.I) is None and p.locator('[data-ststance]').count() == 0, f"no stance screen after the issues ({p.evaluate('location.hash')})")
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', 'the first lesson comes straight after "Mahalo!"')
     # How it works: three lessons, every word visible (C-12), stepped through with the primary button.
     seen = []
     for _ in range(24):
@@ -165,16 +162,19 @@ with sync_playwright() as pw:
     visit(p, '/find?q=vape', wait=2800); ok('Disposable vape ban' in text(p), 'search finds a bill by its nickname')
     visit(p, '/bill/' + NONICK, wait=2800); h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''"); ok(len(h1) > 10, f'a bill without a nickname still has a plain headline ({NONICK}: "{h1[:50]}")')
     visit(p, '/bill/HB1563', wait=2800); ok('Let counties regulate tobacco sales' in text(p), 'an approved nickname from the snapshot leads the bill page (HB 1563)')
-    # ---- "Your issues" with three categories: a folded section says what is ticked inside it, so "Follow N issues"
-    # never counts an issue the person has not seen (R-023's review, 9/21) ----
+    # ---- "Your issues" with three categories (R-039): every category starts open, one ticked in the top group is named
+    # on its category's line, and "Follow N issues" counts exactly the ticks on screen (R-023's review, 9/21) ----
     fresh(p); p.reload(); p.wait_for_timeout(2500)
     for name in ('Food', 'Tobacco', 'Family'):
         p.evaluate(f"[...document.querySelectorAll('.st-issue')].find(x => /{name}/.test(x.innerText))?.click()"); p.wait_for_timeout(150)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(2200)
     secs = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => ({ open: d.open, line: d.querySelector('[data-stpicked]').hidden ? '' : d.querySelector('[data-stpicked]').textContent, n: d.querySelectorAll('[data-stpick][aria-pressed=true]').length }))")
-    folded = [x for x in secs if not x['open']]
-    ok(folded and all((x['line'].startswith(f"{x['n']} ticked") if x['n'] else not x['line']) for x in folded), f'a folded category says what is ticked inside it ({folded})')
-    ok(f"Follow {sum(x['n'] for x in secs)} issue" in p.inner_text('.st-bar'), 'the button counts exactly the ticks, folded or not')
+    ok(secs and all(x['open'] for x in secs), f'every category starts open ({secs})')
+    named = p.evaluate("[...document.querySelectorAll('.st-topsec [data-stpick][aria-pressed=true]')].map(b => [b.dataset.stcat, b.querySelector('.st-phead').textContent])")
+    lines = p.evaluate("Object.fromEntries([...document.querySelectorAll('[data-stsec]')].map(d => [d.dataset.stsec, d.querySelector('[data-stpicked]').textContent]))")
+    shown_n = p.locator('[data-stpick][aria-pressed=true]').count()
+    ok(shown_n >= 1 and f"Follow {shown_n} issue" in p.inner_text('.st-bar'), f'the button counts exactly the ticks on screen ({shown_n})')
+    ok(any(nm in ' '.join(lines.values()) for _, nm in named), f'a category line names its issue ticked in the top group ({named}, {lines})')
     order = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => d.dataset.stsec)")
     ok(len(order) == 3, f'three categories, most important first ({order})')
     # ---- issues (063, R-018): categories and issues in Find, an issue's page, My issues, and the issue on a bill page ----

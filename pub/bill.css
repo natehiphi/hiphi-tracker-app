@@ -73,6 +73,9 @@
 .bl-page .bl-ask { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s12); }
 .bl-page .bl-ask .ic { width: 18px; height: 18px; color: var(--p700); margin-top: 1px; flex: none; }
 .bl-page .bl-ask b { color: var(--n900); }
+/* Phones: what the bottom bar's button does after the committees (the floor, conference, the Governor; R-056). */
+.bl-page .bl-next { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.bl-page .bl-next b { color: var(--n900); }
 
 .bl-page .bl-rail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--s8); padding-top: 4px; }
 .bl-page .bl-dots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }

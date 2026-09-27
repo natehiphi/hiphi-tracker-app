@@ -49,7 +49,7 @@ with sync_playwright() as pw:
         ok(p.locator('.fv-tile').count() == 4, f'first visit{tag}: four numbers at the top')
         ok(p.locator('#fv-sh').count() == 1 and p.locator('#fv-lsh').count() == 1, f'first visit{tag}: screen by screen, and the shared-bill visits apart')
         names = p.locator('ol.fv-screens').first.locator('.fv-sname').all_inner_texts()
-        ok(names[:3] == ['What you care about', 'Your issues', 'Where do you stand?'] and names[-1].startswith('You'), f'first visit{tag}: screens in the order a person meets them: {names[:3]} ... {names[-1:]}')
+        ok(names[:3] == ['What you care about', 'Your issues', 'Reading a bill'] and names[-1].startswith('You'), f'first visit{tag}: screens in the order a person meets them: {names[:3]} ... {names[-1:]}')
         first_pc = p.locator('ol.fv-screens').first.locator('.fv-rn').first.inner_text()
         ok(first_pc.endswith('100%'), f'first visit{tag}: every first visit reaches the first screen ({first_pc})')
         ok(p.locator('table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')

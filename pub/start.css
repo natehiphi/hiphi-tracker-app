@@ -129,6 +129,10 @@
 .st-quiet { display: grid; grid-template-columns: auto 1fr; gap: var(--s8) var(--s12); align-items: center; }
 .st-quiet .st-catall { grid-column: 1 / -1; }
 .st-quiet .st-ibody { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* R-039: the four most important issues first, then three more under each chosen category. */
+.st-topsec { display: flex; flex-direction: column; gap: var(--s12); }
+.st2 h2.st-toph { margin: 0; font: 700 var(--t18)/1.3 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.st2 h2.st-moreh { margin-top: var(--s24); margin-bottom: var(--s12); }
 .st-tsecs { display: flex; flex-direction: column; gap: var(--s12); }
 .st-tsec { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s12) var(--s16); }
 .st-tsec > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
@@ -143,31 +147,6 @@
 .st-tchev { width: 20px; height: 20px; color: var(--n500); flex: none; transition: transform .15s; }
 .st-tsec[open] > summary .st-tchev { transform: rotate(180deg); }
 .st-tbody2 { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s12); }
-
-/* ---- Your issues, 3: where do you stand? One card at a time; the ones behind show only their edge ---- */
-.st-stack { display: grid; padding-bottom: 26px; overflow-x: clip; }
-.st-scard { grid-area: 1 / 1; align-self: start; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh2);
-  padding: 18px 16px 16px; transition: transform .38s var(--ease), opacity .3s var(--ease); }
-.st-scard[data-pos="0"] { z-index: 3; }
-.st-scard[data-pos="gone"] { z-index: 4; }
-.st-scard[data-pos="1"] { z-index: 2; transform: translateY(12px) scale(.95); opacity: .7; pointer-events: none; }
-.st-scard[data-pos="2"] { z-index: 1; transform: translateY(24px) scale(.9); opacity: .35; pointer-events: none; }
-.st-scard[data-pos="1"] > *, .st-scard[data-pos="2"] > * { visibility: hidden; }
-.st-scard.st-gone-support { transform: translateX(115%) rotate(8deg); opacity: 0; pointer-events: none; }
-.st-scard.st-gone-oppose { transform: translateX(-115%) rotate(-8deg); opacity: 0; pointer-events: none; }
-.st-scard.st-gone-unsure { transform: translateY(40px) scale(.9); opacity: 0; pointer-events: none; }
-.st-seyebrow { margin: 0; font-size: var(--t13); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--p700); }
-.st-scard .st-shead { margin-top: 4px; font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.01em; }
-.st-smeta { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin: 8px 0 0; font-size: var(--t13); color: var(--n500); }
-.st-sdesc { margin: 8px 0 0; font-size: var(--t14); color: var(--n700); }
-.st-sbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-.st-sbtns .btn { padding: 0 12px; }
-.st-sbtns .st-swide { grid-column: 1 / -1; }
-/* A tap leaves "hover" behind on a touch screen, so the next card's same button looked already chosen (the review). */
-@media (hover: none) { .st-sbtns .btn.secondary:hover { background: var(--n0); } }
-.st-standdone { display: flex; gap: 12px; align-items: center; padding: 16px; background: var(--n0); border-radius: var(--r16); border: 1px solid var(--n200); animation: st-rise .3s var(--ease); }
-.st-standdone .ic { flex: none; width: 28px; height: 28px; color: var(--ok-text); }
-.st-standdone p { margin: 0; }
 
 /* ---- Stay connected, 1: who speaks for you ---- */
 .st-legwrap { display: flex; flex-direction: column; gap: var(--s12); }

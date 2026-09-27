@@ -39,9 +39,10 @@ first visit's first two screens are categories -> "Your issues"; the tab is **My
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,
 with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
-topics (six tiles, most important first) -> "Your issues" (the top four per category by importance, then "Show N more";
-importance uses `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!"
-moment -> "Where do you stand?" (at most three cards, one at a time) -> three lessons on the person's own bill
+topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
+topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
+`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> three
+lessons on the person's own bill (R-053, 9/26: "Where do you stand?" left the first visit; the bill page asks it)
 (`pub/lessons.js`: reading a bill, the session, a hearing; stepped with the primary button, every word visible, DESIGN
 C-12) -> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
 issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
@@ -164,6 +165,10 @@ shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`tod
 `coalition` (`#/coalition`, `#/coalition/:id`, Outreach > Coalitions)), plus
 `look.js` (the quick look, opened from Today and Bills) and `conversation.js` (conversations with legislators), which are
 components rather than screens.
+- **Sort new bills lists the untracked bills people follow (R-059, 9/26; migration 074 `triage_followed()`).** A panel
+  under the card, "Followed on the public tracker", most followed first; "Sort it" puts one on the card, decided like any
+  new bill. A bill set aside comes back only when someone follows it after that decision. Only follows made from an
+  account count (a browser-only follow never reaches the database). The sandbox shows sample counts (`DB.triageFollowed`).
 - **The header search suggests as you type (R-032, 9/21),** from 900px, through the public header's `pub/suggest.js`:
   `headerHits()` in `search.js` lists tracked bills whose number or shown name match (a leading number first, moving
   bills before dead ones), bills not tracked yet (`DB.searchUntracked`, which matches every word in the title or
@@ -284,6 +289,7 @@ python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
 python3 tests/suggest.py            # header search suggestions (R-032), both apps: 190 checks at 1024-1440 and short windows, keys, redraw, live bills
+python3 tests/staff_followed.py     # Sort new bills: the untracked bills the public follows (R-059), 40 checks at four sizes
 python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes
 python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 36 checks, every Supabase request intercepted
 ```

@@ -12,7 +12,7 @@ import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, 
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail,
   billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
-  listNames, hiToday, gateName, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen } from './model.js';
+  listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen } from './model.js';
 import { personById } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
@@ -62,6 +62,13 @@ export function afterBack(fn) {
 }
 // Text typed but not saved yet (a team note, a message, the public copy) outlives the re-render a save elsewhere causes.
 export const drafts = new Map();
+// A team note typed and not saved lives only in this tab: moving between bills keeps it, but a reload or closing the
+// tab would lose it without a word (R-005; DESIGN C-9). The browser asks first.
+addEventListener('beforeunload', e => {
+  for (const [k, v] of drafts) { if (!k.endsWith(':note')) continue;
+    const b = (S.bills || []).find(x => String(x.id) === k.slice(0, -5));
+    if (b && v.trim() !== (b.internal_notes || '').trim()) { e.preventDefault(); e.returnValue = ''; return; } }
+});
 
 // ---- which bill, which tab ----
 const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'Pathway'], ['public', 'Public'], ['testimony', 'Testimony']];
@@ -146,10 +153,10 @@ function goBill(b, tab) {
 
 // ---- the tab strip: where it pins, and bringing a tab's content into view ----
 const stickTop = () => { const h = document.querySelector('.sv-hdr'); return h ? h.getBoundingClientRect().height : 56; };
-// Desktop: the heading and the strip pin together as one block (.bw-stick). Its height is not a constant — a long
-// name or a two-line status sentence makes it taller — so it is measured and published as --bw-under, the line under
-// which a tab's content begins. The Pathway table's header row and the Public tab's preview stick to that line.
-const stickBlock = () => { const el = document.querySelector('.bw-stick'); return el && getComputedStyle(el).position === 'sticky' ? el : null; };
+// Desktop: the top bar and the strip stay pinned, the heading scrolls away (R-042). Where the strip's bottom edge sits
+// is measured and published as --bw-under, the line under which a tab's content begins. The Pathway table's header row
+// and the Public tab's preview stick to that line.
+const stickBlock = () => { const el = document.querySelector('.bw-desk .bw-tabs'); return el && getComputedStyle(el).position === 'sticky' ? el : null; };
 function measureStick() {
   const page = document.querySelector('.bw-page'); if (!page) return;
   const el = stickBlock();
@@ -158,12 +165,20 @@ function measureStick() {
 }
 // How far the page scrolls to put the strip right under the header (where position: sticky holds it from then on).
 function pinY() {
-  // Desktop: the whole block pins, so the resting place is the top of the main column, less the header it tucks under.
-  const el = stickBlock();
-  if (el) return Math.max(0, Math.round(el.parentElement.getBoundingClientRect().top + window.scrollY - stickTop()));
+  // The strip pins at its own sticky top: under the header on a phone, under the header and the top bar on desktop.
   const sent = document.querySelector('.bw-tabsent'), nav = document.querySelector('.bw-tabs'); if (!sent || !nav) return 0;
-  return Math.max(0, Math.round(sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - stickTop()));
+  const top = parseFloat(getComputedStyle(nav).top);
+  return Math.max(0, Math.round(sent.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(nav).marginTop || 0) - (Number.isFinite(top) ? top : stickTop())));
 }
+// Desktop: once the heading has scrolled under the top bar, the top bar names the bill, so the pinned rows still say
+// which bill this is.
+let topRaf = 0;
+function markScrolled() {
+  topRaf = 0;
+  const bar = document.querySelector('.bw-desk .bw-top'), num = document.querySelector('.bw-desk h1.bw-num'); if (!bar || !num) return;
+  bar.classList.toggle('bw-scrolled', num.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
+}
+addEventListener('scroll', () => { if (!topRaf && S.route?.name === 'bill') topRaf = requestAnimationFrame(markScrolled); }, { passive: true });
 // The bottom edge of the pinned block: a field brought into view (the ask on the Public tab) goes below this line.
 export const underTabs = () => { const el = stickBlock();
   return el ? (parseFloat(getComputedStyle(el).top) || 0) + el.offsetHeight : stickTop() + (document.querySelector('.bw-tabs')?.offsetHeight || 0); };
@@ -223,11 +238,11 @@ export function statusSentence(b, { hearing = true } = {}) {
   if (st.phase === 'floor') return `Through its ${ch} committees. Next: a vote of the full ${ch}${dl ? ` before ${esc(dlText(dl))}` : ''}.`;
   const other = st.chamber === 'H' ? 'Senate' : 'House', passed = st.leg === 'second' ? `Passed the ${other}. ` : '';
   if (!st.committee) return `${passed}Waiting to be sent to a ${ch} committee${dl ? `, before ${esc(dlText(dl))}` : ''}.`;
-  const where = `In ${esc(cmteFull(st.committee))}${st.stops > 1 ? `, stop ${st.stop} of ${st.stops} in the ${ch}` : ''}`;
+  const where = `In ${esc(cmteFull(st.committee))}${st.stops > 1 ? `, committee ${st.stop} of ${st.stops} in the ${ch}` : ''}`;
   if (st.hearingState === 'scheduled') return hearing ? `${passed}${where}. Next: ${isJoint(st.committee) ? 'joint hearing' : 'hearing'} ${esc(fmtDT(st.hearing.scheduled_at))}.` : `${passed}${where}.`;
   if (st.hearingState === 'held') return `${passed}${where}. Heard ${esc(dayOf(st.hearing.scheduled_at))}; waiting for the committee’s decision.`;
   if (st.deadline?.missed) return `Needed a hearing in ${esc(st.committee)} before ${esc(dlText(st.deadline))}, and did not get one.`;
-  return `${passed}${where}. Needs a hearing before ${esc(dlText(dl))}${dl ? ` (${dl.days} day${dl.days === 1 ? '' : 's'})` : ''}. ${isJoint(st.committee) ? 'The chairs decide.' : 'The chair decides.'}`;
+  return `${passed}${where}. Needs a hearing before ${esc(dlText(dl))}${dl ? ` (${dl.days} day${dl.days === 1 ? '' : 's'}), when it must ${esc(gateNeed(dl.label))}` : ''}. ${isJoint(st.committee) ? 'The chairs decide.' : 'The chair decides.'}`;
 }
 
 // ---- picker chips: position, priority, owner. Each saves on tap and says "Saved", with Undo. ----
@@ -404,7 +419,7 @@ function attendRow(h) {
 }
 function watchLink(h) {
   const v = streamOf(h); if (!v) return '';
-  const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch the hearing';
+  const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch the hearing';
   return `<a class="btn text bw-watch" data-watch="${esc(h.id)}" href="${esc(v.url)}" target="_blank" rel="noopener"${v.hint ? ` title="${esc(v.hint)}"` : ''}>${icon('video')}<span>${label}</span></a>`;
 }
 function hearingCard(b, h, i) {
@@ -448,7 +463,7 @@ function needsHearingCard(b) {
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">${st.committee ? `Needs a hearing in ${esc(cmteFull(st.committee))}` : `Waiting to be sent to a ${CHAMBER_NAME[st.chamber] || ''} committee`}</p>
-    ${chairs ? `<p class="bw-meta">${chairs}${st.stops > 1 ? ` · stop ${st.stop} of ${st.stops}` : ''}</p>` : ''}
+    ${chairs ? `<p class="bw-meta">${chairs}${st.stops > 1 ? ` · committee ${st.stop} of ${st.stops}` : ''}</p>` : ''}
     ${dl ? `<p class="bw-due"><span>${esc(cap(dlText(dl)))}</span>${daysLeft(dl)}</p>` : ''}
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
     ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}</div>` : ''}
@@ -710,7 +725,7 @@ function detailsSection(b) {
   const w = whereLines(b);
   // Which of the chamber's committee stops this is: the referral row marks it, this says it in words.
   const stops = st.phase === 'committee' && st.stops > 1 && !dead
-    ? `<span class="bw-gloss">Stop ${st.stop} of ${st.stops} in the ${esc(CHAMBER_NAME[st.chamber] || '')}</span>` : '';
+    ? `<span class="bw-gloss">Committee ${st.stop} of ${st.stops} in the ${esc(CHAMBER_NAME[st.chamber] || '')}: it needs a yes from each, in order</span>` : '';
   const live = pubStateCls(b).includes('live');
   const pub = live ? `<a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a>` : '';
   // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
@@ -718,7 +733,7 @@ function detailsSection(b) {
     <dl class="bw-dl">
       ${w.cm}
       <div class="bw-dt"><dt>Referrals</dt><dd>${referralsHTML(b)}${stops}</dd></div>
-      ${dl ? `<div class="bw-dt"><dt>Next deadline</dt><dd>${esc(gateName({ phase: dl.key, label: dl.label }))}, ${esc(dayOf(dl.date + 'T12:00:00-10:00'))} ${dl.missed ? '<span class="bw-late">' + icon('circle-alert') + 'missed</span>' : daysLeft(dl)}</dd></div>` : ''}
+      ${dl ? `<div class="bw-dt"><dt>Next deadline</dt><dd>${esc(gateName({ phase: dl.key, label: dl.label }))}, ${esc(dayOf(dl.date + 'T12:00:00-10:00'))} ${dl.missed ? '<span class="bw-late">' + icon('circle-alert') + 'missed</span>' : daysLeft(dl) + `<span class="bw-gloss">It must ${esc(gateNeed(dl.label))}.</span>`}</dd></div>` : ''}
       ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
       ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` <button type="button" class="linkbtn bw-more" data-sponsall="1">Show all ${sp.length}</button>` : ''}</dd></div>` : ''}
       ${w.comp}
@@ -758,7 +773,25 @@ function overview(b) {
   const sum = summaryOf(b) ? '' : `<section class="bw-sec bw-sum" aria-labelledby="bw-sum-h"><h2 id="bw-sum-h" class="sr">Summary</h2>
       <p>${desc ? esc(desc) : '<span class="muted">No summary yet. Write one on the Public tab.</span>'}</p>
       ${desc ? '<p class="meta">The official description. A plain summary can be written on the Public tab.</p>' : ''}</section>`;
-  return `${sum}${detailsSection(b)}${teamSection(b, desk)}${todoSection(b)}${noteSection(b)}`;
+  return `${sum}${detailsSection(b)}${teamSection(b, desk)}${todoSection(b)}${noteSection(b)}${allHearings(b)}`;
+}
+// Every hearing the bill has had, newest first, each with its recording (R-033, 9/26): Next up keeps the last 14 days,
+// and before this a hearing and its video left the page after that. Loaded once per bill (DB.billHearings); the
+// recording opens at the bill's own minute where the video's description has one ("Watch this bill’s part").
+S.billHist ??= {};
+function allHearings(b) {
+  const got = S.billHist[b.id];
+  if (!got) { S.billHist[b.id] = 'loading';
+    DB.billHearings(b.id).then(r => { S.billHist[b.id] = r; for (const o of r.outcomes) if (!S.outcomes[o.hearing_id]) S.outcomes[o.hearing_id] = o; if (S.route?.name === 'bill' && billOf(S.route)?.id === b.id) rerender(); })
+      .catch(e => { console.warn('bill hearings', e); S.billHist[b.id] = 'error'; }); }
+  const rows = (got && got.hearings ? got.hearings : S.hearings.filter(h => h.bill_id === b.id))
+    .filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) <= Date.now()).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
+  if (!rows.length) return '';
+  const tone = o => ({ passed: ['ok', 'check'], passed_amended: ['ok', 'check'], deferred: ['', 'circle-x'], recommitted: ['', 'rotate-ccw'] }[o] || ['', 'hourglass']);
+  return `<section class="bw-sec" aria-labelledby="bw-allh-h"><h2 id="bw-allh-h">Hearings <span class="bw-n">${rows.length}</span></h2>
+    <ul class="rows bw-allh">${rows.map(h => { const o = S.outcomes?.[h.id], [t, ic] = tone(o?.outcome);
+      return `<li class="bw-ah"><div><p><b>${esc(cmteFull(h.committee))}</b></p><p class="small muted">${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(roomOf(h.room))}` : ''}</p></div>
+        <div class="bw-ahend">${chip(o?.outcome ? (OUTCOME_LABEL[o.outcome] || o.outcome) : 'No report', t, ic)}${watchLink(h)}</div></li>`; }).join('')}</ul></section>`;
 }
 
 // ---- To do, note, coalitions, stage: wiring ----
@@ -847,6 +880,7 @@ function topBar(b, route) {
   const o = origin(route), nb = neighbours(b);
   return `<div class="bw-top">
     <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
+    <span class="bw-topnum" aria-hidden="true"><b>${esc(b.bill_number)}</b>${b.nickname ? ` · ${esc(b.nickname)}` : ''}</span>
     ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
       ${nb.prev ? `<a class="btn text bw-pn" href="${billHref(nb.prev, tabOf(route))}" data-nav="prev" aria-label="Previous bill: ${esc(nb.prev.bill_number)}" title="${esc(nb.prev.bill_number)} ([)">${icon('chevron-left')}<span>Previous</span></a>` : `<span class="btn text bw-pn" aria-disabled="true">${icon('chevron-left')}<span>Previous</span></span>`}
       <span class="meta">${nb.i + 1} of ${nb.n}</span>
@@ -986,6 +1020,7 @@ export default {
     // opens Activity at the message box. A tab tap never does: it would raise the keyboard uninvited.
     const focusAsk = tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
     measureStick();                        // publishes --bw-under before the tab's own sticky pieces are placed
+    markScrolled();
     if (tab === 'overview') wireOverview(pnl, b);
     else if (tab === 'activity') wireActivity(pnl, b, route, root);
     else if (tab === 'pathway') { try { wirePathway(pnl, b); } catch (e) { console.error(e); } }
@@ -1021,8 +1056,10 @@ function wireOverview(pnl, b) {
   const note = pnl.querySelector('#bw-note');
   note.oninput = () => drafts.set(b.id + ':note', note.value);
   pnl.querySelector('[data-savenote]').onclick = async e => {
-    const v = note.value.trim(); const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
-    try { await DB.updateBill(b.id, { internal_notes: v || null }); drafts.delete(b.id + ':note'); rerender('[data-savenote]'); toast('Note saved.'); }
+    const v = note.value.trim(), before = b.internal_notes ?? null; const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
+    // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).
+    try { await DB.updateBill(b.id, { internal_notes: v || null }); drafts.delete(b.id + ':note'); rerender('[data-savenote]');
+      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: before }); drafts.delete(b.id + ':note'); rerender('#bw-note'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } }); }
     catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
   pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);

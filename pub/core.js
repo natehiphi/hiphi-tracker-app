@@ -150,7 +150,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260921n', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260926a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -722,6 +722,24 @@ export async function browseCoalition(name) {
 // ---------------- helpers ----------------
 export const bill = id => S.bills.find(b => b.id === id);
 export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || ((S.recapPool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
+// A bill page shows every hearing of the bill, not only the 30 days the lists load (R-033, 9/26): its whole history,
+// each with its recording, which since 9/26 opens at the bill's own minute where the video's description has one
+// (public_bill_hearing_history, migration 075). Asked for once per bill and merged in; a failure leaves the 30 days.
+S.hist ??= {};
+export async function ensureHistory(b) {
+  if (DEMO || !b || S.hist[b.id]) return false;
+  S.hist[b.id] = 'loading';
+  try {
+    const { data, error } = await (await supa()).rpc('public_bill_hearing_history', { bill: b.id });
+    if (error) throw error;
+    const have = new Map(hearingsOf(b).map(h => [h.id, h]));
+    // A row already loaded keeps its place; it only gains a recording found since the lists loaded.
+    for (const h of data || []) { const o = have.get(h.id); if (o && !o.stream_url && h.stream_url) o.stream_url = h.stream_url; }
+    S.xh[b.id] = [...(S.xh[b.id] || []), ...(data || []).filter(h => !have.has(h.id)).map(({ outcome, ...h }) => h)];
+    for (const h of data || []) if (h.outcome && !S.outcomes[h.id]) S.outcomes[h.id] = { hearing_id: h.id, bill_id: h.bill_id, outcome: h.outcome };
+    S.hist[b.id] = true; return true;
+  } catch (e) { delete S.hist[b.id]; console.warn('hearing history', e); return false; }
+}
 export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {
@@ -1040,6 +1058,12 @@ export function openActions(bills, hearings) {
 // Every action counts: any kind done on a hearing means the card is done for "Do this now".
 export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id, k)));
 export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
+// Settled: the person has taken a real step for this hearing - testimony, an email to the chair, or going in person.
+// A two-second Share alone settles it only once testimony can no longer be sent (late, or HIPHI's letter is not theirs
+// to send). It used to count as done, which folded the card into "Done this week" with testimony still open (R-005,
+// Nate 9/26). actedOn still says "they did something" (the card's Mahalo line); settledOn decides what folds away.
+export const settledOn = (b, h) => ['testimony', 'email', 'attend'].some(k => didKind(b, h, k))
+  || (didKind(b, h, 'share') && (!!dueInfo(h)?.late || agrees(b) === false || !posInfo(b)));
 // A bill by number ("HB1563"), loaded with its hearings and outcomes even when nobody follows it (shared links, search).
 export async function ensureBill(num) {
   const n = String(num || '').replace(/\s/g, '').toUpperCase();
@@ -1055,6 +1079,13 @@ export async function ensureBill(num) {
     const [h, o] = await Promise.all([S.supa.from('public_all_hearings').select('*').eq('bill_id', b.id), S.supa.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
     if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
     S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
+  }
+  // The bill page's conference and Governor steps read the bill's recent Capitol actions (who chairs the conference, a
+  // veto notice); a bill opened without being followed has none loaded yet (R-056). Decoration: a failure leaves the
+  // step with its fallback (your own legislators), never an error.
+  if (!S.bills.some(x => x.id === b.id) && !(S.xa ??= {})[b.id] && ['conference', 'governor'].includes(b.stage)) {
+    if (DEMO) S.xa[b.id] = (D.activity || []).filter(a => a.bill_id === b.id);
+    else { const { data, error } = await S.supa.from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
   }
   return b;
 }
