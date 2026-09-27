@@ -21,7 +21,9 @@ const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing'
 const EVENTS = new Set(['view', 'next', 'skip', 'back', 'leave', 'done', 'answer']);
 const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/;
 const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);
-const gpc = () => { try { return navigator.globalPrivacyControl === true; } catch { return false; } };
+// The privacy page promises "if your browser asks sites not to track you, we record nothing". Only Global Privacy
+// Control was honoured; Do Not Track is the older way browsers ask, so it counts too (R-065).
+const gpc = () => { try { return navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1'; } catch { return false; } };
 
 // ---- this visit: its id and where it came from, worked out once and kept for the life of the tab ----
 let mem = null;   // when sessionStorage is not available (a private window that refuses it), this page load only

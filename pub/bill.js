@@ -378,6 +378,16 @@ function newcomer(b, x) {
 const notNow = () => btn('Not now', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
 // On to the rest of the first visit, on this bill.
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
+// A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
+// visit. Shared by the bar's "Yes, I sent it" and the email box's (actions.js), which used to give only a toast, so
+// the quick email from a link was never counted or celebrated (R-065). True when it took over.
+app.newcomerActed = b => {
+  if (!b || !(S.blNew.has(b.id) && firstVisit())) return false;
+  logVisit('act', 'next', { path: 'link' });
+  moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`, small: 'That’s how bills move. Most people never do it.' },
+    () => viaStart(b, { viaActed: true }));
+  return true;
+};
 // Without an everyday name the headline is what the bill does: HIPHI's plain summary; without one, the first sentence
 // of the official description (the whole of it sits under More details, so nothing is lost to "..."). With neither,
 // what the official title is about.
@@ -786,13 +796,7 @@ export default {
         await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
         if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
         if (x.stepKey && ['floor', 'conference', 'governor'].includes(x.kind)) { S.done.add(askMark(b, x.stepKey)); saveDone(); }   // this stage, done
-        // A first visit that began on this bill: the first action gets its moment (C-7), then the rest of the visit.
-        if (S.blNew.has(b.id) && firstVisit()) {
-          logVisit('act', 'next', { path: 'link' });
-          moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`, small: 'That’s how bills move. Most people never do it.' },
-            () => viaStart(b, { viaActed: true }));
-          return;
-        }
+        if (app.newcomerActed(b)) return;
       }
       app.render();
     }));

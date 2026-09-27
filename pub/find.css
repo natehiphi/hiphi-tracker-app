@@ -111,4 +111,4 @@
 .fd-ifollow.on { color: var(--p700); }
 .fd-also { margin-top: var(--s8); color: var(--n700); }
 .fd-also a { color: var(--p700); font-weight: 700; }
-@media (max-width: 359px) { .fd-irow { flex-wrap: wrap; padding: 0 0 var(--s12); } .fd-ifollow { margin-left: var(--s16); } }
+@media (max-width: 22.4375em) { .fd-irow { flex-wrap: wrap; padding: 0 0 var(--s12); } .fd-ifollow { margin-left: var(--s16); } }

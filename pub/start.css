@@ -28,7 +28,7 @@
 @media (min-width: 600px) { .st-chapters ol { justify-content: start; gap: 28px; } }
 /* On the smallest phones the three names don't fit: only the current one is written out; the others are a tick or a
    dot, and a screen reader still hears all three. */
-@media (max-width: 359px) {
+@media (max-width: 22.4375em) {
   .st-chapters ol { justify-content: start; gap: 14px; }
   .st-chapters li:not(.on) .st-cl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
@@ -38,7 +38,7 @@
 .st-art { display: none; justify-content: center; margin-top: -4px; }
 .st1 .st-art { display: flex; }
 .st-art svg { width: 100%; height: 64px; }
-@media (max-width: 359px), (max-width: 899px) and (max-height: 700px) { .st1 .st-art { display: none; } }
+@media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1 .st-art { display: none; } }
 
 /* a partner's own welcome, for someone who came from their link (?via=) */
 .st-partner { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--r12); background: var(--p50); color: var(--n900); font-weight: 700; }
@@ -72,8 +72,8 @@
 .st-iname { font-weight: 700; color: var(--n900); line-height: 1.25; padding-right: 26px; }
 .st-idesc { font-size: var(--t13); line-height: 1.35; color: var(--n500); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--p700); }
-@media (max-width: 359px) { .st-issue { padding: 12px 10px 10px; } .st-tiles .st-idesc { display: none; } }
-@media (max-width: 259px) { .st-tiles { grid-template-columns: minmax(0, 1fr); } }   /* zoomed in far: one tile per row */
+@media (max-width: 22.4375em) { .st-issue { padding: 12px 10px 10px; } .st-tiles .st-idesc { display: none; } }
+@media (max-width: 16.1875em) { .st-tiles { grid-template-columns: minmax(0, 1fr); } }   /* zoomed in far: one tile per row */
 
 /* the tick (issues and tiles): a square, because both places it is used are multi-select; a circle promises pick-one (A-12) */
 .st-tick { width: 26px; height: 26px; border-radius: var(--r8); border: 2px solid var(--n400); background: var(--n0); color: transparent; flex: none;
@@ -200,7 +200,7 @@
    Petals fall once and stop, flowers bloom under the Capitol as the sun comes up, and what they did ticks in. */
 .st-done .st-intro { align-items: center; text-align: center; }
 .st-done .st-chapters, .st-done .st-steps { align-self: stretch; text-align: left; }
-@media (max-width: 359px) { .st-done .st-chapters { display: none; } }   /* three bare ticks say nothing on the finale */
+@media (max-width: 22.4375em) { .st-done .st-chapters { display: none; } }   /* three bare ticks say nothing on the finale */
 .st-fx { position: relative; width: 100%; max-width: 300px; margin: 0 auto; }
 .st-finart svg { display: block; width: 100%; height: auto; }
 .st-finart .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.6s var(--ease) both; }

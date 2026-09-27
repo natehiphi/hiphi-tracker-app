@@ -164,7 +164,7 @@
 .hm .btn { white-space: normal; text-align: center; }
 .hm .btn.text { text-align: left; }
 .hm .suggestbar { flex-wrap: wrap; }
-@media (max-width: 359px) {
+@media (max-width: 22.4375em) {
   .hm .hm-pick .lead { display: none; }
   .hm .hm-stats { gap: var(--s4); }
   .hm .hm-stat { padding: var(--s8); }

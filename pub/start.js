@@ -18,7 +18,7 @@
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance,
   setStance, sendEmailLink, validEmail, friendly, toast, nudge, legTitle, legPhoto, ensureRecapPool, loadCatalog,
   recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, issuePos, setFollows,
-  issuesOf, toggleWatch, timeWord, ensureBill, supa } from './core.js';
+  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf } from './core.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
@@ -206,6 +206,13 @@ const pickedIssues = () => { const sel = new Set(wiz().issues || []); return top
 // between sessions the wins of last session (or its issues).
 const SURE1 = 'About 4 minutes. Free, and no account needed.';
 function tiles(off, yr) {
+  // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
+  // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-065). Hold
+  // the six tiles for the moment it takes; if it fails they fall back to issue counts.
+  if (off && !(S.recapPool && S.recapPool.yr === yr) && S.recapFailed !== yr) {
+    ensureRecapPool(yr);
+    return `<div class="st-tiles" aria-busy="true" aria-label="Loading">${'<div class="skel" style="min-height:176px"></div>'.repeat(6)}</div>`;
+  }
   const sel = new Set(wiz().issues || []);
   return `<div class="st-tiles" role="group" aria-labelledby="st-h">${catList().map(i => {
     const on = sel.has(i.key) || i.names.some(n => sel.has(n));
@@ -539,7 +546,16 @@ function upcoming() {
     rows.push({ at: h.scheduled_at, when: WEEKDAY(h.scheduled_at), title: `${i.name}`, line: `${spaced(b.bill_number)}: ${briefCmte(h.committee)} hearing, ${timeWord(h.scheduled_at)}. ${due}`.trim(), kind: 'hear' });
   }
   rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
-  if (!out.length && E) out.push({ when: 'Soon', title: E.name, line: 'No hearing on your issues this week yet. We’ll tell you when one is set.', kind: 'soon' });
+  if (!out.length) {
+    // Someone who came from a link and follows nothing yet was told "No hearing on your issues this week" right
+    // after being shown this bill's hearing (R-065). The bill they came for leads when it has one.
+    const vb = wiz().via ? exampleBill() : null;
+    const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
+    if (vh) {
+      const due = vh.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(vh.testimony_deadline)} at ${timeWord(vh.testimony_deadline)}.` : '';
+      out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear' });
+    } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? 'No hearing on your issues this week yet. We’ll tell you when one is set.' : 'No hearing set on it this week yet.', kind: 'soon' });
+  }
   return out;
 }
 function askCard() {
@@ -597,18 +613,25 @@ function recapRows() {
 function stepDone(step) {
   const name = (S.stMail.name || wiz().name || '').trim(), off = isOff();
   const rows = recapRows();
+  // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
+  // "we tell you" with no way to be told (R-065). The words follow what really happened.
+  const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok'), follows = followsAnything();
+  const told = !!(S.session || mailSent());
+  const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
+    : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
   const petals = Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
   return shell('st-done', `${topRow('done', step)}
     <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div></div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
-    <p class="lede">Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.</p>`,
+    <p class="lede">${lede}</p>`,
     `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">
-      <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${off ? `From ${esc(shortDay(sessionInfo().nextOpen))} we check your issues every day, so you don’t have to.` : 'We check your issues every day, so you don’t have to.'}</span></div></li>
-      <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div><b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span></div></li>
+      <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${!follows ? 'We follow HIPHI’s issues every day. Follow one any time and it becomes yours.' : off ? `From ${esc(shortDay(sessionInfo().nextOpen))} we check your issues every day, so you don’t have to.` : 'We check your issues every day, so you don’t have to.'}</span></div></li>
+      <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span>'
+        : '<b>When it’s your moment, it’s on your home page.</b><span>One simple way to help, most in about 2 minutes. Turn on reminders in More so you don’t miss one.</span>'}</div></li>
       <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result shows up on your home page.</span></div></li>
     </ol>`);
 }

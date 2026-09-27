@@ -6,7 +6,7 @@
 
 @media (min-width: 900px) {
   :root { --header: 64px; --t36: 2.25rem; }
-  .hdr { height: var(--header); padding: 0 var(--s24); }
+  .hdr { min-height: var(--header); padding: 0 var(--s24); }
   .hdr .hdrin { max-width: 1120px; margin: 0 auto; gap: var(--s12); }
   .hdr .brand svg { width: 34px; height: 34px; }
   .hdr .hnav { margin-left: var(--s16); }

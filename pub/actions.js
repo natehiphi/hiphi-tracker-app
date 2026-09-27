@@ -193,7 +193,9 @@ export function wireActions(root = document) {
   $$('[data-mailto]').forEach(el => el.addEventListener('click', () => { const k = el.dataset.mailto; const ta = document.querySelector(`[data-msg="${k}"]`);
     const { b, h } = findBH(k); if (b && h) { const m = chairMessage(b, h); el.href = `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(ta ? ta.value : m.body)}`; }
     setTimeout(() => { S.sentq[k] = true; app.render(); }, 800); }));
-  $$('[data-sentyes]').forEach(el => el.onclick = async () => { const k = el.dataset.sentyes, [bid, hid] = k.split('|'); delete S.sentq[k]; S.compose = null; await markDone(bid, hid, 'email'); app.render(); });
+  $$('[data-sentyes]').forEach(el => el.onclick = async () => { const k = el.dataset.sentyes, [bid, hid] = k.split('|'); delete S.sentq[k]; S.compose = null; await markDone(bid, hid, 'email');
+    if (app.newcomerActed?.(findBH(k).b)) return;   // a first visit from a link: its moment, count and next step (bill.js)
+    app.render(); });
   $$('[data-sentno]').forEach(el => el.onclick = () => { delete S.sentq[el.dataset.sentno]; app.render(); });
   $$('[data-copymsg]').forEach(el => el.onclick = async () => { const k = el.dataset.copymsg, ta = document.querySelector(`[data-msg="${k}"]`);
     try { await navigator.clipboard.writeText(ta ? ta.value : ''); S.chips[k + 'copied'] = true; app.render(); setTimeout(() => { delete S.chips[k + 'copied']; app.render(); }, 2000); } catch (e) { toast(e, true); } });

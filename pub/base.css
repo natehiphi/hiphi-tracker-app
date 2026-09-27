@@ -54,8 +54,8 @@ img, svg { display: block; }
 .skip:focus { top: 8px; }
 
 /* ---- page frame ---- */
-.band { background: var(--n700); color: #fff; font-size: var(--t13); font-weight: 700; text-align: center; padding: 6px var(--gutter); line-height: 16px; }
-.hdr { position: sticky; top: 0; z-index: 40; height: var(--header); background: var(--n0); border-bottom: 1px solid var(--n200);
+.band { background: var(--n700); color: #fff; font-size: var(--t13); font-weight: 700; text-align: center; padding: 6px var(--gutter); line-height: 1.25; }
+.hdr { position: sticky; top: 0; z-index: 40; min-height: var(--header); background: var(--n0); border-bottom: 1px solid var(--n200);
   display: flex; align-items: center; gap: var(--s8); padding: 0 var(--s8) 0 var(--gutter); }
 .hdr .hdrin { display: flex; align-items: center; gap: var(--s8); width: 100%; min-width: 0; }
 .hdr .hspace { flex: 1 1 auto; }
@@ -302,3 +302,13 @@ main:focus { outline: none; }
 }
 /* A strong position shows its icon twice; the pair reads as one mark, not two. */
 .chip .ic + .ic { margin-left: -5px; }
+
+/* ---- large text (R-065, WCAG 1.4.4) ----
+   Someone who sets their phone's text to 150% or 200% gets the same page with bigger words: the header grows instead
+   of clipping, and a button's words wrap instead of being cut ("Send a quick email · 2 mi"). An em in a media query
+   is the person's own text size, so 20em is 320px at the normal size and about 480px at 150%; the small-screen
+   breakpoints elsewhere are in em for the same reason (22.4375em = 359px at the normal size). */
+@media (max-width: 20em) {
+  .btn { white-space: normal; text-align: center; padding: 8px 18px; }
+  .hdr .bname b, .hdr .bname small { white-space: normal; }
+}

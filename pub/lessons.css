@@ -227,7 +227,7 @@
 .lx-legmini.none { display: inline-grid; place-items: center; font-size: var(--t13); font-weight: 700; color: var(--p800); }
 
 /* ---- the smallest phones ---- */
-@media (max-width: 359px) {
+@media (max-width: 22.4375em) {
   .lx-jl:not(.lx-jl-gov) { transform: translate(-50%, -25%); }
   .lx-jbill { line-height: 17px; }
   .lx-months { gap: 4px; }
