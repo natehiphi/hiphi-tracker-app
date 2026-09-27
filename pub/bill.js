@@ -305,6 +305,9 @@ function railInfo(b, x) {
   else if (st.phase === 'conference') idx = 4;
   else if (st.phase === 'floor') idx = st.leg === 'first' ? 2 : 4;
   else idx = st.leg === 'first' ? 1 : 3;
+  // In conference, or stopped there, the other chamber has already voted: a dot saying "Senate vote" marked "Stopped
+  // here" read as if the Senate had voted it down (HB 1782; Nate 9/26). That step is the final version.
+  if (idx === 4 && (st.phase === 'conference' || (x.stopped && /^(second_crossover|conference)$/.test(b.died_at_stage || '')))) names[4] = 'Final version';
   const ch = idx <= 2 ? N[o] : N[t];
   let lead = 'Now: ', rest;
   if (x.law) { lead = 'Became law'; rest = ''; }

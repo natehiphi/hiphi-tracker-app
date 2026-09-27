@@ -1036,10 +1036,15 @@ export function whyStopped(b) {
   if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  // Stopped after both chambers passed it. Its last hearing was weeks earlier, so "heard on ... but did not move
+  // forward" read as if a committee had stopped it (HB 1782, which died in conference; Nate 9/26).
+  if (/^(second_crossover|conference)$/.test(b.died_at_stage || '')) return `It passed the House and the Senate, but the two did not agree on one final version before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
   if ((m || b.died_deadline) && heard) return `It was heard on ${dateLong(heard.scheduled_at)} but did not move forward before the next deadline, so it stopped for this session.`;
-  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${new Date(m[2].replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' })}` : ''}, so it stopped for this session.`;
+  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
   return 'It stopped for this session.';
 }
+// A Capitol deadline date, "4/29/26", as "Apr 29".
+const shortDate = mdy => new Date(mdy.replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });
 export const OUTCOME_PLAIN = { passed: 'Passed', passed_amended: 'Passed with changes', deferred: 'Put on hold (usually stops it this year)', recommitted: 'Sent back to the committee' };
 // The chair's real address when the directory has it, else the Capitol pattern.
 export function chairContacts(code) {
