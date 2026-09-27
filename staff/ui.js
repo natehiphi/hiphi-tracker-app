@@ -1,7 +1,7 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
 import { S, STAGES, effStage, esc, advocate } from './data.js';
-import { stopOf } from './model.js';
+import { stopOf, STAGE_GLOSS } from './model.js';
 import { icon } from '../icons.js';
 export { icon };
 
@@ -115,9 +115,10 @@ export function stageRibbon(b, { labels = true } = {}) {
   const said = dead ? (now ? `Stopped at ${now}` : 'Stopped') : vetoed ? 'Vetoed by the Governor' : i === last ? 'Signed into law' : now;
   const tone = dead || vetoed ? ' stopped' : i === last ? ' done' : '';
   const set = b.stage_override ? ' · set by the team' : '';
-  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}.${i >= 0 ? ` Step ${i + 1} of ${RIBBON.length}.` : ''}`)}">${
+  const gl = !dead && !vetoed && key ? STAGE_GLOSS[key] || '' : '';
+  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}.${i >= 0 ? ` Step ${i + 1} of ${RIBBON.length}.` : ''}${gl ? ' ' + gl : ''}`)}">${
     RIBBON.map(([, l], n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}" title="${esc(l)}"></i>`).join('')
-  }</div>${labels ? `<p class="sv-riblab"><span>${esc(RIBBON[0][1])}</span><b>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
+  }</div>${labels ? `<p class="sv-riblab"><span>${esc(RIBBON[0][1])}</span><b${gl ? ` title="${esc(gl)}"` : ''}>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
 }
 
 // ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long

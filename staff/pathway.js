@@ -150,7 +150,7 @@ export function renderPathway(b) {
     const h0 = s.state === 'current' ? hearingAhead(b) : null, h = h0 && codesOf(h0.committee).some(c => codesOf(s.committee).includes(c)) ? h0 : null;
     const chairs = members.filter(m => m.role === 'chair');
     const chairText = chairs.length ? (joint ? `Chairs ${chairs.map(m => `${surname(m.l)} (${Object.entries(m.roles).filter(([, r]) => r === 'chair').map(([c]) => c).join('/')})`).join(', ')}` : `Chair ${shortName(chairs[0].l)}`) : '';
-    const meta = [s.committee, `${CHAMBER_NAME[s.chamber]} stop ${s.stop} of ${s.of}`, joint ? 'joint hearing' : '', h ? `hearing ${fmtDT(h.scheduled_at)}` : '', !open ? chairText : ''].filter(Boolean).join(' · ');
+    const meta = [s.committee, `${CHAMBER_NAME[s.chamber]} committee ${s.stop} of ${s.of}`, joint ? 'joint hearing' : '', h ? `hearing ${fmtDT(h.scheduled_at)}` : '', !open ? chairText : ''].filter(Boolean).join(' · ');
     const t = members.length && s.state !== 'passed' ? tally(b, members) : null;
     const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<p class="lg-pwpred">${predFrom}</p>`) : '';
     return `${head}<section class="lg-stop is-${s.state}">

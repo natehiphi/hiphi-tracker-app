@@ -4,7 +4,7 @@
 // folded at the bottom. It replaces the current app's Tracked bills table, the board, the Did not advance page, the
 // Still alive and monitor chips, the Coalitions & lists menu and the Muted menu, and keeps what each of them did.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, gateGloss, deadlineName } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD, posIcons } from './ui.js';
 import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
@@ -99,14 +99,16 @@ function shortWhy(b) {
 // Each cell is [first line, second line, hover text]. Roomy rows show the two lines one over the other (a narrow
 // column used to break them anywhere: "In PSM/GVO · 1" / "of 2"); compact rows join them on one line with a dot.
 const xw = t => `<span class="bl-xw">${t}</span>`;   // words a compact row leaves out
+// "1st of 2": the committee it is at, of those it was sent to in this chamber ("stop 1 of 2" was staff shorthand; G-13).
+const ORD = ['', '1st', '2nd', '3rd', '4th', '5th'];
 function whereCell(b) {
   const s = stOf(b), f = factsOf(b);
   if (f.stand === 'dead') { const at = b.died_at_stage ? STAGE_LABEL[b.died_at_stage] : ''; return ['Stopped', at ? 'at ' + esc(at) : '', ''] }
   if (s.phase === 'law') return ['Law', '', ''];
   if (s.phase === 'governor') return ['Governor', '', ''];
-  if (s.phase === 'floor') return [`${chamberOf(s)} floor`, '', ''];
-  if (s.phase === 'conference') return ['Conference', '', ''];
-  if (s.committee) return [`In ${esc(s.committee)}`, s.stops > 1 ? `${xw('stop ')}${s.stop} of ${s.stops}` : '', `${glossCommittee(s.committee)}${s.stops > 1 ? `. Stop ${s.stop} of ${s.stops} in the ${chamberOf(s)}` : ''}`];
+  if (s.phase === 'floor') return [`${chamberOf(s)} floor`, '', `Through its ${chamberOf(s)} committees, waiting for the full ${chamberOf(s)} to vote`];
+  if (s.phase === 'conference') return ['Conference', '', 'House and Senate negotiators settling one version'];
+  if (s.committee) return [`In ${esc(s.committee)}`, s.stops > 1 ? `${ORD[s.stop] || s.stop} of ${s.stops}` : '', `${glossCommittee(s.committee)}${s.stops > 1 ? `. Committee ${s.stop} of ${s.stops} in the ${chamberOf(s)}: it needs a yes from each, in order` : ''}`];
   return [chamberOf(s), 'no referral yet', ''];
 }
 function nextCell(b) {
@@ -122,8 +124,9 @@ function nextCell(b) {
   if (!s.deadline || s.deadline.missed) return ['', '', ''];
   const days = s.deadline.days, left = days <= 0 ? 'today' : `${days === 1 ? '1 day' : days + ' days'}${xw(' left')}`;
   // At risk needs no word here: those rows sit under the "At risk: no hearing yet" group row.
-  if (s.phase === 'committee') return [`Hearing by ${md(s.deadline.date)}`, left, `${s.deadline.label} deadline${f.risk ? '. At risk: no hearing yet' : ''}`];
-  return [`${esc(s.deadline.label)} ${md(s.deadline.date)}`, left, `${s.deadline.label} deadline`];
+  const why = `${deadlineName(s.deadline)} ${md(s.deadline.date)}: it must ${gateNeed(s.deadline.label)}`;
+  if (s.phase === 'committee') return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}`];
+  return [`${esc(s.deadline.label)} ${md(s.deadline.date)}`, left, why];
 }
 const pulseText = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 'Never' : d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`; };
 // A bill is named by its nickname when it has one (every bill with a position does), then its plain summary.
@@ -190,9 +193,9 @@ const clockWork = x => { const n = x.noHearing.length;
 function clockLine(x, { wide, then }) {
   // A phone's line has no "N must be heard by then" before it, so the count goes in the words: "all 4 with a hearing".
   const phoneWork = x => !x.racing ? 'nothing racing it' : x.noHearing.length ? clockWork(x) : x.racing === 1 ? '1 with a hearing' : `all ${x.racing} with a hearing`;
-  if (!wide) return `<span class="bl-dl${!then && x.days <= 1 ? ' soon' : ''}"><b class="bl-dld">${esc(x.days <= 1 ? clockAway(x).replace(/^./, c => c.toUpperCase()) : clockDay(x.date))}</b><span class="bl-dln">${esc(x.name)}</span><span class="bl-dlw">${phoneWork(x)}</span></span>`;
+  if (!wide) return `<span class="bl-dl${!then && x.days <= 1 ? ' soon' : ''}"><b class="bl-dld">${esc(x.days <= 1 ? clockAway(x).replace(/^./, c => c.toUpperCase()) : clockDay(x.date))}</b><span class="bl-dln" title="${esc(`${x.name}: ${gateGloss(x.label)}`)}">${esc(x.name)}</span><span class="bl-dlw">${phoneWork(x)}</span></span>`;
   return `<span class="bl-dl${!then && x.days <= 1 ? ' soon' : ''}"><span class="bl-cl1">${then ? 'Then ' : ''}<b>${esc(x.name)}</b> · ${esc(clockDay(x.date))} · ${clockAway(x)}</span>
-    <span class="bl-cl2">${x.racing ? `${x.racing} bill${x.racing === 1 ? '' : 's'} must be heard by then · ${clockWork(x)}` : 'None of these bills has to be heard by then'}</span></span>`;
+    <span class="bl-cl2">${x.racing ? `${x.racing} bill${x.racing === 1 ? '' : 's'} must ${gateNeed(x.label, x.racing)} by then · ${clockWork(x)}` : 'None of these bills has to be heard by then'}</span></span>`;
 }
 function standStrip(groups, list, wide) {
   if (!groups.length) return '';

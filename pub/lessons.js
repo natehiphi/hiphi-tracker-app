@@ -179,6 +179,27 @@ function ledeOf(name, E) {
     : n ? `${num} has had ${count(n)} so far.` : `${num} is waiting for one.`;
   return `It’s when your voice counts most. ${tail}`;
 }
+// The committees a bill was sent to in the chamber it is in, in words and in order, and which one it is at (R-005,
+// DESIGN-AUDIT G-13): "This one is in the Senate’s committees: Health and Commerce together, then Judiciary. It needs a
+// yes from each, in that order, and it’s at the first." This is what staff shorthand calls "stop 1 of 2"; the lesson
+// says it without the shorthand. Committee names are shortened the way the hearing notice shortens them (shortName).
+// Empty when the chamber has no referral yet or a name is missing, and the plain sentence stands alone.
+const ORDW = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+function orderWords(E) {
+  const b = E.b, st = E.x.st, refs = b.referrals || [];
+  if (st.phase !== 'committee' || !refs.length || !st.stop) return '';
+  const n = Math.min(b.origin_stops || refs.length, refs.length), list = st.leg === 'second' ? refs.slice(n) : refs.slice(0, n);
+  if (!list.length || st.stop > list.length) return '';
+  const names = list.map(r => { const cs = codesOf(r).map(c => S.committees[c]?.name);
+    if (!cs.length || cs.some(x => !x)) return null;
+    // "Ways and Means" says nothing about money to a newcomer; the House's is plainly called Finance.
+    const nm = cs.map(x => /^ways and means$/i.test(x) ? 'Ways and Means (the budget committee)' : shortName(x));
+    return nm.length > 1 ? `${words(nm)} together` : nm[0]; });
+  if (names.some(x => !x)) return '';
+  const ch = CHAMBER_NAME[st.chamber] || '';
+  if (list.length === 1) return `This one is in one ${ch} committee: ${esc(names[0])}. It needs a yes there to move on.`;
+  return `This one is in the ${ch}’s committees: ${esc(names.join(', then '))}. It needs a yes from each, in that order, and it’s at the ${ORDW[st.stop] || 'next'}.`;
+}
 function billCaps(E) {
   const B = /^HB/.test(E.b.bill_number) ? 'HB' : /^SB/.test(E.b.bill_number) ? 'SB' : '';
   const what = E.pos ? 'Its name, what it does in plain words, and where HIPHI stands.' : 'Its name, and what it does in plain words.';
@@ -188,7 +209,7 @@ function billCaps(E) {
     : st.phase === 'governor' || E.now === 4 ? 'This one is on the Governor’s desk.'
     : st.phase === 'conference' ? 'This one passed both sides. Now they’re working out one version.'
     : st.phase === 'floor' ? `This one is waiting for the ${ch} vote.`
-    : `This one is with ${ch} committees now.`;
+    : orderWords(E) || `This one is with ${ch} committees now.`;
   return [
     ['What it is', `${what} ${B ? `${B} means ${B === 'HB' ? 'House' : 'Senate'} Bill: it` : 'It'} started in the ${E.start}.`],
     ['Where it is, and how to help', `Each dot is a step toward becoming law. ${where}${E.x.live && !E.off ? ' When you can help, the button says how, and by when.' : ''}`],

@@ -38,7 +38,7 @@
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF } from './data.js';
-import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
+import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
@@ -333,7 +333,7 @@ export function todayItems(scope = 'mine', who = null) {
         const body = `Aloha ${m ? m.who : 'Chair'},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${blurb(b, 120) ? ` (${blurb(b, 120)})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(viewer.full_name || '').split(' ')[0]}`;
         push({ kind: 'chair', key: `s:${b.id}:chair`, b, st, due: new Date(st.deadline.date + 'T23:59:59-10:00').getTime(), who,
           s: `Ask the chair${two ? 's' : ''} for a hearing: ${days <= 0 ? 'the deadline is today' : plural(days, 'day') + ' left'}`,
-          why: `${esc(st.deadline.label)} deadline ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { weekday: 'short' }).replace(',', '')}${m ? ' · ' + esc(m.who) : ''}`,
+          why: `${esc(deadlineName(st.deadline))} ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { weekday: 'short' }).replace(',', '')}: it must ${esc(gateNeed(st.deadline.label))}${m ? ' · ' + esc(m.who) : ''}`,
           btns: m ? [{ label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}`, ext: true, mail: true }]
             : [{ label: 'Open bill', href: `#/bill/${b.bill_number}` }] });
       }
@@ -522,7 +522,7 @@ function toolbar(route, clockShown = false) {
   const seg = `<div class="sv-seg td-scope" role="group" aria-label="Whose tasks"><button type="button" data-seg="tdscope" data-val="mine" aria-pressed="${scope === 'mine'}">Mine</button><button type="button" data-seg="tdscope" data-val="team" aria-pressed="${scope !== 'mine'}">Team</button></div>`;
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
-      <p class="td-date"><span>${esc(a)}</span>${g ? `<span class="td-dl"><span class="td-sep" aria-hidden="true">·</span>Deadline ${esc(when)}: ${esc(gateName(g).replace(/^First /, '1st ').replace(/^Second /, '2nd '))}</span>` : ''}</p></div>
+      <p class="td-date"><span>${esc(a)}</span>${g ? `<span class="td-dl"><span class="td-sep" aria-hidden="true">·</span>Deadline ${esc(when)}: ${esc(gateName(g).replace(/^First /, '1st ').replace(/^Second /, '2nd '))}${gateGloss(g.label) ? `<span class="td-dlgl"> (${esc(gateGloss(g.label))})</span>` : ''}</span>` : ''}</p></div>
     <div class="td-tools">${WIDE() ? segmented('tdview', [['list', 'List'], ['week', 'Week']], viewOf(route), 'Layout') : ''}${seg}</div>${whoBtn}</div>`;
 }
 // At most one notice, most important first: the sync is stale or email is paused (admins), then the new-bill season.
@@ -827,12 +827,12 @@ function clockPanel(scope, who) {
   const then = t ? `<div class="td-ckthen">
     <p class="td-ckwhen td-ckw2"><span class="td-cktag">Then</span><b>${esc(ckDay(t.date))}</b><span>${esc(awayOf(t.days))}</span></p>
     <p class="td-cklab">${esc(t.name)}</p>
-    <p class="td-ckn">${esc(`${plural(t.racing, 'bill')} must be heard by then.`)}</p>
+    <p class="td-ckn">${esc(`${plural(t.racing, 'bill')} must ${gateNeed(t.label, t.racing)} by then.`)}</p>
     ${t.noHearing.length ? clockWork(t, 'then') : `<p class="td-ckok">${icon('check')}<span>${t.racing === 1 ? 'It has a hearing.' : 'Every one of them has a hearing.'}</span></p>`}</div>` : '';
   const body = `<div class="td-ck">
     <p class="td-ckwhen"><b>${esc(ckDay(c.date))}</b><span>${esc(awayOf(c.days))}</span></p>
     <p class="td-cklab">${esc(c.name)}</p>
-    <p class="td-ckn">${esc(c.racing ? `${plural(c.racing, 'bill')} must be heard by then.` : `None of ${whoseBills(scope, who)} has to be heard by then.`)}</p>
+    <p class="td-ckn">${esc(c.racing ? `${plural(c.racing, 'bill')} must ${gateNeed(c.label, c.racing)} by then.` : `None of ${whoseBills(scope, who)} has to be heard by then.`)}</p>
     ${n ? clockWork(c, 'next') + named : c.racing ? `<p class="td-ckok">${icon('check')}<span>${heard}</span></p>` : ''}
   </div>${then}`;
   return panel('clock', 'calendar-clock', t ? 'Next deadlines' : 'Next deadline', '', body);

@@ -120,7 +120,8 @@ with sync_playwright() as pw:
     ok('None of your bills has to be heard by then.' in s['clock'] and 'Every one' not in s['clock'] and not s['btn'], f'Jess: nothing racing reads plainly ("{s["clock"]}")')
     c.close()
     c, p = ctx(b, 1440, 900); load(p, '&as=MR'); s = p.evaluate(STATE)
-    ok('1 bill must be heard by then.' in s['clock'] and 'It has a hearing.' in s['clock'], f'May Rose: one bill, heard ("{s["clock"]}")')
+    # The count says what the deadline asks of the bill (R-005, G-13): "reach its last committee" for a lateral.
+    ok('1 bill must reach its last committee by then.' in s['clock'] and 'It has a hearing.' in s['clock'], f'May Rose: one bill, heard ("{s["clock"]}")')
     c.close()
 
     # ---- the note accounts for every bill counted (as James, see above) ----

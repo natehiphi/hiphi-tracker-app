@@ -5,7 +5,7 @@
 // handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
 // function, passAll().
 import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
-import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain } from './model.js';
+import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS } from './model.js';
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
@@ -332,7 +332,7 @@ function sheetBody() {
   const poss = posKeys.map(k => opt(`poss:${k}`, posWord(k), cnt(base, 'poss', (x, b) => posIs(b, k)), { ic: POS_ICON[k === 'none' ? '' : k] })).join('');
   const pris = [1, 2, 3].map(p => opt(`pris:${p}`, `P${p}`, cnt(base, 'pris', x => x.pri === p))).join('');
   const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => opt(`stands:${k}`, STAND_WORD[k], cnt(base, 'stands', (x, b) => standIs(x, b, k)), k === 'a' ? { title: 'At risk or waiting: no hearing yet' } : {})).join('');
-  const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => n || S.stageF === k).map(([k, l, n]) => opt(`stageF:${k}`, l, n)).join('');
+  const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => n || S.stageF === k).map(([k, l, n]) => opt(`stageF:${k}`, l, n, { title: STAGE_GLOSS[k] || '' })).join('');
   const hear = opt('hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), { title: 'A hearing in the next 7 days' }) + opt('riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), { title: 'No hearing, and the deadline is a week away or less' });
   const camps = S.campaigns.map(c => ({ id: c.id, l: c.name, on: S.camps.has(c.id) })).filter(inBase((b, id) => factsOf(b).camps.includes(id)))
     .map(({ id, l }) => opt(`camps:${id}`, l, cnt(base, 'camps', x => x.camps.includes(id)))).join('');

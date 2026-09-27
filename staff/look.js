@@ -6,7 +6,8 @@
 // j / k walk the list you came from without closing, which is what makes it faster than opening the page.
 import { S, esc, capitolUrl, fmtDT, fmtDate } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
-import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName } from './model.js';
+import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName } from './model.js';
+import { CHAMBER_NAME } from '../stops.js';
 
 const dash = v => v || '—';
 
@@ -51,7 +52,7 @@ function body(b, { list, index }) {
         <p class="small muted">Testimony: ${d ? esc(d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not filed yet' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written') : 'no draft yet'}</p>
         ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`
     : `<div class="lk-card next sv-stick"><h3>No hearing on the books</h3><p class="small">${esc(st.says || '')}</p>
-        ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(st.deadline.label)}, ${esc(fmtDate(st.deadline.date))}.</p>` : ''}
+        ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(fmtDate(st.deadline.date))}, the ${esc(deadlineName(st.deadline).toLowerCase())}: it must ${esc(gateNeed(st.deadline.label))}.</p>` : ''}
         ${st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : ''}</div>`;
 
   return `<div class="lk-head">
@@ -65,9 +66,9 @@ function body(b, { list, index }) {
       <div>
         <div class="lk-card"><h3>Details</h3>
           <dl class="lk-kv">
-            <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· stop ${st.stop} of ${st.stops}</span>` : ''}</dd>
+            <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· ${st.stops > 1 ? `${st.stop} of ${st.stops}` : 'the only one'} in the ${esc(CHAMBER_NAME[st.chamber] || '')}${st.stops > 1 ? ', in order' : ''}</span>` : ''}</dd>
             ${st.committee && chairLine(st.committee) ? `<dt>Chair</dt><dd>${chairLine(st.committee)}</dd>` : ''}
-            <dt>Deadline</dt><dd>${st.deadline ? `${esc(st.deadline.label)}, ${esc(fmtDate(st.deadline.date))}${st.deadline.missed ? ' <span class="muted">(missed)</span>' : ` <span class="muted">· ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}</span>`}` : '—'}</dd>
+            <dt>Deadline</dt><dd>${st.deadline ? `${esc(deadlineName(st.deadline))}, ${esc(fmtDate(st.deadline.date))}${st.deadline.missed ? ' <span class="muted">(missed)</span>' : ` <span class="muted">· ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}</span>`}<span class="lk-gl">It must ${esc(gateNeed(st.deadline.label))}.</span>` : '—'}</dd>
             <dt>Last action</dt><dd>${b.last_action ? `${esc(fmtDate(b.last_action_date))} ${esc(lastActionLine(b))}` : '—'}</dd>
             ${sponsorLine(b) ? `<dt>Sponsors</dt><dd>${sponsorLine(b)}</dd>` : ''}
             <dt>Official title</dt><dd>${dash(esc(b.title || ''))}</dd>

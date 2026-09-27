@@ -222,9 +222,9 @@ function railInfo(b, x) {
   const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H';
   const names = ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, 'Governor', 'Law'];
   const desc = ['A lawmaker files the bill and it gets a number.',
-    `One to three ${N[o]} committees hold hearings and vote on it. Each chair decides if it gets a hearing.`,
+    `One to three ${N[o]} committees hold hearings and vote on it, one after another. It needs a yes from each. Each chair decides if it gets a hearing.`,
     `The full ${N[o]} votes. If it passes, it crosses over to the ${N[t]}.`,
-    `${N[t]} committees hold their own hearings and votes.`,
+    `${N[t]} committees hold their own hearings and votes, one after another. It needs a yes from each.`,
     `The full ${N[t]} votes. If the House and Senate passed different versions, they work out one.`,
     'The Governor signs it, lets it become law without signing, or vetoes it.',
     'It becomes a Hawaiʻi law.'];
@@ -519,7 +519,8 @@ function details(b, x) {
     b.title ? ['Official title', esc(titleCase(b.title))] : null,
     // Always here in full: the headline above may be a name, a summary, or only the first sentence of this.
     b.description ? ['Official summary', esc(b.description)] : null,
-    path ? ['Committees', path] : null,
+    // The path says the order; this line says why it matters (R-005, G-13: "stop 1 of 2" taught without the shorthand).
+    path ? ['Committees', `${path}<span class="bl-date">It needs a yes from each committee, in this order.</span>`] : null,
     spons ? ['Introduced by', esc(spons)] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
     comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,

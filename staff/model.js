@@ -70,6 +70,30 @@ export function lastSlotBefore(code, dateStr, slots) {
   return null;
 }
 
+// ---- the Capitol's deadline names, in a few plain words (R-005, DESIGN-AUDIT G-13) ----
+// Staff use the Capitol's names with the Capitol and with each other, so the name stays and a few words ride along
+// saying what a bill must do by that date. Same meanings as STAGE_GLOSS and Help's glossary, cut to a phrase:
+// gateNeed(label, n) finishes "N bills must ... by then" (n === 1: "its"), gateGloss(label) follows a name standing
+// alone ("Second lateral: bills reach their last committee"). Checked against the Public Access Room's calendar:
+// triple filing = a bill referred to three or more committees clears the first; lateral = it reaches its last
+// committee; decking = it clears the last one, ready for the floor vote; crossover and cross back = that chamber's vote;
+// final decking = conference drafts settled (Fiscal: the same for bills that spend money).
+const GATE_WORDS = [
+  [/triple/i, one => `clear ${one ? 'its' : 'their'} first committee`, 'bills with 3 or more committees clear the first'],
+  [/lateral/i, one => `reach ${one ? 'its' : 'their'} last committee`, 'bills reach their last committee'],
+  [/final decking/i, () => 'be settled in conference', 'House and Senate settle one version'],
+  [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills clear their last committee'],
+  [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills pass the second chamber'],
+  [/crossover/i, one => `pass ${one ? 'its' : 'their'} first chamber`, 'bills pass their first chamber'],
+  [/fiscal/i, () => 'be settled in conference', 'the same, for bills that spend money'],
+  [/sine die/i, null, 'the session’s last day'],
+  [/intro/i, null, 'the last day to introduce bills'],
+];
+const gateWords = label => GATE_WORDS.find(([rx]) => rx.test(label || ''));
+export const gateNeed = (label, n = 1) => { const w = gateWords(label); return w && w[1] ? w[1](n === 1) : 'be heard'; };
+export const gateGloss = label => gateWords(label)?.[2] || '';
+// A bill's own deadline by its full name: { key: 'second_lateral', label: 'Lateral' } -> "Second lateral".
+export const deadlineName = d => d ? gateName({ phase: d.key || '', label: d.label }) : '';
 export const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${g.label.toLowerCase()}` : g.label;
 export function sessionGates(list) {
   const now = Date.now(), endOf = d => new Date(d + 'T23:59:59-10:00').getTime();
@@ -513,7 +537,7 @@ export function sessionClock(list) {
   const i = ahead.findIndex(x => x.racing.length), g = i >= 0 ? ahead[i] : ahead[0];
   if (!g) return null;
   const g2 = ahead.slice((i >= 0 ? i : 0) + 1).find(x => x.racing.length) || null;
-  const shape = x => ({ name: x.name, label: x.label, date: x.date, days: x.days, racing: x.racing.length, p1: x.p1,
+  const shape = x => ({ name: x.name, label: x.label, phase: x.phase, date: x.date, days: x.days, racing: x.racing.length, p1: x.p1,
     noHearing: x.noHearing.map(y => y.b) });
   return { ...shape(g), then: g2 ? shape(g2) : null };
 }

@@ -290,6 +290,8 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .lk-kv { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px var(--s12); margin: var(--s8) 0 0; font-size: var(--t14); }
 .lk-kv dt { color: var(--n500); }
 .lk-kv dd { margin: 0; color: var(--n900); min-width: 0; overflow-wrap: anywhere; }
+/* what the Capitol's deadline name asks of this bill (R-005, G-13) */
+.lk-kv .lk-gl { display: block; color: var(--n500); }
 .lk-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
 .lk-nav { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
 .lk-nav .pos { margin-right: auto; }

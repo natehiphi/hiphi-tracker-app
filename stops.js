@@ -130,7 +130,7 @@ export function billStop(b, ctx) {
 
   // ---- column and sentence ----
   const ch = CHAMBER_NAME[out.chamber] || 'chamber';
-  const pos = out.stops ? ` · stop ${out.stop} of ${out.stops} in the ${ch}` : '';
+  const pos = out.stops ? ` · committee ${out.stop} of ${out.stops} in the ${ch}` : '';   // not "stop": staff shorthand (G-13)
   const dl = out.deadline ? ` · ${out.deadline.label} ${fmtDay(out.deadline.date)}${out.deadline.missed ? ' (missed)' : out.deadline.days <= 14 ? ` (${out.deadline.days}d)` : ''}` : '';
   if (out.phase === 'committee') {
     if (out.hearingState === 'scheduled') { out.column = 'b'; out.says = `${out.committee || ch + ' committee'} hearing ${fmtShort(out.hearing.scheduled_at)}${pos}.`; }

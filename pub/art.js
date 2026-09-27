@@ -40,15 +40,21 @@ const ISLAND_PATHS = [
   ['oahu', 'M117.5 45.5C118.6 45.1 124.4 45.6 126.3 45.1C128.2 44.6 128.3 43.2 128.9 42.5C129.5 41.8 129.2 41.4 129.7 40.7C130.3 40.0 131.5 38.8 132.4 38.2C133.3 37.7 134.5 37.3 135.2 37.4C135.9 37.5 136.0 38.0 136.4 38.8C136.8 39.7 136.8 41.1 137.7 42.5C138.5 43.8 140.9 45.7 141.7 46.8C142.5 48.0 142.5 49.0 142.5 49.5C142.5 50.1 141.7 49.8 141.7 50.3C141.7 50.8 141.6 51.9 142.3 52.8C143.0 53.6 145.3 55.6 146.0 55.6C146.7 55.6 146.1 53.1 146.6 52.6C147.1 52.2 148.8 52.2 149.0 52.8C149.3 53.3 148.1 55.3 148.2 56.1C148.4 56.8 149.6 56.9 149.8 57.3C150.1 57.8 149.1 58.0 149.6 58.8C150.2 59.7 152.9 61.5 153.1 62.5C153.3 63.4 151.4 64.2 150.7 64.4C149.9 64.6 149.5 63.4 148.4 63.5C147.3 63.5 145.1 64.9 144.2 65.0C143.2 65.0 143.7 64.1 142.9 63.6C142.2 63.1 140.9 62.4 139.5 62.0C138.1 61.6 136.3 61.3 134.4 61.4C132.5 61.5 129.6 62.3 128.3 62.5C127.1 62.6 127.4 63.0 126.9 62.3C126.4 61.5 126.1 58.9 125.5 57.9C124.9 56.9 123.6 56.7 123.2 56.1C122.8 55.6 123.5 55.4 123.0 54.5C122.5 53.7 120.7 52.1 120.2 51.0C119.7 49.9 120.6 48.8 120.2 47.9C119.7 47.0 116.5 46.0 117.5 45.5Z'],
   ['kauai', 'M32.2 18.2C31.9 17.3 32.0 16.8 32.4 16.1C32.8 15.5 34.1 14.9 34.6 14.2C35.2 13.4 34.2 12.7 35.5 11.6C36.7 10.6 40.8 8.7 42.2 7.9C43.6 7.0 42.7 6.6 43.8 6.5C44.8 6.5 47.6 7.5 48.5 7.5C49.3 7.4 48.4 6.3 49.1 6.2C49.7 6.0 51.5 6.8 52.3 6.7C53.1 6.7 53.2 5.9 53.9 6.0C54.7 6.1 56.1 6.5 57.0 7.0C57.8 7.5 58.5 8.3 59.0 9.0C59.5 9.7 59.9 10.5 60.0 11.3C60.2 12.1 60.4 12.7 60.0 13.7C59.7 14.6 58.1 15.5 57.8 17.0C57.5 18.4 58.1 21.3 58.0 22.5C57.9 23.6 58.3 23.0 57.2 23.9C56.1 24.8 52.7 27.4 51.5 28.0C50.3 28.5 51.4 27.4 49.9 27.2C48.4 27.0 44.4 27.3 42.6 26.6C40.7 25.9 40.3 23.7 38.9 22.9C37.5 22.0 35.2 22.2 34.0 21.4C32.9 20.6 32.5 19.1 32.2 18.2Z'],
   ['niihau', 'M6.2 29.2C6.4 28.4 6.5 27.7 7.0 26.9C7.6 26.2 8.4 25.4 9.5 24.6C10.5 23.9 12.6 23.0 13.3 22.3C14.0 21.6 13.3 20.7 13.7 20.3C14.2 19.9 15.5 19.7 16.0 19.9C16.4 20.1 16.5 20.7 16.4 21.5C16.3 22.2 15.4 23.6 15.3 24.4C15.2 25.2 16.4 25.8 15.8 26.3C15.1 26.9 12.9 26.7 11.7 27.8C10.5 28.8 9.4 32.2 8.4 32.8C7.5 33.4 6.4 31.9 6.0 31.2C5.6 30.6 6.0 29.9 6.2 29.2Z']];
-// Drawn like the Capitol: a pale sea, the orange sun, a few wave strokes. With one island named, it stands out in deep
+// Drawn like the Capitol: a pale sea, the orange sun, a few curved wave strokes. With one island named, it stands out in deep
 // blue and the rest step back; with none, the whole chain is brand blue.
+// The sun stays the Capitol's orange: a soft yellow was tried and Nate preferred the orange (9/26, R-005).
+// Each wave is a gentle curve, two or four half-waves long, so it reads as water and not as a dash (R-005).
+// [x, y, length] in the drawing's own units; the strokes sit where the straight ones did.
+const WAVES = [[196, 62, 30], [236, 84, 18], [34, 112, 24], [66, 136, 38], [44, 160, 20], [124, 186, 34], [172, 206, 20]]
+  .map(([x, y, w]) => { const n = 2 * Math.max(1, Math.round(w / 18)), h = +(w / n).toFixed(1);
+    return `M${x} ${y}q${+(h / 2).toFixed(2)} -5 ${h} 0` + `t${h} 0`.repeat(n - 1); }).join('');
 // highlight: one island ('oahu'), several ('kauai,niihau' or an array), or a county ('mauicounty', 'kauaicounty').
 const COUNTY = { mauicounty: ['maui', 'molokai', 'lanai', 'kahoolawe'], kauaicounty: ['kauai', 'niihau'] };
 const litSet = h => new Set((Array.isArray(h) ? h : String(h || '').split(',')).flatMap(x => COUNTY[x.trim()] || [x.trim()]).filter(Boolean));
 export const islands = (highlight = '') => { const lit = litSet(highlight); return `<svg class="art art-islands" viewBox="0 0 336 236" aria-hidden="true" focusable="false">
   <rect width="336" height="236" rx="28" fill="var(--p100)"/>
   <circle cx="290" cy="40" r="14" fill="var(--o400)"/>
-  <path d="M196 62h30M236 84h18M34 112h24M66 136h38M44 160h20M124 186h34M172 206h20" stroke="var(--p300)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="${WAVES}" stroke="var(--p300)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <g transform="translate(8 12)">${ISLAND_PATHS.map(([n, p]) => `<path d="${p}" fill="var(${!lit.size ? '--p700' : lit.has(n) ? '--p800' : '--p400'})"/>`).join('')}</g></svg>`; };
 export const ISLANDS = islands();
 
