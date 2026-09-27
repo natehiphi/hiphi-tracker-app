@@ -10,6 +10,7 @@ import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 const key = (b, h) => `${b.id}|${h.id}`;
 S.moreOpen ??= new Set(); S.compose ??= null; S.sentq ??= {}; S.goOpen ??= new Set(); S.chips ??= {};
 const me = () => { try { return JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { return {}; } };
+const saveMe = patch => { try { localStorage.setItem('hiphi_me', JSON.stringify({ ...me(), ...patch })); } catch { /* private mode: the draft still works */ } };
 
 // Done lines, one per kind, in the words a person would use.
 function doneLabel(b, h, k) {
@@ -94,7 +95,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
-    ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'text', icon: 'star', attrs: { 'data-follow': b.id, 'aria-pressed': 'true' }, cls: 'on' })}</div>` : ''}
+    ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
 const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
@@ -123,8 +124,13 @@ function composer(b, h, k) {
   const m = chairMessage(b, h), asked = S.sentq[k];
   const to = m.chairs.length ? m.chairs.map(c => `${c.title} ${esc(c.last)}, Chair, ${esc(c.committee)}`).join('<br>') : 'the committee chair';
   const mail = `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(S.composeText?.[k] ?? m.body)}`;
+  // Name and town come first when the letter would be signed "[your name]" (a newcomer from a link has told us nothing
+  // yet, R-067). They stay while the box is open, fill the draft as they are typed, and are kept in this browser only.
+  const ask = (S.cmpAsk ??= {}), mine = me(); if (!mine.name) ask[k] = true;
+  const id = esc(h.id), who = ask[k] ? `<div class="cmp-me"><div class="field"><label for="cmpn-${id}">Your name</label><input id="cmpn-${id}" data-mename="${esc(k)}" autocomplete="name" value="${esc(mine.name || '')}"></div>
+    <div class="field"><label for="cmpt-${id}">Your town <span class="muted">(optional)</span></label><input id="cmpt-${id}" data-metown="${esc(k)}" autocomplete="address-level2" value="${esc(mine.town || '')}"></div></div>` : '';
   return `<div class="composer" id="cmp-${esc(h.id)}">
-    <p class="small"><span class="strong">To:</span> ${to}</p>
+    <p class="small"><span class="strong">To:</span> ${to}</p>${who}
     <div class="field"><label for="msg-${esc(h.id)}">Your message</label><textarea id="msg-${esc(h.id)}" data-msg="${esc(k)}" rows="9">${esc(S.composeText?.[k] ?? m.body)}</textarea>
       <span class="help">Change anything you like. A sentence in your own words carries the most weight.</span></div>
     ${asked ? `<div class="sentq" role="group" aria-label="Did you send it?"><span class="strong">Did you send it?</span><div class="btnrow">${btn('Yes, I sent it', { kind: 'primary', sm: true, attrs: { 'data-sentyes': k } })}${btn('Not yet', { kind: 'text', sm: true, attrs: { 'data-sentno': k } })}</div></div>`
@@ -158,17 +164,17 @@ const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ..
 // "never auto-follow silently" (HANDOFF 3.5 plan, wave 5c). Only ever offered, never done for them.
 export async function followToggle(id, label) {
   const was = S.watch.has(id), via = was ? viaIssue(id) : null;
+  // Follow means the issue (R-067): a bill that belongs to an issue brings its issue, which covers the bill, its twin in
+  // the other chamber and next session's bills. Only a bill with no issue (HIPHI only watches it) is followed alone.
+  const iss = was ? null : issuesOf(id).find(i => !issueFollowed(i));
+  if (iss) {
+    if (await setFollows({ issuesOn: [iss.id] })) toast(`Following ${iss.name}. Its bills come to you, this one included.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [iss.id] }); app.render(); } });
+    return;
+  }
   await toggleWatch(id);
   // A bill that came with an issue: its star is "Not for me", and the issue stays followed (R-018).
   if (was) { toast(via ? `You won’t hear about ${label || 'this bill'}. You still follow ${via.name}.` : `Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } }); return; }
-  // One bill followed on its own: offer the issue it belongs to (R-018, answer 7) - the issue covers the whole policy,
-  // its twin in the other chamber and next session's bills too. A bill with no issue still offers its twin (R-021).
-  const iss = issuesOf(id).find(i => !issueFollowed(i));
-  if (iss) {
-    toast(`Following ${label || 'this bill'}`.trim(), { yay: true, also: { label: `Follow the issue: ${iss.name}`,
-      action: async () => { if (await setFollows({ issuesOn: [iss.id] })) { toast(`Following ${iss.name}`, { yay: true }); app.render(); } } } });
-    return;
-  }
+  // A bill with no issue, followed on its own, still offers its twin in the other chamber (R-021).
   const b = anyBill(id), cnums = b ? companionsOf(b) : [];
   if (cnums.length === 1) {
     try {
@@ -190,11 +196,18 @@ export function wireActions(root = document) {
   $$('[data-moreways]').forEach(el => el.onclick = () => { const k = el.dataset.moreways; S.moreOpen.has(k) ? S.moreOpen.delete(k) : S.moreOpen.add(k); app.render(); });
   $$('[data-compose]').forEach(el => el.onclick = () => { const k = el.dataset.compose; S.compose = S.compose === k ? null : k; app.render(); if (S.compose) setTimeout(() => document.getElementById('cmp-' + k.split('|')[1])?.scrollIntoView({ block: 'nearest' }), 20); });
   $$('[data-msg]').forEach(el => el.oninput = () => { (S.composeText ??= {})[el.dataset.msg] = el.value; });
+  // Typing a name or town rewrites the draft in place (no redraw, so the cursor stays put), until the person edits the
+  // letter itself; from then on their words are theirs.
+  $$('[data-mename],[data-metown]').forEach(el => el.oninput = () => {
+    const k = el.dataset.mename || el.dataset.metown; saveMe({ [el.dataset.mename ? 'name' : 'town']: el.value.trim() });
+    const ta = document.querySelector(`[data-msg="${k}"]`), { b, h } = findBH(k);
+    if (ta && b && h && S.composeText?.[k] === undefined) ta.value = chairMessage(b, h).body;
+  });
   $$('[data-mailto]').forEach(el => el.addEventListener('click', () => { const k = el.dataset.mailto; const ta = document.querySelector(`[data-msg="${k}"]`);
     const { b, h } = findBH(k); if (b && h) { const m = chairMessage(b, h); el.href = `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(ta ? ta.value : m.body)}`; }
     setTimeout(() => { S.sentq[k] = true; app.render(); }, 800); }));
   $$('[data-sentyes]').forEach(el => el.onclick = async () => { const k = el.dataset.sentyes, [bid, hid] = k.split('|'); delete S.sentq[k]; S.compose = null; await markDone(bid, hid, 'email');
-    if (app.newcomerActed?.(findBH(k).b)) return;   // a first visit from a link: its moment, count and next step (bill.js)
+    if (await app.newcomerActed?.(findBH(k).b)) return;   // a first visit from a link: its moment, count and next step (bill.js)
     app.render(); });
   $$('[data-sentno]').forEach(el => el.onclick = () => { delete S.sentq[el.dataset.sentno]; app.render(); });
   $$('[data-copymsg]').forEach(el => el.onclick = async () => { const k = el.dataset.copymsg, ta = document.querySelector(`[data-msg="${k}"]`);

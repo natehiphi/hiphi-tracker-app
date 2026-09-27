@@ -417,7 +417,7 @@ function welcomeView(si, { cards, asks, total }) {
 const pickRow = x => { const on = S.watch.has(x.b.id), num = spaced(x.b.bill_number);
   return `<div class="hm-pick"><a class="hm-pickmain" href="${billPath(x.b)}"><span class="lead">${icon(issueOf(x.b)?.icon || 'landmark')}</span>
     <span class="body"><span class="title">${esc(headline(x.b, 200))}</span><span class="sub">${esc(num)} · Hearing ${esc(dayWord(x.h.scheduled_at))}</span></span></a>
-    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: 'star', cls: 'hm-star' + (on ? ' on' : ''), attrs: { 'data-follow': x.b.id, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${on ? 'Following' : 'Follow'} ${num}` } })}</div>`; };
+    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'hm-star' + (on ? ' on' : ''), attrs: { 'data-follow': x.b.id, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${on ? 'Following' : 'Follow'} ${num}` } })}</div>`; };
 function exploreView() {
   const f = S.featured || { bills: [], hearings: [] }, seen = new Set(), skip = dismissed(), calm = welcomed();
   const cards = openActions(f.bills, f.hearings).filter(x => !x.late && !skip.has(x.b.id) && !seen.has(x.b.id) && seen.add(x.b.id)).slice(0, calm ? 5 : 3);
@@ -425,7 +425,7 @@ function exploreView() {
   const cats = S.cats, lists = (S.lists || []).filter(l => l.is_published !== false);
   const lede = !cards.length ? 'No hearings are set on HIPHI’s bills yet this week. New ones usually post by Friday. Meanwhile, look around by issue.'
     : calm ? 'These bills have hearings soon. Follow one to keep an eye on it. When it needs a voice, we’ll show a simple way to help.'
-    : 'These bills have hearings soon. Add your voice in a few minutes, or follow a bill to keep an eye on it.';
+    : 'These bills have hearings soon. Add your voice in a few minutes, or follow one’s issue to hear what happens.';
   return `<div class="hm hm-explore">
     ${accountCards()}
     <div class="cols"><div class="hm-main">

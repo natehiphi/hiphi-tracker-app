@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HIPHI Bill Tracker</title>
+<script>
+// GitHub Pages shows this for any address it does not have. A share link to a bill or issue whose page is not built yet
+// (tools/share_pages.mjs runs each morning; a position taken today has none until tomorrow) still reaches the tracker
+// (R-067). Anything else goes to the tracker's front door.
+(function () {
+  var p = location.pathname, m = /\/(b|i)\/([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/[^/]*$/, '/').replace(/[^/]*$/, '');
+  var to = m ? base + 'track.html?via=share#/' + (m[1] === 'b' ? 'bill/' + m[2].toUpperCase() : 'issue/' + m[2].toLowerCase()) : base + 'track.html';
+  location.replace(to);
+})();
+</script></head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="track.html">Go to HIPHI’s Bill Tracker</a></p></body></html>

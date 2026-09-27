@@ -38,7 +38,7 @@ const FLOWS = {
 };
 const PERIODS = [['4', '4 weeks'], ['12', '12 weeks'], ['52', 'A year']];
 
-const V = () => S.fv ??= { weeks: '4', cache: {}, loading: '', err: '', partner: '', word: '', ptried: false };
+const V = () => S.fv ??= { weeks: '4', cache: {}, loading: '', err: '', partner: '', word: '', dest: '', ptried: false };
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 const nf = n => Number(n || 0).toLocaleString();
 const secs = s => s == null ? '–' : s < 60 ? `${Math.round(s)} s` : `${Math.floor(s / 60)} min${Math.round(s % 60) ? ` ${Math.round(s % 60)} s` : ''}`;
@@ -46,7 +46,12 @@ const weekOf = w => new Date(String(w).slice(0, 10) + 'T12:00:00-10:00').toLocal
 const partnerBy = slug => (S.partners || []).find(p => p.slug === slug) || null;
 const slugOf = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
 const wordOf = t => String(t || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40);
-export const linkFor = (slug, word = '') => `${LINK_BASE}?via=${encodeURIComponent(slug)}${word ? `&utm_campaign=${encodeURIComponent(word)}` : ''}`;
+// A link can open on one issue or one bill instead of the first screen (R-067): a flyer about the vape ban can land on
+// the vape ban. The ?via= still counts the arrival under the partner. dest: '' | 'issue:<slug>' | 'bill:<HB2121>'.
+const destHash = d => { const [k, x] = String(d || '').split(':'); return k === 'issue' && x ? `#/issue/${encodeURIComponent(x)}` : k === 'bill' && x ? `#/bill/${x}` : ''; };
+export const linkFor = (slug, word = '', dest = '') => `${LINK_BASE}?via=${encodeURIComponent(slug)}${word ? `&utm_campaign=${encodeURIComponent(word)}` : ''}${destHash(dest)}`;
+const billNo = t => { const m = /^\s*([HS])\.?\s*([BRC]|CR|HR|SR)?\.?\s*(\d{1,4})\s*$/i.exec(String(t || '')); return m ? `${m[1].toUpperCase()}${(m[2] || 'B').toUpperCase()}${+m[3]}` : ''; };
+const destName = d => { const [k, x] = String(d || '').split(':'); if (k === 'issue') return (S.issues || []).find(i => i.slug === x)?.name || x; if (k === 'bill') return x.replace(/^([A-Z]+)(\d)/, '$1 $2'); return 'The first visit'; };
 const redraw = sel => { const y = scrollY; hooks.render(); if (sel) document.querySelector(sel)?.focus({ preventScroll: true }); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); };
 
 // ---- the numbers ----
@@ -125,6 +130,7 @@ function sourceName(src) {
   const p = partnerBy(src);
   if (p) return [p.name, 'Partner link'];
   if (src === 'direct') return ['Direct', 'Typed in, a bookmark, or an app that does not say'];
+  if (src === 'share') return ['A shared link', 'Someone shared a bill or an issue (its share page)'];
   if (src.includes('.')) return [src, 'A link on another site'];
   return [src, 'Named in the link, not one of your partners'];
 }
@@ -245,7 +251,7 @@ function linkHTML() {
   if (p && v.partner !== p.slug) v.partner = p.slug;
   if (!ps.length) return `<section class="card fv-card fv-none" aria-label="Partners"><p>No partners yet. Add the first one, and its link and QR code appear here.</p>
     ${btn('New partner', { icon: 'plus', attrs: { 'data-fv': 'pnew', 'aria-haspopup': 'dialog' } })}</section>`;
-  const url = p ? linkFor(p.slug, v.word) : '';
+  const url = p ? linkFor(p.slug, v.word, v.dest) : '';
   return `<div class="fv-linkgrid"><section class="card fv-card">
     <div class="field"><span class="label" id="fv-pl">Partner or event</span>
       <div class="fv-prow">${pickerChip(p ? p.name : 'Choose one', { 'data-fv': 'pick', 'aria-haspopup': 'dialog', 'aria-labelledby': 'fv-pl fv-pickt' }, 'handshake').replace('<span>', '<span id="fv-pickt">')}
@@ -254,6 +260,10 @@ function linkHTML() {
     <div class="field"><label for="fv-word">Campaign word <span class="is-opt">(optional)</span></label>
       <input id="fv-word" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="fall-flyer" value="${esc(v.word)}" aria-describedby="fv-word-h">
       <span class="help" id="fv-word-h">One word for this use of the link, like fall-flyer or health-fair, so two flyers can be told apart. Letters, numbers and dashes.</span></div>
+    <div class="field"><span class="label" id="fv-dl">Opens on</span>
+      <div class="fv-prow">${pickerChip(destName(v.dest), { 'data-fv': 'dest', 'aria-haspopup': 'dialog', 'aria-labelledby': 'fv-dl fv-destt' }, 'map-pin').replace('<span>', '<span id="fv-destt">')}</div>
+      <label for="fv-bill" class="help">Or a bill number, like HB 2121</label>
+      <input id="fv-bill" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="HB 2121" value="${esc(String(v.dest).startsWith('bill:') ? destName(v.dest) : '')}"></div>
     ${p ? `<div class="fv-urlbox"><span class="label" id="fv-ul">The link</span><p class="fv-url" id="fv-url" aria-labelledby="fv-ul">${esc(url)}</p>
       ${btn('Copy link', { icon: 'copy', attrs: { 'data-fv': 'copy' } })}</div>` : ''}
   </section>
@@ -407,12 +417,17 @@ export function wireFirstVisit(route, root) {
   root.querySelector('[data-fv="pick"]')?.addEventListener('click', () => pickerSheet({ title: 'Partner or event', value: v.partner,
     options: [...(S.partners || []).slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => [p.slug, p.name, 'handshake', `?via=${p.slug}`]), ['__new', 'New partner…', 'plus']],
     onPick: async val => { if (val === '__new') { await afterClose(); partnerForm(); return; } v.partner = val; redraw('[data-fv="pick"]'); } }));
+  root.querySelector('[data-fv="dest"]')?.addEventListener('click', () => pickerSheet({ title: 'Opens on', value: v.dest,
+    options: [['', 'The first visit', 'house', 'The usual first screen'], ...(S.issues || []).filter(i => !i.archived_at).slice().sort((a, b) => a.name.localeCompare(b.name)).map(i => [`issue:${i.slug}`, i.name, 'tag', 'An issue page'])],
+    onPick: val => { v.dest = val; redraw('[data-fv="dest"]'); } }));
+  const bill = root.querySelector('#fv-bill');
+  if (bill) bill.onchange = () => { const n = billNo(bill.value); if (n) { v.dest = `bill:${n}`; redraw('#fv-bill'); } else if (!bill.value.trim() && String(v.dest).startsWith('bill:')) { v.dest = ''; redraw('#fv-bill'); } };
   const word = root.querySelector('#fv-word');
   if (word) word.oninput = () => {
     const w = wordOf(word.value); if (w !== word.value) { word.value = w; }
     v.word = w.replace(/^-+|-+$/g, '');
     const p = partnerBy(v.partner), out = root.querySelector('#fv-url'); if (!p || !out) return;
-    const url = linkFor(p.slug, v.word); out.textContent = url;
+    const url = linkFor(p.slug, v.word, v.dest); out.textContent = url;
     root.querySelector('#fv-qrbox')?.setAttribute('aria-label', `QR code for ${url}`);
     clearTimeout(wireFirstVisit.t); wireFirstVisit.t = setTimeout(() => drawQr(root), 250);
   };

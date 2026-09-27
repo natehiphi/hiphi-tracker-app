@@ -312,3 +312,11 @@ main:focus { outline: none; }
   .btn { white-space: normal; text-align: center; padding: 8px 18px; }
   .hdr .bname b, .hdr .bname small { white-space: normal; }
 }
+
+/* ---- following: a state, not a second Follow button (R-061, R-067) ----
+   "Following" used to be the same outlined button as "Follow" with another word, so people who followed a bill
+   thought they did not. The followed state is filled in HIPHI blue with a check; pressing it still stops following,
+   with Undo. Every Follow button draws `.on` with aria-pressed="true" when followed. */
+.btn.secondary.on[aria-pressed="true"] { background: var(--p700); box-shadow: inset 0 0 0 2px var(--p700); color: #fff; }
+.btn.secondary.on[aria-pressed="true"]:hover { background: var(--p800); box-shadow: inset 0 0 0 2px var(--p800); }
+.btn.secondary.on[aria-pressed="true"] .ic { fill: none; color: #fff; }

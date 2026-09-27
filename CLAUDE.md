@@ -86,6 +86,14 @@ session is dark (until January 2027).
   screen and invented outcomes (`core.js` forces most bills dead). Check a change to a live query against the live
   path too (`track.html` on localhost reads production; add the `globalPrivacyControl` init script so the
   first-visit counting skips you).
+- **Share pages** (`b/<HB2121>.html`, `i/<slug>.html`, R-067): one small page per HIPHI bill and issue so a shared link
+  previews with the bill's own name; it sends the person on to `track.html?via=share#/bill/...`. Built by
+  `node tools/share_pages.mjs` (public views, public key; `--check` to preview), daily by
+  `.github/workflows/share-pages.yml`, which commits only when a page changed. `404.html` sends a `b/` or `i/` link
+  whose page is not built yet to the tracker. Share and Copy link on a bill page use them (`shareUrl` in `pub/bill.js`).
+- **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
+  with no issue is followed alone. The followed state is a filled blue button with a check (`.btn.secondary.on
+  [aria-pressed="true"]` in `base.css`, R-061); every Follow button sets `.on` and `aria-pressed`.
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
   text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
   new ones the same way; `Page.setFontSizes` over CDP emulates a larger text setting in Playwright.
@@ -313,7 +321,9 @@ A check that fails after an intended change is a test to update, not a reason to
 
 ## Before every push to main
 
-1. `node --check` every JS file touched; `node staff/tools/parity.mjs` if a staff data layer changed.
+1. `node --experimental-default-type=module --check` every JS file touched (plain `node --check` reads these files as
+   CommonJS and let a duplicate `const` through on 9/27, which broke the public page in the tests); `node
+   staff/tools/parity.mjs` if a staff data layer changed.
 2. Run the test file(s) for what changed and LOOK at phone and desktop screenshots. Several bad UIs shipped
    when this was skipped.
 3. `git diff --stat`: only the files you meant.

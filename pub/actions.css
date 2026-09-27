@@ -54,3 +54,5 @@
 .acdismiss { margin-left: auto; min-height: 44px; padding: 0 var(--s8); border-radius: var(--pill);
   color: var(--n500); font-size: var(--t13); font-weight: 700; background: none; }
 .acdismiss:hover { background: var(--n100); color: var(--n700); }
+/* Name and town above the draft (R-067): side by side when there is room. */
+.composer .cmp-me { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--s12); }

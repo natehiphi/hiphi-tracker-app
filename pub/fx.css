@@ -19,6 +19,7 @@
 .fx-msub { margin: 8px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .35s var(--ease) .5s both; }
 .fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n500); animation: fx-rise .35s var(--ease) .65s both; }
 .fx-mgo { margin-top: 24px; min-width: 200px; animation: fx-rise .3s var(--ease) .8s both; }
+.fx-malt { display: flex; margin: 4px auto 0; animation: fx-rise .3s var(--ease) .9s both; }   /* the quiet Undo under Continue (R-067) */
 .fx-bloom { width: 120px; height: 120px; margin: 0 auto 8px; }
 .fx-bloom svg { width: 100%; height: 100%; overflow: visible; }
 .fx-bloom .fx-petal { transform-box: fill-box; transform-origin: 50% 100%; animation: fx-petal .5s var(--spring) both; }

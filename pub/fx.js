@@ -76,7 +76,9 @@ const learnArt = () => `<div class="fx-learn" aria-hidden="true"><div class="fx-
 
 // A moment that fills the screen and waits for Continue (never moves on by itself: WCAG 2.2.1). The page behind is
 // inert while it shows; Esc, a tap outside the card, or Continue closes it, then `then` runs.
-export function celebrate({ title, sub = '', small = '', art = 'bloom', go = 'Continue' }, then = () => {}) {
+// `alt` ({ label, act }) adds a quiet second button under Continue: it runs act, then closes like Continue (an Undo
+// for something the moment did on the person's behalf, R-067).
+export function celebrate({ title, sub = '', small = '', art = 'bloom', go = 'Continue', alt = null }, then = () => {}) {
   let m = document.getElementById('fx-moment');
   if (!m) { m = document.createElement('div'); m.id = 'fx-moment'; m.className = 'fx-moment'; document.body.appendChild(m); }
   const app = document.getElementById('app');
@@ -84,7 +86,7 @@ export function celebrate({ title, sub = '', small = '', art = 'bloom', go = 'Co
   m.innerHTML = `<div class="fx-mcard" role="dialog" aria-modal="true" aria-labelledby="fx-mt" aria-describedby="fx-ms">${art === 'learn' ? learnArt() : bloom()}
     <p class="fx-mtitle" id="fx-mt">${esc(title)}</p>
     <div id="fx-ms">${sub ? `<p class="fx-msub">${esc(sub)}</p>` : ''}${small ? `<p class="fx-msmall">${esc(small)}</p>` : ''}</div>
-    <button type="button" class="btn primary fx-mgo" id="fx-mgo"><span>${esc(go)}</span>${icon('arrow-right')}</button></div>`;
+    <button type="button" class="btn primary fx-mgo" id="fx-mgo"><span>${esc(go)}</span>${icon('arrow-right')}</button>${alt ? `<button type="button" class="btn text fx-malt" id="fx-malt">${esc(alt.label)}</button>` : ''}</div>`;
   m.hidden = false; m.classList.remove('fx-out');
   if (app) app.inert = true;
   let done = false;
@@ -95,6 +97,7 @@ export function celebrate({ title, sub = '', small = '', art = 'bloom', go = 'Co
   };
   const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(); } };
   m.querySelector('#fx-mgo').onclick = finish;
+  if (alt) m.querySelector('#fx-malt').onclick = async () => { try { await alt.act(); } catch { /* the moment still closes */ } finish(); };
   m.onclick = e => { if (e.target === m) finish(); };
   document.addEventListener('keydown', key, true);
   m.querySelector('#fx-mgo').focus({ preventScroll: true });

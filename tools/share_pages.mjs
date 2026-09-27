@@ -1,0 +1,82 @@
+// Share pages: one tiny page per bill HIPHI has a position on (b/HB2121.html) and per issue (i/<slug>.html), so a link
+// pasted into a text or a post previews with the bill's own name and what it does, instead of the tracker's general
+// card (R-067). The tracker's bill pages are addresses after a # (#/bill/HB2121), which no link preview can read. Each
+// page sends a person straight on to the tracker (?via=share, so arrivals by shared link are counted as such) and gives
+// a preview robot the title, description and picture.
+//
+//   node tools/share_pages.mjs            writes b/ and i/ from the live public views (read-only, the public key)
+//   node tools/share_pages.mjs --check    says what would change, writes nothing
+//
+// Run daily by .github/workflows/share-pages.yml, which commits the pages when they changed. Only public views are read
+// (public_all_bills, public_issues), with the publishable key the public page already carries.
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const core = readFileSync(join(ROOT, 'pub/core.js'), 'utf8');
+const URL_ = /SUPABASE_URL\s*=\s*'([^']+)'/.exec(core)[1], KEY = /SUPABASE_KEY\s*=\s*'([^']+)'/.exec(core)[1];
+const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
+const CHECK = process.argv.includes('--check');
+
+async function rows(path) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {   // the 1,000-row cap: ask in pages
+    const r = await fetch(`${URL_}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Range: `${from}-${from + 999}` } });
+    if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`);
+    const page = await r.json(); out.push(...page); if (page.length < 1000) return out;
+  }
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; };
+const POS = { strongly_support: 'HIPHI strongly supports it.', support: 'HIPHI supports it.', support_amend: 'HIPHI supports it with changes.',
+  strongly_oppose: 'HIPHI strongly opposes it.', oppose: 'HIPHI opposes it.', neutral: 'HIPHI is following it.', monitor: 'HIPHI is watching it.' };
+
+function page({ title, desc, to, self }) {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Hawaiʻi Public Health Institute">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:url" content="${esc(self)}">
+<meta property="og:image" content="${SITE}pub/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0; url=${esc(to)}">
+<script>location.replace(${JSON.stringify(to)});</script>
+</head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="${esc(to)}">${esc(title)}</a></p></body></html>
+`;
+}
+
+const bills = (await rows('public_all_bills?select=bill_number,session_year,hiphi_nickname,hiphi_summary,description,hiphi_position&hiphi_position=not.is.null&order=session_year.asc'));
+const issues = await rows('public_issues?select=slug,name,description,bill_ids');
+const want = new Map();   // file -> html
+for (const b of bills) {   // the latest session wins when a number repeats
+  const n = b.bill_number.replace(/\s/g, ''), name = b.hiphi_nickname;
+  const title = `${name ? `${name} (${spaced(n)})` : spaced(n)} · HIPHI Bill Tracker`;
+  const desc = `${cut(b.hiphi_summary || b.description || '', 180)} ${POS[b.hiphi_position] || ''} Follow it and speak up in a few minutes.`.replace(/\s+/g, ' ').trim();
+  want.set(`b/${n}.html`, page({ title, desc, to: `../track.html?via=share#/bill/${n}`, self: `${SITE}b/${n}` }));
+}
+for (const i of issues) {
+  if (!/^[a-z0-9-]+$/.test(i.slug)) continue;
+  const n = (i.bill_ids || []).length;
+  const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
+  want.set(`i/${i.slug}.html`, page({ title: `${i.name} · HIPHI Bill Tracker`, desc, to: `../track.html?via=share#/issue/${i.slug}`, self: `${SITE}i/${i.slug}` }));
+}
+let added = 0, changed = 0, removed = 0;
+for (const dir of ['b', 'i']) {
+  const d = join(ROOT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
+  for (const f of existsSync(d) ? readdirSync(d) : []) if (f.endsWith('.html') && !want.has(`${dir}/${f}`)) { removed++; if (!CHECK) unlinkSync(join(d, f)); }
+}
+for (const [f, html] of want) {
+  const p = join(ROOT, f), old = existsSync(p) ? readFileSync(p, 'utf8') : null;
+  if (old === html) continue; old === null ? added++ : changed++;
+  if (!CHECK) writeFileSync(p, html);
+}
+console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed${CHECK ? ' (check only, nothing written)' : ''}`);

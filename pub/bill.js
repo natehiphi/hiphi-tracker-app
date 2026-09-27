@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
@@ -28,7 +28,11 @@ const mineLabel = (l, d) => !l || !d ? '' : l.chamber === 'S' && +l.district ===
   : l.chamber === 'H' && +l.district === +d.house ? 'Your representative' : '';
 // The Capitol's page for the bill; built from the number when the row has no link.
 const capitolUrl = b => b.state_url || (m => m ? `https://capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year || sessionInfo().yr}` : 'https://capitol.hawaii.gov')(/^([A-Z]+)(\d+)$/.exec(b.bill_number));
-const shareUrl = b => `${location.origin}${location.pathname}#/bill/${b.bill_number}`;
+// A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
+// pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
+// tomorrow. Other bills, and the sandbox, share the tracker's own address.
+const shareUrl = b => { const n = String(b.bill_number).replace(/\s/g, '');
+  return b.hiphi_position && !DEMO ? `${location.origin}${location.pathname.replace(/[^/]*$/, '')}b/${n}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}#/bill/${n}`; };
 const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? `+1${d}` : d; };
 
 // Two layouts from the same parts. A phone reads top to bottom: what the bill is, where you stand, where it is, what
@@ -340,7 +344,7 @@ export function railHTML(b, x) {
 // the number in a plain row (follow, share and copy link sit in the side panel, which stays in view).
 function topbar(num, b) {
   const on = !!b && S.watch.has(b.id), sp = spaced(num) || 'Bill', w = wide();
-  const tools = b && !w ? `${iconBtn('star', `Follow ${sp}`, { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' }, on ? 'on' : '')}
+  const tools = b && !w ? `${issuesOf(b).length ? '' : iconBtn('star', `Follow ${sp}`, { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' }, on ? 'on' : '')}
       <div class="bl-menuwrap">${iconBtn('ellipsis', 'More options', { 'data-bl-menu': '1', 'aria-expanded': 'false', 'aria-controls': 'bl-menu' })}
         <div class="bl-menu" id="bl-menu" hidden>
           <button type="button" class="bl-mi" data-bl-copy="1">${icon('link')}<span>Copy link</span></button>
@@ -360,8 +364,10 @@ function topbar(num, b) {
 S.blNew ??= new Set();
 const whenWord = iso => { const days = (new Date(iso) - Date.now()) / 864e5, d = dayWord(iso);
   return /^(today|tomorrow)/.test(d) ? d.replace(/\s*\(.*\)$/, '') : days < 7 ? `on ${new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' })}` : `on ${d}`; };
+S.blLooking ??= new Set();   // bills where the newcomer said "Just looking" this visit
 function newcomer(b, x) {
   if (!firstVisit()) return '';
+  if (S.blLooking.has(b.id)) return `<p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the 2-minute tour', { kind: 'text', sm: true, attrs: { 'data-bl-tour': '1' } })}</span></p>`;
   if (!S.blNew.has(b.id)) logVisit('arrive', 'view', { path: 'link' });   // counted privately (R-023 decision 8)
   S.blNew.add(b.id);
   const h = x.act?.h, i = issuesOf(b)[0];
@@ -373,18 +379,26 @@ function newcomer(b, x) {
     <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${x.act || x.kind === 'ask' ? '' : notNow()}</div>
   </section>`;
 }
-// "Not now" turns down acting, so it sits beside the main button (the phone bar; the side panel on a laptop) and goes
-// straight on to the lessons, without asking about following again (the review, 9/21).
-const notNow = () => btn('Not now', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
+// "Just looking" (was "Not now") sits beside the main button (the phone bar; the side panel on a laptop). It used to
+// start the whole first visit, 13 taps, for someone who only wanted to read the bill (R-067). Now it closes the card
+// and stays on the bill; one quiet line offers the tour, which is what "Not now" used to start.
+const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
 // On to the rest of the first visit, on this bill.
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
 // visit. Shared by the bar's "Yes, I sent it" and the email box's (actions.js), which used to give only a toast, so
-// the quick email from a link was never counted or celebrated (R-067). True when it took over.
-app.newcomerActed = b => {
-  if (!b || !(S.blNew.has(b.id) && firstVisit())) return false;
+// the quick email from a link was never counted or celebrated (R-067). Resolves true when it took over.
+// Acting also follows the bill's issue, quietly, with "Don't follow it" in the moment: someone who emailed and
+// followed nothing was forgotten the moment they left, and the next visit started them over (R-067).
+app.newcomerActed = async b => {
+  // Asked after markDone, so firstVisit() is already false (an action counts as having been here): this is the first
+  // action of a first visit that began on this bill's card.
+  if (!b || !S.blNew.has(b.id) || followsAnything() || myActions().length > 1 || wiz().done || wiz().skipped) return false;
   logVisit('act', 'next', { path: 'link' });
-  moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`, small: 'That’s how bills move. Most people never do it.' },
+  const i = issuesOf(b)[0], follow = !!i && !issueFollowed(i) && await setFollows({ issuesOn: [i.id] }) !== false;
+  moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
+    small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move. Most people never do it.',
+    alt: follow ? { label: 'Don’t follow it', act: () => setFollows({ issuesOff: [i.id] }) } : null },
     () => viaStart(b, { viaActed: true }));
   return true;
 };
@@ -414,8 +428,11 @@ function head(b, x) {
 function issueLine(b) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const i = iss[0], on = issueFollowed(i), cat = catOf(i.category);
-  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${on ? ' · you follow this issue' : ''}</span>
-    ${on || firstVisit() ? '' : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id } })}</p>`;   // a newcomer has it on their own card (A-14)
+  // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
+  // Follow button with another word). Pressing Following stops following the issue, with Undo.
+  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></span>
+    ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true' } })
+      : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}</p>`;   // a newcomer has it on their own card (A-14)
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
@@ -430,9 +447,9 @@ function stanceInner(b, x) {
 }
 // Follow, share and copy link on a wide screen (a phone has them in the top bar).
 function sideTools(b) {
-  const on = S.watch.has(b.id);
-  return `<div class="bl-stools" role="group" aria-label="Follow and share">
-    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' } })}
+  const on = S.watch.has(b.id), own = !issuesOf(b).length;   // a bill with an issue is followed by its issue (above)
+  return `<div class="bl-stools" role="group" aria-label="${own ? 'Follow and share' : 'Share'}">
+    ${own ? btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' } }) : ''}
     ${btn('Share', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-bl-share': '1' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-bl-copy': '1' } })}</div>`;
 }
 // Community numbers live here, inside one bill, and nowhere wider (Nate, 9/19): how its followers lean, and what has
@@ -475,7 +492,7 @@ function actionSection(b, x) {
   const title = done ? 'Mahalo for speaking up' : x.act.late ? 'You can still be heard' : 'Speak up before the hearing';
   const ask = S.nudge && done ? nudgeCard('action') : '';
   const big = x.kind === 'email' && !x.act.late ? `<button type="button" class="mwrow bl-bigstep" data-helper="${esc(h.id)}" data-bill="${esc(b.id)}"><span class="lead">${icon('notebook-pen')}</span><span class="body"><span class="title">Write testimony · 5 min</span><span class="sub">The bigger step, and the strongest way to be heard. First time, the Capitol site asks for a free account.</span></span>${icon('chevron-right', { cls: 'chev' })}</button>` : '';
-  const main = wide() ? mainButton(b, x) + (S.blNew.has(b.id) && firstVisit() ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
+  const main = wide() ? mainButton(b, x) + (S.blNew.has(b.id) && firstVisit() && !S.blLooking.has(b.id) ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
   return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
     ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
@@ -737,7 +754,7 @@ export default {
     const b = drawn(normNum(route.num)); if (!b) return '';
     const x = situation(b), main = mainButton(b, x);
     // A newcomer on a shared bill can turn the action down right beside it (R-023).
-    return main && firstVisit() && (x.act || x.kind === 'ask') ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
+    return main && firstVisit() && !S.blLooking.has(b.id) && (x.act || x.kind === 'ask') ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
   },
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
@@ -759,6 +776,12 @@ export default {
       await flipFollow(b);
       app.render();
     });
+    each('[data-bl-unfollowissue]', el => el.addEventListener('click', async () => {
+      const i = S.issueById.get(el.dataset.blUnfollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
+      el.setAttribute('aria-busy', 'true');
+      if (await setFollows({ issuesOff: [i.id] })) toast(`You no longer follow ${i.name}.`, { undo: async () => { await setFollows({ issuesOn: [i.id] }); app.render(); } });
+      app.render();
+    }));
     each('[data-bl-followissue]', el => el.addEventListener('click', async () => {
       const i = S.issueById.get(el.dataset.blFollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');
@@ -796,11 +819,12 @@ export default {
         await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
         if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
         if (x.stepKey && ['floor', 'conference', 'governor'].includes(x.kind)) { S.done.add(askMark(b, x.stepKey)); saveDone(); }   // this stage, done
-        if (app.newcomerActed(b)) return;
+        if (await app.newcomerActed(b)) return;
       }
       app.render();
     }));
-    each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); viaStart(b, { viaSkipAsk: true }); }));
+    each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
+    each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');

@@ -1119,8 +1119,10 @@ export async function ensureBill(num) {
   }
   return b;
 }
-// Where a person is in the guided start: a first visit is someone who has not finished or skipped it and follows nothing.
-export const firstVisit = () => !followsAnything() && ((!wiz().done && !wiz().skipped) || readyForSession());
+// Where a person is in the guided start: a first visit is someone who has not finished or skipped it, follows nothing
+// and has done nothing. Someone who sent the quick email from a link, then said "Don't follow it", came back to the
+// start as if new (R-067): an action they marked counts as having been here.
+export const firstVisit = () => !followsAnything() && !myActions().length && ((!wiz().done && !wiz().skipped) || readyForSession());
 // Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
 export const readyForSession = () => !!wiz().ready && !followsAnything() && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
 export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');

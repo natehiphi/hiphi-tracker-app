@@ -335,5 +335,9 @@
 .bl-page.bl-wide .bl-stools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
 .bl-page.bl-wide .bl-you h2 + .chips, .bl-page.bl-wide .bl-you .bl-stnote { margin: 0; }
 .bl-page.bl-wide .bl-you .bl-stnote + .bl-stools, .bl-page.bl-wide .bl-you .note + .bl-stools { border-top: 1px solid var(--n100); margin-top: var(--s4); padding-top: var(--s12); }
-.bl-page.bl-wide .bl-stools .btn.secondary.on .ic { fill: currentColor; }
+.bl-page.bl-wide .bl-stools .btn.secondary.on:not([aria-pressed="true"]) .ic { fill: currentColor; }
 .bl-page.bl-wide .bl-stools .btn.text { padding: 0 var(--s8); }
+/* After "Just looking" (R-067): the New here card becomes one quiet line offering the tour. */
+.bl-page .bl-tourline { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
+.bl-page .bl-tourline > .ic { color: var(--p700); flex: none; }
+.bl-page .bl-tourline .btn.text { min-height: 44px; padding: 0 4px; }

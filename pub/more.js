@@ -253,7 +253,7 @@ function moreView() {
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
       ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
-      ${row({ lead: 'circle-help', title: 'How it works', sub: 'Follow bills, say where you stand, speak up when it counts', href: '#/help' })}
+      ${row({ lead: 'circle-help', title: 'How it works', sub: 'Follow issues, say where you stand, speak up when it counts', href: '#/help' })}
       ${account}
     </nav>
     <h2 class="mr-grouphead" id="mr-g-hiphi">From HIPHI</h2>
@@ -294,7 +294,7 @@ function wireMore() {
 const STEPS = [
   ['Pick what you care about', 'Choose a category or two, like Food & Nutrition or Tobacco, Vaping & Alcohol.'],
   ['Follow the issues inside it', 'Free school meals, the disposable vape ban, free bus rides for kids. Some start ticked; untick any you don’t want. Their bills come to you, this session’s and next session’s, and show up in My issues.'],
-  ['Say where you stand', 'Support, oppose or not sure yet. It’s your view, and it doesn’t have to match HIPHI’s. That’s a whole first visit.'],
+  ['Say where you stand, if you like', 'On any bill’s page: support, oppose or not sure yet. It’s your view, and it doesn’t have to match HIPHI’s.'],
   ['Speak up when it counts', 'When a bill on one of your issues gets a hearing, Home shows ways to help, easiest first: a two-minute email to the chair, then testimony, a short letter we help you write.'],
 ];
 // One line each, for the words on the bill pages and action cards (the stage names the Capitol uses are not shown).
@@ -315,10 +315,10 @@ function helpView() {
   const keys = !!window.matchMedia?.('(pointer: fine)').matches;
   return `<div class="mr mr-help">
     <header class="pagehead"><h1 class="hero">How it works</h1>
-      <p class="lede">You don’t need to be an expert. People who speak up help shape Hawaiʻi’s health laws, and it starts with one bill.</p></header>
+      <p class="lede">You don’t need to be an expert. People who speak up help shape Hawaiʻi’s health laws, and it starts with one issue you care about.</p></header>
     <section class="mr-panel" aria-label="How it works in ${STEPS.length} steps">
       <ol class="mr-steps">${STEPS.map(([t, p], i) => `<li><span class="mr-num" aria-hidden="true">${i + 1}</span><div><p class="strong"><span class="sr">Step ${i + 1}: </span>${t}</p><p>${p}</p></div></li>`).join('')}</ol>
-      <div class="mr-cta">${btn('Find a bill to follow', { kind: 'primary', icon: 'search', href: '#/find' })}</div>
+      <div class="mr-cta">${btn('Find an issue to follow', { kind: 'primary', icon: 'search', href: '#/find' })}</div>
     </section>
     <section aria-labelledby="mr-words-t">
       <h2 id="mr-words-t">Words you’ll see</h2>
