@@ -14,6 +14,8 @@
 //   logVisit(step, event, extra)  fire and forget: never throws, never waits, never retries; at most 60 a visit
 //   visitVia()                    this visit's ?via= slug, or ''
 //   partnerWelcome(slug)          the partner's welcome line (public_partners), or null; asked once per slug
+//   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
+//   logAct(kind)                  an action marked done, its kind only (078)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './core.js';
 
 const KEY = 'hiphi_fv', CAP = 60;
@@ -127,4 +129,38 @@ export function partnerWelcome(slug) {
     .then(sb => sb.from('public_partners').select('welcome').eq('slug', s).maybeSingle())
     .then(r => (!r.error && r.data && r.data.welcome) || null, () => null));
   return welcomes.get(s);
+}
+
+// ---- coming back, and acting (R-067; backend migration 078) ----
+// Nate's first goal is that people come back. Once per Hawaiʻi day this browser sends one row: how long since its last
+// visit, in bands, the month it was first seen, whether it follows anything, is signed in, was opened from the home
+// screen, its ?via= slug, the device kind and whether the Legislature is in session. And one row per action marked
+// done: only its kind. No id of any kind, no bill, no time of day. The browser keeps its own first month and last day
+// (hiphi_days) so the band can be worked out; that pair never leaves the browser as anything finer than the band and
+// the month. Nothing is sent under Global Privacy Control or Do Not Track, or from the sandbox.
+const DAYS_KEY = 'hiphi_days';
+const hiDay = (t = Date.now()) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });   // 2026-09-27
+const band = d => d <= 1 ? '1d' : d <= 7 ? '2-7d' : d <= 30 ? '8-30d' : d <= 90 ? '31-90d' : '91d+';
+const homeScreen = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } };
+const sendCount = p => supa().then(sb => sb.rpc('log_visit_count', { p })).then(r => !r.error, () => false);
+export function logDay({ follows = false, signedIn = false, season = 'in' } = {}) {
+  try {
+    if (DEMO || gpc()) return Promise.resolve(false);
+    const today = hiDay();
+    let mem = null; try { mem = JSON.parse(localStorage.getItem(DAYS_KEY) || 'null'); } catch { /* private mode: counted as new each day */ }
+    if (mem && mem.last === today) return Promise.resolve(false);
+    const gap = mem && mem.last ? band(Math.round((Date.parse(today) - Date.parse(mem.last)) / 864e5)) : 'new';
+    const first = (mem && /^\d{4}-\d{2}$/.test(mem.first || '') ? mem.first : today.slice(0, 7));
+    try { localStorage.setItem(DAYS_KEY, JSON.stringify({ first, last: today })); } catch { /* ignore */ }
+    const src = visit().src || {};
+    const p = { kind: 'visit', gap, first_month: first, follows: !!follows, signed_in: !!signedIn, home_screen: homeScreen(), season: season === 'in' ? 'in' : 'off' };
+    if (src.via) p.via = src.via; if (src.device) p.device = src.device;
+    return sendCount(p).catch(() => false);
+  } catch { return Promise.resolve(false); }
+}
+export function logAct(kind) {
+  try {
+    if (DEMO || gpc() || !['email', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
+    return sendCount({ kind: 'act', act: kind, device: device() }).catch(() => false);
+  } catch { return Promise.resolve(false); }
 }

@@ -703,6 +703,14 @@ export const DB = {
     if (error) throw error;
     return data || [];
   },
+  // Coming back and acting (078, R-067): per week, browsers that opened the public page (one per browser per day), new
+  // and returning ones by how long since their last visit, and actions marked done by kind. Staff only.
+  async visitCountsWeekly(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('visit_counts_weekly', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error;
+    return data || [];
+  },
   // Partners behind a first-visit link (track.html?via=slug): staff read and write them; the public reads only the slug
   // and the welcome line (public_partners). The sandbox has one sample partner, kept in memory like everything there.
   async loadPartners() {

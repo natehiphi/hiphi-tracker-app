@@ -94,9 +94,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), at: Date.now() }; return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), at: Date.now() }; return; }
   v.loading = weeks; v.err = '';
-  try { const [rows, srcs] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], at: Date.now() }; }
+  // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
+  try { const [rows, srcs, back] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, at: Date.now() }; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -183,6 +184,38 @@ function sourcesHTML(srcs) {
   });
   return tableHTML('fv-ch', 'Where they came from', '', ['Came from', 'Started', 'Finished', 'Gave an email'], rows);
 }
+// ---- after the first visit: coming back (078, R-067) ----
+// Nate's first goal is that people come back. visit_counts_weekly: per week, browsers that opened the public page (one
+// per browser per day), how many were back after an earlier day, how long since, and actions marked done by kind.
+function sampleBack(weeks) {
+  const mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  return Array.from({ length: weeks }, (_, w) => { const b = 60 + ((w * 13) % 25), n = 18 + ((w * 7) % 9);
+    return { week: new Date(mon.getTime() - w * 7 * 864e5).toISOString().slice(0, 10), browsers: b, new_browsers: n, returners: b - n,
+      gaps: { new: n, '1d': 9, '2-7d': 21, '8-30d': b - n - 36, '31-90d': 6 }, following: Math.round(b * .7), home_screen: 4 + (w % 3), signed_in: 7,
+      acts: { email: 12 + (w % 5), testimony: 3 + (w % 3), share: 5, attend: w % 2 } }; });
+}
+const ACTS = { email: 'quick emails', testimony: 'testimony', attend: 'went in person', share: 'shares' };
+function backHTML(rows) {
+  if (!rows) return '';   // the call failed: the first-visit numbers above still stand
+  const t = { b: 0, n: 0, r: 0, week: 0, home: 0, acts: {} };
+  for (const r of rows) { t.b += r.browsers || 0; t.n += r.new_browsers || 0; t.r += r.returners || 0; t.week += (r.gaps?.['1d'] || 0) + (r.gaps?.['2-7d'] || 0); t.home += r.home_screen || 0;
+    for (const [k, v] of Object.entries(r.acts || {})) t.acts[k] = (t.acts[k] || 0) + v; }
+  const actN = Object.values(t.acts).reduce((a, b) => a + b, 0);
+  const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
+  const head = `<div class="le-sechead"><h2 id="fv-bh">Coming back</h2><span class="meta">once a day per browser, after the first visit too</span></div>`;
+  if (!t.b && !actN) return `<section class="fv-sec" aria-labelledby="fv-bh">${head}<p class="meta">Nothing counted yet. Each browser that opens the public page counts once a day: new, or back after an earlier day.</p></section>`;
+  const wk = rows.slice().sort((a, b) => String(b.week).localeCompare(String(a.week)));
+  return `<section class="fv-sec" aria-labelledby="fv-bh">${head}
+    <div class="fv-tiles">
+      ${tile(nf(t.r), 'days someone came back', `${pct(t.r, t.b)} of all days the page was opened`)}
+      ${tile(nf(t.week), 'came back within a week', 'of their last visit')}
+      ${tile(nf(actN), 'actions marked done', Object.entries(t.acts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${nf(v)} ${ACTS[k] || k}`).join(' · '))}
+      ${tile(nf(t.home), 'opened from a home screen', 'the app added to a phone')}
+    </div>
+    ${wk.length > 1 ? `<div class="fv-tablewrap"><table class="fv-table"><thead><tr><th scope="col">Week of</th><th scope="col" class="num">Opened</th><th scope="col" class="num">New</th><th scope="col" class="num">Back</th><th scope="col" class="num">Actions</th></tr></thead>
+      <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(r.acts || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  </section>`;
+}
 function weeksHTML(rows) {
   const wk = by(rows, 'week').sort((a, b) => String(b[0]).localeCompare(String(a[0])));
   if (wk.length < 2) return '';
@@ -197,9 +230,9 @@ function numbersHTML() {
   }
   const rows = have.rows, shared = rows.filter(r => r.path === 'link').reduce((n, r) => n + (r.visits || 0), 0);
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
-  if (!rows.length) return `${sample}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>`;
+  if (!rows.length) return `${sample}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}
+  return `${sample}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 

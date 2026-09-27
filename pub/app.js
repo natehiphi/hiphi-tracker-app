@@ -15,6 +15,8 @@ import people from './people.js';
 import committees from './committees.js';
 import more from './more.js';
 import helper from './helper.js';
+import { logDay, logAct } from './visitlog.js';
+app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
 const SCREENS = { start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
@@ -176,6 +178,8 @@ async function boot() {
     // The issues come first: what a person follows is worked out from them (063, R-018).
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); await loadLists(); await loadBills(); })(), timeout]);
     welcomeBack();
+    // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
+    logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
     // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets the
     // guided start behind it, so Back goes somewhere helpful.
     const r = parseRoute();

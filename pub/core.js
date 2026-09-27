@@ -257,6 +257,7 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   else { S.done.delete(k); delete S.doneAt[k]; }
   saveDone(); saveDoneAt();
   if (on && !quiet) { celebrate(kind, firstTestimony); }
+  if (on) app.onAct?.(kind);   // counted privately, its kind only (visitlog.js logAct, migration 078)
   if (on && !S.session) nudge('action');
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
   const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
