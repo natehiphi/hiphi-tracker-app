@@ -161,7 +161,7 @@ is over the budget of 15 and well inside the limit of 25: a backlog item, not a 
   they no longer vanish below 420px, where they had left a phone reader twelve unlabelled dashes.
 - **G-1** — flow had no measurement. `tests/journeys.py` now walks seven journeys and counts steps.
 
-### Closed on 2026-09-27 (R-065)
+### Closed on 2026-09-27 (R-067)
 - **Large text (WCAG 1.4.4).** At 150% and 200% text on a 375px phone the first screen's tiles and chapter names ran
   off the right edge, the header overlapped the band above it, and buttons were cut ("Send a quick email · 2 mi").
   The public small-screen breakpoints are now in em (359px → 22.4375em, 259px → 16.1875em), the header has a

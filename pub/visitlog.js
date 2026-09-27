@@ -22,7 +22,7 @@ const EVENTS = new Set(['view', 'next', 'skip', 'back', 'leave', 'done', 'answer
 const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/;
 const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);
 // The privacy page promises "if your browser asks sites not to track you, we record nothing". Only Global Privacy
-// Control was honoured; Do Not Track is the older way browsers ask, so it counts too (R-065).
+// Control was honoured; Do Not Track is the older way browsers ask, so it counts too (R-067).
 const gpc = () => { try { return navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1'; } catch { return false; } };
 
 // ---- this visit: its id and where it came from, worked out once and kept for the life of the tab ----

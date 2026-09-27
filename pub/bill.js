@@ -380,7 +380,7 @@ const notNow = () => btn('Not now', { kind: 'text', attrs: { 'data-bl-newlater':
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
 // visit. Shared by the bar's "Yes, I sent it" and the email box's (actions.js), which used to give only a toast, so
-// the quick email from a link was never counted or celebrated (R-065). True when it took over.
+// the quick email from a link was never counted or celebrated (R-067). True when it took over.
 app.newcomerActed = b => {
   if (!b || !(S.blNew.has(b.id) && firstVisit())) return false;
   logVisit('act', 'next', { path: 'link' });

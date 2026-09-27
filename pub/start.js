@@ -207,7 +207,7 @@ const pickedIssues = () => { const sel = new Set(wiz().issues || []); return top
 const SURE1 = 'About 4 minutes. Free, and no account needed.';
 function tiles(off, yr) {
   // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
-  // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-065). Hold
+  // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
   // the six tiles for the moment it takes; if it fails they fall back to issue counts.
   if (off && !(S.recapPool && S.recapPool.yr === yr) && S.recapFailed !== yr) {
     ensureRecapPool(yr);
@@ -548,7 +548,7 @@ function upcoming() {
   rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
   if (!out.length) {
     // Someone who came from a link and follows nothing yet was told "No hearing on your issues this week" right
-    // after being shown this bill's hearing (R-065). The bill they came for leads when it has one.
+    // after being shown this bill's hearing (R-067). The bill they came for leads when it has one.
     const vb = wiz().via ? exampleBill() : null;
     const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
     if (vh) {
@@ -614,7 +614,7 @@ function stepDone(step) {
   const name = (S.stMail.name || wiz().name || '').trim(), off = isOff();
   const rows = recapRows();
   // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
-  // "we tell you" with no way to be told (R-065). The words follow what really happened.
+  // "we tell you" with no way to be told (R-067). The words follow what really happened.
   const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok'), follows = followsAnything();
   const told = !!(S.session || mailSent());
   const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'

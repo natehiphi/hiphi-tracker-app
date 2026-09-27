@@ -24,7 +24,7 @@ if (DEMO) {
   const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
   // The sandbox and the real page share one web address, so they share this browser's storage. A practice run left
-  // the real page past its first visit, with the sandbox's legislators "saved" (R-065), because only some names had a
+  // the real page past its first visit, with the sandbox's legislators "saved" (R-067), because only some names had a
   // _demo copy. Here every hiphi_ name gets one, whichever screen reads or writes it.
   try {
     const P = Storage.prototype, apart = k => typeof k === 'string' && k.startsWith('hiphi_') && !k.endsWith('_demo') ? k + '_demo' : k;
@@ -66,7 +66,7 @@ export function friendly(e) {
   if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
   if (/invalid.*email|email.*invalid/i.test(m)) return 'That email address does not look right. Try one like name@example.com.';
   // The sign-in mailer refusing or failing (an address it is not allowed to send to, or its own error) is our problem,
-  // not the person's connection, which is what they were told (R-065).
+  // not the person's connection, which is what they were told (R-067).
   if (/not authori[sz]ed|error sending|sending.*email|smtp|signups not allowed/i.test(m)) return 'We couldn’t send the email just now. That’s on our side, not yours. What you follow is still saved in this browser; please try again later.';
   if (/^[A-Z][^{}<>]{3,120}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token)/i.test(m)) return m;
   return 'We could not do that. Check your connection and try again.';
@@ -685,7 +685,7 @@ export async function loadFeatured() {
     S.featured = { hearings: hs.filter(h => bills.some(b => b.id === h.bill_id)), bills }; return;
   }
   // HIPHI's own bills first, then their hearings. It used to take the first 60 hearings of every bill and keep
-  // HIPHI's afterwards: replayed on 2026, the busiest week had 52 HIPHI hearings and 4 would have shown (R-065).
+  // HIPHI's afterwards: replayed on 2026, the busiest week had 52 HIPHI hearings and 4 would have shown (R-067).
   // The pool already holds exactly HIPHI's live bills and their hearings for the next two weeks.
   if (!S.pool) await loadPool();
   const hs = S.pool.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) < new Date(until))
@@ -1054,7 +1054,7 @@ export function whyStopped(b) {
   // forward" read as if a committee had stopped it (HB 1782, which died in conference; Nate 9/26).
   if (/^(second_crossover|conference)$/.test(b.died_at_stage || '')) return `It passed the House and the Senate, but the two did not agree on one final version before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
   // A bill that passed its last hearing and then stalled was told it "did not move forward" there, right above that
-  // hearing marked Passed (HB 1779, R-065). Say what the committee did when we know it, and nothing false when we don't.
+  // hearing marked Passed (HB 1779, R-067). Say what the committee did when we know it, and nothing false when we don't.
   if ((m || b.died_deadline) && heard) {
     const o = outcomeOf(heard), who = S.committees[codesOf(heard.committee)[0]] ? `The ${cmteLabel(heard.committee)}` : 'A committee';
     if (o && /passed/.test(o.outcome || '')) return `${who} passed it on ${dateLong(heard.scheduled_at)}, but the next step did not happen before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;

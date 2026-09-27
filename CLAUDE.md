@@ -78,16 +78,16 @@ Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**,
 `demo/snapshot.json`; nothing is saved and nothing reaches Supabase. Use it for ALL UI work while the live
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions). In the public sandbox every
-  `hiphi_` storage name is read and written as `<name>_demo` (a shim at the top of `pub/core.js`, R-065), so a
+  `hiphi_` storage name is read and written as `<name>_demo` (a shim at the top of `pub/core.js`, R-067), so a
   practice run never changes the real page in the same browser. A test that presets storage with
   `page.evaluate` on a sandbox page still works (the shim applies there too); one that writes storage on a
   non-sandbox page and then opens the sandbox will not see it.
-- **The sandbox hides some live bugs** (R-065 found three): `loadFeatured`, the between-sessions wins on the first
+- **The sandbox hides some live bugs** (R-067 found three): `loadFeatured`, the between-sessions wins on the first
   screen and invented outcomes (`core.js` forces most bills dead). Check a change to a live query against the live
   path too (`track.html` on localhost reads production; add the `globalPrivacyControl` init script so the
   first-visit counting skips you).
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
-  text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-065). Write
+  text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
   new ones the same way; `Page.setFontSizes` over CDP emulates a larger text setting in Playwright.
 - Staff v2: `&as=LR` (Lauren), `&as=KV` (Kevin, regular teammate), `&as=JS` (Jess, reviewer), `&as=KR` (Kris,
   supports every coalition), `&as=SY` (Saya, supports CTFH); default is Nate (admin). The avatar menu has "Practise

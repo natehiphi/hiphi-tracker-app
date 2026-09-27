@@ -303,7 +303,7 @@ main:focus { outline: none; }
 /* A strong position shows its icon twice; the pair reads as one mark, not two. */
 .chip .ic + .ic { margin-left: -5px; }
 
-/* ---- large text (R-065, WCAG 1.4.4) ----
+/* ---- large text (R-067, WCAG 1.4.4) ----
    Someone who sets their phone's text to 150% or 200% gets the same page with bigger words: the header grows instead
    of clipping, and a button's words wrap instead of being cut ("Send a quick email · 2 mi"). An em in a media query
    is the person's own text size, so 20em is 320px at the normal size and about 480px at 150%; the small-screen
