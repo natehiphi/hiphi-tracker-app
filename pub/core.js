@@ -9,6 +9,10 @@ export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwa
 export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
 export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+// The public page keeps its sign-in apart from the staff app's. Both live at the same address, so with Supabase's
+// default slot a staff sign-in showed up here too, and the "staff accounts use the main app" sign-out below ended the
+// staff session in every tab: Nate could not stay signed in to staff while the tracker was open (9/26, R-063).
+const AUTH = { auth: { storageKey: 'hiphi-public-auth' } };
 export const DEMO = new URLSearchParams(location.search).has('demo');
 export const LOCAL_KEY = DEMO ? 'hiphi_watch_ids_demo' : 'hiphi_watch_ids';
 // Sandbox (?demo=1): the real 2026 session frozen at Monday March 16, 2026,
@@ -143,7 +147,7 @@ export const CONSENT_KEY = 'hiphi_consent_pending';
 export async function init() {
   if (DEMO) { await demoLoad(); return; }
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
+  S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH);
   const { data } = await S.supa.auth.getSession(); S.session = data.session;
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
 }
@@ -371,7 +375,7 @@ export async function loadUser() {
     recomputeWatch(); return;
   }
   const { data, error } = await S.supa.rpc('ensure_public_user');
-  if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut(); return; } throw error; }
+  if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut({ scope: 'local' }); return; } throw error; }
   S.user = data;
   // Choices made on the sign-in page, before the account existed.
   let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
@@ -500,7 +504,7 @@ export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
-export async function supa() { if (!S.supa) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY); } return S.supa; }
+export async function supa() { if (!S.supa) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH); } return S.supa; }
 export async function fetchAddrSuggest(q) {
   const { data, error } = await (await supa()).rpc('address_suggest', { q, n: 8 }); if (error) throw error;
   return (data || []).map(x => ({ label: x.label, lat: x.lat, lon: x.lon, sd: x.sd, hd: x.hd, exact: x.exact }));
