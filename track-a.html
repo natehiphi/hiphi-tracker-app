@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Version A of the public tracker, for comparing with track.html in front of testers (R-071). Sandbox only: without
+     ?demo=1 it goes to the sandbox, so nothing here reaches the live database or its counts. -->
+<script>if (!new URLSearchParams(location.search).has('demo')) { const q = new URLSearchParams(location.search); q.set('demo', '1'); location.replace(location.pathname + '?' + q + location.hash); }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#FFFFFF">
-<title>HIPHI Bill Tracker · speak up for a healthier Hawaiʻi</title>
+<title>HIPHI Bill Tracker · version A (sandbox)</title>
+<meta name="robots" content="noindex">
 <meta name="description" content="Follow Hawaiʻi health bills and speak up in five minutes. From the Hawaiʻi Public Health Institute.">
 <link rel="icon" href="pub/icon.svg" type="image/svg+xml">
 <link rel="icon" href="pub/icon-64.png" sizes="64x64" type="image/png">
@@ -41,7 +45,8 @@
 <link rel="stylesheet" href="pub/more.css">
 <link rel="stylesheet" href="pub/helper.css">
 <link rel="stylesheet" href="pub/wide.css">
-<link rel="modulepreload" href="pub/app.js">
+<link rel="stylesheet" href="pub/a/a.css">
+<link rel="modulepreload" href="pub/a/app.js">
 <link rel="modulepreload" href="pub/core.js">
 <link rel="modulepreload" href="pub/lessons.js">
 <link rel="modulepreload" href="pub/fx.js">
@@ -72,6 +77,6 @@
 <div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="pub/testbed.js"></script>
-<script type="module" src="pub/app.js"></script>
+<script type="module" src="pub/a/app.js"></script>
 </body>
 </html>

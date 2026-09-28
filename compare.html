@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Compare the two trackers · HIPHI tester setup</title>
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pub/base.css">
+<!-- The tester setup page (R-071): the person running a test picks who is visiting, which day of the real week of
+     16 March 2026 it is, and when they were last here, then opens today's tracker or version A in that same moment.
+     Everything is the sandbox: this page writes only the sandbox's own storage (hiphi_*_demo) in this browser. Each
+     Open button sets the scenario again, so both versions start from the same place (a visit changes "last visit"). -->
+<style>
+body { background: var(--n50); }
+.cw { max-width: 640px; margin: 0 auto; padding: 24px var(--gutter) 64px; display: flex; flex-direction: column; gap: var(--s24); }
+.cw h1 { font-size: var(--t28); }
+.cw p { margin: 0; }
+.lede2 { font-size: var(--t16); color: var(--n700); line-height: 1.5; }
+fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bottom: var(--s8); padding: 0; }
+.opt { display: flex; gap: 12px; align-items: flex-start; background: var(--n0); border-radius: var(--r12); padding: 12px 14px; box-shadow: var(--sh1); cursor: pointer; min-height: 44px; }
+.opt input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--p700); flex: none; }
+.opt b { display: block; color: var(--n900); font-size: var(--t16); }
+.opt span span { font-size: var(--t14); color: var(--n500); line-height: 1.4; }
+.opt:has(input:checked) { box-shadow: inset 0 0 0 2px var(--p700); }
+.go { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s12); }
+@media (max-width: 30em) { .go { grid-template-columns: 1fr; } }
+.go .btn { min-width: 0; }
+.go .btn { width: 100%; }
+.note { font-size: var(--t14); color: var(--n500); line-height: 1.5; }
+.tasks { background: var(--n0); border-radius: var(--r12); padding: 16px 18px; box-shadow: var(--sh1); }
+.tasks h2 { font-size: var(--t18); margin-bottom: 8px; }
+.tasks ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--t16); line-height: 1.45; }
+</style>
+</head>
+<body>
+<main class="cw" id="main">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <p class="eyebrow" style="margin:0;font-weight:700;color:var(--p700);font-size:var(--t13);letter-spacing:.08em;text-transform:uppercase">For the person running the test</p>
+    <h1>Compare the two trackers</h1>
+    <p class="lede2">Pick who the tester is pretending to be and which day it is, then open either version. Both use the real 2026 session, the week of 16 March, with that day’s real committee decisions. Nothing is saved or counted, and no email is sent.</p>
+  </header>
+
+  <fieldset><legend>Who is visiting</legend>
+    <label class="opt"><input type="radio" name="who" value="kai" checked><span><b>Kai · 3 issues</b><span>The vape ban, free bus rides for kids, local food in school meals. Emailed a committee chair once, on 3 March.</span></span></label>
+    <label class="opt"><input type="radio" name="who" value="leilani"><span><b>Leilani · 16 issues</b><span>A heavy follower. 15 of the issues have a hearing that week, with up to 4 testimony deadlines a day.</span></span></label>
+    <label class="opt"><input type="radio" name="who" value="malia"><span><b>Malia · 3 issues, a quiet week</b><span>Cesspools, a renters’ tax credit, SNAP. None has a hearing that week.</span></span></label>
+  </fieldset>
+
+  <fieldset><legend>Which day</legend>
+    <label class="opt"><input type="radio" name="day" value="mon" checked><span><b>Monday 16 March, 9 am</b><span>Four testimony deadlines today for Leilani.</span></span></label>
+    <label class="opt"><input type="radio" name="day" value="tue"><span><b>Tuesday 17 March, 9 am</b><span>Monday’s committee decisions are in.</span></span></label>
+    <label class="opt"><input type="radio" name="day" value="wed"><span><b>Wednesday 18 March, 9 am</b><span>Kai’s bus and school food hearing is this afternoon.</span></span></label>
+  </fieldset>
+
+  <fieldset><legend>Last visit</legend>
+    <label class="opt"><input type="radio" name="last" value="day" checked><span><b>The evening before</b><span>A regular visitor.</span></span></label>
+    <label class="opt"><input type="radio" name="last" value="week"><span><b>A week ago</b><span>Coming back after a while: more has happened since.</span></span></label>
+  </fieldset>
+
+  <div class="go">
+    <button type="button" class="btn secondary" data-open="track.html">Open today’s version</button>
+    <button type="button" class="btn primary" data-open="track-a.html">Open version A</button>
+  </div>
+  <p class="note" id="err" tabindex="-1" role="alert" hidden style="color:var(--bad-text);font-weight:700">This browser is blocking storage, so the scene can’t be set. Try a normal window, not a private one.</p>
+  <p class="note">Always open from here, so both versions start from the same moment. Swap the order between testers: half see today’s version first, half see version A first.</p>
+
+  <section class="tasks" aria-labelledby="tk-h"><h2 id="tk-h">What to ask, in each version</h2>
+    <ol>
+      <li>“Is there anything you need to do today? What, and by when?”</li>
+      <li>“What has happened on your issues since you were last here?”</li>
+      <li>“Where does the disposable vape ban stand right now?” (Malia: “the SNAP bill”)</li>
+      <li>“When is the next hearing on one of your issues?”</li>
+      <li>At the end: “Which one would you come back to, and why?”</li>
+    </ol>
+    <p class="note" style="margin-top:10px">Time each answer from the moment the page opens, and count the taps. Don’t help unless they are stuck for a minute.</p>
+  </section>
+</main>
+<script>
+// The real sandbox week: Mon 16 March 2026, 9:00 Honolulu time (pub/core.js DEMO_ASOF).
+const MON = Date.parse('2026-03-16T09:00:00-10:00'), DAY = 864e5, OFF = { mon: 0, tue: 1, wed: 2 };
+const WHO = {
+  kai: { name: 'Kai', cats: ['tobacco', 'food', 'around'],
+    issues: ['66a32660-b0a7-4a90-a71f-231963619b44', '1dcec7ca-ed94-4a19-9c9c-235514ca7491', '2616613e-a363-418b-ae19-4add60957cd8'],
+    done: { '2455257b-07a6-41c9-9745-94f174d78442|97d7a379-0238-41b3-b6ba-5e57510bd9be|email': '2026-03-03T10:00:00-10:00' } },
+  leilani: { name: 'Leilani', cats: ['food', 'tobacco', 'care', 'family', 'around', 'climate'], done: {},
+    issues: ['e336663a-0a6b-4dd2-a313-8f6ba0de2d10', '312680f6-e284-4321-8a07-3ee624a0af24', '3699b13d-3466-426d-a2eb-88d20db60c12', '8b1a1b4d-0699-4d8a-970e-4c4ff8d84a1f',
+      'a26e0f87-9d98-4b8e-a326-517f0ec6aa7f', '257867b0-ada6-476b-8eaa-a4914e52da1c', '1dcec7ca-ed94-4a19-9c9c-235514ca7491', '2616613e-a363-418b-ae19-4add60957cd8',
+      '5f4c4ec6-252a-429f-b22b-aab91cd0889a', 'b636541e-aef7-46e8-8a99-fb4b0cf38b50', 'a8690eec-3d30-4c19-9e15-ce5157c6b950', 'fb5e85b5-bf05-4164-8fba-a4f161f7ba83',
+      'de0916f3-e8c6-4f1d-8f08-f106f6d4e3ae', '66a32660-b0a7-4a90-a71f-231963619b44', 'cca05b80-ed45-467b-a019-2bbc4cb289ee', '48742bb7-36d9-4b50-aae2-d19eaf0c872c'] },
+  malia: { name: 'Malia', cats: ['climate', 'family', 'food'], done: {},
+    issues: ['4b7d51b2-9cc2-4e63-b3ac-9a7fb12cc200', 'e14de9b9-c2ed-4095-a220-cd61db93b0fc', '1a65adc1-34bc-4b15-b373-a148fdab1d66'] },
+};
+const pick = n => document.querySelector(`input[name="${n}"]:checked`).value;
+function setScene() {
+  const p = WHO[pick('who')], day = pick('day'), at = MON + OFF[day] * DAY;
+  const last = pick('last') === 'day' ? at - 14 * 36e5 : at - 7 * DAY;   // 7 pm the evening before, or a week ago
+  try {
+    // Only the sandbox's own names (every hiphi_ name ends _demo there), so the live page in this browser is untouched.
+    for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_') && k.endsWith('_demo')) localStorage.removeItem(k);
+    sessionStorage.clear();
+    const set = (k, v) => localStorage.setItem(k + '_demo', typeof v === 'string' ? v : JSON.stringify(v));
+    set('hiphi_issue_follows', p.issues); set('hiphi_watch_ids', []); set('hiphi_cat_follows', []); set('hiphi_skips', []);
+    set('hiphi_wiz', { done: true, issues: p.cats, name: p.name });
+    set('hiphi_onb', { lastVisit: new Date(last).toISOString() });
+    set('hiphi_done', Object.keys(p.done)); set('hiphi_done_at', p.done); set('hiphi_stances', {});
+    set('hiphi_demo_seeded', '0');   // no sample actions: the person's history is exactly the one above
+  } catch (e) { const m = document.getElementById('err'); m.hidden = false; m.focus(); return false; }
+  return day;
+}
+document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
+  const day = setScene(); if (!day) return;
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}#/`;
+}));
+</script>
+</body>
+</html>
