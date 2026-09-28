@@ -95,7 +95,9 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // Done is a green tick and the name, now is the name in bold after a solid dot, still to come is a small grey dot and
 // a quiet name. No rings or boxes (they read as radio buttons), no bar, no numbers. Below 360px only the current name
 // is written out (start.css); a screen reader hears all three.
-const CHAPTERS = ['Your issues', 'How it works', 'Stay connected'];
+// "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
+// confused about what it is).
+const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, session: 1, hearing: 1, you: 2, soon: 2, done: 3 };
 let lastChapter = -1;
 function chaptersRow(name) {
@@ -205,6 +207,10 @@ const pickedIssues = () => { const sel = new Set(wiz().issues || []); return top
 // Six tiles, most important first (Nate 9/21), each saying what is in play: in session the issues still moving,
 // between sessions the wins of last session (or its issues).
 const SURE1 = 'About 4 minutes. Free, and no account needed.';
+// What the app does, said on the first screen (R-067, Nate's pick 9/27, Version A): testers liked the first visit but
+// were confused about what it is, and the only plain description was on the finale. In session only; between sessions
+// the screen already leads with the opening day.
+const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon('bell')}<span>We tell you when it’s your moment</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
 function tiles(off, yr) {
   // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
   // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
@@ -236,7 +242,7 @@ function stepTopics(step) {
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
     <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}. Pick what you care about, and we’ll tell you when your voice can count.`
-      : 'Pick what you care about. We’ll tell you when your voice can make a difference.'}</p>${sureWide('clock', SURE1)}`,
+      : 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll tell you when a few minutes of your time can help get bills passed.'}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
 }
 

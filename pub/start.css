@@ -314,3 +314,19 @@
   .st-petals { display: none; }
   .st-scard, .st-issue, .st-pick { transition: none; }
 }
+
+/* What the app does, on the first screen (R-067, Version A). */
+.st-promise { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--t14); font-weight: 700; color: var(--p800); }
+.st-promise li { display: flex; align-items: center; gap: 6px; }
+.st-promise .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
+/* "How a bill becomes law" is the longest chapter name: on a phone the names may take two lines rather than overlap. */
+@media (max-width: 30em) { .st-chapters .st-cl { white-space: normal; } .st-chapters ol { align-items: start; } .st-chapters li { align-items: flex-start; } }
+/* On a phone the promise is three short columns, and it takes the drawing's place on the first screen, so the topics
+   still start near the top (A-1): the drawing comes back on the address screen and the finale. */
+@media (max-width: 37.5em) {
+  .st-promise { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: var(--t13); line-height: 1.3; }
+  .st-promise li { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .st1.st-topics:has(.st-promise) .st-art { display: none; }
+}
+/* The smallest phones (320px): the lede already says what the app does, and the topics must still be in view. */
+@media (max-width: 22.4375em) { .st-promise { display: none; } }

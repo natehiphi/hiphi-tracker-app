@@ -376,6 +376,7 @@ function newcomer(b, x) {
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">
     <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
+    <p class="small muted">A free tool from the Hawaiʻi Public Health Institute, a nonprofit. Emails open in your own mail app; nothing is sent for you.</p>
     <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${x.act || x.kind === 'ask' ? '' : notNow()}</div>
   </section>`;
 }

@@ -49,7 +49,7 @@ with sync_playwright() as pw:
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
     # Three named parts and no counting, no bar (Nate 9/21), and they are not controls (A-12).
     parts = p.evaluate("[...document.querySelectorAll('.st-chapters li')].map(li => li.textContent.replace(/\\(done\\)/, '').trim())")
-    ok(parts == ['Your issues', 'How it works', 'Stay connected'], f'the three named parts ({parts})')
+    ok(parts == ['Your issues', 'How a bill becomes law', 'Stay connected'], f'the three named parts ({parts})')
     ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'Your issues', 'step 1 is in "Your issues"')
     ok(p.locator('[role=progressbar], progress').count() == 0 and not re.search(r'step \d+ of \d+', text(p), re.I), 'no progress bar and no "Step N of M"')
     ok(p.locator('.st-chapters button, .st-chapters a').count() == 0, 'the named parts are a signpost, not buttons')
@@ -82,7 +82,7 @@ with sync_playwright() as pw:
     # The bill page asks it instead (checked below). After "Mahalo!" comes the first lesson.
     ok(re.search(r'where do you stand', text(p), re.I) is None and p.locator('[data-ststance]').count() == 0, f"no stance screen after the issues ({p.evaluate('location.hash')})")
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', 'the first lesson comes straight after "Mahalo!"')
-    # How it works: three lessons, every word visible (C-12), stepped through with the primary button.
+    # How a bill becomes law (was "How it works", R-067): three lessons, every word visible (C-12), stepped through with the primary button.
     seen = []
     for _ in range(24):
         h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
@@ -90,7 +90,7 @@ with sync_playwright() as pw:
             seen.append(h1); std(p, f'lesson{len(seen)}', axe=True); shot(p, f'p_lesson{len(seen)}')
             ok(p.locator('main details:not([open]), main [role=tab]').count() == 0, f'"{h1}" hides nothing behind a tap (C-12)')
             if h1 in ('Reading a bill', 'The session, January to May', 'What a hearing is'):
-                ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How it works', f'"{h1}" is in "How it works"')
+                ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How a bill becomes law', f'"{h1}" is in "How it works"')
         if 'Who speaks for you' in h1: break
         p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
         if p.locator('#fx-moment:not([hidden])').count():

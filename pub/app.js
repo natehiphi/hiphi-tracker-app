@@ -80,7 +80,7 @@ function header(route, scr) {
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
   const nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · an imagined end of the 2026 session · nothing is saved' : 'Sandbox · Mon, Mar 16, 2026 · nothing is saved'}</div>` : ''}
-    <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi Public Health Institute</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
+    <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(scr) {
   return `<nav class="tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
