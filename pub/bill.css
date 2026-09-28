@@ -36,7 +36,8 @@
 .bl-page .bl-nbbtns .btn.text { margin-left: auto; }
 .bl-side .bl-newbie { margin-top: 0; }
 .bl-barnew { display: flex; align-items: center; gap: var(--s8); width: 100%; }
-.bl-barnew > .btn.primary { flex: 1 1 auto; }
+.bl-barnew > .btn.primary { flex: 1 1 auto; min-width: 0; padding-inline: 16px; white-space: normal; }   /* beside "Just looking" it may take two lines; it never runs off the screen (R-067) */
+.bl-barnew > .btn.text { padding-inline: 10px; }
 .bl-barnew > .btn.text { flex: none; }
 .bl-notnow { display: flex; justify-content: center; margin-top: 4px; }
 
