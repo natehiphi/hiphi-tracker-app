@@ -13,7 +13,7 @@ import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
-import { logVisit } from './visitlog.js';
+import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -374,7 +374,11 @@ function newcomer(b, x) {
   const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}. You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
     : x.kind === 'ask' ? 'This bill is waiting for a hearing. You can ask the chair for one, in about 2 minutes, or follow it and we’ll tell you when.'
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
-  return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">
+  // A partner's link can open on a bill now (Make a link, R-067): their welcome line leads the card, as it does on the
+  // first visit's first screen.
+  const via = visitVia();
+  if (via && S.blWelcome === undefined) { S.blWelcome = null; partnerWelcome(via).then(w => { if (w) { S.blWelcome = w; app.render(); } }).catch(() => {}); }
+  return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">${S.blWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.blWelcome)}</span></p>` : ''}
     <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
     <p class="small muted">A free tool from the Hawaiʻi Public Health Institute, a nonprofit. Emails open in your own mail app; nothing is sent for you.</p>
     <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${x.act || x.kind === 'ask' ? '' : notNow()}</div>
@@ -579,7 +583,7 @@ function hearingRow(b, h, now) {
   const acts = [
     !past && !off && posInfo(b) && alive(b) && agrees(b) !== false && due && !due.late ? btn('Write testimony', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': h.id, 'data-bill': b.id } }) : '',
     !past && !off ? (S.chips?.[k + 'ics'] ? chip('Calendar file ready', 'ok', 'check') : btn('Add to calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: { 'data-ics': k } })) : '',
-    v ? btn(v.state === 'live' ? 'Watch live' : past ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
+    v ? btn(v.state === 'live' ? 'Watch live' : past ? (!v.exact ? 'Find the recording on YouTube' : /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
   ].filter(Boolean).join('');
   return `<li class="bl-hr${past ? ' bl-past' : ''}"><span class="bl-hico">${icon(past ? 'calendar-days' : 'calendar')}</span><div class="bl-hbody">
     <p class="bl-htitle">${esc(cmteLabel(h.committee))}</p>
@@ -662,13 +666,17 @@ function page(num, b) {
   if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
+  // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
+  // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
+  // height (bill.css .bl-cols), so the page looks as before.
   return `<div class="bl-page bl-wide">${topbar(num, b)}<div class="cols bl-cols">
-    <div class="bl-main">${head(b, x)}${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>
+    <div class="bl-main">${head(b, x)}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
       ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
-    </aside></div></div>`;
+    </aside>
+    <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div></div></div>`;
 }
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;

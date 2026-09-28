@@ -13,7 +13,7 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch, plainStatus, spaced, billPath, issuesOf } from './core.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions } from './actions.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
@@ -373,7 +373,11 @@ function issuePageNew(i) {
     ${off && i.outlook ? `<p class="fd-outlook">${icon('history')}<span>${esc(i.outlook)}</span></p>` : ''}</header>`;   // is it alive? (R-067, staff edit it)
   if (!ready) return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load its bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissuebills': i.id } })}</div>` : skeleton(2)}</div>`;
-  const nowSecs = `${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', plural(mv.length, 'bill'))}${billList(mv, { pos: true })}</section>` : ''}
+  // The one thing to do this week, as a full card (R-067: someone arriving on an issue link saw only a "Hearing Fri" chip
+  // and no way to act). The soonest hearing whose testimony is not past due; everything else stays in the list.
+  const act = off ? null : openActions(mv, mv.flatMap(hearingsOf)).filter(x => !x.late)[0] || null;
+  const actSec = act ? `<section aria-labelledby="fd-iact-h">${sechead('fd-iact-h', 'You can help this week')}${actionCard(act.b, act.h)}</section>` : '';
+  const nowSecs = `${actSec}${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', plural(mv.length, 'bill'))}${billList(mv, { pos: true })}</section>` : ''}
     ${law.length ? `<section aria-labelledby="fd-ilaw-h">${sechead('fd-ilaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
     ${gone.length ? fold('fd-ig-' + i.id, `Stopped ${off ? `in ${yr}` : 'this session'} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
   const none = !now.length ? `<p class="fd-none">No bills on it ${off ? `in ${yr}` : 'this session'} yet. When HIPHI takes one up, it comes to everyone who follows this issue.</p>` : '';

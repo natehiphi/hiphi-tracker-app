@@ -82,6 +82,9 @@ session is dark (until January 2027).
   practice run never changes the real page in the same browser. A test that presets storage with
   `page.evaluate` on a sandbox page still works (the shim applies there too); one that writes storage on a
   non-sandbox page and then opens the sandbox will not see it.
+- **The between-sessions sandbox shows the real end of 2026** (`&season=off`): the snapshot keeps each bill's final
+  stage and last action as `b.final` (`backend/tools/build_snapshot.js`), which `demoLoad` uses; a snapshot without it
+  falls back to the old imagined ending.
 - **The sandbox hides some live bugs** (R-067 found three): `loadFeatured`, the between-sessions wins on the first
   screen and invented outcomes (`core.js` forces most bills dead). Check a change to a live query against the live
   path too (`track.html` on localhost reads production; add the `globalPrivacyControl` init script so the

@@ -518,7 +518,7 @@ function exploreView() {
         <div class="rows hm-issues">${cats.map(c => row({ lead: c.icon, title: esc(c.name), sub: esc(c.description || ''), href: `#/find/category/${encodeURIComponent(c.key)}` })).join('')}</div></section>` : ''}
       ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-lists"><h2 id="hm-lists">Lists from HIPHI</h2>
         <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: esc(l.description || ''), end: countOk(l.followers) ? `<span class="hm-day">${n(l.followers)} following</span>` : '', href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}
-      <p class="hm-start">Want suggestions? ${btn('Take the 1-minute start', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' })}</p>
+      <p class="hm-start">Want suggestions? ${btn('Pick your issues, about 4 minutes', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' })}</p>
     </div></div>
   </div>`;
 }

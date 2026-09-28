@@ -182,7 +182,8 @@ export function hearingStream(h, chamber, now = Date.now()) {
   const search = !exact && state !== 'before';
   return { url: exact ? link : search ? `${ch.url}/search?query=${encodeURIComponent(streamQuery(h, chamber))}` : ch.url + '/streams', exact, search, auto: !h.stream_url && !!h.stream_auto_url, state, channel: ch?.name || 'YouTube',
     // A matched link opens at the bill's own minute when the video's description gives one (sync/streams.js, R-033).
-    label: state === 'live' ? 'Watch live' : state === 'after' ? (exact && /[?&]t=\d/.test(link) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch on YouTube',
+    // A search results page is not a recording (R-067 word sweep): until the video's own link is known, say "find".
+    label: state === 'live' ? 'Watch live' : state === 'after' ? (exact ? (/[?&]t=\d/.test(link) ? 'Watch this bill’s part' : 'Watch the recording') : 'Find the recording on YouTube') : 'Watch on YouTube',
     hint: exact ? '' : state === 'before' ? `Streams on the ${ch.name} channel; the video appears shortly before the start time.`
       : `Searches the ${ch.name} channel for this hearing; its video is the first result.` };
 }

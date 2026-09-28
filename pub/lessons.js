@@ -212,7 +212,7 @@ function billCaps(E) {
     : orderWords(E) || `This one is with ${ch} committees now.`;
   return [
     ['What it is', `${what} ${B ? `${B} means ${B === 'HB' ? 'House' : 'Senate'} Bill: it` : 'It'} started in the ${E.start}.`],
-    ['Where it is, and how to help', `Each dot is a step toward becoming law. ${where}${E.x.live && !E.off ? ' When you can help, the button says how, and by when.' : ''}`],
+    ['Where it is, and how to help', `Each dot is a step toward becoming law. ${where}${E.x.live && !E.off ? ' On the real page, the button at the bottom says how you can help, and by when. This one is only a picture.' : ''}`],
   ];
 }
 function sessionCaps(E) {
@@ -239,13 +239,13 @@ function hearCaps(E) {
     const did = H.outcome === 'passed_amended' ? 'passed it with changes' : H.outcome === 'passed' ? 'passed it' : '';
     return [
       ['Before the hearing', `The committee posted a notice a few days ahead. Anyone could send a short note saying what they think (“testimony”), due ${H.ahead} before.`],
-      ['At the hearing', H.outcome === 'deferred' ? 'The committee heard from people, then put it off (“deferred”). That usually stops a bill for the year.'
+      ['At the hearing', H.outcome === 'deferred' ? 'The committee heard from people, then put it on hold (the Capitol says “deferred”). That usually stops a bill for the year.'
         : `The committee heard from people, then ${did || 'voted'}. A bill that’s put off (“deferred”) usually stops for the year.`],
     ];
   }
   return [
     ['Before the hearing', `The committee posts a notice a few days ahead. You can send a short note saying what you think (“testimony”), due ${H.ahead} before.`],
-    ['At the hearing', 'The committee hears from people, then decides: pass it, pass it with changes, or put it off (“deferred”). That usually stops it for the year.'],
+    ['At the hearing', 'The committee hears from people, then decides: pass it, pass it with changes, or put it on hold (the Capitol says “deferred”). That usually stops it for the year.'],
   ];
 }
 
@@ -329,8 +329,8 @@ function ctaHTML(E) {
   // The same button the bill page shows for this person (bill.js mainButton), and "Due", never "Closes" (late
   // testimony is still taken, marked late: the second review, 9/21).
   switch (x.kind) {
-    case 'email': return btn('mail', 'Send a quick email · 2 min', due && `Testimony ${due}`);
-    case 'testify': return btn('notebook-pen', 'Write my testimony · 5 min', due && due[0].toUpperCase() + due.slice(1));
+    case 'email': return btn('mail', 'Send a quick email', due && `Testimony ${due}`);
+    case 'testify': return btn('notebook-pen', 'Write my testimony', due && due[0].toUpperCase() + due.slice(1));
     case 'capitol': return btn('landmark', x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', x.act && due ? `Testimony ${due}` : '');
     case 'ask': return btn('mail', x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', 'A short email. About 2 minutes.');
     case 'hold': return btn('mail', 'Email the chair · 2 min', '');
@@ -358,6 +358,7 @@ function billMain(E) {
   const caps = billCaps(E);
   return `<div class="lx lx-l-bill" data-lx="bill">
     <div class="lx-pic lx-minipic" aria-hidden="true">
+      <p class="lx-example">${icon('eye')}<span>An example: how a bill looks in the tracker</span></p>
       <div class="lx-mini" id="lx-mini" data-beat="0">
         <div class="lx-mbar">${icon('arrow-left')}<span>${esc(E.num)}</span>${icon('star')}</div>
         <div class="lx-msec" data-lx-sec="1"><p class="lx-mname">${esc(E.name)}</p><p class="lx-mnum">${esc(E.num)}</p><span class="lx-pin">1</span></div>

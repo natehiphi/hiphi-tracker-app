@@ -347,3 +347,9 @@
 .bl-page .bl-learn { margin: var(--s8) 0 0; font-size: var(--t14); }
 .bl-page .bl-learn a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; }
 .bl-page .bl-learn .ic { width: 18px; height: 18px; flex: none; }
+/* Laptop: the name first, then the side panel, then the rest in the page's order (R-067), laid out as two columns */
+.bl-page.bl-wide .bl-cols { grid-template-rows: auto 1fr; row-gap: 0; }
+.bl-page.bl-wide .bl-cols > .bl-main { grid-column: 1; grid-row: 1; }
+.bl-page.bl-wide .bl-cols > .bl-side { grid-column: 2; grid-row: 1 / span 2; }
+.bl-page.bl-wide .bl-cols > .bl-main2 { grid-column: 1; grid-row: 2; }
+.bl-page.bl-wide .bl-cols > .bl-main2 > :first-child { margin-top: var(--s16); }

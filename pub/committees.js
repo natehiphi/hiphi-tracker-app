@@ -50,7 +50,7 @@ const backLink = () => `<a class="btn text cm-back" href="#/committees" data-bac
 
 function detailPage(route) {
   const c = (S.committees || {})[route.code];
-  if (!c) return `<div class="cm">${backLink()}${empty({ title: 'We couldn’t find that committee', text: 'The link may be old. Every committee is on the Committees page.', action: btn('See all committees', { kind: 'primary', href: '#/committees' }) })}</div>`;
+  if (!c) return `<div class="cm">${backLink()}${empty({ h: 'h1', title: 'We couldn’t find that committee', text: 'The link may be old. Every committee is on the Committees page.', action: btn('See all committees', { kind: 'primary', href: '#/committees' }) })}</div>`;
   const members = legsOf(c.code), slot = slotOf(c.code), bills = billsAt(c.code);
   return `<div class="cm">
     ${backLink()}
@@ -65,7 +65,7 @@ function detailPage(route) {
 
 export default {
   tab: 'more',
-  title: route => route.name === 'committee' ? (cmteLabel(route.code, { short: true }) || 'Committee') : 'Committees',
+  title: route => route.name === 'committee' ? (S.committees?.[route.code] ? cmteLabel(route.code, { short: true }) : 'Committee not found') : 'Committees',   // not "the ZZZ committee" for a bad link (R-067)
   render(route) { return route.name === 'committee' ? detailPage(route) : listPage(); },
   wire() {},
 };

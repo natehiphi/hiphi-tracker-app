@@ -54,7 +54,7 @@ export function parseRoute(h = location.hash) {
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
-    default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home' };
+    default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
 }
 export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
@@ -92,6 +92,8 @@ function tabbar(scr) {
 let lastRouteKey = '';
 export function render() {
   let route = parseRoute();
+  // A mistyped or old address lands on Home with one line saying so, then becomes the plain Home address (R-067).
+  if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.
   if (route.name === 'home' && firstVisit()) { history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : wiz().step || 1}`); route = parseRoute(); }
   const scr = SCREENS[route.name] || home;

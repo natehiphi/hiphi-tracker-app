@@ -58,9 +58,13 @@
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(5) .bl-dot { animation-delay: 440ms; }
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(6) .bl-dot { animation-delay: 550ms; }
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(7) .bl-dot { animation-delay: 660ms; }
-/* the page's action button, as a picture of one (--p800, so white text keeps 4.5:1 while dimmed) */
-.lx-mcta { display: flex; align-items: center; justify-content: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill);
-  background: var(--p800); color: var(--n0); font-weight: 700; font-size: var(--t14); text-align: center; }
+/* the page's action button, as a PICTURE of one (R-062, Nate 9/26: the solid button looked like something to press,
+   next to the lesson's own Next). An outline with a dashed edge and no fill reads as a drawing; --p800 text keeps
+   4.5:1 while the part is dimmed. The real Next is the only filled button on the screen. */
+.lx-mcta { display: flex; align-items: center; justify-content: center; gap: var(--s8); min-height: 40px; padding: 0 var(--s12); border-radius: var(--pill);
+  background: transparent; border: 2px dashed var(--p700); color: var(--p800); font-weight: 700; font-size: var(--t14); text-align: center; cursor: default; }
+.lx-example { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--t13); font-weight: 700; color: var(--n700); }
+.lx-example .ic { width: 16px; height: 16px; color: var(--n500); }
 .lx-mcta .ic { width: 18px; height: 18px; flex: none; }
 .lx-mcta.lx-done { background: var(--ok-wash); color: #03431F; }   /* darker than --ok-text: it must pass 4.5:1 while dimmed */
 .lx-mcta.lx-stop { background: var(--n100); color: var(--n900); }

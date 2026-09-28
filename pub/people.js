@@ -435,7 +435,7 @@ function billsIn(roles) {
 const roleThe = r => r.role === 'chair' ? 'the chair' : r.role === 'vice_chair' ? 'the vice chair' : 'a member';
 function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
-  if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
+  if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ h: 'h1', title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
   const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), committeeBills = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
   const onBill = b && billAt(b, roles), yours = mine(l) ? chip(yoursWord(l), 'info', 'user-check') : '';
   const chamber = l.chamber === 'S' ? 'Senate' : 'House';

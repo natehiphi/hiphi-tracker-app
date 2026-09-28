@@ -323,7 +323,10 @@ export function issueOrder(list) {
   return list.map(i => ({ i, k: score(i) })).sort((x, y) => x.k[0] - y.k[0] || x.k[1] - y.k[1] || x.i.name.localeCompare(y.i.name)).map(x => x.i);
 }
 // What is new on an issue since the last visit: the news on the most urgent of its followed bills that has any.
-const issueNews = i => { for (const b of byUrgency(billsOfIssue(i).filter(b => S.watch.has(b.id)))) { const n = newsOf(b); if (n) return n; } return ''; };
+// The news that matters most leads (R-067: between sessions every issue said "New: stopped", even one where a bill had
+// become law): a law first, then a hearing set or a vote passed, then the rest by urgency.
+const NEWS_RANK = s => /became law/.test(s) ? 0 : /governor/i.test(s) ? 1 : /hearing|passed/.test(s) ? 2 : 3;
+const issueNews = i => billsOfIssue(i).filter(b => S.watch.has(b.id)).map(b => newsOf(b)).filter(Boolean).sort((a, b) => NEWS_RANK(a) - NEWS_RANK(b))[0] || '';
 function render() {
   // Coming to this screen afresh (not a redraw after a star press): bills unfollowed last time are gone for good.
   const fresh = !document.querySelector('.mb[data-mbroot]');

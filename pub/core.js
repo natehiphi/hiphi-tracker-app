@@ -167,7 +167,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260927a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260928a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -184,11 +184,17 @@ export async function demoLoad() {
   D.activity = snap.activity.map(a => ({ bill_id: a.bill_id, title: a.title, details: a.details, occurred_at: a.occurred_at }));
   D.outcomes = snap.outcomes;
   if (SEASON_OFF) {
-    // An imagined end of the 2026 session: anything still moving stops, except strongly supported bills that got far
-    // (conference, or second-chamber decking), which become law. Only for previewing the between-sessions screens.
-    for (const b of D.bills) if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
-      b.stage = b.hiphi_position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage) ? 'enacted' : 'dead';
-      if (b.stage === 'dead' && !b.died_deadline) b.died_deadline = 'Sine die'; }
+    // The real end of the 2026 session, from the snapshot's b.final (R-067: an imagined ending showed SB 2175, which became
+    // law, as stopped, so the between-sessions sandbox disagreed with the live page). A snapshot built before 9/28 has
+    // no final: then the old imagined ending stands in.
+    const fin = new Map(snap.bills.filter(b => b.final).map(b => [b.id, b.final]));
+    for (const b of D.bills) {
+      const f = fin.get(b.id);
+      if (f) Object.assign(b, { stage: f.stage, last_action: f.last_action, last_action_date: f.last_action_date, died_at_stage: f.died_at_stage, died_deadline: f.died_deadline });
+      else if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
+        b.stage = b.hiphi_position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage) ? 'enacted' : 'dead';
+        if (b.stage === 'dead' && !b.died_deadline) b.died_deadline = 'Sine die'; }
+    }
   }
   D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
   // Categories and issues, shaped like public_categories / public_issues: an issue lists the position bills that carry
@@ -930,7 +936,7 @@ export function impactRows(acts, limit = 5) {
     const [tone, text] = b.stage === 'enacted' ? ['law', 'Became law. Mahalo for your part in it.']
       : b.stage === 'vetoed' ? ['stop', 'Vetoed by the Governor.']
       : o && /passed/.test(o.outcome || '') ? ['up', `${who} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`]
-      : o && o.outcome === 'deferred' ? ['stop', `${who} deferred it. Your testimony stays on the record for next time.`]
+      : o && o.outcome === 'deferred' ? ['stop', `${who} put it on hold. Your testimony stays on the record for next time.`]
       : h && !past ? ['wait', `${who} hears it ${fmtDT(h.scheduled_at)}.`]
       : h ? ['wait', `Heard ${fmtDate(h.scheduled_at, { month: 'short' })}; waiting for the committee’s decision.`]
       : !alive(b) ? ['stop', 'Did not advance this session.'] : ['wait', STAGE_PLAIN[b.stage] ? STAGE_PLAIN[b.stage] + '.' : ''];

@@ -146,3 +146,6 @@
 .mb-quiet { margin: 0; font-size: var(--t14); color: var(--n700); }
 .mb-quiet a { font-weight: 700; }
 .mb-own { margin-top: var(--s8); }
+/* The "New:" mark on an issue row (R-067: its style only reached bill rows, so on My issues it was plain grey text) */
+.fd-irow .mb-new { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p700); }
+.fd-irow .mb-new::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--p700); flex: none; }
