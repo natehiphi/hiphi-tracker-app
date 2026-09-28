@@ -453,21 +453,22 @@ function example() {
   return exCache;
 }
 // ================= The short version's one page: why your voice matters (R-067 #11) =================
-// A draft for Nate to shape (he asked that the page be about why the person's voice matters). Three short points, the
-// person's own bill as the example when there is one, and the three lessons one tap away for anyone who wants them.
+// Nate's words, 9/28 (option B of three: written for someone who has never written to a lawmaker, so it answers "I
+// don't know enough" rather than explaining the Capitol; the lessons below do that). Three short points, the person's
+// own bill when there is one, and the three lessons one tap away for anyone who wants them.
 function stepVoice(step) {
   const E = example(), off = isOff(), b = exampleBill();
   const pts = [
-    ['landmark', 'Committees decide first', 'Most bills stop in a committee. Before they vote, lawmakers read what the public sends them, and a few letters can tip a close call.'],
-    ['map-pin', 'Your own lawmakers listen closest', 'You are one of the people they answer to. Next, we show you who they are.'],
-    ['clock', 'It takes a few minutes', off ? 'When the session opens, we tell you when a bill on your issues has a hearing, with a letter to start from.' : 'When a bill on your issues has a hearing, we tell you, with a letter to start from and where to send it.'],
+    ['mail', 'They read what you send', 'Before a committee votes on a bill, its members read the notes people send.'],
+    ['message-circle', 'You don’t need to be an expert', 'Say who you are and why it matters to you. That’s enough.'],
+    ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
   ];
   const lessons = ['bill', 'session', 'hearing'].map(n => `<a href="#/learn/${n}${b ? '/' + esc(b.id) : ''}">${esc(LESSON_TITLES[n])}</a>`).join(' · ');
   return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
-    <h1 class="hero" id="st-h">Why your voice matters</h1>
-    <p class="lede">Hawaiʻi’s laws are made in a few months each year, and lawmakers want to hear from the people they represent.</p>`,
+    <h1 class="hero" id="st-h">Your voice counts here</h1>
+    <p class="lede">Lawmakers hear from far fewer people than you’d think. The ones who write in get noticed.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
-    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>Like <b>${esc(E.name)}</b>, one of the bills on your issues.</span></p>` : ''}
+    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>${off ? `Like <b>${esc(E.name)}</b>, one of the bills on your issues.` : `Your first one to watch: <b>${esc(E.name)}</b>.`}</span></p>` : ''}
     <p class="small muted st-voicelearn">Want the details? About a minute each: ${lessons}</p>`);
 }
 
