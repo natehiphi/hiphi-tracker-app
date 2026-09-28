@@ -55,6 +55,8 @@ export function openIssueForm(i = null, { bill = null } = {}) {
       <span class="help" id="is-name-h">A policy people recognise, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
       <span class="help" id="is-desc-h">One sentence on what would change. The public sees it.</span></div>
+    ${i ? `<div class="field"><label for="is-out">Between sessions</label><textarea id="is-out" rows="3" maxlength="300" aria-describedby="is-out-h">${esc(i.outlook || '')}</textarea>
+      <span class="help" id="is-out-h">What happened last session and what to expect. The public page shows it from May to January, under the issue on Home and on its page. Claude drafted the first ones from the bills’ records; change anything, and add HIPHI’s plans.</span></div>` : ''}
     <fieldset class="is-cats"><legend>Category</legend>${cats.map(c => `<label class="check is-cat"><input type="radio" name="is-cat" value="${esc(c.key)}" ${c.key === cur ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
     <fieldset class="is-cats"><legend>Also in <span class="is-opt">(optional)</span></legend><p class="help is-alsoh">When it belongs to two, like the DUI limit: alcohol, and getting around safely.</p>
       ${cats.map(c => `<label class="check is-cat" data-also="${esc(c.key)}"${c.key === cur ? ' hidden' : ''}><input type="checkbox" name="is-also" value="${esc(c.key)}" ${also.has(c.key) ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
@@ -77,7 +79,9 @@ export function openIssueForm(i = null, { bill = null } = {}) {
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
         try {
           if (i) {
-            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended });
+            // The outlook (079, R-067): saving a changed one marks it as a person's, so the draft tool never overwrites it.
+            const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: new Date().toISOString() } : {};
+            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, ...outPatch });
             await DB.setIssueAlso(i.id, extra);
             closeSheet({ silent: true }); hooks.render(); toast('Saved. The public page shows the new wording.', { ok: true });
           } else {
@@ -234,6 +238,7 @@ function pageRender(route) {
       <span class="le-licon">${icon(c?.icon || 'tag')}</span>
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
         ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
+        ${i.outlook ? `<p class="le-ldesc is-outlook"><span class="meta">Between sessions, the public sees: </span>${esc(i.outlook)}</p>` : ''}
         <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
@@ -329,7 +334,7 @@ export const issuePage = {
     wireConvSection(root, convOpts(i));
     const st = P();
     root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
-      { label: 'Edit', icon: 'pencil', sub: 'Name, description, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
+      { label: 'Edit', icon: 'pencil', sub: 'Name, description, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
       { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
       { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at, reason: 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },

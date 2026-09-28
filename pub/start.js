@@ -18,7 +18,7 @@
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance,
   setStance, sendEmailLink, validEmail, friendly, toast, nudge, legTitle, legPhoto, ensureRecapPool, loadCatalog,
   recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, issuePos, setFollows,
-  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf } from './core.js';
+  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, winsIn } from './core.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
@@ -239,9 +239,10 @@ function partnerLine() {
 function stepTopics(step) {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
+  const w = off ? winsIn(yr) : null;   // between sessions, the proof it works (R-067)
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
-    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}. Pick what you care about, and we’ll tell you when your voice can count.`
+    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll tell you when your voice can count.`
       : 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll tell you when a few minutes of your time can help get bills passed.'}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
 }
@@ -536,7 +537,10 @@ function upcoming() {
   const off = isOff(), R = ranker(), out = [];
   if (off) {
     const si = sessionInfo(), yr = si.recapYear, next = si.nextOpen;
-    for (const i of followedIssues().filter(shown)) { const x = issueInfo(i, R); if (x.law) out.push({ when: String(yr), title: i.name, line: `Became law in ${yr}`, kind: 'ok' }); if (out.length >= 2) break; }
+    // What happened on each issue they follow (R-067: the screen promised "What happened in 2026" and showed only laws):
+    // laws first, then the staff-edited outlook, three at most.
+    const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
+    for (const { i, x } of fol.slice(0, 3)) out.push({ when: String(yr), title: i.name, line: i.outlook || (x.law ? `Became law in ${yr}` : 'Stopped this session'), kind: x.law ? 'ok' : 'soon' });
     if (next) out.push({ when: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' }), title: `The ${+next.slice(0, 4)} session opens`,
       line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.`, kind: 'soon' });
     return out;

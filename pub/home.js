@@ -15,7 +15,8 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
-  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel } from './core.js';
+  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa } from './core.js';
+import { burst } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
@@ -106,9 +107,12 @@ function resultOf(b, hs, testified) {
 // Only bills the person followed on their own: a bill that came with an issue followed after the session ended was
 // never "followed in 2026", and saying so to someone who arrived today is untrue (R-018). Their issues are listed
 // under "Your issues" instead, with what became of each.
+// R-067: a win on an issue they follow is theirs to hear about too, however they came to follow it ("On Free school
+// meals for every student." is true either way). Only wins: a stopped bill they never chose one by one is not listed.
 function followedRows(yr, skip) {
-  return S.bills.filter(b => !skip.has(b.id) && S.direct.has(b.id) && (!b.session_year || b.session_year === yr)).map(b => {
-    const did = 'You followed it.';
+  const win = b => b.stage === 'enacted' || b.stage === 'governor';
+  return S.bills.filter(b => !skip.has(b.id) && (S.direct.has(b.id) || (S.viaIssues.has(b.id) && win(b))) && (!b.session_year || b.session_year === yr)).map(b => {
+    const via = !S.direct.has(b.id) && viaIssue(b.id), did = via ? `On ${via.name}.` : 'You followed it.';
     if (b.stage === 'enacted') return { b, tone: 'law', did, text: 'It became law.' };
     if (b.stage === 'governor') return { b, tone: 'up', did, text: 'It passed the House and Senate and is on the Governor’s desk.' };
     if (b.stage === 'vetoed') return { b, tone: 'stop', did, text: 'The Governor vetoed it.' };
@@ -151,13 +155,6 @@ function milestoneState(acts) {
   return { got: MILESTONES.filter(has), next, count: next ? COUNT[next[0]] || null : null };
 }
 const chipsHtml = got => got.length ? `<ul class="chips hm-chips" aria-label="Milestones you have reached">${got.map(([, t, d]) => `<li class="chip yay" title="${esc(cap(d))}">${flower(16)}${esc(t)}</li>`).join('')}</ul>` : '';
-function nextHtml(ms) {
-  if (!ms.next) return '';
-  const [, t, d] = ms.next, c = ms.count;
-  return `<div class="hm-next"><p class="hm-nexthead"><span>Next: <b>${esc(t)}</b></span>${c ? `<span class="hm-nextn">${c[0]} of ${c[1]}</span>` : ''}</p>
-    ${c ? `<div class="hm-bar" aria-hidden="true"><i style="width:${Math.max(4, Math.round(c[0] / c[1] * 100))}%"></i></div>` : ''}
-    <p class="meta">${esc(cap(d))}.</p></div>`;
-}
 
 // One dot per week of the session, filled when you acted that week. Empty weeks simply stay empty: hearings come
 // in bursts and nobody owes the Legislature a streak. Weeks run Monday to Sunday, Hawaiʻi time.
@@ -167,7 +164,10 @@ function weeks(si, mine) {
   const monday = t => { const d = hstDay(t), dow = new Date(d + 'T12:00:00-10:00').getUTCDay(); return hiT(d) - ((dow + 6) % 7) * 864e5; };
   const now = Date.now(), H12 = 12 * 36e5, W = 7 * 864e5, dots = [];
   let k = 0;
-  for (let w = monday(hiT(si.open)); w <= hiT(si.end); w += W) {
+  // From the week of their first action, not the session's first week: someone who joined in March saw nine empty
+  // dots, which read as "missed" (R-067).
+  const first = mine.map(a => a.at).filter(Boolean).sort()[0], start = Math.max(monday(hiT(si.open)), first ? monday(+new Date(first)) : 0);
+  for (let w = start; w <= hiT(si.end); w += W) {
     const from = w - H12, to = w + W - H12;   // Monday 00:00 to the next Monday 00:00 in Honolulu
     const acted = mine.some(a => a.at && +new Date(a.at) >= from && +new Date(a.at) < to), cur = now >= from && now < to, ahead = !cur && from > now;
     if (acted) k++;
@@ -189,12 +189,10 @@ function sessionPanel(si, { welcome = false } = {}) {
   const stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && thisYear(anyBill(id))).length;
   const ms = milestoneState(all), rows = impacts(mine);
   const stat = (k, label, href) => !k ? '' : href ? `<li><a class="hm-stat" href="${href}" data-hm-stat="bills"><b>${n(k)}</b><span>${label}${icon('chevron-right')}</span></a></li>` : `<li><span class="hm-stat"><b>${n(k)}</b><span>${label}</span></span></li>`;
-  const calmNext = ms.next && ['follow', 'stance'].includes(ms.next[0]);
   return `<section class="card hm-panel" aria-labelledby="hm-ys"><h2 id="hm-ys" class="hm-ptitle">${flower(24)}<span>Your ${si.yr} session</span></h2>
     <ul class="hm-stats">${stat(follows, nIss ? (follows === 1 ? 'issue followed' : 'issues followed') : (follows === 1 ? 'bill followed' : 'bills followed'), '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
     ${mine.length ? weeks(si, mine) : `<p class="muted small">${welcome ? 'Your progress adds up here through the session.' : 'Your first action will show up here, with what happened after it.'}</p>`}
-    ${welcome ? '' : chipsHtml(ms.got)}
-    ${!welcome || calmNext ? nextHtml(ms) : ''}
+    ${welcome ? '' : chipsHtml(ms.got)}${''/* no "Next:" goal since 9/27: a quiet record, not a badge ladder (C-7; R-067 decision 8b) */}
     ${!welcome && S.nudge === 'action' ? nudgeCard('action') : ''}
     ${rows.length ? `<h3 class="hm-label">What happened after you acted</h3>${impList(rows, 2)}` : ''}
     ${DEMO && S.demoSeeded ? '<p class="meta">Sandbox: three sample actions are filled in so this panel has something to show.</p>' : ''}
@@ -226,6 +224,73 @@ function whatsNew(skip) {
   return `<section class="hm-sec" aria-labelledby="hm-new"><h2 id="hm-new">What’s new</h2>
     <div class="rows">${items.map(x => row({ lead: x.lead, title: esc(nick(x.b) || x.text), sub: esc(nick(x.b) ? x.text : blurb(x.b, 160)), end: `<span class="hm-day">${day(x.at)}</span>`, href: billPath(x.b) })).join('')}</div>
     ${btn('See all my bills', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</section>`;
+}
+
+// ---------------- since you were here (R-067: Nate's first goal is that people come back) ----------------
+// The first thing on Home when someone comes back: what happened on their issues since their last visit (S.prevVisit,
+// kept by app.js before it notes this one), greeted by name. A committee's decision on a hearing they acted on leads,
+// and the first time they see it, it gets the small burst the address uses (C-7: a result, in proportion). With
+// nothing new it says what comes next. Rows open the bill. At most three, one per bill; up to 30 days back.
+const RSEEN_KEY = 'hiphi_results_seen';
+const resultsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(RSEEN_KEY) || '[]')); } catch { return new Set(); } };
+const myName = () => { try { return (wiz().name || JSON.parse(localStorage.getItem('hiphi_me') || '{}').name || '').trim().split(/\s+/)[0]; } catch { return ''; } };
+function sinceItems() {
+  const prev = S.prevVisit ? +new Date(S.prevVisit) : 0, now = Date.now();
+  if (!prev || now - prev < 3 * 36e5) return null;   // a visit a few hours ago is the same visit, for this
+  const since = Math.max(prev, now - 30 * 864e5), acted = new Map(myActions().filter(a => a.hearing_id).map(a => [a.hearing_id, a.kind]));
+  const DID = { email: 'you emailed the chair', testimony: 'you testified', attend: 'you went', share: 'you shared it' }, per = new Map();
+  const add = x => { const o = per.get(x.b.id); if (!o || (x.you && !o.you) || (x.you === o.you && x.t > o.t)) per.set(x.b.id, x); };
+  for (const h of S.hearings) {
+    const b = S.bills.find(x => x.id === h.bill_id); if (!b) continue;
+    const num = spaced(b.bill_number), held = new Date(h.scheduled_at) <= now, o = held ? outcomeOf(h) : null, t = o && +new Date(o.reported_at || h.scheduled_at);
+    if (o?.outcome && t > since) {
+      const said = { passed: 'passed it', passed_amended: 'passed it with changes', deferred: 'put it on hold', recommitted: 'sent it back for more work' }[o.outcome];
+      const k = acted.get(h.id);
+      if (said) add({ b, t, h, good: /passed/.test(o.outcome), you: !!k, lead: /passed/.test(o.outcome) ? 'circle-check' : 'archive', text: `${who(h.committee)} ${said}${k ? ` (${DID[k] || 'you acted'})` : ''}.` });
+    } else if (!held && h.status === 'scheduled' && h.notice_posted_at && +new Date(h.notice_posted_at) > since && alive(b)) {
+      const d = dayWord(h.scheduled_at); add({ b, t: +new Date(h.notice_posted_at), lead: 'calendar', text: `${num} has a hearing ${/^(today|tomorrow)/.test(d) ? d : 'on ' + d}.` });
+    }
+  }
+  for (const b of S.bills) if ((b.stage === 'enacted' || b.stage === 'governor') && b.last_action_date && hiT(b.last_action_date) > since)
+    add({ b, t: hiT(b.last_action_date), good: true, you: myActions().some(a => a.bill_id === b.id), lead: 'circle-check', text: b.stage === 'enacted' ? 'It became law.' : 'It passed the House and Senate and is on the Governor’s desk.' });
+  return [...per.values()].sort((p, q) => (q.you - p.you) || (q.t - p.t)).slice(0, 3);
+}
+function sinceStrip(inCards = new Set()) {
+  const all = sinceItems(); if (!all) return '';
+  // A hearing already drawn as a card below is counted in one line, not repeated as a row.
+  const items = all.filter(x => !(x.lead === 'calendar' && inCards.has(x.b.id))), carded = all.length - items.length;
+  const d = new Date(S.prevVisit), days = Math.round((hiT(hstDay(Date.now())) - hiT(hstDay(d))) / 864e5);
+  const when = days <= 1 ? 'yesterday' : days < 7 ? d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) : `your last visit`;
+  const name = myName(), seen = resultsSeen();
+  S.hmBurst = items.find(x => x.you && x.good && x.h && !seen.has(x.h.id))?.h.id || null;
+  if (!items.length && carded) return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Since ${esc(when)}, ${carded === 1 ? 'a hearing was' : `${carded} hearings were`} set on your issues. ${carded === 1 ? 'It’s' : 'They’re'} below.</p></section>`;
+  if (!items.length) {
+    const next = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && S.bills.some(b => b.id === h.bill_id)).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
+    const nb = next && S.bills.find(b => b.id === next.bill_id);
+    return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Nothing new on your issues since ${esc(when)}.${nb ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
+  }
+  return `<section class="hm-since" aria-labelledby="hm-since-h"><h2 id="hm-since-h"><span>Aloha${name ? `, ${esc(name)}` : ''}.</span> Since ${esc(when)}:</h2>
+    <div class="rows">${items.map(x => row({ lead: x.lead, title: esc(nick(x.b) || spaced(x.b.bill_number)), sub: esc(x.text), href: billPath(x.b), cls: x.you && x.good ? 'hm-you' + (x.h && x.h.id === S.hmBurst ? ' hm-youburst' : '') : '' })).join('')}</div>
+    ${carded ? `<p class="meta">${carded === 1 ? 'A new hearing is' : `${carded} new hearings are`} in your list below.</p>` : ''}</section>`;
+}
+
+// ---------------- keep it on your phone (R-067) ----------------
+// Offered once someone has acted, on a phone, when the tracker is not already on their home screen; "No thanks" hides
+// it for good in this browser. Android's own install prompt when the browser offers one (app.js keeps it); on an
+// iPhone the two taps it takes, and the honest catch: the home-screen app keeps its own copy, so they add their email
+// there to bring their issues along. A home-screen app is also what keeps an iPhone from clearing their issues after a
+// week away.
+function homeScreenCard() {
+  let no = false; try { no = localStorage.getItem('hiphi_hs_no') === '1'; } catch { /* private mode */ }
+  const standalone = (() => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } })();
+  if (no || standalone || !myActions().length || (window.innerWidth || 0) >= 900) return '';
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent || '');
+  const how = S.installPrompt ? btn('Add to home screen', { kind: 'primary', sm: true, icon: 'smartphone', attrs: { 'data-hm-hsgo': '1' } })
+    : ios ? `<p class="small">In Safari, tap ${icon('share')} <b>Share</b>, then <b>Add to Home Screen</b>. The app there starts fresh: add your email in it to bring your issues along.</p>`
+    : `<p class="small">In your browser’s menu, choose <b>Add to Home screen</b> or <b>Install app</b>.</p>`;
+  return `<section class="card hm-hs" aria-labelledby="hm-hs-t"><h2 id="hm-hs-t">${icon('smartphone')}Keep the tracker on your phone</h2>
+    <p class="small muted">One tap to your issues next time, like any app.</p>${how}
+    <div class="btnrow">${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hm-hsno': '1' } })}</div></section>`;
 }
 
 // ---------------- things to do ----------------
@@ -326,6 +391,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   }
   // One email ask, under the first card, never above the page's heading (the "welcome back" one used to push it down).
   const nudgeHtml = S.nudge && S.nudge !== 'action' ? nudgeCard(S.nudge) : '';
+  const since = sinceStrip(inCards), inSince = new Set((sinceItems() || []).map(x => x.b.id));
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
@@ -336,7 +402,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
@@ -344,7 +410,9 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
     </div><div class="side hm-side">
       ${newIssuesCard()}
       ${sessionPanel(si)}
-      ${whatsNew(inCards)}
+      ${whatsNew(new Set([...inCards, ...inSince]))}
+      ${homeScreenCard()}
+      ${meetCard()}
       ${sugInMain ? '' : sugHtml}
     </div></div>
   </div>`;
@@ -454,8 +522,9 @@ function myIssues(yr) {
   const rows = [];
   for (const c of S.cats.filter(c => S.catFollows.has(c.key))) rows.push({ lead: c.icon, title: `All of ${c.name}`, sub: 'Every issue in it, and new ones', href: `#/find/category/${c.key}` });
   for (const i of followedIssues().filter(i => S.issueFollows.has(i.id) && !i.categories.some(k => S.catFollows.has(k)))) {
-    const nb = issueBills(i).length;
-    rows.push({ lead: catOf(i.category)?.icon || 'heart-pulse', title: i.name, sub: nb ? `${plural(nb, 'bill')} in ${yr}` : '', href: `#/issue/${i.slug}` });
+    const ids = issueBills(i), nb = ids.length, law = ids.filter(id => anyBill(id)?.stage === 'enacted').length;   // a win shows on the row (R-067)
+    // The outlook says whether the issue is alive (R-067: "7 bills in 2026" did not); staff edit it in Staff v2.
+    rows.push({ lead: catOf(i.category)?.icon || 'heart-pulse', title: i.name, sub: i.outlook || (nb ? `${plural(nb, 'bill')} in ${yr}${law ? ` · ${law} became law` : ''}` : ''), href: `#/issue/${i.slug}` });
   }
   if (!rows.length) for (const k of wiz().issues || []) { const c = catOf(k); if (c) rows.push({ lead: c.icon, title: c.name, sub: 'Pick the issues to follow', href: `#/find/category/${c.key}` }); }
   return rows;
@@ -478,15 +547,17 @@ function offView(si) {
   const fLaw = count(followed, x => x.tone === 'law'), fGov = count(followed, x => x.tone === 'up');
   const wins = (law, gov, passed) => list([law && `${n(law)} became law`, gov && `${n(gov)} reached the Governor’s desk`, passed && `${n(passed)} passed the committee you spoke to`]);
   const said = acts.length
-    ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} you followed became law.` : ''}`
-    : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} you followed became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill you followed ' : 'bills you followed '}reached the Governor’s desk`])}.`
+    ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} on your issues became law.` : ''}`
+    : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} on your issues became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill on your issues ' : 'bills on your issues '}reached the Governor’s desk`])}.`
     : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} stopped for this session. Many bills come back the next year.`;
   const mine = myIssues(yr), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
   const nothingYet = !rows.length && !mine.length && !lists.length;
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
   const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !emailGiven();
   const lede = `${welcome ? `The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}. When it opens,` : `${opens ? `The ${nextYr} session opens ${esc(opens)}. ` : ''}When hearings start,`} HIPHI’s ${nextYr} bills${mine.length ? ' for your issues' : ''} will show up here, with simple ways to help.`;
-  const ready = known && !askBtn ? ['You’re ready for January', 'Your legislators are saved, so you’ll know who to talk to from the first hearing.']
+  // One real thing to do between sessions (R-067): lawmakers shape next session's bills now, and a hello from their
+  // own district is what they notice. The legislators page already writes it ("I am writing to introduce myself").
+  const ready = known ? [`Say aloha before ${nextYr}`, `Lawmakers are writing their ${nextYr} bills now. A short hello from someone in their district tells them what you care about. It takes about 2 minutes.`]
     : ['Get ready for January', known ? 'Get an email when a bill on your issues has a hearing. It also keeps your issues on any device.'
       : askBtn ? 'Know who represents you, and get an email when a bill on your issues has a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
   // The saved issues and followed lists, named, with a way to change them. They sit under the recap's neighbour when
@@ -512,15 +583,49 @@ function offView(si) {
     </div><div class="hm-col">
       <section class="card hm-ready" aria-labelledby="hm-rd"><h2 id="hm-rd">${ready[0]}</h2>
         <p class="muted">${ready[1]}</p>
-        <div class="btncol">${btn(known ? 'See my legislators' : 'Find my legislators', { kind: nothingYet || (known && askBtn) ? 'secondary' : 'primary', icon: 'landmark', href: '#/legislators' })}
-          ${askBtn ? btn('Get hearing alerts by email', { kind: known && !nothingYet ? 'primary' : 'secondary', icon: 'mail', href: '#/signin' }) : ''}
+        <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: nothingYet ? 'secondary' : 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}
+          ${askBtn ? btn('Get hearing alerts by email', { kind: 'secondary', icon: 'bell', href: '#/signin' }) : ''}
           ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>
+      ${winsCard(yr)}
+      ${meetCard()}
       ${newIssuesCard()}
       ${nudgeHtml}
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
     </div></div>
   </div>`;
+}
+
+// ---------------- what HIPHI helped pass (R-067: between sessions, lead with the wins) ----------------
+// The proof that speaking up works, for the months when nothing is moving: last session's laws HIPHI backed, a few by
+// name, and the earlier wins Nate listed (core.js EARLIER_WINS).
+function winsCard(yr) {
+  const w = winsIn(yr); if (!w) { ensureRecapPool(yr); return ''; }
+  if (!w.length && !EARLIER_WINS.length) return '';
+  const named = w.filter(b => nick(b)).slice(0, 3), rest = w.length - named.length;
+  const byYear = [...new Set(EARLIER_WINS.map(x => x.year))].sort((a, b) => b - a);
+  return `<section class="card hm-wins" aria-labelledby="hm-wins-h"><h2 id="hm-wins-h">${flower(22)}<span>What HIPHI helped pass</span></h2>
+    ${w.length ? `<p class="hm-winsn"><b>${n(w.length)} ${w.length === 1 ? 'bill' : 'bills'}</b> HIPHI backed became law in ${yr}.</p>
+      <ul class="hm-winsl">${named.map(b => `<li><a href="${billPath(b)}">${esc(nick(b))}</a></li>`).join('')}${rest > 0 ? `<li class="muted">and ${n(rest)} more</li>` : ''}</ul>` : ''}
+    ${byYear.map(y => `<p class="hm-winsy">In ${y}</p><ul class="hm-winsl">${EARLIER_WINS.filter(x => x.year === y).map(x => `<li>${esc(x.text)}${x.bill ? ` <span class="muted">(${esc(x.bill)})</span>` : ''}</li>`).join('')}</ul>`).join('')}
+    <p class="small muted">People who spoke up helped make these happen.</p></section>`;
+}
+
+// ---------------- Meet HIPHI (R-067; staff post it in Staff v2, Make a link) ----------------
+// The next HIPHI event or training, when staff have posted one: people who meet the team come back. Asked once per
+// visit; nothing shows when there is none or the request fails. The sandbox shows a sample, labelled.
+function meetCard() {
+  if (S.meetCard === undefined) {
+    S.meetCard = null;
+    (DEMO ? Promise.resolve([{ kind: 'meet', title: 'Meet HIPHI at the Keiki Health Fair (sample)', body: 'Saturday, Oct 18, 9 to 1, at Kapiʻolani Park. Come say aloha and learn how to speak up in January.', link_url: 'https://www.hiphi.org', link_label: 'See the event' }])
+      : supa().then(sb => sb.from('public_site_cards').select('*')).then(r => r.data || []))
+      .then(rows => { S.meetCard = rows.find(r => r.kind === 'meet') || false; if (S.meetCard) app.render(); }).catch(() => { S.meetCard = false; });
+    return '';
+  }
+  const c = S.meetCard; if (!c) return '';
+  return `<section class="card hm-meet" aria-labelledby="hm-meet-h"><h2 id="hm-meet-h">${icon('calendar-days')}<span>${esc(c.title)}</span></h2>
+    ${c.body ? `<p class="small">${esc(c.body)}</p>` : ''}
+    ${c.link_url ? btn(c.link_label || 'Learn more', { kind: 'text', sm: true, iconEnd: 'external-link', href: c.link_url, attrs: { target: '_blank', rel: 'noopener' } }) : ''}</section>`;
 }
 
 // ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
@@ -590,6 +695,11 @@ export default {
       fitSide();
     });
     const fold = root.querySelector('.hm-fold'); if (fold) fold.ontoggle = () => { S.hmOpen.fold = fold.open; };
+    // A result on a hearing they acted on, seen for the first time: the small burst, once (sinceStrip).
+    const yb = S.hmBurst && root.querySelector('.hm-youburst .lead');
+    if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ } S.hmBurst = null; }
+    root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
+    root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
     root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
       const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
       if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }

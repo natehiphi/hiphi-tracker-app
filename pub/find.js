@@ -369,7 +369,8 @@ function issuePageNew(i) {
   const head = `<header class="fd-ihead"><span class="fd-icon">${icon(c?.icon || 'heart-pulse')}</span><h1 class="hero">${esc(i.name)}</h1>
     ${i.description ? `<p class="lede">${esc(i.description)}</p>` : ''}
     ${pos ? `<div class="chips">${posChip({ hiphi_position: pos })}</div>` : ''}
-    ${also.length ? `<p class="small fd-also">Also part of ${also.map(k => `<a href="#/find/category/${esc(k.key)}">${esc(k.name)}</a>`).join(' and ')}</p>` : ''}</header>`;
+    ${also.length ? `<p class="small fd-also">Also part of ${also.map(k => `<a href="#/find/category/${esc(k.key)}">${esc(k.name)}</a>`).join(' and ')}</p>` : ''}
+    ${off && i.outlook ? `<p class="fd-outlook">${icon('history')}<span>${esc(i.outlook)}</span></p>` : ''}</header>`;   // is it alive? (R-067, staff edit it)
   if (!ready) return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load its bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissuebills': i.id } })}</div>` : skeleton(2)}</div>`;
   const nowSecs = `${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', plural(mv.length, 'bill'))}${billList(mv, { pos: true })}</section>` : ''}

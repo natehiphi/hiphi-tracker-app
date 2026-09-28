@@ -703,6 +703,22 @@ export const DB = {
     if (error) throw error;
     return data || [];
   },
+  // The Meet HIPHI card (079, R-067): one card on the public page about the next HIPHI event or training. Staff read
+  // and write site_cards; the public reads public_site_cards (only cards that have not ended). Taking it down sets its
+  // end date to yesterday rather than deleting it, so it can be put back.
+  async loadSiteCard() {
+    if (DEMO) return S.siteCard ??= null;
+    const { data, error } = await S.supa.from('site_cards').select('*').eq('kind', 'meet').maybeSingle();
+    if (error) throw error;
+    return S.siteCard = data || null;
+  },
+  async saveSiteCard(card) {
+    const row = { kind: 'meet', title: card.title, body: card.body || null, link_url: card.link_url || null, link_label: card.link_label || null, ends_on: card.ends_on || null, updated_at: new Date().toISOString() };
+    if (DEMO) return S.siteCard = row;
+    const { data, error } = await S.supa.from('site_cards').upsert(row, { onConflict: 'kind' }).select('*').single();
+    if (error) throw error;
+    return S.siteCard = data;
+  },
   // Coming back and acting (078, R-067): per week, browsers that opened the public page (one per browser per day), new
   // and returning ones by how long since their last visit, and actions marked done by kind. Staff only.
   async visitCountsWeekly(weeks = 12) {
@@ -973,7 +989,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260926a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260927a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];

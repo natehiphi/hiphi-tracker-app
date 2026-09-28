@@ -333,6 +333,44 @@ function copyLink(url) {
 }
 
 // ---- partners: a name for the team, a name in the link, and the welcome line the public sees ----
+// ---- the Meet HIPHI card (079, R-067) ----
+// One card on the public page, about the next HIPHI event or training: Home shows it between sessions and beside the
+// week's actions in session. Written here because it is outreach, like the links. It ends on its date; "Take it down"
+// ends it today instead of deleting it.
+const hiDay = (plus = 0) => new Date(Date.now() + plus * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+function cardLive(c) { return !!c && (!c.ends_on || c.ends_on >= hiDay()); }
+function cardHTML() {
+  const c = S.siteCard, live = cardLive(c);
+  return `<section class="card fv-card fv-sitecard" aria-labelledby="fv-sch"><h2 id="fv-sch">Meet HIPHI card</h2>
+    <p class="small muted">One card on the public page’s Home about the next event or training. ${live ? '' : 'Nothing is showing now.'}</p>
+    ${live ? `<div class="fv-scprev"><p class="strong">${esc(c.title)}</p>${c.body ? `<p class="small">${esc(c.body)}</p>` : ''}${c.link_url ? `<p class="small">${esc(c.link_label || 'Learn more')} · ${esc(c.link_url)}</p>` : ''}
+      <p class="meta">${c.ends_on ? `Shows until ${esc(c.ends_on)}` : 'Shows until you take it down'}</p></div>` : ''}
+    <div class="btnrow">${btn(live ? 'Edit the card' : 'Post a card', { kind: 'secondary', sm: true, icon: live ? 'pencil' : 'plus', attrs: { 'data-fv': 'card', 'aria-haspopup': 'dialog' } })}
+      ${live ? btn('Take it down', { kind: 'text', sm: true, attrs: { 'data-fv': 'carddown' } }) : ''}</div></section>`;
+}
+function cardForm() {
+  const c = cardLive(S.siteCard) ? S.siteCard : null;
+  const body = `<div class="le-sheet fv-pform">
+    <div class="field"><label for="fv-ct">Title</label><input id="fv-ct" maxlength="80" value="${esc(c?.title || '')}" placeholder="Meet HIPHI at the Keiki Health Fair" aria-describedby="fv-ct-err"><div id="fv-ct-err" role="alert"></div></div>
+    <div class="field"><label for="fv-cb">What and when <span class="is-opt">(optional)</span></label><textarea id="fv-cb" rows="3" maxlength="280" placeholder="Saturday, Oct 18, 9 to 1, Kapiʻolani Park. Come say aloha and learn how to speak up in January.">${esc(c?.body || '')}</textarea></div>
+    <div class="field"><label for="fv-cu">Link <span class="is-opt">(optional)</span></label><input id="fv-cu" type="url" maxlength="300" value="${esc(c?.link_url || '')}" placeholder="https://www.hiphi.org/events" aria-describedby="fv-cu-err"><div id="fv-cu-err" role="alert"></div></div>
+    <div class="field"><label for="fv-cl">Link words <span class="is-opt">(optional)</span></label><input id="fv-cl" maxlength="40" value="${esc(c?.link_label || '')}" placeholder="See the event"></div>
+    <div class="field"><label for="fv-ce">Show until <span class="is-opt">(optional)</span></label><input id="fv-ce" type="date" value="${esc(c?.ends_on || '')}" min="${hiDay()}"><span class="help">The day of the event is a good choice. Empty means until you take it down.</span></div>
+  </div>`;
+  openSheet({ title: c ? 'Edit the card' : 'Post a card', size: 'auto', body, foot: btn(c ? 'Save changes' : 'Post it', { icon: 'check', attrs: { 'data-fvcsave': '1' } }),
+    wire: d => {
+      const go = d.querySelector('[data-fvcsave]'), val = id => d.querySelector(id).value.trim();
+      go.onclick = async () => {
+        const title = val('#fv-ct'), url = val('#fv-cu');
+        d.querySelectorAll('[role=alert]').forEach(x => { x.innerHTML = ''; });
+        if (title.length < 2) { d.querySelector('#fv-ct-err').innerHTML = `<span class="err">${icon('circle-alert')}Give the card a title.</span>`; d.querySelector('#fv-ct').focus(); return; }
+        if (url && !/^https:\/\//.test(url)) { d.querySelector('#fv-cu-err').innerHTML = `<span class="err">${icon('circle-alert')}A link starts with https://</span>`; d.querySelector('#fv-cu').focus(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try { await DB.saveSiteCard({ title, body: val('#fv-cb'), link_url: url, link_label: val('#fv-cl'), ends_on: val('#fv-ce') || null }); closeSheet({ silent: true }); redraw(); toast('Posted. The public page shows it on Home.', { ok: true }); }
+        catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
+      };
+    } });
+}
 function partnerForm(p = null) {
   let slugTouched = !!p;
   const body = `<div class="le-sheet fv-pform">
@@ -391,11 +429,13 @@ function partnerForm(p = null) {
 export function renderFirstVisit(route) {
   const v = V();
   wantPartners();   // the numbers name a partner's visits by its name, and the link needs them
+  if (fvView(route) === 'links' && S.siteCard === undefined) { S.siteCard = null; DB.loadSiteCard().then(() => redraw()).catch(() => {}); }
   if (fvView(route) === 'links') return `<div class="le-page fv-page fv-links">
     <a class="le-deskback" href="${FV_HREF}" data-back>${icon('chevron-left')}<span>First visit</span></a>
     <header class="fv-head"><h1>Make a link</h1>
-      <p class="le-lede">For a partner, an event or a flyer. People who arrive by it see its welcome line first, and the first visit’s numbers count them under its name.</p></header>
+      <p class="le-lede">For a partner, an event or a flyer. People who arrive by it see its welcome line first, and the first visit’s numbers count them under its name. Below it, the Meet HIPHI card for the public page.</p></header>
     ${linkHTML()}
+    ${cardHTML()}
   </div>`;
   load(v.weeks);
   return `<div class="le-page fv-page">
@@ -413,6 +453,10 @@ export function wireFirstVisit(route, root) {
   root.querySelector('[data-fv="retry"]')?.addEventListener('click', () => { v.err = ''; load(v.weeks, { force: true }); redraw(); });
   root.querySelector('[data-fv="pretry"]')?.addEventListener('click', () => { wantPartners({ force: true }); redraw(); });
   root.querySelectorAll('[data-fv="pnew"]').forEach(el => el.onclick = () => partnerForm());
+  root.querySelector('[data-fv="card"]')?.addEventListener('click', () => cardForm());
+  root.querySelector('[data-fv="carddown"]')?.addEventListener('click', async () => {
+    try { await DB.saveSiteCard({ ...S.siteCard, ends_on: hiDay(-1) }); redraw(); toast('Taken down. Post it again any time.', { ok: true }); } catch (e) { toast(e, { err: true }); }
+  });
   root.querySelector('[data-fv="pedit"]')?.addEventListener('click', () => { const p = partnerBy(v.partner); if (p) partnerForm(p); });
   root.querySelector('[data-fv="pick"]')?.addEventListener('click', () => pickerSheet({ title: 'Partner or event', value: v.partner,
     options: [...(S.partners || []).slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => [p.slug, p.name, 'handshake', `?via=${p.slug}`]), ['__new', 'New partner…', 'plus']],

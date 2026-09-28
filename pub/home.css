@@ -209,3 +209,28 @@
 .hm .hm-ylist .chip { flex: none; }
 .hm .hm-yours .hm-link { align-self: flex-start; margin-left: -12px; }
 @media (min-width: 900px) { .hm.hm-fin .cols { grid-template-columns: minmax(0, 720px); } }   /* one calm column after the first visit */
+
+/* Since you were here (R-067): the first thing on Home when someone comes back. */
+.hm .hm-since { margin-bottom: var(--s8); }
+.hm .hm-since h2 { font-size: var(--t16); margin-bottom: var(--s8); }
+.hm .hm-since .meta { margin: var(--s8) 0 0; }
+.hm .hm-since h2 span { color: var(--p800); }
+.hm .hm-since.quiet { margin-bottom: var(--s12); color: var(--n700); }
+.hm .hm-since.quiet p { margin: 0; }
+.hm .hm-since .hm-you .lead { color: var(--ok-text); background: var(--ok-wash); }
+/* Keep the tracker on your phone (R-067) */
+.hm .hm-hs { display: flex; flex-direction: column; gap: var(--s8); }
+.hm .hm-hs h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
+.hm .hm-hs .small .ic { width: 16px; height: 16px; vertical-align: -3px; }
+
+/* What HIPHI helped pass (R-067) */
+.hm .hm-wins h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
+.hm .hm-wins .hm-winsn { margin: var(--s8) 0 var(--s4); }
+.hm .hm-wins .hm-winsy { margin: var(--s12) 0 var(--s4); font-weight: 700; color: var(--n900); }
+.hm .hm-wins .hm-winsl { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.hm .hm-wins .small { margin-top: var(--s12); }
+
+/* Meet HIPHI (R-067) */
+.hm .hm-meet h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t16); }
+.hm .hm-meet h2 .ic { flex: none; color: var(--p700); margin-top: 2px; }
+.hm .hm-meet .small { margin: var(--s8) 0 0; }

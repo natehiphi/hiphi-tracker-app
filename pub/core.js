@@ -154,9 +154,12 @@ export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
 export const SKIPS_KEY = DEMO ? 'hiphi_skips_demo' : 'hiphi_skips';
 export const CONSENT_KEY = 'hiphi_consent_pending';
 // ---------------- data ----------------
+// The Supabase library, pinned: "@2" cost a redirect on every cold load and could change under us (R-067 speed).
+// track.html preloads this same address; change both together.
+export const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
 export async function init() {
   if (DEMO) { await demoLoad(); return; }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const { createClient } = await import(SUPABASE_JS);
   S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH);
   const { data } = await S.supa.auth.getSession(); S.session = data.session;
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
@@ -164,7 +167,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260926a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260927a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -515,7 +518,7 @@ export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
-export async function supa() { if (!S.supa) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH); } return S.supa; }
+export async function supa() { if (!S.supa) { const { createClient } = await import(SUPABASE_JS); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH); } return S.supa; }
 export async function fetchAddrSuggest(q) {
   const { data, error } = await (await supa()).rpc('address_suggest', { q, n: 8 }); if (error) throw error;
   return (data || []).map(x => ({ label: x.label, lat: x.lat, lon: x.lon, sd: x.sd, hd: x.hd, exact: x.exact }));
@@ -575,9 +578,7 @@ export async function loadBills() {
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length) {
-    const [d, c, sl, co, lg, cm, cp] = await Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
-      S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*'),
-      S.supa.from('public_legislators').select('*').order('chamber').order('district'), S.supa.from('public_committee_members').select('*'), S.supa.from('public_committee_counterparts').select('*')]);
+    const [d, c, sl, co, lg, cm, cp] = await loadReference();
     S.legislators = lg.data || []; S.committeeMembers = cm.data || []; S.counterparts = cp.data || [];
     S.slots = sl.data || [];
     S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
@@ -598,7 +599,20 @@ async function inChunks(ids, make, size = 80) {
 // so a first visit has something to watch in one tap.
 // The pool suggestions come from: every live bill HIPHI has a position on, with
 // hearings in the next two weeks. Loaded once per visit.
+// The session's reference data (deadlines, committees, legislators, ...): nothing in it depends on what the person
+// follows, so app.js starts it with the other first requests instead of after them (R-067 speed: it was the last of
+// five waves). Asked once; loadBills waits for it.
+export function loadReference() {
+  return S.refP ??= Promise.all([S.supa.from('public_deadlines').select('*'), S.supa.from('public_committees').select('*'),
+    S.supa.from('public_committee_slots').select('*'), S.supa.from('public_coalitions').select('*'),
+    S.supa.from('public_legislators').select('*').order('chamber').order('district'), S.supa.from('public_committee_members').select('*'), S.supa.from('public_committee_counterparts').select('*')])
+    .catch(e => { S.refP = null; throw e; });
+}
 export async function loadPool() {
+  if (!DEMO) { S.poolP ??= loadPool0().finally(() => { S.poolP = null; }); return S.poolP; }
+  return loadPool0();
+}
+async function loadPool0() {
   const now = Date.now(), until = new Date(now + 15 * 864e5).toISOString();
   if (DEMO) {
     const bills = D.bills.filter(b => alive(b) && b.hiphi_position && b.hiphi_position !== 'monitor');
@@ -627,6 +641,14 @@ export async function loadRecapPool(yr) {
 }
 // For a screen that only shows counts from it: start the load once and redraw when it lands. A failure is not retried
 // (a redraw would call this again and spin); the counts are simply left out for the rest of the visit.
+// HIPHI's wins from before this tracker's records begin (it holds the 2025-2026 bills as 2026 records; a bill that
+// became law in 2025 is not in it). Nate gave these on 9/27 (R-067); add a line here for any other win to name.
+export const EARLIER_WINS = [
+  { year: 2025, text: 'More students can get free school meals', bill: 'SB 1300' },
+  { year: 2025, text: 'Dedicated funding for Safe Routes to School' },
+];
+// The bills HIPHI backed that became law in a session, from the recap pool (null until it has loaded).
+export const winsIn = yr => S.recapPool && S.recapPool.yr === yr ? S.recapPool.bills.filter(b => b.stage === 'enacted' && /support/.test(b.hiphi_position || '')) : null;
 export function ensureRecapPool(yr) {
   if ((S.recapPool && S.recapPool.yr === yr) || S.recapLoading || S.recapFailed === yr) return;
   S.recapLoading = true;
@@ -999,7 +1021,10 @@ export const dayWord = iso => {   // "today", "tomorrow (Tue)", "Thu", "Mon, Mar
   return d === today ? 'today' : d === tmr ? `tomorrow (${wd})` : days > 0 && days < 7 ? wd : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
 };
 export const timeWord = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' });
-export const dateLong = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
+// A date from another year says its year: a bill carried over from 2025 read "heard on Tue, Feb 11" and looked like
+// last February (R-067).
+export const dateLong = iso => { const d = new Date(iso), other = hstDay(d).slice(0, 4) !== hstDay(Date.now()).slice(0, 4);
+  return d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', ...(other ? { year: 'numeric' } : {}) }); };
 // "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees".
 export function cmteLabel(code, { short = false } = {}) {
   const cs = codesOf(code).map(c => S.committees[c]).filter(Boolean);

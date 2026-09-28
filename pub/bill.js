@@ -565,6 +565,9 @@ function hearingRow(b, h, now) {
   const tag = off ? chip('Cancelled', '', 'circle-x')
     : o?.outcome ? chip(OUTCOME_PLAIN[o.outcome] || 'Decided', /passed/.test(o.outcome) ? 'ok' : '', /passed/.test(o.outcome) ? 'circle-check' : o.outcome === 'deferred' ? 'hourglass' : 'undo-2')
     : past ? chip(pending ? 'Waiting for the decision' : 'Heard', '', pending ? 'hourglass' : 'check') : '';
+  // What this person did for this hearing stays with it after the hearing (R-067: the page forgot it the day after).
+  const DID = { email: 'You emailed the chair', testimony: 'You testified', attend: 'You went', share: 'You shared it' };
+  const mine = Object.keys(DID).filter(kd => didKind(b, h, kd)).map(kd => chip(DID[kd], 'yay', 'user-check')).join('');
   const acts = [
     !past && !off && posInfo(b) && alive(b) && agrees(b) !== false && due && !due.late ? btn('Write testimony', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': h.id, 'data-bill': b.id } }) : '',
     !past && !off ? (S.chips?.[k + 'ics'] ? chip('Calendar file ready', 'ok', 'check') : btn('Add to calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: { 'data-ics': k } })) : '',
@@ -574,7 +577,7 @@ function hearingRow(b, h, now) {
     <p class="bl-htitle">${esc(cmteLabel(h.committee))}</p>
     <p class="bl-hwhen">${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))} · ${esc(roomLabel(h.room))}</p>
     ${due ? `<p class="bl-hdue ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
-    ${tag ? `<div class="chips">${tag}</div>` : ''}${acts ? `<div class="btnrow bl-hacts">${acts}</div>` : ''}</div></li>`;
+    ${tag || mine ? `<div class="chips">${tag}${mine}</div>` : ''}${acts ? `<div class="btnrow bl-hacts">${acts}</div>` : ''}</div></li>`;
 }
 function hearingsSection(b, x) {
   const now = Date.now(), hs = x.hs.filter(h => !x.act || h.id !== x.act.h.id);

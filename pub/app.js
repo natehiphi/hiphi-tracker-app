@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything } from './core.js';
+  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything, hstDay, loadReference, loadPool } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import start from './start.js';
@@ -167,15 +167,25 @@ document.addEventListener('keydown', e => {
 
 // ---- first load ----
 // Back after a month with things saved only in this browser: the one moment their loss is a real risk.
+// Since R-067 it is the second visit, not the thirtieth day: an iPhone clears a site's storage after a week away, so
+// the ask for an email ("so your issues are still here in January") comes the first time they are back on another day.
+// nudge() keeps its own spacing after "Not now". The last visit is kept for Home's "Since you were here".
 function welcomeBack() {
   const o = onb(), last = o.lastVisit ? Date.parse(o.lastVisit) : 0;
-  if (last && Date.now() - last > 30 * 864e5 && (S.watch.size >= 3 || S.issueFollows.size || S.done.size)) nudge('back');
+  S.prevVisit = o.lastVisit || null;
+  if (last && hstDay(last) !== hstDay(Date.now()) && (followsAnything() || S.done.size) && !S.session) nudge('back');
   onbSet({ lastVisit: new Date().toISOString() });
+  // Ask the browser to keep what this person saved (Chrome grants it to sites people use; others may ignore it).
+  if (followsAnything() || S.done.size) try { navigator.storage?.persisted?.().then(p => p || navigator.storage.persist()).catch(() => {}); } catch { /* ignore */ }
 }
+// Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
 async function boot() {
   const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
   try {
-    // The issues come first: what a person follows is worked out from them (063, R-018).
+    // The issues come first: what a person follows is worked out from them (063, R-018). HIPHI's live bills and the
+    // session's reference data do not depend on that, so they start now, alongside (R-067 speed).
+    if (!DEMO) { loadReference().catch(() => {}); loadPool().catch(() => {}); }
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); await loadLists(); await loadBills(); })(), timeout]);
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).

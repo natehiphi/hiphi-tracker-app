@@ -94,6 +94,19 @@ session is dark (until January 2027).
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
   with no issue is followed alone. The followed state is a filled blue button with a check (`.btn.secondary.on
   [aria-pressed="true"]` in `base.css`, R-061); every Follow button sets `.on` and `aria-pressed`.
+- **The second visit** (R-067): `app.js welcomeBack()` keeps the previous visit in `S.prevVisit` before noting this
+  one, and asks for an email on the second day someone comes back (not the thirtieth). Home's `sinceStrip()` says what
+  happened on their issues since then (results first; a hearing already drawn as a card is one summary line), and the
+  first time someone sees a committee's decision on a hearing they acted on it gets the small `burst` once
+  (`hiphi_results_seen`). Past hearing rows on a bill page keep "You emailed the chair" etc. `homeScreenCard()` offers
+  Add to Home Screen on phones after a first action (Android's prompt is kept in `S.installPrompt`).
+- **Between sessions** (R-067): `winsCard()` and the first screen lead with the bills HIPHI backed that became law
+  (`winsIn(yr)` in core.js) plus `EARLIER_WINS` (2025, from Nate; add lines there). Each issue's `outlook` (migration
+  079; drafted by `backend/tools/apply_outlooks.js`, edited by staff in the issue form) shows on Home's issue rows, the
+  issue page and "Your issues, this year and next". `meetCard()` shows the Meet HIPHI card staff post in Staff v2
+  (Make a link page; `site_cards`, `public_site_cards`). Home between sessions offers "Write to my legislators".
+- **Speed** (R-067): the Supabase library is pinned (`SUPABASE_JS` in core.js, preloaded in track.html; change both
+  together), and boot starts `loadReference()` and `loadPool()` alongside the catalog instead of after it.
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
   text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
   new ones the same way; `Page.setFontSizes` over CDP emulates a larger text setting in Playwright.

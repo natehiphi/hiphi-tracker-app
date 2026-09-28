@@ -112,3 +112,7 @@
 .fd-also { margin-top: var(--s8); color: var(--n700); }
 .fd-also a { color: var(--p700); font-weight: 700; }
 @media (max-width: 22.4375em) { .fd-irow { flex-wrap: wrap; padding: 0 0 var(--s12); } .fd-ifollow { margin-left: var(--s16); } }
+
+/* Between sessions: what happened to the issue last session, and what to expect (R-067; issues.outlook) */
+.fd-outlook { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; padding: 10px 12px; border-radius: var(--r12); background: var(--p50); color: var(--n900); }
+.fd-outlook .ic { flex: none; color: var(--p700); margin-top: 2px; }

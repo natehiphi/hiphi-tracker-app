@@ -236,9 +236,9 @@ export function wireActions(root = document) {
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
   if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p></div></div>`;
-  const nb = S.watch.size, na = myActions().length;
+  const nb = S.watch.size, na = myActions().length, ni = S.issueFollows.size;   // count issues, not their bills (R-067: "your 25 bills" to someone following 4 issues)
   const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when a bill on your issues gets a hearing. It also keeps your record on any device.'
-    : kind === 'back' ? `Welcome back. Your ${nb} bill${nb === 1 ? '' : 's'}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only. Add your email to keep them, and to hear when a hearing is set.`
+    : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while. Add your email so they’re still here in January, and to hear when a hearing is set.`
     : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your issues on any device.';
   return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon('mail-check')}<div class="ngbody">
     <p class="strong" id="ng-t">Get an email when a bill on your issues has a hearing</p><p class="small">${text}</p>

@@ -19,6 +19,11 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<!-- The database and the library it is read with: connect before any script asks (R-067 speed). The library address
+     is pinned in pub/core.js (SUPABASE_JS); change both together. -->
+<link rel="preconnect" href="https://eivzjbnygscguqqiiuvh.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -59,11 +64,12 @@
 .boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
 .boot0 i { display: block; height: 64px; border-radius: 12px; background: #EAEFF2; }
 .boot0 i:first-child { height: 96px; }
-.boot0top { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #DBE3E7; }
+.boot0top { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #DBE3E7; display: flex; flex-direction: column; justify-content: center; padding: 0 16px; font: 700 18px/1.1 system-ui, sans-serif; color: #142B35; }
+.boot0top small { font: 400 13px/1.3 system-ui, sans-serif; color: #5F6F76; }
 </style>
 </head>
 <body>
-<div id="app"><div class="boot0top"></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
+<div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="pub/app.js"></script>
 </body>
