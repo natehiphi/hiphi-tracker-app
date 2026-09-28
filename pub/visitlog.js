@@ -19,7 +19,7 @@
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './core.js';
 
 const KEY = 'hiphi_fv', CAP = 60;
-const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask']);
+const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask', 'voice']);
 const EVENTS = new Set(['view', 'next', 'skip', 'back', 'leave', 'done', 'answer']);
 const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/;
 const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);

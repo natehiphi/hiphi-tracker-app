@@ -274,6 +274,18 @@ function sinceStrip(inCards = new Set()) {
     ${carded ? `<p class="meta">${carded === 1 ? 'A new hearing is' : `${carded} new hearings are`} in your list below.</p>` : ''}</section>`;
 }
 
+// ---------------- an unfinished testimony (R-068) ----------------
+// "I'll finish later" used to leave no trace: the letter was saved, but nothing said so. Home names it first, while its
+// hearing is still ahead, and one tap reopens the walkthrough where they left it.
+function draftsCard() {
+  let drafts = {}; try { drafts = JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}; } catch { /* private mode */ }
+  const rows = Object.keys(drafts).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony'));
+  if (!rows.length) return '';
+  return `<section class="card hm-draft" aria-labelledby="hm-draft-h"><h2 id="hm-draft-h">${icon('notebook-pen')}<span>Finish your testimony</span></h2>
+    ${rows.slice(0, 2).map(({ b, h }) => `<p class="small">${esc(nick(b) || spaced(b.bill_number))} · hearing ${esc(dayWord(h.scheduled_at))}. Your letter is saved.</p>
+      ${btn('Finish sending it', { kind: 'primary', sm: true, icon: 'arrow-right', attrs: { 'data-helper': h.id, 'data-bill': b.id } })}`).join('')}</section>`;
+}
+
 // ---------------- keep it on your phone (R-067) ----------------
 // Offered once someone has acted, on a phone, when the tracker is not already on their home screen; "No thanks" hides
 // it for good in this browser. Android's own install prompt when the browser offers one (app.js keeps it); on an
@@ -402,7 +414,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${draftsCard()}${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}

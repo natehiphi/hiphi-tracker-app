@@ -351,7 +351,8 @@ anything that lengthens one needs a reason in the commit message.
 |---|---|
 | Public: arrive → follow a first issue | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
-| Public: decide to act → action sent | 4 steps |
+| Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question) |
+| Public: quick email (under More ways to help) → sent | 4 steps |
 | Public: give an email address (from the moment it is offered) | 2 steps |
 | Staff: open app → first thing due is on screen | 1 step |
 | Staff: bill number in hand → that bill's page | 2 steps |

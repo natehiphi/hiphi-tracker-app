@@ -30,11 +30,12 @@ const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm';
 // ("Where do you stand?" left the first visit on 9/26, R-053; its name stays here for visits counted before that.)
 const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
   stand: 'Where do you stand?', bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is',
-  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home' };
+  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)' };
 const FLOWS = {
-  in: ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
-  off: ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
-  link: ['arrive', 'act', 'followask', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).
+  in: ['topics', 'issues', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  off: ['topics', 'issues', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  link: ['arrive', 'act', 'followask', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
 };
 const PERIODS = [['4', '4 weeks'], ['12', '12 weeks'], ['52', 'A year']];
 
@@ -148,7 +149,7 @@ function tilesHTML(t, shared) {
 }
 // One list of screens. `of(s)` is how many visits could reach screen s: the percentage and the bar are of those.
 function screensHTML(id, title, meta, t, list, of) {
-  const rows = list.filter(s => of(s) > 0 && (s !== 'home' || t.reached[s]));
+  const rows = list.filter(s => of(s) > 0 && ((s !== 'home' && s !== 'voice') || t.reached[s]));   // the short version's page only once visits reach it
   if (!rows.length) return '';
   const row = s => {
     const n = t.reached[s] || 0, d = of(s), w = Math.min(100, Math.round(100 * n / d)), sk = t.skips[s] || 0, tm = t.tn[s] ? t.tw[s] / t.tn[s] : null;

@@ -330,3 +330,16 @@
 }
 /* The smallest phones (320px): the lede already says what the app does, and the topics must still be in view. */
 @media (max-width: 22.4375em) { .st-promise { display: none; } }
+
+/* The short version's page: why your voice matters (R-067 #11) */
+.st-voice { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s16); }
+.st-voice li { display: grid; grid-template-columns: 40px 1fr; gap: var(--s12); align-items: start; }
+.st-voice .st-vic { width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: grid; place-items: center; }
+.st-voice b { display: block; color: var(--n900); font-size: var(--t18); font-family: var(--font-h); margin-bottom: 2px; }
+.st-voice span { color: var(--n700); }
+.st-voiceex { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0 0; padding: 10px 12px; border-radius: var(--r12); background: var(--o50); color: var(--n900); }
+.st-voiceex .ic { flex: none; color: var(--o700); margin-top: 2px; }
+.st-voicelearn { margin-top: var(--s16); }
+.st-voicelearn a { font-weight: 700; }
+@media (max-width: 37.5em) { .st1.st-voicepage .st-art { display: none; } }   /* brief on a phone: the three points lead */
+.st-soon .st-now { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: var(--s8); }   /* one action, when it cannot wait (R-067 #12) */

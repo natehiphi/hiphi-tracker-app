@@ -342,3 +342,8 @@
 .bl-page .bl-tourline { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
 .bl-page .bl-tourline > .ic { color: var(--p700); flex: none; }
 .bl-page .bl-tourline .btn.text { min-height: 44px; padding: 0 4px; }
+
+/* The lessons, in the moment they help (R-067 #11) */
+.bl-page .bl-learn { margin: var(--s8) 0 0; font-size: var(--t14); }
+.bl-page .bl-learn a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; }
+.bl-page .bl-learn .ic { width: 18px; height: 18px; flex: none; }

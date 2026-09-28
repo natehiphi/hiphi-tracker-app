@@ -319,6 +319,7 @@ function helpView() {
     <section class="mr-panel" aria-label="How it works in ${STEPS.length} steps">
       <ol class="mr-steps">${STEPS.map(([t, p], i) => `<li><span class="mr-num" aria-hidden="true">${i + 1}</span><div><p class="strong"><span class="sr">Step ${i + 1}: </span>${t}</p><p>${p}</p></div></li>`).join('')}</ol>
       <div class="mr-cta">${btn('Find an issue to follow', { kind: 'primary', icon: 'search', href: '#/find' })}</div>
+      <p class="mr-learn">Three short lessons, about a minute each: <a href="#/learn/bill">Reading a bill</a> · <a href="#/learn/session">The session, January to May</a> · <a href="#/learn/hearing">What a hearing is</a></p>
     </section>
     <section aria-labelledby="mr-words-t">
       <h2 id="mr-words-t">Words you’ll see</h2>

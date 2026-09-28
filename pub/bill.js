@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
@@ -187,9 +187,8 @@ export function situation(b) {
   let kind = 'share';
   if (law) kind = 'law';
   else if (stopped) kind = 'stopped';
-  else if (act && differs) kind = 'capitol';
-  else if (act && RANKED) { const n = nextStep(b, act.h); kind = n === 'testimony' ? 'testify' : n === 'email' ? 'email' : 'share'; }   // R-005, ?rank=1 only
-  else if (act && (act.late || newToActing())) kind = didKind(b, act.h, 'email') ? 'share' : 'email';
+  // Testimony is the main action wherever there is a hearing, for everyone, whatever they think of the bill: the
+  // walkthrough writes the letter from their own stance (Nate 9/27, R-068). The quick email is under More ways to help.
   else if (act) kind = didKind(b, act.h, 'testimony') ? 'share' : 'testify';
   else if (waiting && pos && chairs.length && !asked(b, code)) kind = differs ? 'capitol' : /oppose/.test(b.hiphi_position) ? 'hold' : 'ask';
   // After the committees (see GOV_URL above). Only where HIPHI supports or opposes it, so there is a clear ask; once the
@@ -257,7 +256,7 @@ function mainButton(b, x) {
   if (x.act && S.compose === x.k) return '';
   switch (x.kind) {
     case 'email': return btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-bl-go': 'compose' } });
-    case 'testify': return btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
+    case 'testify': return btn(testimonyDraft(x.act?.h) ? 'Finish sending your testimony' : x.act?.late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
     case 'capitol': return btn(x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: capitolUrl(b), attrs: { 'data-bl-go': 'capitol', target: '_blank', rel: 'noopener' } });
     case 'ask': return btn(x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
     case 'hold': return btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });
@@ -336,7 +335,8 @@ export function railHTML(b, x) {
       <ol class="bl-dots" aria-label="The 7 steps from bill to law">${dots}</ol>
       <p class="bl-nowlbl bl-at${r.idx} bl-${align}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
-    <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol></details>`;
+    <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol>
+      <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details>`;   // the lesson, in the moment (R-067 #11)
 }
 
 // ---------------- the page ----------------
@@ -371,7 +371,7 @@ function newcomer(b, x) {
   if (!S.blNew.has(b.id)) logVisit('arrive', 'view', { path: 'link' });   // counted privately (R-023 decision 8)
   S.blNew.add(b.id);
   const h = x.act?.h, i = issuesOf(b)[0];
-  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}. You can help right now, in about 2 minutes, or follow it and we’ll tell you when.`
+  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}. You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
     : x.kind === 'ask' ? 'This bill is waiting for a hearing. You can ask the chair for one, in about 2 minutes, or follow it and we’ll tell you when.'
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">
@@ -402,6 +402,12 @@ app.newcomerActed = async b => {
     alt: follow ? { label: 'Don’t follow it', act: () => setFollows({ issuesOff: [i.id] }) } : null },
     () => viaStart(b, { viaActed: true }));
   return true;
+};
+// After testimony sent from the walkthrough (helper.js): a first visit that began on this bill goes on to the rest of
+// the visit, counted like the quick email (R-068). The walkthrough had its own celebration, so no second moment.
+app.newcomerNext = b => {
+  if (!b || !S.blNew.has(b.id) || wiz().done || wiz().skipped) return false;
+  logVisit('act', 'next', { path: 'link' }); viaStart(b, { viaActed: true }); return true;
 };
 // Without an everyday name the headline is what the bill does: HIPHI's plain summary; without one, the first sentence
 // of the official description (the whole of it sits under More details, so nothing is lost to "..."). With neither,
@@ -492,10 +498,12 @@ function actionSection(b, x) {
   const h = x.act.h, done = actedOn(b, h);
   const title = done ? 'Mahalo for speaking up' : x.act.late ? 'You can still be heard' : 'Speak up before the hearing';
   const ask = S.nudge && done ? nudgeCard('action') : '';
-  const big = x.kind === 'email' && !x.act.late ? `<button type="button" class="mwrow bl-bigstep" data-helper="${esc(h.id)}" data-bill="${esc(b.id)}"><span class="lead">${icon('notebook-pen')}</span><span class="body"><span class="title">Write testimony · 5 min</span><span class="sub">The bigger step, and the strongest way to be heard. First time, the Capitol site asks for a free account.</span></span>${icon('chevron-right', { cls: 'chev' })}</button>` : '';
+  // (A "Write testimony" row used to sit under the quick email here; testimony leads now, R-068.)
+  const big = '';
   const main = wide() ? mainButton(b, x) + (S.blNew.has(b.id) && firstVisit() && !S.blLooking.has(b.id) ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
   return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
-    ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
+    ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}
+    ${done ? '' : `<p class="bl-learn"><a href="#/learn/hearing/${esc(b.id)}">${icon('circle-help')}<span>New to hearings? What happens at one, about a minute</span></a></p>`}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
 // The floor, conference and the Governor: what the step is and why, in one line (the side card on a wide screen, the
 // status card on a phone, where the button sits in the bottom bar).

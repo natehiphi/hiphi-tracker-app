@@ -19,7 +19,7 @@ import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
-const SCREENS = { start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
+const SCREENS = { start, learn: start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, more, help: more, signin: more, settings: more, privacy: more };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
@@ -43,6 +43,9 @@ export function parseRoute(h = location.hash) {
     // this file has been wrong within a day of the flow growing - first 4, then 9 - and the symptom is
     // silent: the hash moves, the screen does not.
     case 'start': return { name: 'start', step: Math.max(1, +seg[1] || 1) };
+    // One lesson on its own, in the moment it is needed (R-067 #11): #/learn/hearing, or #/learn/hearing/<bill id> to
+    // teach it on that bill.
+    case 'learn': return { name: 'learn', lesson: seg[1] || 'bill', bill: seg[2] || '' };
     case 'bills': return { name: 'bills' };
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
     case 'issue': return { name: 'issue', slug: seg[1] || '' };

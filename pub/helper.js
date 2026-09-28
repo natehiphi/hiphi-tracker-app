@@ -13,7 +13,7 @@
 // clash with the guided start's "Step 4 of 4".
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
-  billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail } from './core.js';
+  billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareText } from './actions.js';
 import { flower } from './art.js';
@@ -69,31 +69,38 @@ function greeting(h) {
   return `Dear ${who.length ? who.join(', ') : 'Chair, Vice Chair'}, and members of the committee${joint ? 's' : ''},`;
 }
 const OPENING = { strongly_support: 'I strongly support', support: 'I support', support_amend: 'I support', strongly_oppose: 'I strongly oppose', oppose: 'I oppose' };
-function openingLine(b, n) {
+// The letter says what the PERSON thinks (R-068, 9/27): a "Not sure yet" used to get "I strongly support". stance is
+// 'support' | 'oppose' | 'comments'. When it matches HIPHI's position the letter carries HIPHI's wording and ask;
+// otherwise it is theirs alone, and their reason is required, because it is the whole letter.
+const sameAsHiphi = (b, stance) => (stance === 'support' && /support/.test(b.hiphi_position || '')) || (stance === 'oppose' && /oppose/.test(b.hiphi_position || ''));
+function openingLine(b, n, stance) {
   const p = b.hiphi_position;
-  return OPENING[p] ? `${OPENING[p]} ${n}${p === 'support_amend' ? ', with amendments' : ''}.` : `I am writing with comments on ${n}.`;
+  if (sameAsHiphi(b, stance) && OPENING[p]) return `${OPENING[p]} ${n}${p === 'support_amend' ? ', with amendments' : ''}.`;
+  return stance === 'support' ? `I support ${n}.` : stance === 'oppose' ? `I oppose ${n}.` : `I am writing with comments on ${n}.`;
 }
-function askLine(b, n) {
-  const p = b.hiphi_position || '';
+function askLine(b, n, stance) {
   // "Hold" is the Capitol's word for a committee not passing a bill.
-  return /oppose/.test(p) ? `I respectfully ask the committee to hold ${n}.` : /support/.test(p) ? `I respectfully ask the committee to pass ${n}.`
+  return stance === 'oppose' ? `I respectfully ask the committee to hold ${n}.` : stance === 'support' ? `I respectfully ask the committee to pass ${n}.`
     : 'I respectfully ask the committee to consider these comments.';
 }
-function letterFor(b, h, { name, town, why }) {
-  const n = spaced(b.bill_number), room = roomLabel(h.room);
+const STANCE_WORD = { support: 'SUPPORT', oppose: 'OPPOSITION', comments: 'COMMENTS' };
+// HIPHI's own position as the person's default when they have said nothing either way.
+const hiphiStance = b => /oppose/.test(b.hiphi_position || '') ? 'oppose' : /support/.test(b.hiphi_position || '') ? 'support' : 'comments';
+function letterFor(b, h, { name, town, why, stance = hiphiStance(b) }) {
+  const n = spaced(b.bill_number), room = roomLabel(h.room), ours = sameAsHiphi(b, stance);
   const when = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   return [
-    [`Testimony in ${POS_WORD[b.hiphi_position] || 'COMMENTS'} of ${n}`, cmteLabel(h.committee),
+    [`Testimony in ${ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance]} of ${n}`, cmteLabel(h.committee),
       `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n'),
     greeting(h),
-    `${openingLine(b, n)} My name is ${String(name).trim()} and I live in ${String(town).trim()}.`,
+    `${openingLine(b, n, stance)} My name is ${String(name).trim()} and I live in ${String(town).trim()}.`,
     billSays(b, n),
     sentence(why),
-    [sentence(b.hiphi_action), askLine(b, n)].filter(Boolean).join(' '),
+    [ours ? sentence(b.hiphi_action) : '', askLine(b, n, stance)].filter(Boolean).join(' '),
     ['Mahalo for the opportunity to testify,', String(name).trim(), String(town).trim()].join('\n'),
   ].filter(Boolean).join('\n\n');
 }
-const basisOf = x => JSON.stringify([x.name.trim(), x.town.trim(), x.why.trim()]);
+const basisOf = x => JSON.stringify([x.name.trim(), x.town.trim(), x.why.trim(), x.stance || '']);
 
 // The bill's own page on the Capitol website, where "Submit Testimony" lives.
 function capitolUrl(b, h) {
@@ -103,7 +110,7 @@ function capitolUrl(b, h) {
   return m ? `https://capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${yr}` : 'https://capitol.hawaii.gov/';
 }
 // The words on the Capitol testimony form.
-const formWord = b => /oppose/.test(b.hiphi_position || '') ? 'Oppose' : /support/.test(b.hiphi_position || '') ? 'Support' : 'Comments';
+const formWord = stance => ({ support: 'Support', oppose: 'Oppose', comments: 'Comments' })[stance] || 'Comments';
 // "Sun" for a deadline earlier this week, "today", else "Mon, Mar 9".
 function pastDay(iso) {
   const d = hstDay(iso), today = hstDay(Date.now());
@@ -177,10 +184,15 @@ function open(billId, hearingId) {
   // The letter's position follows the person. HIPHI's script is for people who agree with HIPHI or have not said;
   // someone who sees the bill differently gets the Capitol's own steps and writes it their way (a saved draft of
   // HIPHI's letter is left alone, in case they change their mind).
-  if (agrees(b) === false) x.screen = 'own';
-  else if (d && x.name.trim() && x.town.trim() && !didKind(b, h, 'testimony')) {
+  // R-068 (9/27): everyone gets the walkthrough, whatever they think of the bill. The letter follows their own stance;
+  // someone who has not said Support or Oppose is asked first. A first-timer gets one step for the Capitol account.
+  const mine = myStance(b.id);
+  x.stance = mine === 'support' || mine === 'oppose' ? mine : d?.stance || null;
+  x.askStance = !x.stance; x.acctStep = !me.capitolAcct;
+  x.screen = x.askStance ? 'stand' : 1;
+  if (d && x.stance && x.name.trim() && x.town.trim() && !didKind(b, h, 'testimony')) {
     // Pick up where they left off. Someone who left for the Capitol site and came back is ready to confirm.
-    x.screen = d.screen === 3 ? 3 : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
+    x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
     x.letter = x.edited ? d.letter : letterFor(b, h, x); x.basis = x.edited ? d.basis || '' : basisOf(x);
     x.back = x.screen === 3 && !!(d.away || d.back);
   }
@@ -228,7 +240,8 @@ window.addEventListener('popstate', e => { if (S.helper && !e.state?.hp) closeNo
 // Leaving for the Capitol site and coming back is the moment to ask about the green box.
 document.addEventListener('visibilitychange', () => {
   const x = S.helper; if (!x) return;
-  if (document.visibilityState === 'hidden') { if (x.screen === 3) x.away = true; saveDraft(); return; }
+  if (document.visibilityState === 'hidden') { if (x.screen === 3) x.away = true; if (x.screen === 'acct' && x.acctNew) x.acctAway = true; saveDraft(); return; }
+  if (x.screen === 'acct' && x.acctAway && !x.acctBack) { x.acctBack = true; paint(); announce('Welcome back. When your account is ready, choose I’m signed up.'); return; }
   // The inline "Open the Capitol page again" appears with the green-box button, so the whole screen is re-drawn.
   if (x.screen === 3 && x.away && !x.back && !x.busy) { x.back = true; saveDraft(); paint(); announce('Welcome back. If you saw the green box, choose I saw the green box.'); }
 });
@@ -240,29 +253,56 @@ function saveDraft() {
   const drafts = { ...(loadMe().drafts || {}) };
   for (const [k, v] of Object.entries(drafts)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete drafts[k];
   if (x.screen === 'done') delete drafts[x.h.id];
-  else if (x.screen === 2 || x.screen === 3) drafts[x.h.id] = { screen: x.screen, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
+  else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
     away: !!x.away, back: !!x.back, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
 // ---------------- rendering ----------------
+// The steps this person walks, in order: "Where do you stand?" only when they had not said, the Capitol account only the
+// first time (R-068). "Part 2 of 4" counts these.
+const seqOf = x => [x.askStance && 'stand', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
+const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
+function goTo(screen) {
+  const x = S.helper; if (!x) return;
+  if (screen === 2 && x.screen === 1) {
+    const basis = basisOf(x);
+    if (!x.edited) { x.letter = letterFor(x.b, x.h, x); x.basis = basis; x.stale = false; }
+    else x.stale = basis !== x.basis;
+  }
+  x.screen = screen; x.resumed = false; x.copyChip = false; x.copied3 = false; x.trouble = false;
+  saveDraft();
+  paint({ focus: 'hp-sh', top: true });
+}
+const goNext = () => { const x = S.helper, s = seqOf(x); goTo(s[Math.min(s.length - 1, s.indexOf(x.screen) + 1)]); };
+const goBack = () => { const x = S.helper, s = seqOf(x); const i = s.indexOf(x.screen); if (i > 0) goTo(s[i - 1]); };
 function inner() {
-  const x = S.helper, n = spaced(x.b.bill_number), done = x.screen === 'done', own = x.screen === 'own', step = done ? 3 : x.screen;
+  const x = S.helper, n = spaced(x.b.bill_number), done = x.screen === 'done', own = false, total = seqOf(x).length, step = done ? total : stepNo(x);
   // "Part 1 of 3", not "Step 1 of 3": people often arrive straight from the guided start's "Step 4 of 4". It is said
   // once for screen readers, in the screen's own heading (the dialog's name stays "Testimony on HB 1523").
   const head = done ? `<p class="hp-title">Testimony on ${esc(n)}</p>`
-    : `<h2 class="hp-title" id="hp-title" tabindex="-1">Testimony on ${esc(n)}</h2>${own ? '' : `<span class="hp-count" aria-hidden="true">Part ${step} of 3</span>`}`;
-  const body = done ? doneScreen() : own ? ownScreen() : x.screen === 1 ? aboutScreen() : x.screen === 2 ? letterScreen() : sendScreen();
+    : `<h2 class="hp-title" id="hp-title" tabindex="-1">Testimony on ${esc(n)}</h2><span class="hp-count" aria-hidden="true">Part ${step} of ${total}</span>`;
+  const body = done ? doneScreen() : x.screen === 'stand' ? standScreen() : x.screen === 1 ? aboutScreen() : x.screen === 2 ? letterScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
-    ${own ? '<div class="hp-prog hp-noprog" aria-hidden="true"></div>' : `<div class="hp-prog${done ? ' done' : ''}" aria-hidden="true">${[1, 2, 3].map(i => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}</div>`}
+    <div class="hp-prog${done ? ' done' : ''}" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < step || done ? 'on' : i + 1 === step ? 'on now' : ''}"></i>`).join('')}</div>
     <div class="hp-body" id="hp-body"><div class="hp-in">${body}</div></div>
     <div class="hp-foot">${foot()}</div>
     <p class="sr" id="hp-live" role="status" aria-live="polite"></p>
   </div>`;
 }
-const screenHead = (step, title) => `<h3 class="hp-h" id="hp-sh" tabindex="-1"><span class="sr">Part ${step} of 3: </span>${title}</h3>`;
+const screenHead = (step, title) => `<h3 class="hp-h" id="hp-sh" tabindex="-1"><span class="sr">Part ${stepNo(S.helper)} of ${seqOf(S.helper).length}: </span>${title}</h3>`;
 const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', 'Welcome back. Your letter is saved right where you left it.') : '';
+
+// Where do you stand? Asked only of someone who had not said Support or Oppose on the bill page (R-068: the letter used
+// to say "I strongly support" for a "Not sure yet"). The answer is theirs; HIPHI's position is said once, quietly.
+function standScreen() {
+  const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
+  const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}
+      <p class="hp-sub">Your testimony is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p></div>
+    <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
+}
 
 // Screen 1: who you are. Errors show only after someone leaves a field or chooses See my letter (Guide B).
 function aboutScreen() {
@@ -291,12 +331,14 @@ function aboutScreen() {
       ${field('name', 'Your name', 'name')}
       ${field('town', 'Your town or island', 'address-level2')}
       ${email}
-      <div class="field"><label for="hp-why">Why it matters to you <span class="hp-opt">(optional)</span></label>
-        <textarea id="hp-why" name="why" rows="3" placeholder="As a parent of two teenagers…" aria-describedby="hp-why-help" autocapitalize="sentences">${esc(x.why)}</textarea>
-        <span class="help" id="hp-why-help">One or two sentences. A personal reason carries the most weight.</span></div>
+      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `Why it matters to you <span class="hp-opt">(optional)</span>`}</label>
+        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
+        <span class="help" id="hp-why-help">${own2() ? 'This is the heart of your letter. One or two sentences in your own words.' : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
     </form>`;
 }
-const ERR = { name: 'Enter your name', town: 'Enter your town or island', email: 'Enter an email like name@example.com' };
+const ERR = { name: 'Enter your name', town: 'Enter your town or island', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
+// The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
+const own2 = () => { const x = S.helper; return !!x && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
 const HELP = { email: 'hp-email-help' };   // fields whose help text stays described while an error shows
 const errHTML = f => `<span class="err" id="hp-${f}-err">${icon('triangle-alert')}${ERR[f]}</span>`;
 function lateBanner(h, { email = true } = {}) {
@@ -314,8 +356,34 @@ function letterScreen() {
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this letter.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="14">${esc(x.letter)}</textarea>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
-    <div class="hp-under">${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
+    <div class="hp-under">${btn('Copy', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
+      <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
+      ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
       ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>`;
+}
+
+// A copy that survives any browser: their own mail app, addressed to nobody, the letter as the body (R-068).
+const selfMail = x => `mailto:?subject=${encodeURIComponent(`My testimony on ${spaced(x.b.bill_number)}`)}&body=${encodeURIComponent(x.letter)}`;
+
+// The Capitol account, once (R-068): the hardest part for a first-timer was one line in a list they had to remember on
+// another website. Asked once per browser; "yes" is remembered (hiphi_me.capitolAcct) and the step never shows again.
+function acctScreen() {
+  const x = S.helper;
+  if (!x.acctNew) return `<div class="hp-top">${screenHead(0, 'Your Capitol account')}
+      <p class="hp-sub">Testimony is sent on the Legislature’s website, with a free account there.</p></div>
+    <div class="hp-choices" role="group" aria-label="Have you sent testimony on the Capitol website before?">
+      <p class="hp-q">Have you sent testimony on the Capitol website before?</p>
+      <button type="button" class="hp-choice" data-hp="acct-yes"><b>Yes, I have an account</b></button>
+      <button type="button" class="hp-choice" data-hp="acct-no"><b>No, this is my first time</b><span>We’ll help you make one. It takes a few minutes.</span></button></div>`;
+  const steps = ['<p>Open the Capitol page. Choose <b>Submit Testimony</b>, then <b>Register</b>.</p>',
+    '<p>Enter your name, your email and a new password.</p>',
+    '<p>They email you a link. Open it to confirm. Check spam if it doesn’t come.</p>',
+    '<p>Come back here. <b>Your letter is saved.</b></p>'];
+  return `<div class="hp-top">${screenHead(0, 'Make your free Capitol account')}
+      <p class="hp-sub">You need your email and a new password. You only do this once.</p></div>
+    ${stepList(steps)}
+    ${x.acctHelp ? `<div class="notice info">${icon('info')}<div><p><b>The email hasn’t come?</b> It can take a few minutes. Look in spam or promotions. Still nothing? The Public Access Room helps for free: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p></div></div>` : ''}
+    ${capitolNotes(true)}`;
 }
 
 // Screen 3: the Capitol's own steps, in the words its form uses (PAR "How to Submit Testimony", 2026).
@@ -334,33 +402,22 @@ function sendScreen() {
   // "Open the Capitol page" is the footer's main button, so the checklist does not repeat it (assessment, 9/19).
   // Once the footer has turned into "I saw the green box", step 1 offers the way back for a tab closed by mistake.
   const steps = [
-    `<p>Open the bill on the Capitol website.</p>${x.back ? capitolLink(b, h, 'Open the Capitol page again', { kind: 'text', sm: true, cls: 'hp-inl' }) : ''}`,
-    CAPITOL_LOGIN, pickHearing(h), formChoices(formWord(b)),
+    `<p>Log in to the Capitol website${x.acctStep ? ' with the account you just made' : ''}.</p>${x.back ? capitolLink(b, h, 'Open the Capitol page again', { kind: 'text', sm: true, cls: 'hp-inl' }) : ''}`,
+    pickHearing(h), formChoices(formWord(x.stance || hiphiStance(b))),
     `<p>Paste your letter${x.saved ? ' (or upload the file)' : ''} and submit. Look for the <b>green box</b>. That means it worked.</p>
-      ${x.copied3 ? `<span class="chip ok" id="hp-copy3" tabindex="-1">${icon('check')}Copied</span>` : btn('Copy my letter', { kind: 'text', sm: true, icon: 'copy', cls: 'hp-inl', attrs: { 'data-hp': 'copy', id: 'hp-copy3' } })}`,
+      ${x.copied3 ? `<span class="chip ok" id="hp-copy3" tabindex="-1">${icon('check')}Copied</span>` : btn('Copy my letter again', { kind: 'text', sm: true, icon: 'copy', cls: 'hp-inl', attrs: { 'data-hp': 'copy', id: 'hp-copy3' } })}`,
   ];
-  return `<div class="hp-top">${screenHead(3, 'Send it at the Capitol')}
-      <p class="hp-sub">Testimony is sent on the Legislature’s website. Follow these steps there. We’ll be right here when you come back.</p></div>
+  const trouble = x.trouble ? `<div class="notice warn hp-trouble">${icon('life-buoy')}<div>
+      <p><b>Logged out?</b> Log in again. Your letter is still here: choose Copy my letter again.</p>
+      <p><b>Can’t find the hearing?</b> The Public Access Room can help: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p>
+      <p><b>Past the deadline?</b> You can still send it. It will be marked late.</p></div></div>` : '';
+  return `<div class="hp-top">${screenHead(3, x.back ? 'Did you see the green box?' : 'Send it at the Capitol')}
+      <p class="hp-sub">${x.back ? 'The green box on the Capitol page means your testimony went through.' : 'One tap copies your letter and opens the Capitol page. Follow these steps there. We’ll be right here when you come back.'}</p></div>
+    ${trouble}
     ${welcomeBack()}
     ${stepList(steps)}
     ${capitolNotes(true)}
     ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;
-}
-
-// The person's own stance differs from HIPHI's (core agrees(b) === false). HIPHI's scripted letter would put words in
-// their mouth, so there is no letter here: a respectful line, then the Capitol's own steps. Nothing is marked as
-// done afterwards either, because this is their testimony, not part of HIPHI's campaign.
-function ownScreen() {
-  const x = S.helper, { b, h } = x, due = dueInfo(h), word = myStance(b.id) === 'oppose' ? 'Oppose' : 'Support';
-  const steps = ['<p>Open the bill on the Capitol website.</p>', CAPITOL_LOGIN, pickHearing(h), formChoices(word),
-    '<p>Write a few sentences in your own words: who you are, where you live, and why you feel the way you do. Submit, and look for the <b>green box</b>. That means it worked.</p>'];
-  return `<div class="hp-top"><h3 class="hp-h" id="hp-sh" tabindex="-1">In your own words</h3>
-      <p class="hp-sub">You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</p>
-      ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}</div>
-    ${due?.late ? lateBanner(h, { email: false }) : ''}
-    ${notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone in Hawaiʻi can send one. It’s public: your name and letter are posted on the Capitol website.')}
-    ${stepList(steps)}
-    ${capitolNotes(false)}`;
 }
 
 // Confirmation: the reward is what happens next, not points (plan section 1).
@@ -385,11 +442,12 @@ function doneScreen() {
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
-      <p class="hp-lede">Your testimony on ${esc(n)} is in. It’s now part of the public record.</p>
+      <p class="hp-lede">You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
-      <p>${esc(next)} ${x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.'}</p>
+      <p>${esc(next)} ${x.followedIssue ? `We now follow ${esc(x.followedIssue.name)} for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.'}</p>
+      ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
     ${ask}`;
 }
@@ -400,17 +458,17 @@ function doneScreen() {
 function foot() {
   const x = S.helper, row = (html, more = '') => `<div class="hp-footin">${html}</div>${more ? `<div class="hp-footmore">${more}</div>` : ''}`;
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
-  if (x.screen === 'own') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
-    + capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' }));
-  if (x.screen === 1) return row(`<button type="submit" form="hp-form" class="btn primary full hp-main"><span>See my letter</span>${icon('arrow-right')}</button>`);
-  if (x.screen === 2) return row(back + (x.copyChip ? `<span class="chip ok hp-chip hp-main" tabindex="-1">${icon('check')}Copied</span>`
-    : x.copied || x.saved || x.copyFail ? btn('Next: send it', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } })
-    : btn('Copy my letter', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copy' } })));
-  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
-    : x.back ? btn('I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
+  const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
+  if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
+  if (x.screen === 1) return row((x.askStance ? back : '') + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>See my letter</span>${icon('arrow-right')}</button>`);
+  if (x.screen === 2) return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
+  if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
-    x.busy ? '' : (x.back ? '' : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } }))
-      + btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } }));
+    (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
+  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
+    : x.back ? btn('Yes, I saw it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
+    : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
+    x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
   return row((x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
     + btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
 }
@@ -442,29 +500,18 @@ function grow(t) { if (!t) return; t.style.height = 'auto'; t.style.height = `${
 function announce(text) { const live = dlg?.querySelector('#hp-live'); if (!live) return; live.textContent = ''; setTimeout(() => { live.textContent = text; }, 40); }
 
 // ---------------- behaviour ----------------
-function go(n) {
-  const x = S.helper; if (!x || n < 1 || n > 3) return;
-  if (n === 2 && x.screen === 1) {
-    const basis = basisOf(x);
-    if (!x.edited) { x.letter = letterFor(x.b, x.h, x); x.basis = basis; x.stale = false; }
-    else x.stale = basis !== x.basis;
-  }
-  x.screen = n; x.resumed = false; x.copyChip = false; x.copied3 = false;
-  saveDraft();
-  paint({ focus: 'hp-sh', top: true });
-}
 function toLetter() {
   const x = S.helper; if (!x || !dlg) return;
   for (const f of ['name', 'town', 'email', 'why']) { const el = dlg.querySelector('#hp-' + f); if (el) x[f] = el.value; }
   const hasEmail = !!dlg.querySelector('#hp-email'), email = x.email.trim();
   // The email is optional, so empty is fine; something typed that is not an address is worth a word, because the
   // person expects alerts that would never come.
-  const bad = [...['name', 'town'].filter(f => !x[f].trim()), ...(hasEmail && email && !validEmail(email) ? ['email'] : [])];
-  ['name', 'town', ...(hasEmail ? ['email'] : [])].forEach(f => setErr(f, bad.includes(f)));
+  const bad = [...['name', 'town'].filter(f => !x[f].trim()), ...(hasEmail && email && !validEmail(email) ? ['email'] : []), ...(own2() && !x.why.trim() ? ['why'] : [])];
+  ['name', 'town', ...(hasEmail ? ['email'] : []), 'why'].forEach(f => setErr(f, bad.includes(f)));
   if (bad.length) { dlg.querySelector('#hp-' + bad[0])?.focus(); return; }
   saveMe({ name: x.name.trim(), town: x.town.trim(), why: x.why, whyBill: x.b.id, ...(hasEmail ? { email } : {}) });
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
-  go(2);
+  goTo(2);
 }
 function setErr(f, on) {
   const x = S.helper; x.errs[f] = on;
@@ -499,6 +546,15 @@ async function copyLetter() {
   // "Copied" for two seconds, then the way forward.
   setTimeout(() => { if (S.helper === x && x.copyChip) { x.copyChip = false; paintFoot(); } }, 2000);
 }
+// One tap: copy the letter, then open the Capitol page (R-068). Both in the same tap, so the clipboard is fresh when they
+// paste and the phone does not block the new tab. The copy is started, not awaited, so the tab opens inside the tap.
+function copyAndOpen() {
+  const x = S.helper; if (!x) return;
+  const ta = dlg?.querySelector('#hp-letter'); if (ta) x.letter = ta.value;
+  try { navigator.clipboard?.writeText(x.letter).catch(() => {}); } catch { /* the steps offer Copy again */ }
+  window.open(capitolUrl(x.b, x.h), '_blank', 'noopener');
+  x.away = true; x.copied3 = true; saveDraft(); paint();
+}
 function download() {
   const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
   const url = URL.createObjectURL(new Blob([x.letter.replace(/\r?\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }));
@@ -512,8 +568,13 @@ async function confirmSent() {
   x.before = earned();   // [key, label] pairs; newMilestones() compares by key
   try { x.first = !!(await markDone(x.b.id, x.h.id, 'testimony', true, { quiet: true }))?.firstTestimony; }
   catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
-  // Following the bill is how they see what the committee decides. A failure here must not undo the testimony.
-  if (!S.watch.has(x.b.id)) { try { await toggleWatch(x.b.id); x.followedNow = S.watch.has(x.b.id); } catch { /* following is a bonus */ } }
+  // Following is how they see what the committee decides: the bill's issue, as everywhere else (R-067), with "Don't
+  // follow it" on the confirmation; a bill with no issue is followed on its own. A failure must not undo the testimony.
+  const iss = issuesOf(x.b)[0];
+  try {
+    if (iss && !issueFollowed(iss)) { if (await setFollows({ issuesOn: [iss.id] }) !== false) x.followedIssue = iss; }
+    else if (!iss && !S.watch.has(x.b.id)) { await toggleWatch(x.b.id); x.followedNow = S.watch.has(x.b.id); }
+  } catch { /* following is a bonus */ }
   if (S.helper !== x) return;
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });
@@ -566,10 +627,18 @@ function emailInstead() {
 function onClick(e) {
   const t = e.target.closest('[data-hp]'); if (!t || !S.helper) return;
   const a = t.dataset.hp;
-  if (a === 'close' || a === 'done') requestClose();
+  if (a === 'done') { const b = S.helper.b; afterClose = () => { app.newcomerNext?.(b); }; requestClose(); }
+  else if (a === 'close') requestClose();
   else if (a === 'copy') copyLetter();
-  else if (a === 'next') go(3);
-  else if (a === 'back') go(S.helper.screen - 1);
+  else if (a === 'next') goNext();
+  else if (a === 'back') goBack();
+  else if (a === 'stance') { S.helper.stance = t.dataset.v; saveDraft(); goNext(); }
+  else if (a === 'acct-yes' || a === 'acct-done') { saveMe({ capitolAcct: true }); goNext(); }
+  else if (a === 'acct-no') { S.helper.acctNew = true; saveDraft(); paint({ focus: 'hp-sh' }); }
+  else if (a === 'acct-help') { S.helper.acctHelp = true; paint(); }
+  else if (a === 'copyopen') copyAndOpen();
+  else if (a === 'trouble') { S.helper.trouble = !S.helper.trouble; paint(); }
+  else if (a === 'unfollow') { const x = S.helper, i = x.followedIssue; if (i) setFollows({ issuesOff: [i.id] }).then(() => { x.followedIssue = null; paint(); announce(`You no longer follow ${i.name}.`); }); }
   else if (a === 'download') download();
   // "I already sent it" counts exactly like the green-box button: same honest question, asked without the round trip.
   else if (a === 'confirm' || a === 'sent') confirmSent();
@@ -593,6 +662,7 @@ function onInput(e) {
     if (x.errs.email && (!v || validEmail(v))) setErr('email', false);
   } else if (t.id === 'hp-letter') {
     x.letter = t.value; x.edited = true; grow(t);
+    const sm = dlg.querySelector('[data-hp="selfmail"]'); if (sm) sm.href = selfMail(x);   // the copy to themselves carries their edits
     if (x.copied || x.saved || x.copyFail) { x.copied = x.saved = x.copyFail = false; paintFoot(); dlg.querySelector('.hp-under .okmsg')?.remove(); }
   }
 }

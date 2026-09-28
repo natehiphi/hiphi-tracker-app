@@ -18,7 +18,7 @@
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance,
   setStance, sendEmailLink, validEmail, friendly, toast, nudge, legTitle, legPhoto, ensureRecapPool, loadCatalog,
   recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, issuePos, setFollows,
-  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, winsIn } from './core.js';
+  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, winsIn, didKind } from './core.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
@@ -33,7 +33,15 @@ const isOff = () => sessionInfo().phase !== 'in';
 const FLOW_IN = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
-const flowOf = off => wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN;
+// The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
+// very brief page"): one page on why your voice matters stands where the three lessons were, and the lessons are
+// offered where they are needed (#/learn/..., linked from bill pages and Help). It is tested against the full version
+// with the outside testers, whose link carries ?fv=short (the first visit remembers it; ?fv=full switches back); the
+// full version stays the default until Nate picks. The counting records the page as 'voice' (backend 080).
+const SHORT = () => wiz().fv === 'short';
+try { const f = new URLSearchParams(location.search).get('fv'); if (f === 'short' && !SHORT()) wizSet({ fv: 'short' }); else if (f === 'full' && SHORT()) wizSet({ fv: null }); } catch { /* ignore */ }
+const shorten = f => SHORT() ? f.flatMap(n => n === 'bill' ? ['voice'] : n === 'session' || n === 'hearing' ? [] : [n]) : f;
+const flowOf = off => shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN);
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
 const total = off => flowOf(off).length;
@@ -98,11 +106,12 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
 // confused about what it is).
 const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
-const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, session: 1, hearing: 1, you: 2, soon: 2, done: 3 };
+const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, session: 1, hearing: 1, voice: 1, you: 2, soon: 2, done: 3 };
+const chapterNames = () => SHORT() ? ['Your issues', 'Why your voice matters', 'Stay connected'] : CHAPTERS;
 let lastChapter = -1;
 function chaptersRow(name) {
   const k = CHAPTER_OF[name] ?? -1; if (k < 0) return '';
-  return `<nav class="st-chapters" aria-label="Your first visit"><ol>${CHAPTERS.map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
+  return `<nav class="st-chapters" aria-label="Your first visit"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
     <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${c}</span>${i < k ? '<span class="sr"> (done)</span>' : ''}</li>`).join('')}</ol></nav>`;
 }
 // Finishing a part ticks it with a small burst: one of the stage celebrations (C-7).
@@ -389,6 +398,7 @@ const followedBills = () => standIdeas().flatMap(x => x.bills);
 let exCache = null, exKey = '';
 function exampleBill() {
   const off = isOff(), w = wiz();
+  if (S.learnBill && location.hash.startsWith('#/learn/')) { const lb = anyBill(S.learnBill); if (lb) return lb; }   // a lesson opened from a bill page teaches on that bill
   if (w.via) return anyBill(w.viaId) || S.bills.find(b => b.bill_number === w.via) || null;
   const left = b => issuesOf(b).length && issuesOf(b).every(i => !shown(i));
   if (off) {
@@ -442,6 +452,38 @@ function example() {
   if (key !== exKey) { exKey = key; exCache = exampleFrom(b, { off: isOff(), via }); }
   return exCache;
 }
+// ================= The short version's one page: why your voice matters (R-067 #11) =================
+// A draft for Nate to shape (he asked that the page be about why the person's voice matters). Three short points, the
+// person's own bill as the example when there is one, and the three lessons one tap away for anyone who wants them.
+function stepVoice(step) {
+  const E = example(), off = isOff(), b = exampleBill();
+  const pts = [
+    ['landmark', 'Committees decide first', 'Most bills stop in a committee. Before they vote, lawmakers read what the public sends them, and a few letters can tip a close call.'],
+    ['map-pin', 'Your own lawmakers listen closest', 'You are one of the people they answer to. Next, we show you who they are.'],
+    ['clock', 'It takes a few minutes', off ? 'When the session opens, we tell you when a bill on your issues has a hearing, with a letter to start from.' : 'When a bill on your issues has a hearing, we tell you, with a letter to start from and where to send it.'],
+  ];
+  const lessons = ['bill', 'session', 'hearing'].map(n => `<a href="#/learn/${n}${b ? '/' + esc(b.id) : ''}">${esc(LESSON_TITLES[n])}</a>`).join(' · ');
+  return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
+    <h1 class="hero" id="st-h">Why your voice matters</h1>
+    <p class="lede">Hawaiʻi’s laws are made in a few months each year, and lawmakers want to hear from the people they represent.</p>`,
+    `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
+    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>Like <b>${esc(E.name)}</b>, one of the bills on your issues.</span></p>` : ''}
+    <p class="small muted st-voicelearn">Want the details? About a minute each: ${lessons}</p>`);
+}
+
+// ================= A lesson on its own, in the moment (#/learn/<lesson>[/<bill id>]; R-067 #11) =================
+// The same three lessons as the full first visit, opened from where they help: "What a hearing is" beside a hearing,
+// "The session" under a bill's steps, all three from Help and the short version's page. Next walks the lesson; at the
+// end, Done goes back where the person came from.
+const learnName = route => ['bill', 'session', 'hearing'].includes(route.lesson) ? route.lesson : 'bill';
+function stepLearn(route) {
+  S.learnBill = route.bill || '';
+  const name = learnName(route), E = example();
+  if (!E) return skel(1, 'Finding a bill to show you');
+  const L = lessonHTML(name, E);
+  return shell('st-lesson st-learn', `<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>${L.intro}`, L.main);
+}
+
 function stepLesson(name, step) {
   const E = example();
   if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
@@ -553,7 +595,7 @@ function upcoming() {
       .sort((p, q) => p.h.scheduled_at.localeCompare(q.h.scheduled_at));
     if (!bs.length || seen.has(i.id)) continue; seen.add(i.id);
     const { b, h } = bs[0], due = h.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}.` : '';
-    rows.push({ at: h.scheduled_at, when: WEEKDAY(h.scheduled_at), title: `${i.name}`, line: `${spaced(b.bill_number)}: ${briefCmte(h.committee)} hearing, ${timeWord(h.scheduled_at)}. ${due}`.trim(), kind: 'hear' });
+    rows.push({ at: h.scheduled_at, when: WEEKDAY(h.scheduled_at), title: `${i.name}`, line: `${spaced(b.bill_number)}: ${briefCmte(h.committee)} hearing, ${timeWord(h.scheduled_at)}. ${due}`.trim(), kind: 'hear', b, h });
   }
   rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
   if (!out.length) {
@@ -563,7 +605,7 @@ function upcoming() {
     const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
     if (vh) {
       const due = vh.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(vh.testimony_deadline)} at ${timeWord(vh.testimony_deadline)}.` : '';
-      out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear' });
+      out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear', b: vb, h: vh });
     } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? 'No hearing on your issues this week yet. We’ll tell you when one is set.' : 'No hearing set on it this week yet.', kind: 'soon' });
   }
   return out;
@@ -590,9 +632,14 @@ function askCard() {
     <p class="meta">No password: we send you a link to sign in, which also keeps your issues on any device. HIPHI staff can see which issues you follow and where you stand, so they know what the community cares about. <a href="#/privacy">Privacy</a></p>
   </form>`;
 }
+// One action inside the first visit, and only when it cannot wait (R-067 #12, Nate 9/27: "if there is a hearing, the
+// action should be testimony"): the first row whose testimony is due within 48 hours offers the walkthrough. Everything
+// else still waits for Home.
+const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
-  const off = isOff(), items = upcoming();
-  const list = `<ol class="st-soon" role="list">${items.map((it, k) => `<li style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(it.line)}</span></div></li>`).join('')}</ol>`;
+  const off = isOff(), items = upcoming(), now = off ? null : items.find(dueSoon);
+  const list = `<ol class="st-soon" role="list">${items.map((it, k) => `<li style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(it.line)}</span>
+    ${it === now ? `<span class="st-now">${btn('Write my testimony', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id } })}<span class="small muted">Due soon, so you can do it now. About 10 minutes the first time.</span></span>` : ''}</div></li>`).join('')}</ol>`;
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     <p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : followsAnything() ? 'Here’s what’s happening this week on the issues you follow.' : 'Here’s what’s happening this week.'}</p>
@@ -612,7 +659,7 @@ function recapRows() {
   const sent = mailSent();
   return [
     f.length || n ? ['star', f.length ? `You follow ${plural(f.length, 'issue')}` : `You follow ${plural(n, 'bill')}`, off ? 'Their new bills come to you as they start' : `${plural(n, 'bill')} we’ll watch for you`, 'ok'] : null,
-    acted ? ['send', `You spoke up on ${wiz().viaName || spaced(wiz().via)}`, 'Your email to the chairs', 'ok'] : null,
+    acted ? ['send', `You spoke up on ${wiz().viaName || spaced(wiz().via)}`, 'You told the committee what you think', 'ok'] : null,
     stood ? ['thumbs-up', `You took a stand on ${plural(stood, 'issue')}`, 'Never shown publicly', 'ok'] : null,
     S.stLearned ? ['landmark', 'You know how a bill becomes law', 'And when your voice counts most', 'ok'] : null,
     legs.length ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${lastName(l)}`).join(' and '), 'ok'] : null,
@@ -705,7 +752,18 @@ function redirectFor(step, off) {
   return 0;
 }
 
+// A lesson on its own: Next walks it; after its last step the button says Done and goes back where they came from.
+function wireLearn(route) {
+  const name = learnName(route), E = example(); if (!E) return;
+  document.body.classList.add('st-lessonpage');
+  lessonStart(name, E, {});
+  const leave = () => { lessonStop?.(); S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
+  document.querySelector('[data-stlearnback]')?.addEventListener('click', leave);
+  const nb = document.querySelector('[data-stlearnnext]');
+  if (nb) nb.onclick = () => { if (!lessonNext(name, E)) leave(); };   // past its last step the lesson is done
+}
 function wire(route) {
+  if (route.name === 'learn') return wireLearn(route);
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
   const to = redirectFor(step, off);
@@ -886,6 +944,10 @@ function wire(route) {
     const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { track(name, 'next', { counts: { address: !!S.stAddr.pick } }); goStep(step, step + 1); };
   }
 
+  if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
+  if (name === 'voice') {
+    const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
+  }
   if (name === 'soon') {
     // This is the visit's one email ask, so Home will not ask again.
     S.nudge = null; S.nudgedThisVisit = true;
@@ -939,18 +1001,20 @@ function wire(route) {
 }
 
 const TITLE = { topics: 'What do you care about?', issues: 'Your issues', ...LESSON_TITLES,
-  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?' };
+  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };
 export default {
   tab: 'home',
   tabs: false,
-  title: route => TITLE[nameAt(route.step || 1, isOff())] || 'Get started',
+  title: route => route.name === 'learn' ? LESSON_TITLES[learnName(route)] : TITLE[nameAt(route.step || 1, isOff())] || 'Get started',
   render(route) {
+    if (route.name === 'learn') return stepLearn(route);
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)));   // wire() sends them on
     switch (nameAt(step, off)) {
       case 'topics': return stepTopics(step);
       case 'issues': return stepIssues(step);
       case 'bill': case 'session': case 'hearing': return stepLesson(nameAt(step, off), step);
+      case 'voice': return stepVoice(step);
       case 'you': return stepYou(step);
       case 'soon': return stepSoon(step);
       case 'done': return stepDone(step);
@@ -960,6 +1024,7 @@ export default {
   },
   wire,
   bar(route) {
+    if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     switch (nameAt(step, off)) {
@@ -970,7 +1035,7 @@ export default {
         if (m.loading || m.none) return barBusy();
         return bar2(followLabel(m.count), { icon: 'star' });
       }
-      case 'bill': case 'session': case 'hearing': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'bill': case 'session': case 'hearing': case 'voice': return bar2('Next', { iconEnd: 'arrow-right' });
       case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
       case 'soon': return S.session || mailSent() ? bar1('Next') : bar2(off ? 'Keep me posted' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
       case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });

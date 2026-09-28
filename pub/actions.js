@@ -4,7 +4,7 @@
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
-  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows } from './core.js';
+  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft } from './core.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -46,8 +46,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
   const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
-  const differs = agrees(b) === false, emailFirst = late || (newToActing() && !didKind(b, h, 'email')), composing = S.compose === k;
-  const testimonyBtn = btn('Write my testimony · 5 min', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
+  // Testimony leads wherever there is a hearing, for everyone (Nate 9/27, R-068): the walkthrough writes the letter from
+  // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
+  const differs = agrees(b) === false, emailFirst = false, composing = S.compose === k;
+  const testimonyBtn = btn(testimonyDraft(h) ? 'Finish sending your testimony' : late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
   const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-compose': k } });
   const followBtn = btn('Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false' } });
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
@@ -57,8 +59,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
-  const primary = differs ? (b.state_url ? btn('Testify at the Capitol site', { kind: 'secondary', iconEnd: 'external-link', full: true, href: b.state_url, attrs: { target: '_blank', rel: 'noopener' } }) : '')
-    : asking ? followBtn
+  const primary = asking ? followBtn
     : composing ? '' : RANKED ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
@@ -70,9 +71,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rankedRows = () => [...WEIGHT.filter(x => x !== step).map(rowFor),
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready')].join('');
   const rows = RANKED ? rankedRows() : [
-    differs ? '' : emailFirst
-      ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent')
-      : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
+    // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
+    asking || composing ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 10 minutes the first time.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
+    differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
     moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
     S.goOpen.has(k) ? goPanel(b, h, k) : '',

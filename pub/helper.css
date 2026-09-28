@@ -12,7 +12,7 @@
 .hp-dlg .hp-title { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-dlg .hp-count { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
-.hp-dlg .hp-prog { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 var(--s16) var(--s4); background: var(--n0); }
+.hp-dlg .hp-prog { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 0 var(--s16) var(--s4); background: var(--n0); }
 .hp-dlg .hp-prog i { height: 4px; border-radius: 2px; background: var(--n200); transition: background .3s; }
 .hp-dlg .hp-prog i.on { background: var(--p700); }
 .hp-dlg .hp-prog.done i { background: var(--ok-text); }
@@ -117,3 +117,16 @@
   .hp-dlg .btn.text:hover, .hp-dlg .hp-tel:hover { background: var(--p50); text-decoration: none; }
   .hp-dlg .hp-tel { border-radius: var(--r8); }
 }
+
+/* R-068: big answer buttons (where you stand, the Capitol account), and help when something went wrong */
+.hp-dlg .hp-choices { display: grid; gap: var(--s12); margin-top: var(--s16); }
+.hp-dlg .hp-q { margin: 0; font-weight: 700; color: var(--n900); }
+.hp-dlg .hp-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 56px; padding: 14px 16px; border-radius: var(--r12);
+  border: 2px solid var(--p700); background: var(--n0); color: var(--p800); font: 400 var(--t16)/1.3 var(--font); text-align: left; cursor: pointer; }
+.hp-dlg .hp-choice b { font-weight: 700; font-size: var(--t18); }
+.hp-dlg .hp-choice span { color: var(--n700); font-size: var(--t14); }
+.hp-dlg .hp-choice:hover { background: var(--p50); }
+.hp-dlg .hp-choice[aria-pressed="true"] { background: var(--p700); color: #fff; }
+.hp-dlg .hp-choice[aria-pressed="true"] span { color: #fff; }
+.hp-dlg .hp-trouble p + p { margin-top: var(--s8); }
+.hp-dlg .hp-under { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s8); }

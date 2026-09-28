@@ -22,6 +22,13 @@ click_text = lambda sel, rx: f"""(()=>{{const e=[...document.querySelectorAll({j
 seen = lambda rx: f"""(()=>/{rx}/i.test((document.querySelector('main')||document.body).innerText))()"""
 
 PUBLIC = HOST + '/track.html?demo=1'
+# The testimony walkthrough's last hop: one tap copies the letter and opens the Capitol site in a new tab; coming back to
+# this tab is what turns the button into "Yes, I saw it" (helper.js listens for the page becoming visible again).
+hp_seen = lambda rx: f"""(()=>{{const d=document.getElementById('hp-dlg'); return !!d && /{rx}/i.test(d.innerText);}})()"""   # the walkthrough is a dialog outside main
+LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/Copy my letter and open/.test(x.innerText)); if(!b) return false;
+  window.open=()=>null; b.click();
+  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'}); document.dispatchEvent(new Event('visibilitychange'));
+  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'}); document.dispatchEvent(new Event('visibilitychange')); return true;})()"""
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
@@ -43,8 +50,23 @@ JOURNEYS = [
    dict(what='the plain summary is on screen, unprompted', do='true',
         reach="(()=>{const l=document.querySelector('.bl-head .lede'); return !!l && l.innerText.trim().length>20;})()"),
  ]),
- dict(name='public: decide to act -> action sent', app=PUBLIC, budget=4, start='#/', skip_wizard=True, steps=[
-   dict(what='choose the easiest action', do=click_text('.btn', 'Send a quick email'), reach=seen('Your message')),
+ # R-068 (Nate 9/27): testimony is the main action wherever there is a hearing, so "decide to act" is testimony now,
+ # budgeted for a first-timer (B-2): the stance question, name and town, the letter, the one-time Capitol account step,
+ # one tap to copy and open the Capitol page, and the green box. The quick email is still one of the other ways.
+ dict(name='public: decide to act -> testimony sent (first time)', app=PUBLIC, budget=9, start='#/bill/HB2121', skip_wizard=True, steps=[
+   dict(what='choose to testify',        do=click_text('.btn', 'Write my testimony'), reach=hp_seen('Where do you stand')),
+   dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach="(()=>!!document.getElementById('hp-name'))()"),
+   dict(what='type your name',           fill=('#hp-name', 'Kai Ho'), reach="(()=>document.getElementById('hp-name')?.value==='Kai Ho')()"),
+   dict(what='type your town',           fill=('#hp-town', 'Kailua'), reach="(()=>document.getElementById('hp-town')?.value==='Kailua')()"),
+   dict(what='see the letter',           do=click_text('#hp-dlg button', 'See my letter'), reach="(()=>!!document.getElementById('hp-letter'))()"),
+   dict(what='move on from the letter',  do=click_text('#hp-dlg button', '^Next'), reach=hp_seen('Have you sent testimony')),
+   dict(what='say you have an account',  do=click_text('#hp-dlg button', 'Yes, I have an account'), reach=hp_seen('Copy my letter and open')),
+   dict(what='copy it and open the Capitol page (and come back)', do=LEAVE_AND_RETURN, reach=hp_seen('Did you see the green box')),
+   dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Yes, I saw it'), reach=hp_seen('Mahalo')),
+ ]),
+ dict(name='public: quick email (more ways to help) -> sent', app=PUBLIC, budget=4, start='#/', skip_wizard=True, steps=[
+   dict(what='open more ways to help',   do=click_text('.btn', 'More ways to help'), reach=seen('Send a quick email')),
+   dict(what='choose the quick email',   do=click_text('.mwrow, .btn', 'Send a quick email'), reach=seen('Your message')),
    dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),

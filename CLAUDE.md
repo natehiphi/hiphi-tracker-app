@@ -107,6 +107,20 @@ session is dark (until January 2027).
   (Make a link page; `site_cards`, `public_site_cards`). Home between sessions offers "Write to my legislators".
 - **Speed** (R-067): the Supabase library is pinned (`SUPABASE_JS` in core.js, preloaded in track.html; change both
   together), and boot starts `loadReference()` and `loadPool()` alongside the catalog instead of after it.
+- **Testimony leads** (R-068, Nate 9/27): wherever there is a hearing the main action is "Write my testimony" (bill page
+  and action cards), for everyone whatever they think of the bill; the quick email is under More ways to help. The
+  walkthrough (`pub/helper.js`) is a sequence (`seqOf`): "Where do you stand?" only when they have not said Support or
+  Oppose, About you (a reason is required when the letter is their own), Your letter (Next; Copy, Email it to myself,
+  Download), the Capitol account once per browser (`hiphi_me.capitolAcct`), then one tap copies the letter and opens the
+  Capitol page, and on return "Yes, I saw it" / "Something went wrong". The letter follows the person's stance
+  (`sameAsHiphi`); HIPHI's wording and ask only when they agree. A saved draft shows as "Finish sending your
+  testimony" (`testimonyDraft` in core.js) and a card on Home; it counts as having been here. Sending follows the
+  bill's issue with "Don't follow it"; a newcomer from a link goes on to the first visit (`app.newcomerNext`).
+- **The first visit's short version** (R-067 #11): `?fv=short` (remembered in `wiz().fv`; `?fv=full` switches back)
+  replaces the three lessons with one page, "Why your voice matters" (`stepVoice`, counted as step 'voice', backend
+  080). The full version stays the default until Nate picks. The lessons also open on their own at
+  `#/learn/<bill|session|hearing>[/<bill id>]`, linked from bill pages, Help and the short page. "Coming up" offers
+  testimony when it is due within 48 hours (one action, #12).
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
   text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
   new ones the same way; `Page.setFontSizes` over CDP emulates a larger text setting in Playwright.

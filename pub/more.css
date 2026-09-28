@@ -172,3 +172,5 @@
 @media (min-width: 1100px) {
   .mr .mr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.mr .mr-learn { margin: var(--s12) 0 0; font-size: var(--t14); }
+.mr .mr-learn a { font-weight: 700; }

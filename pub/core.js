@@ -1113,6 +1113,8 @@ export function openActions(bills, hearings) {
 // Every action counts: any kind done on a hearing means the card is done for "Do this now".
 export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id, k)));
 export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
+// A testimony letter saved in the walkthrough for this hearing and not sent yet (helper.js, hiphi_me.drafts; R-068).
+export const testimonyDraft = h => { try { return !!h && !!JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts?.[h.id]; } catch { return false; } };
 // Settled: the person has taken a real step for this hearing - testimony, an email to the chair, or going in person.
 // A two-second Share alone settles it only once testimony can no longer be sent (late, or HIPHI's letter is not theirs
 // to send). It used to count as done, which folded the card into "Done this week" with testimony still open (R-005,
@@ -1147,7 +1149,8 @@ export async function ensureBill(num) {
 // Where a person is in the guided start: a first visit is someone who has not finished or skipped it, follows nothing
 // and has done nothing. Someone who sent the quick email from a link, then said "Don't follow it", came back to the
 // start as if new (R-067): an action they marked counts as having been here.
-export const firstVisit = () => !followsAnything() && !myActions().length && ((!wiz().done && !wiz().skipped) || readyForSession());
+export const firstVisit = () => !followsAnything() && !myActions().length && !hasDrafts() && ((!wiz().done && !wiz().skipped) || readyForSession());
+const hasDrafts = () => { try { return Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}).length > 0; } catch { return false; } };
 // Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
 export const readyForSession = () => !!wiz().ready && !followsAnything() && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
 export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');

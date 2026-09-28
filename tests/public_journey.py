@@ -127,7 +127,7 @@ with sync_playwright() as pw:
     # ---- 1b. a shared bill (R-023 decision 7): the easiest action first, "Follow this issue" second ----
     c, p = ctx(b); fresh(p); visit(p, '/bill/HB2121', wait=3000)
     ok(p.locator('.bl-newbie').count() == 1 and 'New here?' in text(p), 'a newcomer on a shared bill gets the "New here?" card')
-    ok('email' in p.inner_text('.actionbar').lower(), 'the easiest action leads (the quick email)')
+    ok('testimony' in p.inner_text('.actionbar').lower(), 'testimony leads wherever there is a hearing (R-068)')
     ok(p.get_by_role('button', name='Follow this issue', exact=True).count() == 1 and 'instead' not in text(p), '"Follow this issue" once, without "instead"')
     std(p, 'arrive', axe=True); shot(p, 'p_arrive')
     ok(p.locator('.actionbar [data-bl-newlater]').count() == 1 and 'Just looking' in p.inner_text('.actionbar'), '"Just looking" sits beside the action it turns down')
@@ -145,13 +145,13 @@ with sync_playwright() as pw:
     ok('Want us to tell you next time?' in text(p), 'after a quick email, "Want us to tell you next time?" asks about following'); std(p, 'followask', axe=True)
     c.close()
     c, p = ctx(b, 1440, 900); fresh(p); visit(p, '/bill/HB2121', wait=3000)
-    top = p.evaluate("(() => { const b = [...document.querySelectorAll('main .btn.primary')].find(x => /email/i.test(x.innerText)); return b ? Math.round(b.getBoundingClientRect().top) : -1; })()")
-    ok(0 < top < 700, f'on a laptop the quick email is in view at the top, beside the bill ({top}px)'); shot(p, 'd_arrive')
+    top = p.evaluate("(() => { const b = [...document.querySelectorAll('main .btn.primary')].find(x => /testimony/i.test(x.innerText)); return b ? Math.round(b.getBoundingClientRect().top) : -1; })()")
+    ok(0 < top < 700, f'on a laptop the testimony button is in view at the top, beside the bill ({top}px)'); shot(p, 'd_arrive')
     c.close()
 
     # ---- 2. a return visit: the ladder ----
     c, p = ctx(b); follower(p, more=WAITING); visit(p, '/', wait=3200); shot(p, 'p_home_return', full=True)
-    first = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('email' in first.lower(), f'newcomer ladder: first card leads with the quick email ("{first}")')
+    first = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first.lower(), f'first card leads with testimony ("{first}")')
     ok(re.search(r'ask the chair', text(p), re.I) is not None, 'Home offers "Ask the chair for a hearing" for a waiting bill')
     ok(not COMMUNITY.search(text(p)), 'return Home has no community-wide totals'); std(p, 'home_return', axe=True)
     hgt = p.evaluate('document.documentElement.scrollHeight'); ok(hgt <= 2800, f'Home height {hgt}px')
