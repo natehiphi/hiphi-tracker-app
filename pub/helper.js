@@ -369,7 +369,7 @@ function aboutScreen() {
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${own2() ? 'This is the heart of your letter. One or two sentences in your own words.' : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
-        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="For example: Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
