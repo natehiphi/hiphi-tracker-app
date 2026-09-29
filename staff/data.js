@@ -552,6 +552,37 @@ export const DB = {
     const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
     if (!j.ok) throw new Error(j.error || 'could not start'); return j;
   },
+  // ---- the team: Session setup > Team (backend migration 093 and the team-admin function; R-092). Admins only. ----
+  // Who can sign in, and when they last did. The sandbox has no logins, so there only the admin has one.
+  async teamLogins() {
+    if (DEMO) return S.advocates.map(a => ({ advocate_id: a.id, has_login: !!a.is_admin, last_sign_in_at: a.is_admin ? DEMO_ASOF : null, link_made_at: null }));
+    const { data, error } = await S.supa.rpc('team_logins'); if (error) throw error; return data || [];
+  },
+  // Add a person (id null) or change one. The server checks everything; the sandbox checks the two things people
+  // trip on, so practising there answers the same way.
+  async teamSave(id, p) {
+    const row = { full_name: p.full_name.trim(), initials: p.initials.trim().toUpperCase(), email: p.email.trim().toLowerCase(), is_admin: !!p.is_admin, is_reviewer: !!p.is_reviewer, is_active: p.is_active !== false };
+    if (DEMO) {
+      const other = S.advocates.filter(a => a.id !== id);
+      if (other.some(a => (a.email || '').toLowerCase() === row.email)) throw new Error(`Someone on the team already has the email ${row.email}.`);
+      if (other.some(a => (a.initials || '').toUpperCase() === row.initials)) throw new Error(`Someone on the team already uses the initials ${row.initials}.`);
+      if (id) Object.assign(advocate(id), row); else { id = crypto.randomUUID(); S.advocates.push({ id, color: '#9A4E9E', ...row }); }
+      S.advocates.sort((a, b) => a.full_name.localeCompare(b.full_name)); return id;
+    }
+    const { data, error } = await S.supa.rpc('team_save', { p_id: id || null, p_full_name: row.full_name, p_initials: row.initials, p_email: row.email, p_is_admin: row.is_admin, p_is_reviewer: row.is_reviewer, p_is_active: row.is_active });
+    if (error) throw error;
+    const adv = await S.supa.from('advocates').select('*').order('full_name');
+    if (!adv.error) { S.advocates = adv.data; S.me = adv.data.find(a => a.id === S.me?.id) || S.me; }
+    return data;
+  },
+  // Make the person's login if they have none, and a one-time set-up link for the admin to send them. Nothing is emailed.
+  async teamLink(id) {
+    if (DEMO) throw new Error('The sandbox does not make sign-in links. Use the live app.');
+    const { data } = await S.supa.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/team-admin`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ advocate_id: id, redirect_to: APP_URL }) });
+    const j = await r.json().catch(() => ({ ok: false, error: `The link could not be made (${r.status}). Try again.` }));
+    if (!j.ok) throw new Error(j.error || 'The link could not be made. Try again.'); return j;
+  },
   // ---- inbox (migration 032): everything addressed to me, read or unread ----
   async loadInbox() {
     if (DEMO) return S.inbox;

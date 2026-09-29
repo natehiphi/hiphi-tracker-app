@@ -83,6 +83,13 @@ details no longer repeats the list. From nine dots they shrink; on wide screens 
 above and below the line, in a subgrid whose top row grows to the longest name. `tests/pathway.py` checks the dots, the
 names, the links and that no two names overlap.
 
+**Admins keep the team list in Staff v2 (R-092, 9/29):** Session setup > Team (`#/setup/team`, `PAGES.team` in
+`staff/setup.js`). Add a person, edit them, turn them off (with Undo; nobody is deleted), and "Sign-in link" makes the
+person's login if they have none and a one-time set-up link the admin sends by Slack or email (nothing is emailed from
+the app). Data: `DB.teamLogins` / `teamSave` (backend migration 093: `team_logins()`, `team_save()`, admins only) and
+`DB.teamLink` (the `team-admin` Edge Function, which also handles its own CORS). The link is a password-recovery link,
+so it lands on the app's existing "Choose a password" screen. Staff v2 only (`parity.mjs` V2_ONLY).
+
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).
 

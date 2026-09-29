@@ -229,6 +229,23 @@
 .st-page .st-coalbody { border-top: 1px solid var(--n100); }
 .st-coalbody .sv-pick { align-self: flex-start; }
 
+/* team (R-092): a row per person, with a sign-in link button beside it while they still have to sign in */
+.st-tm { display: flex; align-items: center; gap: var(--s8); }
+.st-page .st-team > .st-tm + .st-tm, .st-teamoff > .st-fold + .st-tm { border-top: 1px solid var(--n100); }
+.st-tm > .row { flex: 1 1 auto; min-width: 0; }
+.st-tm .st-tmav { background: none; }
+.st-tmlink { flex: none; padding-right: var(--s12); }
+.st-page .st-teamoff { margin-top: var(--s16); }
+@media (max-width: 599px) { .st-tm { flex-wrap: wrap; } .st-tmlink { padding: 0 var(--s16) var(--s12) 60px; } }
+.st-tmform { display: flex; flex-direction: column; gap: var(--s12); }
+.st-tmmore { margin-top: var(--s16); border-top: 1px solid var(--n100); }
+.st-tmact { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: var(--s12) 0; }
+.st-tmact + .st-tmact { border-top: 1px solid var(--n100); }
+.st-tmact p { margin: 0; }
+.btn.text.st-danger { color: var(--bad-text); }
+#tm-msg { font-size: var(--t14); resize: vertical; }
+.sv-sh-body > .st-shp { margin: 0 0 var(--s16); }
+
 /* import summary, connections, keys */
 .st-sumcard { margin-top: var(--s12); background: var(--n50); border-radius: var(--r12); padding: var(--s12) var(--s16); }
 .st-sumcard .sv-notice, .st-sumcard .notice { margin-top: var(--s8); }
