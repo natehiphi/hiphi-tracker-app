@@ -1,10 +1,10 @@
 // HIPHI public tracker: state, data and the plain-language layer (no screens here).
 // Screens live in pub/*.js and import from this module; pub/app.js owns routing and the page frame.
 // Moved out of track.js on 9/19 for the mobile-first redesign; the data code is unchanged unless a comment says so.
-import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber } from '../stops.js';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from '../stops.js';
 import { ICONS, icon } from '../icons.js';
 import { topicOf } from './topics.js';
-export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, ICONS, icon };
+export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, ICONS, icon };
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
 export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
@@ -105,29 +105,25 @@ export const asSentence = t => /^[A-Z][a-z]+s,? (?!(?:may|must|shall|will|can|ar
 export const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed'; const h = Math.round(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.ceil(ms / 864e5)}d`; };
 export const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
 export const STAGE_LABEL = { introduced: 'Introduced', first_triple: '1st Triple', first_lateral: '1st Lateral', first_decking: '1st Decking',
-  first_floor: 'Floor vote', first_crossover: 'Crossed over', second_triple: '2nd Triple', second_lateral: '2nd Lateral', second_decking: '2nd Decking',
-  second_floor: 'Floor vote', second_crossover: 'Passed both', conference: 'Conference', governor: 'Governor', enacted: 'Law', vetoed: 'Vetoed',
-  ballot: 'To the voters', dead: 'Dead' };
+  first_crossover: 'Crossed over', second_triple: '2nd Triple', second_lateral: '2nd Lateral', second_decking: '2nd Decking',
+  second_crossover: 'Passed both', conference: 'Conference', governor: 'Governor', enacted: 'Law', vetoed: 'Vetoed', dead: 'Dead' };
 // The same stages in plain language, for people who do not live at the Capitol.
-export const STAGE_PLAIN = { introduced: 'Introduced and waiting to be sent to a committee',
+export const STAGE_PLAIN = { introduced: 'Introduced and waiting for its first committee hearing',
   first_triple: 'In its first committee; a triple-referred bill that must be heard before the Triple Filing deadline',
   first_lateral: 'In a committee of its first chamber; it must be heard before the Lateral deadline',
-  first_decking: 'In the last committee of its first chamber; it must pass before the Decking deadline',
-  first_floor: 'Through its committees; waiting for a vote of the full chamber before the Crossover deadline',
+  first_decking: 'In the money committee of its first chamber; it must be heard before the Decking deadline',
   first_crossover: 'Passed its first chamber; now in the other chamber',
   second_triple: 'In its first committee of the second chamber; it must be heard before the Triple Filing deadline',
   second_lateral: 'In a committee of the second chamber; it must be heard before the Lateral deadline',
-  second_decking: 'In the last committee of the second chamber; it must pass before the Decking deadline',
-  second_floor: 'Through the second chamber’s committees; waiting for a vote of the full chamber',
-  second_crossover: 'Passed both chambers in different versions; the first chamber decides whether to agree',
+  second_decking: 'In the money committee of the second chamber; it must be heard before the Decking deadline',
+  second_crossover: 'Passed both chambers; the two versions may need to be reconciled',
   conference: 'House and Senate negotiators are reconciling their versions',
   governor: 'On the Governor’s desk, waiting for signature or veto',
-  enacted: 'Signed into law', vetoed: 'Vetoed by the Governor', ballot: 'Passed the Legislature; the voters decide in November',
-  dead: 'Did not advance this session' };
+  enacted: 'Signed into law', vetoed: 'Vetoed by the Governor', dead: 'Did not advance this session' };
 export const RAIL = [['introduced', 'Intro'], ['first_lateral', '1st Lat'], ['first_decking', '1st Deck'], ['first_crossover', 'Cross'],
   ['second_lateral', '2nd Lat'], ['second_decking', '2nd Deck'], ['conference', 'Conf'], ['governor', 'Gov'], ['enacted', 'Law']];
-export const RAIL_IDX = { introduced: 0, first_triple: 1, first_lateral: 1, first_decking: 2, first_floor: 2, first_crossover: 3, second_triple: 4, second_lateral: 4,
-  second_decking: 5, second_floor: 5, second_crossover: 5, conference: 6, governor: 7, enacted: 8, vetoed: 7, ballot: 7, dead: null };
+export const RAIL_IDX = { introduced: 0, first_triple: 1, first_lateral: 1, first_decking: 2, first_crossover: 3, second_triple: 4, second_lateral: 4,
+  second_decking: 5, second_crossover: 5, conference: 6, governor: 7, enacted: 8, vetoed: 7, dead: null };
 export const COMMITTEE_STAGES = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'second_triple', 'second_lateral', 'second_decking'];
 export const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of','on','or','the','to','via','with','nor','per','from']);
 export const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
@@ -815,10 +811,7 @@ export function referralPath(b) {
   return line(origin, refs.slice(0, n), 'first') + (second.length ? line(otherCh, second, 'second') : (st.leg === 'second' && st.phase === 'committee' ? `<span class="refline"><span class="refch">${CHAMBER_NAME[otherCh]}</span><span class="refstop muted">awaiting referral</span></span>` : ''));
 }
 export function nextDeadline(b) { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; }
-// Put on hold for the year: a committee deferring the measure with no date, or a failed vote. "Deferred the measure until
-// 04-08-26" only moves the decision to that day, and the page called those bills stopped (509 bills in 2026, R-072).
-export const HELD_RE = /deferred the measure(?!\s+until)|measure be deferred(?!\s+until)|failed to pass/i;
-export const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].includes(b.stage || '') && !HELD_RE.test(b.last_action || '');
+export const alive = b => !['dead', 'vetoed', 'enacted', 'governor'].includes(b.stage || '') && !/deferred|failed to pass/i.test(b.last_action || '');
 export const posCls = b => ({ strongly_support: 'pos-support', support: 'pos-support', support_amend: 'pos-support', strongly_oppose: 'pos-oppose', oppose: 'pos-oppose', neutral: 'pos-neutral' }[b.hiphi_position] || 'pos-none');
 // "First Lateral 2/20/26" -> a sentence a neighbour would understand.
 export function whyDead(b) {
@@ -826,7 +819,7 @@ export function whyDead(b) {
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
   if (m) return `Missed the ${m[1]} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
   if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
-  if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
+  if (/deferred/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
   return b.stage === 'vetoed' ? 'Vetoed by the Governor.' : 'Did not advance.';
 }
@@ -940,8 +933,7 @@ export function impactRows(acts, limit = 5) {
   return [...by.values()].sort((x, y) => y.at.localeCompare(x.at)).map(x => {
     const b = anyBill(x.bill_id); if (!b) return null;
     const h = anyHearing(x.hearing_id), o = h && outcomeOf(h), past = h && new Date(h.scheduled_at) < Date.now(), who = h ? cmteName(h.committee) : '';
-    const [tone, text] = b.stage === 'enacted' ? ['law', `${isResolution(b) ? 'Adopted' : 'Became law'}. Mahalo for your part in it.`]
-      : b.stage === 'ballot' ? ['law', 'Passed the Legislature. The voters decide in November.']
+    const [tone, text] = b.stage === 'enacted' ? ['law', 'Became law. Mahalo for your part in it.']
       : b.stage === 'vetoed' ? ['stop', 'Vetoed by the Governor.']
       : o && /passed/.test(o.outcome || '') ? ['up', `${who} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`]
       : o && o.outcome === 'deferred' ? ['stop', `${who} put it on hold. Your testimony stays on the record for next time.`]
@@ -1062,9 +1054,7 @@ export const hearingText = h => h ? `Hearing ${dateLong(h.scheduled_at)} at ${ti
 // One plain sentence for where a bill is and what happens next.
 export function plainStatus(b) {
   const st = stopOf(b);
-  if (b.stage === 'enacted' || st.phase === 'law') return isResolution(b) ? { text: 'Adopted.', short: 'Adopted', tone: 'ok' } : { text: 'Became law.', short: 'Became law', tone: 'ok' };
-  // A constitutional amendment the Legislature passed goes on the November ballot, not to the Governor (R-072).
-  if (b.stage === 'ballot' || st.phase === 'ballot') return { text: 'Passed the House and Senate. The voters decide on it in the November election.', short: 'Goes to the voters', tone: 'ok' };
+  if (b.stage === 'enacted' || st.phase === 'law') return { text: 'Became law.', short: 'Became law', tone: 'ok' };
   if (b.stage === 'vetoed' || st.phase === 'vetoed') return { text: 'Vetoed by the Governor.', short: 'Vetoed', tone: '' };
   if (b.stage === 'governor' || st.phase === 'governor') return { text: 'Passed the House and Senate. It is on the Governor’s desk.', short: 'On the Governor’s desk', tone: 'info' };
   if (!alive(b) || st.phase === 'dead') return { text: whyStopped(b), short: 'Stopped this session', tone: '' };
@@ -1089,14 +1079,9 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 export function whyStopped(b) {
   if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
   const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now()).pop();
+  if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
-  if (HELD_RE.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
-  if (isResolution(b)) return 'It was not adopted this session.';
-  // Through its committees, then no floor vote before Crossover (R-072: the backend now says so instead of Decking).
-  const fl = /^(first|second)_floor$/.exec(b.died_at_stage || '');
-  if (fl) { const o = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), ch = CHAMBER_NAME[fl[1] === 'first' ? o : (o === 'H' ? 'S' : 'H')];
-    return `It got through its ${ch} committees, but the full ${ch} did not vote on it before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`; }
   // Stopped after both chambers passed it. Its last hearing was weeks earlier, so "heard on ... but did not move
   // forward" read as if a committee had stopped it (HB 1782, which died in conference; Nate 9/26).
   if (/^(second_crossover|conference)$/.test(b.died_at_stage || '')) return `It passed the House and the Senate, but the two did not agree on one final version before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
