@@ -666,7 +666,7 @@ function hearingRow(b, h, now) {
     : o?.outcome ? chip(OUTCOME_PLAIN[o.outcome] || 'Decided', /passed/.test(o.outcome) ? 'ok' : '', /passed/.test(o.outcome) ? 'circle-check' : o.outcome === 'deferred' ? 'hourglass' : 'undo-2')
     : past ? chip(pending ? 'Waiting for the decision' : 'Heard', '', pending ? 'hourglass' : 'check') : '';
   // What this person did for this hearing stays with it after the hearing (R-067: the page forgot it the day after).
-  const DID = { email: 'You emailed the chair', testimony: 'You testified', attend: 'You went', share: 'You shared it' };
+  const DID = { email: 'You emailed the chair', legislators: 'You wrote to your legislators', testimony: 'You testified', attend: 'You went', share: 'You shared it' };
   const mine = Object.keys(DID).filter(kd => didKind(b, h, kd)).map(kd => chip(DID[kd], 'yay', 'user-check')).join('');
   const acts = [
     !past && !off && posInfo(b) && alive(b) && agrees(b) !== false && due && !due.late ? btn('Write testimony', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': h.id, 'data-bill': b.id } }) : '',

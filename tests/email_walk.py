@@ -218,6 +218,8 @@ with sync_playwright() as pw:
         check('Senate District' in p.input_value('#hp-subject'), f'{tag}: the subject says constituent and district')
         send_step(p, tag, wide, to_expect=[sen['email']])
         check(f'{ID["HB1563"]}|cmte-HHS/EIG|ask' in done(p), f'{tag}: that moment is marked done')
+        d = done(p)   # 089 (R-087): an email to your own legislators is counted as its own kind, not as a chair email
+        check(f'{ID["HB1563"]}||legislators' in d and f'{ID["HB1563"]}||email' not in d, f'{tag}: counted as an email to your own legislators ({[x for x in d if ID["HB1563"] in x]})')
         tap(p, '^Done'); p.wait_for_timeout(1500)
         again = p.evaluate("[...document.querySelectorAll('[data-sp=moment] [data-speak]')].map(e => e.dataset.speak)")
         check(not any(k.startswith(ID['HB1563']) for k in again), f'{tag}: and not offered again ({again})')

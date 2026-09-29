@@ -160,7 +160,7 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
 }
 export function logAct(kind) {
   try {
-    if (DEMO || gpc() || !['email', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
+    if (DEMO || gpc() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
     return sendCount({ kind: 'act', act: kind, device: device() }).catch(() => false);
   } catch { return Promise.resolve(false); }
 }

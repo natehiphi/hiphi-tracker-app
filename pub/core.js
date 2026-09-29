@@ -233,7 +233,7 @@ export const doneKey = (billId, hearingId, kind) => `${billId}|${hearingId || ''
 export const DONE_AT_KEY = DEMO ? 'hiphi_done_at_demo' : 'hiphi_done_at';
 export function localDoneAt() { try { return JSON.parse(localStorage.getItem(DONE_AT_KEY) || '{}') || {}; } catch { return {}; } }
 export function saveDoneAt() { try { localStorage.setItem(DONE_AT_KEY, JSON.stringify(S.doneAt || {})); } catch { /* ignore */ } }
-export const KINDS = ['testimony', 'email', 'attend', 'share'];
+export const KINDS = ['testimony', 'email', 'legislators', 'attend', 'share'];   // 'legislators': an email to your own legislators (089, R-087)
 export async function loadActions(ids) {
   S.done = localDone(); S.doneAt = localDoneAt();
   if (DEMO) { if (new URLSearchParams(location.search).has('seed')) seedDemoActions();
@@ -273,7 +273,7 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   if (on) app.onAct?.(kind);   // counted privately, its kind only (visitlog.js logAct, migration 078)
   if (on && !S.session) nudge('action');
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
-  const col = { testimony: 'testimonies', email: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
+  const col = { testimony: 'testimonies', email: 'emails', legislators: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
   if (!DEMO && S.session && S.user) {
     const r = on ? await S.supa.from('public_actions').insert({ user_id: S.session.user.id, bill_id: billId, hearing_id: hearingId || null, kind })
                  : await S.supa.from('public_actions').delete().eq('user_id', S.session.user.id).eq('bill_id', billId).eq('kind', kind).is('hearing_id', hearingId || null);
@@ -940,7 +940,7 @@ export function impactRows(acts, limit = 5) {
   const by = new Map();
   for (const a of acts) { const key = a.bill_id + '|' + (a.hearing_id || ''), x = by.get(key) || { bill_id: a.bill_id, hearing_id: a.hearing_id, kinds: [], at: '' };
     if (!x.kinds.includes(a.kind)) x.kinds.push(a.kind); if ((a.at || '') > x.at) x.at = a.at || ''; by.set(key, x); }
-  const WORD = { testimony: 'testified', email: 'emailed the chair', attend: 'went in person', share: 'shared it' };
+  const WORD = { testimony: 'testified', email: 'emailed the chair', legislators: 'wrote to their legislators', attend: 'went in person', share: 'shared it' };
   return [...by.values()].sort((x, y) => y.at.localeCompare(x.at)).map(x => {
     const b = anyBill(x.bill_id); if (!b) return null;
     const h = anyHearing(x.hearing_id), o = h && outcomeOf(h), past = h && new Date(h.scheduled_at) < Date.now(), who = h ? cmteName(h.committee) : '';

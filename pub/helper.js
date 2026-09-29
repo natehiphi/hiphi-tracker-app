@@ -956,9 +956,10 @@ async function confirmMail() {
   x.busy = true; x.failMsg = ''; paintFoot();
   x.before = earned();
   try {
-    if (x.mode === 'intro') { app.onAct?.('email'); introMark('sent'); }
+    if (x.mode === 'intro') { app.onAct?.('intro'); introMark('sent'); }   // counted apart (089, R-087)
     else {
-      await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', 'email', true, { quiet: true });
+      // A chair email stays 'email'; one to your own legislators is 'legislators' (Nate 9/29: "Count the emails separately").
+      await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', x.mode === 'legislators' ? 'legislators' : 'email', true, { quiet: true });
       if (x.mode === 'email' && !x.h && x.code) S.done.add(askMark(x.b, x.code));
       if (x.mode === 'legislators' && x.moment?.key) S.done.add(askMark(x.b, x.moment.key));
       saveDone();

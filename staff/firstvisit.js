@@ -202,7 +202,7 @@ function sampleBack(weeks) {
       gaps: { new: n, '1d': 9, '2-7d': 21, '8-30d': b - n - 36, '31-90d': 6 }, following: Math.round(b * .7), home_screen: 4 + (w % 3), signed_in: 7,
       acts: { email: 12 + (w % 5), testimony: 3 + (w % 3), share: 5, attend: w % 2 } }; });
 }
-const ACTS = { email: 'quick emails', testimony: 'testimony', attend: 'went in person', share: 'shares' };
+const ACTS = { email: 'emails to a chair', legislators: 'emails to their own legislators', intro: 'introductions to their legislators', testimony: 'testimony', attend: 'went in person', share: 'shares' };   // 089 (R-087)
 function backHTML(rows) {
   if (!rows) return '';   // the call failed: the first-visit numbers above still stand
   const t = { b: 0, n: 0, r: 0, week: 0, home: 0, acts: {} };

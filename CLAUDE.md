@@ -60,9 +60,11 @@ and "Open in my mail app" (mailto), "Open in Gmail" and "Open in Outlook.com" ea
 first; laptop: Gmail first), with "Copy address/subject/message" below. `pub/speakup.js` finds the moments to write to your
 own legislators (floor vote in their chamber; their committee's hearing; waiting in a committee they sit on or chair),
 places the Home cards (and the one-time "Introduce yourself" card, `hiphi_intro`), and takes over the bill page's email
-buttons by their `data-bl-*` hooks (a cleaner later step: `bill.js` calls `app.openMail` itself). Everything counts as kind
-'email' (the database accepts email/testimony/attend/share only). Districts are kept on the device (`hiphi_districts`),
-never the address. `tests/email_walk.py`.
+buttons by their `data-bl-*` hooks (a cleaner later step: `bill.js` calls `app.openMail` itself). Kinds (migration 089,
+R-087): a chair email is 'email', one to your own legislators 'legislators' (public totals add both to "emails"), the
+introduction 'intro' (private counts only). Districts are kept on the device (`hiphi_districts`) and on an account; a
+street address is never stored anywhere (migration 090 dropped `people.address`; Settings uses it once, R-086).
+`tests/email_walk.py`.
 **Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (`pub/tour.js`, mounted
 from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is

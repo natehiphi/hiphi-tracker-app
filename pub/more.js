@@ -180,7 +180,7 @@ export function accountCardsHTML() {
   if (S.addrCard) return `<section class="card mr-acct" id="mr-ac" aria-labelledby="mr-ac-t">
     ${acctHead('landmark', 'mr-ac-t', 'Find your legislators')}
     <p class="small">Add your home address, and we’ll point you to your own senator and representative when a bill needs a voice.</p>
-    ${addrField('mr-ac', AC, { help: 'Only you see your address. HIPHI staff see just your districts.' })}
+    ${addrField('mr-ac', AC, { help: 'Used once to find your districts, then forgotten. Only the districts are saved.' })}
     <div id="mr-ac-msg"></div>
     <div class="btnrow">${btn('Save', { kind: 'secondary', sm: true, attrs: { 'data-mr-ac': 'save' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-mr-ac': 'later' } })}</div>
   </section>`;
@@ -218,9 +218,9 @@ export function wireAccountCards() {
       if (!AC.picked || !AC.sd) { err(AC.q.trim() ? 'Pick your address from the list, so we can find your districts.' : 'Type your street address, then pick it from the list.'); focusField(inp); return; }
       const pr = S.profile || {};
       busy(save, 'Saving…'); err('');
-      const { error } = await S.supa.rpc('save_my_profile', { p_name: pr.name || '', p_phone: pr.phone || '', p_address: AC.q, p_house: AC.hd, p_senate: AC.sd, p_interests: pr.interests || [] });
+      const { error } = await S.supa.rpc('save_my_profile', { p_name: pr.name || '', p_phone: pr.phone || '', p_address: null, p_house: AC.hd, p_senate: AC.sd, p_interests: pr.interests || [] });
       if (error) { unbusy(save); err(friendly(error)); return; }
-      S.profile = { ...pr, address: AC.q, senate_district: AC.sd, house_district: AC.hd };
+      S.profile = { ...pr, address: null, senate_district: AC.sd, house_district: AC.hd };
       rememberDistricts(AC.sd, AC.hd, AC.q);
       Object.assign(AC, { q: '', sd: null, hd: null, picked: false, results: [] });
       S.addrCard = false; app.render(); yay('Saved. Find your senator and representative under More.');
@@ -407,7 +407,7 @@ function freshForm() {
   const pr = S.profile || {}, p = S.user?.prefs || {};
   F = { name: pr.name || '', phone: pr.phone || '', ints: new Set(pr.interests || []),
     choices: { alerts: p.hearing_alerts === true, action: p.action_alerts === true },
-    addr: { q: pr.address || '', sd: pr.senate_district || null, hd: pr.house_district || null, picked: !!pr.senate_district, results: [] },
+    addr: { q: '', sd: pr.senate_district || null, hd: pr.house_district || null, picked: !!pr.senate_district, results: [] },
     del: false };
 }
 function settingsView() {
@@ -433,7 +433,7 @@ function settingsView() {
         <div class="card">
           <div class="field"><label for="mr-name">Your name</label><input id="mr-name" type="text" value="${esc(F.name)}" maxlength="120" autocomplete="name" autocapitalize="words"></div>
           <div class="field"><label for="mr-phone">Phone <span class="mr-opt">(optional)</span></label><input id="mr-phone" type="tel" value="${esc(F.phone)}" maxlength="40" autocomplete="tel" inputmode="tel"></div>
-          ${addrField('mr-st', F.addr, { help: 'Only you see your address. HIPHI staff see just your districts.' })}
+          ${addrField('mr-st', F.addr, { help: 'Used once to find your districts, then forgotten. Only the districts are saved.' })}
           <fieldset class="mr-set"><legend>How would you like to help?</legend>
             ${INTERESTS.map(([k, l]) => check(`mr-int-${k}`, l, '', F.ints.has(k), ` data-mr-int="${k}"`)).join('')}
           </fieldset>
@@ -467,18 +467,19 @@ function wireSettings() {
     const b = $('#mr-st-save'); if (b.getAttribute('aria-busy')) return;
     msg.innerHTML = ''; busy(b, 'Saving…');
     const a = F.addr, addr = a.q.trim(), pr = S.profile || {};
-    // Districts come from a picked address; an address kept as it was keeps its districts; anything else has none.
-    const same = addr && addr === (pr.address || '');
-    const sd = a.picked ? a.sd : same ? pr.senate_district : null, hd = a.picked ? a.hd : same ? pr.house_district : null;
+    // Districts come from a picked address; an empty box keeps the districts already saved (the address itself is never
+    // stored, R-086, Nate 9/29: "Remove the address from the database"); anything typed but not picked has none.
+    const keep = !addr;
+    const sd = a.picked ? a.sd : keep ? pr.senate_district : null, hd = a.picked ? a.hd : keep ? pr.house_district : null;
     const prefs = { ...(S.user.prefs || {}), hearing_alerts: F.choices.alerts, action_alerts: F.choices.action, consent_at: new Date().toISOString() };
     const interests = INTERESTS.map(([k]) => k).filter(k => F.ints.has(k));
     const [r1, r2] = await Promise.all([
       S.supa.from('public_users').update({ prefs }).eq('id', S.user.id),
-      S.supa.rpc('save_my_profile', { p_name: F.name.trim(), p_phone: F.phone.trim(), p_address: addr, p_house: hd || null, p_senate: sd || null, p_interests: interests }),
+      S.supa.rpc('save_my_profile', { p_name: F.name.trim(), p_phone: F.phone.trim(), p_address: null, p_house: hd || null, p_senate: sd || null, p_interests: interests }),
     ]);
     unbusy(b);
     if (!r1.error) { S.user.prefs = prefs; S.consentCard = false; }
-    if (!r2.error) { S.profile = { ...pr, name: F.name.trim() || null, phone: F.phone.trim() || null, address: addr || null, senate_district: sd || null, house_district: hd || null, interests };
+    if (!r2.error) { S.profile = { ...pr, name: F.name.trim() || null, phone: F.phone.trim() || null, address: null, senate_district: sd || null, house_district: hd || null, interests };
       if (sd && hd && a.picked) rememberDistricts(sd, hd, addr); }
     const err = r1.error || r2.error;
     if (err) { msg.innerHTML = inlineErr('mr-st-err', friendly(err)); return; }
@@ -518,7 +519,7 @@ const PRIVACY = [
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in Settings. HIPHI staff can see this, so they can reach out about your issues. What you saved on this device joins your account.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
-  ['map-pin', 'Your home address', 'If you add it in Settings, only you see it. HIPHI staff see just the districts it falls in. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
+  ['map-pin', 'Your home address', 'We never store it. In Settings it is used once to find your districts, and only the district numbers are saved on your account; HIPHI staff see just those. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
   ['notebook-pen', 'Your testimony and emails', 'Your name and letter stay on this device until you send the letter on the Capitol website. Testimony is public there: the Capitol posts your name and letter online. An email to a lawmaker goes from your own email account; we never see it or send it for you, and its draft stays on this device. If you type your email in the letter helper, we use it for your link and your hearing alerts. It is never added to your letter.'],
   ['chart-column', 'What we count', 'To make the tracker better, we count which screens of the first visit people reach and how long they stay, whether they came from a partner’s link, a campaign or another website (its name only), and whether it was a phone or a laptop. Each first visit gets a random number that ends when you close the tab. Once a day we also count that the tracker was opened, how long since this browser last opened it (in ranges, like “2 to 7 days”), the month it was first opened, and whether it follows anything; and when you mark an action done, only which kind it was (an email, testimony, going in person, a share). This browser remembers the month and the last day itself; they are never sent more exactly than that. We never record your email, your name, your address, which stance you took, which bill, or anything else that could tell who you are. If your browser asks sites not to track you, we record nothing.'],
   ['shield-check', 'What we never do', 'We never sell your information or share it outside HIPHI. Every email has a one-click unsubscribe. You can delete your account, and everything in it, from Settings at any time.'],
