@@ -295,10 +295,11 @@ function mainButton(b, x) {
 // hearing and one vote. A chamber that has not picked its committees yet is one step, "Senate committees", until it does.
 const ORD = ['1st', '2nd', '3rd'];
 // "Health" for "Health and Human Services", "Ways and Means" whole (the rule briefCmte in start.js uses): short enough to
-// sit under a dot. Two committees together: "Health and Commerce".
+// sit under a dot. Two committees together: "Health and Commerce", or "Labor and Technology with Health" when a name has
+// its own "and" (HB1782 read "Labor and Technology and Health", three committees at a glance).
 const briefName = n => n.split(/\s+/).length <= 3 ? n : n.split(/\s+(?:and|&)\s+|,\s*/)[0];
-const cmteBrief = code => { const cs = String(code).split('/').map(c => S.committees[c.trim()]).filter(Boolean);
-  return cs.length ? cs.map(c => briefName(c.name)).join(' and ') : String(code).replace(/\//g, ' and '); };
+const cmteBrief = code => { const ns = String(code).split('/').map(c => S.committees[c.trim()]).filter(Boolean).map(c => briefName(c.name));
+  return ns.length ? ns.join(ns.some(n => /\s(?:and|&)\s/.test(n)) ? ' with ' : ' and ') : String(code).replace(/\//g, ' and '); };
 // One committee step's name in the list, linked to the committee's page (members, chair, what it has now).
 const cmteLink = code => String(code).split('/').map(k => k.trim()).filter(Boolean)
   .map(k => S.committees[k] ? `<a href="#/committee/${esc(k)}">${esc(cmteLabel(k))}</a>` : esc(cmteLabel(k))).join(' and ');
