@@ -5,7 +5,21 @@
 .ab-q > .ic { position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
 .ab-q input { padding-left: 44px; -webkit-appearance: none; appearance: none; }
 .ab-q input::placeholder { color: var(--n500); opacity: 1; }
-.ab-only { flex: 0 1 auto; align-items: center; }
+.ab-q { flex: 1 1 200px; }
+.ab-fbtn { flex: none; min-height: 48px; }
+/* the three filters: stacked under the search on a phone, a row from 900px */
+.ab-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s12); margin: var(--s8) 0 var(--s16); padding: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
+.ab-filters.shut { display: none; }
+.ab-f.field + .ab-f.field { margin-top: 0; }
+.ab-f select { -webkit-appearance: none; appearance: none; padding-right: 40px; background: var(--n0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; cursor: pointer; }
+.ab-f select.set { border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
+.ab-fclear { display: flex; align-items: flex-end; }
+@media (min-width: 900px) {
+  body[data-screen="allbills"] main { max-width: 1120px; }   /* room for three dropdowns side by side */
+  .ab-fbtn { display: none; }
+  .ab-filters, .ab-filters.shut { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: var(--s16); padding: 0; background: none; border: 0; margin: 0 0 var(--s8); }
+  .ab-f label { font-size: var(--t13); }
+}
 .ab .sechead { margin-top: var(--s24); }
 .ab #ab-list > .ab-grp:first-child .sechead { margin-top: var(--s12); }
 .ab .pagehead { margin-bottom: var(--s16); }
@@ -13,15 +27,13 @@
 .ab .mb-fold .ab-n { font-weight: 400; }
 .ab-more { margin-top: var(--s12); }
 .ab .mb-fold .ab-more { padding: 0 var(--s16) var(--s16); }
-/* A table page: the wide frame, like My issues and Find (base.css keeps other pages at 720px). */
+/* A table page: the wide frame (from 900px, above), like My issues and Find; base.css keeps other pages at 720px. */
 @media (min-width: 1100px) {
-  body[data-screen="allbills"] main { max-width: 1120px; }
   /* the filter beside the title, so the table starts higher (DESIGN A-1) */
-  .ab-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: var(--s32); margin-bottom: var(--s16); }
+  .ab-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: var(--s32); margin-bottom: var(--s12); }
   .ab-top .pagehead { margin-bottom: 0; }
   .ab-tools { margin: 0; flex-wrap: nowrap; }
   .ab-q { flex: 0 0 300px; }
-  .ab-only { white-space: nowrap; }
 }
 /* "Another version: SB 2175" beside the number (billRow's alt; only this page passes it) */
 /* its own last line on a phone (after the status), under the number in the wide table */

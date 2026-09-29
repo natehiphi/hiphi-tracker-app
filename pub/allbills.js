@@ -4,15 +4,18 @@
 // hearing status: a hearing scheduled first (soonest first), then waiting in committee (nearest deadline first),
 // waiting for a vote, passed the Legislature, became law, and Did not advance folded at the bottom. The rows are My
 // issues' shared bill row (pub/mybills.js), so from 1100px the page is a table with a header row (bill, status, next
-// date, HIPHI's position) and on a phone the same rows stack. A filter box and "Hide bills HIPHI is only watching"
-// narrow it without leaving the page. Nothing here is personal: every visitor sees the same list.
+// date, HIPHI's position) and on a phone the same rows stack. A search box and three filters (topic, HIPHI's position,
+// where it stands; Nate 9/29) narrow it without leaving the page. Nothing here is personal: every visitor sees the
+// same list.
 // B-1: a person comes here to see every bill HIPHI tracks and where each one stands with its hearing.
-import { S, D, DEMO, app, esc, icon, nick, plain, alive, stopOf, followYear, findBill, supa, spaced, isResolution, fmtDate } from './core.js';
+import { S, D, DEMO, app, esc, icon, nick, plain, alive, stopOf, followYear, findBill, supa, spaced, isResolution, fmtDate, issuesOf } from './core.js';
+import { topicOf } from './topics.js';
 import { billList, fold, wireRows, byUrgency, numCmp } from './mybills.js';
 import { ensureHearings } from './find.js';
 import { btn, skeleton, empty } from './ui.js';
 
-const A = S.ab ??= { yr: 0, rows: null, busy: false, err: '', q: '', posOnly: false, all: {}, hay: new Map(), twins: new Map() };
+const A = S.ab ??= { yr: 0, rows: null, busy: false, err: '', q: '', topic: '', pos: '', stand: '', fOpen: false, all: {},
+  hay: new Map(), twins: new Map(), topics: new Map(), grp: new Map() };
 const CAP = 40;   // rows shown per group before "Show all": 735 rows at once is a long wait on an older phone
 const hasPos = b => !!b.hiphi_position && b.hiphi_position !== 'monitor';
 
@@ -65,39 +68,77 @@ function load(yr) {
     await Promise.all(parts.map(ensureHearings));
     // So the bill page opens one of these at once instead of asking the database again.
     for (const b of rows) if (!findBill(b.id)) S.extra[b.id] = b;
-    A.rows = rows; A.hay.clear(); A.twins.clear();
+    A.rows = rows; A.hay.clear(); A.twins.clear(); A.topics.clear(); A.grp.clear();
     for (const b of rows) { const nm = nick(b); if (nm) (A.twins.get(nm) || A.twins.set(nm, []).get(nm)).push(b); }
   })().catch(e => { console.error(e); A.err = 'We couldn’t load the bills.'; }).finally(() => { A.busy = false; app.render(); });
 }
 
-// ---- the filter: every word must appear in the number, the nickname or what the bill does ----
+// ---- the search: every word must appear in the number, the nickname or what the bill does ----
 function hay(b) {
   let h = A.hay.get(b.id);
   if (h === undefined) A.hay.set(b.id, h = plain([b.bill_number, String(b.bill_number).replace(/^(\D+)/, '$1 '), nick(b), b.hiphi_summary, b.title, b.description].join(' ')));
   return h;
 }
-function shown() {
-  const words = plain(A.q).split(/\s+/).filter(Boolean);
-  return (A.rows || []).filter(b => (!A.posOnly || hasPos(b)) && words.every(w => hay(b).includes(w)));
+// ---- the three filters (Nate 9/29: topic, HIPHI's position, where it stands) ----
+// A bill's topics are its issues' categories; a bill on no issue (most watched bills) takes the topic the first visit's
+// word patterns give it (topics.js, the same keys), else "Other bills". A bill on two issues can be in two topics.
+function topicsOf(b) {
+  let t = A.topics.get(b.id);
+  if (!t) {
+    const iss = issuesOf(b);
+    t = [...new Set(iss.length ? iss.flatMap(i => i.categories || [i.category]) : [topicOf(b)?.key].filter(Boolean))];
+    A.topics.set(b.id, t = t.length ? t : ['other']);
+  }
+  return t;
+}
+const standOf = b => { let g = A.grp.get(b.id); if (!g) A.grp.set(b.id, g = groupOf(b)); return g; };
+const posKey = b => { const p = b.hiphi_position || ''; return /support/.test(p) ? 'support' : /oppose/.test(p) ? 'oppose' : p === 'neutral' ? 'neutral' : 'monitor'; };
+// [state key, label, options () => [[value, words]], test (bill, value)]. The empty value is "all".
+const FACETS = [
+  ['topic', 'Topic', () => [['', 'All topics'], ...(S.cats || []).map(c => [c.key, c.name]), ['other', 'Other bills']], (b, v) => topicsOf(b).includes(v)],
+  ['pos', 'HIPHI’s position', () => [['', 'All positions'], ['side', 'Supports, opposes or comments'], ['support', 'Supports'], ['oppose', 'Opposes'], ['neutral', 'Comments'], ['monitor', 'Watching only']],
+    (b, v) => v === 'side' ? hasPos(b) : posKey(b) === v],
+  ['stand', 'Where it stands', () => [['', 'Anywhere'], ...GROUPS], (b, v) => standOf(b) === v],
+];
+const activeN = () => FACETS.filter(([k]) => A[k]).length;
+// Every filter but `skip` (for the counts beside a filter's own options: what choosing each one would leave).
+function matches(b, skip, words) {
+  return words.every(w => hay(b).includes(w)) && FACETS.every(([k, , , test]) => k === skip || !A[k] || test(b, A[k]));
+}
+const wordsOf = () => plain(A.q).split(/\s+/).filter(Boolean);
+function shown() { const w = wordsOf(); return (A.rows || []).filter(b => matches(b, null, w)); }
+function filtersHTML() {
+  const w = wordsOf();
+  const sel = ([k, label, opts, test]) => {
+    const base = (A.rows || []).filter(b => matches(b, k, w));
+    const o = opts().map(([v, words]) => { const n = v ? base.filter(b => test(b, v)).length : base.length;
+      return `<option value="${esc(v)}"${A[k] === v ? ' selected' : ''}${n || A[k] === v ? '' : ' disabled'}>${esc(words)} (${n})</option>`; }).join('');
+    return `<div class="field ab-f"><label for="ab-f-${k}">${label}</label><select id="ab-f-${k}" data-ab-f="${k}"${A[k] ? ' class="set"' : ''}>${o}</select></div>`;
+  };
+  return `${FACETS.map(sel).join('')}${activeN() ? `<div class="ab-fclear">${btn('Clear filters', { kind: 'text', icon: 'x', attrs: { 'data-ab-fclear': '' } })}</div>` : ''}`;
 }
 
 function groupsHTML() {
   const list = shown(), by = Object.fromEntries(GROUPS.map(([k]) => [k, []]));
-  for (const b of list) by[groupOf(b)].push(b);
-  if (!list.length) return empty({ title: A.q.trim() ? `No bill matches “${esc(A.q.trim())}”` : 'No bills here yet',
-    text: A.q.trim() ? 'Try a bill number, like HB 1563, or one word, like vaping.' : '', action: A.q.trim() ? btn('Clear the filter', { kind: 'secondary', attrs: { 'data-ab-clear': '' } }) : '' });
+  for (const b of list) by[standOf(b)].push(b);
+  const asked = !!A.q.trim() || activeN() > 0;
+  if (!list.length) return empty({ title: A.q.trim() ? `No bill matches “${esc(A.q.trim())}”` : asked ? 'No bill fits these filters' : 'No bills here yet',
+    text: A.q.trim() ? 'Try a bill number, like HB 1563, or one word, like vaping.' : '', action: asked ? btn(A.q.trim() && activeN() ? 'Clear the search and filters' : A.q.trim() ? 'Clear the search' : 'Clear filters', { kind: 'secondary', attrs: { 'data-ab-clear': '' } }) : '' });
   const opt = k => b => ({ pos: true, watch: true, why: k === 'dead', status: k === 'law' ? lawDay(b) : '', alt: altOf(b) });
-  return GROUPS.filter(([k]) => by[k].length).map(([k, title]) => {
+  const groups = GROUPS.filter(([k]) => by[k].length);
+  return groups.map(([k, title]) => {
     const rows = ORDER[k](by[k]), n = rows.length, cut = A.all[k] ? rows : rows.slice(0, CAP);
     const more = n > cut.length ? `<div class="ab-more">${btn(`Show all ${n}`, { kind: 'secondary', icon: 'chevron-down', attrs: { 'data-ab-all': k } })}</div>` : '';
     const inner = billList(cut, opt(k)) + more;
     const label = `<span>${title} <span class="ab-n">· ${n}</span></span>`;
-    // Bills that stopped are the long tail of every session (most of them between sessions): folded, one press away.
-    return k === 'dead' ? fold('ab-dead', label, inner, { ic: 'archive', open: !!A.q.trim() })
+    // Bills that stopped are the long tail of every session (most of them between sessions): folded, one press away,
+    // and open when a search or filter asked for them.
+    return k === 'dead' ? fold('ab-dead', label, inner, { ic: 'archive', open: asked })
       : `<section class="ab-grp" aria-labelledby="ab-h-${k}"><div class="sechead"><h2 id="ab-h-${k}">${label}</h2></div>${inner}</section>`;
   }).join('');
 }
-const countLine = () => { const n = shown().length; return `${n} bill${n === 1 ? '' : 's'}${A.q.trim() ? ' match' + (n === 1 ? 'es' : '') : ''}`; };
+const countLine = () => { const n = shown().length; return `${n} bill${n === 1 ? '' : 's'}${A.q.trim() || activeN() ? ' match' + (n === 1 ? 'es' : '') : ''}`; };
+const fLabel = () => `Filters${activeN() ? ` · ${activeN()}` : ''}`;
 
 function render() {
   const yr = followYear();
@@ -105,31 +146,41 @@ function render() {
   const head = `<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
   if (A.err && !A.rows) return `<div class="ab">${head}</header>${empty({ title: A.err, text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', attrs: { 'data-ab-retry': '' } }) })}</div>`;
   if (!A.rows || A.yr !== yr) return `<div class="ab">${head}</header>${skeleton(6)}</div>`;
-  const nPos = A.rows.filter(hasPos).length, n = A.rows.length;
-  // One line on a phone, so the first bill starts high (DESIGN A-1); the checkbox says how many HIPHI only watches.
-  const lede = n ? `${yr} session · ${n} bills`
-    : `HIPHI hasn’t added its ${yr} bills yet.`;
+  const n = A.rows.length, open = A.fOpen || activeN() > 0;
+  // One line on a phone, so the first bill starts high (DESIGN A-1).
+  const lede = n ? `${yr} session · ${n} bills` : `HIPHI hasn’t added its ${yr} bills yet.`;
+  // On a phone the filters wait behind one button (open by itself while one is set, so a person sees what narrowed
+  // the list); from 900px they are always a row above the table and the button is hidden.
   return `<div class="ab">
     <div class="ab-top">${head}<p class="lede">${lede}</p></header>
-    ${A.rows.length ? `<div class="ab-tools" role="search">
-      <div class="ab-q"><label class="sr" for="ab-q">Filter these bills</label>${icon('search')}<input id="ab-q" class="input" type="search" placeholder="Filter by name or number" value="${esc(A.q)}" autocomplete="off" enterkeyhint="search"></div>
-      <label class="check ab-only" for="ab-pos"><input type="checkbox" id="ab-pos"${A.posOnly ? ' checked' : ''}><span>Hide bills HIPHI is only watching (${n - nPos})</span></label>
+    ${n ? `<div class="ab-tools" role="search">
+      <div class="ab-q"><label class="sr" for="ab-q">Search these bills</label>${icon('search')}<input id="ab-q" class="input" type="search" placeholder="Search by name or number" value="${esc(A.q)}" autocomplete="off" enterkeyhint="search"></div>
+      <button type="button" class="btn secondary ab-fbtn" aria-expanded="${open}" aria-controls="ab-filters" data-ab-fbtn>${icon('sliders-horizontal')}<span>${fLabel()}</span></button>
     </div>` : ''}</div>
-    ${A.rows.length ? `<p class="sr" id="ab-count" aria-live="polite">${countLine()}</p>` : ''}
-    <div id="ab-list">${A.rows.length ? groupsHTML() : ''}</div>
+    ${n ? `<div class="ab-filters${open ? '' : ' shut'}" id="ab-filters">${filtersHTML()}</div>
+    <p class="sr" id="ab-count" aria-live="polite">${countLine()}</p>` : ''}
+    <div id="ab-list">${n ? groupsHTML() : ''}</div>
   </div>`;
 }
 
-// Filtering redraws only the list, so the box keeps its focus and what was typed.
+// A search or a filter redraws only the list and the filter counts, so the box or the dropdown keeps its focus.
 function redrawList() {
   const box = document.getElementById('ab-list'); if (!box) return;
   box.innerHTML = groupsHTML(); wireList(box);
+  const f = document.getElementById('ab-filters');
+  if (f) { const had = document.activeElement?.id; f.innerHTML = filtersHTML(); wireFilters(f); if (had && f.querySelector('#' + had)) document.getElementById(had).focus(); }
+  const fb = document.querySelector('[data-ab-fbtn]'); if (fb) { fb.querySelector('span').textContent = fLabel(); }
   const c = document.getElementById('ab-count'); if (c) c.textContent = countLine();
+}
+const clearFilters = () => { for (const [k] of FACETS) A[k] = ''; A.all = {}; };
+function wireFilters(root) {
+  root.querySelectorAll('[data-ab-f]').forEach(el => el.addEventListener('change', () => { A[el.dataset.abF] = el.value; A.all = {}; redrawList(); }));
+  root.querySelector('[data-ab-fclear]')?.addEventListener('click', () => { clearFilters(); redrawList(); document.getElementById('ab-f-topic')?.focus(); });
 }
 function wireList(root) {
   wireRows(root);
   root.querySelectorAll('[data-ab-all]').forEach(el => el.onclick = () => { A.all[el.dataset.abAll] = true; redrawList(); });
-  root.querySelector('[data-ab-clear]')?.addEventListener('click', () => { A.q = ''; const q = document.getElementById('ab-q'); if (q) { q.value = ''; q.focus(); } redrawList(); });
+  root.querySelector('[data-ab-clear]')?.addEventListener('click', () => { A.q = ''; clearFilters(); const q = document.getElementById('ab-q'); if (q) { q.value = ''; q.focus(); } redrawList(); });
 }
 let timer = 0;
 function wire() {
@@ -137,7 +188,9 @@ function wire() {
   main.querySelector('[data-ab-retry]')?.addEventListener('click', () => { A.err = ''; A.yr = 0; app.render(); });
   const q = document.getElementById('ab-q');
   if (q) q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { A.q = q.value; A.all = {}; redrawList(); }, 150); });
-  document.getElementById('ab-pos')?.addEventListener('change', e => { A.posOnly = e.target.checked; redrawList(); });
+  const fb = main.querySelector('[data-ab-fbtn]'), f = document.getElementById('ab-filters');
+  if (fb && f) fb.addEventListener('click', () => { A.fOpen = f.classList.contains('shut'); f.classList.toggle('shut', !A.fOpen); fb.setAttribute('aria-expanded', String(A.fOpen)); if (A.fOpen) f.querySelector('select')?.focus(); });
+  if (f) wireFilters(f);
   const list = document.getElementById('ab-list'); if (list) wireList(list);
 }
 
