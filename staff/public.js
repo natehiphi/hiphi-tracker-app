@@ -9,15 +9,21 @@
 // be so transparent to the public at the moment. It should be a silent recommendation." So it is labelled for staff by
 // what it does, and the preview never shows it: nothing on the public page says a bill was recommended.
 // Saving has Undo (B-5): the whole form goes back to what it was before the save.
+// Talking points (084, R-068, 9/28): one box, one point per line. The public testimony walkthrough offers them to people on
+// HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
+// as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
 import { icon, btn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot } from './issues.js';
 
-const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until'];
+const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
 const BOOL = new Set(['is_public', 'recommended']);
-const saved = (b, k) => BOOL.has(k) ? !!b[k] : (b[k] || '');
+const saved = (b, k) => BOOL.has(k) ? !!b[k] : k === 'talking_points' ? (b.talking_points || []).join('\n') : (b[k] || '');
+// The box's lines as the database wants them: trimmed, no blank lines. 084 allows five, each 1-200 characters.
+const pointsIn = v => String(v || '').split(/\n+/).map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
+const pointsCount = v => { const n = pointsIn(v).length; return `${n} of 5 points`; };
 // Typed but unsaved values survive the re-render a list change causes; they live here until Save.
 const draftOf = b => drafts.get(b.id + ':pub') || {};
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
@@ -87,6 +93,10 @@ export function renderPublic(b) {
       <div class="field"><label for="bw-puntil">Show the ask through</label>
         <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-h">
         <span class="help" id="bw-puntil-h">An ask shows through this date, then stops. An ask with no date never shows.</span></div>
+      <div class="field"><label for="bw-ptp">Talking points for testimony</label>
+        <textarea id="bw-ptp" rows="5" aria-describedby="bw-ptp-h bw-ptp-n" placeholder="One point per line, up to five.">${esc(valOf(b, 'talking_points'))}</textarea>
+        <span class="help" id="bw-ptp-h">One plain sentence per line. People writing testimony tap these into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
+        <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div>
       <div id="bw-perr" role="alert"></div>
       <div class="bw-acts bw-pubsave">${btn('Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
@@ -113,7 +123,7 @@ export function renderPublic(b) {
 
 export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
-  const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil') };
+  const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil'), talking_points: form.querySelector('#bw-ptp') };
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) drafts.set(key, d); else drafts.delete(key);
@@ -125,6 +135,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     note(); paint(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
     if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
+    if (k === 'talking_points') { form.querySelector('#bw-ptp-n').textContent = pointsCount(el.value); el.removeAttribute('aria-invalid'); }
   });
   form.onsubmit = async e => {
     e.preventDefault();
@@ -136,12 +147,18 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     // The database wants a nickname of 3 to 60 characters; the field stops at 40 so it fits one line on a phone.
     const nickname = f.nickname.value.trim().replace(/\s+/g, ' ');
     if (nickname && nickname.length < 3) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}A nickname needs at least 3 characters.</p>`; f.nickname.setAttribute('aria-invalid', 'true'); f.nickname.focus(); return; }
+    const pts = pointsIn(f.talking_points.value), long = pts.findIndex(p => p.length > 200);
+    const ptBad = pts.length > 5 ? `Up to five talking points. There are ${pts.length}: take some out.` : long >= 0 ? `Point ${long + 1} is ${pts[long].length} characters. Keep each one under 200.` : '';
+    if (ptBad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(ptBad)}</p>`; f.talking_points.setAttribute('aria-invalid', 'true'); f.talking_points.focus(); return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     const before = { nickname: b.nickname || null, public_summary: b.public_summary || null, public_action: b.public_action || null,
-      public_action_until: b.public_action_until || null, is_public: !!b.is_public, recommended: !!b.recommended };
+      public_action_until: b.public_action_until || null, is_public: !!b.is_public, recommended: !!b.recommended,
+      talking_points: b.talking_points || null, talking_points_edited_at: b.talking_points_edited_at || null };
+    const ptsChanged = JSON.stringify(pts) !== JSON.stringify(b.talking_points || []);
     try {
-      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked });
+      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked,
+        ...(ptsChanged ? { talking_points: pts.length ? pts : null, talking_points_edited_at: new Date().toISOString() } : {}) });
       drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
       toast('Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, before); drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     } catch (x) { sub.removeAttribute('aria-busy'); toast(x, { err: true }); }
