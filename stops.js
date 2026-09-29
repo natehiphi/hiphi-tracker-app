@@ -169,6 +169,17 @@ export function billStop(b, ctx) {
   return out;
 }
 
+// The committee a stopped bill stopped in, from the stage it stopped at: a Lateral bill in its second-to-last (or first of
+// two), a Decking bill in its last, a Triple bill before its second-to-last. Not bills.committee, which is the last committee
+// the latest referral names (HB1278 stopped in WLA, the first of WLA and WAM; the staff app said "waiting in WAM" and the
+// public page named a 2025 hearing in another committee; R-077). Null when it did not stop in a committee.
+export function stoppedAt(b, ctx = {}) {
+  const d = b.died_at_stage || '';
+  if (!/^(first|second)_(triple|lateral|decking)$/.test(d)) return null;
+  const st = billStop({ ...b, stage: d }, { deadlineFor: () => null, ...ctx, stage: d, hearings: [], outcomes: {} });
+  return st.phase === 'committee' && st.committee ? { chamber: st.chamber, committee: st.committee } : null;
+}
+
 // Column copy, shared so the two boards read the same.
 export const COLUMNS = {
   a: { icon: '📡', title: 'Needs a hearing', sub: 'in committee, nothing scheduled — each shows the date it must be heard by' },

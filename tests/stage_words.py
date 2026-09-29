@@ -71,6 +71,10 @@ with sync_playwright() as p:
         s = status(pg, num, {'bill_number': 'SB9999', 'chamber': 'S', 'stage': 'first_triple', 'referrals': ['HHS', 'CPN', 'WAM'], 'origin_stops': 3, 'last_action': 'Referred to HHS, CPN, WAM.', 'died_at_stage': None, 'died_deadline': None})
         hs = status(pg, num, {'bill_number': 'HB9999', 'chamber': 'H', 'stage': 'first_triple', 'referrals': ['HLT', 'CPC', 'FIN'], 'origin_stops': 3, 'last_action': 'Referred to HLT, CPC, FIN, referral sheet 1', 'died_at_stage': None, 'died_deadline': None})
         check(s['dl'] == '2026-02-12' and hs['dl'] == '2026-02-11', f'{w}: Triple filing is 2/12 for a Senate bill ({s["dl"]}), 2/11 for a House bill ({hs["dl"]})')
+        # stopped at the Senate Lateral in the first of two Senate committees (HB1278, R-077): named, not its last committee
+        st = status(pg, num, {'bill_number': 'HB1278', 'chamber': 'H', 'stage': 'dead', 'died_at_stage': 'second_lateral', 'died_deadline': 'Lateral 3/30/26',
+                              'referrals': ['WAL', 'FIN', 'WLA', 'WAM'], 'origin_stops': 2, 'committee': 'WAM', 'last_action': 'Re-Referred to WLA, WAM.', 'status_text': '2nd Lateral'})
+        check('did not get a hearing in the' in st['text'] and 'Ways and Means' not in st['text'], f'{w} HB1278: names the committee it stopped in, not WAM ("{st["text"][:110]}")')
         check(not errs, f'{w}: no page errors {errs[:2]}')
         ctx.close()
     br.close()

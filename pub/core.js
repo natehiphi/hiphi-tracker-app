@@ -1,7 +1,7 @@
 // HIPHI public tracker: state, data and the plain-language layer (no screens here).
 // Screens live in pub/*.js and import from this module; pub/app.js owns routing and the page frame.
 // Moved out of track.js on 9/19 for the mobile-first redesign; the data code is unchanged unless a comment says so.
-import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE } from '../stops.js';
+import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, stoppedAt } from '../stops.js';
 import { ICONS, icon } from '../icons.js';
 import { topicOf } from './topics.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, ICONS, icon };
@@ -828,7 +828,7 @@ export const posCls = b => ({ strongly_support: 'pos-support', support: 'pos-sup
 export function whyDead(b) {
   if (b.stage !== 'dead' && alive(b)) return '';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
-  if (m) return `Missed the ${m[1]} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
+  if (m) { const at = stoppedAt(b); return `Missed the ${m[1]} deadline on ${m[2]}${at ? ` while waiting in ${esc(at.committee)}` : ''}.`; }
   if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
   if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
@@ -1092,7 +1092,10 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // Why a bill stopped, in words: "Put on hold by the Senate Education Committee, which usually stops it this year."
 export function whyStopped(b) {
   if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
-  const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now()).pop();
+  // The committee it stopped in, and only a hearing there: a hearing in another committee, or a year earlier, is not why it
+  // stopped (HB1278 stopped in WLA in 2026, never heard there; it was heard by WTL in 2025; R-077).
+  const at = stoppedAt(b), same = h => !at || codesOf(h.committee).some(k => codesOf(at.committee).includes(k));
+  const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now() && same(h)).pop();
   // A failed floor vote: the sync marks it (status_text) and records where it stood (died_at_stage), since a later line,
   // such as a recommittal, can follow the vote (HB1516; R-072's every-bill test).
   if (b.status_text === 'Failed a vote' || /failed to pass/i.test(b.last_action || '')) {
@@ -1118,7 +1121,7 @@ export function whyStopped(b) {
     if (o && /passed/.test(o.outcome || '')) return `${who} passed it on ${dateLong(heard.scheduled_at)}, but the next step did not happen before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
     return `It was heard on ${dateLong(heard.scheduled_at)}, but it did not get through every step before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
   }
-  if (m || b.died_deadline) return `It did not get a hearing before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
+  if (m || b.died_deadline) return `It did not get a hearing${at ? ` in the ${cmteLabel(at.committee)}` : ''} before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
   return 'It stopped for this session.';
 }
 // A Capitol deadline date, "4/29/26", as "Apr 29".

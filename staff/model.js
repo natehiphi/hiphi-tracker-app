@@ -3,7 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
-import { CHAMBER_NAME, HELD_RE, isResolution } from '../stops.js';
+import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 export const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
 export let FACTS = new Map();
 export function factsOf(b) {
@@ -175,7 +175,9 @@ export function whyDead(b) {
   if (isResolution(b) && effStage(b) === 'dead') return 'Not adopted by the end of the session.';
   // Through its committees and stopped at the floor vote: not "waiting in" a committee (R-072).
   if (m && /_floor$/.test(b.died_at_stage || '')) return `Through committee, but no floor vote before the ${esc(m[1])} deadline on ${m[2]}.`;
-  if (m) return `Missed the ${esc(m[1])} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
+  // Waiting in the committee it stopped in, not the last one on its list (HB1278: WLA, not WAM; R-077).
+  const at = stoppedAt(b);
+  if (m) return `Missed the ${esc(m[1])} deadline on ${m[2]}${at ? ` while waiting in ${esc(at.committee)}` : ''}.`;
   if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
   if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
