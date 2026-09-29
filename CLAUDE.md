@@ -45,7 +45,8 @@ Test: `tests/staff_stance.py`.
 with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
 topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
 topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
-`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> ONE
+`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066; its numbers are `WEIGHT` in `pub/core.js`, shared with the
+suggested bill on Home and Find since R-094: change them there, once) -> the "Mahalo!" moment -> ONE
 lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three stages walked with the primary button,
 the drawing changing in place: the bill, its road to where it really is, then "Why speaking up can help" with a choice of
 four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
@@ -389,6 +390,7 @@ python3 tests/suggest.py            # header search suggestions (R-032), both ap
 python3 tests/staff_followed.py     # Sort new bills: the untracked bills the public follows (R-059), 40 checks at four sizes
 python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes
 python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 36 checks, every Supabase request intercepted
+python3 tests/recommend.py          # the suggested bill on Home and Find (R-094): 18 checks, order, staff's silent pre-tick, what is never suggested
 ```
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
 `public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`

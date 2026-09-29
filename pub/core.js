@@ -687,32 +687,52 @@ export function interests() {
   for (const n of (wiz().issues || [])) for (const m of groupNames(n)) add(m, 3);
   return w;
 }
-// Ranked suggestions: something to do this week on a bill they do not follow yet.
+// ---------------- what HIPHI most wants people on (R-094) ----------------
+// One set of numbers for every place the public page puts one issue or bill ahead of another: the first visit's issues
+// (start.js issueInfo) and the suggested bill on Home and Find (recommendations below). The numbers are the first
+// visit's (FIRST-VISIT-PLAN "Importance", Nate 9/21): HIPHI's side 40 strongly supports / 20 supports / 15 only opposes
+// / 5 comments only; the team's top priority +30; staff's pre-tick +25; a hearing in the next 7 days +15.
+// Only public columns reach here. A bill's own priority stays with the team, so it arrives through the bill's issues
+// (public_issues.top_priority), and staff's pre-tick (bills.recommended, issues.recommended) is used silently, never
+// named on screen (Nate 9/22).
+export const WEIGHT = { strong: 40, support: 20, oppose: 15, neutral: 5, top: 30, promoted: 25, soon: 15 };
+export const SOON_DAYS = 7;
+// HIPHI's side, from the bills that carry it (one bill, or an issue's moving bills). HIPHI taking no side comes last.
+export function sidePoints(bills) {
+  if (bills.some(b => b.hiphi_position === 'strongly_support')) return WEIGHT.strong;
+  if (bills.length && bills.every(b => (b.hiphi_position || 'neutral') === 'neutral')) return WEIGHT.neutral;
+  if (bills.length && bills.every(b => /oppose/.test(b.hiphi_position || ''))) return WEIGHT.oppose;
+  return WEIGHT.support;
+}
+export const topPriorityBill = b => issuesOf(b).some(i => i.top_priority);
+export const promotedBill = b => !!b.hiphi_recommended || issuesOf(b).some(i => i.recommended);
+// How much HIPHI wants people on one bill this week. dueAt: when its testimony is due (ms), if a hearing is set.
+export function billWeight(b, dueAt = null) {
+  return sidePoints([b]) + (topPriorityBill(b) ? WEIGHT.top : 0) + (promotedBill(b) ? WEIGHT.promoted : 0)
+    + (dueAt && dueAt - Date.now() < SOON_DAYS * 864e5 ? WEIGHT.soon : 0);
+}
+// Does this bill sit on something the person cares about: a coalition of a bill they follow, an issue picked at the
+// start, or a category they like (picked, followed whole, or holding an issue they follow).
+function onTheirIssues(b, likes) { return (b.coalitions || []).some(n => likes[n]) || pickedTopic(b); }
+// Ranked suggestions: a bill they do not follow yet whose testimony is due soon. Bills on their own issues come first;
+// within each group, what HIPHI most wants (billWeight), then the soonest due. Left out: bills they follow, said
+// "Not for me" to (on a suggestion, or on a bill of an issue they follow), or take the other side of from HIPHI.
+// A bill still waiting for a hearing is not suggested: Home's "Bills that need a hearing" already asks for those on
+// the person's own bills, and a suggestion card needs a hearing to act on (before R-094 they were ranked, then dropped).
 export function recommendations(limit) {
   const pool = S.pool; if (!pool) return [];
-  const now = Date.now(), skip = dismissed(), likes = interests(), anyLikes = Object.keys(likes).length > 0;
+  const now = Date.now(), skip = dismissed(), likes = interests();
   const out = [];
   for (const b of pool.bills) {
-    if (S.watch.has(b.id) || skip.has(b.id)) continue;
+    if (S.watch.has(b.id) || skip.has(b.id) || S.skips.has(b.id) || agrees(b) === false) continue;
     const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => deadlineOf(b, k) });
-    let kind = null, when = null, score = 0, why = [];
-    if (st.hearingState === 'scheduled' && st.hearing) {
-      const due = st.hearing.testimony_deadline ? new Date(st.hearing.testimony_deadline).getTime() : new Date(st.hearing.scheduled_at).getTime();
-      if (due > now) { kind = 'testify'; when = due; score += 6 + Math.max(0, 5 - (due - now) / 864e5); }
-    } else if (st.column === 'a' && st.deadline && !st.deadline.missed && st.committee && st.deadline.days <= 21) {
-      kind = 'hearing'; when = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(); score += 3 + Math.max(0, 3 - st.deadline.days / 7); why.push('stuck in committee — the chair needs to hear from people');
-    }
-    if (!kind) continue;
-    const mine = (b.coalitions || []).filter(n => likes[n]);
-    if (mine.length) { score += Math.min(6, mine.reduce((t, n) => t + likes[n], 0)); why.push(`you follow ${cname(mine[0])}`); }
-    else if (pickedTopic(b)) { score += 3; why.push('matches an issue you picked'); }   // the weight interests() gives a picked issue
-    else if (anyLikes) score -= 1;
-    if (/strongly/.test(b.hiphi_position)) { score += 3; why.push('a HIPHI top priority'); }
-    if (!why.length) why.push(kind === 'testify' ? 'testimony window is open' : 'needs a push');
-    if ((S.actionCounts[b.id] || {}).testimonies) score += 0.5;
-    out.push({ b, st, kind, when, score, why });
+    if (st.hearingState !== 'scheduled' || !st.hearing) continue;
+    const when = new Date(st.hearing.testimony_deadline || st.hearing.scheduled_at).getTime();
+    if (when <= now) continue;
+    const mine = onTheirIssues(b, likes), weight = billWeight(b, when);
+    out.push({ b, st, kind: 'testify', when, mine, weight, score: (mine ? 1000 : 0) + weight });
   }
-  out.sort((x, y) => y.score - x.score || x.when - y.when);
+  out.sort((x, y) => y.score - x.score || x.when - y.when || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
   return out.slice(0, limit);
 }
 export async function loadFeatured() {
