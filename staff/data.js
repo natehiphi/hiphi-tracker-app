@@ -991,7 +991,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260928c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260929a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1156,6 +1156,8 @@ export const isMine = b => !!S.me && (isOwner(b) || !!S.follows?.has(b.id)) && !
 export let SESSION_OVER = DEMO ? DEMO_OFF : true;   // set from the calendar at load: over once sine die has passed
 // Official session calendar (LRB, 2026). One place to update each December.
 // The sandbox uses the same calendar, frozen at DEMO_ASOF.
+// The rows themselves, for the budget bills' own deadlines (a row with `bills` replaces another for those bills; 087).
+export let DEADLINE_ROWS = [];
 export let DEADLINES = {   // fallback only; the real calendar comes from session_deadlines
   introduced:       [['Intro cutoff','2026-01-28']],
   first_triple:     [['Triple filing','2026-02-11']],
@@ -1183,7 +1185,7 @@ export function applySessionDeadlines(rows) {
   const bucket = { intro_cutoff: 'introduced', final_decking: 'conference', fiscal: 'conference', sine_die: 'governor' };
   const dl = {};
   for (const r of mine) { const k = bucket[r.key] || r.key; (dl[k] ??= []).push([r.label, String(r.deadline_date).slice(0, 10)]); }
-  if (Object.keys(dl).length >= 8) { DEADLINES = dl; SESSION_YEAR = yr; }
+  if (Object.keys(dl).length >= 8) { DEADLINES = dl; SESSION_YEAR = yr; DEADLINE_ROWS = mine; }
   const sine = mine.find(r => r.key === 'sine_die');
   SESSION_OVER = DEMO ? DEMO_OFF : !!sine && Date.now() > new Date(sine.deadline_date + 'T23:59:59-10:00').getTime() + 864e5;
 }

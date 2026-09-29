@@ -171,7 +171,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260928c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260929a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -688,7 +688,7 @@ export function recommendations(limit) {
   const out = [];
   for (const b of pool.bills) {
     if (S.watch.has(b.id) || skip.has(b.id)) continue;
-    const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => { const d = S.deadlines.filter(x => x.key === k).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
+    const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => deadlineOf(b, k) });
     let kind = null, when = null, score = 0, why = [];
     if (st.hearingState === 'scheduled' && st.hearing) {
       const due = st.hearing.testimony_deadline ? new Date(st.hearing.testimony_deadline).getTime() : new Date(st.hearing.scheduled_at).getTime();
@@ -795,7 +795,14 @@ export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id 
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
-    deadlineFor: key => { const d = S.deadlines.filter(x => x.key === key).slice(-1)[0]; return d ? { label: d.label, date: d.deadline_date } : null; } });
+    deadlineFor: key => deadlineOf(b, key) });
+}
+// A deadline row by its key, or the budget bills' own row that replaces it (Budget Decking 3/16 for HB1800 and HB2095,
+// migration 087; R-072). A row that lists bills never applies to any other bill.
+export function deadlineOf(b, key) {
+  const alt = S.deadlines.find(x => x.replaces === key && (x.bills || []).includes(b.bill_number));
+  const d = alt || S.deadlines.filter(x => x.key === key && !(x.bills || []).length).slice(-1)[0];
+  return d ? { label: d.label, date: d.deadline_date } : null;
 }
 // The referral path, one line per chamber, current stop marked (same as the staff app).
 export function referralPath(b) {
@@ -1086,7 +1093,14 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 export function whyStopped(b) {
   if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
   const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now()).pop();
-  if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote.';
+  // A failed floor vote: the sync marks it (status_text) and records where it stood (died_at_stage), since a later line,
+  // such as a recommittal, can follow the vote (HB1516; R-072's every-bill test).
+  if (b.status_text === 'Failed a vote' || /failed to pass/i.test(b.last_action || '')) {
+    const o = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), d = b.died_at_stage || '';
+    return /^(conference|second_crossover)$/.test(d) ? 'It did not pass its final vote, so it stopped for this session.'
+      : /^second/.test(d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o === 'H' ? 'S' : 'H']}, so it stopped for this session.`
+      : /^first/.test(d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o]}, so it stopped for this session.` : 'Did not pass a vote.';
+  }
   if (HELD_RE.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
   if (isResolution(b)) return 'It was not adopted this session.';
