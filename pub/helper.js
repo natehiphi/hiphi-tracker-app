@@ -11,6 +11,10 @@
 // (3) Screen 3 shows "Open the Capitol page" once, keeps "I'll finish later" in the footer where it cannot hide, and
 // adds "I already sent it" for people who filed in a second window. The header says "Part 1 of 3" so it does not
 // clash with the guided start's "Step 4 of 4".
+// 9/28, Nate tried it (R-068): "The casual user is not going to have enough knowledge of the bill to write something
+// quickly." A "Get to know the bill" step now comes first: what it does, where HIPHI stands, and HIPHI's talking points
+// (bills.talking_points, migration 084), each one tap to add to the letter. The town field is gone ("the location field
+// should not be one"), the letter no longer repeats the bill's description, and the closing is theirs to write.
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows } from './core.js';
@@ -43,10 +47,6 @@ function summaryOf(b) {
   const first = ((d.match(/^.*?[.;](\s|$)/) || [d])[0] || '').trim().replace(/;$/, '.');
   return first && !/^relating to/i.test(first) ? sentence(cleanDesc(first)) : '';
 }
-// HIPHI's summaries start with a verb ("Requires free school bus passes…"), so they read on after the bill number.
-const startsWithVerb = t => /^(permanently |temporarily |also )?[A-Z][a-z]+s\b/i.test(t) && !/^(this|these|the|a|an)\b/i.test(t);
-const lcFirst = t => t.replace(/^([A-Z])(?=[a-z])/, m => m.toLowerCase());
-const billSays = (b, n) => { const w = summaryOf(b); return !w ? '' : startsWithVerb(w) ? `${n} ${lcFirst(w)}` : `${n}: ${w}`; };
 
 // "Keohokapu-Lee Loy" from "Sue L. Keohokapu-Lee Loy": the directory's sort_name knows where a two-word surname
 // starts (P0.9: member short names come from sort_name.split(',')[0], never "Sen. III").
@@ -86,21 +86,26 @@ function askLine(b, n, stance) {
 const STANCE_WORD = { support: 'SUPPORT', oppose: 'OPPOSITION', comments: 'COMMENTS' };
 // HIPHI's own position as the person's default when they have said nothing either way.
 const hiphiStance = b => /oppose/.test(b.hiphi_position || '') ? 'oppose' : /support/.test(b.hiphi_position || '') ? 'support' : 'comments';
-function letterFor(b, h, { name, town, why, stance = hiphiStance(b) }) {
+// The sign-off is the person's own (Nate 9/28: "the closing shouldn't be automatically generated"): whatever they wrote,
+// with a comma, and their name under it. Nothing written: just the name.
+const closingOf = c => { const t = String(c || '').replace(/\s+/g, ' ').trim(); return t && !/[,.!]$/.test(t) ? t + ',' : t; };
+function letterFor(b, h, { name, why, points = [], closing = '', stance = hiphiStance(b) }) {
   const n = spaced(b.bill_number), room = roomLabel(h.room), ours = sameAsHiphi(b, stance);
   const when = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   return [
     [`Testimony in ${ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance]} of ${n}`, cmteLabel(h.committee),
       `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n'),
     greeting(h),
-    `${openingLine(b, n, stance)} My name is ${String(name).trim()} and I live in ${String(town).trim()}.`,
-    billSays(b, n),
+    `${openingLine(b, n, stance)} My name is ${String(name).trim()}.`,
+    // The points they picked, in the order the bill page lists them, then their own reason. The committee already has
+    // the bill's text, so the letter does not repeat what it does (Nate 9/28).
+    points.map(sentence).join(' '),
     sentence(why),
     [ours ? sentence(b.hiphi_action) : '', askLine(b, n, stance)].filter(Boolean).join(' '),
-    ['Mahalo for the opportunity to testify,', String(name).trim(), String(town).trim()].join('\n'),
+    [closingOf(closing), String(name).trim()].filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n');
 }
-const basisOf = x => JSON.stringify([x.name.trim(), x.town.trim(), x.why.trim(), x.stance || '']);
+const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), x.points || [], (x.closing || '').trim(), x.stance || '']);
 
 // The bill's own page on the Capitol website, where "Submit Testimony" lives.
 function capitolUrl(b, h) {
@@ -148,7 +153,7 @@ function sendLink(x, { again = false } = {}) {
 }
 
 // ---------------- state ----------------
-// S.helper = { b, h, screen: 1 | 2 | 3 | 'done' | 'own', name, town, email, why, letter, edited, basis, stale, copied,
+// S.helper = { b, h, screen: 'stand' | 'know' | 1 | 2 | 'acct' | 3 | 'done', name, email, why, points, closing, letter, edited, basis, stale, copied,
 //   copyChip, copyFail, saved, away, back, busy, resumed, errs, first, before, followedNow, shareChip, scrollTop,
 //   focusId, opener, link: '' | 'sending' | 'sent' | 'failed', linkTo, linkErr, linkDemo }
 // screen 'own' is the short screen for someone whose stance differs from HIPHI's: the Capitol's steps, no letter.
@@ -174,7 +179,7 @@ function open(billId, hearingId) {
   const h = anyHearing(hearingId), b = h && anyBill(billId || h.bill_id);
   if (!b || !h) { toast('We couldn’t open the letter helper. Try again in a moment.', { err: true }); return; }
   const me = loadMe(), d = (me.drafts || {})[h.id];
-  const x = { b, h, screen: 1, name: me.name || '', town: me.town || '', email: me.email || '',
+  const x = { b, h, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '', points: d?.points || [],
     // A reason written for another bill would be out of place, so "why" comes back only for this bill.
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : '',
     letter: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
@@ -189,8 +194,8 @@ function open(billId, hearingId) {
   const mine = myStance(b.id);
   x.stance = mine === 'support' || mine === 'oppose' ? mine : d?.stance || null;
   x.askStance = !x.stance; x.acctStep = !me.capitolAcct;
-  x.screen = x.askStance ? 'stand' : 1;
-  if (d && x.stance && x.name.trim() && x.town.trim() && !didKind(b, h, 'testimony')) {
+  x.screen = x.askStance ? 'stand' : 'know';
+  if (d && x.stance && x.name.trim() && !didKind(b, h, 'testimony')) {
     // Pick up where they left off. Someone who left for the Capitol site and came back is ready to confirm.
     x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
     x.letter = x.edited ? d.letter : letterFor(b, h, x); x.basis = x.edited ? d.basis || '' : basisOf(x);
@@ -253,15 +258,17 @@ function saveDraft() {
   const drafts = { ...(loadMe().drafts || {}) };
   for (const [k, v] of Object.entries(drafts)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete drafts[k];
   if (x.screen === 'done') delete drafts[x.h.id];
-  else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
+  // Back on the bill step with a letter already saved: the points they changed go with it.
+  else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, at: new Date().toISOString() };
+  else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points,
     away: !!x.away, back: !!x.back, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
 // ---------------- rendering ----------------
-// The steps this person walks, in order: "Where do you stand?" only when they had not said, the Capitol account only the
-// first time (R-068). "Part 2 of 4" counts these.
-const seqOf = x => [x.askStance && 'stand', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
+// The steps this person walks, in order: "Where do you stand?" only when they had not said, then the bill itself (9/28),
+// the Capitol account only the first time (R-068). "Part 2 of 5" counts these.
+const seqOf = x => [x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
 const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
 function goTo(screen) {
   const x = S.helper; if (!x) return;
@@ -282,7 +289,7 @@ function inner() {
   // once for screen readers, in the screen's own heading (the dialog's name stays "Testimony on HB 1523").
   const head = done ? `<p class="hp-title">Testimony on ${esc(n)}</p>`
     : `<h2 class="hp-title" id="hp-title" tabindex="-1">Testimony on ${esc(n)}</h2><span class="hp-count" aria-hidden="true">Part ${step} of ${total}</span>`;
-  const body = done ? doneScreen() : x.screen === 'stand' ? standScreen() : x.screen === 1 ? aboutScreen() : x.screen === 2 ? letterScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
+  const body = done ? doneScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen() : x.screen === 2 ? letterScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
     <div class="hp-prog${done ? ' done' : ''}" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < step || done ? 'on' : i + 1 === step ? 'on now' : ''}"></i>`).join('')}</div>
@@ -304,10 +311,37 @@ function standScreen() {
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
+// Get to know the bill (Nate 9/28: "The casual user is not going to have enough knowledge of the bill to write something
+// quickly. Providing them more info about what the bill is and maybe some talking points about it would be helpful.").
+// What it does in plain words, where HIPHI stands and why, and HIPHI's talking points as toggles: each tap adds or
+// removes one in the letter. The points argue HIPHI's side, so they are offered only to someone on that side (or with
+// comments on a bill HIPHI comments on); anyone else is told the next step is theirs to write.
+const pointsOf = x => { const pts = (x.b.hiphi_points || []).filter(Boolean); return (x.stance || hiphiStance(x.b)) === hiphiStance(x.b) ? pts : []; };
+function knowScreen() {
+  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
+  const act = sentence(b.hiphi_action);
+  const pt = (s, i) => { const on = x.points.includes(s);
+    return `<li><button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}"><span class="hp-pti" aria-hidden="true">${icon(on ? 'check' : 'plus')}</span>
+      <span class="hp-ptt">${esc(s)}</span><span class="hp-pta" aria-hidden="true">${on ? 'Added' : 'Add'}</span></button></li>`; };
+  return `<div class="hp-top">${screenHead(0, 'Get to know the bill')}
+      <p class="hp-sub">A minute with what it does, then we’ll help you write.</p></div>
+    ${due?.late ? lateBanner(h) : ''}
+    <div class="card hp-kn">
+      <div><p class="hp-knh">${esc(n)}${name ? ` · ${esc(name)}` : ''}</p>
+        <p class="hp-knw">${esc(w || cleanDesc(b.title) || '')}</p>
+        ${capitolLink(b, h, 'Read the bill on the Capitol website', { kind: 'text', sm: true, cls: 'hp-inl' })}</div>
+      ${p ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(p.text)} it.${act ? ' ' + esc(act) : ''}</p></div>` : ''}
+      ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
+    </div>
+    ${pts.length ? `<section class="hp-ptsec" aria-labelledby="hp-pth"><h4 class="hp-knh" id="hp-pth">Points you can make</h4>
+        <p class="help" id="hp-pthelp">Tap any to add it to your letter. Pick one, two or none. Your own words matter most.</p>
+        <ul class="hp-pts" role="list" aria-describedby="hp-pthelp">${pts.map(pt).join('')}</ul></section>`
+      : `<p class="hp-own">${icon('pencil')}<span>${x.stance && x.stance !== hiphiStance(b) ? 'Next, you’ll say what you think in your own words. That is what the committee wants to hear.' : 'Next, you’ll add why it matters to you, in a sentence or two.'}</span></p>`}`;
+}
+
 // Screen 1: who you are. Errors show only after someone leaves a field or chooses See my letter (Guide B).
 function aboutScreen() {
-  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = dueInfo(h), w = summaryOf(b), name = nick(b);
-  const ctx = w && startsWithVerb(w) ? `${p ? p.text + ' ' : ''}${n}, which ${lcFirst(w)}` : p ? `${p.text} ${n}.` : '';
+  const x = S.helper;
   const field = (f, label, ac, extra = '') => {
     const bad = x.errs[f];
     return `<div class="field"><label for="hp-${f}">${label}</label>
@@ -321,22 +355,25 @@ function aboutScreen() {
         aria-describedby="${bad ? 'hp-email-err ' : ''}hp-email-help"${bad ? ' aria-invalid="true"' : ''}>${bad ? errHTML('email') : ''}
       <span class="help" id="hp-email-help">We’ll email you when a bill on your issues has a hearing. No password. Your email is never part of your letter.</span>
       ${x.link === 'failed' && x.linkTo === x.email.trim() ? `<span class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link just now. We’ll try again when you continue.</span></span>` : ''}</div>`;
+  const picked = x.points.length;
   return `<div class="hp-top">${screenHead(1, 'About you')}
-      ${name ? `<p class="hp-nick">${esc(name)}</p>` : ''}
-      ${ctx ? `<p class="hp-ctx">${esc(ctx.length > 150 ? ctx.slice(0, 148).replace(/\s\S*$/, '') + '…' : ctx)}</p>` : ''}
-      ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}</div>
-    ${due?.late ? lateBanner(h) : ''}
+      ${picked ? `<p class="hp-sub">${picked === 1 ? 'The point you picked is' : `The ${picked} points you picked are`} in your letter. Add your own reason if you can.</p>` : ''}</div>
     ${notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone in Hawaiʻi can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
     <form id="hp-form" class="hp-form" novalidate>
       ${field('name', 'Your name', 'name')}
-      ${field('town', 'Your town or island', 'address-level2')}
       ${email}
       <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `Why it matters to you <span class="hp-opt">(optional)</span>`}</label>
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${own2() ? 'This is the heart of your letter. One or two sentences in your own words.' : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
+      <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
+        <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
 }
-const ERR = { name: 'Enter your name', town: 'Enter your town or island', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
+// Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it.
+const CLOSINGS = ['Mahalo for the opportunity to testify', 'Mahalo nui loa', 'With aloha'];
+const ERR = { name: 'Enter your name', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
 const own2 = () => { const x = S.helper; return !!x && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
 const HELP = { email: 'hp-email-help' };   // fields whose help text stays described while an error shows
@@ -460,7 +497,8 @@ function foot() {
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
-  if (x.screen === 1) return row((x.askStance ? back : '') + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>See my letter</span>${icon('arrow-right')}</button>`);
+  if (x.screen === 'know') return row((x.askStance ? back : '') + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
+  if (x.screen === 1) return row(back + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>See my letter</span>${icon('arrow-right')}</button>`);
   if (x.screen === 2) return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
   if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
@@ -502,14 +540,14 @@ function announce(text) { const live = dlg?.querySelector('#hp-live'); if (!live
 // ---------------- behaviour ----------------
 function toLetter() {
   const x = S.helper; if (!x || !dlg) return;
-  for (const f of ['name', 'town', 'email', 'why']) { const el = dlg.querySelector('#hp-' + f); if (el) x[f] = el.value; }
+  for (const f of ['name', 'email', 'why', 'closing']) { const el = dlg.querySelector('#hp-' + f); if (el) x[f] = el.value; }
   const hasEmail = !!dlg.querySelector('#hp-email'), email = x.email.trim();
   // The email is optional, so empty is fine; something typed that is not an address is worth a word, because the
   // person expects alerts that would never come.
-  const bad = [...['name', 'town'].filter(f => !x[f].trim()), ...(hasEmail && email && !validEmail(email) ? ['email'] : []), ...(own2() && !x.why.trim() ? ['why'] : [])];
-  ['name', 'town', ...(hasEmail ? ['email'] : []), 'why'].forEach(f => setErr(f, bad.includes(f)));
+  const bad = [...(!x.name.trim() ? ['name'] : []), ...(hasEmail && email && !validEmail(email) ? ['email'] : []), ...(own2() && !x.why.trim() ? ['why'] : [])];
+  ['name', ...(hasEmail ? ['email'] : []), 'why'].forEach(f => setErr(f, bad.includes(f)));
   if (bad.length) { dlg.querySelector('#hp-' + bad[0])?.focus(); return; }
-  saveMe({ name: x.name.trim(), town: x.town.trim(), why: x.why, whyBill: x.b.id, ...(hasEmail ? { email } : {}) });
+  saveMe({ name: x.name.trim(), closing: x.closing.trim(), why: x.why, whyBill: x.b.id, ...(hasEmail ? { email } : {}) });
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
   goTo(2);
 }
@@ -633,6 +671,19 @@ function onClick(e) {
   else if (a === 'next') goNext();
   else if (a === 'back') goBack();
   else if (a === 'stance') { S.helper.stance = t.dataset.v; saveDraft(); goNext(); }
+  else if (a === 'point') {
+    // Add or take out one talking point. Kept in the order the bill lists them, so the letter reads the same way.
+    const x = S.helper, all = pointsOf(x), s = all[+t.dataset.i]; if (!s) return;
+    const on = !x.points.includes(s), set = new Set(on ? [...x.points, s] : x.points.filter(p => p !== s));
+    x.points = all.filter(p => set.has(p)); saveDraft();
+    paint({ focus: undefined }); dlg?.querySelector(`[data-hp="point"][data-i="${t.dataset.i}"]`)?.focus({ preventScroll: true });
+    announce(on ? 'Added to your letter' : 'Taken out of your letter');
+  }
+  else if (a === 'closing') {
+    const x = S.helper, el = dlg?.querySelector('#hp-closing'); x.closing = t.dataset.v; saveMe({ closing: x.closing });
+    if (el) { el.value = x.closing; el.focus({ preventScroll: true }); }
+    dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === x.closing)));
+  }
   else if (a === 'acct-yes' || a === 'acct-done') { saveMe({ capitolAcct: true }); goNext(); }
   else if (a === 'acct-no') { S.helper.acctNew = true; saveDraft(); paint({ focus: 'hp-sh' }); }
   else if (a === 'acct-help') { S.helper.acctHelp = true; paint(); }
@@ -651,12 +702,13 @@ function onClick(e) {
 }
 function onInput(e) {
   const x = S.helper, t = e.target; if (!x) return;
-  if (t.id === 'hp-name' || t.id === 'hp-town' || t.id === 'hp-why') {
+  if (t.id === 'hp-name' || t.id === 'hp-why' || t.id === 'hp-closing') {
     const f = t.id.slice(3); x[f] = t.value;
     saveMe(f === 'why' ? { why: t.value, whyBill: x.b.id } : { [f]: t.value.trim() });
+    if (f === 'closing') dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === t.value.trim())));
     if (x.errs[f] && t.value.trim()) setErr(f, false);
   } else if (t.id === 'hp-email') {
-    // Remembered like the name and town, so a phone that reloads the tab brings it back. The error (shown only after
+    // Remembered like the name, so a phone that reloads the tab brings it back. The error (shown only after
     // leaving the field or choosing See my letter) clears as soon as the address looks right, or the box is empty.
     const v = t.value.trim(); x.email = t.value; saveMe({ email: v });
     if (x.errs.email && (!v || validEmail(v))) setErr('email', false);
@@ -669,7 +721,7 @@ function onInput(e) {
 function onBlur(e) {
   const x = S.helper, id = e.target.id;
   // Not when the whole page loses focus (switching apps), only when the person moves on from the field.
-  if (!x || !['hp-name', 'hp-town', 'hp-email'].includes(id) || !document.hasFocus() || !dlg?.contains(e.relatedTarget || dlg)) return;
+  if (!x || !['hp-name', 'hp-email'].includes(id) || !document.hasFocus() || !dlg?.contains(e.relatedTarget || dlg)) return;
   const v = e.target.value.trim();
   if (id === 'hp-email') { if (v && !validEmail(v)) setErr('email', true); }   // optional: empty is never an error
   else if (!v) setErr(id.slice(3), true);
@@ -677,8 +729,7 @@ function onBlur(e) {
 function onKey(e) {
   if (e.key !== 'Enter' || e.isComposing) return;
   // Enter moves on to the next field instead of skipping "why".
-  if (e.target.id === 'hp-name') { e.preventDefault(); dlg.querySelector('#hp-town')?.focus(); }
-  else if (e.target.id === 'hp-town') { e.preventDefault(); dlg.querySelector('#hp-email, #hp-why')?.focus(); }
+  if (e.target.id === 'hp-name') { e.preventDefault(); dlg.querySelector('#hp-email, #hp-why')?.focus(); }
   else if (e.target.id === 'hp-email') { e.preventDefault(); dlg.querySelector('#hp-why')?.focus(); }
 }
 function listen(d) {

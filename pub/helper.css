@@ -130,3 +130,27 @@
 .hp-dlg .hp-choice[aria-pressed="true"] span { color: #fff; }
 .hp-dlg .hp-trouble p + p { margin-top: var(--s8); }
 .hp-dlg .hp-under { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s8); }
+
+/* R-068, 9/28: "Get to know the bill" - what it does, where HIPHI stands, and talking points to tap into the letter.
+   A point is a toggle: a round + that becomes a filled check, and the word Add / Added, so it is never colour alone (A-5). */
+.hp-dlg .hp-kn { display: grid; gap: var(--s16); margin-top: var(--s16); }
+.hp-dlg .hp-kn p { margin: 0; }
+.hp-dlg .hp-knh { margin: 0 0 4px; font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.hp-dlg .hp-knw { color: var(--n900); }
+.hp-dlg .hp-ptsec { margin-top: var(--s24); }
+.hp-dlg .hp-ptsec .help { display: block; margin: 0 0 var(--s12); color: var(--n700); font-size: var(--t14); }
+.hp-dlg .hp-pts { display: grid; gap: var(--s8); margin: 0; padding: 0; list-style: none; }
+.hp-dlg .hp-pt { display: flex; align-items: flex-start; gap: var(--s12); width: 100%; min-height: 56px; padding: 12px 14px; border-radius: var(--r12);
+  border: 1px solid var(--n300); background: var(--n0); color: var(--n900); font: 400 var(--t16)/1.4 var(--font); text-align: left; cursor: pointer; }
+.hp-dlg .hp-pt:hover { border-color: var(--p700); }
+.hp-dlg .hp-pti { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--p700); color: var(--p700); }
+.hp-dlg .hp-pti svg { width: 16px; height: 16px; }
+.hp-dlg .hp-ptt { flex: 1; }
+.hp-dlg .hp-pta { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); padding-top: 3px; }
+.hp-dlg .hp-pt[aria-pressed="true"] { border: 2px solid var(--p700); padding: 11px 13px; background: var(--p50); }
+.hp-dlg .hp-pt[aria-pressed="true"] .hp-pti { background: var(--p700); color: #fff; }
+.hp-dlg .hp-own { display: flex; gap: var(--s8); margin-top: var(--s16); color: var(--n700); }
+.hp-dlg .hp-sugs { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s8); }
+.hp-dlg .hp-sug { min-height: 44px; cursor: pointer; }
+.hp-dlg .hp-sug[aria-pressed="true"] { background: var(--p700); color: #fff; border-color: var(--p700); }
+.hp-dlg .hp-kn .hp-inl { margin-left: -16px; }   /* the text link lines up with the words above it; its padding keeps the 44px target */

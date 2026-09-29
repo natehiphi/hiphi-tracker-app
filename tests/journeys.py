@@ -51,13 +51,13 @@ JOURNEYS = [
         reach="(()=>{const l=document.querySelector('.bl-head .lede'); return !!l && l.innerText.trim().length>20;})()"),
  ]),
  # R-068 (Nate 9/27): testimony is the main action wherever there is a hearing, so "decide to act" is testimony now,
- # budgeted for a first-timer (B-2): the stance question, name and town, the letter, the one-time Capitol account step,
+ # budgeted for a first-timer (B-2): the stance question, the bill and its talking points (9/28), the name, the letter, the one-time Capitol account step,
  # one tap to copy and open the Capitol page, and the green box. The quick email is still one of the other ways.
  dict(name='public: decide to act -> testimony sent (first time)', app=PUBLIC, budget=9, start='#/bill/HB2121', skip_wizard=True, steps=[
    dict(what='choose to testify',        do=click_text('.btn', 'Write my testimony'), reach=hp_seen('Where do you stand')),
-   dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach="(()=>!!document.getElementById('hp-name'))()"),
+   dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach=hp_seen('Get to know the bill')),
+   dict(what='move on from the bill',     do=click_text('#hp-dlg button', '^Next'), reach="(()=>!!document.getElementById('hp-name'))()"),
    dict(what='type your name',           fill=('#hp-name', 'Kai Ho'), reach="(()=>document.getElementById('hp-name')?.value==='Kai Ho')()"),
-   dict(what='type your town',           fill=('#hp-town', 'Kailua'), reach="(()=>document.getElementById('hp-town')?.value==='Kailua')()"),
    dict(what='see the letter',           do=click_text('#hp-dlg button', 'See my letter'), reach="(()=>!!document.getElementById('hp-letter'))()"),
    dict(what='move on from the letter',  do=click_text('#hp-dlg button', '^Next'), reach=hp_seen('Have you sent testimony')),
    dict(what='say you have an account',  do=click_text('#hp-dlg button', 'Yes, I have an account'), reach=hp_seen('Copy my letter and open')),
