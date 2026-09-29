@@ -234,34 +234,69 @@
 .lx-legmini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--p100); border: 2px solid var(--n0); flex: none; }
 .lx-legmini.none { display: inline-grid; place-items: center; font-size: var(--t13); font-weight: 700; color: var(--p800); }
 
-/* ================= 4. A bill's story, one page (R-062, Nate 9/29): the full first visit's one lesson =================
-   The road with the bill on it and the three moments a person can help, then the words: the road in one sentence, the
-   bill's next chance, the three moments, why it matters, and that nothing is asked now. Nothing here is a card, a chip
-   or a button (A-12): the only control is the page's Next. The picture plays once when it is first shown (.lx-play):
-   the road is travelled up to the bill, the stops it passed are ticked, the bill appears, then the three neighbours,
-   about 2.5 seconds in all, ending on the still picture that says the same thing; under Reduce Motion the still
-   picture shows at once (the rule at the end of this file). */
+/* ================= 4. A bill's story, one page in three stages (R-062, Nate 9/29): the full first visit's one lesson ======
+   One drawing (#lx-story, at the end of the intro: under the lede on a phone, in the left column on a laptop) and one
+   caption (#lx-cap) that change in place: 1 the bill as paper, 2 its road, 3 who can hear you and the four choices.
+   The stage is data-stage on the drawing and the lesson; the choice is data-choice on the drawing. Each stage's motion
+   plays once when the person taps (.lx-play; the road's trip is driven from lessons.js), each choice's when it is picked
+   (.lx-cplay), all over in about 1.5 seconds, and each ends on the still picture that says the same thing; under Reduce
+   Motion the still picture shows at once (the rule at the end of this file). The four choices are the only controls on
+   the page besides the page's own buttons, and they look like a story's choices (a small drawing, a tile), not like the
+   app's pill buttons (A-12). */
 .lx-story text { font-family: var(--font); }
-.lx-story :is(.lx-s2tick, .lx-s2bill, .lx-mo) { transform-box: fill-box; transform-origin: center; }
-.lx-l-story { gap: var(--s16); }
-.lx-stext { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
-.lx-stext p, .lx-moments li { font-size: var(--t16); color: var(--n700); }
-.lx-stext b { color: var(--n900); }
-.lx-road { color: var(--n700); }
-.lx-now { color: var(--n900) !important; }
-.lx-mh { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.2; margin-top: var(--s4); text-wrap: balance; }
-/* The three moments: plain numbered lines, the number in words' colour, no circle or box around it, so nothing looks
-   like a step to tap (A-12). */
-.lx-moments { display: grid; gap: var(--s12); margin: 0; padding-left: 1.4em; }
-.lx-moments li { padding-left: 2px; }
-.lx-moments li::marker { font-weight: 700; color: var(--p800); }
-.lx-l-story p.lx-calm { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
+.lx-story .lx-lay { display: none; }
+.lx-story[data-stage="1"] .lx-lay1, .lx-story[data-stage="2"] .lx-lay2, .lx-story[data-stage="3"] .lx-lay3 { display: inline; }
+.lx-story :is(.lx-s1paper, .lx-s1stamp, .lx-ticki, .lx-in3, .lx-pop, .lx-fade, .lx-fly, .lx-grow) { transform-box: fill-box; transform-origin: center; }
+.lx-story .lx-grow { transform-origin: left center; }
+.lx-story .lx-hand { transform-box: fill-box; transform-origin: 50% 100%; }
+.lx-l-story { gap: var(--s12); }
+.lx-scap { display: block; }   /* not the lessons' grid: a min-height would spread its rows apart */
+.lx-scap h2 { margin: 0; }
+.lx-scap p { margin-top: var(--s8); font-size: var(--t16); color: var(--n700); }
+.lx-scap b { color: var(--n900); }
+.lx-scap p.lx-now { color: var(--n900); }
+.lx-scap p.lx-count { margin: 0 0 2px; font-size: var(--t13); font-weight: 700; letter-spacing: .02em; color: var(--p800); }
+/* stage 1: the paper settles, then HIPHI's stamp is pressed on it */
+.lx-story.lx-play[data-stage="1"] .lx-s1paper { animation: lx-rise .45s var(--ease) both; }
+.lx-story.lx-play[data-stage="1"] .lx-s1stamp { animation: lx-stamp .4s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) .5s both; }
+.lx-story.lx-play[data-stage="1"] .lx-s1arrow { animation: lx-fadein .35s var(--ease) .25s both; }
+/* stage 2: lessons.js moves the bill and fills the road; the stops tick as it passes, and "<bill> is here" comes last */
+.lx-story .lx-pre { opacity: 0; }
+.lx-story .lx-tick.lx-popin .lx-ticki { animation: lx-pop .3s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) both; }
+.lx-story .lx-here.lx-fadein { animation: lx-fadein .25s var(--ease) both; }
+/* stage 3: who can hear you comes in, then each choice plays its own small scene */
+.lx-story.lx-play[data-stage="3"] .lx-in3 { animation: lx-rise .35s var(--ease) var(--d, 0ms) both; }
+.lx-story .lx-c3 { display: none; }
+.lx-story[data-choice="chair"] .lx-c3-chair, .lx-story[data-choice="testimony"] .lx-c3-testimony,
+.lx-story[data-choice="legislators"] .lx-c3-legislators, .lx-story[data-choice="quiet"] .lx-c3-quiet { display: inline; }
+.lx-story[data-choice] .lx-q3 { display: none; }
+.lx-story[data-choice="quiet"] .lx-blbl { opacity: 0; }
+.lx-story .lx-cmte { transition: opacity .4s var(--ease); }
+.lx-story[data-choice="quiet"] .lx-cmte { opacity: .45; transition-delay: .5s; }
+.lx-story.lx-cplay .lx-fly { animation: lx-fly .6s var(--ease) var(--d, 0ms) both; }
+.lx-story.lx-cplay .lx-pop { animation: lx-pop .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
+.lx-story.lx-cplay .lx-fade { animation: lx-fadein .35s var(--ease) var(--d, 0ms) both; }
+.lx-story.lx-cplay .lx-grow { animation: lx-grow .3s var(--ease) var(--d, 0ms) both; }
+.lx-story.lx-cplay .lx-hand { animation: lx-spin .8s var(--ease) .1s both; }
+/* the choices: tiles with a small drawing, two by two (the hearing lesson's answers are the same family) */
+.lx-choose { display: grid; gap: var(--s8); margin-top: var(--s12); }
+.lx-scap p.lx-ask { margin: 0; font-weight: 700; color: var(--n900); }
+.lx-chs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); }
+.lx-ch { display: flex; align-items: center; gap: var(--s8); min-height: 56px; min-width: 0; padding: 8px 10px 8px 8px; border-radius: var(--r12);
+  border: 1.5px solid var(--n400); background: var(--n0); box-shadow: var(--sh1); text-align: left; font-weight: 700; font-size: var(--t16); line-height: 1.2;
+  color: var(--n900); overflow-wrap: anywhere; transition: border-color .15s, background-color .15s, transform .15s; }
+.lx-ch .lx-chart { flex: none; width: 32px; height: 32px; }
+.lx-ch:hover { border-color: var(--p700); background: var(--p50); }
+.lx-ch:active { transform: scale(.98); }
+.lx-ch[aria-pressed="true"], .lx-ch[aria-pressed="true"]:hover { border-color: var(--p700); background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
+.lx-ch-quiet[aria-pressed="true"], .lx-ch-quiet[aria-pressed="true"]:hover { border-color: var(--n700); background: var(--n100); box-shadow: inset 0 0 0 1px var(--n700); }
+/* what can happen: the sentence under the heading, set apart once a choice is made */
+.lx-scap p.lx-out.lx-got { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); }
+.lx-scap p.lx-out.lx-gotq { background: var(--n100); border-left-color: var(--n500); }
+.lx-scap p.lx-out.lx-swap { animation: lx-rise .28s var(--ease) both; }
+.lx-scap p.lx-why { margin-top: var(--s12); }
+.lx-scap p.lx-calm { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
 .lx-calm .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
-.lx-story.lx-play .lx-s2trav { animation: lx-trav var(--dur, 1s) var(--ease) .15s both; }
-.lx-story.lx-play .lx-s2tick { animation: lx-pop .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
-.lx-story.lx-play .lx-s2bill { animation: lx-pop .4s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
-.lx-story.lx-play .lx-s2here { animation: lx-fadein .3s var(--ease) calc(var(--dur, 1s) + .2s) both; }
-.lx-story.lx-play .lx-mo { animation: lx-rise .4s var(--ease) var(--d, 0ms) both; }
 
 /* ---- the smallest phones ---- */
 @media (max-width: 22.4375em) {
@@ -277,8 +312,8 @@
 @media (min-width: 900px) {
   .lx { max-width: 540px; }
   .lx-l-bill { max-width: 440px; }
-  .lx-l-story { max-width: 620px; }
-  .lx-l-story .lx-story { max-width: 400px; }
+  .lx-l-story { max-width: 560px; }
+  .st-intro .lx-story { max-width: 460px; }
   /* On a laptop the button sits under the lesson, not in a bar: the committee room gives up width on a short window so
      the question and Next stay in view under it (1280x800, 1024x768) */
   .lx-room { max-width: clamp(380px, calc((100vh - 510px) * 1.525), 100%); }
@@ -291,11 +326,14 @@
 @keyframes lx-blink { 50% { opacity: .25; } }
 @keyframes lx-known { 0% { transform: scale(.9); } 60% { transform: scale(1.06); } 100% { transform: none; } }
 @keyframes lx-fadein { from { opacity: 0; } to { opacity: 1; } }
-@keyframes lx-trav { from { stroke-dasharray: 0 2; } }
+@keyframes lx-stamp { 0% { transform: scale(1.6); opacity: 0; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes lx-fly { 0% { transform: translate(var(--dx), var(--dy)); opacity: 0; } 15% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes lx-grow { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes lx-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Reduce Motion: the same states, with no movement (A-10). base.css zeroes durations but not delays, and some states
    here wait on a delay, so both go. The JS side (fx.reduced) skips the timers, the trips and the bursts. */
 @media (prefers-reduced-motion: reduce) {
-  .lx, .lx *, .lx *::before, .lx *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
+  .lx, .lx *, .lx *::before, .lx *::after, .lx-story, .lx-story * { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
     transition-duration: .001ms !important; transition-delay: 0ms !important; }
 }

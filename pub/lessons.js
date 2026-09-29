@@ -1,9 +1,9 @@
 // The lessons of the public tracker, told with the person's own bill. Since 9/29 (R-062, Nate: "Let's use concept 1 as a
 // primer for how session works during onboarding") the full first visit teaches ONE lesson, "A bill's story" (story,
-// section 4 below). Its three drawn scenes became ONE page the same day (Nate: "condense those 3 new bill story slides
-// into one page"): the bill's road through the Capitol with "<bill> is here" and the three moments a person can help
-// (ask the chair to hear it, send testimony, tell your own legislators), then the bill's own next chance in words.
-// Nothing in it looks like the app or like something to press (A-12); the only button is the first visit's own Next. The three older lessons, "Reading a bill", "The session, January to May" and "What a
+// section 4 below): one page in three stages that the page's own Next walks (Nate 9/29: "First it highlights the bill,
+// then it moves throughout the process, then it shows why speaking up can help"): the bill itself, its road to where it
+// really is, and a choice of what you would do ("Email the chair", "Send testimony", "Tell my legislators", "Stay
+// quiet"), each playing what can happen. The three older lessons, "Reading a bill", "The session, January to May" and "What a
 // hearing is" (R-023, 9/21), still open on their own at #/learn/<bill|session|hearing>, linked from bill pages and Help. Ported from the prototype Nate approved (backend
 // docs/first-visit-prototype, version 3, after the second review); every behaviour and word is from backend
 // docs/FIRST-VISIT-PLAN.md "The three lessons" and "The second review", with the real bill's values filled in.
@@ -22,6 +22,8 @@
 //   lessonNext(name, E)                 the primary was pressed: true when it did something inside the lesson (next
 //                                       step, the quiz shown or answered), false when the flow should move on
 //   lessonStop()                        the screen is being left or redrawn: every timer and trip stops
+//   lessonPrev(name)                    Back was pressed: true when the story stepped back a stage, false to leave
+//   lessonStep(name)                    the story's stage (1-3), so the lesson page can say Done on the last
 //
 // E, the example (exampleFrom). b's hearings must be loaded first (b in S.bills, or `await ensureBill(num)`), because
 // situation() and stopOf() read them; without them the hearing lesson falls back to the made-up hearing.
@@ -56,7 +58,7 @@ import { situation, railHTML } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
 
 export const LESSON_TITLES = { bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is', story: 'A bill’s story' };
-const LAST = { bill: 2, session: 4, hearing: 2, story: 1 };   // the story is one page (9/29)
+const LAST = { bill: 2, session: 4, hearing: 2, story: 3 };   // the story: one page in three stages (9/29)
 
 // ---------------------------------------------------------------- small helpers
 const NBSP = '\u00a0';
@@ -259,9 +261,9 @@ function hearCaps(E) {
 // ---------------------------------------------------------------- shared parts: caption, step dots, timers, scrolling
 // Each lesson's step (and the hearing's answer) lives here between draws, so Back and a redraw can bring it back.
 // L.answered is kept for the example as a whole: onAnswer is called once, however often the lesson is walked again.
-const ST = { bill: { step: 1 }, session: { step: 1, mineAt: 0 }, hearing: { step: 1, quiz: null, shown: false }, story: { step: 1 } };
+const ST = { bill: { step: 1 }, session: { step: 1, mineAt: 0 }, hearing: { step: 1, quiz: null, shown: false }, story: { step: 1, choice: null } };
 const L = { name: null, E: null, key: '', run: 0, timers: new Set(), onAnswer: null, toks: null, answered: false };
-const fresh = name => { ST[name] = name === 'session' ? { step: 1, mineAt: 0 } : name === 'hearing' ? { step: 1, quiz: null, shown: false } : { step: 1 }; };
+const fresh = name => { ST[name] = name === 'session' ? { step: 1, mineAt: 0 } : name === 'hearing' ? { step: 1, quiz: null, shown: false } : name === 'story' ? { step: 1, choice: null } : { step: 1 }; };
 const rootOf = name => document.querySelector(`.lx[data-lx="${name}"]`);
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // A pause that only exists when things move (fx.later), remembered so lessonStop can cancel it.
@@ -284,6 +286,7 @@ function caption(c, { num = 0, swap = true } = {}) {
 // jumps when the step changes, and no step leaves a gap. Measured at the page's own width, and again when the window
 // or the fonts change.
 function fitCaption() {
+  if (L.name === 'story') { fitStory(); return; }
   const root = L.name && rootOf(L.name), cap = root && $('#lx-cap', root); if (!cap || !L.E) return;
   const caps = L.name === 'bill' ? billCaps(L.E) : L.name === 'session' ? sessionCaps(L.E) : hearCaps(L.E), num = L.name === 'bill';
   const probe = document.createElement('div');
@@ -634,43 +637,105 @@ function hearingSet(k, { instant = false, initial = false } = {}) {
   if (!initial && !instant) reveal(room, k === 1 ? $('#lx-cap') : (x.innerHTML ? x : $('#lx-cap')));
 }
 
-// ================================================================ 4. A bill's story, one page (R-062, Nate 9/29)
-// The full first visit's only lesson. It was three drawn scenes walked with Next (the bill as paper, its road, neighbours
-// sending notes); Nate, 9/29: "condense those 3 new bill story slides into one page ... greatly improve the need and
-// importance for public engagement ... not just testimony during committee hearings, but also convincing chairs to hear
-// bills and other general advocacy needs." So it is now ONE page with one Next:
-//   the road   one winding road of stops (its first side's committees and vote, the other side's, the Governor, the law),
-//              ticked up to where the bill is, the bill as a small sheet of paper with "<bill> is here", and the three
-//              moments a person can help, each a drawn neighbour, where they happen on the side the bill is on (or last
-//              went through): ask the chair to hear it (at the committee, before a hearing is set), send testimony (at
-//              the hearing), tell your own legislators (at the vote). "Most bills stop here" is gone (Nate).
-//   the words  the road in one sentence; the bill's own next chance ("Right now HB 2121 is with Senate committees. Its
-//              hearing is Friday at 9:30 AM, and testimony is due Thursday at 9:30 AM." / "Right now the chair of the
-//              Senate Health Committee decides whether HB 1563 gets a hearing. That's where you come in."); the three
-//              moments in plain words; why it matters (few people write in; the wins, counted from the data as Home's
-//              wins card counts them); and that nothing is asked now.
-// The drawing is aria-hidden and the words say all of it. Nothing in it is a card, a chip, a dot or a button, and nothing
-// can be tapped: the only control is Next (A-12, C-12). Drawn people are one silhouette each, in one flat colour.
-// Testimony is "due", never "closes", and its time is the committee's own or "by the deadline the committee sets" (some
-// Senate committees want 48 hours, so no rule of thumb is ever said). Motion (A-10): the road is travelled up to the
-// bill, the stops it passed are ticked, then the three neighbours appear; about 2.5 seconds at most, once, ending on the
-// still picture that says the same thing; under Reduce Motion the still picture shows at once.
-const SW = 360, SH = 322;
+// ================================================================ 4. A bill's story, three stages (R-062, Nate 9/29)
+// The full first visit's only lesson, and #/learn/story. Nate, 9/29: "The bill's story should be one page, with three
+// different animations. First it highlights the bill, then it moves throughout the process, then it shows why speaking
+// up can help. The user clicks through each stage." He picked "one choice at the end". So it is ONE page whose drawing
+// and short caption change in place, walked with the page's own Next (Back walks back first):
+//   1. This is your bill   the bill as a sheet of paper: its number and name, HIPHI's stance as a rubber stamp, and the
+//                          chamber it started in. The caption: what it is in plain words, and what HB/SB means.
+//   2. Its road            one winding road of stops (its first side's committees and vote, the other side's, the
+//                          Governor, the law). The bill travels it up to where it really is, ticking the stops it passed.
+//                          The caption: the road in one sentence, and the bill's own next chance (storyNow).
+//   3. Why speaking up     who can hear you (the committee and its chair, your own legislators) and a bill waiting. A
+//      can help           choice of four, drawn as story choices, not app buttons: "Email the chair", "Send testimony",
+//                          "Tell my legislators", "Stay quiet". Each plays what CAN happen (an email reaches the chair
+//                          and the chair's hearing list gets a bill; notes land on the committee's table; your
+//                          legislators hear from you; nothing is sent, and the bill waits and stops) with one sentence.
+//                          The others stay there to try. Then why it matters (few people write in; a real win).
+// Where the bill is decides what is true: a law or a stopped bill still gets the choices, asked about next time.
+// The drawing is aria-hidden and the words say all of it (A-10: motion is never the only way something is said). Nothing
+// else here can be pressed: the four choices are the only controls, and they look like a story's choices, not the app's
+// buttons (A-12, C-12). Drawn people are one silhouette each, in one flat colour. Testimony is "due", never "closes".
+// Motion (A-10): each stage's movement is short (about 1.5 seconds at most), plays when the person taps, and ends on the
+// still picture that says the same thing; Back and a redraw show the still picture; under Reduce Motion the still
+// picture shows at once. The drawing sits at the end of the lesson's intro, so on a laptop it stays beside the words.
+const SW = 360, SH = 280;
 const svgText = (x, y, t, { size = 13, fill = 'var(--p900)', anchor = 'middle', cls = '', ls = 0, weight = 700 } = {}) =>
   `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}" font-weight="${weight}"${ls ? ` letter-spacing="${ls}"` : ''} fill="${fill}"${cls ? ` class="${cls}"` : ''}>${esc(t)}</text>`;
+// One person: a single silhouette in one flat colour (head and body overlap; no outline per part).
+const person = (x, y, c, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="${c}"><circle cx="0" cy="-30" r="11"/><path d="M-19 16 C-19 -8 -10 -16 0 -16 C10 -16 19 -8 19 16 Z"/></g>`;
+const PROPS = {
+  mail: (x, y, r = -10) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-9" y="-6.5" width="18" height="13" rx="2" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-9 -6.5 L0 1 L9 -6.5" fill="none" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/></g>`,
+  note: (x, y, r = 8) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-7.5" y="-9.5" width="15" height="19" rx="1.5" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-3.5 -4h7M-3.5 0h7M-3.5 4h4.5" stroke="var(--p400)" stroke-width="1.8" stroke-linecap="round"/></g>`,
+  talk: (x, y) => `<g transform="translate(${x} ${y})"><path d="M-12 -8 Q-12 -11 -9 -11 H9 Q12 -11 12 -8 V3 Q12 6 9 6 H-2 L-8 11 L-7 6 H-9 Q-12 6 -12 3 Z" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/><circle cx="-5" cy="-2.5" r="1.7" fill="var(--p700)"/><circle cx="0" cy="-2.5" r="1.7" fill="var(--p700)"/><circle cx="5" cy="-2.5" r="1.7" fill="var(--p700)"/></g>`,
+};
+const smallBill = (stopped = false) => `<g transform="translate(-14 -20)">
+  <path d="M0 2 Q0 0 2 0 H22 L28 6 V38 Q28 40 26 40 H2 Q0 40 0 38 Z" fill="${stopped ? 'var(--n100)' : 'var(--n0)'}" stroke="${stopped ? 'var(--n500)' : 'var(--p800)'}" stroke-width="2"/>
+  <rect x="-3" y="5" width="20" height="8" rx="2" fill="${stopped ? 'var(--n500)' : 'var(--p700)'}"/><path d="M5 22h16M5 29h16" stroke="${stopped ? 'var(--n300)' : 'var(--p200)'}" stroke-width="3" stroke-linecap="round"/></g>`;
 
-// ---- the road ----
+// ---- stage 1: the sheet of paper ----
+// The bill's name on the paper, wrapped to three lines at most. The type sizes are the page's own (22, 18 or 16), and a
+// line that still comes out too wide is fitted after drawing (fitTitles), never left to run off the paper.
+const TITLE_W = 124;
+function paperTitle(t) {
+  const ws = String(t || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const wrap = max => { const out = []; let cur = '';
+    for (const w of ws) { if (!cur) cur = w; else if (`${cur} ${w}`.length <= max) cur += ` ${w}`; else { out.push(cur); cur = w; } }
+    if (cur) out.push(cur); return out; };
+  for (const fs of [22, 18]) { const max = Math.floor(TITLE_W / (fs * .6)); if (ws.every(w => w.length <= max)) { const lines = wrap(max); if (lines.length <= 3) return { fs, lines }; } }
+  const lines = wrap(Math.floor(TITLE_W / (16 * .6)));
+  if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].replace(/[,;:.]?$/, '…'); }
+  return { fs: 16, lines };
+}
+function fitTitles(root) {
+  $$('.lx-ptitle', root).forEach(t => { try { if (t.getComputedTextLength() > TITLE_W + 2) { t.setAttribute('textLength', TITLE_W); t.setAttribute('lengthAdjust', 'spacingAndGlyphs'); } } catch { /* not drawn yet */ } });
+}
+// HIPHI's position as the words of a rubber stamp (present tense: a stamp is a stamp), and as the caption's sentence.
+const STAMP = { strongly_support: ['STRONGLY', 'SUPPORTS'], support: ['SUPPORTS'], support_amend: ['SUPPORTS', 'WITH', 'CHANGES'],
+  strongly_oppose: ['STRONGLY', 'OPPOSES'], oppose: ['OPPOSES'], neutral: ['HAS', 'COMMENTS'] };
+const STAND = { strongly_support: ['strongly supports it', 'strongly supported it'], support: ['supports it', 'supported it'],
+  support_amend: ['supports it, with changes', 'supported it, with changes'], strongly_oppose: ['strongly opposes it', 'strongly opposed it'],
+  oppose: ['opposes it', 'opposed it'], neutral: ['has comments on it', 'had comments on it'] };
+function paperSVG(E) {
+  const T = paperTitle(E.name), lh = T.fs + 4, titleY = 74, last = titleY + (T.lines.length - 1) * lh;
+  const bodyTop = last + 22, nBody = Math.max(1, Math.min(4, Math.floor((186 - bodyTop) / 16) + 1));
+  const body = [112, 120, 96, 108].slice(0, nBody).map((w, i) => `<path d="M22 ${bodyTop + i * 16}h${w}"/>`).join('');
+  const numW = Math.max(96, String(E.num).length * 12 + 18);
+  const words = STAMP[E.b.hiphi_position], cy = Math.max(184, 18 + last + 58);
+  const stamp = words ? (() => { const lines = ['HIPHI', ...words], top = 5 - (lines.length - 1) * 7.5;
+    return `<g transform="translate(298 ${cy}) rotate(-14)" opacity=".94"><g class="lx-s1stamp">
+      <circle r="50" fill="var(--p50)" stroke="var(--p700)" stroke-width="3.5"/><circle r="43" fill="none" stroke="var(--p700)" stroke-width="1.5"/>
+      ${lines.map((l, i) => svgText(0, (top + i * 15).toFixed(1), l, { fill: 'var(--p700)', ls: .6 })).join('')}</g></g>`; })() : '';
+  return `<g class="lx-lay lx-lay1"><g transform="translate(0 10)">
+    <ellipse cx="190" cy="236" rx="150" ry="10" fill="var(--p100)"/>
+    <path d="M22 206c10-16 20-34 32-40h18c12 6 22 24 32 40z" fill="var(--p300)"/>
+    <rect x="14" y="204" width="98" height="6" rx="3" fill="var(--p800)"/>
+    ${svgText(63, 232, E.start.toUpperCase(), { ls: 1.2 })}
+    <g class="lx-s1arrow"><path d="M70 158 C 80 104, 112 82, 150 76" fill="none" stroke="var(--p600)" stroke-width="2.5" stroke-dasharray="2 7" stroke-linecap="round"/>
+      <path d="M142 68 L154 76 L141 84" fill="none" stroke="var(--p600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${svgText(110, 180, 'started', { anchor: 'start' })}${svgText(110, 196, 'here', { anchor: 'start' })}</g>
+    <g transform="translate(168 18) rotate(-3)"><g class="lx-s1paper">
+      <path d="M0 4 Q0 0 4 0 H138 L160 22 V196 Q160 200 156 200 H4 Q0 200 0 196 Z" fill="var(--n0)" stroke="var(--p900)" stroke-width="2"/>
+      <path d="M138 0 V22 H160" fill="var(--p100)" stroke="var(--p900)" stroke-width="2" stroke-linejoin="round"/>
+      <rect x="-8" y="16" width="${numW}" height="30" rx="4" fill="var(--p700)"/>
+      ${svgText(numW / 2 - 8, 37, E.num, { size: 18, fill: 'var(--n0)' })}
+      ${T.lines.map((l, i) => svgText(20, titleY + i * lh, l, { size: T.fs, fill: 'var(--n900)', anchor: 'start', cls: 'lx-ptitle' })).join('')}
+      <g stroke="var(--p200)" stroke-width="5" stroke-linecap="round">${body}</g>
+    </g></g>
+    ${stamp}
+  </g></g>`;
+}
+
+// ---- stage 2: the road ----
 // In the drawing's own units: the first side along the bottom (left to right), the other side back along the middle,
-// the Governor along the top, and the law at its end. The space between the bottom and middle rows is where the three
-// moments stand. Its length is worked out here, so the part already travelled can be drawn as a share of it.
-const RB = 262, RM = 150, RT = 58, RXR = 290, RXL = 64, RXE = 286, R1 = (RB - RM) / 2, R2 = (RM - RT) / 2;
+// the Governor along the top, and the law at its end. Its length is worked out here, so the bill's place on it is a
+// share of it (the page measures the drawn path too, and moves the bill along it).
+const RB = 222, RM = 144, RT = 52, RXR = 290, RXL = 64, RXE = 286, R1 = (RB - RM) / 2, R2 = (RM - RT) / 2;
 const ROAD = `M-10 ${RB} H${RXR} A${R1} ${R1} 0 0 0 ${RXR} ${RM} H${RXL} A${R2} ${R2} 0 0 1 ${RXL} ${RT} H${RXE}`;
 const ROADLEN = (RXR + 10) + Math.PI * R1 + (RXR - RXL) + Math.PI * R2 + (RXE - RXL);
-const STOPS = [[116, RB], [270, RB], [244, RM], [96, RM], [160, RT]];
+const STOPS = [[116, RB], [262, RB], [236, RM], [96, RM], [160, RT]];
 const along = ([x, y]) => y === RB ? x + 10 : y === RM ? RXR + 10 + Math.PI * R1 + (RXR - x) : RXR + 10 + Math.PI * R1 + (RXR - RXL) + Math.PI * R2 + (x - RXL);
-// Where the three moments stand, on the side the bill is on: ask the chair before its committee stop, testimony just past
-// it (at the hearing), your legislators at the vote. The middle row runs right to left, so there the order is mirrored.
-const MOMENTS = { first: [52, 176, 270], second: [284, 186, 96] };
 // Where the bill stands on the road: 0-4 the stop it is at (or stopped at), 5 past them all, at the law. The same places
 // the bill page's rail uses (E.now, E.stat), so the two never disagree.
 function storyAt(E) {
@@ -681,48 +746,71 @@ function storyAt(E) {
   if (E.now === 3) return st.phase === 'floor' || st.phase === 'conference' ? 3 : 2;
   return E.now === 2 ? 1 : 0;
 }
-const smallBill = (x, y, cls, d, stopped) => `<g transform="translate(${x - 14} ${y - 20})"><g class="${cls}" style="--d:${d}ms">
-  <path d="M0 2 Q0 0 2 0 H22 L28 6 V38 Q28 40 26 40 H2 Q0 40 0 38 Z" fill="${stopped ? 'var(--n100)' : 'var(--n0)'}" stroke="${stopped ? 'var(--n500)' : 'var(--p800)'}" stroke-width="2"/>
-  <rect x="-3" y="5" width="20" height="8" rx="2" fill="${stopped ? 'var(--n500)' : 'var(--p700)'}"/><path d="M5 22h16M5 29h16" stroke="${stopped ? 'var(--n300)' : 'var(--p200)'}" stroke-width="3" stroke-linecap="round"/></g></g>`;
-// One neighbour: a single silhouette in one flat colour (head and body overlap; no outline per part), with what they
-// send beside them: an email to the chair, a written note for the hearing, a word with their own legislator.
-const person = (x, y, c, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="${c}"><circle cx="0" cy="-30" r="11"/><path d="M-19 16 C-19 -8 -10 -16 0 -16 C10 -16 19 -8 19 16 Z"/></g>`;
-const PROPS = {
-  mail: (x, y) => `<g transform="translate(${x} ${y}) rotate(-10)"><rect x="-9" y="-6.5" width="18" height="13" rx="2" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-9 -6.5 L0 1 L9 -6.5" fill="none" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/></g>`,
-  note: (x, y) => `<g transform="translate(${x} ${y}) rotate(8)"><rect x="-7.5" y="-9.5" width="15" height="19" rx="1.5" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-3.5 -4h7M-3.5 0h7M-3.5 4h4.5" stroke="var(--p400)" stroke-width="1.8" stroke-linecap="round"/></g>`,
-  talk: (x, y) => `<g transform="translate(${x} ${y})"><path d="M-10 -7 Q-10 -10 -7 -10 H7 Q10 -10 10 -7 V3 Q10 6 7 6 H-2 L-7 10 L-6 6 H-7 Q-10 6 -10 3 Z" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/><circle cx="-4.5" cy="-2" r="1.6" fill="var(--p700)"/><circle cx="0" cy="-2" r="1.6" fill="var(--p700)"/><circle cx="4.5" cy="-2" r="1.6" fill="var(--p700)"/></g>`,
-};
-const MOMENT_ART = [['var(--p500)', 'mail', ['Ask the chair', 'to hear it']], ['var(--p700)', 'note', ['Send', 'testimony']], ['var(--p400)', 'talk', ['Tell your', 'legislators']]];
 function roadSVG(E) {
   const at = storyAt(E), num = E.num, ballot = !!E.x.ballot;
   const names = [`${E.start} committees`, `${E.start} vote`, `${E.other} committees`, `${E.other} vote`, ballot ? 'The voters' : 'Governor'];
-  const end = at === 5 ? ROADLEN : along(STOPS[at]), dur = Math.round(400 + 900 * end / ROADLEN), when = d => Math.round(150 + dur * d / end);
+  const [bx, by] = at === 5 ? [258, RT] : STOPS[at], end = along([bx, by]);
   const stops = STOPS.map(([x, y], i) => {
     const below = y === RB, near = below ? y + 34 : y - 26, far = below ? near + 16 : near - 16;
-    const mark = i < at ? `<g transform="translate(${x} ${y})"><g class="lx-s2tick" style="--d:${when(along([x, y]))}ms"><circle r="13" fill="var(--p700)"/><path d="M-6 0 l4 4 8-8" fill="none" stroke="var(--n0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></g>`
+    const mark = i < at ? `<g class="lx-tick" data-at="${(along([x, y]) / ROADLEN).toFixed(4)}" transform="translate(${x} ${y})"><g class="lx-ticki"><circle r="13" fill="var(--p700)"/><path d="M-6 0 l4 4 8-8" fill="none" stroke="var(--n0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></g>`
       : i > at ? `<circle cx="${x}" cy="${y}" r="12" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/>` : '';
-    const here = i === at ? svgText(x, far, `${num} ${E.stopped ? 'stopped here' : 'is here'}`, { fill: E.stopped ? 'var(--n700)' : 'var(--p800)', cls: 'lx-s2here' }) : '';
+    const here = i === at ? svgText(x, far, `${num} ${E.stopped ? 'stopped here' : 'is here'}`, { fill: E.stopped ? 'var(--n700)' : 'var(--p800)', cls: 'lx-here' }) : '';
     return `${mark}${svgText(x, near, names[i])}${here}`;
   }).join('');
-  // the three moments, on the side the bill is on (or last went through)
-  // Each neighbour stands next to the row they belong to: under the middle road (the words below them), or on the bottom
-  // road (the words above them), so the moments never read as the other side's.
-  const row = at <= 1 ? 'first' : 'second', low = row === 'first', py = low ? RB - 32 : RM + 47;
-  const ly = low ? [py - 49, py - 34] : [py + 26, py + 41];
-  const moments = MOMENTS[row].map((x, i) => { const [c, prop, [l1, l2]] = MOMENT_ART[i], d = dur + 350 + i * 180;
-    return `<g class="lx-mo" style="--d:${d}ms">${person(x, py, c, .62)}${PROPS[prop](x + 17, py - 17)}
-      ${svgText(x, ly[0], l1, { fill: 'var(--p800)' })}${svgText(x, ly[1], l2, { fill: 'var(--p800)' })}</g>`; }).join('');
-  const [bx, by] = at === 5 ? [258, RT] : STOPS[at];
-  return `<svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false" style="--dur:${dur}ms">
+  return `<g class="lx-lay lx-lay2">
     <path d="${ROAD}" fill="none" stroke="var(--n0)" stroke-width="22" stroke-linecap="round"/>
-    <path d="${ROAD}" fill="none" stroke="var(--p200)" stroke-width="2.5" stroke-dasharray="7 9"/>
-    <path class="lx-s2trav" d="${ROAD}" pathLength="1" fill="none" stroke="var(--p600)" stroke-width="3.5" style="stroke-dasharray:${(end / ROADLEN).toFixed(4)} 2"/>
+    <path id="lx-road" d="${ROAD}" fill="none" stroke="var(--p200)" stroke-width="2.5" stroke-dasharray="7 9"/>
+    <path id="lx-trav" d="${ROAD}" fill="none" stroke="var(--p600)" stroke-width="3.5" style="stroke-dasharray:${end.toFixed(1)} ${Math.ceil(ROADLEN + 40)}"/>
     <g transform="translate(292 ${RT - 16})"><rect x="0" y="0" width="42" height="26" fill="var(--p300)"/><path d="M-5 0 L21 -16 L47 0 Z" fill="var(--p800)"/><rect x="17" y="12" width="9" height="14" fill="var(--p800)"/></g>
-    ${at === 5 ? svgText(352, RT + 32, `${num} became law`, { anchor: 'end', fill: 'var(--p800)', cls: 'lx-s2here' }) : svgText(313, RT + 32, ballot ? 'Constitution' : 'Law')}
+    ${at === 5 ? svgText(352, RT + 40, `${num} became law`, { anchor: 'end', fill: 'var(--p800)', cls: 'lx-here' }) : svgText(313, RT + 30, ballot ? 'Constitution' : 'Law')}
     ${stops}
-    ${moments}
-    ${smallBill(bx, by, 'lx-s2bill', dur + 150, E.stopped)}
-  </svg>`;
+    <g id="lx-sbill" data-end="${(end / ROADLEN).toFixed(4)}" transform="translate(${bx} ${by})">${smallBill(E.stopped)}</g>
+  </g>`;
+}
+
+// ---- stage 3: who can hear you, and the four choices ----
+// The committee (its chair in the middle) at the top, your own legislators on the right, you at the bottom left, and a
+// bill waiting. Each choice is its own small scene, drawn where it ends (the still picture) and flown there from you.
+const fly = (dx, dy, d, inner) => `<g class="lx-fly" style="--dx:${dx}px;--dy:${dy}px;--d:${d}ms">${inner}</g>`;
+function voiceSVG() {
+  return `<g class="lx-lay lx-lay3">
+    <g class="lx-in3" style="--d:0ms"><g class="lx-cmte">
+      ${person(128, 66, 'var(--p600)', .7)}${person(212, 66, 'var(--p600)', .7)}${person(170, 64, 'var(--p900)', .8)}
+      <rect x="104" y="70" width="132" height="18" rx="4" fill="var(--p800)"/>
+      ${svgText(170, 22, 'Chair', { fill: 'var(--p800)' })}${svgText(170, 108, 'Committee')}
+    </g></g>
+    <g class="lx-c3 lx-c3-legislators"><ellipse class="lx-pop" style="--d:600ms" cx="312" cy="146" rx="36" ry="32" fill="var(--p100)"/></g>
+    <g class="lx-in3" style="--d:120ms">${person(300, 150, 'var(--p500)', .72)}${person(324, 154, 'var(--p700)', .72)}
+      ${svgText(312, 186, 'Your')}${svgText(312, 201, 'legislators')}</g>
+    <g class="lx-in3" style="--d:240ms">${person(54, 238, 'var(--p600)', .85)}${svgText(54, 272, 'You')}</g>
+    <g class="lx-in3" style="--d:300ms"><g transform="translate(250 226)">${smallBill()}</g><g class="lx-blbl">${svgText(250, 266, 'A bill')}</g></g>
+    <g class="lx-in3 lx-q3" style="--d:450ms"><g transform="translate(94 190)"><circle r="15" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M-11 9 L-18 17 L-5 13" fill="var(--n0)" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/><circle r="13.6" fill="var(--n0)"/>${svgText(0, 6, '?', { size: 18, fill: 'var(--p800)' })}</g></g>
+    <g class="lx-c3 lx-c3-chair">
+      ${fly(-78, 170, 0, PROPS.mail(148, 36, -8))}
+      <circle class="lx-pop" style="--d:550ms" cx="170" cy="40" r="16" fill="none" stroke="var(--p400)" stroke-width="3"/>
+      <g class="lx-pop" style="--d:650ms"><rect x="10" y="30" width="80" height="66" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M10 34 Q10 30 14 30 H86 Q90 30 90 34 V48 H10 Z" fill="var(--p700)"/>
+        ${svgText(50, 44, 'Hearings', { fill: 'var(--n0)' })}<path d="M20 60h46M20 72h40" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
+      <path class="lx-grow" style="--d:950ms" d="M20 84h46" stroke="var(--p600)" stroke-width="4" stroke-linecap="round"/>
+      <g transform="translate(77 84)"><g class="lx-pop" style="--d:1150ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+    </g>
+    <g class="lx-c3 lx-c3-testimony">
+      <g class="lx-pop" style="--d:0ms">${person(104, 244, 'var(--p400)', .72)}</g><g class="lx-pop" style="--d:120ms">${person(146, 244, 'var(--p700)', .72)}</g>
+      ${fly(-78, 132, 200, PROPS.note(138, 76, -8))}${fly(-66, 142, 420, PROPS.note(172, 78, 4))}${fly(-58, 146, 640, PROPS.note(206, 76, 10))}
+      <path class="lx-pop" style="--d:1150ms" d="M118 58 q-6 -6 0 -12 M222 58 q6 -6 0 -12" fill="none" stroke="var(--p400)" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+    <g class="lx-c3 lx-c3-legislators">
+      ${fly(-206, 87, 0, PROPS.mail(276, 118, 8))}
+      <g class="lx-pop" style="--d:750ms">${PROPS.talk(318, 104)}</g>
+    </g>
+    <g class="lx-c3 lx-c3-quiet">
+      <g transform="translate(250 170)"><g class="lx-pop" style="--d:0ms"><circle r="15" fill="var(--n0)" stroke="var(--n500)" stroke-width="2"/><path class="lx-hand" d="M0 0 V-9" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/><path d="M0 0 H6" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/></g></g>
+      <g class="lx-fade" style="--d:850ms"><g transform="translate(250 226)">${smallBill(true)}</g>${svgText(250, 266, 'Stopped', { fill: 'var(--n700)' })}</g>
+    </g>
+  </g>`;
+}
+function storyPic(E) {
+  return `<div class="lx-pic lx-scene lx-story" id="lx-story" data-stage="1" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">
+    ${paperSVG(E)}${roadSVG(E)}${voiceSVG()}</svg></div>`;
 }
 
 // ---- the words ----
@@ -750,7 +838,7 @@ const nextOpenWords = () => { const n = sessionInfo().nextOpen; return n ? new D
 function storyNow(E) {
   const num = `<b>${esc(E.num)}</b>`, x = E.x, st = x.st, H = E.hear, at = storyAt(E);
   const ch = CHAMBER_NAME[st.chamber] || (at <= 1 ? E.start : E.other);
-  const open = nextOpenWords(), again = E.off && open ? ` The next session opens ${esc(open)}, and these moments come round again.` : '';
+  const open = nextOpenWords(), again = E.off && open ? ` The next session opens ${esc(open)}.` : '';
   if (E.isLaw) return `${num} made it all the way and became law${E.law ? ` as ${esc(E.law)}` : ''}${E.off ? ` in ${E.year}` : ''}.${again}`;
   if (x.ballot) return `${num} passed the Legislature. The voters decide in November.`;
   if (E.stopped) {
@@ -759,7 +847,7 @@ function storyNow(E) {
   }
   if (at === 4) return `Right now ${num} is on the Governor’s desk. The Governor decides whether it becomes law.`;
   if (st.phase === 'conference') return `Right now the House and Senate are working out one version of ${num}. A note to your own legislators can still help.`;
-  if (st.phase === 'floor') return `Right now ${num} is waiting for the ${ch} vote. That’s when a note to your own ${ch === 'Senate' ? 'senator' : 'representative'} helps.`;
+  if (st.phase === 'floor') return `Right now ${num} is waiting for the ${ch} vote. That’s when a note to your own ${ch === 'Senate' ? 'senator' : 'representative'} can help.`;
   const due = storyDue(E), where = `Right now ${num} is with ${ch} committees.`;
   if (due.kind !== 'none') {
     const hearing = `Its hearing is ${hstYmd(H.at) === hstYmd(Date.now()) ? 'today' : esc(H.when)} at ${esc(H.time)}`;
@@ -772,7 +860,7 @@ function storyNow(E) {
   return where;
 }
 // Proof that speaking up works, counted from the data as Home's wins card counts it (core.js winsIn, EARLIER_WINS):
-// between sessions, the session just past; in session, the one before it (loaded quietly, see lessonStart), else the
+// between sessions, the session just past; in session, the one before it (loaded quietly, see storySet), else the
 // latest year Nate listed by hand.
 function winsYear(E) { const si = sessionInfo(); return E.off ? si.recapYear : si.yr - 1; }
 function winsWords(E) {
@@ -781,27 +869,60 @@ function winsWords(E) {
   const y = Math.max(0, ...EARLIER_WINS.map(x => x.year)), win = EARLIER_WINS.find(x => x.year === y);
   return win ? `Speaking up works. One ${y} win: ${esc(lcFirst(win.text))}.` : '';
 }
-function storyMain(E) {
-  const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then the Governor.`;
-  const moments = [
-    ['Ask the chair to hear it.', 'Each committee’s chair decides which bills get a hearing. A bill with no hearing goes no further. For example, a parent writes to the chair: “Please give this bill a hearing.”'],
-    ['Send testimony for the hearing.', 'Anyone can send a short note saying what they think, by the deadline the committee sets. Committee members read them before they vote.'],
-    ['Tell your own legislators.', 'Before the full House or Senate votes, a note from someone they represent counts.'],
-  ];
+// The four choices: what each is called, its small drawing, and what CAN happen (never a promise).
+const CHOICES = [
+  ['chair', 'Email the chair', 'The chair hears from you.', 'A chair decides which bills get a hearing. Notes from the public can move a bill onto the list.'],
+  ['testimony', 'Send testimony', 'Your note lands on the committee’s table.', 'Committee members read the notes people send before they vote. One note can change a mind.'],
+  ['legislators', 'Tell my legislators', 'Your legislators hear from you.', 'Before the full House or Senate votes, a note from someone they represent can sway a vote.'],
+  ['quiet', 'Stay quiet', 'Nothing reaches them.', 'The bill waits, and at the deadline it can stop. Most bills stop this way, often without anyone asking about them.'],
+];
+const MINI = {
+  chair: '<rect x="4" y="9" width="28" height="19" rx="3" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M4.5 11 L18 20.5 L31.5 11" fill="none" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/>',
+  testimony: '<rect x="8" y="4" width="20" height="28" rx="2" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M13 12h10M13 17.5h10M13 23h6" stroke="var(--p500)" stroke-width="2.2" stroke-linecap="round"/>',
+  legislators: '<path d="M4 9 Q4 6 7 6 H29 Q32 6 32 9 V21 Q32 24 29 24 H15 L9 30 L10 24 H7 Q4 24 4 21 Z" fill="var(--n0)" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="15" r="2" fill="var(--p700)"/><circle cx="18" cy="15" r="2" fill="var(--p700)"/><circle cx="24" cy="15" r="2" fill="var(--p700)"/>',
+  quiet: '<path d="M10 5 H26 M10 31 H26" stroke="var(--n700)" stroke-width="2.5" stroke-linecap="round"/><path d="M12 6 C12 14 16.5 15 16.5 18 C16.5 21 12 22 12 30 H24 C24 22 19.5 21 19.5 18 C19.5 15 24 14 24 6 Z" fill="var(--n0)" stroke="var(--n700)" stroke-width="2" stroke-linejoin="round"/><path d="M14.5 28.5 Q18 24 21.5 28.5 Z" fill="var(--n500)"/>',
+};
+const choiceOf = k => CHOICES.find(c => c[0] === k);
+// Stage 3 is asked about the bill's real state: in session and still moving, "What would you do?"; a law, a stopped bill
+// or the session over, about next time.
+function voiceAsk(E) {
+  if (E.off) return 'When the session opens, what would you do?';
+  if (E.isLaw || E.stopped || storyAt(E) === 4 || E.x.ballot) return 'Next time, what would you do?';
+  return 'What would you do?';
+}
+function voiceLead(E) {
+  const num = esc(E.num);
+  const was = E.isLaw ? `${num} became law. Every law passed moments like these. `
+    : E.stopped ? `${num} stopped this time. Moments like these are how a bill gets further. `
+    : E.x.ballot ? `${num} passed moments like these on its way to the voters. `
+    : storyAt(E) === 4 ? `${num} passed moments like these on its way to the Governor. ` : '';
+  return `${was}Pick one to see what can happen.`;
+}
+function stageTitle(E, k) {
+  if (k === 1) return E.mine || E.via === 'followed' ? 'This is your bill' : 'Meet the bill';
+  return k === 2 ? 'Its road' : 'Why speaking up can help';
+}
+function stageBody(E, k) {
+  if (k === 1) {
+    const num = esc(E.num), b = E.b, pre = (/^(HB|SB)\d/.exec(b.bill_number || '') || [])[1];
+    const said = pre ? `${pre} means ${pre === 'HB' ? 'House' : 'Senate'} Bill: it started in the ${pre === 'HB' ? 'House' : 'Senate'}.` : `It started in the ${E.start}.`;
+    let sum = plainSum(b, 150); if (sum && !/[.…!?]$/.test(sum)) sum += '.';
+    const stand = STAND[b.hiphi_position] ? `HIPHI ${STAND[b.hiphi_position][E.off ? 1 : 0]}.` : '';
+    return `<p><b>${num}</b> is its number. ${said}</p><p>${`${esc(sum)} ${stand}`.trim()}</p>`;
+  }
+  if (k === 2) {
+    const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then ${E.x.ballot ? 'the voters' : 'the Governor'}.`;
+    return `<p>${esc(road)}</p><p class="lx-now">${storyNow(E)}</p>`;
+  }
   const calm = E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
     : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';
-  return `<div class="lx lx-l-story" data-lx="story">
-    <div class="lx-pic lx-scene lx-story" id="lx-story" aria-hidden="true">${roadSVG(E)}</div>
-    <div class="lx-stext">
-      <p class="lx-road">${esc(road)}</p>
-      <p class="lx-now">${storyNow(E)}</p>
-      <h2 class="lx-mh">Three times your voice helps</h2>
-      <ol class="lx-moments" role="list">${moments.map(([h, p]) => `<li><b>${esc(h)}</b> ${esc(p)}</li>`).join('')}</ol>
-      <p class="lx-why">Few people write in, so each note gets noticed. <span id="lx-wins">${winsWords(E)}</span></p>
-      <p class="lx-calm">${icon('info')}<span>${esc(calm)}</span></p>
-    </div>
-  </div>`;
+  return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>
+    <div class="lx-choose" role="group" aria-labelledby="lx-ask"><p class="lx-ask" id="lx-ask">${esc(voiceAsk(E))}</p>
+      <div class="lx-chs">${CHOICES.map(([k2, label]) => `<button type="button" class="lx-ch lx-ch-${k2}" data-lx-ch="${k2}" aria-pressed="false"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k2]}</svg><span>${esc(label)}</span></button>`).join('')}</div></div>
+    <p class="lx-why">Few people write in, so each note gets noticed. <span id="lx-wins">${winsWords(E)}</span></p>
+    <p class="lx-calm">${icon('info')}<span>${esc(calm)}</span></p>`;
 }
+const stageHTML = (E, k) => `<p class="lx-count">${k} of 3</p><h2>${esc(stageTitle(E, k))}</h2>${stageBody(E, k)}`;
 function storyLede(E) {
   if (E.via === 'bill') return `Here’s the story of ${esc(E.num)}.`;
   if (E.via === 'followed') return 'Here’s the story of the bill you just followed.';
@@ -809,25 +930,102 @@ function storyLede(E) {
   if (E.off) return E.isLaw ? `Here’s the story of one that became law in ${E.year}.` : `Here’s the story of one from the ${E.year} session.`;
   return E.mine ? 'Here’s the story of one bill on your issues.' : 'Here’s the story of one bill HIPHI is working on.';
 }
-// One page: the road plays once when it is first shown; Back and a redraw show the still picture.
-function storySet(k, { instant = false } = {}) {
-  const root = rootOf('story'), pic = $('#lx-story'); if (!root || !pic) return;
-  L.run++; ST.story.step = 1;
-  if (instant) { pic.classList.add('lx-play'); settle(pic); } else play(pic, 'lx-play');
+function storyMain(E) {
+  return `<div class="lx lx-l-story" data-lx="story" data-stage="1">
+    <div class="lx-caption lx-nonum lx-scap" id="lx-cap" aria-live="polite">${stageHTML(E, 1)}</div>
+  </div>`;
+}
+
+// ---- the stages ----
+// Stage 2's trip: the bill is moved along the drawn road (its real length, measured), the road behind it fills in, and
+// each stop it passes is ticked as it gets there; "<bill> is here" comes last. Under Reduce Motion, on Back and on a
+// redraw, the end state is simply there (it is what the drawing was built as).
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function roadPlay(pic, instant) {
+  const road = $('#lx-road', pic), trav = $('#lx-trav', pic), bill = $('#lx-sbill', pic); if (!road || !trav || !bill) return;
+  const ticks = $$('.lx-tick', pic), here = $$('.lx-lay2 .lx-here', pic);
+  let total = ROADLEN; try { total = road.getTotalLength() || ROADLEN; } catch { /* not laid out */ }
+  const end = +bill.dataset.end * total;
+  const put = d => {
+    let pt = null; try { pt = road.getPointAtLength(Math.max(0, d)); } catch { /* not laid out */ }
+    if (pt) bill.setAttribute('transform', `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)})`);
+    trav.style.strokeDasharray = `${Math.max(0, d).toFixed(1)} ${Math.ceil(total + 40)}`;
+    ticks.forEach(t => { if (t.classList.contains('lx-pre') && d >= +t.dataset.at * total - 2) { t.classList.remove('lx-pre'); if (!instant) play(t, 'lx-popin'); } });
+  };
+  const finish = () => { put(end); ticks.forEach(t => t.classList.remove('lx-pre')); here.forEach(h => h.classList.remove('lx-pre')); };
+  ticks.forEach(t => t.classList.remove('lx-popin')); here.forEach(h => h.classList.remove('lx-fadein'));
+  if (instant || reduced()) { finish(); return; }
+  ticks.forEach(t => t.classList.add('lx-pre')); here.forEach(h => h.classList.add('lx-pre'));
+  put(0);
+  const run = L.run, t0 = performance.now(), ms = Math.round(400 + 800 * end / total);   // at most 1.2 s, then the label
+  const step = now => {
+    if (L.run !== run) { finish(); return; }
+    const t = Math.min(1, (now - t0) / ms); put(end * easeInOut(t));
+    if (t < 1) requestAnimationFrame(step);
+    else here.forEach(h => { h.classList.remove('lx-pre'); play(h, 'lx-fadein'); });
+  };
+  requestAnimationFrame(step);
+}
+function storyChoose(k, { instant = false } = {}) {
+  const root = rootOf('story'), pic = $('#lx-story'), c = choiceOf(k); if (!root || !pic || !c) return;
+  ST.story.choice = k; pic.dataset.choice = k;
+  $$('[data-lx-ch]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxCh === k)));
+  const out = $('#lx-out', root), ask = $('#lx-ask', root);
+  if (out) { out.innerHTML = `<b>${esc(c[2])}</b> ${esc(c[3])}`; out.classList.add('lx-got'); out.classList.toggle('lx-gotq', k === 'quiet'); if (!instant) play(out, 'lx-swap'); }
+  if (ask) ask.textContent = 'Try another';
+  if (instant) { pic.classList.add('lx-cplay'); settle(pic); }
+  else { play(pic, 'lx-cplay'); reveal(pic, out); }
+}
+function storySet(k, { instant = false, initial = false } = {}) {
+  const root = rootOf('story'), pic = $('#lx-story'); if (!root || !pic || !L.E) return;
+  const E = L.E, forward = k > ST.story.step && !instant;
+  L.run++; ST.story.step = k; pic.dataset.stage = k; root.dataset.stage = k;
+  if (forward && k === 3) ST.story.choice = null;   // coming to the choice afresh: nothing is chosen yet
+  pic.classList.remove('lx-play', 'lx-cplay'); delete pic.dataset.choice;
+  const cap = $('#lx-cap', root);
+  if (cap) { cap.innerHTML = stageHTML(E, k); if (!instant && !initial) play(cap, 'lx-swap'); else cap.classList.remove('lx-swap'); }
+  if (k === 1) fitTitles(pic);
+  if (k === 2) roadPlay(pic, instant);
+  else if (instant) { pic.classList.add('lx-play'); settle(pic); }
+  else { void pic.getBoundingClientRect(); play(pic, 'lx-play'); }
+  if (k === 3 && ST.story.choice) storyChoose(ST.story.choice, { instant: true });
+  fitStory();
+  if (!initial && !instant) reveal(pic, cap);
   // In session the wins are the session before this one's, which nothing else here has loaded: load them quietly and
-  // change only that sentence when they land (no redraw, so the road never replays).
-  const E = L.E, yr = winsYear(E);
+  // change only that sentence when they land (no redraw, so nothing replays).
+  const yr = winsYear(E);
   if (!E.off && !winsIn(yr) && !S.recapPool && !S.recapLoading) {
     loadRecapPool(yr).then(() => { const el = document.getElementById('lx-wins'); if (el && L.E === E) el.textContent = unent(winsWords(E)); }).catch(() => {});
   }
 }
-// The story is one page now: Back leaves it (the first visit's own Back and the lesson page's Back ask this first).
-export function lessonPrev() { return false; }
+// The caption keeps the height of the taller of stages 1 and 2, so Next does not jump between them on a laptop (stage 3
+// is longer; it has the choices).
+function fitStory() {
+  const root = rootOf('story'), cap = root && $('#lx-cap', root); if (!cap || !L.E) return;
+  if (ST.story.step === 3) { cap.style.minHeight = ''; return; }
+  const probe = document.createElement('div');
+  probe.className = cap.className.replace(/\blx-swap\b/, ''); probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText = 'position:absolute;left:0;right:0;top:0;visibility:hidden;min-height:0;pointer-events:none';
+  root.appendChild(probe);
+  let h = 0; [1, 2].forEach(k => { probe.innerHTML = stageHTML(L.E, k); h = Math.max(h, probe.getBoundingClientRect().height); });
+  probe.remove(); cap.style.minHeight = `${Math.ceil(h)}px`;
+}
+// The first visit's own Back (and the lesson page's Back) walks the story back a stage at a time before it leaves the
+// screen (B-4), showing the earlier stage's still picture.
+export function lessonPrev(name) {
+  if (name !== 'story' || L.name !== name || !rootOf(name) || ST.story.step <= 1) return false;
+  storySet(ST.story.step - 1, { instant: true });
+  return true;
+}
+// Which stage the story is on (1-3), so the lesson page can say Done on the last.
+export const lessonStep = name => (L.name === name && ST[name] ? ST[name].step : 1);
 
 // ---------------------------------------------------------------- the interface
 export function lessonHTML(name, E) {
   if (!E || !LESSON_TITLES[name]) return { intro: '', main: '' };
-  const intro = `<h1 class="hero lx-h1" id="st-h">${LESSON_TITLES[name]}</h1><p class="lede lx-lede">${ledeOf(name, E)}</p>`;
+  // The story's drawing ends the intro: on a phone it sits under the lede as before, and on a laptop it stays in the left
+  // column beside the words and the choices (start.css puts the intro there).
+  const intro = `<h1 class="hero lx-h1" id="st-h">${LESSON_TITLES[name]}</h1><p class="lede lx-lede">${ledeOf(name, E)}</p>${name === 'story' ? storyPic(E) : ''}`;
   const main = name === 'story' ? storyMain(E) : name === 'bill' ? billMain(E) : name === 'session' ? sessionMain(E) : hearingMain(E);
   return { intro, main };
 }
@@ -842,16 +1040,17 @@ export function lessonStart(name, E, { back = false, redraw = false, onAnswer = 
   if (name === 'session') { ST.session.mineAt = 0; L.toks = journeyToks(E); }   // a new DOM: the bill is back at the start
   if (name === 'hearing') ST.hearing.shown = false;
   root.onclick = e => {
-    const t = e.target.closest('[data-lx-beat], [data-lx-month], [data-lx-sec], [data-lx-q]'); if (!t || !root.contains(t)) return;
-    if (t.dataset.lxBeat) SETS[name](+t.dataset.lxBeat);
+    const t = e.target.closest('[data-lx-beat], [data-lx-month], [data-lx-sec], [data-lx-q], [data-lx-ch]'); if (!t || !root.contains(t)) return;
+    if (t.dataset.lxCh) storyChoose(t.dataset.lxCh);
+    else if (t.dataset.lxBeat) SETS[name](+t.dataset.lxBeat);
     else if (t.dataset.lxMonth) sessionSet(+t.dataset.lxMonth);
     else if (t.dataset.lxSec) billSet(+t.dataset.lxSec);
     else if (t.dataset.lxQ !== undefined && t.getAttribute('aria-disabled') !== 'true') answer(+t.dataset.lxQ);
   };
   const step = redraw ? ST[name].step : back ? LAST[name] : 1;
-  if (back || redraw) { SETS[name](step, { instant: true, initial: true }); settle(root); }
+  if (back || redraw) { SETS[name](step, { instant: true, initial: true }); settle(root); if (name === 'story') settle($('#lx-story')); }
   else { void root.getBoundingClientRect(); SETS[name](1, { initial: true }); }   // the first state is laid out, so step 1 moves
-  fitCaption();   // the story has no caption that changes, so this does nothing there
+  fitCaption();
   addEventListener('resize', onResize);
   if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (L.name === name && rootOf(name) === root) fitCaption(); });
 }
@@ -859,6 +1058,7 @@ export function lessonNext(name, E) {
   if (!E || L.name !== name || !rootOf(name)) return false;
   if (name === 'bill') { if (ST.bill.step < LAST.bill) { billSet(ST.bill.step + 1); return true; } return false; }
   if (name === 'session') { if (ST.session.step < LAST.session) { sessionSet(ST.session.step + 1); return true; } return false; }
+  if (name === 'story') { if (ST.story.step < LAST.story) { storySet(ST.story.step + 1); return true; } return false; }
   if (name === 'hearing') {
     const st = ST.hearing;
     if (st.step === 1 && st.quiz === null) {

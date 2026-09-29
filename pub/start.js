@@ -2,10 +2,10 @@
 // parts at the top, "Your issues · How it works · Stay connected", and no counting (HANDOFF 3.5; Nate 9/21: keep the
 // named steps, remove the progress bar):
 //   Your issues     topics -> issues (the four most important, then three per category; followed, then "Mahalo!")
-//   How it works    one drawn page on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29): its road
-//                   through the Capitol, where it is now and its next chance, and the three moments anyone can help (ask
-//                   the chair to hear it, send testimony, tell your own legislators); then the "Now you know how it
-//                   works" moment
+//   How it works    one drawn page on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29), in three
+//                   stages walked with Next: the bill itself, its road to where it is now and its next chance, and why
+//                   speaking up can help (pick what you'd do: email the chair, send testimony, tell your legislators or
+//                   stay quiet, and see what can happen); then the "Now you know how it works" moment
 //   Stay connected  who speaks for you (street address only) -> coming up on your issues, THEN the one ask for an
 //                   email (Nate 9/21: ask after the value) -> you're all set (the peak, then Home)
 // Someone who arrives on a shared bill starts on the bill page itself (pub/bill.js: the easiest action first); from
@@ -26,7 +26,7 @@ import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
-import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStop, LESSON_TITLES } from './lessons.js';
+import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStep, lessonStop, LESSON_TITLES } from './lessons.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
@@ -781,15 +781,21 @@ function redirectFor(step, off) {
 }
 
 // A lesson on its own: Next walks it; after its last step the button says Done and goes back where they came from.
+// The story's three stages: its button says Next, then Done on the last stage; Back steps back a stage before it leaves.
+// The page can be drawn again while it is open (its bill's hearings landing): the story then keeps its stage.
+let learnWired = '';
 function wireLearn(route) {
   const name = learnName(route), E = example(); if (!E) return;
   document.body.classList.add('st-lessonpage');
-  lessonStart(name, E, {});
-  const leave = () => { lessonStop?.(); S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
-  // Back leaves (the story is one page since 9/29; the other lessons have their own steps to tap).
-  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (!lessonPrev(name)) leave(); });
+  const key = `${location.hash}|${E.id}`, redraw = name === 'story' && key === learnWired; learnWired = key;
+  lessonStart(name, E, { redraw });
+  const leave = () => { lessonStop?.(); learnWired = ''; S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
   const nb = document.querySelector('[data-stlearnnext]');
-  if (nb) nb.onclick = () => { if (!lessonNext(name, E)) leave(); };   // past its last step the lesson is done
+  const label = () => { if (!nb || name !== 'story') return; const last = lessonStep(name) >= 3;
+    nb.innerHTML = `<span>${last ? 'Done' : 'Next'}</span>${icon(last ? 'check' : 'arrow-right')}`; };
+  label();
+  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (lessonPrev(name)) label(); else leave(); });
+  if (nb) nb.onclick = () => { if (lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
 }
 function wire(route) {
   if (route.name === 'learn') return wireLearn(route);
@@ -825,8 +831,7 @@ function wire(route) {
     if (name === 'soon' || name === 'you') lessonStop();
     goStep(step, step + 1);
   });
-  // Back leaves the screen (B-4). The story was three scenes that Back walked back first; since 9/29 it is one page, and
-  // lessonPrev says so.
+  // Back leaves the screen (B-4). The story walks back through its stages first (lessonPrev).
   $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && lessonPrev('story')) return; goBack(+el.dataset.stback); });
   $$('[data-stretry]').forEach(el => el.onclick = async () => { S.recapFailed = null;
     if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
@@ -935,7 +940,7 @@ function wire(route) {
       // Finishing "How a bill becomes law": the second moment (C-7), then on to the last part. Its three ticks (fx.js
       // learnArt: a bill, the Capitol, people) are what the page showed: the bill, its road, and the people who help.
       S.stLearned = true; track(name, 'next');
-      celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'A bill’s road, and three times your voice helps.' }, () => goStep(step, step + 1));
+      celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'A bill’s road, and when your voice can help.' }, () => goStep(step, step + 1));
     };
   }
 
@@ -1057,8 +1062,9 @@ export default {
   },
   wire,
   bar(route) {
-    // The story is one page (9/29): its one button says Done and goes back where it was opened.
-    if (route.name === 'learn') return learnName(route) === 'story' ? bar1('Done', 'check', { 'data-stlearnnext': '1' }) : bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
+    // A lesson on its own: Next, and on the story's last stage Done (wireLearn changes the words), which goes back where
+    // it was opened.
+    if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     switch (nameAt(step, off)) {

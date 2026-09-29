@@ -42,8 +42,10 @@ with three named parts at the top ("Your issues · How it works · Stay connecte
 topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
 topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
 `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> ONE
-lesson, "A bill's story" (R-062, 9/29, Nate picked concept 1: three drawn scenes on the person's own bill, nothing that
-looks like the app, stepped with the primary button; counted as step 'bill'; `pub/lessons.js` section 4, also at
+lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three stages walked with the primary button,
+the drawing changing in place: the bill, its road to where it really is, then "Why speaking up can help" with a choice of
+four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
+back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help)
 -> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
 issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
