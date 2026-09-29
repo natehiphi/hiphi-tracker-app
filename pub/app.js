@@ -13,6 +13,7 @@ import { suggest } from './suggest.js';
 import bill from './bill.js';
 import people from './people.js';
 import committees from './committees.js';
+import allbills from './allbills.js';
 import more from './more.js';
 import helper from './helper.js';
 import tour from './tour.js';
@@ -21,7 +22,7 @@ app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, cou
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
 const SCREENS = { start, learn: start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, more, help: more, signin: more, settings: more, privacy: more };
+  committees, committee: committees, allbills, more, help: more, signin: more, settings: more, privacy: more };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 

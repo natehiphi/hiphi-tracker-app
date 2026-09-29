@@ -165,16 +165,19 @@ export function newsOf(b, seen = S.mbSeen) {
 // fresh (mark what is new: My bills), why (a stopped bill: say why instead of a status), hearing (a suggested
 // bill's hearing), ghost (just unfollowed here: the row stays until the person leaves, so the star, and keyboard
 // focus on it, stay put and following again is one press).
-export function billRow(b, { note = '', pos = false, fresh = false, why = false, hearing = null, ghost = false } = {}) {
+// watch (with pos: a bill HIPHI only keeps an eye on says so, on the every-bill page, instead of an empty cell),
+// status (words in place of the status chip, where the group heading already says the chip), alt (a line beside
+// the number naming other bills with the same nickname, so two versions of one idea don't read as a duplicate).
+export function billRow(b, { note = '', pos = false, fresh = false, why = false, hearing = null, ghost = false, watch = false, status = '', alt = '' } = {}) {
   const on = S.watch.has(b.id), num = spaced(b.bill_number), name = nick(b), sentence = what(b, name ? 120 : 170);   // one sentence under a nickname; more when it is the headline
-  const p = pos ? posInfo(b) : null, mine = stanceInfo(b.id), news = fresh && !ghost ? newsOf(b) : '', nd = why ? null : nextDate(b, hearing);
+  const p = pos ? posInfo(b) || (watch && b.hiphi_position === 'monitor' ? { icon: 'eye', text: 'HIPHI is watching' } : null) : null, mine = stanceInfo(b.id), news = fresh && !ghost ? newsOf(b) : '', nd = why ? null : nextDate(b, hearing);
   const head = name ? `<span class="mb-nick">${esc(name)}</span><span class="mb-what">${esc(sentence)}</span>` : `<span class="mb-head">${esc(sentence)}</span>`;
   return `<li class="mb-row${why ? ' why' : ''}${ghost ? ' off' : ''}">
     <a class="mb-main" href="${billPath(b)}">
       <span class="mb-bill">${head}${note ? `<span class="mb-note">${esc(note)}</span>` : ''}
-        <span class="mb-id"><span class="mb-num">${esc(num)}</span>${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}</span></span>
+        <span class="mb-id"><span class="mb-num">${esc(num)}</span>${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}</span>${alt ? `<span class="mb-alt">${esc(alt)}</span>` : ''}</span>
       <span class="mb-who">${p ? `<span class="mb-pos">${icon(p.icon)}<span>${esc(p.text)}</span></span>` : ''}${mine ? `<span class="mb-stance">${icon(mine.icon)}<span>${esc(mine.text)}</span></span>` : pos || ghost ? '' : '<span class="mb-stance none">Not said yet</span>'}</span>
-      <span class="mb-status">${ghost ? '<span class="mb-why">Unfollowed. Select the star to follow it again.</span>' : why ? `<span class="mb-why">${esc(stoppedWhy(b))}</span>` : statusChip(b, hearing)}</span>
+      <span class="mb-status">${ghost ? '<span class="mb-why">Unfollowed. Select the star to follow it again.</span>' : why ? `<span class="mb-why">${esc(stoppedWhy(b))}</span>` : status ? `<span class="mb-why">${esc(status)}</span>` : statusChip(b, hearing)}</span>
       ${why || ghost ? '' : `<span class="mb-next">${nd ? `<b>${esc(nd.day)}</b><span>${esc(nd.sub)}</span>` : moving(b) ? '<span>No date set</span>' : ''}</span>`}
     </a>
     ${iconBtn('star', `Follow ${name ? `${name}, ${num}` : num}`, { 'data-star': b.id, 'data-label': nameOf(b), 'aria-pressed': on ? 'true' : 'false' }, 'mb-star' + (on ? ' on' : ''))}
@@ -291,7 +294,7 @@ const andList = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} a
 export const billsOfIssue = i => issueBills(i).map(id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null)).filter(Boolean);
 export function issueItem(i, { news = '', key = 'data-fdissue' } = {}) {
   const on = issueFollowed(i), off = sessionInfo().phase !== 'in', bills = billsOfIssue(i), live = bills.filter(moving), law = bills.filter(becameLaw).length;
-  const pos = issuePos(off ? bills : live.length ? live : bills), soon = !off && live.map(b => stopOf(b)).find(st => st.hearingState === 'scheduled' && st.hearing);
+  const pos = issuePos(off ? bills : live.length ? live : bills, i), soon = !off && live.map(b => stopOf(b)).find(st => st.hearingState === 'scheduled' && st.hearing);
   const meta = off ? [plural(bills.length || issueBills(i).length, 'bill') + ` in ${sessionInfo().recapYear}`, law ? `${law} became law` : ''].filter(Boolean).join(' · ')
     : live.length ? `${plural(live.length, 'bill')} moving` : 'Nothing moving right now';
   return `<li class="fd-irow${on ? ' on' : ''}">

@@ -1,5 +1,6 @@
 // More (redesign 9/19; plan 5 "More" and 7 "Help, Settings, Sign in, More"): the fourth tab and the pages under it.
-//   #/more      a short page of rows (link cards in a grid on a wide screen): your legislators, how it works, adding
+//   #/more      a short page of rows (link cards in a grid on a wide screen): your legislators, every bill HIPHI tracks
+//               (#/allbills, pub/allbills.js, R-091), committees, how it works, adding
 //               your email (or Settings and Sign out), HIPHI itself, privacy and accessibility
 //   #/help      ready-made conversations (R-075: pub/talk.js, loaded on first use; #/help/<slug> opens one)
 //   #/signin    "Add your email": one email field, one "keep me updated" box (hearings on your issues and HIPHI's updates,
@@ -250,6 +251,7 @@ function moreView() {
     <header class="pagehead"><h1 class="hero">More</h1></header>
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
+      ${row({ lead: 'rows-3', title: 'Every bill HIPHI tracks', sub: 'One list of HIPHI’s bills, grouped by hearing status', href: '#/allbills' })}
       ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
       ${row({ lead: 'circle-help', title: 'Help', sub: 'Plain answers on hearings, testimony, deadlines and this tracker', href: '#/help' })}
       ${account}

@@ -101,7 +101,7 @@ async function serverSearch(P, any = false) {
 }
 // Bills nobody here follows arrive without their hearings, and a status chip without the hearing would say
 // "waiting" when a hearing is set. Load hearings for the moving ones (the same cache the bill page uses, S.xh).
-async function ensureHearings(bills) {
+export async function ensureHearings(bills) {
   const need = [...new Set(bills.filter(b => moving(b) && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]).map(b => b.id))];
   if (!need.length) return;
   if (DEMO) { for (const id of need) { S.xh[id] = D.hearings.filter(h => h.bill_id === id); D.outcomes.filter(o => o.bill_id === id).forEach(o => { S.outcomes[o.hearing_id] = o; }); } return; }
@@ -357,7 +357,7 @@ function issuePageNew(i) {
   const now = bills.filter(b => !b.session_year || +b.session_year === yr), earlier = bills.filter(b => b.session_year && +b.session_year !== yr);
   const mv = byUrgency(now.filter(moving)), law = now.filter(becameLaw).sort(numCmp), gone = now.filter(stopped).sort(numCmp);
   const on = issueFollowed(i), via = on && !S.issueFollows.has(i.id) ? (i.categories || [i.category]).map(k => catBySlug(k)).find(k => k && S.catFollows.has(k.key)) : null;
-  const pos = issuePos(now.length ? now : bills);
+  const pos = issuePos(now.length ? now : bills, i);
   const cta = on
     ? `<div class="card fd-follow on"><p class="okmsg" id="fd-issueok" tabindex="-1">${icon('circle-check')}<span>${via ? `You follow this issue, with all of ${esc(via.name)}` : 'You follow this issue'}</span></p>
         <p class="small">Its bills come to you: this session’s, later ones and next session’s.</p>

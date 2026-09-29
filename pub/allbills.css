@@ -1,0 +1,28 @@
+/* Every bill HIPHI tracks (pub/allbills.js, R-091). The rows, their table layout from 1100px and the fold are
+   My issues' (.mb-list, .mb-fold in mybills.css); this file is only the page's own filter row and group heads. */
+.ab-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s24); margin: 0 0 var(--s8); }
+.ab-q { position: relative; flex: 1 1 260px; max-width: 480px; }
+.ab-q > .ic { position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.ab-q input { padding-left: 44px; -webkit-appearance: none; appearance: none; }
+.ab-q input::placeholder { color: var(--n500); opacity: 1; }
+.ab-only { flex: 0 1 auto; align-items: center; }
+.ab .sechead { margin-top: var(--s24); }
+.ab #ab-list > .ab-grp:first-child .sechead { margin-top: var(--s12); }
+.ab .pagehead { margin-bottom: var(--s16); }
+.ab .ab-n { font-weight: 400; color: var(--n700); }
+.ab .mb-fold .ab-n { font-weight: 400; }
+.ab-more { margin-top: var(--s12); }
+.ab .mb-fold .ab-more { padding: 0 var(--s16) var(--s16); }
+/* A table page: the wide frame, like My issues and Find (base.css keeps other pages at 720px). */
+@media (min-width: 1100px) {
+  body[data-screen="allbills"] main { max-width: 1120px; }
+  /* the filter beside the title, so the table starts higher (DESIGN A-1) */
+  .ab-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: var(--s32); margin-bottom: var(--s16); }
+  .ab-top .pagehead { margin-bottom: 0; }
+  .ab-tools { margin: 0; flex-wrap: nowrap; }
+  .ab-q { flex: 0 0 300px; }
+  .ab-only { white-space: nowrap; }
+}
+/* "Another version: SB 2175" beside the number (billRow's alt; only this page passes it) */
+/* its own last line on a phone (after the status), under the number in the wide table */
+.mb-row .mb-alt { order: 2; flex: 0 0 100%; font-size: var(--t13); color: var(--n700); }

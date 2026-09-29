@@ -45,6 +45,8 @@ PUB = [
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
   ('legislators', '/legislators',  'your island',          '.pp-isle'),
   ('more',        '/more',         'the first choice',     '.mwrow, .mr .row'),
+  # R-091: every bill HIPHI tracks, grouped by hearing status
+  ('allbills',    '/allbills',     'the first bill',       '#ab-list .mb-row'),
 ]
 SV = [
   ('today',       '/',             'the first thing due',  '.td-card, .td-root .row'),
