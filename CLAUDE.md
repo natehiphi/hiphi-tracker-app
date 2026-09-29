@@ -70,10 +70,13 @@ celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the 
 box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`.
 **A bill's pathway names each committee (R-081, 9/29):** `railInfo` in `pub/bill.js` expands the House and Senate
 committee steps into one step per committee (two heard together are one step), so a path has 4 to 11 dots; a chamber that
-has not picked its committees yet stays one "Senate committees" step. The line under the dots reads "Now: House Health,
-1st of 3 House committees" or "Stopped in House Health" (the committee from `stoppedAt` in `stops.js`); the lessons and
-the tour read those words, so change them there. "See all steps" links each committee's page; More details no longer
-repeats the list. From nine dots they shrink, and on wide screens their names alternate above and below the line.
+has not picked its committees yet stays one "Senate committees" step. Committees have their **full names** (Nate 9/29:
+not "Senate Water"; `cmteBrief`): "Now: Senate Water, Land, Culture and the Arts, 1st of 2 Senate committees" or "Stopped
+in House Health and Human Services" (the committee from `stoppedAt` in `stops.js`); two or more heard together are joined
+with "with" when a name has its own "and" (more than two such: "with 3 other committees"); a retired code stays as its code.
+The lessons and the tour read those words, so change them there. "See all steps" links each committee's page; More
+details no longer repeats the list. From nine dots they shrink; on wide screens (from seven dots) the names alternate
+above and below the line, in a subgrid whose top row grows to the longest name.
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).

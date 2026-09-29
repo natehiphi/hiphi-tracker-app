@@ -276,15 +276,20 @@
 @media (min-width: 700px) {
   .bl-page .bl-dlbl { display: block; }
   .bl-page .bl-nowlbl { display: none; }
-  /* Nine or more steps leave about 58px a name, which broke words mid-way ("Governo r"). The names take turns above and
-     below the line, so each one has two columns of room (R-081). */
-  .bl-page .bl-many .bl-dots li { display: grid; grid-template-rows: 52px 32px auto; justify-items: center; }
-  .bl-page .bl-many .bl-dots li::before { top: 67px; }
-  .bl-page .bl-many .bl-dw { grid-row: 2; }
-  .bl-page .bl-many .bl-dlbl { grid-row: 3; width: 200%; margin-top: var(--s4); }
-  .bl-page .bl-many .bl-dots li:nth-child(even) .bl-dlbl { grid-row: 1; align-self: end; margin: 0 0 var(--s4); }
-  .bl-page .bl-many .bl-dots li:first-child .bl-dlbl { justify-self: start; width: 150%; text-align: left; padding-left: 0; }
-  .bl-page .bl-many .bl-dots li:last-child .bl-dlbl { justify-self: end; width: 150%; text-align: right; padding-right: 0; }
+  /* A bill's path (seven to eleven steps) leaves 58-90px a name, and committees have their full names (R-081, Nate
+     9/29), which broke words mid-way or ran five lines deep. The names take turns above and below the line, so each has
+     two columns of room. The dots share one set of rows (subgrid), so the row above grows to the longest name there and
+     every dot stays on one line; the line joining them is drawn from each dot's own box. */
+  .bl-page .bl-alt .bl-dots { grid-template-rows: auto 32px auto; }
+  .bl-page .bl-alt .bl-dots li { display: grid; grid-row: 1 / span 3; grid-template-rows: subgrid; justify-items: center; }
+  .bl-page .bl-alt .bl-dots li::before { display: none; }
+  .bl-page .bl-alt .bl-dw { grid-row: 2; position: relative; justify-self: stretch; }
+  .bl-page .bl-alt .bl-dots li:not(:first-child) .bl-dw::before { content: ''; position: absolute; top: 15px; left: -50%; right: 50%; height: 2px; background: var(--n200); }
+  .bl-page .bl-alt .bl-dots li:is(.bl-done, .bl-now, .bl-stop) .bl-dw::before { background: var(--p700); }
+  .bl-page .bl-alt .bl-dlbl { grid-row: 3; width: 200%; margin-top: var(--s4); }
+  .bl-page .bl-alt .bl-dots li:nth-child(even) .bl-dlbl { grid-row: 1; align-self: end; margin: 0 0 var(--s4); }
+  .bl-page .bl-alt .bl-dots li:first-child .bl-dlbl { justify-self: start; width: 150%; text-align: left; padding-left: 0; }
+  .bl-page .bl-alt .bl-dots li:last-child .bl-dlbl { justify-self: end; width: 150%; text-align: right; padding-right: 0; }
 }
 
 /* ---- from 900px: the header has the navigation and stays; the page is still one column with the bottom bar ---- */

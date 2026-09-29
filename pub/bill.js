@@ -294,12 +294,19 @@ function mainButton(b, x) {
 // real progress" and "understand the process"); two committees that hear it together are one step, since it is one
 // hearing and one vote. A chamber that has not picked its committees yet is one step, "Senate committees", until it does.
 const ORD = ['1st', '2nd', '3rd'];
-// "Health" for "Health and Human Services", "Ways and Means" whole (the rule briefCmte in start.js uses): short enough to
-// sit under a dot. Two committees together: "Health and Commerce", or "Labor and Technology with Health" when a name has
-// its own "and" (HB1782 read "Labor and Technology and Health", three committees at a glance).
-const briefName = n => n.split(/\s+/).length <= 3 ? n : n.split(/\s+(?:and|&)\s+|,\s*/)[0];
-const cmteBrief = code => { const ns = String(code).split('/').map(c => S.committees[c.trim()]).filter(Boolean).map(c => briefName(c.name));
-  return ns.length ? ns.join(ns.some(n => /\s(?:and|&)\s/.test(n)) ? ' with ' : ' and ') : String(code).replace(/\//g, ' and '); };
+// The committee's full name, as the Capitol gives it ("Water, Land, Culture and the Arts"; Nate 9/29: not "Senate Water").
+// Heard together: "Health and Commerce" (or "Health, Commerce and Judiciary"); when a name has its own "and", "&" or comma,
+// the first is named "with" the rest: "Labor and Technology with Health and Human Services" (HB1782 read "Labor and
+// Technology and Health", three committees at a glance), "Water, Land, Culture and the Arts with Housing and Hawaiian
+// Affairs" (HB2049). Three or four whose names run together are "... with 3 other committees"; See all steps names each.
+// A code no longer in the committee list (a 2025 committee on a carried-over bill: WTL, HRE, TCA) stays as its code
+// rather than dropping out of the name.
+const andList = ns => ns.length > 1 ? `${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}` : ns[0];
+const mixed = n => /\s(?:and|&)\s|,/.test(n);
+const cmteBrief = code => { const ns = String(code).split('/').map(c => c.trim()).filter(Boolean).map(c => S.committees[c]?.name || c);
+  if (ns.length < 2 || !ns.some(mixed)) return andList(ns);
+  const rest = ns.slice(1);
+  return rest.length > 1 && rest.some(mixed) ? `${ns[0]} with ${rest.length} other committees` : `${ns[0]} with ${andList(rest)}`; };
 // One committee step's name in the list, linked to the committee's page (members, chair, what it has now).
 const cmteLink = code => String(code).split('/').map(k => k.trim()).filter(Boolean)
   .map(k => S.committees[k] ? `<a href="#/committee/${esc(k)}">${esc(cmteLabel(k))}</a>` : esc(cmteLabel(k))).join(' and ');
@@ -359,7 +366,7 @@ function railInfo(b, x) {
       list.forEach((c, j) => {
         const two = String(c).includes('/');
         steps.push({ kind: 'cmte', ch, code: c, j, of: list.length, name: `${C} ${cmteBrief(c)}`, html: cmteLink(c) + (two ? ', together' : ''),
-          desc: `${list.length > 1 ? `The ${ORD[j] || j + 1 + 'th'} of ${list.length} ${C} committees. ` : `The only ${C} committee on its path. `}${two ? 'The two hold one hearing and vote together.' : 'It holds a hearing and votes.'} The ${word} needs a yes here to go on${j === 0 && ch === o ? '; the chair decides if it gets a hearing' : ''}.` });
+          desc: `${list.length > 1 ? `The ${ORD[j] || j + 1 + 'th'} of ${list.length} ${C} committees. ` : `The only ${C} committee on its path. `}${two ? `The ${['two', 'three', 'four', 'five'][String(c).split('/').length - 2] || 'committees'} hold one hearing and vote together.` : 'It holds a hearing and votes.'} The ${word} needs a yes here to go on${j === 0 && ch === o ? '; the chair decides if it gets a hearing' : ''}.` });
       });
       return;
     }
@@ -411,7 +418,7 @@ export function railHTML(b, x) {
     return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(nm)}</span><span class="sr">Step ${i + 1} of ${n}, ${esc(nm)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
   const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
-  return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}">
+  return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}${n >= 7 ? ' bl-alt' : ''}" style="--n:${n}">
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
       <p class="bl-nowlbl bl-${align}" style="grid-column:${from} / span ${span}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
