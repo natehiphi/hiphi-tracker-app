@@ -5,6 +5,8 @@
 # when the page redraws, the list inside the window at every laptop size, and the live site's bills from the database.
 import os, sys, re
 from playwright.sync_api import sync_playwright
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('HOST', 'http://localhost:8832')
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'suggest'); os.makedirs(OUT, exist_ok=True)
 passes, fails, errors = [], [], []
@@ -12,6 +14,7 @@ def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 
 def ctx(b, w, h, touch=False):
     c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 600, has_touch=touch or w < 600)
+    c.add_init_script(TOUR_SEEN)
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:160]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p

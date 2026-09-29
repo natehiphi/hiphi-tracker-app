@@ -1,7 +1,7 @@
 # R-040: typing in the first visit's address box on a phone keeps the same box and the cursor where it was.
 from playwright.sync_api import sync_playwright
 import sys
-URL = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1#/start/6'   # the address step (6 since the stance screen went, R-053)
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1#/start/4'   # the address step (4 since the three lessons became one story, R-062, 9/29)
 ok = fail = 0
 def check(c, m):
     global ok, fail

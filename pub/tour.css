@@ -1,0 +1,47 @@
+/* The bill page tour (pub/tour.js; R-062 Concept 2). Three tips over the real page, the first bill page anyone opens.
+   Everything is fixed to the window and redrawn as the page scrolls. The dim is the lit part's own shadow; five clear
+   blocks catch taps around it (and over it, except on the last tip, whose lit part is the page's real button).
+   Above the page's bars (45) and toasts (70), below a celebration (90) and the testimony dialog (top layer). */
+.tr-block { position: fixed; z-index: 80; background: transparent; }
+.tr.tr-live .tr-block[data-b="c"] { display: none; }
+.tr-hole { position: fixed; z-index: 81; pointer-events: none; border-radius: 16px;
+  box-shadow: 0 0 0 3px var(--p300), 0 0 0 200vmax rgba(9, 53, 70, .64); }
+.tr-moving .tr-hole { transition: top .28s var(--ease), left .28s var(--ease), width .28s var(--ease), height .28s var(--ease), border-radius .28s var(--ease); }
+.tr.tr-live .tr-hole { box-shadow: 0 0 0 4px var(--p300), 0 0 0 200vmax rgba(9, 53, 70, .64); }
+
+.tr-tip { position: fixed; z-index: 82; background: var(--n900); color: #E6F0F4; border-radius: 16px; padding: 16px 16px 8px;
+  box-shadow: var(--sh3); font-size: var(--t16); line-height: 1.45; }
+/* Focus lands on the tip itself so a screen reader reads it; its buttons show the ring, the dark box does not need one. */
+.tr-tip:focus, .tr-tip:focus-visible { outline: none; }
+.tr-tip :focus-visible { outline-color: #fff; }
+.tr-tip.tr-in { animation: tr-in .22s var(--ease) both; }
+@keyframes tr-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.tr-still .tr-tip.tr-in { animation: none; }
+.tr-still .tr-hole { transition: none; }
+
+/* The pointer: a small diamond on the side facing the lit part. */
+.tr-tip::before { content: ''; position: absolute; width: 16px; height: 16px; background: var(--n900); border-radius: 3px; transform: rotate(45deg); }
+.tr-tip.tr-below::before { top: -7px; left: calc(var(--ax, 50%) - 8px); }
+.tr-tip.tr-above::before { bottom: -7px; left: calc(var(--ax, 50%) - 8px); }
+.tr-tip.tr-left::before { right: -7px; top: calc(var(--ay, 32px) - 8px); }
+.tr-tip.tr-right::before { left: -7px; top: calc(var(--ay, 32px) - 8px); }
+.tr-tip.tr-over::before { display: none; }
+
+.tr-k { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--t13); font-weight: 700; color: var(--p200); letter-spacing: .02em; }
+.tr-k .ic { width: 16px; height: 16px; }
+.tr-tip h2 { margin-top: 6px; font-size: var(--t18); color: #fff; letter-spacing: -.01em; }
+.tr-tip p { margin: 4px 0 0; }
+.tr-tip p b { color: #fff; }
+.tr-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+.tr-btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 700; color: #fff;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tr-btn .ic { width: 18px; height: 18px; }
+.tr-btn.tr-ghost { color: var(--p200); padding-left: 0; }
+.tr-btn.tr-ghost:hover { text-decoration: underline; }
+.tr-btn.tr-go { box-shadow: inset 0 0 0 2px #fff; }
+.tr-btn.tr-go:hover { background: rgba(255, 255, 255, .12); }
+.tr-dots { display: flex; gap: 6px; }
+.tr-dots i { width: 8px; height: 8px; border-radius: 4px; background: #5F7C88; }
+.tr-dots i.on { width: 20px; background: #fff; }
+/* The last tip has no Skip: its dots sit on the left, Done on the right. */
+.tr-foot > .tr-dots:first-child { margin-left: 2px; }

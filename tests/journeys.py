@@ -11,6 +11,8 @@
 # with storage cleared, so it is also the cold-start test for B-11: nothing here reads Help.
 import json, os, sys
 from playwright.sync_api import sync_playwright
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 
 HOST = os.environ.get('HOST', 'http://localhost:8832')   # HOST=http://localhost:NNNN for another server
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'journeys')
@@ -71,7 +73,7 @@ JOURNEYS = [
    dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
  ]),
  # Counted from the moment the address is offered (B-2): the one ask sits under "Coming up on your issues", the last
- # screen before the finale (R-023). The walk there is a newcomer's (a category, its ticked issues, the lessons, no
+ # screen before the finale (R-023). The walk there is a newcomer's (a category, its ticked issues, the story, no
  # street address) and is not counted. The first name is optional, so it is not a step.
  dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/1', pick_cat=True,
       walk_to="(()=>{const i=document.getElementById('st-email'); return !!i && i.offsetParent!==null;})()", steps=[
@@ -103,6 +105,7 @@ JOURNEYS = [
 def run_one(br, j):
     # A phone unless the journey says it is done at a desk (`desk`: a 1440x900 window with a mouse).
     c = br.new_context(viewport={'width': 1440, 'height': 900}) if j.get('desk') else br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+    c.add_init_script(TOUR_SEEN)   # past the bill page tour (tests/bill_tour.py)
     p = c.new_page(); errs = []
     p.on('pageerror', lambda e: errs.append(str(e)[:120]))
     p.goto(j['app'] + '#/'); p.wait_for_timeout(4000)

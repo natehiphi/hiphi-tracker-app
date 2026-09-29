@@ -3,6 +3,8 @@
 # same order; a newcomer still starts with the quick email. Without the switch nothing changes. Sandbox, phone.
 import sys
 from playwright.sync_api import sync_playwright
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1'
 ok = fail = 0
 def check(c, m):
@@ -27,7 +29,7 @@ def did(pg, k, kind):
 with sync_playwright() as p:
     br = p.chromium.launch()
     def page():
-        ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); return ctx.new_page()
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.add_init_script(TOUR_SEEN); return ctx.new_page()
     # 1. ranked, someone who has acted before (seed=1)
     pg = page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     k = setup(pg, BASE + '&seed=1&rank=1')

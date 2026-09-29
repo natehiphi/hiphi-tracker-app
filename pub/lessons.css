@@ -230,6 +230,38 @@
 .lx-legmini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--p100); border: 2px solid var(--n0); flex: none; }
 .lx-legmini.none { display: inline-grid; place-items: center; font-size: var(--t13); font-weight: 700; color: var(--p800); }
 
+/* ================= 4. A bill's story, drawn (R-062, Nate 9/29): the full first visit's one lesson =================
+   Three drawn scenes stacked in one grid cell, so the picture keeps one size and the caption and Next never move; only
+   the scene being told is shown. Nothing here is a card, a chip or a button (A-12): the only control is the page's Next.
+   Each scene's movement runs once when it is shown (.lx-play), about 2 seconds at most, and ends on the still picture
+   that says the same thing; under Reduce Motion the still picture shows at once (the rule at the end of this file). */
+.lx-story { display: grid; }
+.lx-story .lx-sc { grid-area: 1 / 1; min-width: 0; opacity: 0; visibility: hidden; transition: opacity .25s var(--ease), visibility 0s linear .25s; }
+.lx-story .lx-sc.lx-on { opacity: 1; visibility: visible; transition: opacity .25s var(--ease), visibility 0s; }
+.lx-story text { font-family: var(--font); }
+.lx-story .lx-ptitle { font-family: var(--font-h); letter-spacing: -.01em; }
+.lx-story :is(.lx-s1paper, .lx-stampi, .lx-s2tick, .lx-s2bill, .lx-s3sign) { transform-box: fill-box; transform-origin: center; }
+.lx-l-story .lx-caption p + p { margin-top: var(--s8); }
+.lx-l-story .lx-caption p.lx-calm { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s12); font-size: var(--t14); color: var(--n700); }
+.lx-calm .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+/* "1 of 3": plain words, not dots, so nothing under the picture looks like something to tap */
+/* It sits right under the picture (not under the caption, whose height is the longest scene's) so it is always in view. */
+.lx-count { margin-top: calc(-1 * var(--s4)); text-align: right; font-size: var(--t13); font-weight: 700; color: var(--n700); line-height: 1.2; }
+.lx-l-story .lx-count + .lx-caption { margin-top: calc(-1 * var(--s4)); }
+/* 1. the paper settles, the arrow from where it started appears, then HIPHI's stamp is pressed on */
+.lx-sc.lx-play .lx-s1paper { animation: lx-settle .45s var(--ease) both; }
+.lx-sc.lx-play .lx-s1arrow { animation: lx-fadein .4s var(--ease) .35s both; }
+.lx-sc.lx-play .lx-stampi { animation: lx-stamp .42s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) .8s both; }
+/* 2. the road is travelled up to where the bill is, each stop it passed is ticked as it goes by, then the bill stands there */
+.lx-sc.lx-play .lx-s2trav { animation: lx-trav var(--dur, 1s) var(--ease) .15s both; }
+.lx-sc.lx-play .lx-s2tick { animation: lx-pop .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
+.lx-sc.lx-play .lx-s2bill { animation: lx-pop .4s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
+.lx-sc.lx-play .lx-s2here { animation: lx-fadein .3s var(--ease) calc(var(--dur, 1s) + .2s) both; }
+/* 3. the sign is pinned up, then the neighbours' notes fly to the committee, one after another */
+.lx-sc.lx-play .lx-s3sign { animation: lx-drop .4s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) .1s both; }
+.lx-sc.lx-play .lx-s3trail { animation: lx-fadein .4s var(--ease) var(--d, 0ms) both; }
+.lx-sc.lx-play .lx-note { animation: lx-fly .75s var(--ease) var(--d, 0ms) both; }
+
 /* ---- the smallest phones ---- */
 @media (max-width: 22.4375em) {
   .lx-jl:not(.lx-jl-gov) { transform: translate(-50%, -25%); }
@@ -244,6 +276,7 @@
 @media (min-width: 900px) {
   .lx { max-width: 540px; }
   .lx-l-bill { max-width: 440px; }
+  .lx-l-story { max-width: 460px; }
   /* On a laptop the button sits under the lesson, not in a bar: the committee room gives up width on a short window so
      the question and Next stay in view under it (1280x800, 1024x768) */
   .lx-room { max-width: clamp(380px, calc((100vh - 510px) * 1.525), 100%); }
@@ -255,6 +288,12 @@
 @keyframes lx-talk { 0%, 100% { opacity: 0; transform: scale(.4); } 12%, 45% { opacity: 1; transform: scale(1); } 60% { opacity: 0; transform: scale(.9); } }
 @keyframes lx-blink { 50% { opacity: .25; } }
 @keyframes lx-known { 0% { transform: scale(.9); } 60% { transform: scale(1.06); } 100% { transform: none; } }
+@keyframes lx-settle { from { transform: translateY(14px) rotate(2deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lx-stamp { 0% { transform: scale(1.5); opacity: 0; } 65% { transform: scale(.95); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes lx-trav { from { stroke-dasharray: 0 2; } }
+@keyframes lx-drop { from { transform: translateY(-16px) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lx-fly { 0% { transform: translate(var(--dx), var(--dy)) scale(.6); opacity: 0; } 25% { opacity: 1; } 100% { transform: none; opacity: 1; } }
 
 /* Reduce Motion: the same states, with no movement (A-10). base.css zeroes durations but not delays, and some states
    here wait on a delay, so both go. The JS side (fx.reduced) skips the timers, the trips and the bursts. */

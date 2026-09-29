@@ -41,10 +41,11 @@ first visit's first two screens are categories -> "Your issues"; the tab is **My
 with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
 topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
 topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
-`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> three
-lessons on the person's own bill (R-053, 9/26: "Where do you stand?" left the first visit; the bill page asks it)
-(`pub/lessons.js`: reading a bill, the session, a hearing; stepped with the primary button, every word visible, DESIGN
-C-12) -> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
+`public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066) -> the "Mahalo!" moment -> ONE
+lesson, "A bill's story" (R-062, 9/29, Nate picked concept 1: three drawn scenes on the person's own bill, nothing that
+looks like the app, stepped with the primary button; counted as step 'bill'; `pub/lessons.js` section 4, also at
+`#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help)
+-> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
 issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
@@ -52,6 +53,11 @@ shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `cel
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
 staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
 is still taken, marked late).
+**Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (`pub/tour.js`, mounted
+from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
+celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
+50 ready-made conversations (R-075: tap a question, a short answer with a small drawing, the next question; no typing
+box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`.
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).

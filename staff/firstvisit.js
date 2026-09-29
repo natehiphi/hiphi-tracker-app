@@ -29,7 +29,8 @@ const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm';
 // screen. In session and between sessions never share a week (the path follows the calendar), so they are one list.
 // ("Where do you stand?" left the first visit on 9/26, R-053; its name stays here for visits counted before that.)
 const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
-  stand: 'Where do you stand?', bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is',
+  // bill: until 9/29 this step was the "Reading a bill" lesson; now the drawn story (R-062).
+  stand: 'Where do you stand?', bill: 'A bill’s story', session: 'The session, January to May', hearing: 'What a hearing is',
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)' };
 const FLOWS = {
   // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).

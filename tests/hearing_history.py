@@ -2,6 +2,8 @@
 # the sandbox has no videos; Staff v2: the sandbox's "Hearings" list on the Overview tab. Phone and laptop.
 import sys, re
 from playwright.sync_api import sync_playwright
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/'
 ok = fail = 0
 def check(c, m):
@@ -10,7 +12,7 @@ def check(c, m):
 with sync_playwright() as p:
     br = p.chromium.launch()
     for w, h, mob in [(390, 844, True), (1280, 800, False)]:
-        ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mob, has_touch=mob); pg = ctx.new_page(); errs = []
+        ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mob, has_touch=mob); ctx.add_init_script(TOUR_SEEN); pg = ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         # someone who has been here before, so the page is the bill and not the first visit
         pg.goto(BASE + 'track.html#/'); pg.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({ done: true }))")

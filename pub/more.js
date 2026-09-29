@@ -1,7 +1,7 @@
 // More (redesign 9/19; plan 5 "More" and 7 "Help, Settings, Sign in, More"): the fourth tab and the pages under it.
 //   #/more      a short page of rows (link cards in a grid on a wide screen): your legislators, how it works, adding
 //               your email (or Settings and Sign out), HIPHI itself, privacy and accessibility
-//   #/help      how it works in 4 steps, the words a newcomer meets at the Capitol, where to get a hand
+//   #/help      ready-made conversations (R-075: pub/talk.js, loaded on first use; #/help/<slug> opens one)
 //   #/signin    "Add your email": one email field, one "keep me updated" box (hearings on your issues and HIPHI's updates,
 //               ticked; DESIGN C-4, Nate 9/20), privacy in 3 bullets
 //   #/settings  the two email choices and About you, saved with ONE button; your data; deleting the account
@@ -21,7 +21,7 @@
 import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
   CONSENT_KEY, LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, recomputeWatch, fmtDate,
   sendEmailLink, validEmail } from './core.js';
-import { btn, row, notice, inlineErr } from './ui.js';
+import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
 
@@ -32,8 +32,6 @@ const HIPHI = {
   privacy: 'https://www.hiphi.org/privacy/', access: 'https://www.hiphi.org/accessibility-statement/',
 };
 const EMAIL = 'contact@hiphi.org';   // the address on every hiphi.org page
-// The Legislature's Public Access Room helps anyone testify, for free, by phone or at the Capitol.
-const PAR = { tel: 'tel:+18085870478', text: '(808) 587-0478' };
 const DISTRICTS_KEY = 'hiphi_districts';   // shared with the people and bill screens: { senate, house, label, island }
 // Lucide has an "accessibility" figure; icons.js may not carry it yet, and icon() would draw an empty circle.
 const A11Y_ICON = ICONS.accessibility ? 'accessibility' : 'eye';
@@ -253,7 +251,7 @@ function moreView() {
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
       ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
-      ${row({ lead: 'circle-help', title: 'How it works', sub: 'Follow issues, say where you stand, speak up when it counts', href: '#/help' })}
+      ${row({ lead: 'circle-help', title: 'Help', sub: 'Plain answers on hearings, testimony, deadlines and this tracker', href: '#/help' })}
       ${account}
     </nav>
     <h2 class="mr-grouphead" id="mr-g-hiphi">From HIPHI</h2>
@@ -289,60 +287,18 @@ function wireMore() {
 }
 
 // ---------------- Help ----------------
-// The first visit is small on purpose (Nate, 9/19): pick what you care about, follow the issues inside it (R-018, 9/21),
-// say where you stand. Ways to help come on later visits, easiest first. Nothing here promises community totals.
-const STEPS = [
-  ['Pick what you care about', 'Choose a category or two, like Food & Nutrition or Tobacco, Vaping & Alcohol.'],
-  ['Follow the issues inside it', 'Free school meals, the disposable vape ban, free bus rides for kids. Some start ticked; untick any you don’t want. Their bills come to you, this session’s and next session’s, and show up in My issues.'],
-  ['Say where you stand, if you like', 'On any bill’s page: support, oppose or not sure yet. It’s your view, and it doesn’t have to match HIPHI’s.'],
-  ['Speak up when it counts', 'When a bill on one of your issues gets a hearing, Home shows ways to help, easiest first: a two-minute email to the chair, then testimony, a short letter we help you write.'],
-];
-// One line each, for the words on the bill pages and action cards (the stage names the Capitol uses are not shown).
-const WORDS = [
-  ['Hearing', 'A public meeting where a committee hears from people, then decides if a bill moves on.'],
-  ['Committee', 'A small group of lawmakers who study bills on one subject, like health or schools.'],
-  ['Chair', 'The lawmaker who leads a committee and decides which bills get a hearing.'],
-  ['Testimony', 'A short letter to a committee saying what you think of a bill and why. Anyone can send one.'],
-  ['Stance', 'Where you stand on a bill: support, oppose or not sure yet. It’s yours, and it can differ from HIPHI’s.'],
-  ['Deadline', 'The last time to send testimony, usually a day before the hearing. Bills also have dates to clear each step.'],
-  ['Passed the House', 'The full House voted yes, so the bill moves to the Senate. It works the same the other way.'],
-  ['On hold', 'The committee set the bill aside. This usually stops it for the year.'],
-  ['Conference', 'House and Senate members meet to agree on one version of the bill.'],
-  ['Stopped', 'The bill missed a deadline or was voted down, so it won’t become law this year.'],
-];
-function helpView() {
-  // Shortcuts only for people with a mouse or trackpad: on a phone they are noise.
-  const keys = !!window.matchMedia?.('(pointer: fine)').matches;
-  return `<div class="mr mr-help">
-    <header class="pagehead"><h1 class="hero">How it works</h1>
-      <p class="lede">You don’t need to be an expert. People who speak up help shape Hawaiʻi’s health laws, and it starts with one issue you care about.</p></header>
-    <section class="mr-panel" aria-label="How it works in ${STEPS.length} steps">
-      <ol class="mr-steps">${STEPS.map(([t, p], i) => `<li><span class="mr-num" aria-hidden="true">${i + 1}</span><div><p class="strong"><span class="sr">Step ${i + 1}: </span>${t}</p><p>${p}</p></div></li>`).join('')}</ol>
-      <div class="mr-cta">${btn('Find an issue to follow', { kind: 'primary', icon: 'search', href: '#/find' })}</div>
-      <p class="mr-learn">Three short lessons, about a minute each: <a href="#/learn/bill">Reading a bill</a> · <a href="#/learn/session">The session, January to May</a> · <a href="#/learn/hearing">What a hearing is</a></p>
-    </section>
-    <section aria-labelledby="mr-words-t">
-      <h2 id="mr-words-t">Words you’ll see</h2>
-      <dl class="card mr-words">${WORDS.map(([w, d]) => `<div><dt>${w}</dt><dd>${d}</dd></div>`).join('')}</dl>
-    </section>
-    <section aria-labelledby="mr-hand-t">
-      <h2 id="mr-hand-t">Need a hand?</h2>
-      <div class="rows">
-        ${row({ lead: 'phone', title: 'Call the Public Access Room', sub: `${PAR.text} · Free help with testifying, from the Legislature’s own staff`, href: PAR.tel, chevron: false })}
-        ${row({ lead: 'mail', title: 'Email HIPHI', sub: EMAIL, href: `mailto:${EMAIL}`, chevron: false })}
-      </div>
-    </section>
-    ${keys ? `<section aria-labelledby="mr-keys-t">
-      <h2 id="mr-keys-t">Keyboard shortcuts</h2>
-      <div class="card mr-keys">
-        <div><kbd>/</kbd><span>Search issues and bills</span></div>
-        <div><kbd>?</kbd><span>Open this page</span></div>
-        <div><kbd>Esc</kbd><span>Close the testimony helper</span></div>
-      </div>
-      <p class="small muted mr-after">Shortcuts are off while you type in a box.</p>
-    </section>` : ''}
-  </div>`;
+// Since R-075 (Nate, 9/29) Help is a page of ready-made conversations: pub/talk.js draws it, pub/talk-data.js holds the
+// words. It replaced the four steps and the "Words you'll see" list, which the conversations now cover one question at a
+// time (the three lessons, the Public Access Room, Email HIPHI and the shortcuts moved with it). The module loads the
+// first time Help is opened, so no other page waits for it; until then Help shows the loading shape for a moment.
+let TALK = null, talkLoad = null;
+function helpView(route) {
+  if (TALK) return TALK.view(route);
+  talkLoad ??= import('./talk.js').then(m => { TALK = m; if (document.body.dataset.screen === 'help') app.render(); })
+    .catch(e => { console.error(e); talkLoad = null; });
+  return `<div class="mr mr-help">${skeleton(4)}</div>`;
 }
+const wireHelp = route => { if (TALK) TALK.wire(route); };
 
 // ---------------- Add your email (the page behind "Add my email", and the header's "Sign in") ----------------
 // M: this visit's page. The typed email and the tick survive a re-render; a fresh arrival starts clean. One box, ticked:
@@ -588,17 +544,17 @@ function wirePrivacy() {
 
 // ---------------- the module ----------------
 const VIEWS = { more: moreView, help: helpView, signin: signinView, settings: settingsView, privacy: privacyView };
-const WIRES = { more: wireMore, signin: wireSignin, settings: wireSettings, privacy: wirePrivacy };
-const TITLES = { more: 'More', help: 'How it works', signin: 'Add your email', settings: 'Settings', privacy: 'Privacy' };
+const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, settings: wireSettings, privacy: wirePrivacy };
+const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', settings: 'Settings', privacy: 'Privacy' };
 export default {
   tab: 'more',
-  title: route => TITLES[route.name] || 'More',
+  title: route => (route.name === 'help' && TALK ? TALK.title(route) : TITLES[route.name]) || 'More',
   render(route) {
     // A fresh arrival (from another screen) starts the page clean; a re-render of the same page keeps what was typed.
     const fresh = !document.querySelector(`#main .mr-${route.name}`);
     if (fresh && route.name === 'signin') Object.assign(M, { sent: '', err: '', sendErr: '' });
     if (fresh && route.name === 'settings') F = null;
-    return (VIEWS[route.name] || moreView)();
+    return (VIEWS[route.name] || moreView)(route);
   },
   wire(route) { (WIRES[route.name] || (() => {}))(route); },
 };

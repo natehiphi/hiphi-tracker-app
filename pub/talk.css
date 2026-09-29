@@ -1,0 +1,88 @@
+/* Help's ready-made conversations (pub/talk.js, R-075). Phone first: the list of questions in plain groups, and one
+   conversation as a column of bubbles (the person's question on the right in grey, HIPHI's answer on the left beside
+   its mark). Only the six public type sizes and the tokens in base.css. */
+
+.tk > * + * { margin-top: var(--s24); }
+.tk > .pagehead { margin-bottom: 0; }
+.tk h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.25; margin-bottom: var(--s12); }
+
+/* ---- the list ---- */
+.tk-search { position: relative; max-width: 560px; }
+.tk-search .tk-sic { position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.tk-search input { -webkit-appearance: none; appearance: none; height: 48px; padding-left: 44px; }
+.tk-search input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+.tk-search input::placeholder { color: var(--n500); opacity: 1; }
+.tk-search input:hover { border-color: var(--n500); }
+.tk-search + .sr + .tk-groups { margin-top: var(--s24); }
+.tk-group + .tk-group { margin-top: var(--s24); }
+.tk-group[hidden], .tk-group .row[hidden] { display: none; }
+.tk-group h2 { display: flex; align-items: center; gap: var(--s8); }
+.tk-gic { display: inline-flex; color: var(--p700); }
+.tk-gic .ic { width: 20px; height: 20px; }
+/* one-line questions: a shorter row than More's two-line ones, still well over 44px */
+.tk-group .row { min-height: 52px; padding-top: 10px; padding-bottom: 10px; }
+.tk-none { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); padding: var(--s16); }
+.tk-none p + p { margin-top: var(--s4); }
+.tk-keys { padding: 0 var(--s16); }
+.tk-keys > div { display: flex; align-items: center; gap: var(--s12); min-height: 52px; }
+.tk-keys > div + div { border-top: 1px solid var(--n100); }
+.tk kbd { flex: none; min-width: 44px; padding: 6px 10px; text-align: center; font: 700 var(--t14)/1.2 var(--font); color: var(--n900);
+  background: var(--n50); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: var(--r8); }
+.tk .tk-after { margin-top: var(--s8); }
+
+/* ---- one conversation ---- */
+.tk-conv > * + * { margin-top: var(--s12); }
+.tk-back { margin-left: calc(-1 * var(--s12)); }
+.tk-eyebrow { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.tk-conv > .tk-eyebrow { margin-top: var(--s4); }
+.tk-thread { display: flex; flex-direction: column; gap: var(--s24); }
+.tk-turn { display: flex; flex-direction: column; gap: var(--s12); scroll-margin-top: calc(var(--header) + var(--s16)); }
+/* The person's question: a grey bubble on the right. It is the page's h1 (the first) or an h2, so a screen reader can
+   step through the conversation by heading. */
+.tk .tk-q { align-self: flex-end; max-width: 85%; margin: 0; padding: 10px var(--s16); background: var(--n200); color: var(--n900);
+  border-radius: 18px 18px 4px 18px; font: 700 var(--t18)/1.35 var(--font-h); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.tk .tk-q:focus { outline: none; }
+.tk .tk-q:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; }
+.tk-a { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: var(--s8); align-items: end; }
+.tk-av { width: 32px; height: 32px; border-radius: 50%; background: var(--n0); box-shadow: inset 0 0 0 1px var(--n200); display: grid; place-items: center; }
+.tk-av svg { width: 22px; height: 22px; }
+.tk-b { background: var(--n0); border: 1px solid var(--n200); border-radius: 18px 18px 18px 4px; padding: var(--s12) var(--s16); color: var(--n700); min-width: 0; }
+.tk-b p + p { margin-top: var(--s8); }
+.tk-b b { color: var(--n900); }
+.tk-b a { font-weight: 700; }
+.tk-d { display: block; width: 100%; max-width: 320px; height: auto; margin: var(--s12) auto var(--s4); }
+.tk-d text { font-family: var(--font); font-weight: 700; }
+.tk-d text[font-weight="400"] { font-weight: 400; }
+.tk-d + p { margin-top: var(--s8); }
+
+/* the next question, on the person's side: the one button */
+.tk-next { margin-top: var(--s16); }
+.tk-reply { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s8); }
+.tk-ask { max-width: 90%; min-height: 48px; height: auto; padding: 10px 20px; border-radius: 24px; white-space: normal; text-align: right; line-height: 1.35; }
+.tk-else { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
+.tk-end { display: flex; flex-direction: column; }
+.tk-end > * + * { margin-top: var(--s16); }
+.tk-end .tk-endh { margin: var(--s8) 0 0; }
+.tk-end .tk-endh + .rows { margin-top: var(--s12); }
+.tk-end > .tk-else { align-self: flex-start; }
+
+/* A new question and its answer rise into place, the answer a beat after the question (A-10: short, and only on a tap). */
+@media (prefers-reduced-motion: no-preference) {
+  .tk-new .tk-q { animation: tk-rise .25s var(--ease) both; }
+  .tk-new .tk-a { animation: tk-rise .3s var(--ease) .15s both; }
+}
+@keyframes tk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- wide screens: the list uses the width, in two columns of groups; a conversation stays a reading column ---- */
+@media (min-width: 1100px) {
+  body[data-screen="help"] main:has(.tk-list) { max-width: 1120px; }
+  .tk-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--s32); align-items: start; }
+  .tk-list > .pagehead, .tk-list > .tk-search, .tk-list > .tk-groups, .tk-list > .tk-none, .tk-list > .sr { grid-column: 1 / -1; }
+  .tk-list > * + * { margin-top: 0; }
+  .tk-list > .tk-search { margin-top: var(--s24); }
+  .tk-list > .tk-groups, .tk-list > .tk-none { margin-top: var(--s32); }
+  .tk-list > .tk-more { margin-top: var(--s32); }
+  .tk-groups { columns: 2; column-gap: var(--s32); }
+  .tk-group { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: var(--s32); }
+  .tk-group + .tk-group { margin-top: 0; }
+}

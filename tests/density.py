@@ -12,6 +12,8 @@ import json, os, sys
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import checks
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 
 HOST = os.environ.get('HOST', 'http://localhost:8832')   # HOST=http://localhost:NNNN for another server
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'density')
@@ -112,6 +114,7 @@ def run(br, base, routes, app, W, H, tag, seed):
     c = br.new_context(viewport={'width': W, 'height': H}, is_mobile=W < 600,
                        has_touch=W < 600, device_scale_factor=1)
     if seed: c.add_init_script(SEED)
+    c.add_init_script(TOUR_SEEN)
     p = c.new_page()
     p.goto(base + '#/'); p.reload(); p.wait_for_timeout(4000)
     for name, route, want, sel in routes:

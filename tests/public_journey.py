@@ -2,6 +2,8 @@
 import json, sys, os, re
 from playwright.sync_api import sync_playwright
 import checks
+# The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'final2'); os.makedirs(OUT, exist_ok=True)
 snap = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'snapshot.json')))
@@ -16,6 +18,7 @@ COMMUNITY = re.compile(r'people have spoken up|HIPHI community|Together, |join t
 
 def ctx(b, w=390, h=844, **kw):
     c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 600, has_touch=w < 600, device_scale_factor=2 if w < 600 else 1, **kw)
+    c.add_init_script(TOUR_SEEN)   # past the bill page tour (tests/bill_tour.py), even after localStorage.clear() and a reload
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:140]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
@@ -42,8 +45,9 @@ def std(p, name, desktop=False, axe=False):
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
-    # ---- 1. the first visit on a phone (R-023, rebuilt 9/21; R-039 and R-053, 9/26): topics -> issues (the Mahalo moment) ->
-    # three lessons (the "Now you know" moment) -> who speaks for you -> coming up, THEN the ask -> you're all set -> Home ----
+    # ---- 1. the first visit on a phone (R-023, rebuilt 9/21; R-039 and R-053, 9/26; R-062, 9/29): topics -> issues (the Mahalo
+    # moment) -> the story of a bill, drawn (the "Now you know" moment) -> who speaks for you -> coming up, THEN the ask ->
+    # you're all set -> Home ----
     c, p = ctx(b); fresh(p); p.reload(); p.wait_for_timeout(3000)
     ok(p.evaluate('location.hash') == '#/start/1', 'first visit lands on step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
@@ -79,24 +83,35 @@ with sync_playwright() as pw:
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
     # "Where do you stand?" left the first visit (R-053, 9/26): the answer changed nothing the person saw next (C-13).
-    # The bill page asks it instead (checked below). After "Mahalo!" comes the first lesson.
+    # The bill page asks it instead (checked below). After "Mahalo!" comes the story.
     ok(re.search(r'where do you stand', text(p), re.I) is None and p.locator('[data-ststance]').count() == 0, f"no stance screen after the issues ({p.evaluate('location.hash')})")
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', 'the first lesson comes straight after "Mahalo!"')
-    # How a bill becomes law (was "How it works", R-067): three lessons, every word visible (C-12), stepped through with the primary button.
-    seen = []
-    for _ in range(24):
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'the story of a bill comes straight after "Mahalo!"')
+    # How a bill becomes law (R-062, Nate 9/29: "use concept 1 as a primer"): ONE drawn lesson, three scenes walked with the
+    # primary button, every word visible (C-12), and nothing in it that looks like the app or can be pressed (A-12).
+    seen, scenes, caps = [], [], []
+    for _ in range(12):
         h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
-        if h1 not in seen:
-            seen.append(h1); std(p, f'lesson{len(seen)}', axe=True); shot(p, f'p_lesson{len(seen)}')
-            ok(p.locator('main details:not([open]), main [role=tab]').count() == 0, f'"{h1}" hides nothing behind a tap (C-12)')
-            if h1 in ('Reading a bill', 'The session, January to May', 'What a hearing is'):
-                ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How a bill becomes law', f'"{h1}" is in "How it works"')
+        if h1 not in seen: seen.append(h1)
         if 'Who speaks for you' in h1: break
+        if p.locator('.lx-l-story').count():
+            m = re.search(r'(\d) of 3', p.inner_text('#lx-count'))
+            k = m.group(1) if m else '?'
+            if k not in scenes:
+                scenes.append(k); caps.append(p.inner_text('#lx-cap')); std(p, f'story{k}', axe=True); shot(p, f'p_story{k}')
+                ok(p.locator('main details:not([open]), main [role=tab]').count() == 0, f'scene {k} hides nothing behind a tap (C-12)')
+                ok(p.locator('.lx-l-story :is(button, a, input, [role=button], [tabindex])').count() == 0 and p.locator('.lx-l-story :is(.chip, .card, .btn)').count() == 0,
+                   f'scene {k}: nothing in the story is a button, a chip or a card (A-12)')
+                ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How a bill becomes law', f'scene {k} is in "How a bill becomes law"')
+                ok(p.locator('.lx-story .lx-sc.lx-on').count() == 1 and p.locator(f'.lx-story .lx-sc.lx-on[data-sc="{k}"]').count() == 1, f'scene {k}: one drawing shows, the one the caption tells')
         p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
         if p.locator('#fx-moment:not([hidden])').count():
-            ok('how it works' in p.inner_text('#fx-moment').lower(), 'finishing the lessons shows the "Now you know how it works" moment')
+            ok('how it works' in p.inner_text('#fx-moment').lower(), 'finishing the story shows the "Now you know how it works" moment')
             std(p, 'moment_learned', axe=True); p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
-    ok(seen[:3] == ['Reading a bill', 'The session, January to May', 'What a hearing is'], f'three lessons, in order ({seen[:3]})')
+    ok(seen[:2] == ['A bill’s story', 'Who speaks for you'], f'one lesson, then who speaks for you ({seen[:3]})')
+    ok(scenes == ['1', '2', '3'], f'the story is three scenes, in order ({scenes})')
+    allcaps = ' '.join(caps)
+    ok('Most bills stop' in allcaps and 'testimony' in allcaps and 'Nothing to do now' in allcaps, 'the story says where most bills stop, what testimony is, and that nothing is asked yet')
+    ok('24 hours' not in allcaps and 'closes' not in allcaps.lower(), 'testimony timing comes from the data or "by the deadline", never "24 hours before" or "closes"')
     # Stay connected: a street address only; nothing is pushed before one is found.
     ok('Who speaks for you' in seen and p.locator('#st-addr').count() == 1 and p.locator('#st-town').count() == 0, 'who speaks for you asks for a street address only')
     ok(p.locator('.actionbar .btn.primary').count() == 0 and p.locator('[data-stskip]').count() == 1, 'before an address there is only Skip')
@@ -135,14 +150,28 @@ with sync_playwright() as pw:
     p.locator('.actionbar [data-bl-newlater]').click(); p.wait_for_timeout(1500)
     ok(p.evaluate('location.hash') == '#/bill/HB2121' and p.locator('.bl-newbie').count() == 0 and p.locator('[data-bl-tour]').count() == 1, f"Just looking stays on the bill, with the tour one tap away ({p.evaluate('location.hash')})")
     p.locator('[data-bl-tour]').click(); p.wait_for_timeout(2000)
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the lessons, on the bill they opened ({p.evaluate('location.hash')})")
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the story, on the bill they opened ({p.evaluate('location.hash')})")
     fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(1500)
     ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable vape ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
     p.locator('#fx-mgo').click(); p.wait_for_timeout(2000)
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', 'following from the card goes on to the lessons, without asking again')
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'just followed' in text(p), 'following from the card goes on to the story of that bill, without asking again')
     std(p, 'link_lesson', axe=True)
     fresh(p); p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); visit(p, '/start/1', wait=3000)
     ok('Want us to tell you next time?' in text(p), 'after a quick email, "Want us to tell you next time?" asks about following'); std(p, 'followask', axe=True)
+    c.close()
+    # ---- 1c. the short version (?fv=short) keeps its one page and offers the story; the lessons open on their own (R-062) ----
+    c, p = ctx(b); fresh(p, '&fv=short'); p.goto(BASE + '?demo=1&fv=short#/start/1'); p.reload(); p.wait_for_timeout(3000)
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Your voice counts here', f"the short version keeps its one page ({p.evaluate('location.hash')})")
+    ok(p.locator('.st-voicelearn a[href^="#/learn/story"]').count() == 1 and p.locator('.st-voicelearn a').count() == 1, '"Want the details?" offers the story')
+    p.locator('.st-voicelearn a').click(); p.wait_for_timeout(2500)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.locator('.lx-l-story').count() == 1, f"the story opens on its own ({p.evaluate('location.hash')})")
+    for _ in range(3): p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(900)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Your voice counts here', f"past its last scene the story goes back where it was opened ({p.evaluate('location.hash')})")
+    p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, done:true, skipped:true}))")
+    for lesson, title in (('bill', 'Reading a bill'), ('session', 'The session, January to May'), ('hearing', 'What a hearing is')):
+        visit(p, '/learn/' + lesson, wait=2600)
+        ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == title and p.locator(f'.lx[data-lx="{lesson}"]').count() == 1, f'#/learn/{lesson} still opens "{title}"')
     c.close()
     c, p = ctx(b, 1440, 900); fresh(p); visit(p, '/bill/HB2121', wait=3000)
     top = p.evaluate("(() => { const b = [...document.querySelectorAll('main .btn.primary')].find(x => /testimony/i.test(x.innerText)); return b ? Math.round(b.getBoundingClientRect().top) : -1; })()")
@@ -252,12 +281,12 @@ with sync_playwright() as pw:
         if p.locator('main input[type=email]').count(): break
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
         (p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')).first.click(); p.wait_for_timeout(1300)
-    ok(p.locator('main input[type=email]').count() == 1 and 'start moving' in text(p), f"between sessions the lessons lead on to the ask, in off-season words ({p.evaluate('location.hash')})")
+    ok(p.locator('main input[type=email]').count() == 1 and 'start moving' in text(p), f"between sessions the story leads on to the ask, in off-season words ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(2600); p.locator('[data-stdone]').click(); p.wait_for_timeout(3000); t = text(p)
     ok('Your issues' in t and 'Pick a few health issues' not in t, 'off-season Home names the issues just picked and does not ask again')
     for extra in ('', '&season=off'):
         fresh(p, extra); p.goto(BASE + '?demo=1' + extra + '#/start/1'); p.reload(); p.wait_for_timeout(3000); p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
-        ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Reading a bill', f"Skip with nothing picked goes on to the lessons, never back to the start{' (off-season)' if extra else ''} ({p.evaluate('location.hash')})")
+        ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', f"Skip with nothing picked goes on to the story, never back to the start{' (off-season)' if extra else ''} ({p.evaluate('location.hash')})")
     follower(p, '&season=off'); visit(p, '/', '&season=off', 3200); t = text(p); shot(p, 'p_off_home', full=True)
     ok("didn't act" not in t and 'didn’t act' not in t, 'off-season Home does not scold'); ok(not COMMUNITY.search(t), 'off-season Home has no community totals')
     ok(len(p.evaluate("[...document.querySelectorAll('main input[type=email]')].filter(e=>e.offsetParent!==null)")) <= 1, 'off-season Home asks for an email at most once'); std(p, 'off_home', axe=True)

@@ -2,12 +2,13 @@
 // parts at the top, "Your issues · How it works · Stay connected", and no counting (HANDOFF 3.5; Nate 9/21: keep the
 // named steps, remove the progress bar):
 //   Your issues     topics -> issues (the four most important, then three per category; followed, then "Mahalo!")
-//   How it works    three short lessons on the person's own bill: reading a bill, the session, a hearing
-//                   (pub/lessons.js), then the "Now you know how it works" moment
+//   How it works    one drawn lesson on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29): what a
+//                   bill is, its road through the Capitol, and when anyone can have a say; then the "Now you know how it
+//                   works" moment
 //   Stay connected  who speaks for you (street address only) -> coming up on your issues, THEN the one ask for an
 //                   email (Nate 9/21: ask after the value) -> you're all set (the peak, then Home)
 // Someone who arrives on a shared bill starts on the bill page itself (pub/bill.js: the easiest action first); from
-// there the flow is "follow this issue?", the lessons on that bill, then the last part.
+// there the flow is "follow this issue?", the story of that bill, then the last part.
 // People follow ISSUES, not bills (R-018). No action is pushed here; the asks to act come on later visits. The email is
 // one "keep me updated" opt-in covering hearing alerts and HIPHI's own advocacy alerts (HANDOFF 3.5). Every step is its
 // own route (#/start/1..N) and pushes history, so Back walks the steps. The step and the picks live in hiphi_wiz
@@ -24,23 +25,30 @@ import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
-import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonStop, LESSON_TITLES } from './lessons.js';
+import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStop, LESSON_TITLES } from './lessons.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The first visit as named screens (the same in and out of session since "Where do you stand?" left it, R-053). From a
 // shared bill (wiz().via is its number), the first part happened on the bill page.
-const FLOW_IN = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
-const FLOW_OFF = ['topics', 'issues', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
-const FLOW_LINK = ['followask', 'bill', 'session', 'hearing', 'you', 'soon', 'done'];
+// 'bill' is the one lesson, "A bill's story" (R-062, Nate 9/29: "Let's use concept 1 as a primer for how session works
+// during onboarding"; the first visit teaches the drawn story only, and hearings are taught in the moment, on the bill
+// page). It replaced three lessons, 'bill', 'session' and 'hearing'; the screen keeps the name 'bill' because that is the
+// step name the private counting records and the database accepts (visitlog.js, backend 067), so no migration was
+// needed, and 'session' and 'hearing' are simply no longer recorded. Those three lessons still open on their own at
+// #/learn/<bill|session|hearing>.
+const FLOW_IN = ['topics', 'issues', 'bill', 'you', 'soon', 'done'];
+const FLOW_OFF = ['topics', 'issues', 'bill', 'you', 'soon', 'done'];
+const FLOW_LINK = ['followask', 'bill', 'you', 'soon', 'done'];
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
-// very brief page"): one page on why your voice matters stands where the three lessons were, and the lessons are
-// offered where they are needed (#/learn/..., linked from bill pages and Help). It is tested against the full version
-// with the outside testers, whose link carries ?fv=short (the first visit remembers it; ?fv=full switches back); the
-// full version stays the default until Nate picks. The counting records the page as 'voice' (backend 080).
+// very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
+// they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
+// against the full version with the outside testers, whose link carries ?fv=short (the first visit remembers it;
+// ?fv=full switches back); the full version stays the default until Nate picks. The counting records the page as 'voice'
+// (backend 080).
 const SHORT = () => wiz().fv === 'short';
 try { const f = new URLSearchParams(location.search).get('fv'); if (f === 'short' && !SHORT()) wizSet({ fv: 'short' }); else if (f === 'full' && SHORT()) wizSet({ fv: null }); } catch { /* ignore */ }
-const shorten = f => SHORT() ? f.flatMap(n => n === 'bill' ? ['voice'] : n === 'session' || n === 'hearing' ? [] : [n]) : f;
+const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 const flowOf = off => shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN);
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
@@ -78,6 +86,9 @@ function goStep(from, to) {
 function goBack(step) {
   const off = isOff();
   let to = step - 1;
+  // A screen that would only send the person on again is passed over: from a shared bill whose issue they just followed,
+  // Back from the story went to "Follow this issue?", which moves straight back to the story, so Back seemed to do nothing.
+  while (to >= 1 && redirectFor(to, off)) to--;
   if (to < 1) { history.back(); return; }
   track(nameAt(step, off), 'back');
   lessonStop();
@@ -106,7 +117,7 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
 // confused about what it is).
 const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
-const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, session: 1, hearing: 1, voice: 1, you: 2, soon: 2, done: 3 };
+const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 const chapterNames = () => SHORT() ? ['Your issues', 'Why your voice matters', 'Stay connected'] : CHAPTERS;
 let lastChapter = -1;
 function chaptersRow(name) {
@@ -389,7 +400,7 @@ function standIdeas() {
 }
 const followedBills = () => standIdeas().flatMap(x => x.bills);
 
-// ================= How it works: three lessons on the person's own bill (pub/lessons.js) =================
+// ================= How it works: the story of the person's own bill (pub/lessons.js) =================
 // The example (decision 6, which answers R-020). In session: the first followed issue, in the order the person picked
 // categories and then screen 2's order, with a bill that has a scheduled hearing in the next 7 days; else a followed
 // bill alive in its second chamber; else the most advanced followed bill. Between sessions: a 2026 law with a HIPHI
@@ -447,7 +458,8 @@ function example() {
   // one load, the full history. Two loads raced, and the 30-day one emptied what the full one had filled.
   if (b && isOff()) fullHistory(b);
   else if (b && !full && !S.exLoading.has(b.id)) { S.exLoading.add(b.id); ensureBill(b.bill_number).then(() => { exKey = ''; app.render(); }).catch(() => {}); }
-  const via = w.via ? (viaFollowed() ? 'followed' : 'link') : '';
+  // A lesson opened from a bill page says it is that bill's story.
+  const via = S.learnBill && location.hash.startsWith('#/learn/') && b && b.id === S.learnBill ? 'bill' : w.via ? (viaFollowed() ? 'followed' : 'link') : '';
   const key = `${isOff()}|${via}|${b ? b.id : ''}|${full}|${[...S.watch].length}|${S.bills.length}|${(S.recapPool || {}).yr || ''}`;
   if (key !== exKey) { exKey = key; exCache = exampleFrom(b, { off: isOff(), via }); }
   return exCache;
@@ -455,7 +467,7 @@ function example() {
 // ================= The short version's one page: why your voice matters (R-067 #11) =================
 // Nate's words, 9/28 (option B of three: written for someone who has never written to a lawmaker, so it answers "I
 // don't know enough" rather than explaining the Capitol; the lessons below do that). Three short points, the person's
-// own bill when there is one, and the three lessons one tap away for anyone who wants them.
+// own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062).
 function stepVoice(step) {
   const E = example(), off = isOff(), b = exampleBill();
   const pts = [
@@ -463,20 +475,21 @@ function stepVoice(step) {
     ['message-circle', 'You don’t need to be an expert', 'Say who you are and why it matters to you. That’s enough.'],
     ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
   ];
-  const lessons = ['bill', 'session', 'hearing'].map(n => `<a href="#/learn/${n}${b ? '/' + esc(b.id) : ''}">${esc(LESSON_TITLES[n])}</a>`).join(' · ');
+  const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
   return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
     <h1 class="hero" id="st-h">Your voice counts here</h1>
     <p class="lede">Lawmakers hear from far fewer people than you’d think. The ones who write in get noticed.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
     ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>${off ? `Like <b>${esc(E.name)}</b>, one of the bills on your issues.` : `Your first one to watch: <b>${esc(E.name)}</b>.`}</span></p>` : ''}
-    <p class="small muted st-voicelearn">Want the details? About a minute each: ${lessons}</p>`);
+    <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);
 }
 
 // ================= A lesson on its own, in the moment (#/learn/<lesson>[/<bill id>]; R-067 #11) =================
-// The same three lessons as the full first visit, opened from where they help: "What a hearing is" beside a hearing,
-// "The session" under a bill's steps, all three from Help and the short version's page. Next walks the lesson; at the
-// end, Done goes back where the person came from.
-const learnName = route => ['bill', 'session', 'hearing'].includes(route.lesson) ? route.lesson : 'bill';
+// A lesson opened from where it helps: "What a hearing is" beside a hearing, "The session" under a bill's steps, the
+// three older lessons from Help, and the full first visit's story (#/learn/story, R-062) from the short version's page.
+// Next walks the lesson; at the end, Done goes back where the person came from.
+const LEARN = ['story', 'bill', 'session', 'hearing'];
+const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
 function stepLearn(route) {
   S.learnBill = route.bill || '';
   const name = learnName(route), E = example();
@@ -485,11 +498,12 @@ function stepLearn(route) {
   return shell('st-lesson st-learn', `<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>${L.intro}`, L.main);
 }
 
-function stepLesson(name, step) {
+// The first visit's one lesson: the flow calls the screen 'bill' (the recorded step name), the lesson is the story.
+function stepLesson(step) {
   const E = example();
   if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
-  const L = lessonHTML(name, E);
-  return shell('st-lesson', `${topRow(name, step)}${L.intro}`, L.main);
+  const L = lessonHTML('story', E);
+  return shell('st-lesson', `${topRow('bill', step)}${L.intro}`, L.main);
 }
 
 // ================= Stay connected, 1: who speaks for you, by street address =================
@@ -695,8 +709,8 @@ function stepDone(step) {
 }
 
 // ================= From a shared bill: follow this issue? =================
-// The easiest action came first, on the bill page (pub/bill.js); following is offered next (C-3), then the lessons on
-// that bill. "Not now" goes to the lessons.
+// The easiest action came first, on the bill page (pub/bill.js); following is offered next (C-3), then the story of
+// that bill. "Not now" goes to the story.
 function viaIssueOf() { const b = exampleBill(); return b ? issuesOf(b).find(shown) || issuesOf(b)[0] || null : null; }
 const viaFollowed = () => { const b = exampleBill(), i = viaIssueOf(); return !!b && (i ? issueFollowed(i) : S.watch.has(b.id)); };
 function stepFollowAsk(step) {
@@ -759,7 +773,8 @@ function wireLearn(route) {
   document.body.classList.add('st-lessonpage');
   lessonStart(name, E, {});
   const leave = () => { lessonStop?.(); S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
-  document.querySelector('[data-stlearnback]')?.addEventListener('click', leave);
+  // Back walks the story back a scene at a time before it leaves (the other lessons have their own steps to tap).
+  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (!lessonPrev(name)) leave(); });
   const nb = document.querySelector('[data-stlearnnext]');
   if (nb) nb.onclick = () => { if (!lessonNext(name, E)) leave(); };   // past its last step the lesson is done
 }
@@ -772,7 +787,7 @@ function wire(route) {
   if (wiz().step !== step) wizSet({ step });
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
-  document.body.classList.toggle('st-lessonpage', ['bill', 'session', 'hearing'].includes(name));
+  document.body.classList.toggle('st-lessonpage', name === 'bill');
   document.body.classList.toggle('st-onecol', name === 'followask');
   const key = `${pathKey()}|${name}`, fresh = key !== viewKey;
   if (fresh) {
@@ -785,9 +800,11 @@ function wire(route) {
   // Skip always means "go to the next page" (HANDOFF 3.5).
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
-    // Nothing picked on the first screen: the issues screen needs a pick, so Skip goes on to the lessons, which use one
+    // Nothing picked on the first screen: the issues screen needs a pick, so Skip goes on to the story, which uses one
     // of HIPHI's bills (R-019: Skip must never lead back to where it started).
-    if (name === 'topics' && !pickedIssues().length) { lessonStop(); swap(() => app.go('#/start/' + stepOf('bill', off)), 'fwd'); return; }
+    // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
+    // screen again; now it is simply the screen after the issues: the story, or the short version's one page.)
+    if (name === 'topics' && !pickedIssues().length) { lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
@@ -795,7 +812,8 @@ function wire(route) {
     if (name === 'soon' || name === 'you') lessonStop();
     goStep(step, step + 1);
   });
-  $$('[data-stback]').forEach(el => el.onclick = () => goBack(+el.dataset.stback));
+  // On the story, Back first walks it back a scene at a time (B-4), then leaves the screen.
+  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && lessonPrev('story')) return; goBack(+el.dataset.stback); });
   $$('[data-stretry]').forEach(el => el.onclick = async () => { S.recapFailed = null;
     if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
     app.render(); });
@@ -893,20 +911,17 @@ function wire(route) {
     };
   }
 
-  if (['bill', 'session', 'hearing'].includes(name)) {
+  if (name === 'bill') {
     const E = example();
-    // A redraw of the same screen (data landing) restores the step the person was on, without replaying motion.
-    lessonStart(name, E, { back, redraw: !fresh, onAnswer: quiz => track(name, 'answer', { quiz }) });
+    // A redraw of the same screen (data landing) restores the scene the person was on, without replaying motion.
+    lessonStart('story', E, { back, redraw: !fresh });
     const nb = $('[data-stnext]');
     if (nb) nb.onclick = () => {
-      if (lessonNext(name, E)) return;
-      if (name === 'hearing') {
-        // Finishing "How it works": the second moment (C-7), then on to the last part.
-        S.stLearned = true; track(name, 'next');
-        celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'Reading a bill, its trip, and when to speak up.' }, () => goStep(step, step + 1));
-        return;
-      }
-      next();
+      if (lessonNext('story', E)) return;
+      // Finishing "How a bill becomes law": the second moment (C-7), then on to the last part. Its three ticks are the
+      // story's three scenes (fx.js learnArt: a bill, the Capitol, people).
+      S.stLearned = true; track(name, 'next');
+      celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'What a bill is, its trip, and when to speak up.' }, () => goStep(step, step + 1));
     };
   }
 
@@ -1001,7 +1016,7 @@ function wire(route) {
   }
 }
 
-const TITLE = { topics: 'What do you care about?', issues: 'Your issues', ...LESSON_TITLES,
+const TITLE = { topics: 'What do you care about?', issues: 'Your issues', bill: LESSON_TITLES.story,
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };
 export default {
   tab: 'home',
@@ -1014,7 +1029,7 @@ export default {
     switch (nameAt(step, off)) {
       case 'topics': return stepTopics(step);
       case 'issues': return stepIssues(step);
-      case 'bill': case 'session': case 'hearing': return stepLesson(nameAt(step, off), step);
+      case 'bill': return stepLesson(step);
       case 'voice': return stepVoice(step);
       case 'you': return stepYou(step);
       case 'soon': return stepSoon(step);
@@ -1036,7 +1051,7 @@ export default {
         if (m.loading || m.none) return barBusy();
         return bar2(followLabel(m.count), { icon: 'star' });
       }
-      case 'bill': case 'session': case 'hearing': case 'voice': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'bill': case 'voice': return bar2('Next', { iconEnd: 'arrow-right' });
       case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
       case 'soon': return S.session || mailSent() ? bar1('Next') : bar2(off ? 'Keep me posted' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
       case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });

@@ -15,6 +15,7 @@ import people from './people.js';
 import committees from './committees.js';
 import more from './more.js';
 import helper from './helper.js';
+import tour from './tour.js';
 import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
@@ -54,11 +55,12 @@ export function parseRoute(h = location.hash) {
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
+    case 'help': return { name: 'help', slug: seg[1] || '' };   // #/help/<slug> opens one conversation (R-075, pub/talk.js)
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
 }
 export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
-  committee: `#/committee/${r.code}`, committees: '#/committees' })[r.name] || '#/';
+  committee: `#/committee/${r.code}`, committees: '#/committees', help: r.slug ? `#/help/${r.slug}` : '#/help' })[r.name] || '#/';
 
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.
 function go(path, { replace = false, keepScroll = false } = {}) {
@@ -119,6 +121,8 @@ export function render() {
   // Screen changes move focus to the page for screen readers (not on re-renders of the same screen).
   const key = location.hash;
   if (key !== lastRouteKey) { lastRouteKey = key; if (document.activeElement === document.body || !$app().contains(document.activeElement)) $app().querySelector('main')?.focus({ preventScroll: true }); }
+  // The first bill page anyone opens gets a short tour (R-062, pub/tour.js); it decides for itself, and closes if the page moves on.
+  try { tour.after(route); } catch (e) { console.error(e); }
 }
 app.render = render;
 const $app = () => document.getElementById('app');
