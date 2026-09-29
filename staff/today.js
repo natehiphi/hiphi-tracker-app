@@ -42,6 +42,7 @@ import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, alertTarget, b
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
+import { todayPrepNotice } from './prep.js';
 
 const HR = 36e5, DAY = 864e5;
 // The Hawaiʻi calendar day of a moment. Hawaiʻi keeps UTC-10 all year (no daylight saving), so this is hstDayOf() by
@@ -525,7 +526,8 @@ function toolbar(route, clockShown = false) {
       <p class="td-date"><span>${esc(a)}</span>${g ? `<span class="td-dl"><span class="td-sep" aria-hidden="true">·</span>Deadline ${esc(when)}: ${esc(gateName(g).replace(/^First /, '1st ').replace(/^Second /, '2nd '))}${gateGloss(g.label) ? `<span class="td-dlgl"> (${esc(gateGloss(g.label))})</span>` : ''}</span>` : ''}</p></div>
     <div class="td-tools">${WIDE() ? segmented('tdview', [['list', 'List'], ['week', 'Week']], viewOf(route), 'Layout') : ''}${seg}</div>${whoBtn}</div>`;
 }
-// At most one notice, most important first: the sync is stale or email is paused (admins), then the new-bill season.
+// At most one notice, most important first: the sync is stale (admins), the issues' prep, email is paused (admins), then
+// the new-bill season.
 function oneNotice() {
   const me = S.me || {};
   if (me.is_admin && !DEMO) {
@@ -533,6 +535,9 @@ function oneNotice() {
     const hrs = lastOk ? Math.round((Date.now() - new Date(lastOk)) / HR) : null;
     if (!SESSION_OVER && (failed || hrs == null || hrs > 36)) return notice('warn', 'triangle-alert', hrs == null ? 'The bill sync has not finished recently. Bills may be out of date.' : `The bill sync last finished ${hrs > 47 ? Math.round(hrs / 24) + ' days' : hrs + ' hours'} ago. Bills may be out of date.`, btn('Check', { kind: 'text', href: '#/setup/sync' }));
   }
+  // Getting the issues ready for 2027 (R-088): an owner's issues left to do, or what is waiting for an admin to approve.
+  // Before "Email is paused", which is true all autumn and would otherwise hide it from admins.
+  const prep = todayPrepNotice(); if (prep) return prep;
   if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; nothing sends.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
   if (S.tdTriage?.suggested || S.tdTriage?.undecided) { const n = S.tdTriage.suggested || S.tdTriage.undecided;
     return notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })); }

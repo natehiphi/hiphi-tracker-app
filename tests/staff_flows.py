@@ -33,7 +33,8 @@ with sync_playwright() as pw:
         visit(p, '/', 4000)
         leg = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/legislator/\"]'); return a && a.getAttribute('href') })()")
         routes = ['/', '/review', '/bills', '/bills/new', '/bills/memo', '/bills/muted', '/bill/HB1562', '/bill/HB1562/activity', '/bill/HB1562/pathway', '/bill/HB1562/public',
-                  '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help']
+                  '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help',
+                  '/outreach/issues?view=mine', '/outreach/issues?view=prep']   # the issues' prep for 2027 (R-088)
         # R-022: the coalition and hearing pages. Hearing ids change when the snapshot is rebuilt, so take one from HEAL's week.
         visit(p, '/coalition/' + HEAL, 3000)
         hr = p.evaluate("(()=>{ const a=document.querySelector('a[href^=\"#/hearing/\"]'); return a && a.getAttribute('href').slice(1).split('?')[0] })()")

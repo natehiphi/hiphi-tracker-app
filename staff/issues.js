@@ -8,12 +8,15 @@
 // nobody following issues would ever hear of. #/issue/:id is one issue: its bills, its followers and its ⋯ menu, laid
 // out like a list's page. Its "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first
 // visit only. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
+// Getting the issues ready for 2027 (091, R-088) is prep.js: ?view=mine is My issues, ?view=prep the admins' board, and
+// the prep card on an issue's page. A new issue is a draft the public never sees until an admin publishes it.
 import { S, DB, SESSION_YEAR, hooks, esc } from './data.js';
 import { billById, billNum, plain, PUBLIC_APP } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
+import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, indexLinks, isDraft } from './prep.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -55,6 +58,10 @@ export function openIssueForm(i = null, { bill = null } = {}) {
       <span class="help" id="is-name-h">A policy people recognise, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
       <span class="help" id="is-desc-h">One sentence on what would change. The public sees it.</span></div>
+    ${i ? '' : `<div class="field"><label for="is-goal">HIPHI’s goal for 2027 <span class="is-opt">(can wait)</span></label><textarea id="is-goal" rows="2" maxlength="600" aria-describedby="is-goal-h"></textarea>
+      <span class="help" id="is-goal-h">What we want to win on it. Staff only.</span></div>
+    <div class="field"><label for="is-pts">Talking points <span class="is-opt">(can wait)</span></label><textarea id="is-pts" rows="4" maxlength="1100" placeholder="One plain sentence per line, three to five." aria-describedby="is-pts-h is-pts-err"></textarea>
+      <span class="help" id="is-pts-h">For people’s testimony and emails. Each bill put on it starts with a copy. It is saved as a draft: the public sees it once it has a goal, three points and a bill, and an admin publishes it.</span><div id="is-pts-err" role="alert"></div></div>`}
     ${i ? `<div class="field"><label for="is-out">Between sessions</label><textarea id="is-out" rows="3" maxlength="300" aria-describedby="is-out-h">${esc(i.outlook || '')}</textarea>
       <span class="help" id="is-out-h">What happened last session and what to expect. The public page shows it from May to January, under the issue on Home and on its page. Claude drafted the first ones from the bills’ records; change anything, and add HIPHI’s plans.</span></div>` : ''}
     <fieldset class="is-cats"><legend>Category</legend>${cats.map(c => `<label class="check is-cat"><input type="radio" name="is-cat" value="${esc(c.key)}" ${c.key === cur ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
@@ -63,7 +70,7 @@ export function openIssueForm(i = null, { bill = null } = {}) {
     ${switchRow('is-rec', 'Pre-tick for new visitors', !!i?.recommended, 'Silent: first-time visitors who pick its category find it already ticked. Nothing on the public page says it was recommended.')}
   </div>`;
   openSheet({ title: i ? 'Edit issue' : 'New issue', size: 'auto', body,
-    foot: btn(i ? 'Save changes' : 'Create issue', { icon: i ? 'check' : 'plus', attrs: { 'data-issave': '1' } }),
+    foot: btn(i ? 'Save changes' : 'Save as draft', { icon: i ? 'check' : 'plus', attrs: { 'data-issave': '1' } }),
     wire: d => {
       const name = d.querySelector('#is-name'), go = d.querySelector('[data-issave]'), err = d.querySelector('#is-name-err');
       if (!i) name.focus();
@@ -80,16 +87,22 @@ export function openIssueForm(i = null, { bill = null } = {}) {
         try {
           if (i) {
             // The outlook (079, R-067): saving a changed one marks it as a person's, so the draft tool never overwrites it.
-            const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: new Date().toISOString() } : {};
-            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, ...outPatch });
+            // A changed name, description or outlook counts as the owner's check of it (the prep, 091).
+            const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, at = new Date().toISOString(), outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: at, outlook_checked_at: at } : {};
+            const wordPatch = nm !== i.name || (description || null) !== (i.description || null) ? { wording_checked_at: at } : {};
+            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, ...outPatch, ...wordPatch });
             await DB.setIssueAlso(i.id, extra);
             closeSheet({ silent: true }); hooks.render(); toast('Saved. The public page shows the new wording.', { ok: true });
           } else {
-            const ni = await DB.createIssue({ name: nm, description, category, also: extra, recommended });
+            const goal = d.querySelector('#is-goal').value.trim(), pts = d.querySelector('#is-pts').value.split('\n').map(x => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
+            const ptBad = pts.length > 5 ? 'Five points at most.' : pts.some(x => x.length > 200) ? 'Keep each point under 200 characters.' : '';
+            if (ptBad) { d.querySelector('#is-pts-err').innerHTML = `<span class="err">${icon('circle-alert')}${esc(ptBad)}</span>`; d.querySelector('#is-pts').focus(); go.removeAttribute('aria-busy'); go.disabled = false; return; }
+            const ni = await DB.createIssue({ name: nm, description, category, also: extra, recommended, goal, talking_points: pts });
             if (bill) await DB.setBillIssue(bill.id, ni.id, true);
             closeSheet({ silent: true }); await afterClose();
-            if (bill) { hooks.render(); toast(`Made ${ni.name} and put ${billNum(bill)} on it.`, { ok: true }); }
-            else { S.go('#/issue/' + encodeURIComponent(ni.id)); toast('Issue made. Put its bills on it below.', { ok: true }); }
+            // Straight to the new issue either way: its card says what it still needs before an admin can publish it.
+            S.go('#/issue/' + encodeURIComponent(ni.id));
+            toast(bill ? `Saved ${ni.name} as a draft with ${billNum(bill)} on it. The public sees it once it is published.` : 'Saved as a draft. Put its bills on it below.', { ok: true });
           }
         } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
       };
@@ -104,7 +117,7 @@ export function openIssuePicker(b, { onClose = () => hooks.render() } = {}) {
   const list = () => {
     const on = new Set(issuesOfBill(b.id).map(i => i.id)), t = plain(q.trim());
     const hit = i => !t || plain(`${i.name} ${i.description || ''}`).includes(t);
-    const item = i => `<button type="button" role="checkbox" aria-checked="${on.has(i.id)}" data-pick="${esc(i.id)}">${icon(on.has(i.id) ? 'square-check-big' : 'square', { cls: on.has(i.id) ? 'on' : '' })}<span class="body"><span class="title">${esc(i.name)}</span>${i.description ? `<span class="sub">${esc(i.description)}</span>` : ''}</span></button>`;
+    const item = i => `<button type="button" role="checkbox" aria-checked="${on.has(i.id)}" data-pick="${esc(i.id)}">${icon(on.has(i.id) ? 'square-check-big' : 'square', { cls: on.has(i.id) ? 'on' : '' })}<span class="body"><span class="title">${esc(i.name)}</span>${isDraft(i) ? '<span class="sub">Draft: not public yet</span>' : i.description ? `<span class="sub">${esc(i.description)}</span>` : ''}</span></button>`;
     const mine = live().filter(i => on.has(i.id) && hit(i)).sort(byName);
     const groups = (S.categories || []).map(c => [c, live().filter(i => i.category === c.key && !on.has(i.id) && hit(i)).sort(byName)]).filter(([, l]) => l.length);
     if (!mine.length && !groups.length) return `<p class="le-none">No issue matches “${esc(q.trim())}”. Make a new one below.</p>`;
@@ -139,7 +152,7 @@ function issueRow(i) {
   const meta = [plural(now.length, 'bill') + (SESSION_YEAR ? ` in ${SESSION_YEAR}` : ''), f && f.own ? plural(f.own, 'follower') : ''].filter(Boolean).join(' · ');
   // Left out of the first visit: a quiet grey mark, which also stands in for "Pre-ticked" (a pre-tick does nothing then).
   return row({ title: esc(i.name), sub: `<span class="is-meta">${esc(meta)}</span>${i.description ? `<span class="is-desc">${esc(i.description)}</span>` : ''}`,
-    end: !inFirstVisit(i) && !i.archived_at ? chip('Not in first visit', '', 'eye-off') : i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
+    end: isDraft(i) ? chip('Draft', '', 'eye-off') : !inFirstVisit(i) && !i.archived_at ? chip('Not in first visit', '', 'eye-off') : i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
 }
 function needsHTML(v) {
   const need = needsIssue(); if (!need.length) return '';
@@ -167,11 +180,12 @@ function indexBody(v) {
 // router needs no new route. Make a link is a form, so it is a reading column on a desktop.
 const index = {
   tab: 'outreach',
-  title: route => fvTitle(route) || 'Outreach',
-  back: route => fvBack(route),
+  title: route => prepTitle(route) || fvTitle(route) || 'Outreach',
+  back: route => prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
   wide: route => !fvView(route),
   narrow: route => fvView(route) === 'links',
   render(route) {
+    if (prepView(route)) return renderPrep(route);
     if (fvView(route)) return renderFirstVisit(route);
     wantPeople();
     const v = V(), n = live().length;
@@ -180,12 +194,14 @@ const index = {
     return `<div class="le-page is-index">
       ${pageHead('issues', 'Issues', `What the public follows. A bill reaches everyone who follows an issue it is on. <span class="le-sum">${plural(n, 'issue')}</span>`, newBtn)}
       <a class="is-fvlink" href="${FV_HREF}">${icon('footprints')}<span>First visit: numbers and links</span></a>
+      ${indexLinks()}
       ${needsHTML(v)}
       <div class="le-search is-find">${icon('search')}<input id="is-q" type="search" placeholder="Find an issue" value="${esc(v.q)}" autocomplete="off" aria-label="Find an issue" aria-controls="is-body">${iconBtn('x', 'Clear the search', { 'data-is': 'qclear', hidden: !v.q })}</div>
       <div id="is-body">${indexBody(v)}</div>
     </div>`;
   },
   wire(route, root) {
+    if (prepView(route)) return wirePrep(route, root);
     if (fvView(route)) return wireFirstVisit(route, root);
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
@@ -243,9 +259,10 @@ function pageRender(route) {
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
     ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}
-    <section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
+    ${prepCardHTML(i)}
+    ${isDraft(i) ? '' : `<section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
       ${i.archived_at ? '' : switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')}
-      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>
+      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>`}
     <section class="le-sec" aria-labelledby="is-bh">
       <div class="le-sechead"><h2 id="is-bh">Bills</h2><span class="meta">${now.length ? `${plural(now.length, 'bill')} in ${SESSION_YEAR}${reachN < now.length ? ` · ${reachN} reach followers` : ''}` : ''}</span></div>
       <div class="le-add">
@@ -332,11 +349,12 @@ export const issuePage = {
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;
     wireConvSection(root, convOpts(i));
+    wirePrepCard(i, root);
     const st = P();
     root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
       { label: 'Edit', icon: 'pencil', sub: 'Name, description, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
       { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
-      { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at, reason: 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
+      { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'A draft has no public page until it is published.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));
     root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));

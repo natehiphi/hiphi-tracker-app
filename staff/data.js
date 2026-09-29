@@ -69,6 +69,8 @@ export const S = {
   deskOut: false,
   // Issues (063, R-018): what the public follows. Categories (the six) -> issues -> the bills that carry them.
   categories: [], issues: [], issueCats: [], billIssues: [],
+  // The issues' prep for 2027 (091, R-088): each issue's helpers, and the due date (app_settings 'issue_prep').
+  issueHelpers: [], issuePrep: { due: '2026-11-06' },
 };
 export const $ = sel => document.querySelector(sel);
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -617,22 +619,28 @@ export const DB = {
   async loadIssues() {
     if (DEMO) return;
     try {
-      const [cats, iss, ic, bi] = await Promise.all([
+      const [cats, iss, ic, bi, hl, prep] = await Promise.all([
         S.supa.from('categories').select('*').order('sort_order'),
         S.supa.from('issues').select('*').order('sort_order').order('name'),
         S.supa.from('issue_categories').select('issue_id,category'),
         allRows(o => S.supa.from('bill_issues').select('bill_id,issue_id,added_at', o).order('bill_id').order('issue_id')),
+        S.supa.from('issue_helpers').select('issue_id,advocate_id,added_at'),
+        S.supa.from('app_settings').select('value').eq('key', 'issue_prep').maybeSingle(),
       ]);
       for (const r of [cats, iss, ic, bi]) if (r.error) throw r.error;
       S.categories = cats.data || []; S.issues = iss.data || []; S.issueCats = ic.data || []; S.billIssues = bi.data || [];
+      S.issueHelpers = hl.error ? [] : hl.data || []; if (prep.data?.value) S.issuePrep = prep.data.value;
     } catch (e) { console.warn('issues:', e.message || e); }
   },
-  async createIssue({ name, description, category, also = [], recommended = false }) {
+  // A new issue is a draft the public never sees until an admin publishes it (091); its owner is its maker unless chosen.
+  async createIssue({ name, description, category, also = [], recommended = false, goal = null, talking_points = null, owner_id = null }) {
     const base = name.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'issue';
     let slug = base, n = 2; while (S.issues.some(i => i.slug === slug)) slug = `${base}-${n++}`;
-    const row = { slug, name: name.trim(), description: (description || '').trim() || null, category, recommended: !!recommended, sort_order: 100 };
+    const row = { slug, name: name.trim(), description: (description || '').trim() || null, category, recommended: !!recommended, sort_order: 100,
+      goal: (goal || '').trim() || null, talking_points: talking_points?.length ? talking_points : null, ...(talking_points?.length ? { talking_points_edited_at: new Date().toISOString() } : {}),
+      owner_id: owner_id || S.me?.id || null };
     let issue;
-    if (DEMO) issue = { id: 'demo-' + Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), edited_at: new Date().toISOString(), archived_at: null, ...row };
+    if (DEMO) issue = { id: 'demo-' + Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), edited_at: new Date().toISOString(), archived_at: null, published_at: null, prep_state: 'todo', created_by: S.me?.id, ...row };
     else { const { data, error } = await S.supa.from('issues').insert(row).select('*').single(); if (error) throw error; issue = data; }
     S.issues.push(issue);
     if (also.length) await this.setIssueAlso(issue.id, also);
@@ -662,6 +670,13 @@ export const DB = {
     if (on === had) return;
     if (on) S.billIssues.push({ bill_id: billId, issue_id: issueId, added_at: new Date().toISOString() });
     else S.billIssues = S.billIssues.filter(x => !(x.bill_id === billId && x.issue_id === issueId));
+    // What the database does when a bill goes on an issue (091): the issue's owner leads a bill nobody leads, and a bill
+    // with no talking points gets a copy of the issue's. Mirrored here so the screen shows it without a reload.
+    const iss = on && S.issues.find(x => x.id === issueId), bill = on && S.bills.find(x => x.id === billId);
+    if (iss && bill) {
+      if (iss.owner_id && !(S.assignments[billId] || []).length) S.assignments[billId] = [iss.owner_id];
+      if (iss.talking_points?.length && !bill.talking_points?.length) Object.assign(bill, { talking_points: [...iss.talking_points], talking_points_edited_at: new Date().toISOString() });
+    }
     if (DEMO) return;
     const { error } = on ? await S.supa.from('bill_issues').insert({ bill_id: billId, issue_id: issueId })
       : await S.supa.from('bill_issues').delete().eq('bill_id', billId).eq('issue_id', issueId);
@@ -687,6 +702,51 @@ export const DB = {
     const { error } = await S.supa.rpc('merge_issues', { p_from: fromId, p_into: intoId }); if (error) throw error;
     await this.loadIssues();
     if (S.peopleLoaded) { S.peopleLoaded = false; await this.loadPeople().catch(() => {}); }
+  },
+
+  // ---- the issues' prep for 2027 (091, R-088) ----
+  // The owner (or an admin) adds helpers; a helper can step off. The database checks who may.
+  async addIssueHelper(issueId, advocateId) {
+    if (S.issueHelpers.some(h => h.issue_id === issueId && h.advocate_id === advocateId)) return;
+    const row = { issue_id: issueId, advocate_id: advocateId, added_at: new Date().toISOString() };
+    S.issueHelpers.push(row);
+    if (DEMO) return;
+    const { error } = await S.supa.from('issue_helpers').insert({ issue_id: issueId, advocate_id: advocateId });
+    if (error) { S.issueHelpers = S.issueHelpers.filter(h => h !== row); throw error; }
+  },
+  async removeIssueHelper(issueId, advocateId) {
+    const had = S.issueHelpers.find(h => h.issue_id === issueId && h.advocate_id === advocateId); if (!had) return;
+    S.issueHelpers = S.issueHelpers.filter(h => h !== had);
+    if (DEMO) return;
+    const { error } = await S.supa.from('issue_helpers').delete().eq('issue_id', issueId).eq('advocate_id', advocateId);
+    if (error) { S.issueHelpers.push(had); throw error; }
+  },
+  // Approve (applies the owner's keep / merge / retire), send back with a note, or undo an approval. Admins only.
+  async reviewIssue(id, action, note = null) {
+    const i = S.issues.find(x => x.id === id); if (!i) return;
+    if (DEMO) {
+      if (action === 'send_back' && !String(note || '').trim()) throw new Error('Say what needs changing, so the owner knows.');
+      if (action === 'approve') {
+        if (i.proposal === 'merge' && i.proposal_into) await this.mergeIssues(i.id, i.proposal_into);
+        else if (i.proposal === 'retire') i.archived_at = new Date().toISOString();
+      }
+      if (action === 'undo' && i.archived_at && ['merge', 'retire'].includes(i.proposal)) throw new Error('This approval merged or retired the issue. Restore it from Issues, under Archived.');
+      Object.assign(i, { prep_state: action === 'approve' ? 'approved' : action === 'send_back' ? 'sent_back' : 'ready', prep_note: action === 'undo' ? null : (String(note || '').trim() || null), prep_by: S.me?.id, prep_at: new Date().toISOString() });
+      return;
+    }
+    const { data, error } = await S.supa.rpc('review_issue', { p_id: id, p_action: action, p_note: note });
+    if (error) throw error;
+    if (action === 'approve' && ['merge', 'retire'].includes(i.proposal)) await this.loadIssues();
+    else if (data) Object.assign(i, data);
+  },
+  // One Slack message to each owner about the issues they were not told about yet. Returns how many people.
+  async tellIssueOwners() {
+    const now = new Date().toISOString(), untold = S.issues.filter(i => i.owner_id && !i.owner_told_at && !i.archived_at);
+    const people = new Set(untold.map(i => i.owner_id)); people.delete(S.me?.id);
+    if (DEMO) { untold.forEach(i => { i.owner_told_at = now; }); return people.size; }
+    const { data, error } = await S.supa.rpc('tell_issue_owners'); if (error) throw error;
+    untold.forEach(i => { i.owner_told_at = now; });
+    return data;
   },
 
   // ---- the first visit (067-068, R-023): Staff v2 only, like Issues ----
@@ -1005,7 +1065,7 @@ export async function demoInit() {
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); hooks.afterLoad(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
-  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, ...i })); S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
+  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, published_at: '2026-09-21T00:00:00Z', prep_state: 'todo', ...i })); S.issueHelpers = []; S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -1078,6 +1138,10 @@ export async function demoInit() {
   for (const d of snap.drafts || []) if (!(S.drafts[d.bill_id] || []).some(x => x.committee === d.committee)) (S.drafts[d.bill_id] ??= []).push({ ...d });
   S.draftHearings = { ...(snap.draftHearings || {}) };
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
+  // Each issue's owner, the way tools/propose_issue_owners.js picks it live (R-088): whoever owns most of its bills, else
+  // the admin. The snapshot is public, so it carries no owners, goals or points of its own.
+  for (const i of S.issues) { const n = {}; for (const x of S.billIssues) if (x.issue_id === i.id) for (const a of sc.assignments[x.bill_id] || []) n[a] = (n[a] || 0) + 1;
+    i.owner_id ??= Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || S.me.id; }
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.mutes = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));

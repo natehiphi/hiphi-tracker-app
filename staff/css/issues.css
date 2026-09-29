@@ -172,3 +172,80 @@
   .fv-shead span:nth-child(n+3) { text-align: right; }
   .fv-table .fv-pc { display: inline; margin-left: 4px; }
 }
+
+/* ---- getting the issues ready for 2027 (R-088; staff/prep.js): the links, the card on an issue, My issues, the board ---- */
+.is-index .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.is-index .pr-links .is-fvlink { margin-top: var(--s4); }
+.pr-card { margin-top: var(--s16); padding: var(--s16); }
+.pr-card .pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
+.pr-card .pr-head h2 { font-size: var(--t18); }
+.pr-card .pr-lede { margin: var(--s4) 0 0; color: var(--n700); }
+.pr-card > .sv-notice { margin: var(--s12) 0 0; }
+.pr-people { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s24); margin-top: var(--s12); padding: var(--s8) 0; border-top: 1px solid var(--n100); border-bottom: 1px solid var(--n100); }
+.pr-who { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); min-height: 44px; }
+.pr-who .pr-wl { font-size: var(--t13); font-weight: 700; color: var(--n500); text-transform: uppercase; letter-spacing: .04em; }
+.pr-helper { display: inline-flex; align-items: center; gap: var(--s4); min-height: 36px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; cursor: pointer; }
+.pr-helper:hover { border-color: var(--p700); }
+.pr-steps { list-style: none; margin: var(--s8) 0 0; padding: 0; }
+.pr-steps li + li { border-top: 1px solid var(--n100); }
+.pr-step { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 56px; padding: var(--s8) 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pr-step .pr-mark { width: 22px; height: 22px; flex: none; color: var(--n400, var(--n500)); }
+.pr-step.done .pr-mark { color: var(--ok-text, var(--p700)); }
+.pr-step .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pr-step .title { font-weight: 700; color: var(--n900); }
+.pr-step .sub { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pr-step .pr-go { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.pr-step:hover .pr-go { text-decoration: underline; }
+.pr-step:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.pr-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pr-foot .btn[aria-disabled="true"] { opacity: .55; }
+.pr-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.pr-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--n500); }
+.pr-dot.on { background: var(--p700); border-color: var(--p700); }
+.pr-page .le-sec, .pr-board .pr-cat { margin-top: var(--s24); }
+.pr-rows { list-style: none; margin: 0; padding: 0; }
+.pr-row { display: flex; align-items: center; gap: var(--s8) var(--s12); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.pr-row + .pr-row { border-top: 1px solid var(--n100); }
+.pr-row .pr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.pr-row .pr-main .title { font-weight: 700; color: var(--n900); }
+.pr-row .pr-main:hover .title { color: var(--p700); text-decoration: underline; }
+.pr-row .pr-main .sub { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
+.pr-row .pr-end { flex: none; }
+.pr-ownbtn { flex: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-ownbtn .chev { width: 14px; height: 14px; color: var(--n500); }
+.pr-ownbtn:hover { border-color: var(--p700); }
+.pr-tell { margin-top: var(--s16); padding: var(--s16); }
+.pr-tell h2 { font-size: var(--t18); }
+.pr-tell .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.pr-told { display: flex; align-items: center; gap: var(--s4); margin-top: var(--s12); }
+.pr-told .ic { width: 16px; height: 16px; }
+.pr-per { margin-top: var(--s12); }
+.pr-filters { margin-top: var(--s12); overflow-x: auto; }
+@media (max-width: 599px) {
+  .pr-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .pr-brow .pr-main { flex-basis: 100%; padding-bottom: 0; }
+}
+.pr-page .pr-top { margin: var(--s4) 0 var(--s8); }
+.pr-page .pr-top h1 { font-size: var(--t22); }
+.pr-page .pr-top .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+.pr-filters .sv-seg { flex-wrap: nowrap; width: max-content; }
+.pr-filters .sv-seg button { white-space: nowrap; }
+/* A-6: 44px to a finger */
+@media (max-width: 899px) { .pr-ownbtn, .pr-helper { min-height: 44px; } }
+/* After the fresh-eyes review (9/29): the count beside the dots, a plain state (no pill: A-12), owners as filters, the
+   filter strip wrapping on a phone so Drafts is never cut off, and My issues' Next button. */
+.pr-n { font-size: var(--t13); color: var(--n500); }
+.pr-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.pr-st .ic { width: 16px; height: 16px; }
+.pr-st.warn { color: var(--warn-text); } .pr-st.ok { color: var(--ok-text); } .pr-st.danger { color: var(--bad-text); }
+.pr-per { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pr-whob { min-height: 32px; padding: 0 var(--s12); border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-whob[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); color: var(--p700); font-weight: 700; }
+.pr-next { margin: var(--s12) 0 0; }
+.pr-next .btn { max-width: 100%; }
+.pr-next .btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 899px) {
+  .pr-whob { min-height: 44px; }
+  .pr-filters { overflow: visible; }
+  .pr-filters .sv-seg { flex-wrap: wrap; width: auto; }
+}
