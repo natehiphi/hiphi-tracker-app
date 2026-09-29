@@ -123,15 +123,19 @@ with sync_playwright() as pw:
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     # The value first, then the one ask (Nate 9/21: ask for the email after the value).
     ts = text(p); ok('Coming up on your issues' in ts, f"then coming up on your issues ({p.evaluate('location.hash')})")
-    # 9/29 (R-078): the email box moved onto the first screen, above the list; a line naming what is coming (or the
-    # lede when nothing is) still comes before it, and the list follows.
-    order = p.evaluate("(() => { const s = document.querySelector('.st-soonsum, .st-soonpage .lede'), f = document.querySelector('#st-eform'), l = document.querySelector('.st-soon'); const before = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); return before(s, f) && before(f, l) ? 1 : 0; })()")
-    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up is named before the ask, and listed after it')
+    # 9/29 (R-078, Nate: "the want a reminder needs to be below the coming up section but it still needs to fit"): compact
+    # rows first (as many as the screen's height allows, the rest under "More coming up"), then the short reminder box.
+    order = p.evaluate("(() => { const l = document.querySelector('.st-soon'), f = document.querySelector('#st-eform'); return !!l && !!f && (l.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) ? 1 : 0; })()")
+    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up comes before the ask')
+    ok(p.locator('#st-name').count() == 0, 'the first name is asked after the email, not in the reminder box')
     ok(p.evaluate("(() => { const f = document.getElementById('st-email'); return !!f && f.getBoundingClientRect().top < innerHeight - 80; })()"), 'the email box is on the first screen')
-    ok('testimony is due' in ts.lower() and 'closes' not in ts.lower(), 'the ask names the value, and testimony is "due", never "closes"')
+    ok('testimony due' in ts.lower() and 'closes' not in ts.lower(), 'coming up names the value, and testimony is "due", never "closes"')
     std(p, 'soon', axe=True); shot(p, 'p_soon')
-    p.fill('#st-email', 'leilani@example.com'); p.fill('#st-name', 'Leilani'); p.locator('#st-send').click(); p.wait_for_timeout(1200)
+    p.fill('#st-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1200)
     ok('Check your inbox' in text(p), 'the ask says to check the inbox'); std(p, 'soon_sent', axe=True)
+    # The first name, now asked once the email has gone (R-078), is saved for the greeting.
+    p.fill('#st-name', 'Leilani'); p.locator('[data-stname]').click(); p.wait_for_timeout(500)
+    ok('We’ll greet you as Leilani' in text(p), 'the first name is saved after the email')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(3200)
     # The peak: what they did, then what happens next; nothing asks for anything (Nate 9/21: end on a high).
     td = text(p); ok('You’re all set, Leilani!' in td and 'What happens next' in td, f"the last screen celebrates what they did ({p.evaluate('location.hash')})")

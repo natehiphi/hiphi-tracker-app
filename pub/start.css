@@ -192,6 +192,14 @@
 .st-soonmore { margin-top: 10px; }
 .st-soonmore > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p700); }
 .st-soonmore > .st-soon { margin-top: 0; }
+/* Compact rows (R-078, 9/29): one line of title, one short line, the day on the left; three fit above the reminder box. */
+.st-soon li.st-srow { grid-template-columns: 52px 1fr; align-items: center; padding: 8px 12px; gap: 10px; }
+.st-srow .st-when { min-height: 36px; font-size: var(--t13); }
+.st-srow b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-srow > div { min-width: 0; }
+.st-srow .st-now { margin: 2px 0 0 -12px; }   /* the text button's padding lines its label up with the words above */
+.st-namerow { display: flex; gap: 8px; align-items: stretch; }
+.st-namerow input { flex: 1; min-width: 0; }
 .st-opt { font-weight: 400; color: var(--n500); }
 .st-formbtns { display: flex; flex-direction: column; gap: var(--s8); }
 .st-sent { display: flex; gap: var(--s12); align-items: flex-start; }

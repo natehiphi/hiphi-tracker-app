@@ -639,17 +639,17 @@ function askCard() {
     <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">Check your inbox at <span class="st-break">${esc(sent)}</span></h2>
       <p>Tap the link in the email to turn on your reminders. It can take a minute; check spam if you don’t see it.</p>
       ${M.demo ? '<p class="small muted">This is the sandbox, so nothing was sent.</p>' : ''}
+      ${M.named ? `<p class="small">${icon('check')} We’ll greet you as ${esc(M.named)}.</p>` : `<div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
+        <div class="st-namerow"><input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}">${btn('Save', { kind: 'secondary', sm: true, attrs: { 'data-stname': '1' } })}</div></div>`}
       <div class="st-formbtns">${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div></section>`;
-  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : 'Want a reminder before testimony is due?';
+  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : 'Want a reminder?';   // one line, so the box fits under the list (R-078)
   return `<form class="card st-form st-askcard" id="st-eform" novalidate>
     <h2 class="st-askh">${icon('bell')}<span>${esc(title)}</span></h2>
     <div class="field"><label for="st-email">Your email</label>
       <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
       <span class="err" id="st-email-err" role="alert"></span></div>
     <p class="st-askline">We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them. Unsubscribe in one tap.</p>
-    <div class="field"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
-      <input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}"></div>
-    <p class="meta">No password: we send you a link to sign in, which also keeps your issues on any device. HIPHI staff can see which issues you follow and where you stand, so they know what the community cares about. <a href="#/privacy">Privacy</a></p>
+    <p class="meta">No password: we send you a sign-in link. HIPHI staff can see which issues you follow and where you stand. <a href="#/privacy">Privacy</a></p>
   </form>`;
 }
 // One action inside the first visit, and only when it cannot wait (R-067 #12, Nate 9/27: "if there is a hearing, the
@@ -658,21 +658,21 @@ function askCard() {
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
   const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
-  // Two on the first screen, so the email box is in view too (Nate 9/29, R-078); the one due soonest always among them.
-  const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, 2), more = lead.slice(2);
-  // The value still comes before the ask (DESIGN C-1): one line naming what is coming, above the email box.
-  const hears = lead.filter(x => x.kind === 'hear'), first = hears[0];
-  const sum = off || !first ? '' : hears.length === 1 ? `One hearing on your issues this week: ${first.title}, ${first.when}.`
-    : `${hears.length} hearings on your issues this week. First: ${first.title}, ${first.when}.`;
-  const row = (it, k) => `<li style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(it.line)}</span>
-    ${it === now ? `<span class="st-now">${btn('Write my testimony', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id } })}<span class="small muted">Due soon, so you can do it now. About 10 minutes the first time.</span></span>` : ''}</div></li>`;
-  const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + 2)).join('')}</ol></details>` : ''}`;
+  // Nate 9/29 (R-078): "Coming up" first, then the reminder, and both on the first screen. So each item is one compact row
+  // (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one due soonest always first.
+  // Rows by the screen's height, so the reminder box still fits under them: three on a tall phone, two on a mid-size one
+  // (700px and up), one on smaller phones (iPhone SE, 667px and 640px); the rest fold under "More coming up".
+  const fit = typeof innerHeight === 'number' ? (innerHeight >= 780 ? 3 : innerHeight >= 700 ? 2 : 1) : 3;
+  const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, fit), more = lead.slice(fit);
+  const short = it => it.h?.testimony_deadline ? `Testimony due ${WEEKDAY(it.h.testimony_deadline)}` : it.kind === 'hear' ? 'Hearing' : it.line;
+  const row = (it, k) => `<li class="st-srow" style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(short(it))}</span>
+    ${it === now ? `<span class="st-now">${btn('Write it now', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${it.title}, due soon` } })}</span>` : ''}</div></li>`;
+  const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + fit)).join('')}</ol></details>` : ''}`;
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
-    ${sum ? `<p class="lede st-soonsum">${esc(sum)}</p>` : `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : followsAnything() ? 'Here’s what’s happening this week on the issues you follow.' : 'Here’s what’s happening this week.'}</p>`}`,
-    // The email box first, then the list (Nate 9/29, R-078: the sign-up must be on the first screen; with two hearings
-    // the list pushed it below the fold). The same order for the eye and for a screen reader.
-    `<div id="st-askbox">${askCard()}</div>${list}`);
+    ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}
+    ${list}`,
+    `<div id="st-askbox">${askCard()}</div>`);
 }
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
@@ -983,21 +983,19 @@ function wire(route) {
     S.nudge = null; S.nudgedThisVisit = true;
     const form = $('#st-eform');
     if (form) {
-      const inp = form.querySelector('#st-email'), nm = form.querySelector('#st-name'), err = form.querySelector('#st-email-err'), send = document.getElementById('st-send');
+      const inp = form.querySelector('#st-email'), err = form.querySelector('#st-email-err'), send = document.getElementById('st-send');
       const showErr = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'st-email-err'); err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; };
       inp.oninput = () => { S.stMail.email = inp.value; if (err.innerHTML) { err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); } };
-      nm.oninput = () => { S.stMail.name = nm.value; };
       form.onsubmit = async e => {
         e.preventDefault();
         if (send?.getAttribute('aria-busy') === 'true') return;
-        const email = inp.value.trim(), first = nm.value.trim().slice(0, 40);
+        const email = inp.value.trim();
         // Checked only now, never while typing (C-9: nothing typed is lost to an error).
         if (!validEmail(email)) { showErr(email ? 'That email doesn’t look complete. Check it and try again.' : 'Add your email, or select Skip.'); inp.focus(); return; }
         const label = send ? send.innerHTML : ''; busy(send, 'Sending…');
         try {
           const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true });
-          if (first) wizSet({ name: first });
-          S.stMail = { email, name: first, sent: email, demo: !!(r && r.demo) };
+          S.stMail = { email, name: S.stMail.name || '', sent: email, demo: !!(r && r.demo) };
           track(name, 'next', { counts: { email: true } });
           app.render();
           document.getElementById('st-sent-t')?.focus({ preventScroll: true });
@@ -1005,6 +1003,11 @@ function wire(route) {
         } catch (error) { console.error(error); if (send) { send.removeAttribute('aria-busy'); send.innerHTML = label; } showErr(friendly(error)); inp.focus(); }
       };
     }
+    // The first name, asked after the email is sent (R-078: the reminder box had to be short enough to fit under the list).
+    $$('[data-stname]').forEach(el => el.onclick = () => {
+      const f = document.getElementById('st-name'), first = (f?.value || '').trim().slice(0, 40); if (!first) { f?.focus(); return; }
+      wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; app.render();
+    });
     $$('[data-stother]').forEach(el => el.onclick = () => {
       S.stMail = { email: S.stMail.sent || '', name: S.stMail.name, sent: '', demo: false };
       try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ }
