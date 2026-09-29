@@ -664,12 +664,12 @@ export const DB = {
     } catch (e) { console.warn('issues:', e.message || e); }
   },
   // A new issue is a draft the public never sees until an admin publishes it (091); its owner is its maker unless chosen.
-  async createIssue({ name, description, category, also = [], recommended = false, goal = null, talking_points = null, owner_id = null }) {
+  async createIssue({ name, description, category, also = [], recommended = false, goal = null, talking_points = null, owner_id = null, stance = null }) {
     const base = name.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'issue';
     let slug = base, n = 2; while (S.issues.some(i => i.slug === slug)) slug = `${base}-${n++}`;
     const row = { slug, name: name.trim(), description: (description || '').trim() || null, category, recommended: !!recommended, sort_order: 100,
       goal: (goal || '').trim() || null, talking_points: talking_points?.length ? talking_points : null, ...(talking_points?.length ? { talking_points_edited_at: new Date().toISOString() } : {}),
-      owner_id: owner_id || S.me?.id || null };
+      owner_id: owner_id || S.me?.id || null, stance: stance || null };
     let issue;
     if (DEMO) issue = { id: 'demo-' + Date.now(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), edited_at: new Date().toISOString(), archived_at: null, published_at: null, prep_state: 'todo', created_by: S.me?.id, ...row };
     else { const { data, error } = await S.supa.from('issues').insert(row).select('*').single(); if (error) throw error; issue = data; }
@@ -1082,7 +1082,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260929b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260929c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];

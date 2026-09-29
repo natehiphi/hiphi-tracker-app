@@ -171,7 +171,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260929b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260929c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -332,10 +332,16 @@ export const followedIssues = () => S.issues.filter(issueFollowed);
 export const followsAnything = () => S.watch.size > 0 || S.issueFollows.size > 0 || S.catFollows.size > 0;
 // The categories this person cares about: picked at the start, followed whole, or holding an issue they follow.
 export const likedCats = () => new Set([...(wiz().issues || []), ...S.catFollows, ...followedIssues().flatMap(i => i.categories)]);
-// HIPHI's position on an issue, from the bills that carry it: what it is for, when it is for any of them (an issue can
-// hold a bill HIPHI opposes because it would push the other way), else what it opposes, else comments.
-export const issuePos = bills => { const ps = new Set(bills.map(b => b && b.hiphi_position).filter(Boolean));
-  return ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral'].find(p => ps.has(p)) || null; };
+// HIPHI's position on an issue. Staff set its stance (094, R-093): support, oppose or mixed, and the bills only say how
+// strongly ("HIPHI strongly supports" when one of them is strongly supported). Not set, it comes from the bills that carry
+// it: what it is for, when it is for any of them (an issue can hold a bill HIPHI opposes because it would push the other
+// way), else what it opposes, else comments.
+const SUPPORTS = ['strongly_support', 'support', 'support_amend'], OPPOSES = ['strongly_oppose', 'oppose'];
+export const issuePos = (bills, i) => { const ps = new Set(bills.map(b => b && b.hiphi_position).filter(Boolean));
+  if (i?.stance === 'mixed') return 'mixed';
+  if (i?.stance === 'support') return SUPPORTS.find(p => ps.has(p)) || 'support';
+  if (i?.stance === 'oppose') return OPPOSES.find(p => ps.has(p)) || 'oppose';
+  return [...SUPPORTS, ...OPPOSES, 'neutral'].find(p => ps.has(p)) || null; };
 // "all of Food & Nutrition and 3 more issues", "7 issues": what this person follows, in words.
 export function followSummary() {
   const cats = S.cats.filter(c => S.catFollows.has(c.key));
@@ -1030,6 +1036,7 @@ export function posInfo(b) {
   if (/oppose/.test(p || '')) return { text: p === 'strongly_oppose' ? 'HIPHI strongly opposes' : 'HIPHI opposes',
     icon: 'thumbs-down', strong: p === 'strongly_oppose', verb: 'oppose' };
   if (p === 'neutral') return { text: 'HIPHI has comments', icon: 'message-square', verb: 'comment on' };
+  if (p === 'mixed') return { text: 'HIPHI’s side depends on the bill', icon: 'scale' };   // an issue's stance only (094)
   return null;
 }
 const DOW = { timeZone: HST, weekday: 'short' };

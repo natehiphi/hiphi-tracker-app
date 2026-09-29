@@ -14,9 +14,9 @@
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
-import { icon, btn, toast, notice, switchRow } from './ui.js';
+import { icon, btn, iconBtn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
-import { issuesOfBill, openIssuePicker, whyNot } from './issues.js';
+import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
 
 const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
 const BOOL = new Set(['is_public', 'recommended']);
@@ -55,18 +55,23 @@ function previewInner(b, v) {
 }
 const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
 
-// Issues (063, R-018): the public follows issues, and a bill reaches everyone following an issue it is on. The chips are
-// the issues it is on (press one to take the bill off it, with Undo); Choose opens every issue, by category.
+// Issues (063, R-018): the public follows issues, and a bill reaches everyone following an issue it is on. One row per
+// issue it is on: its name (to the issue's page), HIPHI's stance on the issue (094, R-093: Nate wanted to change it from
+// the bill page too; the same chip as on the issue's page) and × to take the bill off it, with Undo. Choose opens every
+// issue, by category.
 function issuesSection(b) {
   if (!(S.categories || []).length) return '';
   const iss = issuesOfBill(b.id), why = whyNot(b);
   const say = !iss.length ? 'Put it on an issue, and everyone who follows that issue gets it.'
     : why ? `${why.replace('its followers do not', 'the people following these issues do not')}.` : 'Everyone who follows one of these issues gets this bill.';
+  // Said once, here: the chip with each issue is HIPHI's stance on the issue, not this bill's position (its Position chip).
+  const also = iss.length ? ' Each shows HIPHI’s stance on the issue as a whole.' : '';
   return `<section class="bw-sec" aria-labelledby="bw-iss-h">
     <h2 id="bw-iss-h">Issues</h2>
-    <p class="small muted">${esc(say)}</p>
-    <div class="chips bw-issues">${iss.map(i => `<button type="button" class="chip" data-issoff="${esc(i.id)}" aria-pressed="true" aria-label="${esc(i.name)}: on this bill. Press to take it off.">${icon('check')}${esc(i.name)}</button>`).join('')}
-      ${btn(iss.length ? 'Change' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div>
+    <p class="small muted">${esc(say + also)}</p>
+    ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><a class="bw-issname" href="#/issue/${encodeURIComponent(i.id)}">${esc(i.name)}</a>
+      ${stanceChip(i, { 'data-isstance': i.id })}${iconBtn('x', `Take it off ${i.name}`, { 'data-issoff': i.id })}</li>`).join('')}</ul>` : ''}
+    <div class="chips bw-issues">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div>
   </section>`;
 }
 
@@ -189,6 +194,10 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     } catch (x) { el.disabled = false; toast(x, { err: true }); }
   });
   pnl.querySelector('[data-ispick]')?.addEventListener('click', () => openIssuePicker(b, { onClose: () => rerender('[data-ispick]') }));
+  pnl.querySelectorAll('[data-isstance]').forEach(el => el.onclick = () => {
+    const i = (S.issues || []).find(x => x.id === el.dataset.isstance);
+    if (i) pickStance(i, { bill: b, after: () => rerender(`[data-isstance="${CSS.escape(i.id)}"]`) });
+  });
   pnl.querySelectorAll('[data-issoff]').forEach(el => el.onclick = async () => {
     const id = el.dataset.issoff, i = (S.issues || []).find(x => x.id === id); if (!i) return;
     el.disabled = true;

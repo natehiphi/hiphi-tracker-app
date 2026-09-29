@@ -34,7 +34,11 @@ first visit's first two screens are categories -> "Your issues"; the tab is **My
 `issueItem` in `pub/mybills.js`, shared with Find); Find has category and issue pages (`#/find/category/<key>`,
 `#/issue/<slug>`); a bill page says "Part of <issue>". Staff keep the list in Staff v2, Outreach > Issues
 (`staff/issues.js`). The first list came from the team's nicknames: `../backend/docs/issues_2026.json`, loaded with
-`node ../backend/tools/apply_issues.js` (it never overwrites wording staff have edited).
+`node ../backend/tools/apply_issues.js` (it never overwrites wording staff have edited). **HIPHI's stance on an
+issue** (backend 094, R-093): `issues.stance` support / oppose / mixed or null, set on the issue's page, in Edit issue and
+on a bill's Public tab (`stanceChip`, `pickStance` in `staff/issues.js`); the public chip is `issuePos(bills, i)` in
+`pub/core.js`: the stance picks the side, the bills how strongly, and null falls back to working it out from the bills.
+Test: `tests/staff_stance.py`.
 
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,

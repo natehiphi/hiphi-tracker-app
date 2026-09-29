@@ -201,7 +201,7 @@ function issueInfo(i, R) {
   const score = (strong ? 40 : neutral ? 5 : opposed ? 15 : 20) + (i.top_priority ? 30 : 0) + (rec ? 25 : 0) + (soon7 ? 15 : 0) + Math.min(moving.length, 3) * 3 - (off && law ? 25 : 0);
   // Ticked for you (silently: no "HIPHI recommends" label, R-022): staff-recommended, or strongly supported and not
   // already won.
-  return { i, bills, live, lead, law, pos: issuePos(off ? bills : live.length ? live : bills), promoted: rec || (strong && !(off && law)), inf, score };
+  return { i, bills, live, lead, law, pos: issuePos(off ? bills : live.length ? live : bills, i), promoted: rec || (strong && !(off && law)), inf, score };
 }
 const byScore = (x, y) => y.score - x.score || (x.i.sort_order ?? 100) - (y.i.sort_order ?? 100) || x.i.name.localeCompare(y.i.name);
 const TOP = 4;

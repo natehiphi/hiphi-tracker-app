@@ -12,7 +12,7 @@
 // the prep card on an issue's page. A new issue is a draft the public never sees until an admin publishes it.
 import { S, DB, SESSION_YEAR, hooks, esc } from './data.js';
 import { billById, billNum, plain, PUBLIC_APP } from './model.js';
-import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip } from './ui.js';
+import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
@@ -47,6 +47,34 @@ const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopl
 const catIcon = k => catByKey(k)?.icon || 'tag';
 // In the first visit unless staff switched it off (066; an issue from before 066, or the sandbox's, has no value: on).
 export const inFirstVisit = i => i?.first_visit !== false;
+// HIPHI's stance on the issue as a whole (094, R-093, Nate 9/29: "Editing an issue ... needs to allow us to change our
+// stance ... also on the bill page"). Mixed: HIPHI backs some bills on it and opposes others. The public page says it on
+// the issue ("HIPHI supports"); not set, it works it out from the bills, as it did before 094. An icon and a word, never
+// colour alone (A-5). Set in Edit issue, from the chip on the issue's page, and from the issues on a bill's Public tab.
+// Its own icons, never the thumbs a bill's position uses: on a bill page the two sit on one screen, and a staff member
+// must not mistake the issue's chip for the bill's (the ui-critic review, 9/29).
+export const STANCES = [['support', 'Support', 'circle-check', 'HIPHI is for it'], ['oppose', 'Oppose', 'circle-x', 'HIPHI is against it'],
+  ['mixed', 'Mixed', 'scale', 'HIPHI supports some bills on it and opposes others']];
+const stanceOf = i => STANCES.find(x => x[0] === i?.stance) || null;
+// The picker chip that shows the stance and changes it; `a` carries its data attribute.
+export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
+  return pickerChip(s ? s[1] : 'No stance', { 'aria-haspopup': 'dialog', 'aria-label': `HIPHI’s stance on ${i.name}: ${s ? s[1] : 'not set'}. Change`, ...a }, s ? s[2] : 'circle-dashed'); };
+// Each pick saves at once and says so, with Undo (A-16, B-5). `after` redraws the screen it came from. From a bill page
+// (`bill`), the sheet says it is the whole issue's stance and not that bill's position, where the choice is made.
+export function pickStance(i, { after = () => hooks.render(), bill = null } = {}) {
+  const n = billsOn(i).filter(thisSession).length;
+  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billNum(bill))}. It does not change ${esc(billNum(bill))}’s own position. The public page says it on the issue.`
+    : 'The public page says it on the issue.';
+  pickerSheet({ title: `HIPHI’s stance on ${esc(i.name)}`, value: i.stance || '', help,
+    options: [...STANCES, ['', 'Not set', 'circle-dashed', 'The public page works it out from the bills']],
+    onPick: async v => {
+      const was = i.stance || null, now = v || null; if (was === now) return;
+      try {
+        await DB.updateIssue(i.id, { stance: now }); after();
+        toast(now ? `HIPHI’s stance on ${i.name}: ${stanceOf(i)[1]}.` : `HIPHI’s stance on ${i.name}: not set.`, { undo: async () => { await DB.updateIssue(i.id, { stance: was }); after(); toast('Put back as it was'); } });
+      } catch (e) { toast(e, { err: true }); after(); }
+    } });
+}
 
 // ---- the issue form: New issue, and Edit on an issue's page ----
 // With `bill`, a new issue is made for that bill and the bill goes on it.
@@ -58,6 +86,8 @@ export function openIssueForm(i = null, { bill = null } = {}) {
       <span class="help" id="is-name-h">A policy people recognise, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
       <span class="help" id="is-desc-h">One sentence on what would change. The public sees it.</span></div>
+    <fieldset class="is-cats is-stance"><legend>HIPHI’s stance</legend><p class="help is-alsoh">The public page says it on the issue.</p>
+      ${STANCES.map(([v, l, ic, sub]) => `<label class="check is-cat"><input type="radio" name="is-stance" value="${v}" ${v === (i?.stance || '') ? 'checked' : ''}><span class="is-catic">${icon(ic)}</span><span class="is-stw"><span>${l}</span><span class="is-sts">${sub}</span></span></label>`).join('')}</fieldset>
     ${i ? '' : `<div class="field"><label for="is-goal">HIPHI’s goal for 2027 <span class="is-opt">(can wait)</span></label><textarea id="is-goal" rows="2" maxlength="600" aria-describedby="is-goal-h"></textarea>
       <span class="help" id="is-goal-h">What we want to win on it. Staff only.</span></div>
     <div class="field"><label for="is-pts">Talking points <span class="is-opt">(can wait)</span></label><textarea id="is-pts" rows="4" maxlength="1100" placeholder="One plain sentence per line, three to five." aria-describedby="is-pts-h is-pts-err"></textarea>
@@ -80,6 +110,9 @@ export function openIssueForm(i = null, { bill = null } = {}) {
       const save = async () => {
         const nm = name.value.trim().replace(/\s+/g, ' '), description = d.querySelector('#is-desc').value.trim(), category = d.querySelector('input[name="is-cat"]:checked')?.value || cur;
         const extra = [...d.querySelectorAll('input[name="is-also"]:checked')].map(x => x.value).filter(k => k !== category), recommended = d.querySelector('#is-rec').checked;
+        // Nothing is chosen for a new issue (B-12: never pre-select a stance); left unpicked it stays unset, and the public
+        // page works it out from the bills. Not set is on the issue's chip.
+        const stance = d.querySelector('input[name="is-stance"]:checked')?.value || (i ? i.stance || null : null);
         const clash = live().find(x => x.id !== i?.id && plain(x.name) === plain(nm));
         const bad = nm.length < 2 ? 'Give the issue a name.' : clash ? `There is already an issue called “${clash.name}”. Use that one, or merge them.` : '';
         if (bad) { name.setAttribute('aria-invalid', 'true'); err.innerHTML = `<span class="err">${icon('circle-alert')}${esc(bad)}</span>`; name.focus(); return; }
@@ -90,14 +123,14 @@ export function openIssueForm(i = null, { bill = null } = {}) {
             // A changed name, description or outlook counts as the owner's check of it (the prep, 091).
             const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, at = new Date().toISOString(), outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: at, outlook_checked_at: at } : {};
             const wordPatch = nm !== i.name || (description || null) !== (i.description || null) ? { wording_checked_at: at } : {};
-            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, ...outPatch, ...wordPatch });
+            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, stance, ...outPatch, ...wordPatch });
             await DB.setIssueAlso(i.id, extra);
             closeSheet({ silent: true }); hooks.render(); toast('Saved. The public page shows the new wording.', { ok: true });
           } else {
             const goal = d.querySelector('#is-goal').value.trim(), pts = d.querySelector('#is-pts').value.split('\n').map(x => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
             const ptBad = pts.length > 5 ? 'Five points at most.' : pts.some(x => x.length > 200) ? 'Keep each point under 200 characters.' : '';
             if (ptBad) { d.querySelector('#is-pts-err').innerHTML = `<span class="err">${icon('circle-alert')}${esc(ptBad)}</span>`; d.querySelector('#is-pts').focus(); go.removeAttribute('aria-busy'); go.disabled = false; return; }
-            const ni = await DB.createIssue({ name: nm, description, category, also: extra, recommended, goal, talking_points: pts });
+            const ni = await DB.createIssue({ name: nm, description, category, also: extra, recommended, goal, talking_points: pts, stance });
             if (bill) await DB.setBillIssue(bill.id, ni.id, true);
             closeSheet({ silent: true }); await afterClose();
             // Straight to the new issue either way: its card says what it still needs before an admin can publish it.
@@ -255,6 +288,7 @@ function pageRender(route) {
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
         ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
         ${i.outlook ? `<p class="le-ldesc is-outlook"><span class="meta">Between sessions, the public sees: </span>${esc(i.outlook)}</p>` : ''}
+        <div class="is-stline"><span class="is-stl">HIPHI’s stance</span>${stanceChip(i, { 'data-is': 'stance' })}</div>
         <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
@@ -352,12 +386,13 @@ export const issuePage = {
     wirePrepCard(i, root);
     const st = P();
     root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
-      { label: 'Edit', icon: 'pencil', sub: 'Name, description, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
+      { label: 'Edit', icon: 'pencil', sub: 'Name, description, stance, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
       { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
       { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'A draft has no public page until it is published.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));
     root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));
+    root.querySelector('[data-is="stance"]')?.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } }));
     const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
     // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
