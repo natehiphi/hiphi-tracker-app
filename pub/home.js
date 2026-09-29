@@ -15,7 +15,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
-  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa } from './core.js';
+  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE } from './core.js';
 import { burst } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
@@ -84,10 +84,11 @@ function resultOf(b, hs, testified) {
   if (b.stage === 'enacted') return ['law', 'It became law. Mahalo for your part in it.'];
   if (b.stage === 'vetoed') return ['stop', `The Governor vetoed it.${kept}`];
   if (b.stage === 'governor') return ['up', 'It passed the House and Senate and is on the Governor’s desk.', true];
+  if (b.stage === 'ballot') return ['up', 'It passed the House and Senate. The voters decide in November.', true];
   const now = Date.now(), h = hs.find(x => new Date(x.scheduled_at) <= now) || hs[0], o = h && new Date(h.scheduled_at) <= now ? outcomeOf(h) : null;
   const passed = o && /passed/.test(o.outcome || '');
   if (!alive(b)) {
-    const held = /deferred/i.test(b.last_action || '');
+    const held = HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '');
     if (passed) return ['stop', `Passed ${cmteLabel(h.committee, { short: true })}, then ${held ? 'a later committee put it on hold' : 'stopped at the deadline'}.${kept}`, true];
     if (o?.outcome === 'deferred') return ['stop', `${who(h.committee)} put it on hold, which usually stops a bill for the year.${kept}`];
     // The hearing you acted on happened, so "it never got a hearing" would be wrong; say only that it stopped.

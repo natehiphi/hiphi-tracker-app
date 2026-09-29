@@ -46,11 +46,11 @@ let SESSION_YEAR = 2026;   // overwritten from session_deadlines at load (applyS
 
 const STAGES = [
   ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
-  ['first_decking','1st Decking'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
-  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'],
+  ['first_decking','1st Decking'], ['first_floor','1st Floor vote'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
+  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'], ['second_floor','2nd Floor vote'],
   ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
-  ['enacted','Law'], ['vetoed','Vetoed'], ['dead','Dead'],
-];
+  ['enacted','Law'], ['vetoed','Vetoed'], ['ballot','To the voters'], ['dead','Dead'],
+];   // floor votes and ballot since R-072 (the classic app only needs their names until it retires)
 const STAGE_LABEL = Object.fromEntries(STAGES);
 const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
   ['oppose','Oppose'],['monitor','Monitor'],['neutral','Comments (neutral)']];
@@ -770,7 +770,7 @@ function snapshotScenario(snap) {
 }
 let DEMO_TL = [];
 async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260928b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260928c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1779,7 +1779,8 @@ const railIdx = (b, rail) => { let st = effStage(b);
   if (st === 'dead' && b.died_at_stage) st = b.died_at_stage;
   // Died before its first hearing: it was racing the Triple (or Lateral) date, so mark that stop.
   if (diedish(b) && st === 'introduced') st = rail.includes('first_triple') ? 'first_triple' : 'first_lateral';
-  const alias = { conference: 'second_crossover', vetoed: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral' };
+  const alias = { conference: 'second_crossover', vetoed: 'governor', ballot: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral',
+    first_floor: 'first_crossover', second_floor: 'second_crossover' };
   if (!rail.includes(st)) st = alias[st] || 'introduced';
   return Math.max(0, rail.indexOf(st)); };
 function dkRail(b) {

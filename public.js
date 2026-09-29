@@ -12,13 +12,14 @@ const SESSION_OVER = true;
 const STAGE_LABEL = { introduced:'Introduced', first_triple:'1st Triple', first_lateral:'1st Lateral',
   first_decking:'1st Decking', first_crossover:'Crossover', second_triple:'2nd Triple',
   second_lateral:'2nd Lateral', second_decking:'2nd Decking', second_crossover:'Passed Both',
-  conference:'Conference', governor:'Governor', enacted:'Law', vetoed:'Vetoed', dead:'Dead' };
+  conference:'Conference', governor:'Governor', enacted:'Law', vetoed:'Vetoed', dead:'Dead',
+  first_floor:'1st Floor vote', second_floor:'2nd Floor vote', ballot:'To the voters' };   // R-072
 const RAIL = [['introduced','Intro'],['first_lateral','1st<br>Lat'],['first_decking','1st<br>Deck'],
   ['first_crossover','Cross'],['second_lateral','2nd<br>Lat'],['second_decking','2nd<br>Deck'],
   ['conference','Conf'],['governor','Gov'],['enacted','Law']];
 const RAIL_IDX = { introduced:0, first_triple:1, first_lateral:1, first_decking:2, first_crossover:3,
   second_triple:4, second_lateral:4, second_decking:5, second_crossover:5, conference:6, governor:7,
-  enacted:8, vetoed:7, dead:null };
+  enacted:8, vetoed:7, dead:null, first_floor:2, second_floor:5, ballot:7 };
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>

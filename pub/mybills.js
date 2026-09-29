@@ -9,7 +9,7 @@
 // a table with a header row (bill, status, next date, stance, follow).
 import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
-  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary } from './core.js';
+  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
 import { VOICES } from './art.js';
@@ -72,7 +72,8 @@ export function nextDate(b, h) {
 // Why a stopped bill stopped, short enough for one line under its headline.
 export function stoppedWhy(b) {
   if (b.stage === 'vetoed') return 'Vetoed by the Governor';
-  if (/deferred/i.test(b.last_action || '')) return 'Put on hold by a committee';
+  if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote';
+  if (HELD_RE.test(b.last_action || '')) return 'Put on hold by a committee';
   if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote';
   const at = stoppedAt(b);
   if (at) return `Missed the deadline on ${dateLong(at).replace(/^\w+, /, '')}`;
@@ -122,7 +123,7 @@ const NEWS = [   // [what the official action says, the words for it, true for a
 // last official action.
 function newsItem(b, upTo = Infinity) {
   if (stopped(b)) {
-    const label = b.stage === 'vetoed' ? 'vetoed' : /deferred/i.test(b.last_action || '') ? 'put on hold' : /failed to pass/i.test(b.last_action || '') ? 'did not pass a vote' : 'stopped';
+    const label = b.stage === 'vetoed' ? 'vetoed' : /failed to pass/i.test(b.last_action || '') ? 'did not pass a vote' : HELD_RE.test(b.last_action || '') ? 'put on hold' : 'stopped';
     const day = label === 'stopped' && (stoppedAt(b) || (/sine die/i.test(b.died_deadline || '') && sessionInfo().end + 'T12:00:00-10:00')) || (b.last_action_date ? String(b.last_action_date).slice(0, 10) + 'T12:00:00-10:00' : '');
     const at = Date.parse(day || '');
     return at <= upTo ? { at, label } : null;

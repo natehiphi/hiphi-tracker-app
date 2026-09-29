@@ -44,18 +44,23 @@ const dnum = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, d
 const origin = b => b.chamber || (/^S/.test(b.bill_number) ? 'S' : 'H');
 export function stepsOf(b) {
   const st = stopOf(b), o = origin(b), t = o === 'H' ? 'S' : 'H', N = CHAMBER_NAME;
-  const names = [`${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, 'Governor', 'Law'];
-  const law = b.stage === 'enacted' || st.phase === 'law', stopped = !law && (b.stage === 'dead' || b.stage === 'vetoed' || (!alive(b) && b.stage !== 'governor'));
+  // A constitutional amendment goes to the voters, not the Governor (R-072).
+  const conAm = b.stage === 'ballot' || /proposing (?:an )?amendments? to/i.test(b.title || '');
+  const names = [`${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, conAm ? 'The voters' : 'Governor', conAm ? 'Constitution' : 'Law'];
+  const ballot = b.stage === 'ballot' || st.phase === 'ballot';
+  const law = b.stage === 'enacted' || st.phase === 'law', stopped = !law && !ballot && (b.stage === 'dead' || b.stage === 'vetoed' || (!alive(b) && b.stage !== 'governor'));
   let idx;
   if (law) idx = 5;
-  else if (/governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) idx = 4;
-  else if (stopped) { const d = b.died_at_stage || ''; idx = /^second_crossover|^conference/.test(d) ? 3 : /^second|^first_crossover/.test(d) ? 2 : 0; }
+  else if (ballot || /governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) idx = 4;
+  // Where it stopped: the stage it stopped at (R-072 adds the floor votes), else the chamber it was in when a committee
+  // held it (a bill held in its second chamber showed "Stopped in: House committees").
+  else if (stopped) { const d = b.died_at_stage || ''; idx = /^second_crossover|^conference|^second_floor/.test(d) ? 3 : /^second|^first_crossover/.test(d) ? 2 : d === 'first_floor' ? 1 : !d && st.leg === 'second' ? 2 : 0; }
   else if (st.phase === 'conference') idx = 3;
   else if (st.phase === 'floor') idx = st.leg === 'first' ? 1 : 3;
   else idx = st.leg === 'first' ? 0 : 2;
   if (idx === 3 && st.phase === 'conference') names[3] = 'Final version';
   const ch = idx <= 1 ? N[o] : N[t];
-  const where = law ? 'Became law' : stopped ? (b.stage === 'vetoed' ? 'Vetoed' : 'Stopped this session') : idx === 4 ? 'On the Governor’s desk'
+  const where = law ? (/^(HCR|SCR|HR|SR)\d/.test(b.bill_number || '') ? 'Adopted' : 'Became law') : ballot ? 'The voters decide in November' : stopped ? (b.stage === 'vetoed' ? 'Vetoed' : 'Stopped this session') : idx === 4 ? 'On the Governor’s desk'
     : st.phase === 'conference' ? 'Working out one version' : st.phase === 'floor' ? `Waiting for the ${ch} vote` : `In the ${ch}`;
   return { names, idx, law, stopped, where };
 }

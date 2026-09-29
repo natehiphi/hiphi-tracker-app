@@ -3,7 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
-import { CHAMBER_NAME } from '../stops.js';
+import { CHAMBER_NAME, HELD_RE, isResolution } from '../stops.js';
 export const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
 export let FACTS = new Map();
 export function factsOf(b) {
@@ -11,7 +11,7 @@ export function factsOf(b) {
   const now = Date.now(), dead = diedish(b), st = dead ? null : stopOf(b);
   f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', posx: b.position || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
     lsts: (S.listBills || []).filter(x => x.bill_id === b.id).map(x => x.list_id),
-    stand: dead ? 'dead' : st.column || (['governor', 'enacted'].includes(effStage(b)) ? 'done' : 'c'),
+    stand: dead ? 'dead' : st.column || (['governor', 'enacted', 'ballot'].includes(effStage(b)) ? 'done' : 'c'),
     risk: !!st && !SESSION_OVER && b.position !== 'monitor' && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
     hear: S.hearings.some(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * 864e5) };
   FACTS.set(b.id, f); return f;
@@ -114,7 +114,10 @@ export const railIdx = (b, rail) => { let st = effStage(b);
   if (st === 'dead' && b.died_at_stage) st = b.died_at_stage;
   // Died before its first hearing: it was racing the Triple (or Lateral) date, so mark that stop.
   if (diedish(b) && st === 'introduced') st = rail.includes('first_triple') ? 'first_triple' : 'first_lateral';
-  const alias = { conference: 'second_crossover', vetoed: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral' };
+  // A bill waiting for its floor vote races Crossover (or the Cross back); an amendment for the ballot sits where the
+  // Governor would (R-072).
+  const alias = { conference: 'second_crossover', vetoed: 'governor', ballot: 'governor', dead: 'introduced', first_triple: 'first_lateral', second_triple: 'second_lateral',
+    first_floor: 'first_crossover', second_floor: 'second_crossover' };
   if (!rail.includes(st)) st = alias[st] || 'introduced';
   return Math.max(0, rail.indexOf(st)); };
 export const DK_COMMITTEE = ['introduced','first_triple','first_lateral','first_decking',
@@ -124,8 +127,8 @@ export const dkOutcome = b => {
   const st = effStage(b);
   if (st === 'enacted') return 'law';
   if (st === 'vetoed') return 'vetoed';
-  if (st === 'governor') return 'governor';
-  if (st === 'dead' || /deferred|failed to pass/i.test(b.last_action || '')) return 'died';
+  if (st === 'governor' || st === 'ballot') return 'governor';
+  if (st === 'dead' || HELD_RE.test(b.last_action || '')) return 'died';
   return null;                       // still somewhere in the process
 };
 export function legislativeDay(at = Date.now()) {
@@ -148,7 +151,9 @@ export const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_
                       'second_triple','second_lateral','second_decking'];
 export function stopOf(b) {
   return billStop(b, { stage: effStage(b), hearings: S.hearings.filter(h => h.bill_id === b.id), outcomes: S.outcomes || {},
-    deadlineFor: key => { const last = key === 'final_decking' ? (DEADLINES.conference || [])[0] : (DEADLINES[key] || []).slice(-1)[0]; return last ? { label: last[0], date: last[1] } : null; } });
+    // Final decking and Fiscal share the conference bucket: the first is for non-fiscal bills, the second for bills with a
+    // FIN or WAM referral (R-072).
+    deadlineFor: key => { const last = key === 'final_decking' ? (DEADLINES.conference || [])[0] : key === 'fiscal' ? (DEADLINES.conference || [])[1] : (DEADLINES[key] || []).slice(-1)[0]; return last ? { label: last[0], date: last[1] } : null; } });
 }
 export const RISK_DAYS = 7;
 export const ATTEND_ASKS = false;   // "Someone needs to attend" rows in Action needed
@@ -162,17 +167,19 @@ export const nextDeadline = b => { const st = stopOf(b); return st.phase === 'co
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function whyDead(b) {
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  // Through its committees and stopped at the floor vote: not "waiting in" a committee (R-072).
+  if (m && /_floor$/.test(b.died_at_stage || '')) return `Through committee, but no floor vote before the ${esc(m[1])} deadline on ${m[2]}.`;
   if (m) return `Missed the ${esc(m[1])} deadline on ${m[2]}${b.committee ? ` while waiting in ${esc(b.committee)}` : ''}.`;
   if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
-  if (/deferred/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
+  if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
   return effStage(b) === 'vetoed' ? 'Vetoed by the Governor.' : 'Did not advance.';
 }
 export const diedish = b => { const st = effStage(b);
   if (st === 'dead' || st === 'vetoed') return true;
   if (S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > new Date())) return false;
-  if (/deferred|failed to pass/i.test(b.last_action || '')) return true;
-  return SESSION_OVER && !['enacted','governor'].includes(st); };
+  if (HELD_RE.test(b.last_action || '')) return true;
+  return SESSION_OVER && !['enacted','governor','ballot'].includes(st); };
 export const tierOf = b => {
   const p = b.position;
   if ((p === 'support' || p === 'oppose') && b.priority === 1) return 0;   // strongly
@@ -497,15 +504,18 @@ export const STAGE_GLOSS = {
   introduced: 'Introduced. Waiting for its committee referrals and a first hearing.',
   first_triple: 'Triple filing: a bill sent to three or more committees has to clear its first one by this date, or it is dead.',
   first_lateral: 'Lateral: the bill has to reach its last committee in the chamber it started in by this date.',
-  first_decking: 'Decking: the bill has to be filed for its final floor vote in the first chamber by this date.',
+  first_decking: 'Decking: the bill has to clear its last committee and be filed for its floor vote in the first chamber by this date.',
+  first_floor: 'Through committee in the first chamber: the full chamber has to pass it by Crossover.',
   first_crossover: 'Crossover: bills that passed their first chamber move to the other one. Anything left behind is dead.',
   second_triple: 'Triple filing in the second chamber: clear the first of three or more committees by this date.',
   second_lateral: 'Lateral in the second chamber: reach the last committee by this date.',
-  second_decking: 'Decking in the second chamber: filed for the final floor vote by this date.',
+  second_decking: 'Decking in the second chamber: clear the last committee and be filed for the floor vote by this date.',
+  second_floor: 'Through committee in the second chamber: the full chamber has to pass it by the Cross back date.',
   second_crossover: 'Cross back: a bill the second chamber amended returns to where it started, to agree or disagree.',
   conference: 'Conference: House and Senate negotiators settle the differences between the two versions.',
   governor: 'Passed both chambers. The Governor signs it, vetoes it, or lets it become law without a signature.',
-  enacted: 'It is law.',
+  enacted: 'It is law (a resolution: adopted).',
+  ballot: 'A constitutional amendment the Legislature passed: the voters decide in November.',
 };
 export const glossStage = s => { const d = (DEADLINES[s] || []).map(([l, dt]) => `${l} ${fmtDate(dt + 'T12:00:00-10:00', { weekday: 'short', month: 'short' })}`).join(', '); return `${STAGE_GLOSS[s] || ''}${d ? ` Deadline: ${d}.` : ''}`; };
 export const glossCommittee = code => String(code || '').split('/').map(c => { const k = S.committees?.[c.trim()]; return k ? `${c.trim()}: ${k.name}${k.chair ? ` · chair ${k.chair}` : ''}` : ''; }).filter(Boolean).join(' — ');

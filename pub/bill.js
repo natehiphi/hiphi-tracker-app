@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
@@ -177,8 +177,10 @@ const contactOf = (l, chair) => ({ last: surname(l), email: l.email, greet: `${c
 // stage rail instead of re-deriving it - the miniature and the real page must never disagree.
 export function situation(b) {
   const st = stopOf(b), hs = hearingsOf(b), pos = posInfo(b), law = b.stage === 'enacted' || st.phase === 'law';
-  const stopped = !law && (b.stage === 'dead' || b.stage === 'vetoed' || (!alive(b) && b.stage !== 'governor'));
-  const live = !law && !stopped, differs = agrees(b) === false;
+  // A constitutional amendment the Legislature passed: finished here, the voters decide (R-072). Not law, not stopped.
+  const ballot = b.stage === 'ballot' || st.phase === 'ballot';
+  const stopped = !law && !ballot && (b.stage === 'dead' || b.stage === 'vetoed' || (!alive(b) && b.stage !== 'governor'));
+  const live = !law && !ballot && !stopped, differs = agrees(b) === false;
   const act = live ? openActions([b], hs)[0] || null : null;
   // Who decides next: the committee holding the bill now (the hearing's committee when one is set).
   const code = !live ? null : act ? act.h.committee : st.phase === 'committee' ? (st.hearing?.committee || st.committee) : null;
@@ -186,6 +188,7 @@ export function situation(b) {
   const waiting = live && !act && st.phase === 'committee' && st.hearingState === 'none' && !!st.committee && !st.deadline?.missed;
   let kind = 'share';
   if (law) kind = 'law';
+  else if (ballot) kind = 'ballot';
   else if (stopped) kind = 'stopped';
   // Testimony is the main action wherever there is a hearing, for everyone, whatever they think of the bill: the
   // walkthrough writes the letter from their own stance (Nate 9/27, R-068). The quick email is under More ways to help.
@@ -203,7 +206,7 @@ export function situation(b) {
     else { to = [myLeg(st.chamber)].filter(Boolean); kind = 'floor'; }
     to = to.filter(l => l.email);
   }
-  return { st, hs, pos, law, stopped, live, differs, act, code, chairs, waiting, kind, stepKey, to, conf, k: act ? `${b.id}|${act.h.id}` : '', qKey: `${b.id}|sentq` };
+  return { st, hs, pos, law, ballot, stopped, live, differs, act, code, chairs, waiting, kind, stepKey, to, conf, k: act ? `${b.id}|${act.h.id}` : '', qKey: `${b.id}|sentq` };
 }
 
 // A ready-to-send email to one or more chairs. Greeting by surname ("Dear Chair San Buenaventura"), the person's
@@ -289,22 +292,43 @@ function mainButton(b, x) {
 // through its committees and a vote, crosses to the other chamber and does the same, then goes to the Governor.
 function railInfo(b, x) {
   const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H';
-  const names = ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, 'Governor', 'Law'];
+  // A resolution needs no Governor: a House or Senate one is adopted in its own chamber, a concurrent one in both (R-072).
+  if (isResolution(b)) {
+    const one = isOneChamber(b);
+    const names = one ? ['Introduced', `${N[o]} committees`, `${N[o]} vote`, 'Adopted'] : ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, 'Adopted'];
+    const desc = one ? ['A lawmaker offers the resolution and it gets a number.', `${N[o]} committees hear it and vote on it.`, `The full ${N[o]} votes on it.`, `The ${N[o]} has adopted it. A resolution states a position or makes a request; it is not a law.`]
+      : ['A lawmaker offers the resolution and it gets a number.', `${N[o]} committees hear it and vote on it.`, `The full ${N[o]} votes. If it passes, it goes to the ${N[t]}.`, `${N[t]} committees hear it and vote on it.`, `The full ${N[t]} votes on it.`, 'Both chambers have adopted it. A resolution states a position or makes a request; it is not a law.'];
+    const last = names.length - 1, d = b.died_at_stage || '';
+    let idx;
+    if (x.law) idx = last;
+    else if (st.phase === 'dead' || x.stopped) idx = one ? (/_floor$/.test(d) ? 2 : 1) : /^second_floor|^second_crossover|^conference/.test(d) ? 4 : /^second|^first_crossover/.test(d) ? 3 : d === 'first_floor' ? 2 : 1;
+    else if (st.phase === 'floor') idx = st.leg === 'first' ? 2 : 4;
+    else if (st.phase === 'conference') idx = one ? 2 : 4;
+    else idx = st.leg === 'first' ? 1 : (one ? 1 : 3);
+    const ch = idx <= 2 ? N[o] : N[t];
+    const lead = x.law ? 'Adopted' : x.stopped ? '' : 'Now: ';
+    const rest = x.law ? '' : x.stopped ? 'Not adopted this session' : st.phase === 'floor' ? `Waiting for the ${ch} vote` : `In ${ch} committees`;
+    return { names, desc, idx, lead, rest };
+  }
+  // A constitutional amendment goes from the Legislature to the voters, not the Governor ("PROPOSING AMENDMENTS TO ...").
+  const conAm = b.stage === 'ballot' || /proposing (?:an )?amendments? to/i.test(b.title || '');
+  const names = ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, conAm ? 'The voters' : 'Governor', conAm ? 'Constitution' : 'Law'];
   const desc = ['A lawmaker files the bill and it gets a number.',
     `One to three ${N[o]} committees hold hearings and vote on it, one after another. It needs a yes from each. Each chair decides if it gets a hearing.`,
     `The full ${N[o]} votes. If it passes, it crosses over to the ${N[t]}.`,
     `${N[t]} committees hold their own hearings and votes, one after another. It needs a yes from each.`,
     `The full ${N[t]} votes. If the House and Senate passed different versions, they work out one.`,
-    'The Governor signs it, lets it become law without signing, or vetoes it.',
-    'It becomes a Hawaiʻi law.'];
+    conAm ? 'A change to the constitution goes on the November ballot, and the voters decide.' : 'The Governor signs it, lets it become law without signing, or vetoes it.',
+    conAm ? 'If the voters say yes, it becomes part of the Hawaiʻi constitution.' : 'It becomes a Hawaiʻi law.'];
   let idx;
   if (x.law) idx = 6;
-  else if (/governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) idx = 5;
+  else if (x.ballot || /governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) idx = 5;
   else if (st.phase === 'dead') { const d = b.died_at_stage || '';
     // No record of where it stopped: a hearing already held in the other chamber shows it had crossed over (a page
     // said "Stopped in House committees" above a Senate hearing marked Heard).
     const crossed = !d && x.hs.some(h => S.committees[String(h.committee).split('/')[0]]?.chamber === t && new Date(h.scheduled_at) < Date.now());
-    idx = /^second_crossover|^conference/.test(d) ? 4 : /^second|^first_crossover/.test(d) || crossed ? 3 : 1; }
+    // Through its committees, then no floor vote: stopped at the vote step (first_floor / second_floor, R-072).
+    idx = /^second_crossover|^conference|^second_floor/.test(d) ? 4 : /^second|^first_crossover/.test(d) || crossed ? 3 : d === 'first_floor' ? 2 : 1; }
   else if (st.phase === 'conference') idx = 4;
   else if (st.phase === 'floor') idx = st.leg === 'first' ? 2 : 4;
   else idx = st.leg === 'first' ? 1 : 3;
@@ -314,7 +338,8 @@ function railInfo(b, x) {
   const ch = idx <= 2 ? N[o] : N[t];
   let lead = 'Now: ', rest;
   if (x.law) { lead = 'Became law'; rest = ''; }
-  else if (x.stopped) { lead = ''; rest = b.stage === 'vetoed' ? 'Vetoed by the Governor' : idx === 1 || idx === 3 ? `Stopped in ${ch} committees` : idx === 4 && /conference/.test(b.died_at_stage || '') ? 'Stopped before the final vote' : `Stopped before the ${ch} vote`; }
+  else if (x.stopped) { lead = ''; rest = b.stage === 'vetoed' ? 'Vetoed by the Governor' : idx === 1 || idx === 3 ? `Stopped in ${ch} committees` : idx === 4 && /conference|second_crossover/.test(b.died_at_stage || '') ? 'Stopped before the final vote' : `Stopped before the ${ch} vote`; }
+  else if (x.ballot) rest = 'The voters decide in November';
   else if (st.phase === 'conference') rest = 'Working out one version';
   else if (idx === 5) rest = 'On the Governor’s desk';
   else if (st.phase === 'floor') rest = `Waiting for the ${ch} vote`;
@@ -324,15 +349,15 @@ function railInfo(b, x) {
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 export function railHTML(b, x) {
-  const r = railInfo(b, x), at = s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
-  const align = r.idx <= 1 ? 'l' : r.idx >= 5 ? 'r' : 'c';
+  const r = railInfo(b, x), n = r.names.length, at = s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
+  const align = r.idx <= 1 ? 'l' : r.idx >= n - 2 ? 'r' : 'c';
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.
   const dots = r.names.map((n, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Stopped here' : '';
-    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(n)}</span><span class="sr">Step ${i + 1} of 7, ${esc(n)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
+    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(n)}</span><span class="sr">Step ${i + 1} of ${r.names.length}, ${esc(n)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
   const steps = r.names.map((n, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${esc(n)}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
   return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}">
-      <ol class="bl-dots" aria-label="The 7 steps from bill to law">${dots}</ol>
+      <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
       <p class="bl-nowlbl bl-at${r.idx} bl-${align}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
     <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol>
@@ -427,7 +452,7 @@ function plainHead(b) {
 function head(b, x) {
   const p = posInfo(b), name = nick(b), mine = myStance(b.id);
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
-  const chips = [x.law ? chip('Became law', 'ok', 'circle-check') : x.stopped ? chip('Stopped this session', '', 'archive') : '',
+  const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted this session' : 'Stopped this session', '', 'archive') : '',
     p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
@@ -609,8 +634,9 @@ function pathHTML(b, x) {
   // A stopped bill stopped at the stop its last stage names: Triple = the first, Decking = the last, Lateral = between.
   const ds = x.stopped ? (b.died_at_stage || '') : '';
   const deadLeg = ds ? (/^second|^first_crossover/.test(ds) ? 'second' : 'first') : null;
-  const deadIdx = list => ds === 'first_crossover' || /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : 1;
-  const allPast = x.law || /governor|vetoed|conference|second_crossover/.test(b.stage) || /governor|vetoed|conference/.test(st.phase);
+  // Through every committee and stopped at the floor vote (first_floor / second_floor): none of them stopped it.
+  const deadIdx = list => /_floor$/.test(ds) ? list.length : ds === 'first_crossover' || /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : list.length - 2;
+  const allPast = x.law || x.ballot || /governor|vetoed|conference|second_crossover/.test(b.stage) || /governor|vetoed|conference|ballot/.test(st.phase);
   const state = (leg, list, i) => {
     if (allPast) return 'past';
     if (deadLeg) { if (leg !== deadLeg) return leg === 'first' ? 'past' : 'next'; const di = deadIdx(list); return i < di ? 'past' : i === di ? 'dead' : 'next'; }
@@ -712,7 +738,7 @@ async function flipFollow(b, { quiet = false } = {}) {
 async function shareBill(b, x) {
   const sp = spaced(b.bill_number), url = shareUrl(b), h = x.act?.h || null, name = nick(b);
   const what = name ? `${name} (${sp}). ${blurb(b, 110)}` : `${sp}: ${blurb(b, 110)}`;
-  const text = x.law ? `${x.differs ? '' : 'Good news: '}${name ? `${name} (${sp})` : sp} is now law in Hawaiʻi. ${blurb(b, 110)}`
+  const text = x.law ? `${x.differs ? '' : 'Good news: '}${name ? `${name} (${sp})` : sp} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
     : h ? `${what} Hearing ${dayWord(h.scheduled_at)}. You can add your voice in a few minutes.`
     : `${what} Follow it on HIPHI’s Bill Tracker.`;
   let ok = false, copied = false;

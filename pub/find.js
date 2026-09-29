@@ -406,7 +406,7 @@ function catMatches(q) {
 }
 // Where a bill ended up, when that is settled. A moving bill's step depends on its hearings, which a suggestion does
 // not load, so it shows only the number rather than risk saying "waiting" for a bill that has a hearing set.
-const settled = b => b.stage === 'enacted' ? 'Became law' : b.stage === 'vetoed' ? 'Vetoed' : b.stage === 'governor' ? plainStatus(b).short : moving(b) ? '' : 'Stopped';
+const settled = b => b.stage === 'enacted' || b.stage === 'ballot' ? plainStatus(b).short : b.stage === 'vetoed' ? 'Vetoed' : b.stage === 'governor' ? plainStatus(b).short : moving(b) ? '' : 'Stopped';
 const sugBill = b => ({ href: billPath(b), title: nick(b) || what(b, 90), sub: [spaced(b.bill_number), settled(b)].filter(Boolean).join(' · '), icon: 'scroll-text', inline: true });
 // Seven rows at most, so the list fits a laptop screen with "See all results" under it (suggest.js drops rows a short
 // window has no room for). A word search names policies: a bill on an issue is represented by that issue, so a House

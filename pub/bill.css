@@ -110,6 +110,12 @@
 .bl-page .bl-at0, .bl-page .bl-at1, .bl-page .bl-at2 { grid-column: 1 / span 5; }
 .bl-page .bl-at3 { grid-column: 2 / span 5; }
 .bl-page .bl-at4, .bl-page .bl-at5, .bl-page .bl-at6 { grid-column: 3 / span 5; }
+/* A resolution's path is shorter (R-072): four steps for a House or Senate resolution, six for a concurrent one. The rail
+   and its caption share the grid, so the caption spans the whole row and its alignment follows the current step. */
+.bl-page .bl-rail:has(.bl-n4), .bl-page .bl-rail:has(.bl-n6) { grid-template-columns: 1fr; }
+.bl-page .bl-dots.bl-n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bl-page .bl-dots.bl-n6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.bl-page .bl-rail:has(.bl-n4) .bl-nowlbl, .bl-page .bl-rail:has(.bl-n6) .bl-nowlbl { grid-column: 1 / -1; }
 .bl-page .bl-nowlbl.bl-l { text-align: left; }
 .bl-page .bl-nowlbl.bl-c { text-align: center; }
 .bl-page .bl-nowlbl.bl-r { text-align: right; }

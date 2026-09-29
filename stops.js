@@ -29,6 +29,15 @@ export const CHAMBER_NAME = { H: 'House', S: 'Senate' };
 const other = ch => (ch === 'H' ? 'S' : 'H');
 const FIRST_COMMITTEE = ['introduced', 'first_triple', 'first_lateral', 'first_decking'];
 const SECOND_COMMITTEE = ['second_triple', 'second_lateral', 'second_decking'];
+// R-072 (backend docs/STAGE-AUDIT-2026.md): first_floor / second_floor = through that chamber's committees, waiting for
+// its floor vote; second_crossover = passed the second chamber with changes, back in the first to agree or disagree;
+// ballot = a constitutional amendment the Legislature passed, which goes to the voters. A resolution (HR, SR, HCR, SCR)
+// ends 'enacted' when adopted, and a House or Senate resolution never leaves its chamber.
+export const isResolution = b => /^(HCR|SCR|HR|SR)\d/.test(b?.bill_number || '');
+export const isOneChamber = b => /^(HR|SR)\d/.test(b?.bill_number || '');
+// Put on hold for the year: a committee deferring the measure with no date, or a failed vote. "Deferred the measure until
+// 04-08-26" only moves the decision to that day; both apps called those bills stopped (509 bills in 2026, R-072).
+export const HELD_RE = /deferred the measure(?!\s+until)|measure be deferred(?!\s+until)|failed to pass/i;
 
 const dayOf = iso => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const fmtShort = iso => new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -46,8 +55,9 @@ export function billStop(b, ctx) {
     deadlineKey: null, deadline: null, hearing: null, hearingState: 'none', column: null, says: '' };
 
   // ---- terminal states ----
-  if (stage === 'enacted') return { ...out, phase: 'law', column: null, says: 'Signed into law.' };
+  if (stage === 'enacted') return { ...out, phase: 'law', column: null, says: isResolution(b) ? 'Adopted.' : 'Signed into law.' };
   if (stage === 'vetoed') return { ...out, phase: 'vetoed', column: null, says: 'Vetoed by the Governor.' };
+  if (stage === 'ballot') return { ...out, phase: 'ballot', leg: 'final', column: null, says: 'Passed the Legislature · the voters decide in November.' };
   if (stage === 'governor') return { ...out, phase: 'governor', leg: 'final', column: null, says: 'On the Governor’s desk.' };
   if (stage === 'dead') return { ...out, phase: 'dead', column: null, says: b.died_deadline ? `Missed the ${b.died_deadline} deadline.` : 'Did not advance.' };
 
@@ -58,8 +68,10 @@ export function billStop(b, ctx) {
   let leg, list;
   if (FIRST_COMMITTEE.includes(stage)) { leg = 'first'; list = firstRefs; out.phase = 'committee'; }
   else if (SECOND_COMMITTEE.includes(stage) || stage === 'first_crossover') { leg = 'second'; list = secondRefs; out.phase = 'committee'; }
-  else if (stage === 'second_crossover') { leg = 'second'; list = secondRefs; out.phase = 'floor'; }
-  else if (stage === 'conference') { leg = 'final'; list = []; out.phase = 'conference'; }
+  else if (stage === 'first_floor') { leg = 'first'; list = firstRefs; out.phase = 'floor'; }
+  else if (stage === 'second_floor') { leg = 'second'; list = secondRefs; out.phase = 'floor'; }
+  // Back from the other chamber with changes: the two chambers hold different versions, as in conference.
+  else if (stage === 'second_crossover' || stage === 'conference') { leg = 'final'; list = []; out.phase = 'conference'; }
   else { leg = 'first'; list = firstRefs; out.phase = 'committee'; }
   out.leg = leg;
   out.chamber = leg === 'first' ? origin : leg === 'second' ? other(origin) : origin;
@@ -75,7 +87,8 @@ export function billStop(b, ctx) {
   const hearingsHere = (ctx.hearings || []).filter(h => h.status !== 'cancelled');
   const la = b.last_action || '';
   if (out.phase === 'committee' && list.length) {
-    let idx = /triple/.test(stage) ? 0 : /decking/.test(stage) ? list.length - 1 : list.length <= 2 ? 0 : 1;
+    // Lateral = before the last stop; with three or more, past Triple filing it is the second-to-last.
+    let idx = /triple/.test(stage) ? 0 : /decking/.test(stage) ? list.length - 1 : list.length <= 2 ? 0 : list.length - 2;
     if (stage === 'first_crossover') idx = 0;
     // A stop matches when any committee code is shared: the Capitol writes one joint stop both
     // ways round (JDC/WAM on the referral, WAM/JDC on the hearing) and sometimes names one of the two.
@@ -92,13 +105,24 @@ export function billStop(b, ctx) {
       else if (o === 'passed' || o === 'passed_amended') idx = Math.max(idx, i + 1);         // reported out: past it
       else if (!o && i > idx && now - new Date(h.scheduled_at).getTime() < 12 * 864e5) idx = i;   // held, no report yet
     }
+    // The stage says which stop the bill is at (R-072: triple = before the second-to-last, lateral = the second-to-last,
+    // decking = the last), so the last action and the hearings may only choose within that. A re-referral sheet named
+    // the first committee again after it had passed the bill ("Re-Referred to WLA/PSM, WAM", HB1926) and the page said
+    // the bill was waiting there.
+    if (/_(triple|lateral|decking)$/.test(stage) && list.length) {
+      const n = list.length, lo = /decking/.test(stage) ? n - 1 : /lateral/.test(stage) ? Math.max(0, n - 2) : 0;
+      const hi = /triple/.test(stage) ? Math.max(0, n - 3) : lo;
+      idx = Math.min(Math.max(idx, lo), hi);
+    }
     if (idx >= list.length) { out.phase = 'floor'; out.stop = list.length; out.stops = list.length; }
     else {
       out.committee = list[idx]; out.stop = idx + 1; out.stops = list.length;
       out.isFinal = idx === list.length - 1;
-      const triple = list.length >= 3 && idx === 0;
+      const triple = list.length >= 3 && idx < list.length - 2;   // must reach its second-to-last committee by Triple filing
       out.deadlineKey = leg === 'first' ? (triple ? 'first_triple' : out.isFinal ? 'first_decking' : 'first_lateral')
                                         : (triple ? 'second_triple' : out.isFinal ? 'second_decking' : 'second_lateral');
+      // The Senate's first Triple filing is a day after the House's (its own session_deadlines row since R-072).
+      if (out.deadlineKey === 'first_triple' && origin === 'S' && ctx.deadlineFor('first_triple_senate')) out.deadlineKey = 'first_triple_senate';
     }
   } else if (out.phase === 'committee') {
     // No referral in this chamber yet (passed the other chamber, or a carry-over): the lateral clock is running.
@@ -106,7 +130,7 @@ export function billStop(b, ctx) {
     out.deadlineKey = leg === 'first' ? 'first_lateral' : 'second_lateral';
   }
   if (out.phase === 'floor') { out.deadlineKey = leg === 'first' ? 'first_crossover' : 'second_crossover'; out.stops = list.length; out.stop = list.length; }
-  else if (out.phase === 'conference') out.deadlineKey = 'final_decking';
+  else if (out.phase === 'conference') out.deadlineKey = /\b(FIN|WAM)\b/.test(refs.join(' ')) && ctx.deadlineFor('fiscal') ? 'fiscal' : 'final_decking';
 
   // ---- the deadline it is racing ----
   const d = out.deadlineKey ? ctx.deadlineFor(out.deadlineKey) : null;
@@ -139,7 +163,9 @@ export function billStop(b, ctx) {
     else { out.column = 'a'; out.says = out.committee ? `Needs a hearing in ${out.committee}${pos}${dl}.`
       : out.leg === 'first' ? `Introduced · waiting for a ${ch} committee referral${dl}.` : `Passed the ${CHAMBER_NAME[other(out.chamber)]} · waiting for a ${ch} referral${dl}.`; }
   } else if (out.phase === 'floor') { out.column = 'c'; out.says = `Through ${ch} committees · waiting for a floor vote${dl}.`; }
-  else if (out.phase === 'conference') { out.column = 'c'; out.says = `In conference · House and Senate reconciling their versions${dl}.`; }
+  else if (out.phase === 'conference') { out.column = 'c'; out.says = stage === 'second_crossover'
+      ? `Passed the ${CHAMBER_NAME[other(origin)]} with changes · the ${CHAMBER_NAME[origin]} decides whether to agree${dl}.`
+      : `In conference · House and Senate reconciling their versions${dl}.`; }
   return out;
 }
 
@@ -214,13 +240,16 @@ export function pathwayStops(b, st, counterparts = [], companionRefs = null) {
     // the committee that stopped it needs the activity log, which this file does not see.
     if (ENDED.includes(st.phase)) state = 'ended';
     else if (st.phase !== 'committee' && isCurrentLeg) state = 'passed';
+    // A bill in conference, at the Governor, law or on the ballot got through every committee on its way (R-072: the
+    // Pathway tab marked a law's second-chamber committees "Next").
+    else if (['conference', 'governor', 'law', 'ballot'].includes(st.phase)) state = 'passed';
     out.push({ chamber: ch, committee: c, state, stop: i + 1, of: list.length });
   });
   inChamber(origin, originCh, leg === 'first');
   // A dead or vetoed bill is going nowhere, so it gets no predicted stops either: the old test
   // referenced st.stage, which billStop never returns, so it was always false and dead bills were
   // shown "Likely next" committees in the other chamber.
-  const done = ['governor', 'enacted', 'vetoed', 'conference'].includes(st.phase) || ENDED.includes(st.phase);
+  const done = ['governor', 'law', 'ballot', 'vetoed', 'conference'].includes(st.phase) || ENDED.includes(st.phase) || isOneChamber(b);
   if (second.length) inChamber(second, otherCh, leg === 'second');
   else if (!done) {
     // predict from the companion's referral, else map each origin committee to its counterpart

@@ -5,7 +5,7 @@
 // Still alive and monitor chips, the Coalitions & lists menu and the Muted menu, and keeps what each of them did.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, gateGloss, deadlineName } from './model.js';
-import { CHAMBER_NAME } from '../stops.js';
+import { CHAMBER_NAME, HELD_RE } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD, posIcons } from './ui.js';
 import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition } from './filters.js';
@@ -91,7 +91,7 @@ function statusLine(b) {
 function shortWhy(b) {
   const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
   if (m) return `Missed ${esc(m[1])} ${m[2]}${b.committee ? ` · in ${esc(b.committee)}` : ''}`;
-  if (/deferred/i.test(b.last_action || '') && !b.died_deadline) return 'Deferred by the committee';
+  if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '') && !b.died_deadline) return 'Deferred by the committee';
   if (/failed to pass/i.test(b.last_action || '') && !b.died_deadline) return 'Failed a floor vote';
   return whyDead(b);                                              // whyDead escapes its own parts
 }

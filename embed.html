@@ -72,19 +72,22 @@ const TRACK = new URL('track.html' + (DEMO ? '?demo=1' : ''), location.href).hre
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const POS = { strongly_support: ['Strongly support', 's1', 0], strongly_oppose: ['Strongly oppose', 'o1', 1], support: ['Support', 's2', 2], support_amend: ['Support with amendments', 's2', 2],
   oppose: ['Oppose', 'o2', 3], neutral: ['Comments', 'n', 4], monitor: ['Monitoring', 'm', 5] };
-const ORDER = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'second_crossover', 'conference', 'governor', 'enacted'];
+const ORDER = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'first_floor', 'first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'ballot', 'enacted'];
 // Plain words for where a bill stands; the chamber names come from the bill number.
 function where(b) {
   const first = /^H/.test(b.bill_number) ? 'House' : 'Senate', other = first === 'House' ? 'Senate' : 'House', s = b.stage;
   if (s === 'dead') return ['Did not advance this year', 'dead'];
   if (s === 'vetoed') return ['Vetoed', 'dead'];
-  if (s === 'enacted') return ['Became law', 'law'];
+  if (s === 'enacted') return [/^(HCR|SCR|HR|SR)\d/.test(b.bill_number) ? 'Adopted' : 'Became law', 'law'];
+  if (s === 'ballot') return ['Passed; the voters decide in November', 'law'];   // a constitutional amendment (R-072)
   if (s === 'governor') return ['On the Governor’s desk', ''];
   if (s === 'conference') return ['House and Senate negotiating', ''];
-  if (s === 'second_crossover') return ['Passed both chambers', ''];
+  if (s === 'second_crossover') return [`Passed both chambers; the ${first} decides on the ${other}’s changes`, ''];
+  if (s === 'first_floor') return [`Waiting for a vote of the full ${first}`, ''];
+  if (s === 'second_floor') return [`Waiting for a vote of the full ${other}`, ''];
   if (/^second_/.test(s)) return [`In ${other} committees`, ''];
   if (s === 'first_crossover') return [`Passed the ${first}, now in the ${other}`, ''];
-  if (s === 'introduced') return ['Introduced, waiting for a hearing', ''];
+  if (s === 'introduced') return ['Introduced, waiting to be sent to a committee', ''];
   return [`In ${first} committees`, ''];
 }
 let LISTINFO = null;

@@ -60,13 +60,17 @@ with sync_playwright() as p:
         num = open_bill(pg, 'conference', 'support', [], {'senate': 13, 'house': 26})
         label, href = main_btn(pg)
         check(label == 'Email your legislators' and href.count('@') == 2 and 'Senator ' in unquote(href) and 'Representative ' in unquote(href), f'{w} {num}: then your own senator and representative ("{label}")')
-        # the floor vote in the second chamber: your own legislator there, by name
+        # back from the second chamber with changes (second_crossover since R-072): as in conference, your own two legislators
         num = open_bill(pg, 'second_crossover', 'support', [], {'senate': 13, 'house': 26})
+        label, href = main_btn(pg)
+        check(label == 'Email your legislators' and href.count('@') == 2, f'{w} {num}: back with changes: your own senator and representative ("{label}")')
+        # the floor vote in the second chamber (second_floor since R-072): your own legislator there, by name
+        num = open_bill(pg, 'second_floor', 'support', [], {'senate': 13, 'house': 26})
         label, href = main_btn(pg)
         check(re.match(r'^Ask (Sen|Rep)\. [A-Za-z\u02bb\u2018 -]+ to vote yes$', label) is not None and href.count('@') == 1, f'{w} {num}: the floor vote asks your own legislator ("{label}")')
         check('please vote yes' in unquote(href).lower() and re.search(r'Dear (Senator|Representative) ', unquote(href)) is not None, f'{w}: the email greets them as your senator or representative and asks for a yes')
         pg.screenshot(path=f'tests/out/stages_{w}_floor.png')
-        num = open_bill(pg, 'second_crossover', 'oppose', [], None)
+        num = open_bill(pg, 'second_floor', 'oppose', [], None)
         label, href = main_btn(pg)
         check(label == 'Find your legislators', f'{w} {num}: no districts yet: find your legislators first ("{label}")')
         check('Ask for a no vote' in pg.inner_text('body'), f'{w}: and it says the ask is a no vote, since HIPHI opposes it')

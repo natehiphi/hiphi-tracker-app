@@ -35,12 +35,14 @@ export const APP_URL = location.origin + location.pathname.replace(/(staff|index
 // January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
 // here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
 export let SESSION_YEAR = 2026;   // overwritten from session_deadlines at load (applySessionDeadlines)
+// first_floor / second_floor (through committee, waiting for the floor vote) and ballot (a constitutional amendment for
+// the voters) since R-072; the ribbon draws them on the deadline they race (staff/ui.js ribbonKey).
 export const STAGES = [
   ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
-  ['first_decking','1st Decking'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
-  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'],
+  ['first_decking','1st Decking'], ['first_floor','1st Floor vote'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
+  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'], ['second_floor','2nd Floor vote'],
   ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
-  ['enacted','Law'], ['vetoed','Vetoed'], ['dead','Dead'],
+  ['enacted','Law'], ['vetoed','Vetoed'], ['ballot','To the voters'], ['dead','Dead'],
 ];
 export const STAGE_LABEL = Object.fromEntries(STAGES);
 export const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
@@ -989,7 +991,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260928b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260928c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1013,7 +1015,7 @@ export async function demoInit() {
   // Between sessions (&season=off): the imagined end of 2026, as pub/core.js has it. Anything still moving stops, except
   // strongly supported bills that got far, which become law, so Today's "how the session ended" has laws to show.
   if (DEMO_OFF) { let n = 100; for (const b of sc.bills) if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
-    if (b.position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage)) { b.stage = 'enacted'; b.last_action = `Act ${n++}, on 07/01/2026`; }
+    if (b.position === 'strongly_support' && ['conference', 'second_decking', 'second_floor', 'second_crossover', 'governor'].includes(b.stage)) { b.stage = 'enacted'; b.last_action = `Act ${n++}, on 07/01/2026`; }
     else { b.stage = 'dead'; b.died_deadline ||= 'Sine die'; } } }
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));

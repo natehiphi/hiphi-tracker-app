@@ -86,7 +86,9 @@ export function stepBar(status, { second = false } = {}) {
 // ---- stage ribbon: how far a bill has walked towards becoming law (the one graphic worth keeping from the
 // current app; assessment 9/19). Twelve steps: 'vetoed' and 'dead' are outcomes, not steps, so they colour the
 // ribbon rather than adding a segment to it. A stopped bill still shows how far it got. ----
-const RIBBON = STAGES.filter(([k]) => k !== 'vetoed' && k !== 'dead');
+const RIBBON = STAGES.filter(([k]) => !['vetoed', 'dead', 'first_floor', 'second_floor', 'ballot'].includes(k));
+// Waiting for the floor vote races Crossover (or the Cross back); an amendment for the ballot sits on the last steps (R-072).
+const ON_RIBBON = { first_floor: 'first_crossover', second_floor: 'second_crossover', ballot: 'governor' };
 // Which step is dark. Each committee step is a deadline (Triple filing, Lateral, Decking) and the dark one is the
 // deadline the bill is racing. The sync's 'first_crossover' is the exception: it means the bill has ALREADY passed
 // its first chamber and has no committee activity in the second yet (session_deadlines ends it at the second
@@ -100,8 +102,9 @@ function ribbonKey(b, st) {
   if (st === 'vetoed') return 'governor';
   if (st === 'dead') {
     const at = b.died_at_stage || (b.stage !== 'dead' ? b.stage : null);   // the team set it dead: the sync's stage
-    return at === 'introduced' ? 'first_lateral' : at === 'first_crossover' ? 'second_lateral' : at;
+    return at === 'introduced' ? 'first_lateral' : at === 'first_crossover' ? 'second_lateral' : ON_RIBBON[at] || at;
   }
+  if (ON_RIBBON[st]) return ON_RIBBON[st];
   if (st !== 'first_crossover') return st;
   const k = stopOf(b).deadlineKey;   // second_triple | second_lateral | second_decking, or second_crossover once through
   return k === 'second_crossover' ? 'second_decking' : /^second_(triple|lateral|decking)$/.test(k || '') ? k : 'second_lateral';
@@ -112,7 +115,8 @@ export function stageRibbon(b, { labels = true } = {}) {
   const key = ribbonKey(b, st), last = RIBBON.length - 1;
   const i = key ? Math.max(0, RIBBON.findIndex(([k]) => k === key)) : -1;
   const now = RIBBON[i]?.[1] || '';
-  const said = dead ? (now ? `Stopped at ${now}` : 'Stopped') : vetoed ? 'Vetoed by the Governor' : i === last ? 'Signed into law' : now;
+  const said = dead ? (now ? `Stopped at ${now}` : 'Stopped') : vetoed ? 'Vetoed by the Governor' : st === 'ballot' ? 'Passed · the voters decide'
+    : st === 'first_floor' || st === 'second_floor' ? 'Waiting for the floor vote' : i === last ? (/^(HCR|SCR|HR|SR)\d/.test(b.bill_number || '') ? 'Adopted' : 'Signed into law') : now;
   const tone = dead || vetoed ? ' stopped' : i === last ? ' done' : '';
   const set = b.stage_override ? ' · set by the team' : '';
   const gl = !dead && !vetoed && key ? STAGE_GLOSS[key] || '' : '';
