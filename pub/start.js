@@ -517,18 +517,22 @@ const roleWord = r => r === 'chair' ? 'chairs' : r === 'vice_chair' ? 'is vice c
 function connection(E, legs) {
   if (!E || !(E.path || []).length) return 'They vote on your bills when they reach the House and Senate floors, and they listen closest to the people they represent.';
   const hearing = new Set((E.hear && !E.hear.example && !E.hear.past ? E.hear.codes : []) || []);
+  // The note names the bill (Nate 9/29: with one legislator it said "hears it" and nobody knew which bill). With two, the
+  // bill is named once up front ("Both have a hand in ..."), so each clause can say "it".
+  const label = E.hasNick ? `${E.name} (${E.num})` : E.num;
   const parts = legs.map(l => {
     const seats = S.committeeMembers.filter(m => m.legislator_id === l.id && E.path.includes(m.committee))
       .sort((a, b) => ({ chair: 0, vice_chair: 1, member: 2 }[a.role] ?? 3) - ({ chair: 0, vice_chair: 1, member: 2 }[b.role] ?? 3));
     const s = seats[0]; if (!s) return null;
     const ch = l.chamber === 'S' ? 'Senate' : 'House', now = hearing.has(s.committee);
     const crossed = E.now >= 3 && ch === E.start;   // the first side's committees are behind it once it has crossed
-    const what = now ? `one of the committees hearing it${E.hear?.day ? ` on ${E.hear.day}` : ''}` : crossed || E.off ? `a ${ch} committee that ${E.off ? 'passed' : 'already passed'} it` : `a ${ch} committee that hears it`;
+    const it = '\u0000';   // filled in below: the bill's name for one legislator, "it" after "Both have a hand in"
+    const what = now ? `one of the committees hearing ${it}${E.hear?.day ? ` on ${E.hear.day}` : ''}` : crossed || E.off ? `a ${ch} committee that ${E.off ? 'passed' : 'already passed'} ${it}` : `a ${ch} committee that hears ${it}`;
     return `${legTitle(l)} ${l.last || l.name.split(' ').slice(-1)[0]} ${roleWord(s.role)} ${what}`;
   });
   const said = parts.filter(Boolean);
   if (!said.length) return 'They vote on your bills when they reach the House and Senate floors, and they listen closest to the people they represent.';
-  return said.length === 2 ? `Both have a hand in ${E.num}: ${said[0]}, and ${said[1]}.` : `${said[0]}.`;
+  return said.length === 2 ? `Both have a hand in ${label}: ${said[0].replace('\u0000', 'it')}, and ${said[1].replace('\u0000', 'it')}.` : `${said[0].replace('\u0000', label)}.`;
 }
 // An address that looks complete can be looked up as typed, as in the full legislator finder: the suggestions come from
 // our own address list, which a new street or a slow connection can leave empty (Enter does the same).
@@ -638,10 +642,10 @@ function askCard() {
   const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : 'Want a reminder before testimony is due?';
   return `<form class="card st-form st-askcard" id="st-eform" novalidate>
     <h2 class="st-askh">${icon('bell')}<span>${esc(title)}</span></h2>
-    <p class="st-promise">We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them. Unsubscribe in one tap.</p>
     <div class="field"><label for="st-email">Your email</label>
       <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
       <span class="err" id="st-email-err" role="alert"></span></div>
+    <p class="st-askline">We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them. Unsubscribe in one tap.</p>
     <div class="field"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
       <input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}"></div>
     <p class="meta">No password: we send you a link to sign in, which also keeps your issues on any device. HIPHI staff can see which issues you follow and where you stand, so they know what the community cares about. <a href="#/privacy">Privacy</a></p>
@@ -652,14 +656,22 @@ function askCard() {
 // else still waits for Home.
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
-  const off = isOff(), items = upcoming(), now = off ? null : items.find(dueSoon);
-  const list = `<ol class="st-soon" role="list">${items.map((it, k) => `<li style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(it.line)}</span>
-    ${it === now ? `<span class="st-now">${btn('Write my testimony', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id } })}<span class="small muted">Due soon, so you can do it now. About 10 minutes the first time.</span></span>` : ''}</div></li>`).join('')}</ol>`;
+  const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
+  // Two on the first screen, so the email box is in view too (Nate 9/29, R-078); the one due soonest always among them.
+  const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, 2), more = lead.slice(2);
+  // The value still comes before the ask (DESIGN C-1): one line naming what is coming, above the email box.
+  const hears = lead.filter(x => x.kind === 'hear'), first = hears[0];
+  const sum = off || !first ? '' : hears.length === 1 ? `One hearing on your issues this week: ${first.title}, ${first.when}.`
+    : `${hears.length} hearings on your issues this week. First: ${first.title}, ${first.when}.`;
+  const row = (it, k) => `<li style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(it.line)}</span>
+    ${it === now ? `<span class="st-now">${btn('Write my testimony', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id } })}<span class="small muted">Due soon, so you can do it now. About 10 minutes the first time.</span></span>` : ''}</div></li>`;
+  const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + 2)).join('')}</ol></details>` : ''}`;
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
-    <p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : followsAnything() ? 'Here’s what’s happening this week on the issues you follow.' : 'Here’s what’s happening this week.'}</p>
-    ${list}`,
-    `<div id="st-askbox">${askCard()}</div>`);
+    ${sum ? `<p class="lede st-soonsum">${esc(sum)}</p>` : `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : followsAnything() ? 'Here’s what’s happening this week on the issues you follow.' : 'Here’s what’s happening this week.'}</p>`}`,
+    // The email box first, then the list (Nate 9/29, R-078: the sign-up must be on the first screen; with two hearings
+    // the list pushed it below the fold). The same order for the eye and for a screen reader.
+    `<div id="st-askbox">${askCard()}</div>${list}`);
 }
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================

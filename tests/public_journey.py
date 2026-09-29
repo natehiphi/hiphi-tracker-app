@@ -119,8 +119,11 @@ with sync_playwright() as pw:
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     # The value first, then the one ask (Nate 9/21: ask for the email after the value).
     ts = text(p); ok('Coming up on your issues' in ts, f"then coming up on your issues ({p.evaluate('location.hash')})")
-    order = p.evaluate("(() => { const l = document.querySelector('.st-soon'), f = document.querySelector('#st-eform'); return !!l && !!f && (l.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) ? 1 : 0; })()")
-    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up comes before the ask')
+    # 9/29 (R-078): the email box moved onto the first screen, above the list; a line naming what is coming (or the
+    # lede when nothing is) still comes before it, and the list follows.
+    order = p.evaluate("(() => { const s = document.querySelector('.st-soonsum, .st-soonpage .lede'), f = document.querySelector('#st-eform'), l = document.querySelector('.st-soon'); const before = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); return before(s, f) && before(f, l) ? 1 : 0; })()")
+    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up is named before the ask, and listed after it')
+    ok(p.evaluate("(() => { const f = document.getElementById('st-email'); return !!f && f.getBoundingClientRect().top < innerHeight - 80; })()"), 'the email box is on the first screen')
     ok('testimony is due' in ts.lower() and 'closes' not in ts.lower(), 'the ask names the value, and testimony is "due", never "closes"')
     std(p, 'soon', axe=True); shot(p, 'p_soon')
     p.fill('#st-email', 'leilani@example.com'); p.fill('#st-name', 'Leilani'); p.locator('#st-send').click(); p.wait_for_timeout(1200)
