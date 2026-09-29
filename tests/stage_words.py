@@ -66,7 +66,8 @@ with sync_playwright() as p:
         check('put it on hold' in st['detail'] and 'Health and Human Services' in st['detail'], f'{w} put on hold: the step bar note names the committee (R-085; "{st["detail"][:110]}")')
         # stopped at the floor vote
         num, t = show(pg, '^HB', {'stage': 'dead', 'died_at_stage': 'first_floor', 'died_deadline': 'Crossover 3/12/26', 'last_action': 'Reported from FIN, recommending passage on Third Reading.'})
-        check('got through its House committees' in t and 'did not vote on it' in t, f'{w} {num} stopped at first_floor: its committees passed it, no floor vote')
+        top = pg.evaluate("document.querySelector('.bl-status .bl-say')?.textContent || ''")
+        check(top == '', f'{w} {num} stopped: no sentence at the top of the card, the reason is only under the step bar (R-085; "{top[:80]}")')
         why = pg.evaluate("document.querySelector('.bl-rail + .bl-why')?.textContent || ''")
         check('Its House committees passed it' in why and 'Bills had to pass the full House by Mar 12' in why, f'{w} {num} stopped at first_floor: under the step bar, the rule and its date (R-085; "{why[:110]}")')
         cap = pg.evaluate("document.querySelector('.bl-nowlbl')?.textContent || ''")

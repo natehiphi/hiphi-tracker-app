@@ -564,11 +564,11 @@ function othersBlock(b) {
     ${stand}${lines.length ? `<p class="bl-ocount">${lines.map(esc).join(' ')}</p>` : ''}</section>`;
 }
 function statusCard(b, x) {
-  const si = sessionInfo(), next = si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : '';
-  const extra = x.law ? 'Mahalo to everyone who spoke up.'
-    : x.stopped ? (si.phase === 'in' || !next ? 'Ideas like this often come back next session.' : `Ideas like this often come back. The ${si.nextOpen.slice(0, 4)} session opens ${next}.`) : '';
+  const extra = x.law ? 'Mahalo to everyone who spoke up.' : '';
+  // A stopped bill has no sentence here: why it stopped is said once, under the step bar (Nate 9/29, R-085: "It should
+  // not be at the top, only directly under that label ... Just remove the wording at the top").
   return `<section class="card bl-status" aria-labelledby="bl-st-h"><h2 class="sr" id="bl-st-h">Where it is now</h2>
-    <p class="bl-say">${x.law ? flower(22) : ''}<span>${esc(plainStatus(b).text)}${extra ? ` ${esc(extra)}` : ''}</span></p>
+    ${x.stopped ? '' : `<p class="bl-say">${x.law ? flower(22) : ''}<span>${esc(plainStatus(b).text)}${extra ? ` ${esc(extra)}` : ''}</span></p>`}
     ${b.hiphi_action && !x.act && x.live && !x.differs ? `<p class="bl-ask">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(b.hiphi_action)}</span></p>` : ''}
     ${!wide() && stepCard(b, x) ? `<p class="bl-next"><b>${esc(stepCard(b, x)[0])}.</b> ${esc(stepCard(b, x)[1])}</p>` : ''}
     ${railHTML(b, x)}
