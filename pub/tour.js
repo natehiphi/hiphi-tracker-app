@@ -70,7 +70,7 @@ function tips() {
     const res = /adoption/.test(dots?.getAttribute('aria-label') || ''), gov = /Governor/.test(txt(dots));
     const H = /^S/.test(num) ? ['Senate', 'House'] : ['House', 'Senate'];
     const steps = !dots ? '' : res ? 'Each dot is a step to being adopted.'
-      : gov ? `Each dot is a step to becoming law: committees and a vote in the ${H[0]}, the same in the ${H[1]}, then the Governor.` : 'Each dot is a step on its way.';
+      : gov ? `Each dot is a step to becoming law: each ${H[0]} committee, then a ${H[0]} vote, the same in the ${H[1]}, then the Governor.` : 'Each dot is a step on its way.';
     const now = lbl.replace(/^Now:\s*/, '');
     const where = !now ? '' : end ? `This session: <b>${esc(now)}</b>.` : `Now: <b>${esc(now)}</b>.${/committee/i.test(now) ? ' Most bills stop in a committee.' : ''}`;
     out.push({ key: 'where', els: () => [$('.bl-status')], h: 'Where it is now', p: `${steps} ${where}`.trim() || 'This card says what happened to it last.' });

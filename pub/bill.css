@@ -78,8 +78,8 @@
 .bl-page .bl-next { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
 .bl-page .bl-next b { color: var(--n900); }
 
-.bl-page .bl-rail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--s8); padding-top: 4px; }
-.bl-page .bl-dots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.bl-page .bl-rail { display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); row-gap: var(--s8); padding-top: 4px; }
+.bl-page .bl-dots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
 .bl-page .bl-dots li { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .bl-page .bl-dw { display: flex; align-items: center; justify-content: center; height: 32px; }
 /* the line that joins each dot to the one before it: solid where the bill has been */
@@ -106,16 +106,14 @@
 .bl-page .bl-nowlbl b { color: var(--p700); }
 .bl-page .bl-railstop .bl-nowlbl { color: var(--n700); font-weight: 700; }
 .bl-page .bl-raillaw .bl-nowlbl b { color: var(--ok-text); }
-/* the label sits under the current dot, kept inside the card at the two ends */
-.bl-page .bl-at0, .bl-page .bl-at1, .bl-page .bl-at2 { grid-column: 1 / span 5; }
-.bl-page .bl-at3 { grid-column: 2 / span 5; }
-.bl-page .bl-at4, .bl-page .bl-at5, .bl-page .bl-at6 { grid-column: 3 / span 5; }
-/* A resolution's path is shorter (R-072): four steps for a House or Senate resolution, six for a concurrent one. The rail
-   and its caption share the grid, so the caption spans the whole row and its alignment follows the current step. */
-.bl-page .bl-rail:has(.bl-n4), .bl-page .bl-rail:has(.bl-n6) { grid-template-columns: 1fr; }
-.bl-page .bl-dots.bl-n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.bl-page .bl-dots.bl-n6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.bl-page .bl-rail:has(.bl-n4) .bl-nowlbl, .bl-page .bl-rail:has(.bl-n6) .bl-nowlbl { grid-column: 1 / -1; }
+/* the label sits under the current dot, kept inside the card at the two ends (its columns are set inline by railHTML,
+   since a path has four to eleven steps: each committee is its own step since R-081) */
+/* Nine or more steps (two or three committees a side): smaller dots, so eleven fit a 320px phone without touching. */
+.bl-page .bl-many .bl-done .bl-dot { width: 18px; height: 18px; }
+.bl-page .bl-many .bl-now .bl-dot, .bl-page .bl-many .bl-stop .bl-dot { width: 20px; height: 20px; }
+.bl-page .bl-many .bl-now .bl-dot { box-shadow: 0 0 0 4px var(--p100); }
+.bl-page .bl-many .bl-next .bl-dot { width: 12px; height: 12px; }
+.bl-page .bl-many .bl-dot .ic { width: 12px; height: 12px; }
 .bl-page .bl-nowlbl.bl-l { text-align: left; }
 .bl-page .bl-nowlbl.bl-c { text-align: center; }
 .bl-page .bl-nowlbl.bl-r { text-align: right; }
@@ -236,19 +234,6 @@
 /* the companion bill link sits in a short line of its own, so give it a full-size target */
 .bl-page .bl-kv dd a[href^="#/bill/"] { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 .bl-page .bl-date { display: block; margin-top: var(--s4); color: var(--n500); }
-.bl-page .bl-pch + .bl-pch { margin-top: var(--s12); }
-.bl-page .bl-pchn { font-weight: 700; color: var(--n700); margin-bottom: 4px; }
-.bl-page .bl-path { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
-.bl-page .bl-path li { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
-.bl-page .bl-path li .ic { width: 18px; height: 18px; flex: none; }
-.bl-page .bl-path li > span:first-of-type { flex: 1 1 0; min-width: 0; }
-.bl-page .bl-p-past .ic { color: var(--ok-text); }
-.bl-page .bl-p-here .ic { color: var(--p700); }
-.bl-page .bl-p-here > span:first-of-type { font-weight: 700; color: var(--n900); }
-.bl-page .bl-p-dead .ic { color: var(--n500); }
-.bl-page .bl-p-next, .bl-page .bl-p-plain { color: var(--n700); }
-.bl-page .bl-p-next .ic, .bl-page .bl-p-plain .ic { color: var(--n300); }
-.bl-page .bl-pnone { color: var(--n500); }
 .bl-page .bl-cap { margin: 0 0 var(--s8) -12px; }
 
 /* ---- empty and error ---- */
@@ -290,6 +275,15 @@
 @media (min-width: 700px) {
   .bl-page .bl-dlbl { display: block; }
   .bl-page .bl-nowlbl { display: none; }
+  /* Nine or more steps leave about 58px a name, which broke words mid-way ("Governo r"). The names take turns above and
+     below the line, so each one has two columns of room (R-081). */
+  .bl-page .bl-many .bl-dots li { display: grid; grid-template-rows: 52px 32px auto; justify-items: center; }
+  .bl-page .bl-many .bl-dots li::before { top: 67px; }
+  .bl-page .bl-many .bl-dw { grid-row: 2; }
+  .bl-page .bl-many .bl-dlbl { grid-row: 3; width: 200%; margin-top: var(--s4); }
+  .bl-page .bl-many .bl-dots li:nth-child(even) .bl-dlbl { grid-row: 1; align-self: end; margin: 0 0 var(--s4); }
+  .bl-page .bl-many .bl-dots li:first-child .bl-dlbl { justify-self: start; width: 150%; text-align: left; padding-left: 0; }
+  .bl-page .bl-many .bl-dots li:last-child .bl-dlbl { justify-self: end; width: 150%; text-align: right; padding-right: 0; }
 }
 
 /* ---- from 900px: the header has the navigation and stays; the page is still one column with the bottom bar ---- */

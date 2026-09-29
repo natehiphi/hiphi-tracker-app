@@ -58,8 +58,9 @@ function path(mark) {
   const m = MARKS[mark];
   const lit = x => !m ? 'var(--p700)' : x < m[0] ? 'var(--p700)' : 'var(--n200)';
   const parts = [seg(0, 76, lit(0)), seg(80, 30, lit(80)), seg(124, 76, lit(124)), seg(204, 30, lit(204)), seg(248, 52, lit(248))];
-  // With three committees on the first side, the first leg is drawn as three short pieces, so the mark can point at one.
-  const cuts = m && mark !== 'crossover' ? `<rect x="24" y="22" width="3" height="12" fill="var(--n0)"/><rect x="50" y="22" width="3" height="12" fill="var(--n0)"/>` : '';
+  // Each committee is its own piece, as on a bill page since R-081: three on the first side (so a deadline mark can point
+  // at one), two on the second.
+  const cuts = [24, 50, 160.5].map(x => `<rect x="${x}" y="22" width="3" height="12" fill="var(--n0)"/>`).join('');
   const pin = m ? `<circle cx="${m[0]}" cy="28" r="9" fill="var(--n0)" stroke="var(--p700)" stroke-width="3"/><circle cx="${m[0]}" cy="28" r="3.5" fill="var(--p700)"/>
     ${txt(Math.min(Math.max(m[0], 44), 256), 58, m[1], { size: 14, fill: 'var(--p800)' })}` : '';
   // Without a mark there is nothing under the line, so the House and Senate brackets move up.

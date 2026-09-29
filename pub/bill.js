@@ -10,6 +10,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
+import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
@@ -288,77 +289,128 @@ function mainButton(b, x) {
 }
 
 // ---------------- the stops, in plain words ----------------
-// Seven stops instead of Capitol stage names (no Triple, Lateral or Decking): a bill starts in one chamber, goes
-// through its committees and a vote, crosses to the other chamber and does the same, then goes to the Governor.
+// A bill starts in one chamber, goes through its committees and a vote, crosses to the other chamber and does the same,
+// then goes to the Governor. No Triple, Lateral or Decking. Each committee is its own step, named (R-081, Nate 9/29: "see
+// real progress" and "understand the process"); two committees that hear it together are one step, since it is one
+// hearing and one vote. A chamber that has not picked its committees yet is one step, "Senate committees", until it does.
+const ORD = ['1st', '2nd', '3rd'];
+// "Health" for "Health and Human Services", "Ways and Means" whole (the rule briefCmte in start.js uses): short enough to
+// sit under a dot. Two committees together: "Health and Commerce".
+const briefName = n => n.split(/\s+/).length <= 3 ? n : n.split(/\s+(?:and|&)\s+|,\s*/)[0];
+const cmteBrief = code => { const cs = String(code).split('/').map(c => S.committees[c.trim()]).filter(Boolean);
+  return cs.length ? cs.map(c => briefName(c.name)).join(' and ') : String(code).replace(/\//g, ' and '); };
+// One committee step's name in the list, linked to the committee's page (members, chair, what it has now).
+const cmteLink = code => String(code).split('/').map(k => k.trim()).filter(Boolean)
+  .map(k => S.committees[k] ? `<a href="#/committee/${esc(k)}">${esc(cmteLabel(k))}</a>` : esc(cmteLabel(k))).join(' and ');
+const sameCmte = (a, b) => String(a).split('/').some(k => String(b).split('/').includes(k));
 function railInfo(b, x) {
-  const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H';
-  // A resolution needs no Governor: a House or Senate one is adopted in its own chamber, a concurrent one in both (R-072).
-  if (isResolution(b)) {
-    const one = isOneChamber(b);
-    const names = one ? ['Introduced', `${N[o]} committees`, `${N[o]} vote`, 'Adopted'] : ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, 'Adopted'];
-    const desc = one ? ['A lawmaker offers the resolution and it gets a number.', `${N[o]} committees hear it and vote on it.`, `The full ${N[o]} votes on it.`, `The ${N[o]} has adopted it. A resolution states a position or makes a request; it is not a law.`]
-      : ['A lawmaker offers the resolution and it gets a number.', `${N[o]} committees hear it and vote on it.`, `The full ${N[o]} votes. If it passes, it goes to the ${N[t]}.`, `${N[t]} committees hear it and vote on it.`, `The full ${N[t]} votes on it.`, 'Both chambers have adopted it. A resolution states a position or makes a request; it is not a law.'];
-    const last = names.length - 1, d = b.died_at_stage || '';
-    let idx;
-    if (x.law) idx = last;
-    else if (st.phase === 'dead' || x.stopped) idx = one ? (/_floor$/.test(d) ? 2 : 1) : /^second_floor|^second_crossover|^conference/.test(d) ? 4 : /^second|^first_crossover/.test(d) ? 3 : d === 'first_floor' ? 2 : 1;
-    else if (st.phase === 'floor') idx = st.leg === 'first' ? 2 : 4;
-    else if (st.phase === 'conference') idx = one ? 2 : 4;
-    else idx = st.leg === 'first' ? 1 : (one ? 1 : 3);
-    const ch = idx <= 2 ? N[o] : N[t];
-    const lead = x.law ? 'Adopted' : x.stopped ? '' : 'Now: ';
-    const rest = x.law ? '' : x.stopped ? 'Not adopted this session' : st.phase === 'floor' ? `Waiting for the ${ch} vote` : `In ${ch} committees`;
-    return { names, desc, idx, lead, rest };
-  }
+  const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H', res = isResolution(b), one = res && isOneChamber(b);
   // A constitutional amendment goes from the Legislature to the voters, not the Governor ("PROPOSING AMENDMENTS TO ...").
-  const conAm = b.stage === 'ballot' || /proposing (?:an )?amendments? to/i.test(b.title || '');
-  const names = ['Introduced', `${N[o]} committees`, `${N[o]} vote`, `${N[t]} committees`, `${N[t]} vote`, conAm ? 'The voters' : 'Governor', conAm ? 'Constitution' : 'Law'];
-  const desc = ['A lawmaker files the bill and it gets a number.',
-    `One to three ${N[o]} committees hold hearings and vote on it, one after another. It needs a yes from each. Each chair decides if it gets a hearing.`,
-    `The full ${N[o]} votes. If it passes, it crosses over to the ${N[t]}.`,
-    `${N[t]} committees hold their own hearings and votes, one after another. It needs a yes from each.`,
-    `The full ${N[t]} votes. If the House and Senate passed different versions, they work out one.`,
-    conAm ? 'A change to the constitution goes on the November ballot, and the voters decide.' : 'The Governor signs it, lets it become law without signing, or vetoes it.',
-    conAm ? 'If the voters say yes, it becomes part of the Hawaiʻi constitution.' : 'It becomes a Hawaiʻi law.'];
-  let idx;
-  if (x.law) idx = 6;
-  else if (x.ballot || /governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) idx = 5;
-  else if (st.phase === 'dead') { const d = b.died_at_stage || '';
+  const conAm = !res && (b.stage === 'ballot' || /proposing (?:an )?amendments? to/i.test(b.title || ''));
+  const word = res ? 'resolution' : 'bill';
+  // Where one chamber's committees end and the other's begin (the same split billStop makes).
+  const refs = b.referrals || [], n = Math.min(b.origin_stops || refs.length, refs.length), lists = { [o]: refs.slice(0, n), [t]: refs.slice(n) };
+  // The coarse path, one step per stage; committee stages are expanded below.
+  const coarse = one ? ['intro', 'cm' + o, 'vote' + o, 'adopted'] : res ? ['intro', 'cm' + o, 'vote' + o, 'cm' + t, 'vote' + t, 'adopted']
+    : ['intro', 'cm' + o, 'vote' + o, 'cm' + t, 'vote' + t, 'gov', 'law'];
+  const last = coarse.length - 1, d = b.died_at_stage || '';
+  // Which coarse step it is at.
+  let ci;
+  if (x.law) ci = last;
+  else if (res) {
+    if (st.phase === 'dead' || x.stopped) ci = one ? (/_floor$/.test(d) ? 2 : 1) : /^second_floor|^second_crossover|^conference/.test(d) ? 4 : /^second|^first_crossover/.test(d) ? 3 : d === 'first_floor' ? 2 : 1;
+    else if (st.phase === 'floor') ci = st.leg === 'first' ? 2 : 4;
+    else if (st.phase === 'conference') ci = one ? 2 : 4;
+    else ci = st.leg === 'first' ? 1 : (one ? 1 : 3);
+  } else if (x.ballot || /governor|vetoed/.test(b.stage) || /governor|vetoed/.test(st.phase)) ci = 5;
+  else if (st.phase === 'dead') {
     // No record of where it stopped: a hearing already held in the other chamber shows it had crossed over (a page
     // said "Stopped in House committees" above a Senate hearing marked Heard).
     const crossed = !d && x.hs.some(h => S.committees[String(h.committee).split('/')[0]]?.chamber === t && new Date(h.scheduled_at) < Date.now());
     // Through its committees, then no floor vote: stopped at the vote step (first_floor / second_floor, R-072).
-    idx = /^second_crossover|^conference|^second_floor/.test(d) ? 4 : /^second|^first_crossover/.test(d) || crossed ? 3 : d === 'first_floor' ? 2 : 1; }
-  else if (st.phase === 'conference') idx = 4;
-  else if (st.phase === 'floor') idx = st.leg === 'first' ? 2 : 4;
-  else idx = st.leg === 'first' ? 1 : 3;
-  // In conference, or stopped there, the other chamber has already voted: a dot saying "Senate vote" marked "Stopped
-  // here" read as if the Senate had voted it down (HB 1782; Nate 9/26). That step is the final version.
-  if (idx === 4 && (st.phase === 'conference' || (x.stopped && /^(second_crossover|conference)$/.test(b.died_at_stage || '')))) names[4] = 'Final version';
-  const ch = idx <= 2 ? N[o] : N[t];
+    ci = /^second_crossover|^conference|^second_floor/.test(d) ? 4 : /^second|^first_crossover/.test(d) || crossed ? 3 : d === 'first_floor' ? 2 : 1;
+  } else if (st.phase === 'conference') ci = 4;
+  else if (st.phase === 'floor') ci = st.leg === 'first' ? 2 : 4;
+  else ci = st.leg === 'first' ? 1 : 3;
+  // Where in that chamber's committees: the one holding it now, or the one it stopped in (stoppedAt reads the stage it
+  // stopped at, R-077). Without either, where the stage puts it: Triple = the first, Decking = the last, Lateral between.
+  const offIn = list => {
+    if (!list.length) return 0;
+    if (!x.stopped || !d) return Math.max(0, Math.min(list.length - 1, (st.stop || 1) - 1));
+    const at = stoppedAt(b), i = at ? list.findIndex(c => sameCmte(c, at.committee)) : -1;
+    if (i >= 0) return i;
+    return d === 'first_crossover' || /triple|introduced/.test(d) ? 0 : /decking/.test(d) ? list.length - 1 : list.length <= 2 ? 0 : list.length - 2;
+  };
+  const steps = []; let idx = 0;
+  coarse.forEach((k, i) => {
+    if (i === ci) idx = steps.length;
+    const ch = k.slice(-1), C = N[ch];
+    if (k.startsWith('cm')) {
+      const list = lists[ch];
+      if (i === ci) idx += offIn(list);
+      if (!list.length) {
+        // Not sent to a committee yet (the other chamber picks its own after the bill crosses over).
+        const first = ch === o;
+        steps.push({ kind: 'wait', ch, name: `${C} committees`, html: esc(`${C} committees`),
+          desc: `${first ? `The ${C} sends the ${word}` : `After the ${word} crosses over, the ${C} sends it`} to one to three committees. Each holds a hearing and votes, one after another. It needs a yes from each.${x.stopped || x.law ? '' : ' Not chosen yet.'}` });
+        return;
+      }
+      list.forEach((c, j) => {
+        const two = String(c).includes('/');
+        steps.push({ kind: 'cmte', ch, code: c, j, of: list.length, name: `${C} ${cmteBrief(c)}`, html: cmteLink(c) + (two ? ', together' : ''),
+          desc: `${list.length > 1 ? `The ${ORD[j] || j + 1 + 'th'} of ${list.length} ${C} committees. ` : `The only ${C} committee on its path. `}${two ? 'The two hold one hearing and vote together.' : 'It holds a hearing and votes.'} The ${word} needs a yes here to go on${j === 0 && ch === o ? '; the chair decides if it gets a hearing' : ''}.` });
+      });
+      return;
+    }
+    if (k === 'intro') steps.push({ name: 'Introduced', desc: res ? 'A lawmaker offers the resolution and it gets a number.' : 'A lawmaker files the bill and it gets a number.' });
+    else if (k.startsWith('vote')) {
+      const first = ch === o;
+      // In conference, or stopped there, the other chamber has already voted: a dot saying "Senate vote" marked "Stopped
+      // here" read as if the Senate had voted it down (HB 1782; Nate 9/26). That step is the final version.
+      const fin = !res && !first && (st.phase === 'conference' || (x.stopped && /^(second_crossover|conference)$/.test(d)));
+      steps.push({ name: fin ? 'Final version' : `${C} vote`,
+        desc: one ? `The full ${C} votes on it.` : res ? (first ? `The full ${C} votes. If it passes, it goes to the ${N[t]}.` : `The full ${C} votes on it.`)
+          : first ? `The full ${C} votes. If it passes, it crosses over to the ${N[t]}.` : `The full ${C} votes. If the House and Senate passed different versions, they work out one.` });
+    }
+    else if (k === 'adopted') steps.push({ name: 'Adopted', desc: `${one ? `The ${N[o]} has` : 'Both chambers have'} adopted it. A resolution states a position or makes a request; it is not a law.` });
+    else if (k === 'gov') steps.push({ name: conAm ? 'The voters' : 'Governor', desc: conAm ? 'A change to the constitution goes on the November ballot, and the voters decide.' : 'The Governor signs it, lets it become law without signing, or vetoes it.' });
+    else steps.push({ name: conAm ? 'Constitution' : 'Law', desc: conAm ? 'If the voters say yes, it becomes part of the Hawaiʻi constitution.' : 'It becomes a Hawaiʻi law.' });
+  });
+  if (x.law) idx = steps.length - 1;
+  // The words under the dots: "Now: House Health, 1st of 3 House committees".
+  const s = steps[idx], C = N[s.ch] || N[ci <= 2 ? o : t];
   let lead = 'Now: ', rest;
-  if (x.law) { lead = 'Became law'; rest = ''; }
-  else if (x.stopped) { lead = ''; rest = b.stage === 'vetoed' ? 'Vetoed by the Governor' : idx === 1 || idx === 3 ? `Stopped in ${ch} committees` : idx === 4 && /conference|second_crossover/.test(b.died_at_stage || '') ? 'Stopped before the final vote' : `Stopped before the ${ch} vote`; }
+  if (x.law) { lead = res ? 'Adopted' : 'Became law'; rest = ''; }
+  else if (x.stopped) {
+    lead = '';
+    rest = res ? 'Not adopted this session' : b.stage === 'vetoed' ? 'Vetoed by the Governor'
+      : s.kind === 'cmte' ? `Stopped in ${s.name}` : s.kind === 'wait' ? `Stopped in ${C} committees`
+      : ci === 4 && /conference|second_crossover/.test(d) ? 'Stopped before the final vote' : `Stopped before the ${C} vote`;
+  }
   else if (x.ballot) rest = 'The voters decide in November';
-  else if (st.phase === 'conference') rest = 'Working out one version';
-  else if (idx === 5) rest = 'On the Governor’s desk';
-  else if (st.phase === 'floor') rest = `Waiting for the ${ch} vote`;
-  else rest = `In ${ch} committees`;
-  return { names, desc, idx, lead, rest };
+  else if (st.phase === 'conference') rest = res ? `Waiting for the ${C} vote` : 'Working out one version';
+  else if (!res && ci === 5) rest = 'On the Governor’s desk';
+  else if (st.phase === 'floor') rest = `Waiting for the ${C} vote`;
+  else if (s.kind === 'cmte') rest = s.of > 1 ? `${s.name}, ${ORD[s.j] || s.j + 1 + 'th'} of ${s.of} ${C} committees` : `${s.name}, its only ${C} committee`;
+  else rest = `Waiting for the ${C} to choose its committees`;
+  return { names: steps.map(s => s.name), desc: steps.map(s => s.desc), html: steps.map(s => s.html || esc(s.name)), idx, lead, rest };
 }
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 export function railHTML(b, x) {
   const r = railInfo(b, x), n = r.names.length, at = s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
-  const align = r.idx <= 1 ? 'l' : r.idx >= n - 2 ? 'r' : 'c';
+  // The words under the dots start under the current dot, end under it at the right-hand end, or centre on it between;
+  // they span about three quarters of the row so they wrap as little as they can (up to 11 dots, R-081).
+  const span = Math.min(n, Math.max(5, Math.round(n * 0.72))), i1 = r.idx + 1;
+  const [align, from] = r.idx + span <= n ? ['l', i1] : i1 - span >= 0 ? ['r', i1 - span + 1] : ['c', Math.min(Math.max(1, i1 - Math.floor(span / 2)), n - span + 1)];
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.
-  const dots = r.names.map((n, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Stopped here' : '';
-    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(n)}</span><span class="sr">Step ${i + 1} of ${r.names.length}, ${esc(n)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
-  const steps = r.names.map((n, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
-    return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${esc(n)}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
-  return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}">
+  const dots = r.names.map((nm, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Stopped here' : '';
+    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(nm)}</span><span class="sr">Step ${i + 1} of ${n}, ${esc(nm)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
+  const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
+    return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
+  return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}">
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
-      <p class="bl-nowlbl bl-at${r.idx} bl-${align}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
+      <p class="bl-nowlbl bl-${align}" style="grid-column:${from} / span ${span}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
     <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol>
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details>`;   // the lesson, in the moment (R-067 #11)
@@ -627,31 +679,6 @@ function hearingsSection(b, x) {
 
 // ---------------- More details: the official record, folded ----------------
 // The committee path with check marks (passed stops struck through read as "cancelled" to newcomers, walk 9/18).
-function pathHTML(b, x) {
-  const refs = b.referrals || []; if (!refs.length) return '';
-  const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H', n = Math.min(b.origin_stops || refs.length, refs.length);
-  const lists = { first: refs.slice(0, n), second: refs.slice(n) };
-  // A stopped bill stopped at the stop its last stage names: Triple = the first, Decking = the last, Lateral = between.
-  const ds = x.stopped ? (b.died_at_stage || '') : '';
-  const deadLeg = ds ? (/^second|^first_crossover/.test(ds) ? 'second' : 'first') : null;
-  // Through every committee and stopped at the floor vote (first_floor / second_floor): none of them stopped it.
-  const deadIdx = list => /_floor$/.test(ds) ? list.length : ds === 'first_crossover' || /triple|introduced/.test(ds) ? 0 : /decking/.test(ds) ? list.length - 1 : list.length <= 2 ? 0 : list.length - 2;
-  const allPast = x.law || x.ballot || /governor|vetoed|conference|second_crossover/.test(b.stage) || /governor|vetoed|conference|ballot/.test(st.phase);
-  const state = (leg, list, i) => {
-    if (allPast) return 'past';
-    if (deadLeg) { if (leg !== deadLeg) return leg === 'first' ? 'past' : 'next'; const di = deadIdx(list); return i < di ? 'past' : i === di ? 'dead' : 'next'; }
-    if (b.stage === 'dead') return 'plain';
-    const here = st.leg === leg && st.phase === 'committee' && st.stop === i + 1;
-    const s = here ? 'here' : (st.leg !== leg ? leg === 'first' : (st.phase !== 'committee' || st.stop > i + 1)) ? 'past' : 'next';
-    return x.stopped && s === 'here' ? 'dead' : s;
-  };
-  const IC = { past: 'circle-check', here: 'circle-dot', dead: 'circle-x', next: 'circle', plain: 'circle' };
-  const line = (leg, ch) => lists[leg].length ? `<div class="bl-pch"><p class="bl-pchn">${N[ch]}</p><ol class="bl-path">${lists[leg].map((c, i) => { const s = state(leg, lists[leg], i);
-      const name = String(c).split('/').map(k => cmteLabel(k, { short: true })).join(', together with ');
-      return `<li class="bl-p-${s}">${icon(IC[s])}<span>${esc(name)}${s === 'past' ? '<span class="sr"> (passed)</span>' : ''}</span>${s === 'here' ? chip('Now', 'info') : s === 'dead' ? chip('Stopped here') : ''}</li>`; }).join('')}</ol></div>` : '';
-  const waitingRef = !x.stopped && st.leg === 'second' && st.phase === 'committee' && !lists.second.length;
-  return line('first', o) + (lists.second.length ? line('second', t) : waitingRef ? `<div class="bl-pch"><p class="bl-pchn">${N[t]}</p><p class="bl-pnone">Not sent to a committee yet</p></div>` : '');
-}
 function sponsorText(b) {
   const o = originOf(b);
   const names = (b.sponsors || []).map(s => typeof s === 'string' ? s : s?.n || s?.name || '').filter(Boolean).map(n => {
@@ -668,13 +695,12 @@ function versionText(v) {
 }
 function details(b, x) {
   const comp = companionsOf(b);
-  const path = pathHTML(b, x), spons = sponsorText(b);
+  const spons = sponsorText(b);
   const rows = [
     b.title ? ['Official title', esc(titleCase(b.title))] : null,
     // Always here in full: the headline above may be a name, a summary, or only the first sentence of this.
     b.description ? ['Official summary', esc(b.description)] : null,
-    // The path says the order; this line says why it matters (R-005, G-13: "stop 1 of 2" taught without the shorthand).
-    path ? ['Committees', `${path}<span class="bl-date">It needs a yes from each committee, in this order.</span>`] : null,
+    // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
     spons ? ['Introduced by', esc(spons)] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
     comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,

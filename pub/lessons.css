@@ -45,7 +45,7 @@
 .lx-msum { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .lx-msec .chip { margin-top: var(--s8); white-space: normal; }
 .lx-mstatus { font-size: var(--t14); color: var(--n900); line-height: 1.4; }
-/* the bill page's own rail (railHTML), drawn the way a phone shows it: seven dots and one "Now" line */
+/* the bill page's own rail (railHTML), drawn the way a phone shows it: four to eleven dots (one per committee, R-081) and one "Now" line */
 .lx-mrail { margin-top: var(--s4); }
 .lx-mini .bl-page .bl-rail { row-gap: var(--s4); }
 .lx-mini .bl-page .bl-dlbl { display: none; }
@@ -58,6 +58,10 @@
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(5) .bl-dot { animation-delay: 440ms; }
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(6) .bl-dot { animation-delay: 550ms; }
 .lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(7) .bl-dot { animation-delay: 660ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(8) .bl-dot { animation-delay: 770ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(9) .bl-dot { animation-delay: 880ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(10) .bl-dot { animation-delay: 990ms; }
+.lx-mini.lx-play .lx-msec.lx-cur .bl-dots li:nth-child(11) .bl-dot { animation-delay: 1100ms; }
 /* the page's action button, as a PICTURE of one (R-062, Nate 9/26: the solid button looked like something to press,
    next to the lesson's own Next). An outline with a dashed edge and no fill reads as a drawing; --p800 text keeps
    4.5:1 while the part is dimmed. The real Next is the only filled button on the screen. */

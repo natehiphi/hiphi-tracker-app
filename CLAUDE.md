@@ -58,6 +58,12 @@ from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the 
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
 50 ready-made conversations (R-075: tap a question, a short answer with a small drawing, the next question; no typing
 box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`.
+**A bill's pathway names each committee (R-081, 9/29):** `railInfo` in `pub/bill.js` expands the House and Senate
+committee steps into one step per committee (two heard together are one step), so a path has 4 to 11 dots; a chamber that
+has not picked its committees yet stays one "Senate committees" step. The line under the dots reads "Now: House Health,
+1st of 3 House committees" or "Stopped in House Health" (the committee from `stoppedAt` in `stops.js`); the lessons and
+the tour read those words, so change them there. "See all steps" links each committee's page; More details no longer
+repeats the list. From nine dots they shrink, and on wide screens their names alternate above and below the line.
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).

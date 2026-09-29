@@ -89,6 +89,9 @@ CHOICES_JS = r"""(() => {
   const kinds = new Set(), nav = new Set(); let all = 0;
   document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab]').forEach(e => {
     if (e.offsetParent === null || e.closest('.skip')) return;
+    // Inside a closed fold (<details>) nothing but its summary can be seen or tapped; Chrome still gives the hidden
+    // contents a box, so the bill page's committee links under "See all steps" counted as three controls (R-081).
+    const fold = e.closest('details:not([open])'); if (fold && e.parentElement !== fold) return;
     const r = e.getBoundingClientRect();
     if (r.top >= H || r.bottom <= 0 || r.width < 8 || r.height < 8) return;
     if (getComputedStyle(e).visibility === 'hidden') return;
