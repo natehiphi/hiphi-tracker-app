@@ -4,7 +4,7 @@
 // Follow-ups after Nate's review (9/19): the page leads with the bill's everyday name when it has one, asks "Where do
 // you stand?" near the top, keeps community numbers to this one bill, follows the same easiest-first ladder as the
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
-import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, cmteLabel, roomLabel,
+import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
@@ -398,6 +398,8 @@ function railInfo(b, x) {
 }
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
+// A stopped bill: under "Stopped in Senate committees", exactly why (Nate 9/29: "These notes need to be in the steps
+// section"; R-085). The committee, what happened there, and the rule it missed with its date.
 export function railHTML(b, x) {
   const r = railInfo(b, x), n = r.names.length, at = s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
   // The words under the dots start under the current dot, end under it at the right-hand end, or centre on it between;
@@ -413,6 +415,7 @@ export function railHTML(b, x) {
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
       <p class="bl-nowlbl bl-${align}" style="grid-column:${from} / span ${span}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
+    ${x.stopped ? `<p class="bl-why">${esc(stopDetail(b))}</p>` : ''}
     <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol>
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details>`;   // the lesson, in the moment (R-067 #11)
 }

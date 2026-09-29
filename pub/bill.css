@@ -106,6 +106,7 @@
 .bl-page .bl-nowlbl b { color: var(--p700); }
 .bl-page .bl-railstop .bl-nowlbl { color: var(--n700); font-weight: 700; }
 .bl-page .bl-raillaw .bl-nowlbl b { color: var(--ok-text); }
+.bl-page .bl-why { margin: var(--s8) 0 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); }   /* why it stopped, under the step bar (R-085) */
 /* the label sits under the current dot, kept inside the card at the two ends (its columns are set inline by railHTML,
    since a path has four to eleven steps: each committee is its own step since R-081) */
 /* Nine or more steps (two or three committees a side): smaller dots, so eleven fit a 320px phone without touching. */
