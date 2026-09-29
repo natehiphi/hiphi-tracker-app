@@ -281,7 +281,8 @@
      two columns of room. The dots share one set of rows (subgrid), so the row above grows to the longest name there and
      every dot stays on one line; the line joining them is drawn from each dot's own box. */
   .bl-page .bl-alt .bl-dots { grid-template-rows: auto 32px auto; }
-  .bl-page .bl-alt .bl-dots li { display: grid; grid-row: 1 / span 3; grid-template-rows: subgrid; justify-items: center; }
+  .bl-page .bl-alt .bl-dots li { display: grid; grid-row: 1 / span 3; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  /* (the one column is the dot's own width: left to size itself, it grew to the longest word and names overlapped, HB1782) */
   .bl-page .bl-alt .bl-dots li::before { display: none; }
   .bl-page .bl-alt .bl-dw { grid-row: 2; position: relative; justify-self: stretch; }
   .bl-page .bl-alt .bl-dots li:not(:first-child) .bl-dw::before { content: ''; position: absolute; top: 15px; left: -50%; right: 50%; height: 2px; background: var(--n200); }

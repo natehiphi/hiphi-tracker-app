@@ -76,7 +76,8 @@ in House Health and Human Services" (the committee from `stoppedAt` in `stops.js
 with "with" when a name has its own "and" (more than two such: "with 3 other committees"); a retired code stays as its code.
 The lessons and the tour read those words, so change them there. "See all steps" links each committee's page; More
 details no longer repeats the list. From nine dots they shrink; on wide screens (from seven dots) the names alternate
-above and below the line, in a subgrid whose top row grows to the longest name.
+above and below the line, in a subgrid whose top row grows to the longest name. `tests/pathway.py` checks the dots, the
+names, the links and that no two names overlap.
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).
