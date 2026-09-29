@@ -15,12 +15,24 @@
 // quickly." A "Get to know the bill" step now comes first: what it does, where HIPHI stands, and HIPHI's talking points
 // (bills.talking_points, migration 084), each one tap to add to the letter. The town field is gone ("the location field
 // should not be one"), the letter no longer repeats the bill's description, and the closing is theirs to write.
+// 9/29 (R-079, R-080): the same walkthrough writes emails too. x.mode says which:
+//   'testimony'   (default) the letter to a committee, sent on the Capitol website, as above;
+//   'email'       an email to the committee chair(s): at a hearing ("please pass it"), or for a bill waiting for one
+//                 ("please give it a hearing"; x.h is null and x.code is the committee). It replaced the quick email box;
+//   'legislators' an email to the person's own senator and/or representative at a moment they can help (speakup.js);
+//   'intro'       a one-time hello to both of them, listing the issues the person follows and where they stand (no bill).
+// The email modes share the stance, bill and About-you steps, then the letter has a To line and a subject, and the last
+// step is SENDING (Nate: "No asking. Just providing a smooth process for either option"): the message is copied as a
+// safety net, and three buttons each open a new email already filled in - the mail app, Gmail, Outlook.com - with the
+// mail app first on a phone and Gmail first on a laptop. Then "Did you send it?" and the same Mahalo screen.
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
-  billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows } from './core.js';
+  billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
+  hearingText, chairContacts, legById, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareText } from './actions.js';
 import { flower } from './art.js';
+import { introMark } from './speakup.js';
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -107,11 +119,109 @@ function letterFor(b, h, { name, why, points = [], closing = '', stance = hiphiS
 }
 const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), x.points || [], (x.closing || '').trim(), x.stance || '']);
 
+// ---------------- the emails (R-079, R-080) ----------------
+// Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
+// Chairs come from core's chairContacts (the directory's address, else the Capitol pattern), as the quick email did.
+const chairsTo = code => chairContacts(code).map(c => ({ greet: `Chair ${c.last}`, label: `${c.title} ${c.leg?.name || c.name}`, role: `Chair, ${c.committee}`,
+  email: c.email || '', url: c.leg?.capitol_url || '', leg: c.leg || null, phone: c.phone || '' }));
+const legSurname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
+export const legTo = (l, role = '') => ({ greet: `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${legSurname(l)}`, label: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`,
+  role: role || `Your ${l.chamber === 'S' ? 'senator' : 'representative'}, ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, email: l.email || '', url: l.capitol_url || '', leg: l, phone: l.phone || '' });
+const andList = xs => xs.length <= 1 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+// "House District 22", or "Senate District 11 and House District 22": where they live, never the street (their address
+// was never kept). Only the districts of the people this email goes to.
+function districtWords(to) {
+  const ds = to.map(t => t.leg).filter(Boolean).sort((a, b) => a.chamber === 'S' ? -1 : b.chamber === 'S' ? 1 : 0).map(l => `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`);
+  return andList([...new Set(ds)]);
+}
+const verbFor = stance => stance === 'oppose' ? 'hold' : stance === 'support' ? 'pass' : 'consider';
+// The committee's next deadline for a bill waiting for a hearing ("Mar 6"), when it has one.
+const hearingBy = b => { const dl = stopOf(b).deadline; return dl && !dl.missed ? dateLong(dl.date + 'T12:00:00-10:00') : ''; };
+// The one sentence that asks for something, by mode and moment.
+function mailAsk(x, n, stance) {
+  const { mode, h, b } = x, when = h ? dateLong(h.scheduled_at) : '', dl = b ? hearingBy(b) : '';
+  const until = dl ? ` It needs one by ${dl} to stay alive this session.` : '';
+  if (mode === 'email' && h) return stance === 'comments' ? `I respectfully ask the committee to consider these comments at the hearing on ${when}.`
+    : `I respectfully ask the committee to ${verbFor(stance)} ${n} at the hearing on ${when}.`;
+  if (mode === 'email') return stance === 'oppose' ? `I respectfully ask you not to schedule ${n} for a hearing.`
+    : stance === 'support' ? `I respectfully ask you to give ${n} a hearing, so the public can weigh in.${until}` : `Please consider these comments as you decide whether to give ${n} a hearing.`;
+  const m = x.moment || {}, cm = m.code ? cmteLabel(m.code) : 'the committee', the = /^the /i.test(cm) ? cm : `the ${cm}`;
+  if (m.kind === 'floor') { const ch = CHAMBER_NAME[m.chamber] || 'full chamber';
+    return `${n} comes to a vote of the full ${ch} soon. ${stance === 'oppose' ? 'Please vote no.' : stance === 'support' ? 'Please vote yes.' : 'Please consider these comments when you vote.'}`; }
+  if (m.kind === 'hearing') return `You ${m.chair ? 'chair' : 'sit on'} ${the}, which hears ${n} on ${when}. ${stance === 'comments' ? 'Please consider these comments.' : `Please vote to ${verbFor(stance)} it.`}`;
+  if (m.kind === 'chair') return stance === 'oppose' ? `As chair of ${the}, please do not schedule ${n} for a hearing.`
+    : stance === 'support' ? `As chair of ${the}, please give ${n} a hearing.${until}` : `As chair of ${the}, please consider these comments as you decide whether to hear ${n}.`;
+  // A member of the committee a bill waits in: the chair decides, and a colleague's word carries.
+  return stance === 'oppose' ? `${n} is waiting in ${the}, where you are a member. Please urge the chair not to schedule it.`
+    : stance === 'support' ? `${n} is waiting for a hearing in ${the}, where you are a member. Please urge the chair to give it a hearing.${until}`
+    : `${n} is waiting in ${the}, where you are a member. Please consider these comments.`;
+}
+function mailSubject(x) {
+  const { mode, b, h } = x, stance = x.stance || (b ? hiphiStance(b) : 'comments');
+  if (mode === 'intro') return `Aloha from a constituent in ${districtWords(x.to) || 'your district'}`;
+  const n = spaced(b.bill_number), m = x.moment || {};
+  if (mode === 'email') return h ? (stance === 'comments' ? `${n}: comments for the hearing on ${dateLong(h.scheduled_at)}` : `${n}: please ${verbFor(stance)} it (hearing ${dateLong(h.scheduled_at)})`)
+    : stance === 'oppose' ? `${n}: please do not schedule it` : stance === 'support' ? `${n}: please give it a hearing` : `${n}: comments`;
+  const want = m.kind === 'floor' ? (stance === 'oppose' ? `please vote no on ${n}` : stance === 'support' ? `please vote yes on ${n}` : `comments on ${n}`)
+    : m.kind === 'hearing' ? (stance === 'comments' ? `comments on ${n}` : `please vote to ${verbFor(stance)} ${n}`)
+    : stance === 'oppose' ? `please do not schedule ${n}` : stance === 'support' ? `please help ${n} get a hearing` : `comments on ${n}`;
+  return `Constituent in ${districtWords(x.to) || 'your district'}: ${want}`;
+}
+// A bill in the introduction: "HB 1523 (Disposable vape ban)".
+const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
+// What the introduction lists (R-080 C): the issues they follow, the bills they took a stand on, and, as "following",
+// up to five more live bills on those issues (a long list of numbers is noise to a legislator's office).
+export function introFacts() {
+  const all = [...new Map([...S.bills, ...Object.values(S.extra || {})].map(b => [b.id, b])).values()];
+  const st = id => (S.stances || {})[id];
+  const support = all.filter(b => st(b.id) === 'support'), oppose = all.filter(b => st(b.id) === 'oppose');
+  const following = all.filter(b => S.watch.has(b.id) && !st(b.id) && alive(b) && posInfo(b));
+  return { issues: followedIssues().map(i => i.name), support, oppose, following: following.slice(0, 5), moreFollowing: Math.max(0, following.length - 5) };
+}
+function mailLetter(x) {
+  const { b, to } = x, name = String(x.name).trim(), why = sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
+  const dear = `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`, where = districtWords(to);
+  if (x.mode === 'intro') {
+    const f = introFacts(), off = sessionInfo().phase !== 'in', line = (label, bs) => bs.length ? `${label}: ${bs.map(billWords).join('; ')}.` : '';
+    return [dear,
+      `My name is ${name}, and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}. I am writing to introduce myself and share the health issues I care about.`,
+      f.issues.length ? `The issues I follow: ${andList(f.issues)}.` : '',
+      [line('Bills I support', f.support), line('Bills I oppose', f.oppose),
+        f.following.length ? `Bills I am following: ${f.following.map(billWords).join('; ')}${f.moreFollowing ? `, and ${f.moreFollowing} more` : ''}.` : ''].filter(Boolean).join('\n'),
+      why,
+      `I hope you will keep these in mind ${off ? 'in the next session' : 'this session'}. I would be glad to hear where you stand.`,
+      close].filter(Boolean).join('\n\n');
+  }
+  const n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), ours = sameAsHiphi(b, stance);
+  const me = x.mode === 'legislators' ? `My name is ${name}, and I live in your district${where ? ` (${where})` : ''}.` : `My name is ${name}.`;
+  return [dear, `${openingLine(b, n, stance)} ${me}`, (x.points || []).map(sentence).join(' '), why,
+    [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '), close].filter(Boolean).join('\n\n');
+}
+// The letter for whichever mode is open.
+const letterOf = x => x.mode === 'testimony' ? letterFor(x.b, x.h, x) : mailLetter(x);
+const isMail = x => !!x && x.mode !== 'testimony';
+
+// The three ways to open a new email that is already filled in. Links have a length limit (a mail app on Windows cuts a
+// mailto near 2,000 characters; Gmail's and Outlook's addresses near 8,000), so a longer message leaves its body out and
+// the step says "paste it in": the message is on the clipboard already.
+const MAILTO_MAX = 1900, WEB_MAX = 7500;
+function sendLinks(x) {
+  const to = x.to.map(t => t.email).filter(Boolean), e = encodeURIComponent, subj = x.subject, body = x.letter.replace(/\r?\n/g, '\r\n');
+  const mk = (base, max) => { const full = base(body); return full.length <= max ? { href: full, cut: false } : { href: base(''), cut: true }; };
+  return {
+    app: mk(bd => `mailto:${to.join(',')}?subject=${e(subj)}${bd ? `&body=${e(bd)}` : ''}`, MAILTO_MAX),
+    gmail: mk(bd => `https://mail.google.com/mail/?view=cm&fs=1&to=${e(to.join(','))}&su=${e(subj)}${bd ? `&body=${e(bd)}` : ''}`, WEB_MAX),
+    outlook: mk(bd => `https://outlook.live.com/mail/0/deeplink/compose?to=${e(to.join(','))}&subject=${e(subj)}${bd ? `&body=${e(bd)}` : ''}`, WEB_MAX),
+  };
+}
+// A phone has its own mail app; a laptop more often reads email in a browser. Never asked (Nate 9/29).
+const onPhone = () => { try { return matchMedia('(pointer: coarse)').matches || innerWidth < 720; } catch { return false; } };
+
 // The bill's own page on the Capitol website, where "Submit Testimony" lives.
 function capitolUrl(b, h) {
   if (b.state_url) return b.state_url;
   const m = /^([A-Z]+)\s*(\d+)/.exec(String(b.bill_number || '').toUpperCase());
-  const yr = b.session_year || +hstDay(h.scheduled_at).slice(0, 4);
+  const yr = b.session_year || (h ? +hstDay(h.scheduled_at).slice(0, 4) : sessionInfo().yr);
   return m ? `https://capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${yr}` : 'https://capitol.hawaii.gov/';
 }
 // The words on the Capitol testimony form.
@@ -174,12 +284,47 @@ function keyOf(el) {
   return href ? `a[href="${CSS.escape(href)}"]` : '';
 }
 
+// Where an email's draft is kept (hiphi_me.mail, one per bill and moment): never in hiphi_me.drafts, which is testimony's
+// and turns a bill's button into "Finish sending your testimony".
+const mailKey = x => [x.mode, x.b?.id || '', x.h?.id || x.code || x.moment?.key || ''].join('|');
+// Open the walkthrough in an email mode. o: { mode: 'email' | 'legislators' | 'intro', bill, hearing, code, legs: [ids],
+// moment: { kind, key, chamber, code, chair }, stance, points } (stance and points come along from a testimony handover).
+function openMail(o = {}) {
+  if (S.helper) return;
+  const mode = o.mode || 'email', h = o.hearing ? anyHearing(o.hearing) : null, b = mode === 'intro' ? null : anyBill(o.bill || h?.bill_id);
+  const code = mode === 'email' ? (h ? h.committee : o.code) : o.moment?.code || null;
+  const to = (mode === 'email' ? chairsTo(code) : (o.legs || []).map(legById).filter(Boolean).map(l => legTo(l, o.roles?.[l.id]))).filter(t => t.email || t.url);
+  if ((mode !== 'intro' && !b) || (o.hearing && !h) || !to.length) { toast('We couldn’t open the email helper. Try again in a moment.', { err: true }); return; }
+  const me = loadMe(), x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '',
+    why: b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : '', points: o.points || [],
+    letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
+  if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
+  const d = (me.mail || {})[mailKey(x)];
+  if (b) { const mine = myStance(b.id); x.stance = mine === 'support' || mine === 'oppose' ? mine : o.stance || d?.stance || null; x.askStance = !x.stance; }
+  x.screen = mode === 'intro' ? 1 : x.askStance ? 'stand' : 'know';
+  if (d && d.points && !o.points) x.points = d.points;
+  if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
+    // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
+    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter);
+    x.letter = x.edited ? d.letter : mailLetter(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
+    x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
+  }
+  S.helper = x;
+  openMark.set({ mode, b: b?.id || '', h: h?.id || '', o: { ...o, points: undefined } });
+  try {
+    history.replaceState({ ...(history.state || {}), y: window.scrollY }, '');
+    if (!history.state?.hp) history.pushState({ ...(history.state || {}), hp: 1 }, '');
+  } catch { /* ignore */ }
+  app.render();
+}
+app.openMail = openMail;
+
 function open(billId, hearingId) {
   if (S.helper) return;
   const h = anyHearing(hearingId), b = h && anyBill(billId || h.bill_id);
   if (!b || !h) { toast('We couldn’t open the letter helper. Try again in a moment.', { err: true }); return; }
   const me = loadMe(), d = (me.drafts || {})[h.id];
-  const x = { b, h, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '', points: d?.points || [],
+  const x = { mode: 'testimony', b, h, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '', points: d?.points || [],
     // A reason written for another bill would be out of place, so "why" comes back only for this bill.
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : '',
     letter: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
@@ -202,7 +347,7 @@ function open(billId, hearingId) {
     x.back = x.screen === 3 && !!(d.away || d.back);
   }
   S.helper = x;
-  openMark.set({ b: b.id, h: h.id });
+  openMark.set({ mode: 'testimony', b: b.id, h: h.id });
   // One history entry for the whole helper, so the phone's Back closes it. The entry under it keeps the scroll spot.
   try {
     history.replaceState({ ...(history.state || {}), y: window.scrollY }, '');
@@ -233,8 +378,8 @@ function closeNow() {
     if (next) { next(); return; }
     // Focus goes back to the button that opened the helper; if the page no longer has it (the card is done now),
     // to the card's own testimony button or headline, and last to the page itself, never to the top of the document.
-    const id = CSS.escape(x.h.id), find = sel => { try { return sel ? document.querySelector(sel) : null; } catch { return null; } };
-    const back = [find(x.opener), document.querySelector(`[data-helper="${id}"]`), document.querySelector(`#t-${id} a`), document.getElementById('main')]
+    const id = CSS.escape(x.h?.id || '-'), find = sel => { try { return sel ? document.querySelector(sel) : null; } catch { return null; } };
+    const back = [find(x.opener), document.querySelector(`[data-helper="${id}"]`), document.querySelector(`[data-mail-h="${id}"]`), document.querySelector(`#t-${id} a`), document.getElementById('main')]
       .find(el => el && el.getClientRects().length);
     back?.focus({ preventScroll: true });
     if (x.toast) toast(x.toast);
@@ -246,6 +391,8 @@ window.addEventListener('popstate', e => { if (S.helper && !e.state?.hp) closeNo
 document.addEventListener('visibilitychange', () => {
   const x = S.helper; if (!x) return;
   if (document.visibilityState === 'hidden') { if (x.screen === 3) x.away = true; if (x.screen === 'acct' && x.acctNew) x.acctAway = true; saveDraft(); return; }
+  // Back from Gmail or the mail app: the question is already showing (it does not wait for this), so only say so.
+  if (x.screen === 'mail' && x.opened && !x.welcomed) { x.welcomed = true; if (!x.asked) { x.asked = true; paint(); } announce('Welcome back. Did you send it?'); return; }
   if (x.screen === 'acct' && x.acctAway && !x.acctBack) { x.acctBack = true; paint(); announce('Welcome back. When your account is ready, choose I’m signed up.'); return; }
   // The inline "Open the Capitol page again" appears with the green-box button, so the whole screen is re-drawn.
   if (x.screen === 3 && x.away && !x.back && !x.busy) { x.back = true; saveDraft(); paint(); announce('Welcome back. If you saw the green box, choose I saw the green box.'); }
@@ -255,6 +402,16 @@ window.addEventListener('pagehide', () => { if (S.helper) { if (S.helper.screen 
 // The draft lives in hiphi_me.drafts, one per hearing, and goes away once the testimony is sent.
 function saveDraft() {
   const x = S.helper; if (!x) return;
+  if (isMail(x)) {
+    const mail = { ...(loadMe().mail || {}) }, k = mailKey(x);
+    for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
+    if (x.screen === 'done') delete mail[k];
+    else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
+      points: x.points, subject: x.subject, opened: x.opened || '', at: new Date().toISOString() };
+    else if (mail[k]) mail[k] = { ...mail[k], points: x.points, stance: x.stance, at: new Date().toISOString() };
+    saveMe({ mail });
+    return;
+  }
   const drafts = { ...(loadMe().drafts || {}) };
   for (const [k, v] of Object.entries(drafts)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete drafts[k];
   if (x.screen === 'done') delete drafts[x.h.id];
@@ -268,14 +425,25 @@ function saveDraft() {
 // ---------------- rendering ----------------
 // The steps this person walks, in order: "Where do you stand?" only when they had not said, then the bill itself (9/28),
 // the Capitol account only the first time (R-068). "Part 2 of 5" counts these.
-const seqOf = x => [x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
+// An email: the same steps up to the letter, then 'mail' (sending) instead of the Capitol account and the Capitol page.
+// The introduction has no bill, so it starts with About you.
+const seqOf = x => x.mode === 'intro' ? [1, 2, 'mail'] : isMail(x) ? [x.askStance && 'stand', 'know', 1, 2, 'mail'].filter(Boolean)
+  : [x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
 const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
 function goTo(screen) {
   const x = S.helper; if (!x) return;
   if (screen === 2 && x.screen === 1) {
     const basis = basisOf(x);
-    if (!x.edited) { x.letter = letterFor(x.b, x.h, x); x.basis = basis; x.stale = false; }
+    if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; }
     else x.stale = basis !== x.basis;
+    if (isMail(x) && !x.subjectEdited) x.subject = mailSubject(x);
+  }
+  if (screen === 'mail') {
+    // The safety net (R-079): the message is on the clipboard before any button is chosen, in this same tap (a phone
+    // allows a copy only inside one). If a mail app opens empty or cuts it short, it can be pasted in.
+    const ta = dlg?.querySelector('#hp-letter'); if (ta) x.letter = ta.value;
+    x.autoCopied = false; x.opened = x.opened || ''; x.asked = !!x.opened;
+    copyText(x.letter).then(ok => { if (S.helper === x && x.screen === 'mail') { x.autoCopied = ok; paint(); } });
   }
   x.screen = screen; x.resumed = false; x.copyChip = false; x.copied3 = false; x.trouble = false;
   saveDraft();
@@ -283,13 +451,18 @@ function goTo(screen) {
 }
 const goNext = () => { const x = S.helper, s = seqOf(x); goTo(s[Math.min(s.length - 1, s.indexOf(x.screen) + 1)]); };
 const goBack = () => { const x = S.helper, s = seqOf(x); const i = s.indexOf(x.screen); if (i > 0) goTo(s[i - 1]); };
+// The dialog's name: "Testimony on HB 1523", "Email about HB 1523", "Write to Rep. Marten", "Introduce yourself".
+const shortName = t => t.leg ? `${t.leg.chamber === 'S' ? 'Sen.' : 'Rep.'} ${legSurname(t.leg)}` : t.greet;
+const titleOf = x => x.mode === 'intro' ? 'Introduce yourself' : x.mode === 'legislators' ? `Write to ${x.to.length === 1 ? shortName(x.to[0]) : 'your legislators'}`
+  : `${x.mode === 'email' ? 'Email about' : 'Testimony on'} ${spaced(x.b.bill_number)}`;
 function inner() {
-  const x = S.helper, n = spaced(x.b.bill_number), done = x.screen === 'done', own = false, total = seqOf(x).length, step = done ? total : stepNo(x);
+  const x = S.helper, done = x.screen === 'done', total = seqOf(x).length, step = done ? total : stepNo(x), title = titleOf(x);
   // "Part 1 of 3", not "Step 1 of 3": people often arrive straight from the guided start's "Step 4 of 4". It is said
   // once for screen readers, in the screen's own heading (the dialog's name stays "Testimony on HB 1523").
-  const head = done ? `<p class="hp-title">Testimony on ${esc(n)}</p>`
-    : `<h2 class="hp-title" id="hp-title" tabindex="-1">Testimony on ${esc(n)}</h2><span class="hp-count" aria-hidden="true">Part ${step} of ${total}</span>`;
-  const body = done ? doneScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen() : x.screen === 2 ? letterScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
+  const head = done ? `<p class="hp-title">${esc(title)}</p>`
+    : `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2><span class="hp-count" aria-hidden="true">Part ${step} of ${total}</span>`;
+  const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
+    : x.screen === 2 ? letterScreen() : x.screen === 'mail' ? mailScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
     <div class="hp-prog${done ? ' done' : ''}" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < step || done ? 'on' : i + 1 === step ? 'on now' : ''}"></i>`).join('')}</div>
@@ -299,7 +472,7 @@ function inner() {
   </div>`;
 }
 const screenHead = (step, title) => `<h3 class="hp-h" id="hp-sh" tabindex="-1"><span class="sr">Part ${stepNo(S.helper)} of ${seqOf(S.helper).length}: </span>${title}</h3>`;
-const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', 'Welcome back. Your letter is saved right where you left it.') : '';
+const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', `Welcome back. Your ${isMail(S.helper) ? 'email' : 'letter'} is saved right where you left it.`) : '';
 
 // Where do you stand? Asked only of someone who had not said Support or Oppose on the bill page (R-068: the letter used
 // to say "I strongly support" for a "Not sure yet"). The answer is theirs; HIPHI's position is said once, quietly.
@@ -310,7 +483,7 @@ function standScreen() {
   const w = summaryOf(b), name = nick(b);
   return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
     ${w || name ? `<div class="card hp-kn"><div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div></div>` : ''}
-    <p class="hp-sub hp-standsub">Your testimony is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
+    <p class="hp-sub hp-standsub">Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
@@ -319,9 +492,27 @@ function standScreen() {
 // What it does in plain words, where HIPHI stands and why, and HIPHI's talking points as toggles: each tap adds or
 // removes one in the letter. The points argue HIPHI's side, so they are offered only to someone on that side (or with
 // comments on a bill HIPHI comments on); anyone else is told the next step is theirs to write.
+// Why this email, now: the hearing, the wait, or the person's own legislator's part in it (R-080).
+function whyNow(x) {
+  const { b, h } = x, m = x.moment || {}, who = x.to.map(t => `${shortName(t)}${t.leg ? `, your ${t.leg.chamber === 'S' ? 'senator' : 'representative'},` : ''}`);
+  const cm = code => { const c = cmteLabel(code); return /^the /i.test(c) ? c : `the ${c}`; }, dl = hearingBy(b);
+  let ic = 'clock', text;
+  if (x.mode === 'email') {
+    if (h) text = hearingText(h);
+    else { ic = 'hourglass'; text = `Waiting for a hearing in ${cm(x.code)}. The chair decides which bills get one.${dl ? ` If it is not heard by ${dl}, it stops for this year.` : ''}`; }
+  } else {
+    ic = 'user-check';
+    const one = andList(who);   // "Rep. Marten, your representative," reads on into its verb
+    text = m.kind === 'floor' ? `Waiting for a vote of the full ${CHAMBER_NAME[m.chamber] || 'chamber'}. ${one} votes on it.`
+      : m.kind === 'hearing' ? `${one} ${m.chair ? 'chairs' : 'sits on'} ${cm(m.code)}, which hears it ${dateLong(h.scheduled_at)}.`
+      : m.kind === 'chair' ? `Waiting for a hearing in ${cm(m.code)}. ${one} chairs it and decides.`
+      : `Waiting for a hearing in ${cm(m.code)}. ${one} is a member. The chair decides which bills get one.`;
+  }
+  return `<p class="hp-due hp-why">${icon(ic)}<span>${esc(text)}</span></p>`;
+}
 const pointsOf = x => { const pts = (x.b.hiphi_points || []).filter(Boolean); return (x.stance || hiphiStance(x.b)) === hiphiStance(x.b) ? pts : []; };
 function knowScreen() {
-  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
+  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = isMail(x) ? null : dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
   const act = sentence(b.hiphi_action);
   const pt = (s, i) => { const on = x.points.includes(s);
     return `<li><button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}"><span class="hp-pti" aria-hidden="true">${icon(on ? 'check' : 'plus')}</span>
@@ -335,11 +526,12 @@ function knowScreen() {
         ${capitolLink(b, h, 'Read the bill on the Capitol website', { kind: 'text', sm: true, cls: 'hp-inl' })}</div>
       ${p ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(p.text)} it.${act ? ' ' + esc(act) : ''}</p></div>` : ''}
       ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
+      ${isMail(x) ? whyNow(x) : ''}
     </div>
     ${pts.length ? `<section class="hp-ptsec" aria-labelledby="hp-pth"><h4 class="hp-knh" id="hp-pth">Points you can make</h4>
-        <p class="help" id="hp-pthelp">Tap any to add it to your letter. Pick one, two or none. Your own words matter most.</p>
+        <p class="help" id="hp-pthelp">Tap any to add it to your ${isMail(x) ? 'email' : 'letter'}. Pick one, two or none. Your own words matter most.</p>
         <ul class="hp-pts" role="list" aria-describedby="hp-pthelp">${pts.map(pt).join('')}</ul></section>`
-      : `<p class="hp-own">${icon('pencil')}<span>${x.stance && x.stance !== hiphiStance(b) ? 'Next, you’ll say what you think in your own words. That is what the committee wants to hear.' : 'Next, you’ll add why it matters to you, in a sentence or two.'}</span></p>`}`;
+      : `<p class="hp-own">${icon('pencil')}<span>${x.stance && x.stance !== hiphiStance(b) ? `Next, you’ll say what you think in your own words. That is what ${x.mode === 'legislators' ? 'your legislator' : 'the committee'} wants to hear.` : 'Next, you’ll add why it matters to you, in a sentence or two.'}</span></p>`}`;
 }
 
 // Screen 1: who you are. Errors show only after someone leaves a field or chooses See my letter (Guide B).
@@ -356,18 +548,19 @@ function aboutScreen() {
   const email = S.session ? '' : `<div class="field"><label for="hp-email">Your email <span class="hp-opt">(optional)</span></label>
       <input id="hp-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" value="${esc(x.email)}"
         aria-describedby="${bad ? 'hp-email-err ' : ''}hp-email-help"${bad ? ' aria-invalid="true"' : ''}>${bad ? errHTML('email') : ''}
-      <span class="help" id="hp-email-help">We’ll email you when a bill on your issues has a hearing. No password. Your email is never part of your letter.</span>
+      <span class="help" id="hp-email-help">We’ll email you when a bill on your issues has a hearing. No password.${isMail(x) ? '' : ' Your email is never part of your letter.'}</span>
       ${x.link === 'failed' && x.linkTo === x.email.trim() ? `<span class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link just now. We’ll try again when you continue.</span></span>` : ''}</div>`;
   const picked = x.points.length;
   return `<div class="hp-top">${screenHead(1, 'About you')}
-      ${picked ? `<p class="hp-sub">${picked === 1 ? 'The point you picked is' : `The ${picked} points you picked are`} in your letter. Add your own reason if you can.</p>` : ''}</div>
-    ${notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone in Hawaiʻi can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
+      ${picked ? `<p class="hp-sub">${picked === 1 ? 'The point you picked is' : `The ${picked} points you picked are`} in your ${isMail(x) ? 'email' : 'letter'}. Add your own reason if you can.</p>` : ''}</div>
+    ${isMail(x) ? notice('info', 'info', `Your email goes from your own email account straight to ${esc(andList(x.to.map(shortName)))}. HIPHI never sees it or sends it for you. Share only what you’re comfortable with. You don’t have to share health details to be heard.`)
+      : notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone in Hawaiʻi can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
     <form id="hp-form" class="hp-form" novalidate>
       ${field('name', 'Your name', 'name')}
       ${email}
-      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `Why it matters to you <span class="hp-opt">(optional)</span>`}</label>
+      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `${x.mode === 'intro' ? 'Why these issues matter to you' : 'Why it matters to you'} <span class="hp-opt">(optional)</span>`}</label>
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
-        <span class="help" id="hp-why-help">${own2() ? 'This is the heart of your letter. One or two sentences in your own words.' : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
+        <span class="help" id="hp-why-help">${own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
@@ -378,7 +571,7 @@ function aboutScreen() {
 const CLOSINGS = ['Mahalo for the opportunity to testify', 'Mahalo nui loa', 'With aloha'];
 const ERR = { name: 'Enter your name', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
-const own2 = () => { const x = S.helper; return !!x && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
+const own2 = () => { const x = S.helper; return !!x && !!x.b && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
 const HELP = { email: 'hp-email-help' };   // fields whose help text stays described while an error shows
 const errHTML = f => `<span class="err" id="hp-${f}-err">${icon('triangle-alert')}${ERR[f]}</span>`;
 function lateBanner(h, { email = true } = {}) {
@@ -389,6 +582,7 @@ function lateBanner(h, { email = true } = {}) {
 
 // Screen 2: the letter, ready to copy. Lato 16px in a box that grows with the text (no inner scrolling on a phone).
 function letterScreen() {
+  if (isMail(S.helper)) return mailLetterScreen();
   const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
   return `<div class="hp-top">${screenHead(2, 'Your letter')}
       <p class="hp-sub" id="hp-lsub">We wrote it from your answers. Read it over and change anything you like.</p></div>
@@ -400,6 +594,61 @@ function letterScreen() {
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
       ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>`;
+}
+
+// The email, ready to read over (R-079): who it goes to, a subject they can change, and the message. Sending is the next step.
+const toList = x => x.to.map(t => `<li><span class="hp-toname">${esc(t.label)}</span><span class="hp-torole">${esc(t.role)}</span>
+    ${t.email ? `<span class="hp-toaddr">${esc(t.email)}</span>` : `<span class="hp-toaddr">No email address listed. ${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">See their Capitol page</a>` : ''}</span>`}</li>`).join('');
+function mailLetterScreen() {
+  const x = S.helper;
+  return `<div class="hp-top">${screenHead(2, 'Your email')}
+      <p class="hp-sub" id="hp-lsub">We wrote it from your answers. Read it over and change anything you like.</p></div>
+    ${welcomeBack()}
+    ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this email.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
+    <div class="hp-to"><p class="hp-knh" id="hp-toh">To</p><ul class="hp-tol" role="list" aria-labelledby="hp-toh">${toList(x)}</ul></div>
+    <div class="field"><label for="hp-subject">Subject</label><input id="hp-subject" name="subject" type="text" autocomplete="off" autocapitalize="sentences" value="${esc(x.subject)}"></div>
+    <div class="field hp-msgf"><label for="hp-letter">Message</label>
+      <textarea id="hp-letter" class="hp-letter hp-mailbody" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="12">${esc(x.letter)}</textarea></div>
+    ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your message is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
+    <div class="hp-under">${btn('Copy message', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}</div>`;
+}
+
+// Sending (R-079). One screen, no question first: the message is already on the clipboard (goTo), and each button opens
+// a new email with the address, subject and message filled in. The first button is the likeliest one for this device.
+// Once one is chosen, "Did you send it?" takes over the heading and the footer, like the green box for testimony.
+const SEND = {
+  app: { label: 'Open in my mail app', sub: '' },
+  gmail: { label: 'Open in Gmail', sub: 'Opens in a new tab' },
+  // outlook.live.com's compose link is for Outlook.com and Hotmail accounts; a work account's Outlook does not take it.
+  outlook: { label: 'Open in Outlook.com', sub: 'For Outlook.com and Hotmail, in a new tab' },
+};
+function mailScreen() {
+  const x = S.helper, L = sendLinks(x), order = onPhone() ? ['app', 'gmail', 'outlook'] : ['gmail', 'outlook', 'app'];
+  const noAddr = !x.to.some(t => t.email);
+  const send = (via, i) => { const l = L[via], main = i === 0 && !x.asked, s = SEND[via];
+    return `<li><a class="btn ${main ? 'primary' : 'secondary'} full hp-send" href="${esc(l.href)}" data-hp="send" data-via="${via}"${via === 'app' ? '' : ' target="_blank" rel="noopener"'}>
+      ${icon(via === 'app' ? 'mail' : 'at-sign')}<span>${s.label}</span>${via === 'app' ? '' : icon('external-link', { cls: 'hp-ext' })}</a>
+      ${s.sub || l.cut ? `<p class="hp-sendsub">${esc([s.sub, l.cut ? 'Your message is long: paste it in.' : ''].filter(Boolean).join('. '))}</p>` : ''}</li>`; };
+  const trouble = x.trouble ? `<div class="notice warn hp-trouble">${icon('circle-help')}<div>
+      <p><b>Nothing opened?</b> Try another button, or copy the address and message below into any email.</p>
+      <p><b>The message was missing or cut short?</b> ${x.autoCopied ? 'It’s copied: paste it into the email.' : 'Choose Copy message below, then paste it into the email.'}</p>
+      ${x.to.find(t => t.phone) ? `<p><b>Rather call?</b> ${esc(shortName(x.to.find(t => t.phone)))}’s office: <a class="hp-tel" href="tel:${esc(String(x.to.find(t => t.phone).phone).replace(/[^\d+]/g, ''))}">${esc(x.to.find(t => t.phone).phone)}</a></p>` : ''}
+      <p><b>Still stuck?</b> The Public Access Room helps for free: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p></div></div>` : '';
+  const copies = `<div class="hp-other"><p class="hp-knh">Use another email service?</p><p class="small">Copy each part and paste it in.</p>
+      <div class="hp-under hp-copies">${btn('Copy address', { kind: 'text', sm: true, icon: 'at-sign', attrs: { 'data-hp': 'copypart', 'data-part': 'to' } })}
+        ${btn('Copy subject', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-hp': 'copypart', 'data-part': 'subject' } })}
+        ${btn('Copy message', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-hp': 'copypart', 'data-part': 'body' } })}
+        ${x.partChip ? `<span class="okmsg" role="status">${icon('check')}${esc(x.partChip)}</span>` : ''}</div></div>`;
+  return `<div class="hp-top">${screenHead(3, x.asked ? 'Did you send it?' : 'Send your email')}
+      <p class="hp-sub">${x.asked ? 'If your email went, choose Yes, I sent it. Not sure? Look in your Sent folder.'
+        : `${x.autoCopied ? 'Your message is copied, just in case. ' : ''}Choose where you write email. Each one opens a new email with everything filled in.`}</p></div>
+    ${trouble}
+    ${welcomeBack()}
+    ${noAddr ? `${notice('warn', 'triangle-alert', 'We don’t have an email address for them. Their Capitol page says how to reach them.')}
+      ${x.to.filter(t => t.url).map(t => btn(`${shortName(t)} on the Capitol website`, { kind: 'secondary', iconEnd: 'external-link', full: true, href: t.url, attrs: { target: '_blank', rel: 'noopener' } })).join('')}`
+      : `<ul class="hp-sends" role="list">${order.map(send).join('')}</ul>`}
+    ${copies}
+    ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;
 }
 
 // A copy that survives any browser: their own mail app, addressed to nobody, the letter as the body (R-068).
@@ -468,17 +717,7 @@ function doneScreen() {
   const next = held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${plural ? 'hear' : 'hears'} it ${when}.`;
   const v = streamOf(h), miles = newMilestones(x.before);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
-  // Someone who gave their email on screen 1 has been asked already: they see where to finish, never a second ask.
-  // Everyone else who is signed out gets the one email ask (plan 2.9), with its ids renamed so they never clash
-  // with a copy on the page behind. A link that could not be sent is one quiet line with a way to try again.
-  const gave = !S.session && x.link && x.linkTo;
-  const ask = gave && x.link !== 'failed' ? `<div class="card tint hp-inbox" id="hp-inbox" tabindex="-1" role="status">${icon('mail-check')}<div>
-        <p class="strong">Check your inbox at <span class="hp-break">${esc(x.linkTo)}</span> to finish</p>
-        <p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>
-        ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
-    : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
-        ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
-    : S.nudge ? nudgeCard('action').replace(/(id|for|aria-labelledby|aria-describedby)="ng-/g, '$1="hp-ng-') : '';
+  const ask = emailAsk(x);
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
@@ -486,10 +725,53 @@ function doneScreen() {
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
-      <p>${esc(next)} ${x.followedIssue ? `We now follow ${esc(x.followedIssue.name)} for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.'}</p>
+      <p>${esc(next)} ${followWords(x, n)}</p>
       ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
     ${ask}`;
+}
+const followWords = (x, n) => x.followedIssue ? `We now follow ${esc(x.followedIssue.name)} for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
+// Someone who gave their email on the About you step has been asked already: they see where to finish, never a second
+// ask. Everyone else who is signed out gets the one email ask (plan 2.9), with its ids renamed so they never clash
+// with a copy on the page behind. A link that could not be sent is one quiet line with a way to try again.
+function emailAsk(x) {
+  const gave = !S.session && x.link && x.linkTo;
+  return gave && x.link !== 'failed' ? `<div class="card tint hp-inbox" id="hp-inbox" tabindex="-1" role="status">${icon('mail-check')}<div>
+        <p class="strong">Check your inbox at <span class="hp-break">${esc(x.linkTo)}</span> to finish</p>
+        <p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>
+        ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
+    : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
+        ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
+    : S.nudge ? nudgeCard('action').replace(/(id|for|aria-labelledby|aria-describedby)="ng-/g, '$1="hp-ng-') : '';
+}
+// The Mahalo for an email (R-079): what they did, in words, and what happens next.
+function mailDoneScreen() {
+  const x = S.helper, { b, h } = x, first = x.name.trim().split(/\s+/)[0], names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
+  const n = b ? spaced(b.bill_number) : '', stance = x.stance || (b ? hiphiStance(b) : ''), m = x.moment || {};
+  const lede = x.mode === 'intro' ? `You introduced yourself to ${names}. When a bill on your issues comes up, they’ll know who is writing.`
+    : x.mode === 'legislators' ? `You wrote to ${names} about ${n}. Lawmakers listen closest to the people they represent.`
+    : h ? `You emailed ${names} about ${n}. Chairs read what people send them before the committee votes.`
+    : stance === 'oppose' ? `You asked ${names} not to schedule ${n}. The chair decides which bills get a hearing.`
+    : stance === 'support' ? `You asked ${names} to give ${n} a hearing. The chair decides which bills get one, and a polite ask helps.`
+    : `You sent ${names} your comments on ${n}. The chair decides which bills get a hearing.`;
+  const held = h && new Date(h.scheduled_at) < Date.now(), when = h ? `${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : '';
+  const next = x.mode === 'intro' ? 'When a bill on your issues needs a voice, we’ll show you how to reach them here.'
+    : h ? `${held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${codesOf(h.committee).length > 1 ? 'hear' : 'hears'} it ${when}.`} ${followWords(x, n)}`
+    : m.kind === 'floor' ? `The full ${CHAMBER_NAME[m.chamber] || 'chamber'} votes on it soon. ${followWords(x, n)}`
+    : `If it gets a hearing, you’ll see it in My issues. ${followWords(x, n)}`;
+  const v = h && streamOf(h);
+  const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
+  return `<div class="hp-hero">
+      <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
+      <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
+      <p class="hp-lede">${esc(lede)}</p>
+      ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
+    </div>
+    <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
+      <p>${next}</p>
+      ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
+      ${watch}</section>
+    ${emailAsk(x)}`;
 }
 
 // The sticky footer holds the one main button of each screen. On screen 3 a second, quiet row holds the two ways out
@@ -501,7 +783,11 @@ function foot() {
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
   if (x.screen === 'know') return row((x.askStance ? back : '') + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
-  if (x.screen === 1) return row(back + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>See my letter</span>${icon('arrow-right')}</button>`);
+  if (x.screen === 1) return row((seqOf(x)[0] === 1 ? '' : back) + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>${isMail(x) ? 'See my email' : 'See my letter'}</span>${icon('arrow-right')}</button>`);
+  // Sending an email: the send buttons are the main choice until one is used; then "Yes, I sent it" is (A-3).
+  if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
+    : x.asked ? btn('Yes, I sent it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'mailsent' } }) : ''),
+    x.busy ? '' : (x.asked ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'mailsent' } })) + later);
   if (x.screen === 2) return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
   if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
@@ -510,7 +796,7 @@ function foot() {
     : x.back ? btn('Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
-  return row((x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
+  return row((!x.b ? '' : x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
     + btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
 }
 
@@ -550,7 +836,7 @@ function toLetter() {
   const bad = [...(!x.name.trim() ? ['name'] : []), ...(hasEmail && email && !validEmail(email) ? ['email'] : []), ...(own2() && !x.why.trim() ? ['why'] : [])];
   ['name', ...(hasEmail ? ['email'] : []), 'why'].forEach(f => setErr(f, bad.includes(f)));
   if (bad.length) { dlg.querySelector('#hp-' + bad[0])?.focus(); return; }
-  saveMe({ name: x.name.trim(), closing: x.closing.trim(), why: x.why, whyBill: x.b.id, ...(hasEmail ? { email } : {}) });
+  saveMe({ name: x.name.trim(), closing: x.closing.trim(), ...(x.b ? { why: x.why, whyBill: x.b.id } : { introWhy: x.why }), ...(hasEmail ? { email } : {}) });
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
   goTo(2);
 }
@@ -648,21 +934,64 @@ async function tellFriend() {
   }
   if (!how || S.helper !== x) return;
   // A share counts as an action (plan 7, "every action counts").
-  if (!didKind(x.b, x.h, 'share')) await markDone(x.b.id, x.h.id, 'share', true, { quiet: true });
+  if (!didKind(x.b, x.h, 'share')) await markDone(x.b.id, x.h?.id || '', 'share', true, { quiet: true });
   x.shareChip = how; paint(); dlg?.querySelector('.hp-foot .hp-chip')?.focus({ preventScroll: true }); announce(how);
   setTimeout(() => { if (S.helper === x) { x.shareChip = ''; paintFoot(); } }, 2500);
 }
-function finishLater() { const x = S.helper; x.toast = 'Saved. Your letter will be here when you come back.'; requestClose(); }
-// Late: the email composer lives in the action card, so close and open it there (or on the bill page).
+function finishLater() { const x = S.helper; x.toast = `Saved. Your ${isMail(x) ? 'email' : 'letter'} will be here when you come back.`; requestClose(); }
+// Late testimony: "Email the chair instead" closes this walkthrough and opens the email one on the same hearing, with
+// where they stand and the points they picked carried over (R-079).
 function emailInstead() {
-  const x = S.helper, k = `${x.b.id}|${x.h.id}`;
-  afterClose = () => {
-    S.compose = k; app.render();
-    const el = document.getElementById('cmp-' + x.h.id);
-    if (el) { el.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }); el.querySelector('textarea')?.focus({ preventScroll: true }); }
-    else app.go(billPath(x.b));
-  };
+  const x = S.helper, o = { mode: 'email', bill: x.b.id, hearing: x.h.id, stance: x.stance, points: x.points };
+  afterClose = () => openMail(o);
   requestClose();
+}
+// "Yes, I sent it" (or "I already sent it"): counted exactly as the quick email was - an 'email' action, on the hearing
+// when there is one, else on the bill, so counts, milestones and "You emailed the chair" rows keep working. Asking a
+// chair for a hearing also leaves the per-committee mark (core askMark) so that ask is not offered again; a moment with
+// the person's own legislator leaves its own mark. The introduction has no bill: it is counted by kind only (visitlog)
+// and remembered so its card never comes back (speakup.js).
+async function confirmMail() {
+  const x = S.helper; if (!x || x.busy) return;
+  x.busy = true; x.failMsg = ''; paintFoot();
+  x.before = earned();
+  try {
+    if (x.mode === 'intro') { app.onAct?.('email'); introMark('sent'); }
+    else {
+      await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', 'email', true, { quiet: true });
+      if (x.mode === 'email' && !x.h && x.code) S.done.add(askMark(x.b, x.code));
+      if (x.mode === 'legislators' && x.moment?.key) S.done.add(askMark(x.b, x.moment.key));
+      saveDone();
+    }
+  } catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
+  if (x.b) {
+    const iss = issuesOf(x.b)[0];
+    try {
+      if (iss && !issueFollowed(iss)) { if (await setFollows({ issuesOn: [iss.id] }) !== false) x.followedIssue = iss; }
+      else if (!iss && !S.watch.has(x.b.id)) { await toggleWatch(x.b.id); x.followedNow = S.watch.has(x.b.id); }
+    } catch { /* following is a bonus */ }
+  }
+  if (S.helper !== x) return;
+  x.busy = false; x.screen = 'done'; saveDraft();
+  paint({ focus: 'hp-done-t', top: true });
+  x.askShown = !!S.nudge;
+}
+// One tap on a send button: copy the message again (the tap allows it, and it carries any edits), let the link open the
+// mail app or the new tab, then ask. The dialog is re-drawn a moment later, never inside the tap, so the link still opens.
+function sentVia(via) {
+  const x = S.helper; if (!x) return;
+  copyText(x.letter).then(ok => { if (ok) x.autoCopied = true; });
+  x.opened = via; x.welcomed = false; saveDraft();
+  setTimeout(() => { if (S.helper === x && x.screen === 'mail' && !x.asked) { x.asked = true; paint({ focus: 'hp-sh' }); announce('Did you send it?'); } }, 800);
+}
+async function copyPart(part) {
+  const x = S.helper; if (!x) return;
+  const text = part === 'to' ? x.to.map(t => t.email).filter(Boolean).join(', ') : part === 'subject' ? x.subject : x.letter;
+  const ok = await copyText(text);
+  if (S.helper !== x) return;
+  x.partChip = ok ? { to: 'Address copied', subject: 'Subject copied', body: 'Message copied' }[part] : 'We couldn’t copy it. Go back to select it.';
+  paint(); announce(x.partChip);
+  setTimeout(() => { if (S.helper === x && x.partChip) { x.partChip = ''; paint(); } }, 2500);
 }
 
 function onClick(e) {
@@ -680,7 +1009,7 @@ function onClick(e) {
     const on = !x.points.includes(s), set = new Set(on ? [...x.points, s] : x.points.filter(p => p !== s));
     x.points = all.filter(p => set.has(p)); saveDraft();
     paint({ focus: undefined }); dlg?.querySelector(`[data-hp="point"][data-i="${t.dataset.i}"]`)?.focus({ preventScroll: true });
-    announce(on ? 'Added to your letter' : 'Taken out of your letter');
+    announce(on ? `Added to your ${isMail(x) ? 'email' : 'letter'}` : `Taken out of your ${isMail(x) ? 'email' : 'letter'}`);
   }
   else if (a === 'closing') {
     const x = S.helper, el = dlg?.querySelector('#hp-closing'); x.closing = t.dataset.v; saveMe({ closing: x.closing });
@@ -700,14 +1029,17 @@ function onClick(e) {
   else if (a === 'later') finishLater();
   else if (a === 'share') tellFriend();
   else if (a === 'email') emailInstead();
-  else if (a === 'rewrite') { const x = S.helper; x.letter = letterFor(x.b, x.h, x); x.basis = basisOf(x); x.edited = false; x.stale = false; x.copied = x.saved = false; paint({ focus: 'hp-letter' }); }
+  else if (a === 'send') sentVia(t.dataset.via);
+  else if (a === 'mailsent') confirmMail();
+  else if (a === 'copypart') copyPart(t.dataset.part);
+  else if (a === 'rewrite') { const x = S.helper; x.letter = letterOf(x); x.basis = basisOf(x); x.edited = false; x.stale = false; x.copied = x.saved = false; paint({ focus: 'hp-letter' }); }
   // 'capitol' is a plain link to the Capitol site in a new tab.
 }
 function onInput(e) {
   const x = S.helper, t = e.target; if (!x) return;
   if (t.id === 'hp-name' || t.id === 'hp-why' || t.id === 'hp-closing') {
     const f = t.id.slice(3); x[f] = t.value;
-    saveMe(f === 'why' ? { why: t.value, whyBill: x.b.id } : { [f]: t.value.trim() });
+    saveMe(f === 'why' ? (x.b ? { why: t.value, whyBill: x.b.id } : { introWhy: t.value }) : { [f]: t.value.trim() });
     if (f === 'closing') dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === t.value.trim())));
     if (x.errs[f] && t.value.trim()) setErr(f, false);
   } else if (t.id === 'hp-email') {
@@ -715,6 +1047,8 @@ function onInput(e) {
     // leaving the field or choosing See my letter) clears as soon as the address looks right, or the box is empty.
     const v = t.value.trim(); x.email = t.value; saveMe({ email: v });
     if (x.errs.email && (!v || validEmail(v))) setErr('email', false);
+  } else if (t.id === 'hp-subject') {
+    x.subject = t.value; x.subjectEdited = true;
   } else if (t.id === 'hp-letter') {
     x.letter = t.value; x.edited = true; grow(t);
     const sm = dlg.querySelector('[data-hp="selfmail"]'); if (sm) sm.href = selfMail(x);   // the copy to themselves carries their edits
@@ -751,15 +1085,17 @@ function tryReopen() {
   if (reopen === null) { const o = openMark.get(); reopen = o ? { ...o, until: Date.now() + 10000 } : false; }
   if (!reopen) return;
   if (Date.now() > reopen.until) { reopen = false; openMark.set(null); return; }
-  if (!anyHearing(reopen.h)) return;
+  const mail = reopen.mode && reopen.mode !== 'testimony';
+  if (reopen.h ? !anyHearing(reopen.h) : mail && reopen.b && !anyBill(reopen.b)) return;
+  if (mail && !(S.legislators || []).length) return;
   const o = reopen; reopen = false;
-  setTimeout(() => { if (!S.helper) open(o.b, o.h); }, 0);
+  setTimeout(() => { if (!S.helper) { if (mail) openMail(o.o || {}); else open(o.b, o.h); } }, 0);
 }
 
 export default {
   render() {
     const x = S.helper; if (!x) return '';
-    return `<dialog class="sheet hp-dlg" id="hp-dlg" data-key="${esc(x.b.id + '|' + x.h.id)}" aria-labelledby="${x.screen === 'done' ? 'hp-done-t' : 'hp-title'}">${inner()}</dialog>`;
+    return `<dialog class="sheet hp-dlg${isMail(x) ? ' hp-mail' : ''}" id="hp-dlg" data-key="${esc([x.mode, x.b?.id || '', x.h?.id || '', x.code || ''].join('|'))}" aria-labelledby="${x.screen === 'done' ? 'hp-done-t' : 'hp-title'}">${inner()}</dialog>`;
   },
   wire() {
     const x = S.helper;

@@ -6,11 +6,11 @@ import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, 
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
   nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft } from './core.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
+import { hearingRow, mountHome, openKey } from './speakup.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
+// S.compose and S.sentq are still read by the bill page (pub/bill.js); nothing here sets S.compose any more.
 S.moreOpen ??= new Set(); S.compose ??= null; S.sentq ??= {}; S.goOpen ??= new Set(); S.chips ??= {};
-const me = () => { try { return JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { return {}; } };
-const saveMe = patch => { try { localStorage.setItem('hiphi_me', JSON.stringify({ ...me(), ...patch })); } catch { /* private mode: the draft still works */ } };
 
 // Done lines, one per kind, in the words a person would use.
 function doneLabel(b, h, k) {
@@ -48,9 +48,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
   // Testimony leads wherever there is a hearing, for everyone (Nate 9/27, R-068): the walkthrough writes the letter from
   // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
-  const differs = agrees(b) === false, emailFirst = false, composing = S.compose === k;
+  // The quick email is the email walkthrough now (R-079, 9/29): data-mailwalk opens it in pub/helper.js, like testimony.
+  const differs = agrees(b) === false, emailFirst = false;
   const testimonyBtn = btn(testimonyDraft(h) ? 'Finish sending your testimony' : late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
-  const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-compose': k } });
+  const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-mailwalk': k } });
   const followBtn = btn('Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false' } });
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
   // step 4 (email a committee chair about a bill they met four seconds ago).
@@ -60,20 +61,24 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
   const primary = asking ? followBtn
-    : composing ? '' : RANKED ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
+    : RANKED ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
-    email: differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
+    email: differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     attend: moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
-  const rankedRows = () => [...WEIGHT.filter(x => x !== step).map(rowFor),
+  // Their own senator or representative on this committee (R-080): a row, never the main button, since testimony and the
+  // chair decide a hearing first.
+  const legRow = hearingRow(b, h, moreRow);
+  const rankedRows = () => [...WEIGHT.filter(x => x !== step).map(rowFor), legRow,
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready')].join('');
   const rows = RANKED ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
-    asking || composing ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 10 minutes the first time.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
-    differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-compose': k }, didKind(b, h, 'email') && 'Emailed'),
+    asking ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 10 minutes the first time.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
+    differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
+    legRow,
     moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
     S.goOpen.has(k) ? goPanel(b, h, k) : '',
@@ -92,7 +97,6 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    ${composing ? composer(b, h, k) : ''}
     <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
@@ -110,36 +114,9 @@ function goPanel(b, h, k) {
       <a class="btn text sm" href="${map}" target="_blank" rel="noopener">${icon('map')}Map</a></div></div>`;
 }
 
-// ---- email the chair: an inline composer, the person's own words first ----
-export function chairMessage(b, h) {
-  const p = posInfo(b), m = me(), chairs = chairContacts(h.committee);
-  const dear = chairs.length ? chairs.map(c => `Chair ${c.last}`).join(' and ') : 'Chair';
-  const who = m.name ? `My name is ${m.name}${m.town ? ` and I live in ${m.town}` : ''}. ` : '';
-  const why = (m.why || '').trim();
-  const ask = b.hiphi_action ? b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') + ' ' : '';
-  const body = `Dear ${dear},\n\n${who}I am writing to ${p?.verb || 'comment on'} ${spaced(b.bill_number)}. ${asSentence(blurb(b, 400).replace(/[.…\s]+$/, '') + '.')}\n\n${why ? why.replace(/([^.!?])$/, '$1.') + '\n\n' : ''}${ask}Please ${p?.verb || 'consider'} this bill at the hearing on ${dateLong(h.scheduled_at)}.\n\nMahalo,\n${m.name || '[your name]'}${m.town ? '\n' + m.town : ''}`;
-  const subject = `${spaced(b.bill_number)}: please ${p?.verb || 'consider'} (hearing ${dateLong(h.scheduled_at)})`;
-  return { to: chairs.map(c => c.email).join(','), chairs, subject, body };
-}
-function composer(b, h, k) {
-  const m = chairMessage(b, h), asked = S.sentq[k];
-  const to = m.chairs.length ? m.chairs.map(c => `${c.title} ${esc(c.last)}, Chair, ${esc(c.committee)}`).join('<br>') : 'the committee chair';
-  const mail = `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(S.composeText?.[k] ?? m.body)}`;
-  // Name and town come first when the letter would be signed "[your name]" (a newcomer from a link has told us nothing
-  // yet, R-067). They stay while the box is open, fill the draft as they are typed, and are kept in this browser only.
-  const ask = (S.cmpAsk ??= {}), mine = me(); if (!mine.name) ask[k] = true;
-  const id = esc(h.id), who = ask[k] ? `<div class="cmp-me"><div class="field"><label for="cmpn-${id}">Your name</label><input id="cmpn-${id}" data-mename="${esc(k)}" autocomplete="name" value="${esc(mine.name || '')}"></div>
-    <div class="field"><label for="cmpt-${id}">Your town <span class="muted">(optional)</span></label><input id="cmpt-${id}" data-metown="${esc(k)}" autocomplete="address-level2" value="${esc(mine.town || '')}"></div></div>` : '';
-  return `<div class="composer" id="cmp-${esc(h.id)}">
-    <p class="small"><span class="strong">To:</span> ${to}</p>${who}
-    <div class="field"><label for="msg-${esc(h.id)}">Your message</label><textarea id="msg-${esc(h.id)}" data-msg="${esc(k)}" rows="9">${esc(S.composeText?.[k] ?? m.body)}</textarea>
-      <span class="help">Change anything you like. A sentence in your own words carries the most weight.</span></div>
-    ${asked ? `<div class="sentq" role="group" aria-label="Did you send it?"><span class="strong">Did you send it?</span><div class="btnrow">${btn('Yes, I sent it', { kind: 'primary', sm: true, attrs: { 'data-sentyes': k } })}${btn('Not yet', { kind: 'text', sm: true, attrs: { 'data-sentno': k } })}</div></div>`
-      : `<div class="btncol">${btn('Open in my mail app', { kind: 'primary', icon: 'send', full: true, href: mail, attrs: { 'data-mailto': k } })}
-      <div class="btnrow">${btn('Copy message', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copymsg': k } })}${m.to ? btn('Copy address', { kind: 'text', sm: true, icon: 'at-sign', attrs: { 'data-copyto': m.to } }) : ''}${S.chips[k + 'copied'] ? chip('Copied', 'ok', 'check') : ''}</div></div>`}
-  </div>`;
-}
-
+// ---- email the chair ----
+// The inline composer that lived here (a draft in the card, "Open in my mail app", "Yes, I sent it") became the email
+// walkthrough in pub/helper.js on 9/29 (R-079): the same steps as testimony, then sending by mail app, Gmail or Outlook.
 // ---- calendar: a real .ics file (a Blob), two events: the testimony deadline (2-hour alarm) and the hearing ----
 function icsFor(b, h) {
   const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -201,25 +178,11 @@ export function wireActions(root = document) {
   const $$ = s => root.querySelectorAll(s);
   $$('[data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
   $$('[data-moreways]').forEach(el => el.onclick = () => { const k = el.dataset.moreways; S.moreOpen.has(k) ? S.moreOpen.delete(k) : S.moreOpen.add(k); app.render(); });
-  $$('[data-compose]').forEach(el => el.onclick = () => { const k = el.dataset.compose; S.compose = S.compose === k ? null : k; app.render(); if (S.compose) setTimeout(() => document.getElementById('cmp-' + k.split('|')[1])?.scrollIntoView({ block: 'nearest' }), 20); });
-  $$('[data-msg]').forEach(el => el.oninput = () => { (S.composeText ??= {})[el.dataset.msg] = el.value; });
-  // Typing a name or town rewrites the draft in place (no redraw, so the cursor stays put), until the person edits the
-  // letter itself; from then on their words are theirs.
-  $$('[data-mename],[data-metown]').forEach(el => el.oninput = () => {
-    const k = el.dataset.mename || el.dataset.metown; saveMe({ [el.dataset.mename ? 'name' : 'town']: el.value.trim() });
-    const ta = document.querySelector(`[data-msg="${k}"]`), { b, h } = findBH(k);
-    if (ta && b && h && S.composeText?.[k] === undefined) ta.value = chairMessage(b, h).body;
-  });
-  $$('[data-mailto]').forEach(el => el.addEventListener('click', () => { const k = el.dataset.mailto; const ta = document.querySelector(`[data-msg="${k}"]`);
-    const { b, h } = findBH(k); if (b && h) { const m = chairMessage(b, h); el.href = `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(ta ? ta.value : m.body)}`; }
-    setTimeout(() => { S.sentq[k] = true; app.render(); }, 800); }));
-  $$('[data-sentyes]').forEach(el => el.onclick = async () => { const k = el.dataset.sentyes, [bid, hid] = k.split('|'); delete S.sentq[k]; S.compose = null; await markDone(bid, hid, 'email');
-    if (await app.newcomerActed?.(findBH(k).b)) return;   // a first visit from a link: its moment, count and next step (bill.js)
-    app.render(); });
-  $$('[data-sentno]').forEach(el => el.onclick = () => { delete S.sentq[el.dataset.sentno]; app.render(); });
-  $$('[data-copymsg]').forEach(el => el.onclick = async () => { const k = el.dataset.copymsg, ta = document.querySelector(`[data-msg="${k}"]`);
-    try { await navigator.clipboard.writeText(ta ? ta.value : ''); S.chips[k + 'copied'] = true; app.render(); setTimeout(() => { delete S.chips[k + 'copied']; app.render(); }, 2000); } catch (e) { toast(e, true); } });
-  $$('[data-copyto]').forEach(el => el.onclick = async () => { try { await navigator.clipboard.writeText(el.dataset.copyto); toast('Address copied'); } catch (e) { toast(e, true); } });
+  // The email to the chair: the walkthrough (helper.js), on this hearing.
+  $$('[data-mailwalk]').forEach(el => el.onclick = () => { const [bid, hid] = el.dataset.mailwalk.split('|'); app.openMail?.({ mode: 'email', bill: bid, hearing: hid }); });
+  // Their own legislator on this committee (R-080), and Home's cards for the other moments and the introduction.
+  $$('[data-speak]').forEach(el => el.onclick = () => openKey(el.dataset.speak));
+  mountHome(root);
   $$('[data-share]').forEach(el => el.onclick = async () => { const k = el.dataset.share, [bid, hid] = k.split('|'), { b, h } = findBH(k); if (!b) return;
     const t = shareText(b, h); let ok = false;
     try { if (navigator.share) { await navigator.share({ title: spaced(b.bill_number), text: t.text, url: t.url }); ok = true; } else { await navigator.clipboard.writeText(t.text); ok = true; S.chips[k + 'share'] = true; } } catch { /* cancelled */ }

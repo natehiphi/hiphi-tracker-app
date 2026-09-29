@@ -31,6 +31,9 @@ LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg butto
   window.open=()=>null; b.click();
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'}); document.dispatchEvent(new Event('visibilitychange'));
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'}); document.dispatchEvent(new Event('visibilitychange')); return true;})()"""
+# The email walkthrough's mail-app button is a mailto link: tapped, but kept from leaving the test browser.
+OPEN_MAIL_APP = """(()=>{const a=[...document.querySelectorAll('#hp-dlg a.hp-send')].find(x=>/mail app/i.test(x.innerText)); if(!a) return false;
+  a.addEventListener('click', e=>e.preventDefault(), {once:true}); a.click(); return true;})()"""
 STAFF  = HOST + '/staff.html?demo=1'
 
 JOURNEYS = [
@@ -66,11 +69,18 @@ JOURNEYS = [
    dict(what='copy it and open the Capitol page (and come back)', do=LEAVE_AND_RETURN, reach=hp_seen('Did you see the green box')),
    dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Yes, I saw the green box'), reach=hp_seen('Mahalo')),
  ]),
- dict(name='public: quick email (more ways to help) -> sent', app=PUBLIC, budget=4, start='#/', skip_wizard=True, steps=[
+ # R-079 (Nate 9/29): the quick email is a walkthrough like testimony: where you stand, the bill and its points, your
+ # name, the email to read over, then sending (the mail app first on a phone) and "Did you send it?". 4 steps became 9.
+ dict(name='public: quick email (more ways to help) -> sent', app=PUBLIC, budget=9, start='#/', skip_wizard=True, steps=[
    dict(what='open more ways to help',   do=click_text('.btn', 'More ways to help'), reach=seen('Send a quick email')),
-   dict(what='choose the quick email',   do=click_text('.mwrow, .btn', 'Send a quick email'), reach=seen('Your message')),
-   dict(what='open it in the mail app',   do=click_text('.btn', 'Open in my mail app'), reach=seen('Yes, I sent it')),
-   dict(what='confirm it was sent',       do=click_text('.btn', 'Yes, I sent it'),      reach=seen('Mahalo|Emailed the chair')),
+   dict(what='choose the quick email',   do=click_text('.mwrow, .btn', 'Send a quick email'), reach=hp_seen('Where do you stand')),
+   dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach=hp_seen('Get to know the bill')),
+   dict(what='move on from the bill',    do=click_text('#hp-dlg button', '^Next'), reach="(()=>!!document.getElementById('hp-name'))()"),
+   dict(what='type your name',           fill=('#hp-name', 'Kai Ho'), reach="(()=>document.getElementById('hp-name')?.value==='Kai Ho')()"),
+   dict(what='see the email',            do=click_text('#hp-dlg button', 'See my email'), reach="(()=>!!document.getElementById('hp-letter'))()"),
+   dict(what='move on to sending',       do=click_text('#hp-dlg button', '^Next'), reach=hp_seen('Send your email')),
+   dict(what='open it in the mail app',  do=OPEN_MAIL_APP, reach=hp_seen('Did you send it')),
+   dict(what='confirm it was sent',      do=click_text('#hp-dlg button', 'Yes, I sent it'), reach=hp_seen('Mahalo')),
  ]),
  # Counted from the moment the address is offered (B-2): the one ask sits under "Coming up on your issues", the last
  # screen before the finale (R-023). The walk there is a newcomer's (a category, its ticked issues, the story, no

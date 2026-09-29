@@ -352,7 +352,7 @@ anything that lengthens one needs a reason in the commit message.
 | Public: arrive → follow a first issue | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
-| Public: quick email (under More ways to help) → sent | 4 steps |
+| Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
 | Public: give an email address (from the moment it is offered) | 2 steps |
 | Staff: open app → first thing due is on screen | 1 step |
 | Staff: bill number in hand → that bill's page | 2 steps |

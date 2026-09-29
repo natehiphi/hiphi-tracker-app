@@ -53,6 +53,16 @@ shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `cel
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
 staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
 is still taken, marked late).
+**Emails are walkthroughs too (R-079, R-080, 9/29):** `pub/helper.js` has modes `testimony` | `email` | `legislators` | `intro`
+(open with `app.openHelper` for testimony, `app.openMail(o)` for the rest). Email: stance → know the bill → about you →
+the email (To, subject, message) → send → "Did you send it?" → Mahalo. The send step never asks: the message is copied,
+and "Open in my mail app" (mailto), "Open in Gmail" and "Open in Outlook.com" each open a filled-in email (phone: mail app
+first; laptop: Gmail first), with "Copy address/subject/message" below. `pub/speakup.js` finds the moments to write to your
+own legislators (floor vote in their chamber; their committee's hearing; waiting in a committee they sit on or chair),
+places the Home cards (and the one-time "Introduce yourself" card, `hiphi_intro`), and takes over the bill page's email
+buttons by their `data-bl-*` hooks (a cleaner later step: `bill.js` calls `app.openMail` itself). Everything counts as kind
+'email' (the database accepts email/testimony/attend/share only). Districts are kept on the device (`hiphi_districts`),
+never the address. `tests/email_walk.py`.
 **Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (`pub/tour.js`, mounted
 from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
