@@ -23,7 +23,7 @@ seen = lambda rx: f"""(()=>/{rx}/i.test((document.querySelector('main')||documen
 
 PUBLIC = HOST + '/track.html?demo=1'
 # The testimony walkthrough's last hop: one tap copies the letter and opens the Capitol site in a new tab; coming back to
-# this tab is what turns the button into "Yes, I saw it" (helper.js listens for the page becoming visible again).
+# this tab is what turns the button into "Yes, I saw the green box" (helper.js listens for the page becoming visible again).
 hp_seen = lambda rx: f"""(()=>{{const d=document.getElementById('hp-dlg'); return !!d && /{rx}/i.test(d.innerText);}})()"""   # the walkthrough is a dialog outside main
 LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/Copy my letter and open/.test(x.innerText)); if(!b) return false;
   window.open=()=>null; b.click();
@@ -62,7 +62,7 @@ JOURNEYS = [
    dict(what='move on from the letter',  do=click_text('#hp-dlg button', '^Next'), reach=hp_seen('Have you sent testimony')),
    dict(what='say you have an account',  do=click_text('#hp-dlg button', 'Yes, I have an account'), reach=hp_seen('Copy my letter and open')),
    dict(what='copy it and open the Capitol page (and come back)', do=LEAVE_AND_RETURN, reach=hp_seen('Did you see the green box')),
-   dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Yes, I saw it'), reach=hp_seen('Mahalo')),
+   dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Yes, I saw the green box'), reach=hp_seen('Mahalo')),
  ]),
  dict(name='public: quick email (more ways to help) -> sent', app=PUBLIC, budget=4, start='#/', skip_wizard=True, steps=[
    dict(what='open more ways to help',   do=click_text('.btn', 'More ways to help'), reach=seen('Send a quick email')),

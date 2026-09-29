@@ -306,8 +306,11 @@ const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', 'Welco
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
   const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
-  return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}
-      <p class="hp-sub">Your testimony is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p></div>
+  // What the bill does, right where they decide (Nate 9/29): nobody should have to pick a side on a number.
+  const w = summaryOf(b), name = nick(b);
+  return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
+    ${w || name ? `<div class="card hp-kn"><div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div></div>` : ''}
+    <p class="hp-sub hp-standsub">Your testimony is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
@@ -366,7 +369,7 @@ function aboutScreen() {
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${own2() ? 'This is the heart of your letter. One or two sentences in your own words.' : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
-        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="For example: Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
@@ -504,7 +507,7 @@ function foot() {
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
     (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
   if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
-    : x.back ? btn('Yes, I saw it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
+    : x.back ? btn('Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
   return row((x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
@@ -635,7 +638,7 @@ function burst() {
   setTimeout(() => box.remove(), 1100);
 }
 async function tellFriend() {
-  const x = S.helper, t = shareText(x.b, x.h); let how = '';
+  const x = S.helper, t = shareText(x.b, x.h, { acted: true }); let how = '';
   try {
     if (navigator.share) { await navigator.share({ title: spaced(x.b.bill_number), text: t.text.replace(t.url, '').trim(), url: t.url }); how = 'Shared. Mahalo!'; }
     else { await navigator.clipboard.writeText(t.text); how = 'Link copied'; }

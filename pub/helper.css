@@ -154,3 +154,4 @@
 .hp-dlg .hp-sug { min-height: 44px; cursor: pointer; }
 .hp-dlg .hp-sug[aria-pressed="true"] { background: var(--p700); color: #fff; border-color: var(--p700); }
 .hp-dlg .hp-kn .hp-inl { margin-left: -16px; }   /* the text link lines up with the words above it; its padding keeps the 44px target */
+.hp-dlg .hp-standsub { margin-top: var(--s16); }   /* under the bill, above the three answers (9/29) */

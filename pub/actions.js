@@ -153,10 +153,16 @@ function icsFor(b, h) {
     ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`, `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, false), 'END:VCALENDAR'];
   return new Blob([lines.join('\r\n')], { type: 'text/calendar' });
 }
-export function shareText(b, h) {
+// Written like a friend talking, not a notice (Nate 9/29: "too professional and not encouraging"). acted: sent by someone who
+// has just spoken up, so it starts from what they did.
+export function shareText(b, h, { acted = false } = {}) {
   const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`;
-  const what = nick(b) ? `${nick(b)} (${spaced(b.bill_number)}). ${blurb(b, 110)}` : `${spaced(b.bill_number)}: ${blurb(b, 110)}`;
-  return { url, text: `${what.replace(/([^.!?…])$/, '$1.')} ${h ? `Hearing ${dayWord(h.scheduled_at)}. ` : ''}You can add your voice in a few minutes: ${url}` };
+  const name = nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
+  const when = h && new Date(h.scheduled_at) > Date.now() ? ` The committee hears it ${dayWord(h.scheduled_at)}.` : '';
+  const text = acted
+    ? `I just spoke up at the Legislature on a bill I care about: ${name}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in: ${url}`
+    : `Have you seen this? ${name}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps: ${url}`;
+  return { url, text };
 }
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
   const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
@@ -236,17 +242,18 @@ export function wireActions(root = document) {
 // choice in Settings). One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
-  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p></div></div>`;
+  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>${DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`;
   const nb = S.watch.size, na = myActions().length, ni = S.issueFollows.size;   // count issues, not their bills (R-067: "your 25 bills" to someone following 4 issues)
   const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when a bill on your issues gets a hearing. It also keeps your record on any device.'
     : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while. Add your email so they’re still here in January, and to hear when a hearing is set.`
     : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your issues on any device.';
+  // The sandbox used to show the heading with no box to type in (Nate 9/29: "nowhere to enter an email address"). The form
+  // is the same there; sendEmailLink returns without sending or storing anything in the sandbox.
   return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon('mail-check')}<div class="ngbody">
     <p class="strong" id="ng-t">Get an email when a bill on your issues has a hearing</p><p class="small">${text}</p>
-    ${DEMO ? '<p class="small muted">Sign-in is off in the sandbox.</p>' : `<form class="ngform" novalidate><div class="field"><label for="ng-email">Your email</label><input id="ng-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required></div>
+    ${`<form class="ngform" novalidate><div class="field"><label for="ng-email">Your email</label><input id="ng-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required></div>
       <div class="btnrow">${btn('Send me alerts', { kind: 'primary', sm: true, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>
-      <p class="meta">No password. We email you a link to confirm. Unsubscribe any time.</p></form>`}
-    ${DEMO ? `<div class="btnrow">${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>` : ''}</div></section>`;
+      <p class="meta">No password. We email you a link to confirm. Unsubscribe any time.${DEMO ? ' In the sandbox nothing is sent.' : ''}</p></form>`}</div></section>`;
 }
 export function wireNudge(root = document) {
   root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; app.render(); });
