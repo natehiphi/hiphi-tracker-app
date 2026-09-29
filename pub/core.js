@@ -1089,40 +1089,120 @@ export function plainStatus(b) {
     short: dl ? `Waiting for a hearing · ${dl.days} day${dl.days === 1 ? '' : 's'} left` : 'Waiting for a hearing', tone: dl && dl.days <= 7 ? 'warn' : '' };
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-// Why a bill stopped, in words: "Put on hold by the Senate Education Committee, which usually stops it this year."
-export function whyStopped(b) {
-  if (b.stage === 'vetoed') return 'Vetoed by the Governor.';
-  // The committee it stopped in, and only a hearing there: a hearing in another committee, or a year earlier, is not why it
-  // stopped (HB1278 stopped in WLA in 2026, never heard there; it was heard by WTL in 2025; R-077).
-  const at = stoppedAt(b), same = h => !at || codesOf(h.committee).some(k => codesOf(at.committee).includes(k));
-  const heard = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now() && same(h)).pop();
+// Why a bill stopped, exactly (R-083, Nate 9/29: "when a bill dies it doesn't say exactly why"). Three facts: where it got
+// to, what happened there, and the rule it missed with its date, in plain words and without Capitol shorthand (no
+// "Lateral" or "Decking"; DESIGN C-10). whyStopped is the bill page's sentence; whyStoppedShort the lists' few words.
+// The rule each committee deadline sets, from the Legislature's deadline guide (the same rules stops.js follows, R-072).
+const RULE_OF = { triple: 'bills sent to three or more committees had to be through all but their last two', lateral: 'bills had to be through all but their last committee', decking: 'bills had to be through all their committees' };
+const theCmte = code => { const l = cmteLabel(code); return /^(the|a) /.test(l) ? l : `the ${l}`; };
+const shortCmte = code => { const c = S.committees[codesOf(code)[0]]; return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : code; };
+const sameCmte = (h, code) => codesOf(h.committee).some(k => codesOf(code).includes(k));
+export function stopFacts(b) {
+  const origin = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), other = origin === 'H' ? 'S' : 'H';
+  const d = b.died_at_stage || '', m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
+  const f = { res: isResolution(b), when: m ? shortDate(m[2]) : '', label: m ? m[1] : (b.died_deadline || ''), d, dead: b.stage === 'dead',
+    ch: CHAMBER_NAME[/^second/.test(d) ? other : origin] };
+  // Only this session's hearings: a hearing a year earlier is not why it stopped (HB1278 was heard by WTL in 2025 and
+  // stopped in WLA in 2026 without a hearing there; R-077).
+  const yr = m ? '20' + m[2].slice(-2) : null;
+  const past = hearingsOf(b).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) < Date.now() && (!yr || String(h.scheduled_at).startsWith(yr)));
+  const passed = h => /passed/.test(outcomeOf(h)?.outcome || '');
+  if (b.stage === 'vetoed') return { ...f, kind: 'vetoed' };
   // A failed floor vote: the sync marks it (status_text) and records where it stood (died_at_stage), since a later line,
   // such as a recommittal, can follow the vote (HB1516; R-072's every-bill test).
-  if (b.status_text === 'Failed a vote' || /failed to pass/i.test(b.last_action || '')) {
-    const o = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), d = b.died_at_stage || '';
-    return /^(conference|second_crossover)$/.test(d) ? 'It did not pass its final vote, so it stopped for this session.'
-      : /^second/.test(d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o === 'H' ? 'S' : 'H']}, so it stopped for this session.`
-      : /^first/.test(d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o]}, so it stopped for this session.` : 'Did not pass a vote.';
+  if (b.status_text === 'Failed a vote' || /failed to pass/i.test(b.last_action || '')) return { ...f, kind: 'failed' };
+  // Held ("deferred"): the committee is in the Capitol's own line ("The committee(s) on CPN recommend(s) that the measure
+  // be deferred"), the day is its hearing there.
+  // "recommend(s) that the measure be HELD" is a hold too (SB2383, PSM; its outcome row reads Passed).
+  if (HELD_RE.test(b.last_action || '') || /measure be HELD/i.test(b.last_action || '')) {
+    const c = (/committee(?:\(s\))? on\s+([A-Z][A-Z\/]*)/.exec(b.last_action) || [])[1] || null;
+    return { ...f, kind: 'held', cmte: c, heard: c ? past.filter(h => sameCmte(h, c)).pop() || null : null };
   }
-  if (HELD_RE.test(b.last_action || '')) return 'Put on hold by a committee, which usually stops it for this year.';
-  const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
-  if (isResolution(b)) return 'It was not adopted this session.';
-  // Through its committees, then no floor vote before Crossover (R-072: the backend now says so instead of Decking).
-  const fl = /^(first|second)_floor$/.exec(b.died_at_stage || '');
-  if (fl) { const o = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), ch = CHAMBER_NAME[fl[1] === 'first' ? o : (o === 'H' ? 'S' : 'H')];
-    return `It got through its ${ch} committees, but the full ${ch} did not vote on it before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`; }
-  // Stopped after both chambers passed it. Its last hearing was weeks earlier, so "heard on ... but did not move
-  // forward" read as if a committee had stopped it (HB 1782, which died in conference; Nate 9/26).
-  if (/^(second_crossover|conference)$/.test(b.died_at_stage || '')) return `It passed the House and the Senate, but the two did not agree on one final version before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
-  // A bill that passed its last hearing and then stalled was told it "did not move forward" there, right above that
-  // hearing marked Passed (HB 1779, R-067). Say what the committee did when we know it, and nothing false when we don't.
-  if ((m || b.died_deadline) && heard) {
-    const o = outcomeOf(heard), who = S.committees[codesOf(heard.committee)[0]] ? `The ${cmteLabel(heard.committee)}` : 'A committee';
-    if (o && /passed/.test(o.outcome || '')) return `${who} passed it on ${dateLong(heard.scheduled_at)}, but the next step did not happen before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
-    return `It was heard on ${dateLong(heard.scheduled_at)}, but it did not get through every step before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
+  if (/^(first|second)_floor$/.test(d)) return { ...f, kind: 'floor' };
+  // Stopped after both chambers passed it: in different versions, and no one final version (HB 1782; Nate 9/26).
+  if (/^(second_crossover|conference)$/.test(d)) return { ...f, kind: 'final' };
+  const at = stoppedAt(b);
+  if (at) {
+    // The committee it stopped in, what that committee did, and the one before it in the same chamber that passed it.
+    const heard = past.filter(h => sameCmte(h, at.committee)).pop() || null;
+    const before = past.filter(h => !sameCmte(h, at.committee) && S.committees[codesOf(h.committee)[0]]?.chamber === at.chamber && passed(h)).pop() || null;
+    // Not heard there this year, but heard a year earlier (about 300 bills were put on hold in 2025 by the committee they
+    // stopped in, carried over, and never taken up again), or a hearing it cancelled (SB654's in 2025): "never scheduled"
+    // would be false.
+    const all = hearingsOf(b).filter(h => sameCmte(h, at.committee) && new Date(h.scheduled_at) < Date.now());
+    const prior = !heard && all.filter(h => h.status !== 'cancelled').pop() || null;
+    const cancelled = !heard && !prior && all.filter(h => h.status === 'cancelled').pop() || null;
+    return { ...f, kind: heard ? 'heard' : 'noHearing', cmte: at.committee, chamber: at.chamber, rule: /_(triple|lateral|decking)$/.exec(d)[1], heard, before,
+      cancelled, prior, yr, outcome: heard ? outcomeOf(heard)?.outcome || null : null };
   }
-  if (m || b.died_deadline) return `It did not get a hearing${at ? ` in the ${cmteLabel(at.committee)}` : ''} before the deadline${m ? ` on ${shortDate(m[2])}` : ''}, so it stopped for this session.`;
-  return 'It stopped for this session.';
+  // A resolution with no stage to go on: say what hearings there were.
+  const last = past.pop() || null;
+  return { ...f, kind: last ? 'heard' : 'noHearing', cmte: last ? last.committee : null, heard: last, outcome: last ? outcomeOf(last)?.outcome || null : null };
+}
+export function whyStopped(b) {
+  const f = stopFacts(b), end = f.res ? 'so it was not adopted this session.' : 'so it stopped for this session.';
+  if (f.kind === 'vetoed') return 'Vetoed by the Governor.';
+  if (f.kind === 'failed') {
+    const o = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H');
+    return /^(conference|second_crossover)$/.test(f.d) ? 'It did not pass its final vote, so it stopped for this session.'
+      : /^second/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o === 'H' ? 'S' : 'H']}, so it stopped for this session.`
+      : /^first/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o]}, so it stopped for this session.` : 'Did not pass a vote.';
+  }
+  // The rule it missed, as its own sentence: "In the Senate, bills had to be through all but their last committee by Mar 30,
+  // so it stopped for this session." Resolutions and bills that stopped when the session ended have no other deadline.
+  const ended = f.res || /sine die/i.test(f.label);
+  const rule = ended ? (f.when ? ` The session ended on ${f.when}, ${end}` : ` The session ended, ${end}`)
+    : f.kind === 'floor' ? ` Bills had to pass the full ${f.ch} by ${f.when}, ${end}`
+    : f.kind === 'final' ? (/fiscal/i.test(f.label) ? ` Bills that spend money needed a final version by ${f.when}, ${end}` : ` The final version had to be ready for its last vote by ${f.when}, ${end}`)
+    : f.rule && f.when ? ` In the ${CHAMBER_NAME[f.chamber]}, ${RULE_OF[f.rule]} by ${f.when}, ${end}`
+    : f.when ? ` Its deadline was ${f.when}, ${end}` : ` ${cap(end)}`;
+  if (f.kind === 'held') {
+    const who = f.cmte ? cap(theCmte(f.cmte)) : 'A committee', on = f.heard ? ` on ${dateLong(f.heard.scheduled_at)}` : '';
+    // Held during the session: it could in theory come back, and almost never does.
+    if (!f.dead && !f.res) return `${who} put it on hold${on} instead of passing it, which usually stops a bill for the rest of the session.`;
+    return `${who} ${f.heard ? 'heard it' + on + ' and ' : ''}put it on hold instead of passing it, ${end}`;
+  }
+  if (f.kind === 'floor') return `Its ${f.ch} committees passed it, but the full ${f.ch} did not vote on it.${rule}`;
+  if (f.kind === 'final') return `The House and the Senate each passed it, but in different versions, and they did not agree on one final version.${rule}`;
+  if (f.kind === 'noHearing') {
+    if (!f.cmte) return `No committee held a hearing on it.${rule}`;
+    // The chair decides which bills a committee hears: "never scheduled a hearing" is the reason, not a missing step.
+    const did = f.cancelled ? `scheduled a hearing for ${dateLong(f.cancelled.scheduled_at)}, then cancelled it and did not hold another`
+      : f.prior ? `heard it on ${dateLong(f.prior.scheduled_at)}${outcomeOf(f.prior)?.outcome === 'deferred' ? ' and put it on hold' : ''}, and did not take it up again${f.yr ? ` in ${f.yr}` : ''}`
+      : 'never scheduled a hearing on it';
+    return f.before ? `${cap(theCmte(f.before.committee))} passed it on ${dateLong(f.before.scheduled_at)}, but the next committee, ${theCmte(f.cmte)}, ${did}.${rule}`
+      : `${cap(theCmte(f.cmte))} ${did}.${rule}`;
+  }
+  if (f.kind === 'heard') {
+    const who = cap(theCmte(f.heard.committee)), on = dateLong(f.heard.scheduled_at);
+    // A committee that passed it where it stopped. Usually the full chamber turned down the committee's report ("The
+    // recommendation was not adopted", HB1880); otherwise it did not reach its next step in time (HB 1779, R-067).
+    const hc = CHAMBER_NAME[S.committees[codesOf(f.heard.committee)[0]]?.chamber];
+    if (/passed/.test(f.outcome || '') && /recommendation was not adopted/i.test(b.last_action || '') && hc) return `${who} passed it on ${on}, but the full ${hc} voted not to accept the committee’s report.${rule}`;
+    // The committee's vote is the Capitol's last line: its written report never reached the floor (HB1985, SB2243).
+    if (/passed/.test(f.outcome || '') && /measure be PASSED/i.test(b.last_action || '') && hc) return `${who} passed it on ${on}, but its report did not reach the full ${hc} in time.${rule}`;
+    if (/passed/.test(f.outcome || '')) return `${who} passed it on ${on}, but it did not reach its next step in time.${rule}`;
+    // Taken off a decision-making agenda: the Capitol's line says so (HB2114, WAM, 4/9).
+    if (/deleted the measure from decision making/i.test(b.last_action || '')) return `${who} was due to decide on it on ${on}, then took it off the list.${rule}`;
+    if (f.outcome === 'deferred') return `${who} heard it on ${on} and put it on hold instead of passing it.${rule}`;
+    return `${who} heard it on ${on} but did not vote to pass it.${rule}`;
+  }
+  return rule.trim();
+}
+// The lists' "What happened" column: the same facts in a few words ("No hearing in Senate Health by Mar 30").
+export function whyStoppedShort(b) {
+  const f = stopFacts(b), by = f.when ? ` by ${f.when}` : '';
+  if (f.kind === 'vetoed') return 'Vetoed by the Governor';
+  if (f.kind === 'failed') return 'Did not pass a vote';
+  if (f.kind === 'held') return f.cmte ? `Put on hold by ${shortCmte(f.cmte)}` : 'Put on hold by a committee';
+  if (f.kind === 'floor') return `No vote of the full ${f.ch}${by}`;
+  if (f.kind === 'final') return `House and Senate did not agree${by}`;
+  if (f.kind === 'noHearing') return f.cmte ? (f.prior && outcomeOf(f.prior)?.outcome === 'deferred' ? `Put on hold by ${shortCmte(f.cmte)} in ${f.prior.scheduled_at.slice(0, 4)}`
+    : f.cancelled ? `Hearing cancelled in ${shortCmte(f.cmte)}` : `No hearing in ${shortCmte(f.cmte)}${by}`) : f.res ? 'Not heard before the session ended' : `No hearing${by}`;
+  if (f.kind === 'heard' && /recommendation was not adopted/i.test(b.last_action || '')) return `Committee report turned down by the full ${CHAMBER_NAME[S.committees[codesOf(f.heard.committee)[0]]?.chamber] || 'chamber'}`;
+  if (f.kind === 'heard' && /deleted the measure from decision making/i.test(b.last_action || '')) return `Taken off the decision list in ${shortCmte(f.heard.committee)}`;
+  if (f.kind === 'heard') return f.outcome === 'deferred' ? `Put on hold by ${shortCmte(f.heard.committee)}` : /passed/.test(f.outcome || '') ? `Passed ${shortCmte(f.heard.committee)}, then stalled` : `Heard, not passed, in ${shortCmte(f.heard.committee)}`;
+  return f.res ? 'Not adopted this session' : 'Stopped this session';
 }
 // A Capitol deadline date, "4/29/26", as "Apr 29".
 const shortDate = mdy => new Date(mdy.replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });

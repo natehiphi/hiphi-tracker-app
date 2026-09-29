@@ -6,6 +6,7 @@
 #   "deferred ... until"        a decision moved to a date is not "Stopped"; a deferral with no date is "Put on hold"
 #   stopped at the floor vote   says its committees passed it, and the step bar stops at the vote
 #   the Senate's Triple filing  12 Feb for a Senate bill, 11 Feb for a House bill
+#   why it stopped (R-083)      the committee by name, what happened there, and the rule it missed with its date
 import sys
 from playwright.sync_api import sync_playwright
 # The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
@@ -61,10 +62,10 @@ with sync_playwright() as p:
         num, t = show(pg, '^SB', {'stage': 'first_lateral', 'last_action': 'The committee(s) on WAM deferred the measure until 04-08-26 10:00AM; Conference Room 211 & Videoconference.', 'died_at_stage': None, 'died_deadline': None})
         check('Stopped this session' not in t and 'Put on hold' not in t, f'{w} {num} "deferred the measure until": not stopped')
         st = status(pg, num, {'last_action': 'The committee on HHS deferred the measure.'})
-        check(st['short'] == 'Stopped this session' and 'Put on hold' in st['text'], f'{w} "deferred the measure." with no date: put on hold ({st["short"]})')
+        check(st['short'] == 'Stopped this session' and 'put it on hold' in st['text'] and 'Health and Human Services' in st['text'], f'{w} "deferred the measure." with no date: put on hold, by the committee named (R-083; "{st["text"][:110]}")')
         # stopped at the floor vote
         num, t = show(pg, '^HB', {'stage': 'dead', 'died_at_stage': 'first_floor', 'died_deadline': 'Crossover 3/12/26', 'last_action': 'Reported from FIN, recommending passage on Third Reading.'})
-        check('got through its House committees' in t and 'did not vote on it' in t, f'{w} {num} stopped at first_floor: its committees passed it, no floor vote')
+        check('Its House committees passed it' in t and 'did not vote on it' in t and 'Bills had to pass the full House by Mar 12' in t, f'{w} {num} stopped at first_floor: its committees passed it, no floor vote, the rule and its date (R-083)')
         cap = pg.evaluate("document.querySelector('.bl-nowlbl')?.textContent || ''")
         check(cap == 'Stopped before the House vote', f'{w} {num} stopped at first_floor: the step bar stops at the House vote ("{cap}")')
         # the Senate's own Triple filing date
@@ -74,7 +75,9 @@ with sync_playwright() as p:
         # stopped at the Senate Lateral in the first of two Senate committees (HB1278, R-077): named, not its last committee
         st = status(pg, num, {'bill_number': 'HB1278', 'chamber': 'H', 'stage': 'dead', 'died_at_stage': 'second_lateral', 'died_deadline': 'Lateral 3/30/26',
                               'referrals': ['WAL', 'FIN', 'WLA', 'WAM'], 'origin_stops': 2, 'committee': 'WAM', 'last_action': 'Re-Referred to WLA, WAM.', 'status_text': '2nd Lateral'})
-        check('did not get a hearing in the' in st['text'] and 'Ways and Means' not in st['text'], f'{w} HB1278: names the committee it stopped in, not WAM ("{st["text"][:110]}")')
+        check('Water, Land, Culture and the Arts Committee never scheduled a hearing' in st['text'] and 'Ways and Means' not in st['text'], f'{w} HB1278: names the committee it stopped in, not WAM ("{st["text"][:110]}")')
+        # R-083: the rule it missed, in plain words, with its date, and no Capitol shorthand
+        check('In the Senate, bills had to be through all but their last committee by Mar 30' in st['text'] and 'Lateral' not in st['text'], f'{w} HB1278: says the rule it missed and when ("{st["text"][-110:]}")')
         check(not errs, f'{w}: no page errors {errs[:2]}')
         ctx.close()
     br.close()

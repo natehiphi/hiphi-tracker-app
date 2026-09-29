@@ -9,7 +9,7 @@
 // a table with a header row (bill, status, next date, stance, follow).
 import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
-  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE } from './core.js';
+  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
 import { VOICES } from './art.js';
@@ -69,22 +69,8 @@ export function nextDate(b, h) {
   if (st.phase === 'committee' && st.hearingState === 'none' && st.deadline && !st.deadline.missed) return { day: dayLabel(st.deadline.date + 'T12:00:00-10:00'), sub: 'Last day for a hearing' };
   return null;
 }
-// Why a stopped bill stopped, short enough for one line under its headline.
-export function stoppedWhy(b) {
-  if (b.stage === 'vetoed') return 'Vetoed by the Governor';
-  if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote';
-  if (HELD_RE.test(b.last_action || '')) return 'Put on hold by a committee';
-  if (/failed to pass/i.test(b.last_action || '')) return 'Did not pass a vote';
-  const at = stoppedAt(b);
-  if (at) return `Missed the deadline on ${dateLong(at).replace(/^\w+, /, '')}`;
-  if (/sine die/i.test(b.died_deadline || '')) return 'The session ended before it passed';
-  return 'Stopped this session';
-}
-// The day a bill missed its deadline ("First Lateral 2/20/26"), as a Hawaiʻi noon; null when the data has no date.
-function stoppedAt(b) {
-  const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || '');
-  return m ? `20${m[3].slice(-2)}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T12:00:00-10:00` : null;
-}
+// Why a stopped bill stopped, short enough for one line under its headline: the same facts as the bill page's sentence, in a few words (R-083): "No hearing in Senate Health by Mar 30".
+export const stoppedWhy = b => whyStoppedShort(b);
 // Where the person stands, said quietly. The stance is chosen on the bill page; a row only shows it.
 const STANCE = { support: ['thumbs-up', 'You support'], oppose: ['thumbs-down', 'You oppose'], unsure: ['circle-help', 'Not sure yet'] };
 export const stanceInfo = id => { const s = STANCE[myStance(id)]; return s ? { icon: s[0], text: s[1] } : null; };
