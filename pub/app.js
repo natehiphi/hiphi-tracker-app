@@ -184,8 +184,8 @@ function welcomeBack() {
   S.prevVisit = o.lastVisit || null;
   if (last && hstDay(last) !== hstDay(Date.now()) && (followsAnything() || S.done.size) && !S.session) nudge('back');
   onbSet({ lastVisit: new Date().toISOString() });
-  // Ask the browser to keep what this person saved (Chrome grants it to sites people use; others may ignore it).
-  if (followsAnything() || S.done.size) try { navigator.storage?.persisted?.().then(p => p || navigator.storage.persist()).catch(() => {}); } catch { /* ignore */ }
+  // No navigator.storage.persist() here: some browsers answer it with a "store data in persistent storage?" prompt,
+  // a permission box a visitor should never meet (Nate, 9/29). The email ask above is how saved issues are kept.
 }
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
