@@ -10,7 +10,7 @@
 // On a wide screen (1100px and up) the page stops being a phone column: the issues are a grid of tiles, HIPHI's
 // lists are cards side by side, bills are table rows (mybills.js), a list's Follow button sits beside its title, and
 // the suggestion card shares its row with the other bills that have a hearing this week.
-import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, recommendations, dismissed,
+import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
   recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf } from './core.js';
@@ -185,23 +185,17 @@ function capped(key, bills, opt, n = 10) {
   const all = !!F.more[key], shown = all ? bills : bills.slice(0, n);
   return `<div data-grp="${esc(key)}">${billList(shown, opt)}</div>${!all && bills.length > n ? `<div class="fd-more">${btn(`Show all ${bills.length}`, { kind: 'text', iconEnd: 'chevron-down', attrs: { 'data-fdmore': key, 'data-from': n } })}</div>` : ''}`;
 }
-// One reason per suggested bill, in the person's terms (never "you follow X", which reads wrong after the start).
-function reason(b) {
-  const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.flatMap(x => x.coalitions || []));
-  // The start saves topics now ('tobacco'), not coalition names; matching coalitions alone never fired (R-019).
-  if (pickedTopic(b) || (b.coalitions || []).some(n => picked.has(n))) return 'Matches an issue you picked';
-  if ((b.coalitions || []).some(n => mine.has(n))) return 'Similar to bills you follow';
-  if (/strongly/.test(b.hiphi_position || '')) return 'One of HIPHI’s top priorities';
-  return 'Testimony is open this week';
-}
+// One reason per suggested bill, in the person's terms: the biggest part of its score (rank.js), never "recommended".
+const reason = b => reasonOf(b) || 'Testimony is open this week';
 // Bills to suggest: a hearing this week on a bill the person does not follow. The picks are made once per visit to
 // this page and kept while the person is on it, so following one (from its card or its star) leaves it in place,
 // now marked as followed, instead of making it vanish from under the pointer. "Not for me" does remove it, and the
 // next suggestion moves up.
 function suggestions() {
-  const skip = dismissed(), ok = r => r.kind === 'testify' && r.st.hearing && !skip.has(r.b.id);
+  const skip = dismissed(), ok = r => r.st.hearing && !skip.has(r.b.id);
   const list = (F.recs || []).filter(ok), have = new Set(list.map(r => r.b.id));
-  for (const r of recommendations(20)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) list.push(r); }
+  for (const r of suggestionList(4)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) list.push(r); }
+  noteShown(list);
   return F.recs = list;
 }
 

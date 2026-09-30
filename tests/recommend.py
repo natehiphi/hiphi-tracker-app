@@ -1,9 +1,9 @@
-# R-094: the suggested bill on Home and Find, ranked by the same numbers as the first visit's issues (pub/core.js
-# WEIGHT, billWeight, recommendations). python3 tests/recommend.py [host]   (sandbox; its clock sits mid-March 2026)
-# Checks: only bills with testimony still due are suggested (no stuck-in-committee leftovers); bills on the person's own
-# issues come first, then what HIPHI most wants, then the soonest; staff's silent pre-tick lifts a bill by 25; a bill in
-# a top-priority issue carries the +30; followed bills, "Not for me" (on a suggestion or on an issue's bill) and bills the
-# person sides against HIPHI on are never suggested; Find's first card is the top suggestion.
+# R-094: the suggested bill on Home and Find in the sandbox (its clock sits mid-March 2026). The scoring rules
+# themselves are checked exactly by `node tests/rank_test.mjs`; this checks the page uses them. python3 tests/recommend.py [host]
+# Checks: Find's four come from the short list (one per issue, a HIPHI top pick among them) and its first card carries
+# the list's reason; Home's one suggestion is Find's first; what is shown is remembered on the device, and a bill shown
+# on five earlier days is not suggested; followed, dismissed, "Not for me", sided-against and switched-out bills never
+# appear; picking a category brings its bills in; nothing on the page says "recommended".
 import sys
 from playwright.sync_api import sync_playwright
 HOST = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832'
@@ -14,64 +14,76 @@ def check(c, m):
     global ok, fail
     print('PASS' if c else 'FAIL', m); ok += bool(c); fail += (not c)
 
-RECS = """async () => { const c = await import('./pub/core.js'); await c.loadPool(); const now = Date.now();
-  return c.recommendations(100).map(r => ({ id: r.b.id, n: r.b.bill_number, pos: r.b.hiphi_position, kind: r.kind, when: r.when,
-    mine: r.mine, weight: r.weight, score: r.score, due: r.when > now, top: c.topPriorityBill(r.b), promo: c.promotedBill(r.b) })); }"""
-
-def ordered(rs):
-    return all((a['score'], -a['when']) >= (b['score'], -b['when']) for a, b in zip(rs, rs[1:]))
+LIST = """async n => { const c = await import('./pub/core.js'); await c.loadPool();
+  return c.suggestionList(n).map(r => ({ id: r.b.id, n: r.b.bill_number, issue: r.issues[0]?.id || null, cat: r.cats[0] || null,
+    top: r.topPick, fit: r.fit, score: r.score, why: r.why, hearing: r.hearing?.id })); }"""
+ALL = """async () => { const c = await import('./pub/core.js'); await c.loadPool(); return c.recommendations(500).map(r => r.b.id); }"""
 
 with sync_playwright() as p:
     br = p.chromium.launch(); errs = []
-    def fresh():
-        ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.add_init_script(TOUR_SEEN)
+    def fresh(hash='#/find', init=''):
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
+        ctx.add_init_script(TOUR_SEEN + init)
         pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.goto(URL + '#/find'); pg.wait_for_timeout(3500); return pg
+        pg.goto(URL + hash); pg.wait_for_timeout(3500); return pg
 
-    # 1. Someone new: nothing picked, nothing followed.
-    pg = fresh(); rs = pg.evaluate(RECS)
-    check(len(rs) >= 5, f'the sandbox has suggestions to rank ({len(rs)})')
-    check(all(r['kind'] == 'testify' and r['due'] for r in rs), 'every suggestion has testimony still due (no stuck-in-committee leftovers)')
-    check(ordered(rs), 'ordered by weight, then soonest due')
-    check(not any(r['mine'] for r in rs), 'nothing counts as "your issues" for someone who picked nothing')
-    tops = [r for r in rs if r['top']]
-    check(bool(tops) and all(r['weight'] >= 50 for r in tops), f'a bill in a top-priority issue carries the +30 ({len(tops)} of them)')
-    strong = [r for r in rs if r['pos'] == 'strongly_support']
-    check(all(r['weight'] >= 40 for r in strong), 'a strongly supported bill starts at 40')
+    # 1. Someone new, on Find.
+    pg = fresh(); L = pg.evaluate(LIST, 4)
+    check(len(L) == 4, f"Find's short list has four ({[x['n'] for x in L]})")
+    check(len({x['issue'] for x in L}) == len(L), 'one bill per issue')
+    check(max([sum(1 for y in L if y['cat'] == x['cat']) for x in L if x['cat']] or [0]) <= 2, 'at most two per category')
+    check(any(x['top'] for x in L), "HIPHI's top pick is among them")
     first = pg.evaluate("document.querySelector('.fd-voices [data-card]')?.dataset.card || ''")
-    check(bool(rs) and first.startswith(rs[0]['id'] + '|'), f"Find's first card is the top suggestion ({rs[0]['n'] if rs else '-'})")
+    check(first.startswith(L[0]['id'] + '|'), f"Find's first card is the list's first ({L[0]['n']})")
+    shown = pg.evaluate("[...document.querySelectorAll('.fd-voices .side a[href*=\"/bill/\"]')].length")
+    check(shown >= 1, f'the other suggestions are listed beside it ({shown})')
+    card = pg.evaluate("document.querySelector('.fd-voices [data-card]')?.innerText || ''")
+    check((L[0]['why'] or 'Testimony is open this week') in card, f"the card says the list's reason ({L[0]['why']!r})")
+    seen = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_sugg_seen_demo') || '{}')")
+    check(all(x['id'] in seen for x in L), 'what was shown is remembered on this device')
+    check(pg.evaluate("!/recommend/i.test(document.body.innerText)"), 'nothing on the page says "recommended"')
 
-    # 2. Staff pre-tick a plain bill near the bottom: it rises by exactly 25, silently.
-    low = next((r for r in reversed(rs) if not r['top'] and not r['promo']), None)   # the last plain one: room to rise
-    if low:
-        rs2 = pg.evaluate("""async id => { const c = await import('./pub/core.js'); c.S.pool.bills.find(b => b.id === id).hiphi_recommended = true;
-          return c.recommendations(100).map(r => ({ id: r.b.id, weight: r.weight, score: r.score, when: r.when })); }""", low['id'])
-        after = next(r for r in rs2 if r['id'] == low['id'])
-        check(after['weight'] == low['weight'] + 25, f"staff's pre-tick adds 25 ({low['n']}: {low['weight']} -> {after['weight']})")
-        check([r['id'] for r in rs2].index(low['id']) < [r['id'] for r in rs].index(low['id']), 'and moves it up the list')
-        check(pg.evaluate("!/recommend/i.test(document.body.innerText)"), 'nothing on the page says "recommended"')
+    # 2. Home's one suggestion is Find's first (someone who follows one bill, so Home has room for a suggestion).
+    pg2 = fresh('#/')
+    pg2.evaluate("""async () => { const c = await import('./pub/core.js'); c.onbSet({ welcomed: true }); }""")
+    home = pg2.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool(); const l = c.suggestionList(4); return l[0]?.b.id || null; }""")
+    check(home == L[0]['id'], "Home and Find agree on the first suggestion")
 
-    # 3. Leave-outs: followed, "Not for me" on a suggestion, "Not for me" on an issue's bill, and siding against HIPHI.
-    pg = fresh(); rs = pg.evaluate(RECS)
-    if len(rs) >= 4:
-        ids = [r['id'] for r in rs[:4]]
-        rs3 = pg.evaluate("""async ids => { const c = await import('./pub/core.js');
+    # 3. Shown on five earlier days: gone; on three: lower.
+    pg = fresh(); top = pg.evaluate(LIST, 4)[0]
+    days5 = pg.evaluate("""([id, h]) => { const d = n => new Date(Date.now() - 10 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+      localStorage.setItem('hiphi_sugg_seen_demo', JSON.stringify({ [id]: { h, days: [1, 2, 3, 4, 5].map(d) } })); return true; }""", [top['id'], top['hearing']])
+    check(top['id'] not in pg.evaluate(ALL), f"a bill shown on five earlier days is no longer suggested ({top['n']})")
+    pg.evaluate("""([id, h]) => { const d = n => new Date(Date.now() - 10 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+      localStorage.setItem('hiphi_sugg_seen_demo', JSON.stringify({ [id]: { h, days: [1, 2, 3].map(d) } })); }""", [top['id'], top['hearing']])
+    after = next((x for x in pg.evaluate(LIST.replace('suggestionList(n)', 'recommendations(500)'), 0) if x['id'] == top['id']), None)
+    check(after is not None and after['score'] == top['score'] - 20, f"shown on three earlier days: 20 lower ({top['score']} -> {after and after['score']})")
+
+    # 4. Never suggested: followed, dismissed, Not for me, sided against, switched out of the first visit.
+    pg = fresh(); L = pg.evaluate(LIST, 4)
+    if len(L) >= 4:
+        ids = [x['id'] for x in L]
+        rest = pg.evaluate("""async ids => { const c = await import('./pub/core.js');
           c.S.direct.add(ids[0]); c.recomputeWatch(); c.dismiss(ids[1]); c.S.skips.add(ids[2]);
           const b = c.S.pool.bills.find(x => x.id === ids[3]); await c.setStance(ids[3], /support/.test(b.hiphi_position) ? 'oppose' : 'support');
-          return c.recommendations(100).map(r => r.b.id); }""", ids)
-        for i, what in enumerate(['a followed bill', 'a bill dismissed with "Not for me"', "an issue's bill marked Not for me", 'a bill the person sides against HIPHI on']):
-            check(ids[i] not in rs3, f'{what} is never suggested')
+          return c.recommendations(500).map(r => r.b.id); }""", ids)
+        for i, what in enumerate(['a followed bill', 'a dismissed bill', 'a bill marked Not for me', 'a bill the person sides against HIPHI on']):
+            check(ids[i] not in rest, f'{what} is never suggested')
+    pg = fresh(); out = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
+      const r = c.recommendations(500)[0]; const i = c.issuesOf(r.b)[0]; if (!i) return null;
+      i.first_visit = false; return { n: r.b.bill_number, gone: !c.recommendations(500).some(x => x.b.id === r.b.id) }; }""")
+    check(out and out['gone'], f"a bill of an issue switched out of the first visit is never suggested ({out and out['n']})")
 
-    # 4. Someone who picked a category: its bills come first.
+    # 5. Someone who picked a category: its bills come in, with that reason.
     pg = fresh()
-    rs4 = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
-      const counts = {}; for (const b of c.S.pool.bills) for (const i of c.issuesOf(b)) for (const k of (i.categories || [i.category])) counts[k] = (counts[k] || 0) + 1;
+    r5 = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
+      const before = c.suggestionList(4).map(r => r.b.id);
+      const counts = {}; for (const r of c.recommendations(500)) for (const k of r.cats) counts[k] = (counts[k] || 0) + 1;
       const pick = Object.entries(counts).sort((a, b) => a[1] - b[1])[0]?.[0]; c.wizSet({ issues: [pick] });
-      return { pick, rs: c.recommendations(100).map(r => ({ n: r.b.bill_number, mine: r.mine, score: r.score, when: r.when })) }; }""")
-    rs = rs4['rs']; mine = [r for r in rs if r['mine']]
-    check(bool(mine), f"picking '{rs4['pick']}' marks some suggestions as on their issues ({len(mine)})")
-    check(rs[:len(mine)] == mine, 'those come before every other suggestion')
-    check(ordered(rs), 'and the whole list is still in order')
+      const after = c.suggestionList(4); return { pick, before, after: after.map(r => ({ id: r.b.id, cat: r.cats[0], fit: r.fit, why: r.why })) }; }""")
+    mine = [x for x in r5['after'] if x['fit'] > 0]
+    check(len(mine) >= 1, f"picking '{r5['pick']}' puts at least one of its bills in the four ({len(mine)})")
+    check(all(x['why'] for x in mine), f"and says why ({mine[0]['why'] if mine else '-'})")
 
     check(not errs, f'no page errors ({errs[:2]})')
     br.close()

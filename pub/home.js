@@ -12,7 +12,7 @@
 // On wide screens Home is two columns (wide.css .cols): things to do on the left, your session, what's new and the
 // suggestion on the right. The full bill list lives in My bills.
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair,
-  actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, recommendations, wiz, groupNames, sessionInfo, myActions, MILESTONES,
+  actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE } from './core.js';
@@ -347,13 +347,9 @@ function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
       ${arest.length ? moreRows('asks', arest.map(askRow)) : ''}</section>` : ''}`;
 }
 
-// Why a suggestion is shown, in words (replaces the old "you follow X", which was wrong right after Step 1).
-function reasonFor(b) {
-  const picked = new Set((wiz().issues || []).flatMap(groupNames)), mine = new Set(S.bills.filter(x => x.id !== b.id).flatMap(x => x.coalitions || []));
-  if (pickedTopic(b) || (b.coalitions || []).some(c => picked.has(c))) return 'Matches an issue you picked';
-  if ((b.coalitions || []).some(c => mine.has(c))) return 'Similar to bills you follow';
-  return /strongly/.test(b.hiphi_position || '') ? 'One of HIPHI’s top priorities' : '';
-}
+// Why a suggestion is shown, in words: the biggest part of its score (rank.js). Empty when only the deadline would
+// be left to say, which the card already shows.
+const reasonFor = b => reasonOf(b);
 // A suggestion card: Follow and "Not for me" always; the reason line only when it says something the card does
 // not already say (a bare "needs voices this week" just repeats the heading and the deadline).
 const sugCard = (b, h) => actionCard(b, h, { suggest: true, why: reasonFor(b) });
@@ -364,8 +360,10 @@ function keptSuggestion() {
   const b = anyBill(S.hmSug.b), h = anyHearing(S.hmSug.h);
   return b && h && !dismissed().has(b.id) && new Date(h.scheduled_at) > Date.now() ? { b, h } : null;
 }
+// Home's one suggestion is Find's first (the same short list), unless it is already on Home some other way.
 function pickSuggestion(skip) {
-  const r = recommendations(12).find(x => x.kind === 'testify' && x.st?.hearing && !skip.has(x.b.id));
+  const r = suggestionList(4).find(x => x.st?.hearing && !skip.has(x.b.id));
+  if (r) noteShown([r]);
   return r ? { b: r.b, h: r.st.hearing } : null;
 }
 

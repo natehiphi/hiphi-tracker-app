@@ -4,6 +4,7 @@
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, stoppedAt } from '../stops.js';
 import { ICONS, icon } from '../icons.js';
 import { topicOf } from './topics.js';
+import { rankAll, shortList, markShown, actedKind } from './rank.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, ICONS, icon };
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
@@ -145,7 +146,7 @@ export function groups() {
   return Object.values(g);
 }
 export const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
-export const S = { supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
+export const S = { sugWhy: new Map(), supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
   committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
   extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null,
   // Following (063, R-018): what the person chose - issues, whole categories, single bills ("direct") and "Not for me"
@@ -679,61 +680,48 @@ export const pickedTopic = b => { const liked = likedCats(), iss = issuesOf(b);
   const k = topicOf(b)?.key; return !!k && liked.has(k); };
 export function dismissed() { try { return new Set(JSON.parse(localStorage.getItem('hiphi_dismiss') || '[]')); } catch { return new Set(); } }
 export function dismiss(id) { const d = dismissed(); d.add(id); try { localStorage.setItem('hiphi_dismiss', JSON.stringify([...d])); } catch { /* ignore */ } }
-// What this person seems to care about: coalitions of the bills they follow,
-// plus the issues they picked at the start.
-export function interests() {
-  const w = {}; const add = (n, k) => { if (n) w[n] = (w[n] || 0) + k; };
-  for (const b of S.bills) for (const n of (b.coalitions || [])) add(n, 2);
-  for (const n of (wiz().issues || [])) for (const m of groupNames(n)) add(m, 3);
-  return w;
+// ---------------- the suggested bill (R-094) ----------------
+// The scoring lives in pub/rank.js (pure, so the 2026 replay runs the same code); this builds the person it needs from
+// what the page already holds. Everything is worked out here in the browser: nothing about the person is sent anywhere.
+export { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
+const SEEN_KEY = DEMO ? 'hiphi_sugg_seen_demo' : 'hiphi_sugg_seen';
+const readSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; } };
+const catsOfBill = b => { const iss = issuesOf(b); if (iss.length) return [...new Set(iss.flatMap(i => i.categories || [i.category]))];
+  const k = topicOf(b)?.key; return k ? [k] : []; };
+function person() {
+  const followCats = new Set([...S.catFollows, ...followedIssues().flatMap(i => i.categories || [i.category])]);
+  const picks = wiz().issues || [], pickedCats = new Set(picks);
+  const likedCoalitions = new Set([...S.bills.flatMap(b => b.coalitions || []), ...picks.flatMap(groupNames)]);
+  const actedCats = new Set(myActions().filter(a => actedKind(a.kind)).flatMap(a => issuesOf(a.bill_id).flatMap(i => i.categories || [i.category])));
+  return { now: Date.now(), issuesOf, catsOf: catsOfBill, catName: k => catOf(k)?.name || k,
+    follows: S.watch, dismissed: dismissed(), skips: S.skips, against: b => agrees(b) === false,
+    followCats, pickedCats, likedCoalitions, actedCats, seen: readSeen(),
+    people: b => { const c = S.actionCounts[b.id]; return c ? (c.actions ?? ((c.testimonies || 0) + (c.emails || 0) + (c.attending || 0))) : null; },
+    likedCount: new Set([...followCats, ...pickedCats]).size };
 }
-// ---------------- what HIPHI most wants people on (R-094) ----------------
-// One set of numbers for every place the public page puts one issue or bill ahead of another: the first visit's issues
-// (start.js issueInfo) and the suggested bill on Home and Find (recommendations below). The numbers are the first
-// visit's (FIRST-VISIT-PLAN "Importance", Nate 9/21): HIPHI's side 40 strongly supports / 20 supports / 15 only opposes
-// / 5 comments only; the team's top priority +30; staff's pre-tick +25; a hearing in the next 7 days +15.
-// Only public columns reach here. A bill's own priority stays with the team, so it arrives through the bill's issues
-// (public_issues.top_priority), and staff's pre-tick (bills.recommended, issues.recommended) is used silently, never
-// named on screen (Nate 9/22).
-export const WEIGHT = { strong: 40, support: 20, oppose: 15, neutral: 5, top: 30, promoted: 25, soon: 15 };
-export const SOON_DAYS = 7;
-// HIPHI's side, from the bills that carry it (one bill, or an issue's moving bills). HIPHI taking no side comes last.
-export function sidePoints(bills) {
-  if (bills.some(b => b.hiphi_position === 'strongly_support')) return WEIGHT.strong;
-  if (bills.length && bills.every(b => (b.hiphi_position || 'neutral') === 'neutral')) return WEIGHT.neutral;
-  if (bills.length && bills.every(b => /oppose/.test(b.hiphi_position || ''))) return WEIGHT.oppose;
-  return WEIGHT.support;
-}
-export const topPriorityBill = b => issuesOf(b).some(i => i.top_priority);
-export const promotedBill = b => !!b.hiphi_recommended || issuesOf(b).some(i => i.recommended);
-// How much HIPHI wants people on one bill this week. dueAt: when its testimony is due (ms), if a hearing is set.
-export function billWeight(b, dueAt = null) {
-  return sidePoints([b]) + (topPriorityBill(b) ? WEIGHT.top : 0) + (promotedBill(b) ? WEIGHT.promoted : 0)
-    + (dueAt && dueAt - Date.now() < SOON_DAYS * 864e5 ? WEIGHT.soon : 0);
-}
-// Does this bill sit on something the person cares about: a coalition of a bill they follow, an issue picked at the
-// start, or a category they like (picked, followed whole, or holding an issue they follow).
-function onTheirIssues(b, likes) { return (b.coalitions || []).some(n => likes[n]) || pickedTopic(b); }
-// Ranked suggestions: a bill they do not follow yet whose testimony is due soon. Bills on their own issues come first;
-// within each group, what HIPHI most wants (billWeight), then the soonest due. Left out: bills they follow, said
-// "Not for me" to (on a suggestion, or on a bill of an issue they follow), or take the other side of from HIPHI.
-// A bill still waiting for a hearing is not suggested: Home's "Bills that need a hearing" already asks for those on
-// the person's own bills, and a suggestion card needs a hearing to act on (before R-094 they were ranked, then dropped).
-export function recommendations(limit) {
+// Every live HIPHI bill with its hearing, as rank.js takes them.
+function candidates() {
   const pool = S.pool; if (!pool) return [];
-  const now = Date.now(), skip = dismissed(), likes = interests();
-  const out = [];
-  for (const b of pool.bills) {
-    if (S.watch.has(b.id) || skip.has(b.id) || S.skips.has(b.id) || agrees(b) === false) continue;
+  return pool.bills.map(b => {
     const st = billStop(b, { hearings: pool.hearings.filter(h => h.bill_id === b.id), outcomes: {}, deadlineFor: k => deadlineOf(b, k) });
-    if (st.hearingState !== 'scheduled' || !st.hearing) continue;
-    const when = new Date(st.hearing.testimony_deadline || st.hearing.scheduled_at).getTime();
-    if (when <= now) continue;
-    const mine = onTheirIssues(b, likes), weight = billWeight(b, when);
-    out.push({ b, st, kind: 'testify', when, mine, weight, score: (mine ? 1000 : 0) + weight });
-  }
-  out.sort((x, y) => y.score - x.score || x.when - y.when || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
-  return out.slice(0, limit);
+    const h = st.hearingState === 'scheduled' ? st.hearing : null;
+    return { b, st, hearing: h, due: h ? new Date(h.testimony_deadline || h.scheduled_at).getTime() : null, kind: 'testify' };
+  });
+}
+// Every bill that may be suggested, scored and in order. Each item: { b, st, hearing, when, score, why, ... }.
+export function recommendations(limit = 50) { return rankAll(candidates(), person()).slice(0, limit); }
+// The short list: Find shows n = 4, Home the first. Its reason lines are kept for the cards (reasonOf).
+export function suggestionList(n = 4) {
+  const p = person(), list = shortList(rankAll(candidates(), p), n, p.likedCount);
+  for (const r of list) S.sugWhy.set(r.b.id, r.why);
+  return list;
+}
+export const reasonOf = b => S.sugWhy.get(b.id) || '';
+// Called when suggestions are put on screen: a bill shown on three separate days and never followed, acted on or
+// dismissed drops; after five it is not suggested again until it has a new hearing (FATIGUE in rank.js).
+export function noteShown(list) {
+  if (!list.length) return;
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(markShown(readSeen(), list, Date.now()))); } catch { /* ignore */ }
 }
 export async function loadFeatured() {
   const now = Date.now(), until = new Date(now + 8 * 864e5).toISOString();
