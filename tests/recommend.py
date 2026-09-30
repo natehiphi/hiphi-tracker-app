@@ -3,7 +3,8 @@
 # Checks: Find's four come from the short list (one per issue, a HIPHI top pick among them) and its first card carries
 # the list's reason; Home's one suggestion is Find's first; what is shown is remembered on the device, and a bill shown
 # on five earlier days is not suggested; followed, dismissed, "Not for me", sided-against and switched-out bills never
-# appear; picking a category brings its bills in; nothing on the page says "recommended".
+# appear; picking a category brings its bills in; following an issue lifts its related issues' bills (095);
+# nothing on the page says "recommended".
 import sys
 from playwright.sync_api import sync_playwright
 HOST = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832'
@@ -84,6 +85,25 @@ with sync_playwright() as p:
     mine = [x for x in r5['after'] if x['fit'] > 0]
     check(len(mine) >= 1, f"picking '{r5['pick']}' puts at least one of its bills in the four ({len(mine)})")
     check(all(x['why'] for x in mine), f"and says why ({mine[0]['why'] if mine else '-'})")
+
+    # 6. Following an issue lifts bills of its related issues (095): +60 and "Close to ..., an issue you follow".
+    pg = fresh()
+    r6 = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
+      const cand = c.recommendations(500);
+      for (const [id, near] of c.S.issueLinks) {
+        const hit = cand.find(r => r.issues.some(i => near.has(i.id)) && !r.issues.some(i => i.id === id));
+        if (!hit) continue;
+        const f = c.S.issueById.get(id); if (!f) continue;
+        await c.setFollows({ issuesOn: [id] });
+        const all = c.recommendations(500), got = all.find(r => r.b.id === hit.b.id);
+        return { follow: f.name, n: hit.b.bill_number, before: hit.score, after: got && got.score, fit: got && got.fit, why: got && got.why,
+          inList: c.suggestionList(4).some(r => r.b.id === hit.b.id) };
+      }
+      return null; }""")
+    check(r6 is not None, f"the sandbox has a followed issue with a related issue's bill to suggest ({r6 and r6['follow']} -> {r6 and r6['n']})")
+    if r6:
+        check(r6['fit'] == 60 and r6['why'].startswith('Close to '), f"that bill gets +60 and says why ({r6['why']!r}, {r6['before']} -> {r6['after']})")
+        check(r6['inList'], "and it is among Find's four")
 
     check(not errs, f'no page errors ({errs[:2]})')
     br.close()

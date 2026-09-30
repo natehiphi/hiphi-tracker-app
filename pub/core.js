@@ -170,9 +170,9 @@ export async function init() {
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
 }
 // ---------------- sandbox data ----------------
-export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [] };
+export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [], issueLinks: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260929c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260930a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -216,7 +216,8 @@ export async function demoLoad() {
     D.issues = (snap.issues || []).map(i => { const bs = (byIssue[i.id] || []).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
       return { ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)], bill_ids: bs.map(b => b.id), bill_years: bs.map(b => b.session_year), followers: 0,
         first_visit: i.first_visit !== false, top_priority: bs.some(b => +b.session_year === latest && prio.get(b.id) === 1) }; });
-    for (const b of D.bills) b.hiphi_issues = ofBill[b.id] || null; }
+    for (const b of D.bills) b.hiphi_issues = ofBill[b.id] || null;
+    D.issueLinks = snap.issueLinks || []; }   // public_issue_links: pairs of related issues (095, R-094)
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
   S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
@@ -359,12 +360,16 @@ export function recomputeWatch() {
 }
 // Categories and issues: loaded before anything else, because what a person follows is worked out from them.
 export async function loadCatalog() {
-  let cats = [], issues = [];
-  if (DEMO) { cats = D.cats; issues = D.issues; }
+  let cats = [], issues = [], links = [];
+  if (DEMO) { cats = D.cats; issues = D.issues; links = D.issueLinks; }
   else {
-    try { const [c, i] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order')]);
-      cats = c.data || []; issues = i.data || []; } catch (e) { console.error(e); }   // without them the page still works, by bills
+    try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
+        S.supa.from('public_issue_links').select('issue_a,issue_b')]);
+      cats = c.data || []; issues = i.data || []; links = l.data || []; } catch (e) { console.error(e); }   // without them the page still works, by bills
   }
+  // Related issues (095, R-094): each issue's neighbours, both ways. Only the suggested bill reads them.
+  S.issueLinks = new Map();
+  for (const { issue_a: a, issue_b: b } of links) { (S.issueLinks.get(a) || S.issueLinks.set(a, new Set()).get(a)).add(b); (S.issueLinks.get(b) || S.issueLinks.set(b, new Set()).get(b)).add(a); }
   S.cats = cats;
   S.issues = issues.map(i => ({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
   S.issueById = new Map(S.issues.map(i => [i.id, i])); S.issueBySlug = new Map(S.issues.map(i => [i.slug, i]));
@@ -693,7 +698,10 @@ function person() {
   const picks = wiz().issues || [], pickedCats = new Set(picks);
   const likedCoalitions = new Set([...S.bills.flatMap(b => b.coalitions || []), ...picks.flatMap(groupNames)]);
   const actedCats = new Set(myActions().filter(a => actedKind(a.kind)).flatMap(a => issuesOf(a.bill_id).flatMap(i => i.categories || [i.category])));
-  return { now: Date.now(), issuesOf, catsOf: catsOfBill, catName: k => catOf(k)?.name || k,
+  // Issues related to one the person follows (and not followed themselves), each with the followed issue's name.
+  const relatedTo = new Map(), mine = followedIssues();
+  for (const f of mine) for (const id of (S.issueLinks || new Map()).get(f.id) || []) if (!relatedTo.has(id) && !mine.some(m => m.id === id)) relatedTo.set(id, f.name);
+  return { now: Date.now(), issuesOf, catsOf: catsOfBill, relatedTo, catName: k => catOf(k)?.name || k,
     follows: S.watch, dismissed: dismissed(), skips: S.skips, against: b => agrees(b) === false,
     followCats, pickedCats, likedCoalitions, actedCats, seen: readSeen(),
     people: b => { const c = S.actionCounts[b.id]; return c ? (c.actions ?? ((c.testimonies || 0) + (c.emails || 0) + (c.attending || 0))) : null; },

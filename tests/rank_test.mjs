@@ -57,6 +57,10 @@ check(s(bill('m1'), person({ followCats: new Set(['food']), actedCats: new Set([
 check(s(bill('m1'), person({ skips: new Set(['m2']) })).fit === FIT.sibling, 'Not for me on another bill of the issue: -15');
 check(s(bill('m1'), person({ skips: new Set(['m2']), dismissed: new Set(['m3']) })).fit === FIT.siblingFloor, 'two of them: -30');
 check(s(bill('d1'), person({ skips: new Set(['m2', 'm3']) })).fit === 0, 'Not for me on bills of another issue changes nothing');
+const near = person({ relatedTo: new Map([['drinks', 'School meals']]), followCats: new Set(['food']) });
+check(s(bill('d1'), near).fit === FIT.related, 'in an issue related to one they follow: +60, not the +30 of the category (095)');
+check(s(bill('d1'), near).why === 'Close to School meals, an issue you follow', 'reason: close to the issue they follow');
+check(s(bill('m1'), near).fit === FIT.interest, 'a bill whose issue is not related gets only the category');
 
 // 4. Timing, others acting, fatigue.
 check(s(bill('m1'), P, 1.5).timing === TIMING.twoDays && s(bill('m1'), P, 5).timing === TIMING.week && s(bill('m1'), P, 10).timing === 0, 'due within 2 days +20, within 7 days +15, later 0');

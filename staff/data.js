@@ -68,7 +68,7 @@ export const S = {
   committees: {},   // code -> {name, chair, vice_chair}; empty until the committees table exists
   deskOut: false,
   // Issues (063, R-018): what the public follows. Categories (the six) -> issues -> the bills that carry them.
-  categories: [], issues: [], issueCats: [], billIssues: [],
+  categories: [], issues: [], issueCats: [], billIssues: [], issueLinks: [], issueLinkChoices: [],
   // The issues' prep for 2027 (091, R-088): each issue's helpers, and the due date (app_settings 'issue_prep').
   issueHelpers: [], issuePrep: { due: '2026-11-06' },
 };
@@ -650,17 +650,20 @@ export const DB = {
   async loadIssues() {
     if (DEMO) return;
     try {
-      const [cats, iss, ic, bi, hl, prep] = await Promise.all([
+      const [cats, iss, ic, bi, hl, prep, ln, lc] = await Promise.all([
         S.supa.from('categories').select('*').order('sort_order'),
         S.supa.from('issues').select('*').order('sort_order').order('name'),
         S.supa.from('issue_categories').select('issue_id,category'),
         allRows(o => S.supa.from('bill_issues').select('bill_id,issue_id,added_at', o).order('bill_id').order('issue_id')),
         S.supa.from('issue_helpers').select('issue_id,advocate_id,added_at'),
         S.supa.from('app_settings').select('value').eq('key', 'issue_prep').maybeSingle(),
+        S.supa.from('issue_links').select('issue_a,issue_b,score').eq('related', true),
+        S.supa.from('issue_link_choices').select('issue_a,issue_b,related,set_by,set_at'),
       ]);
       for (const r of [cats, iss, ic, bi]) if (r.error) throw r.error;
       S.categories = cats.data || []; S.issues = iss.data || []; S.issueCats = ic.data || []; S.billIssues = bi.data || [];
       S.issueHelpers = hl.error ? [] : hl.data || []; if (prep.data?.value) S.issuePrep = prep.data.value;
+      S.issueLinks = ln.error ? [] : ln.data || []; S.issueLinkChoices = lc.error ? [] : lc.data || [];   // related issues (095, R-094)
     } catch (e) { console.warn('issues:', e.message || e); }
   },
   // A new issue is a draft the public never sees until an admin publishes it (091); its owner is its maker unless chosen.
@@ -695,6 +698,17 @@ export const DB = {
       if (add.length) { const { error } = await S.supa.from('issue_categories').insert(add.map(category => ({ issue_id: id, category }))); if (error) throw error; }
     }
     S.issueCats = [...S.issueCats.filter(x => !(x.issue_id === id && drop.includes(x.category))), ...add.map(category => ({ issue_id: id, category }))];
+  },
+  // Staff link or unlink two issues (095, R-094). A choice always wins over the related-issues tool's; it is changed,
+  // never deleted, so it holds when the tool runs again. A pair is stored smaller id first.
+  async setIssueLink(x, y, on) {
+    const [issue_a, issue_b] = String(x) < String(y) ? [x, y] : [y, x];
+    const was = S.issueLinkChoices.find(c => c.issue_a === issue_a && c.issue_b === issue_b), before = was ? { ...was } : null;
+    const row = { issue_a, issue_b, related: !!on, set_by: S.me?.id || null, set_at: new Date().toISOString() };
+    if (was) Object.assign(was, row); else S.issueLinkChoices.push(row);
+    if (DEMO) return;
+    const { error } = await S.supa.from('issue_link_choices').upsert(row, { onConflict: 'issue_a,issue_b' });
+    if (error) { if (before) Object.assign(was, before); else S.issueLinkChoices = S.issueLinkChoices.filter(c => c !== row); throw error; }
   },
   async setBillIssue(billId, issueId, on) {
     const had = S.billIssues.some(x => x.bill_id === billId && x.issue_id === issueId);
@@ -1082,7 +1096,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260929c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260930a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1096,7 +1110,7 @@ export async function demoInit() {
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); hooks.afterLoad(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
-  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, published_at: '2026-09-21T00:00:00Z', prep_state: 'todo', ...i })); S.issueHelpers = []; S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
+  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, published_at: '2026-09-21T00:00:00Z', prep_state: 'todo', ...i })); S.issueHelpers = []; S.issueLinks = (snap.issueLinks || []).map(x => ({ ...x, related: true })); S.issueLinkChoices = []; S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },

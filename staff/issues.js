@@ -7,10 +7,10 @@
 // The index leads with what would otherwise go unnoticed: position bills this session that no issue carries, which
 // nobody following issues would ever hear of. #/issue/:id is one issue: its bills, its followers and its ⋯ menu, laid
 // out like a list's page. Its "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first
-// visit only. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
+// visit only. Its "Related issues" (095, R-094) are the issues whose bills a follower of this one is shown first. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
 // Getting the issues ready for 2027 (091, R-088) is prep.js: ?view=mine is My issues, ?view=prep the admins' board, and
 // the prep card on an issue's page. A new issue is a draft the public never sees until an admin publishes it.
-import { S, DB, SESSION_YEAR, hooks, esc } from './data.js';
+import { S, DB, SESSION_YEAR, hooks, esc, advocate, fmtDate } from './data.js';
 import { billById, billNum, plain, PUBLIC_APP } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
@@ -47,6 +47,23 @@ const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopl
 const catIcon = k => catByKey(k)?.icon || 'tag';
 // In the first visit unless staff switched it off (066; an issue from before 066, or the sandbox's, has no value: on).
 export const inFirstVisit = i => i?.first_visit !== false;
+// Related issues (095, R-094): two issues whose bills are about the same thing. Someone following one is shown the
+// other's bills first when they need voices (the public tracker's suggested bill). Found by the related-issues tool from
+// the words their bills use (backend tools/issue_similarity.js, checked by Nate 9/30); a staff link or unlink here always
+// wins and holds when the tool runs again.
+const pairOf = (l, i) => l.issue_a === i.id ? l.issue_b : l.issue_b === i.id ? l.issue_a : null;
+const choiceFor = (i, o) => (S.issueLinkChoices || []).find(c => pairOf(c, i) === o.id) || null;
+export function relatedOf(i) {
+  const found = new Set((S.issueLinks || []).map(l => pairOf(l, i)).filter(Boolean)), out = [], off = [];
+  for (const o of live()) {
+    if (o.id === i.id) continue;
+    const c = choiceFor(i, o);
+    if (c ? c.related : found.has(o.id)) out.push({ o, staff: !!c && c.related && !found.has(o.id) });
+    else if (c && !c.related && found.has(o.id)) off.push({ o, c });
+  }
+  const sort = (x, y) => (x.o.category === i.category ? 0 : 1) - (y.o.category === i.category ? 0 : 1) || byName(x.o, y.o);
+  return { on: out.sort(sort), off: off.sort(sort) };
+}
 // HIPHI's stance on the issue as a whole (094, R-093, Nate 9/29: "Editing an issue ... needs to allow us to change our
 // stance ... also on the bill page"). Mixed: HIPHI backs some bills on it and opposes others. The public page says it on
 // the issue ("HIPHI supports"); not set, it works it out from the bills, as it did before 094. An icon and a word, never
@@ -309,8 +326,56 @@ function pageRender(route) {
         : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
       ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
     </section>
+    ${i.archived_at ? '' : relatedHTML(i)}
     ${convSectionHTML(convOpts(i))}
   </div>`;
+}
+// A link works both ways: unlinking here unlinks it on the other issue's page too, so the section says so (ui-critic,
+// 9/30). Each row says what a staff member needs to judge the link: the other issue's bill count, its category when it
+// is another one, and "Linked by staff" for the links nobody's wording found. Unlinked ones say who and when.
+function relatedHTML(i) {
+  const { on, off } = relatedOf(i);
+  const line = (o, sub, act) => `<li class="le-brow"><a class="le-bmain" href="#/issue/${encodeURIComponent(o.id)}"><span class="title"><b class="le-nick">${esc(o.name)}</b></span>
+      <span class="sub le-bsum">${esc(sub)}</span></a>${act}</li>`;
+  const about = o => [plural(billsOn(o).length, 'bill'), o.category === i.category ? '' : catByKey(o.category)?.name || o.category].filter(Boolean).join(' · ');
+  const who = c => { const a = c.set_by && advocate(c.set_by); return `Unlinked${a ? ` by ${a.initials}` : ''}${c.set_at ? `, ${fmtDate(c.set_at)}` : ''}`; };
+  return `<section class="le-sec" aria-labelledby="is-rh">
+    <div class="le-sechead"><h2 id="is-rh">Related issues</h2><span class="meta">${on.length ? plural(on.length, 'issue') : ''}</span></div>
+    <p class="small muted is-relwhy">Linked both ways: when we ask people to act, anyone following one of these issues is shown the other’s bills first. Found from the words their bills use.</p>
+    ${on.length ? `<ol class="rows le-bills">${on.map(({ o, staff }) => line(o, `${about(o)}${staff ? ' · Linked by staff' : ''}`,
+        iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }))).join('')}</ol>`
+      : `<div class="le-empty">${empty({ h: 'h3', title: 'None yet', text: 'No other issue’s bills use the same words. Link one if they belong together.' })}</div>`}
+    <div class="btnrow">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link' } })}</div>
+    ${off.length ? `<details class="is-arch"><summary>${icon('eye-off')}<span>Unlinked by staff (${off.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary>
+      <ol class="rows le-bills">${off.map(({ o, c }) => line(o, `${about(o)} · ${who(c)}`,
+        btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join('')}</ol></details>` : ''}
+  </section>`;
+}
+async function setLink(i, o, on) {
+  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.getElementById('is-rh')?.closest('section')?.querySelector('[data-is="link"]')?.focus({ preventScroll: true }); };
+  try {
+    await DB.setIssueLink(i.id, o.id, on); redraw();
+    toast(on ? `Linked ${o.name} and ${i.name}.` : `Unlinked ${o.name} and ${i.name}.`, { ok: on, undo: async () => { await DB.setIssueLink(i.id, o.id, !on); redraw(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+function linkSheet(i) {
+  let q = '';
+  const have = new Set(relatedOf(i).on.map(x => x.o.id));
+  const list = () => { const t = plain(q.trim()); const l = live().filter(x => x.id !== i.id && !have.has(x.id) && (!t || plain(x.name).includes(t)))
+      .sort((a, b) => (a.category === i.category ? 0 : 1) - (b.category === i.category ? 0 : 1) || byName(a, b)).slice(0, 30);
+    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" data-linkto="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
+  openSheet({ title: `Link to ${esc(i.name)}`, pop: true,
+    body: `<p class="small muted is-for">Pick an issue whose bills are about the same thing. When we ask people to act, anyone following either one is shown the other’s bills first.</p>
+      <div class="le-search is-psearch">${icon('search')}<input id="is-lq" type="search" placeholder="Find the issue" autocomplete="off" aria-label="Find the issue to link"></div><div id="is-llist">${list()}</div>`,
+    wire: d => {
+      const box = d.querySelector('#is-llist');
+      const wireList = () => box.querySelectorAll('[data-linkto]').forEach(el => el.onclick = async () => {
+        const o = issueById(el.dataset.linkto); if (!o) return;
+        await closeSheet({ silent: true }); await afterClose(); setLink(i, o, true);
+      });
+      wireList();
+      d.querySelector('#is-lq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
+    } });
 }
 // Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
 // conversation.js): an issue carries across sessions where a bill does not.
@@ -392,6 +457,9 @@ export const issuePage = {
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));
     root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));
+    root.querySelector('[data-is="link"]')?.addEventListener('click', () => linkSheet(i));
+    root.querySelectorAll('[data-isunlink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isunlink); if (o) setLink(i, o, false); });
+    root.querySelectorAll('[data-isrelink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isrelink); if (o) setLink(i, o, true); });
     root.querySelector('[data-is="stance"]')?.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } }));
     const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });

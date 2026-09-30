@@ -11,8 +11,10 @@
 export const WEIGHT = { strong: 40, support: 20, oppose: 15, neutral: 5, top: 30, promoted: 25, soon: 15 };
 export const SOON_DAYS = 7;
 // Fit to the person. A category is a broad interest only: two issues in one category need not be linked (Nate, decision
-// 3), so a category match earns the same whether it was followed or ticked at the first visit.
-export const FIT = { interest: 30, acted: 10, sibling: -15, siblingFloor: -30 };
+// 3), so a category match earns the same whether it was followed or ticked at the first visit. What does link two
+// issues is the related-issues measure (backend tools/issue_similarity.js, migration 095, checked by Nate 9/30): a bill
+// in an issue related to one the person follows is the closest fit there is.
+export const FIT = { related: 60, interest: 30, acted: 10, sibling: -15, siblingFloor: -30 };
 export const TIMING = { week: 15, twoDays: 20 };
 export const PROOF = 5;                                  // ten or more people have acted (public counts start at 10)
 export const FATIGUE = { lower: 3, stop: 5, points: -20 };   // days shown with no follow, act or dismiss (decision 4)
@@ -35,6 +37,7 @@ const hstDay = t => new Date(t - 10 * 3600e3).toISOString().slice(0, 10);
 // ms); any other fields on c are kept. p, the person:
 //   now, issuesOf(b) -> issues, catsOf(b) -> category keys, catName(key),
 //   follows / dismissed / skips: Sets of bill ids, against(b) -> they side against HIPHI on it,
+//   relatedTo: Map of issue id -> the name of a followed issue it is related to (public_issue_links),
 //   followCats (followed whole, or holding an issue they follow), pickedCats (first visit), likedCoalitions,
 //   actedCats (categories of bills they wrote testimony on or emailed about), seen { billId: { h, days } },
 //   people(b) -> how many have acted on it (null below ten).
@@ -54,8 +57,10 @@ export function scoreOne(c, p) {
   const topPick = /^strongly_/.test(b.hiphi_position) || top;
 
   let fit = 0, fitWhy = '';
+  const near = issues.map(i => p.relatedTo && p.relatedTo.get(i.id)).find(Boolean);
   const fc = cats.find(k => p.followCats.has(k)), pc = cats.find(k => p.pickedCats.has(k)), coal = (b.coalitions || []).find(n => p.likedCoalitions.has(n));
-  if (fc) { fit = FIT.interest; fitWhy = `In ${p.catName(fc)}, an area you follow`; }
+  if (near) { fit = FIT.related; fitWhy = `Close to ${near}, an issue you follow`; }
+  else if (fc) { fit = FIT.interest; fitWhy = `In ${p.catName(fc)}, an area you follow`; }
   else if (pc) { fit = FIT.interest; fitWhy = 'Matches an issue you picked'; }
   else if (coal) { fit = FIT.interest; fitWhy = 'Similar to bills you follow'; }
   if (cats.some(k => p.actedCats.has(k))) { fit += FIT.acted; fitWhy ||= 'Like bills you’ve spoken up on'; }
