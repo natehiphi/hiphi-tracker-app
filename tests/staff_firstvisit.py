@@ -39,7 +39,7 @@ with sync_playwright() as pw:
 
         # ---- the way in, from Outreach > Issues ----
         visit(p, '/outreach/issues')
-        link = p.locator('a.is-fvlink')
+        link = p.locator('a.is-fvlink[href$="view=first-visit"]')   # R-088 added My issues and Prep board links in the same style
         ok(link.count() == 1 and 'First visit' in link.inner_text(), f'issues{tag}: a link to the first visit under the top line')
         link.click(); p.wait_for_timeout(1200)
         ok(p.evaluate('location.hash') == '#/outreach/issues?view=first-visit', f'first visit{tag}: its address')

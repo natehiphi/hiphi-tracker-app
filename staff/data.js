@@ -828,6 +828,19 @@ export const DB = {
   },
   // Coming back and acting (078, R-067): per week, browsers that opened the public page (one per browser per day), new
   // and returning ones by how long since their last visit, and actions marked done by kind. Staff only.
+  // The day the private counts start (097, R-109): app_settings 'counts'.from, a Hawaiʻi date. The three summaries above
+  // count nothing before it; our own test runs filled 9/27 to 9/30. Admins change it (settings are admin-write).
+  async countsFrom() {
+    if (DEMO) return S.demoCountsFrom || '2026-10-01';
+    const { data, error } = await S.supa.from('app_settings').select('value').eq('key', 'counts').maybeSingle();
+    if (error) throw error;
+    return data?.value?.from || null;
+  },
+  async setCountsFrom(day) {
+    if (DEMO) { S.demoCountsFrom = day; return; }
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'counts', value: { from: day }, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  },
   async visitCountsWeekly(weeks = 12) {
     if (DEMO) return [];
     const { data, error } = await S.supa.rpc('visit_counts_weekly', { weeks: Math.round(+weeks || 12) });

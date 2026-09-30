@@ -149,6 +149,9 @@
 .fv-table .fv-pc { display: block; font-size: var(--t13); color: var(--n500); }
 .fv-how { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s24) 0 0; max-width: 70ch; }
 .fv-how .ic { flex: none; margin-top: 2px; }
+/* When counting starts (097, R-109): above the tiles, with Change for admins. */
+.fv-from { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); margin: 0 0 var(--s16); max-width: 70ch; }
+.fv-from .ic { flex: none; }
 /* Make a link (a reading column on a desktop; the link and its QR code side by side from 900px) */
 .fv-card { padding: var(--s16); }
 .fv-none p { margin: 0 0 var(--s12); }

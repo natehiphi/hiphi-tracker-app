@@ -101,10 +101,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), at: Date.now() }; return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, at: Date.now() }; }
+  try { const [rows, srcs, back, from] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -230,6 +230,34 @@ function weeksHTML(rows) {
   return tableHTML('fv-wh', 'By week', 'Monday to Sunday', ['Week of', 'Started', 'Finished', 'Gave an email'], wk.map(([k, t]) =>
     `<tr><th scope="row">${esc(weekOf(k))}</th><td class="num">${nf(t.visits)}</td><td class="num">${nf(t.finished)} <span class="fv-pc">${pct(t.finished, t.visits)}</span></td><td class="num">${nf(t.email)}</td></tr>`));
 }
+// The counts start on the team's count-from day (097, R-109): our own test runs filled 9/27 to 9/30, and rather than delete
+// them the summaries skip everything before the day. Admins move it (the testers' first day, then 20 Jan 2027).
+const dayLong = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' });
+function fromLine() {
+  const v = V(); if (!v.from) return '';
+  return `<p class="meta fv-from">${icon('calendar', { size: 16 })}<span>Counting from <b>${esc(dayLong(v.from))}</b>. Visits before then aren't counted.</span>${S.me?.is_admin ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-fv': 'from', 'aria-haspopup': 'dialog' } }) : ''}</p>`;
+}
+function fromForm() {
+  const v = V(), before = v.from;
+  const body = `<div class="le-sheet fv-pform">
+    <div class="field"><label for="fv-from">Count visits from</label><input id="fv-from" type="date" value="${esc(before || '')}" aria-describedby="fv-from-h fv-from-err">
+      <span class="help" id="fv-from-h">Visits before this day aren't counted. Use the testers' first day for their round, and Wednesday, January 20, 2027 for the session.</span><div id="fv-from-err" role="alert"></div></div>
+  </div>`;
+  openSheet({ title: 'When counting starts', size: 'auto', body, foot: btn('Save', { icon: 'check', attrs: { 'data-fvfsave': '1' } }),
+    wire: d => {
+      const go = d.querySelector('[data-fvfsave]'), el = d.querySelector('#fv-from');
+      go.onclick = async () => {
+        const day = el.value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) { el.setAttribute('aria-invalid', 'true'); d.querySelector('#fv-from-err').innerHTML = `<span class="err">${icon('circle-alert')}Choose a day.</span>`; el.focus(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        const apply = async next => { await DB.setCountsFrom(next); v.from = next; v.cache = {}; await load(v.weeks, { force: true }); redraw('[data-fv="from"]'); };
+        try {
+          await apply(day); closeSheet({ silent: true });
+          toast(`Counting from ${dayLong(day)}.`, { ok: true, undo: before && before !== day ? async () => { await apply(before); } : undefined });
+        } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
+      };
+    } });
+}
 function numbersHTML() {
   const v = V(), have = v.cache[v.weeks];
   if (!have) {
@@ -238,9 +266,9 @@ function numbersHTML() {
   }
   const rows = have.rows, shared = rows.filter(r => r.path === 'link').reduce((n, r) => n + (r.visits || 0), 0);
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
-  if (!rows.length) return `${sample}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
+  if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 
@@ -453,6 +481,7 @@ export function wireFirstVisit(route, root) {
   const v = V();
   root.querySelectorAll('[data-seg="fvw"]').forEach(el => el.onclick = () => { v.weeks = el.dataset.val; load(v.weeks); redraw(`[data-seg="fvw"][data-val="${v.weeks}"]`); });
   root.querySelector('[data-fv="retry"]')?.addEventListener('click', () => { v.err = ''; load(v.weeks, { force: true }); redraw(); });
+  root.querySelector('[data-fv="from"]')?.addEventListener('click', () => fromForm());
   root.querySelector('[data-fv="pretry"]')?.addEventListener('click', () => { wantPartners({ force: true }); redraw(); });
   root.querySelectorAll('[data-fv="pnew"]').forEach(el => el.onclick = () => partnerForm());
   root.querySelector('[data-fv="card"]')?.addEventListener('click', () => cardForm());
