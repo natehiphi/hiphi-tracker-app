@@ -267,9 +267,9 @@ function composer(l, b, k, where) {
 // Email and Call, side by side. On the finder they are both quiet; the mail app button inside is the one primary.
 function contact(l, k, { primary = false } = {}) {
   const open = P.mail === k, last = `${legTitle(l)} ${surname(l)}`;
-  const email = l.email ? btn(open ? 'Hide email' : primary ? `Email ${last}` : 'Email', { kind: primary && !open ? 'primary' : 'secondary', sm: !primary, icon: open ? 'x' : 'mail',
+  const email = l.email ? btn(open ? 'Hide email' : primary ? `Email ${esc(last)}` : 'Email', { kind: primary && !open ? 'primary' : 'secondary', sm: !primary, icon: open ? 'x' : 'mail',
     attrs: { 'data-pp-mail': k, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'pp-cmp-' + k } }) : '';
-  const call = l.phone ? btn(primary ? `Call ${l.phone}` : 'Call', { kind: 'secondary', sm: !primary, icon: 'phone', href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, attrs: { 'aria-label': `Call ${last} at ${l.phone}` } }) : '';
+  const call = l.phone ? btn(primary ? `Call ${esc(l.phone)}` : 'Call', { kind: 'secondary', sm: !primary, icon: 'phone', href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, attrs: { 'aria-label': `Call ${last} at ${l.phone}` } }) : '';
   return email || call ? `<div class="${primary ? 'btncol' : 'pp-contact'}">${email}${call}</div>` : '';
 }
 

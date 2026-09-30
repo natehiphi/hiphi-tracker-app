@@ -16,6 +16,7 @@ def ok(cond, msg):
     else: failed += 1
 
 def rig(ctx, sent, partners=None, fail_partners=False):
+    ctx.add_init_script(OPT_IN)
     def rpc(route):
         req = route.request
         body = json.loads(req.post_data or '{}')
@@ -36,6 +37,8 @@ def rig(ctx, sent, partners=None, fail_partners=False):
     ctx.route(re.compile(r'.*supabase\.co/(?!rest/v1/(rpc/log_first_visit|public_partners)).*'), other)
 
 IMPORT = "async () => { window.VL = await import('/pub/visitlog.js'); return true; }"
+# R-100: an automated browser on the test machine is never counted unless it opts in (this suite catches every request).
+OPT_IN = "window.__hiphiCountTests = true"
 with sync_playwright() as pw:
     br = pw.chromium.launch()
     # ---- 1. a partner link from Instagram, on a phone ----
@@ -132,6 +135,7 @@ with sync_playwright() as pw:
 
     # ---- 4. no network at all: never throws, never retries ----
     ctx = br.new_context(viewport={'width': 800, 'height': 900}); sent = []
+    ctx.add_init_script(OPT_IN)
     ctx.route(re.compile(r'.*(supabase\.co|jsdelivr\.net/npm/@supabase).*'), lambda route: (sent.append(route.request.url), route.abort()))
     page = ctx.new_page(); errs = []; page.on('pageerror', lambda e: errs.append(str(e))); page.goto(BASE + '/tests/'); page.evaluate(IMPORT)
     r = page.evaluate("() => VL.logVisit('topics', 'view')"); page.wait_for_timeout(1500)
@@ -140,6 +144,15 @@ with sync_playwright() as pw:
     ok(r is False and w is None and not errs, f'offline: false and null, no error thrown ({len(sent)} attempts, no retry loop)')
     ok(len([u for u in sent if 'rpc/log_first_visit' in u]) <= 1, 'one attempt at most for the event')
     ok(dev == 'tablet', 'an 800px window is a tablet')
+    ctx.close()
+
+    # ---- 5. a test run is never counted (R-100): an automated browser on the test machine, no opt-in ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); sent = []
+    ctx.route(re.compile(r'.*supabase\.co/rest/v1/rpc/.*'), lambda route: (sent.append({'url': route.request.url, 'p': True}), route.fulfill(status=204, body='')))
+    page = ctx.new_page(); page.goto(BASE + '/tests/?via=kokua-kalihi'); page.evaluate(IMPORT)
+    r = page.evaluate("() => VL.logVisit('topics', 'view', { path: 'in' })"); page.wait_for_timeout(600)
+    stored = page.evaluate("() => sessionStorage.getItem('hiphi_fv')")
+    ok(r is False and not sent and stored is None, f'a test run (automated browser, localhost, no opt-in) sends nothing and keeps nothing ({len(sent)} calls)')
     ctx.close()
     br.close()
 print(f'\n{passed} passed, {failed} failed')

@@ -269,7 +269,7 @@ function mainButton(b, x) {
       const one = x.to.length === 1 ? x.to[0] : null, yes = /oppose/.test(b.hiphi_position || '') ? 'no' : 'yes';
       const label = x.differs ? (x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : one ? `Email ${legTitle(one)} ${surname(one)}` : 'Email your legislators')
         : x.kind === 'floor' ? `Ask ${legTitle(one)} ${surname(one)} to vote ${yes}` : x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : 'Email your legislators';
-      return btn(label, { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.to.map(l => contactOf(l, x.conf)), x.differs ? 'own' : x.kind), attrs: { 'data-bl-main': x.kind, 'data-bl-mail': '-' } });
+      return btn(esc(label), { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.to.map(l => contactOf(l, x.conf)), x.differs ? 'own' : x.kind), attrs: { 'data-bl-main': x.kind, 'data-bl-mail': '-' } });
     }
     case 'governor': return btn(x.differs ? 'Tell the Governor what you think' : /oppose/.test(b.hiphi_position || '') ? 'Ask the Governor to veto it' : 'Ask the Governor to sign it',
       { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: GOV_URL, attrs: { 'data-bl-main': 'governor', 'data-bl-mail': '-', target: '_blank', rel: 'noopener' } });

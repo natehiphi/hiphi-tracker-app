@@ -645,7 +645,7 @@ function mailScreen() {
     ${trouble}
     ${welcomeBack()}
     ${noAddr ? `${notice('warn', 'triangle-alert', 'We don’t have an email address for them. Their Capitol page says how to reach them.')}
-      ${x.to.filter(t => t.url).map(t => btn(`${shortName(t)} on the Capitol website`, { kind: 'secondary', iconEnd: 'external-link', full: true, href: t.url, attrs: { target: '_blank', rel: 'noopener' } })).join('')}`
+      ${x.to.filter(t => t.url).map(t => btn(esc(`${shortName(t)} on the Capitol website`), { kind: 'secondary', iconEnd: 'external-link', full: true, href: t.url, attrs: { target: '_blank', rel: 'noopener' } })).join('')}`
       : `<ul class="hp-sends" role="list">${order.map(send).join('')}</ul>`}
     ${copies}
     ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;

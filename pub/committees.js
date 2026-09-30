@@ -21,7 +21,7 @@ function slotLine(slot) {
 
 function committeeRow(c) {
   const slot = slotOf(c.code);
-  return row({ title: esc(c.name), sub: [CHAMBER_NAME[c.chamber] || '', slotLine(slot)].filter(Boolean).join(' · '), href: `#/committee/${c.code}` });
+  return row({ title: esc(c.name), sub: [CHAMBER_NAME[c.chamber] || '', esc(slotLine(slot))].filter(Boolean).join(' · '), href: `#/committee/${c.code}` });
 }
 function listPage() {
   const cs = allCommittees(), senate = cs.filter(c => c.chamber === 'S'), house = cs.filter(c => c.chamber === 'H');

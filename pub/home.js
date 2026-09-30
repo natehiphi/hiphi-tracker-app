@@ -709,7 +709,7 @@ function meetCard() {
   const c = S.meetCard; if (!c) return '';
   return `<section class="card hm-meet" aria-labelledby="hm-meet-h"><h2 id="hm-meet-h">${icon('calendar-days')}<span>${esc(c.title)}</span></h2>
     ${c.body ? `<p class="small">${esc(c.body)}</p>` : ''}
-    ${c.link_url ? btn(c.link_label || 'Learn more', { kind: 'text', sm: true, iconEnd: 'external-link', href: c.link_url, attrs: { target: '_blank', rel: 'noopener' } }) : ''}</section>`;
+    ${c.link_url ? btn(esc(c.link_label || 'Learn more'), { kind: 'text', sm: true, iconEnd: 'external-link', href: c.link_url, attrs: { target: '_blank', rel: 'noopener' } }) : ''}</section>`;
 }
 
 // ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------

@@ -103,6 +103,13 @@ const NEWS = [   // [what the official action says, the words for it, true for a
   [/received from (the )?house/i, () => 'now in the Senate'],
   [/received from (the )?senate/i, () => 'now in the House'],
 ];
+// The day a bill missed its deadline ("First Lateral 2/20/26"), as a Hawaiʻi noon; null when the data has no date. Not
+// stops.js's stoppedAt(), which is the committee a bill stopped in: 342c8ba removed this helper under that name and left
+// its call below, so My issues threw for every returning follower with a stopped bill (R-100).
+function stoppedOn(b) {
+  const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || '');
+  return m ? `20${m[3].slice(-2)}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T12:00:00-10:00` : null;
+}
 // The newest piece of news on a bill, as { at, label }, looking no later than `upTo`. Same-day actions share one
 // timestamp, so the order of NEWS breaks the tie the same way every time. For a bill that has stopped, the news is
 // that it stopped (never an older hearing notice), dated by its missed deadline, the end of the session, or its
@@ -110,7 +117,7 @@ const NEWS = [   // [what the official action says, the words for it, true for a
 function newsItem(b, upTo = Infinity) {
   if (stopped(b)) {
     const label = b.stage === 'vetoed' ? 'vetoed' : /failed to pass/i.test(b.last_action || '') ? 'did not pass a vote' : HELD_RE.test(b.last_action || '') ? 'put on hold' : 'stopped';
-    const day = label === 'stopped' && (stoppedAt(b) || (/sine die/i.test(b.died_deadline || '') && sessionInfo().end + 'T12:00:00-10:00')) || (b.last_action_date ? String(b.last_action_date).slice(0, 10) + 'T12:00:00-10:00' : '');
+    const day = label === 'stopped' && (stoppedOn(b) || (/sine die/i.test(b.died_deadline || '') && sessionInfo().end + 'T12:00:00-10:00')) || (b.last_action_date ? String(b.last_action_date).slice(0, 10) + 'T12:00:00-10:00' : '');
     const at = Date.parse(day || '');
     return at <= upTo ? { at, label } : null;
   }

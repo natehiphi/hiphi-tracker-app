@@ -108,7 +108,7 @@ function momentCard({ b, m }, primary) {
     <h2 class="sp-t" id="${id}"><a href="${billPath(b)}">${esc(w.head)}</a></h2>
     <p class="small sp-what">${esc(nick(b) || blurb(b, 120))}</p>
     <p class="small">${esc(w.why)} A short note from someone they represent carries weight.</p>
-    <div class="btnrow sp-btns">${btn(`Write to ${m.legs.length === 1 ? legName(m.legs[0]) : 'them'}`, { kind: primary ? 'primary' : 'secondary', icon: 'mail', attrs: { 'data-speak': `${b.id}|${m.key}` } })}
+    <div class="btnrow sp-btns">${btn(`Write to ${m.legs.length === 1 ? esc(legName(m.legs[0])) : 'them'}`, { kind: primary ? 'primary' : 'secondary', icon: 'mail', attrs: { 'data-speak': `${b.id}|${m.key}` } })}
       ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-speak-no': `${b.id}|${m.key}` } })}</div>
   </section>`;
 }

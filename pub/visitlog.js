@@ -26,6 +26,12 @@ const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);
 // The privacy page promises "if your browser asks sites not to track you, we record nothing". Only Global Privacy
 // Control was honoured; Do Not Track is the older way browsers ask, so it counts too (R-067).
 const gpc = () => { try { return navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1'; } catch { return false; } };
+// A test run is never counted either (R-100): an automated browser, or the page served from the test machine. On 9/29
+// the suites, which load the live page without the privacy signal, made up every visit counted since 9/27.
+// tests/visitlog.py, which intercepts every request, turns counting back on with window.__hiphiCountTests (a page flag,
+// not storage: the sandbox renames hiphi_ storage names).
+const testRun = () => { try { return (navigator.webdriver === true || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) && window.__hiphiCountTests !== true; } catch { return false; } };
+const quiet = () => gpc() || testRun();
 
 // ---- this visit: its id and where it came from, worked out once and kept for the life of the tab ----
 let mem = null;   // when sessionStorage is not available (a private window that refuses it), this page load only
@@ -61,7 +67,7 @@ function visit() {
   return v;
 }
 // Worked out as the page loads, before anything can change the address, so a ?via= is never lost. Nothing is sent.
-if (!gpc()) { try { visit(); } catch { /* counting never gets in the way */ } }
+if (!quiet()) { try { visit(); } catch { /* counting never gets in the way */ } }
 
 // ---- what an event may carry, and only that ----
 // A number out of its range is dropped, as the database drops it; only seconds are held to an hour, since a long stay
@@ -99,7 +105,7 @@ function send(payload, leaving) {
 // step or event, no network). Never rejects, so nobody has to catch it; nobody has to wait for it either.
 export function logVisit(step, event, extra = {}) {
   try {
-    if (gpc()) return Promise.resolve(false);
+    if (quiet()) return Promise.resolve(false);
     if (!STEPS.has(step) || !EVENTS.has(event)) { console.warn('logVisit: not a first-visit step or event:', step, event); return Promise.resolve(false); }
     const v = visit();
     if (v.n >= CAP) return Promise.resolve(false);
@@ -115,7 +121,7 @@ export function logVisit(step, event, extra = {}) {
 // This visit's partner slug (?via=), or '' when there is none. Read from the address itself under Global Privacy Control,
 // where nothing is kept.
 export function visitVia() {
-  try { if (gpc()) return fromUrl().via; return visit().src?.via || ''; } catch { return ''; }
+  try { if (quiet()) return fromUrl().via; return visit().src?.via || ''; } catch { return ''; }
 }
 
 // The partner's welcome line ("Welcome, friends of ..."), or null: no such partner, no line, or no network. Asked once
@@ -145,7 +151,7 @@ const homeScreen = () => { try { return matchMedia('(display-mode: standalone)')
 const sendCount = p => supa().then(sb => sb.rpc('log_visit_count', { p })).then(r => !r.error, () => false);
 export function logDay({ follows = false, signedIn = false, season = 'in' } = {}) {
   try {
-    if (DEMO || gpc()) return Promise.resolve(false);
+    if (DEMO || quiet()) return Promise.resolve(false);
     const today = hiDay();
     let mem = null; try { mem = JSON.parse(localStorage.getItem(DAYS_KEY) || 'null'); } catch { /* private mode: counted as new each day */ }
     if (mem && mem.last === today) return Promise.resolve(false);
@@ -160,7 +166,7 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
 }
 export function logAct(kind) {
   try {
-    if (DEMO || gpc() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
+    if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
     return sendCount({ kind: 'act', act: kind, device: device() }).catch(() => false);
   } catch { return Promise.resolve(false); }
 }
