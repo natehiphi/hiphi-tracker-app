@@ -2,13 +2,10 @@
    Sizes 13/14/16/18 only. Unread is said three ways (A-3): a dot on the icon, bold words, and "Unread:" for screen
    readers. Every control is 44px (A-6). */
 .ib-page { padding-bottom: var(--s24); }
-.ib-page .ib-lede { margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
 .ib-page .ib-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s12); margin-top: var(--s12); }
 .ib-page .ib-tabs button { padding: 0 14px; white-space: nowrap; }
 .ib-page .ib-n { display: inline-block; min-width: 20px; height: 20px; margin-left: 4px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: #fff;
   font: 700 var(--t13)/20px var(--font); text-align: center; }
-.ib-page .ib-n.quiet { background: var(--n200); color: var(--n900); }
-.ib-page .ib-bar > .btn { margin-left: auto; }
 
 /* ---- filters: shown once the list is long, or when one is on ---- */
 .ib-page .ib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s12); }
@@ -17,7 +14,8 @@
 .ib-page .ib-unr { align-items: center; padding: 0; }
 .ib-page .ib-unr input { margin: 0; }
 .ib-page .ib-kinds { display: flex; flex-wrap: wrap; gap: var(--s8); width: 100%; }
-.ib-page .ib-count { display: flex; align-items: center; gap: var(--s4); margin: var(--s8) 0 0; width: 100%; font-size: var(--t14); color: var(--n500); }
+/* the count line: how many, then Filter or sort, then Mark all read, as text buttons (one loud control less: A-13) */
+.ib-page .ib-count { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--s16); margin: var(--s4) 0 0; width: 100%; font-size: var(--t14); color: var(--n500); }
 .ib-page .ib-count .linkbtn { display: inline-flex; align-items: center; min-height: 44px; }
 
 /* ---- the list ---- */
@@ -26,7 +24,7 @@
 .ib-page .ib-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; background: var(--n0); }
 .ib-page .ib-main { display: flex; align-items: flex-start; gap: var(--s12); min-width: 0; width: 100%; padding: var(--s12) var(--s8) var(--s12) var(--s16);
   color: inherit; text-decoration: none; text-align: left; background: none; border: 0; font: inherit; }
-@media (hover: hover) { .ib-page a.ib-main:hover, .ib-page button.ib-main:hover { background: var(--n50); } }   /* a tap on a phone leaves no grey behind */
+@media (hover: hover) { .ib-page .ib-row:has(.ib-main:hover) { background: var(--n50); } }   /* the whole row; a tap on a phone leaves no grey behind */
 .ib-page .ib-ic { position: relative; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--n100); color: var(--n700);
   display: flex; align-items: center; justify-content: center; }
 .ib-page .ib-ic .ic { width: 18px; height: 18px; }
@@ -56,11 +54,15 @@
 /* Updates: one block per bill */
 .ib-page .ib-group + .ib-group { margin-top: var(--s16); }
 .ib-page .ib-ghead { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4) var(--s8); margin: 0 0 var(--s4); }
-.ib-page .ib-gname { flex: 1 1 240px; min-width: 0; display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); color: var(--n900); text-decoration: none; }
+/* the bill leads its block, and its Capitol lines are quieter than it (A-13) */
+.ib-page .ib-gname { flex: 1 1 240px; min-width: 0; display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t16); color: var(--n900); text-decoration: none; }
+.ib-page .ib-group .ib-l1 { font-size: var(--t14); }
+.ib-page .ib-gread { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); }
 .ib-page a.ib-gname:hover { text-decoration: underline; }
 .ib-page .ib-gname b, .ib-page .ib-gname .sv-p1 { margin-right: 6px; flex: none; }
 .ib-page .ib-gname span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ib-page .ib-gnew { font-size: var(--t13); font-weight: 700; color: var(--p800); background: var(--p50); border-radius: var(--pill); padding: 2px 8px; white-space: nowrap; }
+.ib-page .ib-gacts { display: inline-flex; align-items: center; gap: var(--s12); margin-left: auto; }   /* the count and its Mark read wrap together */
+.ib-page .ib-gnew { font-size: var(--t13); color: var(--n500); white-space: nowrap; }
 .ib-page .ib-gmore { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); }
 
 .ib-page .ib-keys, .ib-page .ib-note { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0 0; font-size: var(--t13); color: var(--n500); }
@@ -75,15 +77,17 @@
 .td-dinbox .ic { flex: none; width: 16px; height: 16px; }
 .td-dinbox a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 
+/* 599px: the phone widths (staff.css's own step). The tabs share the width, the time goes under the words so the words
+   keep their room, and the icon column narrows. */
 @media (max-width: 599px) {
   .ib-page .ib-tabs { display: flex; width: 100%; }
   .ib-page .ib-tabs button { flex: 1 1 auto; padding: 0 8px; }
-  .ib-page .ib-bar > .btn { margin-left: 0; }
   .ib-page .ib-when.d { display: none; }
   .ib-page .ib-when.m { display: block; }
   .ib-page .ib-main { padding-left: var(--s12); }
   .ib-page .ib-rev { padding-left: 60px; }
 }
+/* 360px and under (the 320px phone): the three tabs still fit on one line. */
 @media (max-width: 360px) {
   .ib-page .ib-tabs button { padding: 0 6px; font-size: var(--t13); }
   .ib-page .ib-ic { width: 32px; height: 32px; }

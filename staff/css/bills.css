@@ -507,4 +507,10 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-sel:hover { border-color: var(--p700); }
   .bl-table .bl-sel:focus-visible { outline: 2px solid var(--p700); outline-offset: 1px; }
   .bl-table.bl-compact .bl-sel { min-height: 30px; padding-top: 2px; padding-bottom: 2px; }
+  /* what the buttons showed stays visible while editing (A-13): the position's icons beside its dropdown, P1 in bold */
+  .bl-table .bl-selwrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .bl-table .bl-selwrap > .ic, .bl-table .bl-selwrap > span:not(.sr) { flex: none; color: var(--n500); }
+  .bl-table .bl-selwrap .ic { width: 18px; height: 18px; }
+  .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
+  .bl-table .bl-sel-pri[data-v="1"] { font-weight: 700; border-color: var(--n900); }
 }

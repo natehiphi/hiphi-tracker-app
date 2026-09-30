@@ -264,7 +264,7 @@ export function inboxRows() {
   if (v.q.trim()) { const q = v.q.trim().toLowerCase(); rows = rows.filter(i => [i.bill_number, i.title, i.body].join(' ').toLowerCase().includes(q)); }
   const cmp = v.sort === 'pri' ? (x, y) => (x.priority || 9) - (y.priority || 9) || String(y.at).localeCompare(String(x.at))
     : v.sort === 'bill' ? (x, y) => String(x.bill_number || 'zzz').localeCompare(String(y.bill_number || 'zzz'), 'en', { numeric: true }) || String(y.at).localeCompare(String(x.at))
-    : (x, y) => (y.unread - x.unread) || String(y.at).localeCompare(String(x.at));
+    : (x, y) => (y.unread - x.unread) || (y.direct - x.direct) || String(y.at).localeCompare(String(x.at));   // what needs you before news (Everything)
   return rows.sort(cmp);
 }
 // ---- the weekly memo (memo.js). Two audiences (R-022, wave 3 #19). The team's keeps where our testimony stands, in

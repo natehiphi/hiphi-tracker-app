@@ -16,6 +16,7 @@ const KINDS = [['message', 'Messages'], ['testimony', 'Testimony'], ['deadline',
 const KIND_ICON = { message: 'message-square', testimony: 'file-text', deadline: 'clock', hearing: 'gavel', status: 'arrow-right', system: 'settings' };
 const view = () => S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
 const hover = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return true; } };
 const ago = iso => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 0 ? fmtDT(iso) : h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : h < 24 * 7 ? `${Math.round(h / 24)}d ago` : fmtDate(iso); };
 const itemOf = key => (S.inbox || []).find(i => i.key === key);
 // Where a row opens: a message on the bill's Activity (where the reply box is), a testimony step on its Testimony tab,
@@ -34,8 +35,9 @@ function reviewAct(i) {
   const mine = d.status === 'review' ? canFirstApprove(S.me, d, h) : canSecondApprove(S.me, d);
   return mine ? `<div class="ib-rev">${btn(d.status === 'review' ? 'Review it' : 'Give the second approval', { kind: 'secondary', sm: true, icon: 'user-check', href: `#/review/${encodeURIComponent(d.id)}`, attrs: { 'data-ibkey': i.key } })}</div>` : '';
 }
-// Read and unread as a mail app shows them: an open envelope marks it read, a closed one marks it unread again.
-const readBtn = (key, unread) => iconBtn(unread ? 'mail-open' : 'mail', unread ? 'Mark read' : 'Mark unread', { 'data-ibtoggle': key }, 'ib-read');
+// The button shows what it does: a tick marks the row read, a dot (the unread mark) marks it unread again. Envelopes
+// read as the row's state rather than the button's action (9/30 review, A-18).
+const readBtn = (key, unread) => iconBtn(unread ? 'check' : 'circle-dot', unread ? 'Mark read' : 'Mark unread', { 'data-ibtoggle': key }, 'ib-read');
 
 // In a bill's own block (Updates) the block names the bill, so its rows do not say it again (A-14).
 function item(i, inBlock = false) {
@@ -58,7 +60,7 @@ function dupRow(k, list) {
         <span class="ib-body"><span class="ib-l1">${un ? '<span class="sr">Unread: </span>' : ''}<b>${list.length} bills</b> <span class="ib-t">${esc(unslack(i.title))}</span></span>
           <span class="ib-sub">${esc(list.map(x => x.bill_number || '').filter(Boolean).join(' · '))}</span><span class="ib-when m">${esc(ago(i.at))}</span></span>
         <span class="ib-when d">${esc(ago(i.at))}</span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>
-      <span class="ib-acts">${iconBtn(un ? 'mail-open' : 'mail', un ? `Mark all ${list.length} read` : `Mark all ${list.length} unread`, { 'data-ibduptoggle': k }, 'ib-read')}</span></div>
+      <span class="ib-acts">${iconBtn(un ? 'check' : 'circle-dot', un ? `Mark all ${list.length} read` : `Mark all ${list.length} unread`, { 'data-ibduptoggle': k }, 'ib-read')}</span></div>
     ${open ? `<div class="ib-dupitems">${list.map(i => item(i)).join('')}</div>` : ''}</div>`;
 }
 function listBody(rows, v) {
@@ -69,9 +71,9 @@ function listBody(rows, v) {
       const b = k !== 'none' && billById(k), un = list.filter(i => i.unread).length;
       const name = b ? `<a class="ib-gname" href="#/bill/${encodeURIComponent(b.bill_number)}/activity"><b>${esc(billNum(b))}</b>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span>${esc(b.nickname || blurb(b, 80))}</span></a>` : '<b class="ib-gname">Not about one bill</b>';
       return `<section class="ib-group" aria-label="${esc(b ? billNum(b) : 'Not about one bill')}"><div class="ib-ghead">${name}
-          ${un ? `<span class="ib-gnew">${un} new</span>${btn('Mark read', { kind: 'ghost', sm: true, attrs: { 'data-ibgroup': k } })}` : ''}</div>
+          ${un ? `<span class="ib-gacts"><span class="ib-gnew">${un} unread</span><button type="button" class="linkbtn ib-gread" data-ibgroup="${esc(k)}">Mark read</button></span>` : ''}</div>
         <div class="rows">${list.slice(0, 4).map(i => item(i, !!b)).join('')}</div>
-        ${list.length > 4 && b ? `<a class="ib-gmore" href="#/bill/${encodeURIComponent(b.bill_number)}/activity">${list.length - 4} more on its Activity tab</a>` : ''}</section>`;
+        ${list.length > 4 && b ? `<a class="ib-gmore" href="#/bill/${encodeURIComponent(b.bill_number)}/activity">All ${list.length} on its Activity tab</a>` : ''}</section>`;
     }).join('');
   }
   const seen = new Map(), order = [];
@@ -87,31 +89,35 @@ function render() {
     DB.loadInbox().then(() => { S.ibLoadedAt = Date.now(); if (S.route?.name === 'inbox') hooks.render(); }).catch(() => {}).finally(() => { S.ibLoading = false; });
   }
   const v = view(), all = S.inbox || [], rows = inboxRows();
-  const nNeeds = inboxCount(), nUpd = all.filter(i => !i.direct && i.unread).length, unreadHere = rows.filter(i => i.unread).length;
+  const nNeeds = inboxCount(), unreadHere = rows.filter(i => i.unread).length;
   const filtered = !!(v.q.trim() || v.unreadOnly || v.kind), sorted = v.sort && v.sort !== 'new';
-  const showF = v.showFilters || filtered || sorted || rows.length > 15;
-  const tab = (k, label, n, quiet) => `<button type="button" data-ibtab="${k}" aria-pressed="${v.tab === k}">${label}${n ? ` <span class="ib-n${quiet ? ' quiet' : ''}">${n > 99 ? '99+' : n}<span class="sr"> unread</span></span>` : ''}</button>`;
+  // On a laptop a long list opens its filters (one row); on a phone they stay behind "Filter or sort", so the first item
+  // sits high enough to see (A-1: the review found it at 443-496px on a 390px phone).
+  const showF = v.showFilters || filtered || sorted || (rows.length > 15 && wide());
+  const grouped = v.group && v.sort !== 'pri' && (v.tab === 'updates' || v.sort === 'bill');
+  // Only Needs you is counted (Updates are news that clears itself after a week, not a backlog: A-14).
+  const tab = (k, label, n) => `<button type="button" data-ibtab="${k}" aria-pressed="${v.tab === k}">${label}${n ? ` <span class="ib-n">${n > 99 ? '99+' : n}<span class="sr"> unread</span></span>` : ''}</button>`;
+  const nBills = grouped ? new Set(rows.map(i => i.bill_id || 'none')).size : 0;
+  const countLine = (extra = '') => `<p class="ib-count" aria-live="polite"><span>${grouped ? `${nBills} ${nBills === 1 ? 'bill' : 'bills'}` : `${rows.length} ${rows.length === 1 ? 'item' : 'items'}`}${unreadHere ? `, ${unreadHere} unread` : ''}</span>${extra}${unreadHere ? `<button type="button" class="linkbtn" data-ibreadall="1">Mark all read</button>` : ''}</p>`;
   const kinds = KINDS.filter(([k]) => all.some(i => i.kind === k && (v.tab === 'all' || (v.tab === 'needs') === i.direct)));
   const none = filtered ? empty({ title: 'Nothing matches these filters', action: btn('Clear the filters', { kind: 'secondary', attrs: { 'data-ibclear': 1 } }) })
     : v.tab === 'needs' ? empty({ title: 'Nothing needs you', text: 'Messages to you, @mentions, testimony steps and reminders land here.' })
     : v.tab === 'updates' ? empty({ title: 'No updates', text: 'What the Capitol does on the bills you own or follow lands here, for a week.' })
     : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, reminders and news on your bills land here.' });
   return `<div class="ib-page">
-    <p class="ib-lede">What was sent to you, and the news on your bills. Read or not, it stays here.</p>
     <div class="ib-bar">
-      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'Needs you', nNeeds)}${tab('updates', 'Updates', nUpd, true)}${tab('all', 'Everything')}</div>
-      ${unreadHere ? btn(`Mark ${unreadHere} read`, { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-ibreadall': 1 } }) : ''}
+      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'Needs you', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</div>
     </div>
     ${showF ? `<div class="ib-filters">
       <label class="sr" for="ib-q">Filter by bill or words</label><input id="ib-q" class="input ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off">
       <label class="check ib-unr"><input type="checkbox" id="ib-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
       <label class="sr" for="ib-sort">Sort</label><select id="ib-sort" class="input ib-sort"><option value="new" ${v.sort === 'new' ? 'selected' : ''}>Unread first, then newest</option><option value="pri" ${v.sort === 'pri' ? 'selected' : ''}>Priority, P1 first</option><option value="bill" ${v.sort === 'bill' ? 'selected' : ''}>By bill</option></select>
       ${kinds.length > 1 ? `<div class="ib-kinds" role="group" aria-label="Kind">${kinds.map(([k, l]) => `<button type="button" class="sv-pick sv-toggle${v.kind === k ? ' on' : ''}" data-ibkind="${k}" aria-pressed="${v.kind === k}">${icon(KIND_ICON[k])}<span>${l}</span></button>`).join('')}</div>` : ''}
-      <p class="ib-count" aria-live="polite">${rows.length} shown${filtered ? ` · <button type="button" class="linkbtn" data-ibclear="1">Clear the filters</button>` : ''}</p>
-    </div>` : `<p class="ib-count">${rows.length} shown · <button type="button" class="linkbtn" data-ibfilters="1">Filter or sort</button></p>`}
+      ${countLine(filtered ? '<button type="button" class="linkbtn" data-ibclear="1">Clear the filters</button>' : '')}
+    </div>` : countLine('<button type="button" class="linkbtn" data-ibfilters="1">Filter or sort</button>')}
     <div class="ib-list">${rows.length ? listBody(rows, v) : none}</div>
     ${hover() && keysOn() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>A</kbd> marks this list read.</span></p>` : ''}
-    <p class="ib-note">Testimony steps clear themselves once the draft is filed, reminders after the hearing, and updates after a week.</p>
+    <p class="ib-note">Reading never removes anything. Updates go after 7 days, testimony steps once the draft is filed, reminders after the hearing.</p>
   </div>`;
 }
 

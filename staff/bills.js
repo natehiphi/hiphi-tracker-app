@@ -8,7 +8,7 @@ import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionCl
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD, posIcons } from './ui.js';
 import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
-  views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition } from './filters.js';
+  views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState } from './filters.js';
 import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 
@@ -47,12 +47,21 @@ function sorter() {
   return (a, b) => { if (!f) return byNum(a, b) * dir; const x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * dir || byNum(a, b); };
 }
 let NAV = [];   // the bills in the order shown, for the bill page's Previous and Next
+// Edit (R-106, after the 9/30 review): while editing, every row keeps its group and its place, so a bill just set to P1
+// or Monitor does not jump away and leave another bill under the pointer (P-3). A new sort, filter, search or scope is a
+// new order; Done editing regroups everything. A bill that stops matching the filters stays until then too.
+const freezeKey = () => { const v = bl(); return JSON.stringify([viewState(), v.q.trim(), v.sort]); };
 function build() {
   freshFacts(); ST.clear();
   const v = bl(), list = shownBills(), by = Object.fromEntries(GROUPS.map(([k]) => [k, []]));
-  for (const b of list) by[groupKey(b)].push(b);
-  const srt = sorter();
-  const groups = GROUPS.map(([k, title]) => ({ k, title, rows: by[k].sort(srt || NATURAL[k]) })).filter(g => g.rows.length);
+  const fk = v.edit ? freezeKey() : null, fz = v.edit && v.frozen?.key === fk ? v.frozen : null;
+  if (fz) { const have = new Set(list.map(b => b.id)); for (const id of fz.order) if (!have.has(id)) { const b = S.bills.find(x => x.id === id); if (b) list.push(b); } }
+  for (const b of list) by[fz?.group.get(b.id) || groupKey(b)].push(b);
+  const srt = sorter(), at = b => fz.pos.get(b.id) ?? 1e9;
+  const groups = GROUPS.map(([k, title]) => ({ k, title, rows: by[k].sort(fz ? (a, b) => at(a) - at(b) : srt || NATURAL[k]) })).filter(g => g.rows.length);
+  if (v.edit && !fz) { const order = groups.flatMap(g => g.rows.map(b => b.id));
+    v.frozen = { key: fk, order, group: new Map(groups.flatMap(g => g.rows.map(b => [b.id, g.k]))), pos: new Map(order.map((id, i) => [id, i])) }; }
+  if (!v.edit) v.frozen = null;
   // Monitoring and Did not advance start folded only in the plain list: once a search or a filter asks for something,
   // every bill it found is on screen, so "Show 15 bills" means 15 rows.
   const asked = !!v.q.trim() || activeFilters().length > 0, only = groups.length === 1;
@@ -251,7 +260,8 @@ function parts() {
     : { head: `${viewsRow()}${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${sum}${selHead}${rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
-const keysHint = () => hoverNow() && keysOn() ? `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>Space</kbd> a quick look · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>` : '';
+const keysHint = () => !hoverNow() || !keysOn() ? '' : bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
+  : `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>Space</kbd> a quick look · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>`;
 function emptyState(q, nf) {
   const v = bl(), whose = { me: 'of yours ', coal: 'in your coalitions ' }[v.scope] || '';
   if (q) {
@@ -356,7 +366,7 @@ function table(groups) {
   // Mine has no Owner column: every row would say "you" (A-14, R-022). A bill you only follow says so in its Bill cell.
   let cols = COLS.filter(c => (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || v.scope !== 'me'))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
-    .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [116, 116] } : c.k === 'pos' ? { ...c, min: [184, 184], ideal: [196, 196] } : c);
+    .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c);
   const roomy = cs => least(cs) <= avail || !!squeezed(cs, avail, ci), noLook = cols.filter(c => c.k !== 'look');
   if (!roomy(cols) && roomy(noLook)) cols = noLook;
   const std = cols.filter(c => !c.opt);
@@ -395,7 +405,7 @@ function table(groups) {
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
-      case 'pos': { if (v.edit) return `<td>${inlSel('pos', b)}</td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(w)}. Change it">${posIcons(p)}<span>${esc(w)}</span></button></td>`; }
+      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(w)}. Change it">${posIcons(p)}<span>${esc(w)}</span></button></td>`; }
       case 'pri': if (v.edit) return `<td>${inlSel('pri', b)}</td>`; return `<td><button type="button" class="bl-cell bl-pri" data-edit="pri" data-id="${b.id}" aria-label="Priority for ${esc(billNum(b))}: ${b.priority ? 'P' + b.priority : 'none'}. Change it">${b.priority === 1 ? '<span class="sv-p1">P1</span>' : b.priority ? `<span>P${b.priority}</span>` : none}</button></td>`;
       case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billNum(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
       // The facts and the next step without leaving the list; the full page is one click on from there. An icon alone
@@ -484,19 +494,25 @@ function editCell(field, id) {
 // One bill's position, priority or owner, from the picker or from the Edit switch's dropdowns: saved at once, with Undo.
 // The toast names the bill, since with the dropdowns a run of bills is changed one after another.
 async function saveCell(field, id, val, cell) {
-  const b = S.bills.find(x => x.id === id); if (!b || val === '' || val === FIELD[field].cur(b)) return;
+  const b = S.bills.find(x => x.id === id); if (!b) return;
+  const was = FIELD[field].cur(b); if (val === '' || val === was) return;
+  // The message names the bill and the change ("HB1523 owner: Lauren to James"), since a run of bills is changed one after
+  // another and a bare "Saved" cannot tell you which one Undo would put back.
+  const said = `${billNum(b)} ${FIELD[field].word}: ${wordOf(field, was)} to ${wordOf(field, val)}`;
   try {
     if (field === 'own') {
       const prev = (S.assignments[id] || [])[0] || null;
       await DB.setOwner(id, val === 'none' ? null : val); repaint(cell);
-      toast(`Saved ${billNum(b)}`, { undo: async () => { await DB.setOwner(id, prev); repaint(); } });
+      toast(said, { undo: async () => { await DB.setOwner(id, prev); repaint(cell); } });
     } else {
       const key = field === 'pos' ? 'position' : 'priority', prev = b[key] ?? null;
       await DB.updateBill(id, { [key]: field === 'pos' ? val : Number(val) }); repaint(cell);
-      toast(`Saved ${billNum(b)}`, { undo: async () => { await DB.updateBill(id, { [key]: prev }); repaint(); } });
+      toast(said, { undo: async () => { await DB.updateBill(id, { [key]: prev }); repaint(cell); } });
     }
   } catch (e) { repaint(); toast(e, { err: true }); }
 }
+const wordOf = (field, v) => !v || v === 'none' ? (field === 'own' ? 'no owner' : 'none') : field === 'pos' ? POS_WORD[v] || v : field === 'pri' ? 'P' + v
+  : v === S.me?.id ? 'you' : firstNames().get(v) || 'someone';
 // The Edit switch's dropdowns. The owner's shows first names (the column has a name's room); "You" is first.
 const firstNames = () => { const act = S.advocates.filter(a => a.is_active !== false), fn = a => a.full_name.split(' ')[0];
   return new Map(act.map(a => [a.id, act.filter(x => fn(x) === fn(a)).length > 1 ? `${fn(a)} ${(a.full_name.split(' ')[1] || '')[0] || ''}.` : fn(a)])); };
@@ -504,7 +520,7 @@ function inlSel(field, b) {
   const F = FIELD[field], cur = F.cur(b), names = field === 'own' ? firstNames() : null;
   const opts = field === 'own' ? F.opts().map(([v2, l, ic]) => [v2, v2 === 'none' ? 'No owner' : v2 === S.me?.id ? 'You' : names.get(v2) || l, ic]) : F.opts();
   const label = `${{ pos: 'Position', pri: 'Priority', own: 'Owner' }[field]} for ${billNum(b)}`;
-  return `<select class="bl-sel bl-sel-${field}" data-inl="${field}" data-id="${esc(b.id)}" aria-label="${esc(label)}">${cur === '' ? '<option value="" selected disabled>None</option>' : ''}${opts.map(([v2, l]) => `<option value="${esc(v2)}"${v2 === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  return `<select class="bl-sel bl-sel-${field}" data-inl="${field}" data-id="${esc(b.id)}" data-v="${esc(cur)}" aria-label="${esc(label)}">${cur === '' ? '<option value="" selected disabled>None</option>' : ''}${opts.map(([v2, l]) => `<option value="${esc(v2)}"${v2 === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 }
 
 // ---- wiring ----
@@ -621,7 +637,16 @@ function wireDyn(page) {
   tbl.querySelectorAll('[data-sort]').forEach(el => el.onclick = () => { const k = el.dataset.sort, s = v.sort; v.sort = s && s[0] === k ? (s[1] > 0 ? [k, -1] : null) : [k, 1]; repaint(`[data-sort="${k}"]`); });
   tbl.querySelectorAll('[data-edit]').forEach(el => el.onclick = () => { v.cur = el.dataset.id; markRow(false); editCell(el.dataset.edit, el.dataset.id); });
   tbl.querySelectorAll('[data-inl]').forEach(el => { el.onfocus = () => { v.cur = el.dataset.id; markRow(false); };
-    el.onchange = () => saveCell(el.dataset.inl, el.dataset.id, el.value, `[data-inl="${el.dataset.inl}"][data-id="${CSS.escape(el.dataset.id)}"]`); });
+    el.onchange = () => saveCell(el.dataset.inl, el.dataset.id, el.value, `[data-inl="${el.dataset.inl}"][data-id="${CSS.escape(el.dataset.id)}"]`);
+    // A closed dropdown answers a letter by choosing the option that starts with it, and that would save. Here a letter
+    // never changes a bill (P-3): j and k move to the same dropdown a row down or up, as they move rows elsewhere.
+    el.onkeydown = e => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1 || e.key === ' ') return;
+      e.preventDefault();
+      if (e.key !== 'j' && e.key !== 'k' || !keysOn()) return;
+      const all = [...tbl.querySelectorAll(`select[data-inl="${el.dataset.inl}"]`)], n = all[all.indexOf(el) + (e.key === 'j' ? 1 : -1)];
+      if (n) { n.focus(); n.scrollIntoView({ block: 'nearest' }); }
+    }; });
   const rowOf = e => { const tr = e.target.closest('tr[data-row]'); return tr && !e.target.closest('a, button, input, label, select') ? tr : null; };
   // The whole row opens the bill; with Cmd or Ctrl (or the middle button) it opens in a new tab, as its link does.
   tbl.addEventListener('click', e => {
