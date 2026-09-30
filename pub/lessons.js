@@ -56,6 +56,7 @@ import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, 
 import { posChip } from './ui.js';
 import { situation, railHTML } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
+import { endHome } from './variant.js';
 
 export const LESSON_TITLES = { bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is', story: 'A bill’s story' };
 const LAST = { bill: 2, session: 4, hearing: 2, story: 3 };   // the story: one page in three stages (9/29)
@@ -914,7 +915,14 @@ function stageBody(E, k) {
     const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then ${E.x.ballot ? 'the voters' : 'the Governor'}.`;
     return `<p>${esc(road)}</p><p class="lx-now">${storyNow(E)}</p>`;
   }
-  const calm = E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
+  // "Nothing to do now" was said even when this bill's testimony was due the next day (R-098): a real hearing ahead is
+  // named. The version that ends on Home (?end=home) says where the moment will be waiting: the top of the home page.
+  const H = E.hear, home = endHome();
+  const now = !E.off && H && !H.example && !H.past && !E.stopped && !E.isLaw
+    ? `${E.num.replace(NBSP, ' ')} is at one of these moments now: ${H.dueReal && new Date(H.due) > Date.now() ? `testimony is due ${H.dueDay}` : `it has a hearing ${H.when}`}.` : '';
+  const calm = now ? `${now} ${home ? 'It’ll be waiting at the top of your home page.' : 'We’ll show you how.'}`
+    : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do and by when.`
+    : E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
     : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';
   return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>
     <div class="lx-choose" role="group" aria-labelledby="lx-ask"><p class="lx-ask" id="lx-ask">${esc(voiceAsk(E))}</p>

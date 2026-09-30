@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything, hstDay, loadReference, loadPool } from './core.js';
+  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import start from './start.js';
@@ -183,7 +183,9 @@ document.addEventListener('keydown', e => {
 function welcomeBack() {
   const o = onb(), last = o.lastVisit ? Date.parse(o.lastVisit) : 0;
   S.prevVisit = o.lastVisit || null;
-  if (last && hstDay(last) !== hstDay(Date.now()) && (followsAnything() || S.done.size) && !S.session) nudge('back');
+  // Not when this browser already sent a sign-in link (R-098): they gave their email, and were asked for it again.
+  let gave = false; try { gave = !!(sessionStorage.getItem('hiphi_link_sent') || localStorage.getItem(CONSENT_KEY)); } catch { /* ignore */ }
+  if (last && hstDay(last) !== hstDay(Date.now()) && (followsAnything() || S.done.size) && !S.session && !gave) nudge('back');
   onbSet({ lastVisit: new Date().toISOString() });
   // No navigator.storage.persist() here: some browsers answer it with a "store data in persistent storage?" prompt,
   // a permission box a visitor should never meet (Nate, 9/29). The email ask above is how saved issues are kept.

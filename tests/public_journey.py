@@ -125,7 +125,10 @@ with sync_playwright() as pw:
        'the four choices are the only things to press, and none is an app button, chip or card (A-12)')
     ok(p.evaluate("[...document.querySelectorAll('[data-lx-ch]')].every(b => b.getBoundingClientRect().height >= 44 && getComputedStyle(b).borderRadius !== getComputedStyle(document.querySelector('[data-stnext]')).borderRadius)"),
        'the choices are big, and shaped unlike the app’s pill buttons')
-    ok('Few people write in, so each note gets noticed' in cap3 and 'Speaking up works' in cap3 and 'Nothing to do now' in cap3, 'stage 3 says why it matters, a real win, and that nothing is asked yet')
+    # R-098: when the bill has a real hearing ahead, the last line names it ("HB 2300 is at one of these moments now:
+    # testimony is due Tuesday") instead of "Nothing to do now"; either way nothing is asked here.
+    ok('Few people write in, so each note gets noticed' in cap3 and 'Speaking up works' in cap3 and ('Nothing to do now' in cap3 or 'at one of these moments now' in cap3),
+       'stage 3 says why it matters, a real win, and what is (or is not) coming, asking nothing yet')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
     for k, must in (('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent'), ('quiet', 'stop')):

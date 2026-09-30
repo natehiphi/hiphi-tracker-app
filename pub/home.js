@@ -23,6 +23,8 @@ import { CAPITOL, islands, flower } from './art.js';
 // A namespace import, so Home still loads while More is being built (a named import of a missing export would
 // stop the whole page from loading).
 import * as more from './more.js';
+import { endHome } from './variant.js';
+import { logVisit } from './visitlog.js';
 
 S.hmOpen ??= {};   // which in-place lists are open ("Show 12 more", "See all"); kept for the visit so Back returns to the same page
 
@@ -440,7 +442,8 @@ function yourIssues() {
     const c = soon.get(h.bill_id); if (!c || h.scheduled_at < c) soon.set(h.bill_id, h.scheduled_at); }
   const rows = iss.slice(0, 6).map(i => { const ids = issueBills(i), live = ids.map(id => S.bills.find(b => b.id === id)).filter(b => b && alive(b));
     const day = ids.map(id => soon.get(id)).filter(Boolean).sort()[0];
-    return `<li><span class="hm-yname"><b>${esc(i.name)}</b><span>${live.length ? plural(live.length, 'bill') + ' moving' : 'Nothing moving yet'}</span></span>${day ? chip(new Date(day).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }), 'info', 'calendar') : ''}</li>`; }).join('');
+    // Each row opens its issue (R-098: the rows looked tappable and did nothing, so Home seemed not to work).
+    return `<li><a class="hm-yrow" href="#/issue/${esc(i.slug)}"><span class="hm-yname"><b>${esc(i.name)}</b><span>${live.length ? plural(live.length, 'bill') + ' moving' : 'Nothing moving yet'}</span></span>${day ? chip(new Date(day).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }), 'info', 'calendar') : ''}${icon('chevron-right', { cls: 'hm-ychev' })}</a></li>`; }).join('');
   return `<section class="card hm-yours" aria-labelledby="hm-yi"><h2 id="hm-yi" class="hm-eyebrow">Your issues</h2><ul class="hm-ylist">${rows}</ul>
     ${btn(iss.length > 6 ? `See all ${iss.length}` : 'See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</section>`;
 }
@@ -458,6 +461,7 @@ function welcomeView(si, { cards, asks, total }) {
   // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to
   // help (B-3: the lessons need somewhere to go). Nothing is pushed: the rest still waits behind one line.
   const fin = !!wiz().finale, name = (wiz().name || '').trim();
+  if (fin && endHome()) return homeFirst({ cards, asks, ask });
   const week = fin ? cards.filter(x => x.h && new Date(x.h.scheduled_at) > Date.now()).sort((a, b) => a.h.scheduled_at.localeCompare(b.h.scheduled_at))[0] : null;
   const due = week ? dueInfo(week.h) : null;
   const weekCard = week ? `<section class="card hm-week" aria-labelledby="hm-wk"><p class="hm-eyebrow">This week</p>
@@ -488,6 +492,66 @@ function welcomeView(si, { cards, asks, total }) {
       ${whatsNew(new Set())}
     </div>`}</div>
   </div>`;
+}
+
+// ---------------- the version that ends on Home (R-098, ?end=home, pub/variant.js) ----------------
+// Testers took the email as the end of the first visit and found Home doing nothing. Here the first visit's last moment
+// happens ON Home: "Mahalo! This is your home page", what the person did as a row of ticks, petals and blooms once (the
+// finale's celebration, C-7's peak, now where they will come back to), "What you can do right now" open with the one
+// thing due first (Nate 9/29), and their issues, each opening its page. Three tips then show the page (pub/tour.js).
+// For the rest of this visit Home keeps this shape; after a reload it says Aloha and leaves out the ticks.
+const finNow = () => !!S.hmFinale;   // this page load finished the first visit (start.js finish())
+function finRecap() {
+  const f = S.hmFinale || {}, iss = followedIssues();
+  return [
+    // Short, so they sit two to a line on a phone and "What you can do right now" stays in view.
+    iss.length ? ['check', `Following ${plural(iss.length, 'issue')}`] : S.watch.size ? ['check', `Following ${plural(S.watch.size, 'bill')}`] : null,
+    f.learned ? ['check', 'Know how bills become law'] : null,
+    f.legs || districtsKnown() ? ['check', 'Know who speaks for you'] : null,
+    S.session ? ['check', 'Email reminders on'] : f.told || emailGiven() ? ['mail', 'Email: tap the link we sent'] : null,
+  ].filter(Boolean);
+}
+function finHead({ off = false, lede = '' } = {}) {
+  const name = (wiz().name || '').trim(), now = finNow(), rows = now ? finRecap() : [];
+  const h1 = now ? (name ? `Mahalo, ${esc(name)}!` : 'Mahalo for joining in!') : `Aloha${name ? `, ${esc(name)}` : ''}`;
+  return `${off ? '' : `<div class="hm-blooms" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(20 + (i % 2) * 8)}</span>`).join('')}</div>`}
+    <h1 class="hero" id="hm-finh">${h1}</h1><p class="lede">${lede}</p>
+    ${rows.length ? `<ul class="hm-did" role="list" aria-label="What you did today">${rows.map(([ic, t], k) => `<li style="--k:${k}"><span class="hm-didic${ic === 'check' ? ' ok' : ''}">${icon(ic)}</span>${esc(t)}</li>`).join('')}</ul>` : ''}`;
+}
+// "What you can do right now" (Nate 9/29, R-098 decision 3): the one thing due first, open, as the full card with its
+// main button; anything else this week folds under it. Nothing due: the section says what will come here.
+function rightNow(cards, asks) {
+  const first = cards.find(x => !settledOn(x.b, x.h)) || null, rest = cards.filter(x => x !== first), more = rest.length + asks.length;
+  S.hmTip = first ? { num: spaced(first.b.bill_number) } : null;   // the tips' words (pub/tour.js)
+  return `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>
+    ${first ? actionCard(first.b, first.h, { focus: true }) : `<p class="hm-rnnone">Nothing needs you this week. When a bill on your issues has a hearing, what you can do shows up here, and by when.</p>`}
+    ${more ? `<div class="hm-later">${toggle('ready', 'hm-readybox', `More you can do this week (${more})`)}
+      <div id="hm-readybox" class="hm-readybox"${S.hmOpen.ready ? '' : ' hidden'}>${todoBlock(rest, asks, { calm: true })}</div></div>` : ''}
+  </section>`;
+}
+function homeFirst({ cards, asks, ask }) {
+  const iss = followedIssues();
+  return `<div class="hm hm-follow hm-welcome hm-fin hm-fin2${finNow() && !S.hmFinDrawn ? ' hm-anim' : ''}">
+    ${accountCards()}
+    <div class="cols"><div class="hm-main">
+      <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here.` })}</header>
+      ${rightNow(cards, asks)}
+      ${yourIssues()}
+      ${ask}
+    </div></div>
+  </div>`;
+}
+// Once per page load, after the first visit ends here: petals fall over the page (outside #app, so a redraw as data
+// lands does not restart them), a burst on the heading, and the private count of this ending.
+function finFx() {
+  if (!S.hmFinale || S.hmFinDrawn || !document.querySelector('#main .hm-fin2')) return;
+  S.hmFinDrawn = true;
+  const si = sessionInfo();
+  logVisit('home', 'view', { path: wiz().via ? 'link' : si.phase !== 'in' ? 'off' : 'in' });
+  burst(document.getElementById('hm-finh'), 16, 90);
+  const fx = document.createElement('div'); fx.className = 'hm-petalfx'; fx.setAttribute('aria-hidden', 'true');
+  fx.innerHTML = `<div class="st-petals">${Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('')}</div>`;
+  document.body.appendChild(fx); setTimeout(() => fx.remove(), 3600);
 }
 
 // ---------------- in session, following nothing: explore (plan 3, "Skip path") ----------------
@@ -577,13 +641,26 @@ function offView(si) {
       <div class="rows">${mine.map(issueRow).join('')}</div></section>` : ''}
     ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-ml"><h2 id="hm-ml">Lists you follow</h2>
       <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: `HIPHI’s ${nextYr} bills will show up here as they are added.`, href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}`;
-  return `<div class="hm hm-off">
+  // The version that ends on Home (R-098): the first visit's last moment happens here, "What you can do right now" is the
+  // top of the page (between sessions, the one useful thing: a hello to their legislators), and the tips follow.
+  const v2 = welcome && !!wiz().finale && endHome(), anim = v2 && finNow() && !S.hmFinDrawn;
+  const readyCard = `<section class="card hm-ready" aria-labelledby="hm-rd"><${v2 ? 'h3' : 'h2'} id="hm-rd">${ready[0]}</${v2 ? 'h3' : 'h2'}>
+        <p class="muted">${ready[1]}</p>
+        <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: nothingYet ? 'secondary' : 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}
+          ${askBtn ? btn('Get hearing alerts by email', { kind: 'secondary', icon: 'bell', href: '#/signin' }) : ''}
+          ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>`;
+  const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
+  const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
+  return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}">
     ${accountCards()}
-    <header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
+    ${v2 ? `<header class="hm-head hm-break hm-finhead"><div class="hm-art">${anim ? CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>') : CAPITOL}</div>
+      <div class="hm-breakt">${finHead({ off: true, lede: v2lede })}${daysChip}</div></header>`
+    : `<header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
       <div class="hm-breakt"><h1 class="hero">${welcome ? `${wiz().finale ? 'Aloha' : `You’re all set for ${nextYr}`}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
         <p class="lede">${lede}</p>
-        ${next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : ''}</div></header>
+        ${daysChip}</div></header>`}
     <div class="cols even"><div class="hm-col">
+      ${v2 ? `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>${readyCard}</section>` : ''}
       ${rows.length ? `<section class="card hm-recap" aria-labelledby="hm-rc"><div class="hm-recaphead"><h2 id="hm-rc">Your ${yr} session</h2><div class="hm-isl">${islands(myIsland())}</div></div>
         <p>${esc(said)}</p>
         ${chipsHtml(milestoneState(acts).got)}
@@ -592,11 +669,7 @@ function offView(si) {
         <p class="muted">Pick a few health issues now. When the session opens, HIPHI’s bills for them will be waiting here.</p>
         <div class="btncol">${btn('Pick the issues I care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}</div></section>` : ''}
     </div><div class="hm-col">
-      <section class="card hm-ready" aria-labelledby="hm-rd"><h2 id="hm-rd">${ready[0]}</h2>
-        <p class="muted">${ready[1]}</p>
-        <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: nothingYet ? 'secondary' : 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}
-          ${askBtn ? btn('Get hearing alerts by email', { kind: 'secondary', icon: 'bell', href: '#/signin' }) : ''}
-          ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>
+      ${v2 ? '' : readyCard}
       ${winsCard(yr)}
       ${meetCard()}
       ${newIssuesCard()}
@@ -706,6 +779,7 @@ export default {
       fitSide();
     });
     const fold = root.querySelector('.hm-fold'); if (fold) fold.ontoggle = () => { S.hmOpen.fold = fold.open; };
+    finFx();
     // A result on a hearing they acted on, seen for the first time: the small burst, once (sinceStrip).
     const yb = S.hmBurst && root.querySelector('.hm-youburst .lead');
     if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ } S.hmBurst = null; }

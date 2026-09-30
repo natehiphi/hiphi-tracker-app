@@ -75,6 +75,19 @@
 <body>
 <div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<script>
+/* ?demo=1&restart: a practice first visit from the very beginning (R-098: two links for the testers, today's ending and
+   the new one, tried one after the other on the same phone). Only the sandbox's own storage (hiphi_*_demo) is cleared,
+   so the real page in this browser is untouched; then "restart" leaves the address, so a reload keeps the practice run. */
+try {
+  var q = new URLSearchParams(location.search);
+  if (q.has('demo') && q.has('restart')) {
+    [localStorage, sessionStorage].forEach(function (s) { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf('hiphi_') === 0 && /_demo$/.test(k)) s.removeItem(k); } });
+    q.delete('restart');
+    history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+  }
+} catch (e) { /* storage blocked: nothing to clear */ }
+</script>
 <script type="module" src="pub/testbed.js"></script>
 <script type="module" src="pub/app.js"></script>
 </body>

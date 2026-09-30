@@ -28,6 +28,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
 import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStep, lessonStop, LESSON_TITLES } from './lessons.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { endHome } from './variant.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
 // The first visit as named screens (the same in and out of session since "Where do you stand?" left it, R-053). From a
@@ -50,7 +51,9 @@ const FLOW_LINK = ['followask', 'bill', 'you', 'soon', 'done'];
 const SHORT = () => wiz().fv === 'short';
 try { const f = new URLSearchParams(location.search).get('fv'); if (f === 'short' && !SHORT()) wizSet({ fv: 'short' }); else if (f === 'full' && SHORT()) wizSet({ fv: null }); } catch { /* ignore */ }
 const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
-const flowOf = off => shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN);
+// The version that ends on Home (?end=home, R-098) has no "You're all set" screen: the last step goes straight to Home,
+// where the celebration plays (pub/home.js).
+const flowOf = off => { const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
 const total = off => flowOf(off).length;
@@ -79,6 +82,8 @@ window.addEventListener('pagehide', () => { if (document.body.dataset.screen ===
 // ---------- moving between screens: forward steps are tagged, so the on-screen Back can use the real Back ----------
 function goStep(from, to) {
   lessonStop();
+  // Past the last step: Home (only the version that ends on Home gets here; today's last screen calls finish() itself).
+  if (to > total(isOff())) { finish(); return; }
   swap(() => {
     app.go('#/start/' + to);
     try { history.replaceState({ ...(history.state || {}), stFrom: from }, ''); } catch { /* ignore */ }
@@ -104,8 +109,14 @@ const welcome = () => { try { sessionStorage.setItem('hiphi_welcome', '1'); } ca
 // with HIPHI's picks then (core: readyForSession).
 function finish() {
   const si = sessionInfo();
+  // The version that ends on Home (R-098) has no finale screen, so the finale's count is taken here, and Home plays the
+  // celebration once for this page (S.hmFinale, pub/home.js).
+  if (endHome()) {
+    track('done', 'view', { counts: { issues: followedIssues().length, address: !!S.stAddr.pick, email: !!(S.session || mailSent()) } });
+    S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent()), sent: mailSent() };
+  }
   track('done', 'done');
-  wizSet({ done: true, step: 1, ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}) });
+  wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}) });
   welcome();
   app.go('#/', { replace: true });
 }
@@ -119,7 +130,9 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // confused about what it is).
 const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
-const chapterNames = () => SHORT() ? ['Your issues', 'Why your voice matters', 'Stay connected'] : CHAPTERS;
+// The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
+// email and you're done".
+const chapterNames = () => [CHAPTERS[0], SHORT() ? 'Why your voice matters' : CHAPTERS[1], endHome() ? 'Your home page' : CHAPTERS[2]];
 let lastChapter = -1;
 function chaptersRow(name) {
   const k = CHAPTER_OF[name] ?? -1; if (k < 0) return '';
@@ -231,7 +244,9 @@ const SURE1 = 'About 4 minutes. Free, and no account needed.';
 // What the app does, said on the first screen (R-067, Nate's pick 9/27, Version A): testers liked the first visit but
 // were confused about what it is, and the only plain description was on the finale. In session only; between sessions
 // the screen already leads with the opening day.
-const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon('bell')}<span>We tell you when it’s your moment</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
+// The version that ends on Home (R-098) says the home page shows it: "we tell you" sold an alert service, so testers
+// took the email as the end of it.
+const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon(endHome() ? 'house' : 'bell')}<span>${endHome() ? 'Home shows when it’s your moment' : 'We tell you when it’s your moment'}</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
 function tiles(off, yr) {
   // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
   // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
@@ -263,8 +278,8 @@ function stepTopics(step) {
   const w = off ? winsIn(yr) : null;   // between sessions, the proof it works (R-067)
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
-    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll tell you when your voice can count.`
-      : 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll tell you when a few minutes of your time can help get bills passed.'}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
+    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll ${endHome() ? 'show' : 'tell'} you when your voice can count.`
+      : `HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll ${endHome() ? 'show' : 'tell'} you when a few minutes of your time can help get bills passed.`}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
 }
 
@@ -636,19 +651,22 @@ function askCard() {
     <div class="st-sentbody"><h2 id="st-sent-t">You’re signed in</h2><p>Reminders and HIPHI’s alerts go to your account’s email. Change them any time in More.</p></div></section>`;
   if (sent) return `<section class="card st-sent" aria-labelledby="st-sent-t" id="st-sentbox">
     <span class="st-ilead">${icon('mail-check')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">Check your inbox at <span class="st-break">${esc(sent)}</span></h2>
-      <p>Tap the link in the email to turn on your reminders. It can take a minute; check spam if you don’t see it.</p>
+    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">${endHome() ? 'Link sent to' : 'Check your inbox at'} <span class="st-break">${esc(sent)}</span></h2>
+      <p>${endHome() ? 'Tap it when you finish here to turn on reminders.' : 'Tap the link in the email to turn on your reminders.'} It can take a minute; check spam if you don’t see it.</p>
       ${M.demo ? '<p class="small muted">This is the sandbox, so nothing was sent.</p>' : ''}
       ${M.named ? `<p class="small">${icon('check')} We’ll greet you as ${esc(M.named)}.</p>` : `<div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
         <div class="st-namerow"><input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}">${btn('Save', { kind: 'secondary', sm: true, attrs: { 'data-stname': '1' } })}</div></div>`}
       <div class="st-formbtns">${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div></section>`;
-  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : 'Want a reminder?';   // one line, so the box fits under the list (R-078)
+  // One line, so the box fits under the list (R-078). The version that ends on Home (R-098) says the email is extra: the
+  // home page always has what's next ("Want a reminder?" read as the thing the app is for).
+  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : endHome() ? 'Want an email too?' : 'Want a reminder?';
   return `<form class="card st-form st-askcard" id="st-eform" novalidate>
     <h2 class="st-askh">${icon('bell')}<span>${esc(title)}</span></h2>
     <div class="field"><label for="st-email">Your email</label>
       <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
       <span class="err" id="st-email-err" role="alert"></span></div>
-    <p class="st-askline">We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them. Unsubscribe in one tap.</p>
+    <p class="st-askline">${endHome() ? 'Home always has what’s next. We’ll also email you when it’s your moment, plus HIPHI’s alerts on your issues.'
+      : 'We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them.'} Unsubscribe in one tap.</p>
     <p class="meta">No password: we send you a sign-in link. HIPHI staff can see which issues you follow and where you stand. <a href="#/privacy">Privacy</a></p>
   </form>`;
 }
@@ -1077,7 +1095,8 @@ export default {
       }
       case 'bill': case 'voice': return bar2('Next', { iconEnd: 'arrow-right' });
       case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
-      case 'soon': return S.session || mailSent() ? bar1('Next') : bar2(off ? 'Keep me posted' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
+      // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
+      case 'soon': return S.session || mailSent() ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
       case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
       case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
       default: return '';

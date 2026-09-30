@@ -72,6 +72,23 @@ R-087): a chair email is 'email', one to your own legislators 'legislators' (pub
 introduction 'intro' (private counts only). Districts are kept on the device (`hiphi_districts`) and on an account; a
 street address is never stored anywhere (migration 090 dropped `people.address`; Settings uses it once, R-086).
 `tests/email_walk.py`.
+**A second ending of the first visit, to test beside today's (R-098, 9/29; Nate: "Provide a separate example that I can
+test before committing to it", "Two links").** Testers took the email ask as the end and found Home doing nothing.
+`?end=home` (remembered in `hiphi_wiz` by `pub/variant.js`, `endHome()`; `?end=today` switches back; today's version stays
+the default until Nate picks) ends the first visit ON Home: no "You're all set" screen (`flowOf` drops 'done'; `goStep`
+past the last step calls `finish()`); Home's `homeFirst()` (and `offView` between sessions) says "Mahalo, <name>! This is
+your home page", shows the ticks, plays the petals once (`finFx`, outside #app), and opens **"What you can do right now"**
+with the one thing due first (`rightNow()`); then two tips over Home after 4.5 seconds (`HOME` in `pub/tour.js`,
+`hiphi_tour_home`): the card, lit and usable (using its button ends the tips), and coming back (the Home tab; add to the
+home screen or bookmark when no email was given). A fresh-eyes review 9/29 cut a third tip and a repeated deadline. The
+words: "we'll show you", "Home shows when it's your moment", the last part "Your home page", "Want an email too?", "Link
+sent to ... Tap it when you finish here", "See my home page". Counted privately as step 'home' (view, done/skip).
+**`?demo=1&restart`** (an inline script in `track.html`) clears only the sandbox's own storage, so the testers' two links
+start from the beginning: `track.html?demo=1&end=today&restart` and `track.html?demo=1&end=home&restart`. Fixed in both
+versions the same day: Home's "Your issues" rows open their issue; the sandbox remembers an email was given (it asked
+again on Home); the welcome-back email ask is not shown after a link was sent; the story's last stage names a real
+hearing instead of "Nothing to do now"; a tour is no longer blocked by fx.js's hidden celebration element (the bill tour
+never started after the first visit's celebrations). `tests/home_end.py`.
 **Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (`pub/tour.js`, mounted
 from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is

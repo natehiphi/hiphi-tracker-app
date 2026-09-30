@@ -1343,7 +1343,10 @@ export function waitingBills(bills) {
 // one opt-in, not two. The choices wait in this browser until the link is opened (loadUser applies them), exactly
 // like the sign-in page.
 export async function sendEmailLink(email, { hearing_alerts = true, action_alerts = true } = {}) {
-  if (DEMO) return { demo: true };   // before anything is stored: sandbox play must not leave a consent the live page would apply
+  // The sandbox sends nothing, but it remembers the email was given, as the live page does: otherwise Home asked a tester
+  // for their email again a minute after they gave it (R-098). Its storage is the sandbox's own (every hiphi_ name is
+  // hiphi_*_demo there, see the top of this file), so no consent reaches the live page in this browser.
+  if (DEMO) { try { sessionStorage.setItem('hiphi_link_sent', email); localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ } return { demo: true }; }
   try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ }
   const sb = await supa();
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });

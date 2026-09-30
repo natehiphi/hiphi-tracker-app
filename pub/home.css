@@ -201,7 +201,13 @@
 .hm .hm-week .hm-link { align-self: flex-start; margin-left: -12px; }
 .hm .hm-yours { display: flex; flex-direction: column; gap: var(--s8); }
 .hm .hm-ylist { list-style: none; margin: 0; padding: 0; }
-.hm .hm-ylist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: 10px 0; border-bottom: 1px solid var(--n100); }
+.hm .hm-ylist li { border-bottom: 1px solid var(--n100); }
+/* Each row opens its issue (R-098): the whole row is the link, with a chevron to say so. */
+.hm .hm-ylist .hm-yrow { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: 10px 0; color: inherit; text-decoration: none; }
+.hm .hm-ylist .hm-yrow:hover b { text-decoration: underline; }
+.hm .hm-ylist .hm-yrow:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 8px; }
+.hm .hm-ylist .hm-yname { flex: 1 1 auto; }
+.hm .hm-ylist .hm-ychev { flex: none; width: 18px; height: 18px; color: var(--n500); }
 .hm .hm-ylist li:last-child { border-bottom: 0; }
 .hm .hm-ylist .hm-yname { display: flex; flex-direction: column; min-width: 0; }
 .hm .hm-ylist b { color: var(--n900); }
@@ -236,3 +242,28 @@
 .hm .hm-meet .small { margin: var(--s8) 0 0; }
 .hm .hm-draft { display: flex; flex-direction: column; gap: var(--s8); margin-bottom: var(--s12); border: 1.5px solid var(--p300); }
 .hm .hm-draft h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
+
+/* ---- the version of the first visit that ends on Home (R-098, ?end=home; pub/home.js homeFirst, finFx) ----
+   The finale's celebration, on the page they will come back to: blooms pop, the ticks rise in, the sun comes up over the
+   Capitol between sessions, petals fall once (outside #app, .hm-petalfx). Only on the first draw (.hm-anim), so a redraw
+   as data lands does not replay it. Then "What you can do right now", open. */
+.hm .hm-finhead { gap: var(--s8); }
+.hm .hm-blooms { display: flex; gap: 8px; align-items: flex-end; margin-bottom: var(--s4); }
+.hm .hm-blooms .flower { margin: 0; }
+.hm .hm-did { list-style: none; margin: var(--s4) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hm .hm-did li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px; background: var(--n0); border: 1px solid var(--n200); font-size: var(--t13); color: var(--n900); }
+.hm .hm-didic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--p50); color: var(--p700); flex: none; }
+.hm .hm-didic.ok { background: var(--ok-wash); color: var(--ok-text); }
+.hm .hm-didic .ic { width: 14px; height: 14px; }
+.hm.hm-anim .hm-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(300ms + var(--k) * 110ms); }
+.hm.hm-anim .hm-did li { animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 160ms + 600ms); }
+.hm.hm-anim .hm-art .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.6s var(--ease) both; }
+.hm .hm-rightnow { display: flex; flex-direction: column; gap: var(--s12); }
+.hm .hm-rnh { font-size: var(--t22); }
+.hm .hm-rnnone { margin: 0; padding: var(--s16); border-radius: var(--r16); background: var(--n50); color: var(--n700); }
+.hm-petalfx { position: fixed; inset: 56px 0 auto; height: 260px; pointer-events: none; z-index: 40; overflow: hidden; }
+.hm-petalfx .st-petals { inset: 0; height: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .hm.hm-anim .hm-blooms span, .hm.hm-anim .hm-did li, .hm.hm-anim .hm-art .st-sun { animation: none; }
+  .hm-petalfx { display: none; }
+}
