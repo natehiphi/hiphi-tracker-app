@@ -41,6 +41,7 @@ import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { newSteps, markNewStep } from './help.js';
+import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
 import { todayPrepNotice } from './prep.js';
@@ -316,7 +317,8 @@ export function todayItems(scope = 'mine', who = null) {
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee), c = esc(h.committee);
       if (!dr) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: `No testimony draft yet for the ${c} hearing`,
-        note: `It is made from the hearing notice within the hour. If it has not appeared, ${S.me.is_admin ? 'check that the notice email arrived' : 'tell ' + esc(oneAdmin())}.`, btns: [{ label: 'Open bill', href: `#/bill/${b.bill_number}`, text: true }] });
+        note: draftAsking(h) ? 'Asked for it: the draft shows here within a few minutes.' : 'The tracker makes it from the hearing notice. If it has not, make it now.',
+        btns: [{ label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' }, { label: 'Open bill', href: `#/bill/${b.bill_number}`, text: true }] });
       else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
         s: `Check ${self && (isOwner(b) || dr.submitted_by === me.id) ? 'your' : 'the'} ${c} testimony: the bill is now ${esc(b.current_version)}`,
         note: `The draft was written for ${esc(dr.version || 'the introduced bill')}.`, btns: dr.doc_url ? [{ label: 'Open Doc', href: dr.doc_url, ext: true }] : [] });
@@ -1399,6 +1401,7 @@ async function run(t, act, el) {
       toast(who ? `Sent to ${who} for review.` : 'Sent for review. It is waiting in your review queue.', { ok: true, undo: async () => { await DB.transition(b.id, t.d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } });
       redraw(); });
     case 'file': return fileSheet(b, t.d);
+    case 'draftnow': return makeDraftNow(t.h);   // R-102
     case 'todo': return busy(el, async () => {
       await DB.updateTodo(b.id, t.t.id, { done: true });
       toast(`Done: ${clip(t.t.title, 60)}`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.t.id, { done: false }); redraw(); } }); redraw(); });

@@ -11,9 +11,9 @@
 // (docs/TESTIMONY-LIBRARY-PLAN.md, REQUESTS "Parked"), so the search says what it covers.
 // A fresh-eyes review (9/21) shaped the rows: no "Filed" chip on filed rows (only the exceptions get one), the date in
 // its own column, a plain label rather than an arrow that looked like a link, and one card for the folded category.
-import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl } from './data.js';
+import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf } from './model.js';
-import { icon, btn, chip, empty } from './ui.js';
+import { icon, btn, chip, empty, toast } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { issuesOfBill, catByKey } from './issues.js';
 
@@ -184,4 +184,30 @@ export function wireTestimony(pnl, b) {
   const q = pnl.querySelector('#tm-q'), res = pnl.querySelector('#tm-res');
   // The query is kept for the visit (B-6): a trip to another bill and back finds it where it was.
   if (q && res) q.addEventListener('input', () => { S.tmQuery = q.value; res.innerHTML = results(q.value, b); });
+}
+
+// ---- "Make the draft now" (R-102): a hearing with no draft yet, on a bill whose position gets testimony. The draft job
+// usually makes it within minutes of the hearing notice (the Capitol page lane reads the notices every 15 minutes); this
+// is for when it has not. The page then asks every 20 seconds, for up to 4 minutes, and shows the draft when it lands.
+export const draftAsking = h => !!S.draftAsked?.[h.id] && Date.now() - S.draftAsked[h.id] < 5 * 60e3;
+export const draftNowBtn = h => btn(draftAsking(h) ? 'Making the draft…' : 'Make the draft now', { kind: 'secondary', sm: true, icon: 'file-text',
+  attrs: { 'data-draftnow': h.id, 'aria-disabled': draftAsking(h) ? 'true' : null } });
+export async function makeDraftNow(h) {
+  if (draftAsking(h)) return toast('Already asked. The draft shows here within a few minutes.');
+  (S.draftAsked ??= {})[h.id] = Date.now(); hooks.render();
+  const has = () => (S.drafts[h.bill_id] || []).some(d => d.committee === h.committee && d.status !== 'cancelled');
+  try {
+    const r = await DB.draftNow(h);
+    if (r?.sandbox) { delete S.draftAsked[h.id]; hooks.render(); return toast('Draft made. In the sandbox it is a practice link; live, it is a new Google Doc.', { ok: true }); }
+    toast('Making the draft. It shows here in about two minutes.', { ok: true });
+    let n = 0;
+    const tick = async () => {
+      n++;
+      try { await DB.reloadDrafts(h.bill_id); } catch { /* try again on the next tick */ }
+      if (has()) { delete S.draftAsked[h.id]; hooks.render(); return toast('The draft is ready.', { ok: true }); }
+      if (n < 12) return setTimeout(tick, 20e3);
+      delete S.draftAsked[h.id]; hooks.render(); toast('The draft has not appeared yet. Try Make the draft now again in a few minutes.', { err: true });
+    };
+    setTimeout(tick, 30e3);
+  } catch (e) { delete S.draftAsked[h.id]; hooks.render(); toast(e, { err: true }); }
 }

@@ -19,7 +19,7 @@ import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countd
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
 import { renderPublic, wirePublic } from './public.js';
-import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp } from './testimony.js';
+import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
 
@@ -428,7 +428,10 @@ function hearingCard(b, h, i) {
   const dueLine = d && !filed && d.status !== 'cancelled'
     ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>`
     : `<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
-  const noDraft = !d ? `<p class="small muted bw-nodraft">${b.position && b.position !== 'monitor' ? 'No testimony draft yet. The tracker makes one from the hearing notice.' : 'Monitor bills get no testimony draft.'}</p>` : '';
+  // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
+  const noDraft = !d ? (b.position && b.position !== 'monitor'
+    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet. The tracker makes one when the hearing notice comes in.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
+    : '<p class="small muted bw-nodraft">Monitor bills get no testimony draft.</p>') : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-${i}">${i === 0 ? 'Next up' : 'Also coming up'}</h2><span class="bw-nhacts">${btn('Hearing page', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, cls: 'bw-hpage', attrs: { 'aria-label': `The ${h.committee} hearing's page` } })}${iconBtn('ellipsis', 'More for this hearing', { 'data-hmenu': h.id })}</span></div>
     <p class="bw-hear">${esc(cmteFull(h.committee))} ${isJoint(h.committee) ? 'joint hearing' : 'hearing'}</p>
@@ -1009,6 +1012,7 @@ export default {
     // Next up
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
+    page.querySelectorAll('[data-draftnow]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.draftnow); if (h) makeDraftNow(h); });
     page.querySelectorAll('[data-putdown]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.putdown); if (h) putDown(b, h); });
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
     // "Earlier testimony" moves to the tab the way a tab does: this history entry is replaced, so Back leaves the bill.

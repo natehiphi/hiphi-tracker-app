@@ -51,6 +51,7 @@
 .bw-meta a { font-weight: 700; }
 .bw-due { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s8); row-gap: 2px; margin-top: var(--s8); font-size: var(--t14); color: var(--n700); }
 .bw-nodraft { margin-top: var(--s12); }
+.bw-nodraft .btn { margin-top: var(--s8); }   /* Make the draft now (R-102) */
 .bw-late { display: inline-flex; align-items: center; gap: 4px; color: var(--bad-text); font-weight: 700; }
 .bw-soon { display: inline-flex; align-items: center; gap: 4px; color: var(--warn-text); font-weight: 700; }
 .bw-late .ic, .bw-soon .ic { width: 16px; height: 16px; }

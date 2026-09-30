@@ -544,6 +544,22 @@ export const DB = {
     if (DEMO) throw new Error('The sandbox does not import; use the live app.');
     const { data, error } = await S.supa.rpc('import_tracker', { p_rows: rows, p_apply: !!apply }); if (error) throw error; return data;
   },
+  // "Make the draft now" (R-102): the draft job makes this one hearing's Doc, whichever lane found the hearing. Any staff
+  // member may ask (admin-dispatch v3 checks the hearing, and builds the job's payload itself). The sandbox makes a
+  // practice draft a moment later instead.
+  async draftNow(h) {
+    if (DEMO) { await new Promise(r => setTimeout(r, 900)); const b = S.bills.find(x => x.id === h.bill_id);
+      (S.drafts[h.bill_id] ??= []).push({ id: 'dn' + Date.now(), bill_id: h.bill_id, committee: h.committee, hearing_id: h.id, status: 'draft',
+        doc_url: 'https://docs.google.com/document/d/demo-now/edit', created_at: new Date().toISOString(), version: b?.current_version || null });
+      return { ok: true, sandbox: true }; }
+    return this.dispatch('draft-now', { hearing_id: h.id });
+  },
+  // One bill's drafts again (after "Make the draft now", while the job works).
+  async reloadDrafts(billId) {
+    if (DEMO) return S.drafts[billId] || [];
+    const { data, error } = await S.supa.from('testimony_drafts').select('*').eq('bill_id', billId).order('created_at'); if (error) throw error;
+    S.drafts[billId] = data || []; return S.drafts[billId];
+  },
   // Start a GitHub workflow from Settings (admin-dispatch Edge Function).
   async dispatch(event, payload) {
     if (DEMO) throw new Error('The sandbox cannot start workflows.');
