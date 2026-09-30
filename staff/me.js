@@ -12,7 +12,7 @@ import { icon, btn, switchRow, field, toast, keysOn, setKeys } from './ui.js';
 
 // Plain, verb-free labels for what each nudge is about (app.js WORKFLOW_KINDS keys, same order).
 const WF_LABEL = { chat: ['Messages on bills I own, follow or joined', ''], draft_created: ['A new testimony draft for one of my bills', ''],
-  review_requested: ['Testimony waiting for my approval', 'Admins approve first'], second_review_requested: ['A first testimony that needs my second approval', 'Reviewers give the second approval'],
+  review_requested: ['Testimony waiting for my approval', 'Admins and approvers give the first approval'], second_review_requested: ['A first testimony that needs my second approval', 'Reviewers give the second approval'],
   approved: ['My testimony was approved', ''], changes_requested: ['A reviewer asked me for changes', ''], filed: ['Someone filed testimony on my bill', ''] };
 const REM = [['morning', 'The morning testimony is due'], ['before', 'Shortly before it is due'], ['after', 'After the deadline, if it is not filed']];
 const FR_KEY = DEMO ? 'hiphi2_firstrun_demo' : 'hiphi2_firstrun';

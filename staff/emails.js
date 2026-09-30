@@ -1,6 +1,6 @@
 // Outreach > Emails (plan 3.9): the action alerts, grouped by what they need: Needs your approval, Ready to send,
 // Drafts and sent back, Waiting on someone else, Sent (with its numbers). The same alerts and rules as the current
-// app's Emails page (app.js renderEmails): an admin other than the writer approves, the writer (or an admin) sends,
+// app's Emails page (app.js renderEmails): an admin or an approver other than the writer approves (098), the writer (or an admin) sends,
 // Postmark reports opens, clicks and bounces. Hearing alerts need nobody, so they get one line, not a card.
 // Desktop (900px and wider): one table in the Bills table's look instead of the groups. It opens in the same order
 // as the groups (what needs you first), every column sorts, and each row says its state three ways: a status chip
@@ -24,7 +24,7 @@ function emailRow(a, kind) {
     case 'review': sub = `From ${esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(a.submitted_at || when(a)))}`; break;
     case 'send': sub = `Approved${a.approved_by ? ' by ' + esc(first(a.approved_by)) : ''} · ${esc(toWhom(a))}`; break;
     case 'draft': sub = a.status === 'returned' && a.review_note ? `<span class="le-rnote">“${esc(a.review_note)}”</span>` : `${mine ? 'You' : esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(when(a)))}`; end = statusChip(a); break;
-    case 'wait': sub = a.status === 'approved' ? `Approved. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'another admin')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
+    case 'wait': sub = a.status === 'approved' ? `Approved. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
     case 'sent': sub = `<span class="le-sline">Sent to ${a.recipients || 0} · ${a.opens || 0} opened · ${a.clicks || 0} clicked · ${a.bounces || 0} bounced</span><span class="le-smeta">${esc(u.name || '')} · ${esc(first(a.author_id))} · ${esc(ago(a.sent_at))}</span>`; break;
   }
   return row({ leadHtml: `<span class="lead">${icon(u.icon)}</span>`, title: esc(a.subject || '(no subject)'), sub, end, href: '#/email/' + encodeURIComponent(a.id), cls: 'le-erow' });
@@ -49,7 +49,7 @@ const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k
 function nextLine(a, rv) {
   const me = S.me?.id, mine = a.author_id === me, who = esc(first(a.author_id));
   const you = (ic, t) => `<span class="le-next you">${icon(ic)}${t}</span>`, other = t => `<span class="le-next">${t}</span>`;
-  if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Needs your approval') : other(`Waiting for ${esc(approverNames(a.author_id) || 'another admin')} to approve ${mine ? 'it' : who + '’s email'}`);
+  if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Needs your approval') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
   if (a.status === 'approved') return mine ? you('send', 'Approved. Ready for you to send') : other(`Approved. Waiting for ${who} to send it`);
   if (a.status === 'returned') return mine ? you('undo-2', `Sent back to you${a.review_note ? `: “${esc(a.review_note)}”` : ''}`) : other(`Sent back to ${who}${a.review_note ? `: “${esc(a.review_note)}”` : ''}`);
   if (a.status === 'sent') return other(`Sent ${esc(ago(a.sent_at))}${a.bounces ? ` · ${a.bounces} bounced` : ''}`);
@@ -86,7 +86,7 @@ export default {
     const newBtn = btn('New email', { icon: 'mail-plus', href: '#/email/new' });
     const desk = isDesk(), needs = review.length + ready.length + drafts.filter(a => a.author_id === me).length;
     return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
-      ${pageHead('emails', 'Emails', desk ? 'Emails to supporters. An admin other than the writer approves each one before it can be sent.' : 'Emails to supporters. An admin approves each one.', all.length ? newBtn : '')}
+      ${pageHead('emails', 'Emails', desk ? 'Emails to supporters. Someone other than the writer approves each one before it can be sent.' : 'Emails to supporters. Someone else approves each one.', all.length ? newBtn : '')}
       ${pausedNotice()}
       <p class="le-hear">${icon('bell')}<span>Hearing alerts send on their own, once a day, to people who asked for them.</span></p>
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`

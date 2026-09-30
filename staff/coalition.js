@@ -220,8 +220,8 @@ function raceHTML(c, w) {
       <span class="sub">${st.committee ? `Waiting in ${esc(st.committee)}` : 'Waiting for a committee referral'}</span><span class="co-facts">${ownerBit(b)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
   return sec('co-s5', `Needs a hearing by ${esc(dayOf(w.next + 'T12:00:00-10:00'))}`, w.race.length, `<div class="rows co-rows">${folded(c.id + '|n', w.race.map(rowOf))}</div>`);
 }
-// Live bills nobody owns, each with "Give to…" (one bill at a time is open to everyone; many at once is for admins,
-// decision 9). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
+// Live bills nobody owns, each with "Give to…" (one bill at a time here; many at once from Bills, open to everyone since
+// R-106). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
 function unownedHTML(c, list) {
   const rowOf = b => `<div class="row co-arow"><a class="co-amain" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="title">${name(b)}</span><span class="sub">${esc(billSub(b))}</span></a>
     ${btn('Give to…', { kind: 'secondary', sm: true, attrs: { 'data-coown': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Give ${b.bill_number} to someone` } })}</div>`;

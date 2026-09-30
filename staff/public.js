@@ -121,7 +121,7 @@ export function renderPublic(b) {
   </section>
   <section class="bw-sec" aria-labelledby="bw-mail-h">
     <h2 id="bw-mail-h">Email supporters</h2>
-    <p class="small muted">${emailOk ? 'It goes to the people following this bill who asked for action alerts. Another admin approves it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first. Only people following a public bill can get its email.'}</p>
+    <p class="small muted">${emailOk ? 'It goes to the people following this bill who asked for action alerts. Someone else who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first. Only people following a public bill can get its email.'}</p>
     <div class="bw-acts">${btn('Email supporters about this bill', { kind: 'secondary', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
   </section>`;
 }

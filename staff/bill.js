@@ -357,7 +357,7 @@ const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i,
 // Testimony is due at the deadline on the notice, else a day before the hearing (plan 5).
 const dueOf = h => h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
 const reviewerNames = () => listNames(a => a.is_reviewer, ' or ');
-const approverNames = () => listNames(a => a.is_admin, ' or ');
+const approverNames = () => listNames(a => a.is_admin || a.can_approve, ' or ');   // admins and approvers (098)
 // Would approving this draft send it to a second approval? Only the bill's first testimony gets one (the database's rule).
 const firstForBill = d => !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && ['approved', 'filed'].includes(x.status));
 // Who has the testimony and who is next, in one line. The step bar above it already names the step, so a draft waiting
@@ -367,7 +367,7 @@ const firstForBill = d => !Object.values(S.drafts).flat().some(x => x.bill_id ==
 const waitingFor = pred => { const l = S.advocates.filter(a => pred(a) && a.is_active !== false), me = l.some(a => a.id === S.me?.id);
   return [...(me ? ['you'] : []), ...l.filter(a => a.id !== S.me?.id).map(a => a.full_name)].join(' or ') || 'an admin'; };
 function whoLine(d) {
-  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin)}`;
+  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || a.can_approve)}`;
   if (d.status === 'second_review') return `Approved by ${nameOf(d.approved_by)} ${dWhen(d.approved_at)} · waiting for ${waitingFor(a => a.is_reviewer)}`;
   return draftWho(d).replace(/ \u00b7 file it at the Capitol, then mark it filed$/, '');
 }

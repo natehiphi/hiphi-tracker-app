@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain } from './model.js';
+import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves } from './model.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -31,11 +31,11 @@ export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is pa
 export const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} min ago` : m < 24 * 60 ? `${Math.round(m / 60)}h ago` : fmtDT(iso); };
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
-export const canApprove = a => a.status === 'submitted' && !!S.me?.is_admin && a.author_id !== S.me?.id;   // never your own
+export const canApprove = a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id;   // never your own; admins and approvers (098)
 export const canSend = a => a.status === 'approved' && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const canTest = a => !!a.id && a.status !== 'sent' && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const canDelete = a => !!a.id && ['draft', 'returned'].includes(a.status) && (a.author_id === S.me?.id || !!S.me?.is_admin);
-const approvers = authorId => S.advocates.filter(x => x.is_admin && x.is_active !== false && x.id !== authorId);
+const approvers = authorId => S.advocates.filter(x => approves(x) && x.id !== authorId);
 export const approverNames = authorId => orJoin(approvers(authorId).map(x => first(x.id)));
 export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['Waiting for approval', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
 export const statusChip = a => { const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
@@ -289,7 +289,7 @@ function previewStep(c, two) {
 function submitStep(c) {
   const me = S.me || {}, others = approvers(me.id), names = orJoin(others.map(x => first(x.id)));
   return `<h2 class="le-sh">Send it for approval</h2>
-    <p class="le-nosend">${icon('shield-check')}<span><b>Nothing goes to supporters when you press the button.</b> ${others.length ? `${esc(names)} (an admin other than you) has to approve it first.` : 'An admin other than you has to approve it first.'}</span></p>
+    <p class="le-nosend">${icon('shield-check')}<span><b>Nothing goes to supporters when you press the button.</b> ${others.length ? `${esc(names)} has to approve it first.` : 'Someone else who approves emails has to approve it first.'}</span></p>
     <div class="card le-sum"><dl class="le-dl">
       <div><dt>To</dt><dd>${audHTML(c.a, 'to')}</dd></div>
       <div><dt>From</dt><dd>${esc(me.full_name || '')} <span class="le-mute">&lt;${esc(me.email || '')}&gt;</span></dd></div>
@@ -298,19 +298,19 @@ function submitStep(c) {
     <h3 class="le-flowh">What happens next</h3>
     <ol class="le-flow">
       <li><span class="le-fn">1</span><span>You send it for approval.${others.length ? ` ${esc(names)} ${others.length === 1 ? 'gets' : 'get'} a Slack message right away.` : ''}</span></li>
-      <li><span class="le-fn">2</span><span>${others.length ? esc(names) : 'Another admin'} reads it, then approves it or sends it back to you with a note.</span></li>
+      <li><span class="le-fn">2</span><span>${others.length ? esc(names) : 'Someone else who approves'} reads it, then approves it or sends it back to you with a note.</span></li>
       <li><span class="le-fn">3</span><span>Once it is approved, you come back here and press Send. Only then does it go out.</span></li>
     </ol>
     ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but nothing goes out until an admin turns email back on.') : ''}
-    ${others.length ? '' : notice('info', 'info', 'You are the only admin, so nobody can approve it yet. Every email needs an admin other than its writer.')}`;
+    ${others.length ? '' : notice('info', 'info', 'Nobody else on the team approves emails yet, so it cannot be approved. Every email needs someone other than its writer. An admin can make a teammate an approver under Session setup, Team.')}`;
 }
 
 // ---- where an email stands, once it is out of the writer's hands (or someone else's draft) ----
 function statusView(a) {
-  const me = S.me || {}, own = a.author_id === me.id, who = first(a.author_id), appr = approverNames(a.author_id) || 'another admin';
+  const me = S.me || {}, own = a.author_id === me.id, who = first(a.author_id), appr = approverNames(a.author_id) || 'someone who approves';
   let line = '';
   if (a.status === 'submitted') line = canApprove(a) ? `${esc(who)} sent it ${esc(ago(a.submitted_at || a.updated_at || a.created_at))}.`
-    : own ? `Waiting for ${esc(appr)} to approve it.${me.is_admin ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
+    : own ? `Waiting for ${esc(appr)} to approve it.${approves(me) ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
   else if (a.status === 'approved') line = `${a.approved_by ? `${a.approved_by === me.id ? 'You' : esc(first(a.approved_by))} approved it. ` : ''}${own ? 'Send it when you are ready.' : me.is_admin ? `It is ${esc(who)}’s to send; an admin can send it too.` : `Waiting for ${esc(who)} to send it.`}`;
   else if (a.status === 'sent') line = `Sent ${esc(fmtDT(a.sent_at))} to ${people(a.recipients || 0)}.`;
   else if (a.status === 'returned') line = `Sent back to ${esc(who)}. Only ${esc(who)} can change it.`;

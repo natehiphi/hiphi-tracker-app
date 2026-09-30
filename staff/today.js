@@ -38,8 +38,9 @@
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF } from './data.js';
-import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
+import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
+import { newSteps, markNewStep } from './help.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
 import { todayPrepNotice } from './prep.js';
@@ -160,9 +161,11 @@ const reviewers = () => {
 };
 export const reviewerNames = reviewers;
 const admins = (except = null) => S.advocates.filter(a => a.is_admin && a.is_active !== false && a.id !== except).map(a => a.full_name.split(' ')[0]).join(' or ');
+// Whoever can give a first approval or approve an email (098): admins and approvers (Kris).
+const approverList = (except = null) => S.advocates.filter(a => approves(a) && a.id !== except).map(a => a.full_name.split(' ')[0]).join(' or ');
 export const adminNames = admins;
 // One name when there is exactly one other admin, else "an admin" ("Nate or Jess sent it back" reads wrong).
-const oneAdmin = (except = null) => { const a = admins(except); return a && !a.includes(' or ') ? a : 'an admin'; };
+const oneAdmin = (except = null) => { const a = approverList(except); return a && !a.includes(' or ') ? a : 'an approver'; };
 // Is this the bill's first testimony? Then a reviewer signs off too (the same test as testimony_transition).
 export const needsSecond = d => d.status === 'second_review' || !!d.first_for_bill
   || (d.status === 'review' && !Object.values(S.drafts || {}).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && (['approved', 'filed'].includes(x.status) || x.second_approved_at)));
@@ -172,8 +175,9 @@ export const needsSecond = d => d.status === 'second_review' || !!d.first_for_bi
 export function reviewQueue() {
   const me = S.me || {}, idx = byBill(), out = [];
   for (const d of Object.values(S.drafts || {}).flat()) {
-    if (!((d.status === 'review' && me.is_admin) || (d.status === 'second_review' && me.is_reviewer))) continue;
-    const b = billById(d.bill_id), h = hearingFor(d, idx); if (!b || moot(h)) continue;
+    const h = hearingFor(d, idx);
+    if (!((d.status === 'review' && canFirstApprove(me, d, h)) || (d.status === 'second_review' && canSecondApprove(me, d)))) continue;
+    const b = billById(d.bill_id); if (!b || moot(h)) continue;
     out.push({ type: 'draft', key: String(d.id), d, b, h, due: testDue(h) });
   }
   out.sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity) || (x.b.priority || 9) - (y.b.priority || 9) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
@@ -192,7 +196,7 @@ const lowerFirst = s => /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) 
 
 // Sandbox only: demoInit builds the inbox for the admin it signs in as; after &as=KV it must be Kevin's inbox, or
 // Kevin would be asked to reply to his own messages. Rebuilt once per person, with the sandbox's own builder.
-function sandboxInbox() {
+export function sandboxInbox() {
   if (!DEMO || !S.buildDemoInbox || !S.me) return;
   const builtFor = S.tdInboxFor ?? (S.advocates.find(a => a.is_admin) || S.advocates[0])?.id;
   if (builtFor !== S.me.id) S.inbox = S.buildDemoInbox();
@@ -269,13 +273,13 @@ export function todayItems(scope = 'mine', who = null) {
     const wait = (whom, what, label, on) => push({ ...base, kind: 'wait', key: `w:${d.id}`, s: `Waiting for ${esc(whom)}${what.startsWith('to ') ? ' ' : ': '}${what}`, ws: `${esc(whom)}: ${what}`, chip: label, on });
     if (d.status === 'review' || d.status === 'second_review') {
       const two = d.status === 'second_review';
-      if (two ? me.is_reviewer : me.is_admin) {   // approvals: never filtered by scope or Monitor
+      if (two ? canSecondApprove(me, d) : canFirstApprove(me, d, h)) {   // approvals: never filtered by scope or Monitor
         const who = d.submitted_by ? (subMe ? (self ? 'your own' : 'their own') : `${esc(first(d.submitted_by))}’s`) : 'the';
         const at = two ? d.approved_at : d.submitted_at, h0 = at ? (now - new Date(at)) / HR : null;
         push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: h0 == null ? '' : `${two ? 'Approved' : 'Sent'} ${h0 < 1 ? 'just now' : h0 < 48 ? Math.round(h0) + 'h ago' : Math.round(h0 / 24) + ' days ago'}`,
           s: two ? `Give the second approval on ${who} testimony` : `Review ${who} ${subMe || !d.submitted_by ? c + ' ' : ''}testimony`,
           btns: [{ label: 'Review', href: `#/review/${encodeURIComponent(d.id)}`, review: true }] });
-      } else if (team) wait(two ? reviewers() : admins(), two ? 'second approval' : 'approval', two ? '2nd approval' : 'In review', ids(a => two ? a.is_reviewer : a.is_admin));
+      } else if (team) wait(two ? reviewers() : approverList(), two ? 'second approval' : 'approval', two ? '2nd approval' : 'In review', ids(a => two ? a.is_reviewer : approves(a)));
       continue;
     }
     // Monitor bills are watched, not worked: the draft made automatically from each hearing notice stays off Today
@@ -342,7 +346,7 @@ export function todayItems(scope = 'mine', who = null) {
   }
 
   // ---- action alerts (emails to supporters) ----
-  const toReview = new Set((self ? alertsToReview() : (S.alerts || []).filter(a => a.status === 'submitted' && me.is_admin && a.author_id !== me.id)).map(a => a.id));
+  const toReview = new Set((self ? alertsToReview() : (S.alerts || []).filter(a => a.status === 'submitted' && approves(me) && a.author_id !== me.id)).map(a => a.id));
   for (const a of S.alerts || []) {
     const b = a.bill_id ? billById(a.bill_id) : null, n = S.tdAud?.[a.id], tgt = esc(alertTarget(a)), base = { a, b, due: null, key: `a:${a.id}` };
     if (a.status === 'submitted' && toReview.has(a.id)) push({ ...base, kind: 'email', who: 'yours', s: `Approve ${esc(first(a.author_id))}’s email to ${n != null ? plural(n, 'supporter') : 'the followers of ' + tgt}`,
@@ -528,6 +532,19 @@ function toolbar(route, clockShown = false) {
 }
 // At most one notice, most important first: the sync is stale (admins), the issues' prep, email is paused (admins), then
 // the new-bill season.
+// Getting started (R-106, Nate 9/30): the five New here? steps from Help, on Today itself for a new teammate's first 45
+// days (always in the sandbox), until all five are done or they hide it. One line that opens on demand, so it never pushes
+// the day's work down (A-1). It replaced the old "New here? Read how the tracker works" notice, which the issue-prep
+// notice could hide.
+function startCard() {
+  const me = S.me; if (!me || load('newhere_done', '')) return '';
+  const age = me.created_at ? Date.now() - new Date(me.created_at).getTime() : Infinity;
+  if (!DEMO && !(age < 45 * DAY)) return '';
+  const steps = newSteps(), n = steps.filter(s => s.done).length; if (n === steps.length) return '';
+  return `<details class="card td-start" data-tdstart${S.tdStartOpen ? ' open' : ''}><summary><span class="td-startt">${icon('sparkles')}<b>Getting started</b><span class="td-startn">${n} of ${steps.length} done</span></span><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span>${icon('chevron-down', { cls: 'td-startc' })}</summary>
+    <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-tdfr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>
+    <div class="td-startf">${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-newhere': '1' } })}</div></details>`;
+}
 function oneNotice() {
   const me = S.me || {};
   if (me.is_admin && !DEMO) {
@@ -541,10 +558,7 @@ function oneNotice() {
   if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; nothing sends.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
   if (S.tdTriage?.suggested || S.tdTriage?.undecided) { const n = S.tdTriage.suggested || S.tdTriage.undecided;
     return notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })); }
-  // Getting started moved to Help; for the first 45 days a single row points there until it is dismissed.
-  const age = me.created_at ? Date.now() - new Date(me.created_at).getTime() : Infinity;
-  if (age < 45 * DAY && !load('newhere_done', '')) return notice('info', 'circle-help', 'New here? Read how the tracker works.', `${btn('Read it', { kind: 'text', href: '#/help' })}${iconBtn('x', 'Dismiss', { 'data-newhere': '1' })}`);
-  return '';
+  return '';   // Getting started is its own card now (startCard), not this one notice slot (R-106)
 }
 // The opening weeks around the introduction cutoff are when new bills need a decision (the same window as app.js 1633).
 const openWeeks = () => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(), now = Date.now(); return now > cut - 18 * DAY && now < cut + 3 * DAY; };
@@ -1296,7 +1310,8 @@ function digestSection(scope) {
   const seg = segmented('tdsince', [['day', dg.dayLabel === 'yesterday' ? 'Since yesterday' : `Since ${dg.dayLabel}`], ['visit', 'Since your last visit'], ['week', 'Last 7 days']], since, 'How far back');
   return `<section class="td-group td-dig" aria-labelledby="td-g-dig"><h2 class="td-h">${groupHead(open ? 'What changed' : `What changed ${esc(dg.head)}`, esc(digCount(dg, n)), { fold: 'digest', open, id: 'td-g-dig' })}</h2>
     ${open ? `<div class="td-digbar">${seg}<label class="td-digq">${icon('search')}<span class="sr">Search what changed</span><input type="search" id="td-digq" value="${esc(S.tdDigQ || '')}" placeholder="Bill, name or word" autocomplete="off" enterkeyhint="search"></label></div>
-      <div class="rows td-digrows" id="td-digrows">${html}</div>` : ''}</section>`;
+      <div class="rows td-digrows" id="td-digrows">${html}</div>
+      <p class="td-dinbox">${icon('inbox')}<a href="#/inbox">Your Inbox</a><span> keeps all of it, read or not.</span></p>` : ''}</section>`;
 }
 
 function render(route) {
@@ -1347,11 +1362,11 @@ function render(route) {
   const results = off ? resultsHtml(scope, who) : '', jan = off ? janPanel() : '';
   // A phone has no rail: your own work comes first (it used to sit under "Hearings today", and the first card started
   // 376px down), then what waits on others, then the day's hearings and the deadline, then catching up.
-  if (!desk) return `<div class="td-root">${toolbar(route, !!clock || bare)}${note}${oneNotice()}${body}${scope !== 'team' ? waitingGroup(scope, who) : ''}${results}${jan}${hearingsToday(scope, who, 3)}${clock}${digestHtml}${sugg}${syncFoot()}</div>`;
+  if (!desk) return `<div class="td-root">${toolbar(route, !!clock || bare)}${note}${oneNotice()}${startCard()}${body}${scope !== 'team' ? waitingGroup(scope, who) : ''}${results}${jan}${hearingsToday(scope, who, 3)}${clock}${digestHtml}${sugg}${syncFoot()}</div>`;
   // Two rails: the near one is what is happening now, the far one is the week and the team. Below 1600px today.css
   // flattens them back into one column, so the order down the page is the same. Between sessions there is no week to
   // count, and Team has no "Waiting on others": the list is everyone's already.
-  return `<div class="td-root td-desk">${toolbar(route, !!clock || bare)}<div class="sv-cols td-cols"><div class="td-main">${note}${oneNotice()}${body}${results}${digestHtml}${sugg}${syncFoot()}</div>
+  return `<div class="td-root td-desk">${toolbar(route, !!clock || bare)}<div class="sv-cols td-cols"><div class="td-main">${note}${oneNotice()}${startCard()}${body}${results}${digestHtml}${sugg}${syncFoot()}</div>
     <aside class="sv-aside td-aside" aria-label="At a glance">${rail(true, clock || jan, hearingsToday(scope, who, 5))}${rail(false, off || bare ? '' : weekPanel(scope, who, r), scope !== 'team' ? waitingPanel(scope, who) : '', loadPanel())}</aside></div></div>`;
 }
 
@@ -1573,6 +1588,8 @@ function wire(route, root) {
   }
   if (main.querySelector('.td-yay')) save('allclear', hst(Date.now()));
   main.querySelector('[data-newhere]')?.addEventListener('click', () => { save('newhere_done', '1'); hooks.render(); });
+  main.querySelector('[data-tdstart]')?.addEventListener('toggle', e => { S.tdStartOpen = e.target.open; });
+  main.querySelectorAll('[data-tdfr]').forEach(a => a.addEventListener('click', () => markNewStep({ [a.dataset.tdfr]: 1 })));
   // Keep the place. A control that redrew the page gets its focus back. Otherwise the card j/k (or a click) was last on
   // does: after a step redraws the list, and after a trip to a bill and back, the next j goes on from there, not from
   // the top (assessment 9/19). When that card is gone, the one that took its place is next.

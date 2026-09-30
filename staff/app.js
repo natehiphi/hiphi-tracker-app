@@ -5,9 +5,10 @@
 import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
-import { exactBill } from './model.js';
+import { exactBill, inboxCount } from './model.js';
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
+import inbox from './inbox.js';
 import bill from './bill.js';
 import bills from './bills.js';
 import triage from './triage.js';
@@ -31,7 +32,7 @@ import hearing from './hearing.js';
 import coalition from './coalition.js';
 
 // ---- routes ----
-const SCREENS = { today, review, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, review, inbox, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   const dh = decodeURIComponent(h || '');
   let m;
@@ -43,6 +44,7 @@ export function parseRoute(h = location.hash) {
   switch (seg[0]) {
     case undefined: return { name: 'today', q };
     case 'review': return { name: 'review', id: seg[1] || '', q };
+    case 'inbox': return { name: 'inbox', q };
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase(), tab: seg[2] || 'overview', q };
     case 'legislators': return { name: 'legislators', q };
@@ -106,28 +108,28 @@ function header(route, scr, pageH1 = false) {
 }
 // The desktop sidebar (1100px and wider; staff.css hides it below that, where the header carries the four tabs).
 // A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
-// away here: Review, Sort new bills, the weekly memo, Lists, Emails, setup and help.
+// away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
 const SIDE = [
-  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review']]],
+  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox']]],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
-const SUB_OF = { review: 'review', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', inbox: 'inbox', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
 function sidebar(route, scr) {
   const bd = badge(), sub = SUB_OF[route.name] || '';
-  let rv = 0; try { rv = reviewQueue().length; } catch { rv = 0; }
+  let rv = 0, ib = 0; try { rv = reviewQueue().length; ib = inboxCount(); } catch { rv = rv || 0; }
   const count = n => n ? `<span class="sv-sn">${n > 99 ? '99+' : n}</span>` : '';
   const foot = [['help', '#/help', 'circle-help', 'Help'], ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
   return `<aside class="sv-side" aria-label="Sections">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
     <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
       <a class="sv-sitem" href="${href}" title="${label}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
-      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
+      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : k === 'inbox' ? count(ib) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
     <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" title="${l}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${l}</span></a>`).join('')}
       ${syncLine()}
       <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${sideNarrow()}">${icon(sideNarrow() ? 'panel-left-open' : 'panel-left-close')}<span>Collapse</span></button></nav>
@@ -209,13 +211,14 @@ function wireFrame(app) {
 }
 function practiseAs() {
   menuSheet({ title: 'Practise as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
-    label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.is_reviewer ? 'Reviewer: second approvals' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
+    label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.can_approve ? 'Approver: testimony and supporter emails' : a.is_reviewer ? 'Reviewer: second approvals' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
 function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
+    { label: 'Inbox', icon: 'inbox', sub: (n => n ? `${n} unread that need${n === 1 ? 's' : ''} you` : 'Everything sent to you, read or not')(inboxCount()), run: () => go('#/inbox') },
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
@@ -232,7 +235,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const q = document.getElementById('hq'); if (q && q.offsetParent) q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----

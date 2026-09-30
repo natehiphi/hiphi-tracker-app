@@ -562,6 +562,7 @@ export const DB = {
   // trip on, so practising there answers the same way.
   async teamSave(id, p) {
     const row = { full_name: p.full_name.trim(), initials: p.initials.trim().toUpperCase(), email: p.email.trim().toLowerCase(), is_admin: !!p.is_admin, is_reviewer: !!p.is_reviewer, is_active: p.is_active !== false };
+    if (p.can_approve !== undefined) row.can_approve = !!p.can_approve;   // 098: the Approver switch (team_set_approver)
     if (DEMO) {
       const other = S.advocates.filter(a => a.id !== id);
       if (other.some(a => (a.email || '').toLowerCase() === row.email)) throw new Error(`Someone on the team already has the email ${row.email}.`);
@@ -571,6 +572,7 @@ export const DB = {
     }
     const { data, error } = await S.supa.rpc('team_save', { p_id: id || null, p_full_name: row.full_name, p_initials: row.initials, p_email: row.email, p_is_admin: row.is_admin, p_is_reviewer: row.is_reviewer, p_is_active: row.is_active });
     if (error) throw error;
+    if (row.can_approve !== undefined) { const r2 = await S.supa.rpc('team_set_approver', { p_id: data, p_on: row.can_approve }); if (r2.error) throw r2.error; }
     const adv = await S.supa.from('advocates').select('*').order('full_name');
     if (!adv.error) { S.advocates = adv.data; S.me = adv.data.find(a => a.id === S.me?.id) || S.me; }
     return data;
@@ -1109,7 +1111,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260930b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260930c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1158,7 +1160,7 @@ export async function demoInit() {
     const h0 = sc.hearings.filter(h => h.bill_id === b0.id && new Date(h.scheduled_at) > Date.now())
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
-    S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
+    S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'), hearing_id: h0?.id || null,
       status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
       doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
   }
@@ -1181,7 +1183,7 @@ export async function demoInit() {
     // approved-not-filed state - that is the button training should practise.
     if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(S.me.id)) { st = 'approved'; approvedSeeded = true; }
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
-    (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
+    (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
       created_at: ago(30), submitted_by: st === 'draft' ? null : owner, submitted_at: st === 'draft' ? null : ago(20),
       approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
@@ -1213,7 +1215,7 @@ export async function demoInit() {
     for (const [bid, list] of Object.entries(S.messages || {})) for (const m of list) if (m.advocate_id !== S.me.id
       && (mineIds.has(bid) || list.some(x => x.advocate_id === S.me.id) || named(m.body))) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
-      if (d.status === 'review' && S.me?.is_admin) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
+      if (d.status === 'review' && (S.me?.is_admin || S.me?.can_approve) && d.submitted_by !== S.me.id) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
       if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
     for (const a of DEMO_TL) { const ab = S.bills.find(b => b.id === a.bill_id); if (!ab || (ab.position === 'monitor' && !S.follows.has(ab.id))) continue;
       if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), direct: false, priority: ab.priority, kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 7 * 864e5 }); }
@@ -1361,19 +1363,36 @@ export function bestCampaign(r) {
   if (r.matches?.length) { const c = S.campaigns.find(x => x.id === r.matches[0].campaign_id); if (c) return c; }
   return S.campaigns.find(c => c.name === 'General HIPHI') || S.campaigns[0];
 }
+// The first approval, as the database decides it (098, R-103): an admin; an approver (Kris) on testimony someone else
+// sent; a reviewer standing in from 6 hours before the testimony deadline, on testimony someone else sent.
+function firstStep(d, me, bad, changes = false) {
+  if (me.is_admin) return;
+  if (!me.can_approve) {
+    const h = S.hearings.find(x => x.id === d.hearing_id), due = h?.testimony_deadline ? new Date(h.testimony_deadline).getTime() : null;
+    if (!(me.is_reviewer && due != null && due <= Date.now() + 6 * 36e5))
+      bad(changes ? 'Only an admin or an approver can act on a draft in first review (a reviewer can from 6 hours before the testimony deadline)'
+        : 'The first approval is by an admin or an approver; a reviewer can give it from 6 hours before the testimony deadline');
+  }
+  if (!changes && d.submitted_by === me.id) bad('Someone else has to approve testimony you sent for review');
+}
 // Simple: the New bills instructions show on the first visit, then fold into a "How this works" link.
 export function demoTransition(d, action, note, url) {
   const me = S.me, now = new Date().toISOString();
   const bad = m => { throw new Error(m); };
   if (action === 'submit') Object.assign(d, { status: 'review', submitted_by: me.id, submitted_at: now, review_note: null });
   else if (action === 'approve' && d.status === 'review') {
-    if (!me.is_admin) bad('The first approval is by an admin');
-    const first = !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && ['approved', 'filed'].includes(x.status));
+    firstStep(d, me, bad);
+    const first = !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && (['approved', 'filed'].includes(x.status) || x.second_approved_at));
     Object.assign(d, { status: first ? 'second_review' : 'approved', approved_by: me.id, approved_at: now, first_for_bill: first });
   } else if (action === 'approve' && d.status === 'second_review') {
     if (!me.is_reviewer) bad('The second approval is by a reviewer (Jess or Jaylen)');
+    if (d.approved_by === me.id) bad('The second approval has to come from someone other than the first');
     Object.assign(d, { status: 'approved', second_approved_by: me.id, second_approved_at: now });
-  } else if (action === 'request_changes') Object.assign(d, { status: 'draft', review_note: note || null });
+  } else if (action === 'request_changes') {
+    if (d.status === 'review') firstStep(d, me, bad, true);
+    else if (d.status === 'second_review' && !me.is_reviewer) bad('Only a reviewer can act on a draft in second review');
+    Object.assign(d, { status: 'draft', review_note: note || null });
+  }
   else if (action === 'withdraw') d.status = 'draft';
   else if (action === 'file') Object.assign(d, { status: 'filed', filed_by: me.id, filed_at: now, filed_url: url || null });
   else if (action === 'unfile') Object.assign(d, { status: 'approved', filed_by: null, filed_at: null, filed_url: null });

@@ -620,3 +620,18 @@
   .td-root .td-msgl { min-height: 48px; }
   .td-root .td-jan .btn { min-height: 36px; font-size: var(--t14); }
 }
+
+/* Getting started (R-106): one line on Today that opens to Help's five New here? steps (A-1: it never pushes the day's
+   work down while closed). */
+.td-start { margin: 0 0 var(--s16); padding: 0; overflow: hidden; }
+.td-start > summary { display: flex; align-items: center; gap: var(--s12); min-height: 44px; padding: var(--s8) var(--s16); cursor: pointer; list-style: none; }
+.td-start > summary::-webkit-details-marker { display: none; }
+.td-start > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.td-startt { display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); }
+.td-startn { color: var(--n500); margin-left: var(--s4); }
+.td-start .st-meter { flex: 0 1 120px; margin-left: auto; }
+.td-startc { flex: none; color: var(--n500); transition: transform .15s; }
+.td-start[open] .td-startc { transform: rotate(180deg); }
+.td-start .rows { border-top: 1px solid var(--n100); }
+.td-startf { padding: var(--s8) var(--s16) var(--s12); }
+@media (prefers-reduced-motion: reduce) { .td-startc { transition: none; } }

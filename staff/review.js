@@ -7,7 +7,7 @@
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks } from './data.js';
-import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf } from './model.js';
+import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
@@ -41,8 +41,8 @@ function resolve(key) {
   const b = billById(d.bill_id), h = hearingFor(d); return b ? { type: 'draft', key, d, b, h, due: testDue(h) } : null;
 }
 // Still mine to decide? (Someone else may have acted, or it was a link to a draft past this step.)
-const actionable = it => it.type === 'email' ? it.a.status === 'submitted' && S.me?.is_admin && it.a.author_id !== S.me?.id
-  : (it.d.status === 'review' && S.me?.is_admin) || (it.d.status === 'second_review' && S.me?.is_reviewer);
+const actionable = it => it.type === 'email' ? it.a.status === 'submitted' && approves(S.me) && it.a.author_id !== S.me?.id
+  : (it.d.status === 'review' && canFirstApprove(S.me, it.d, it.h)) || (it.d.status === 'second_review' && canSecondApprove(S.me, it.d));
 
 // ---- the bill as it stands ----
 // One line of the team's facts (position, priority, owner), then the bill page's own sentence for where it is. A bill
@@ -134,7 +134,8 @@ function render(route) {
   if (it.type === 'email') { S.tdAud ??= {}; const a = it.a; if (S.tdAud[a.id] === undefined) { S.tdAud[a.id] = null; DB.alertAudience(a.bill_id, a.list_id, a.segment_id).then(n => { S.tdAud[a.id] = n; if (S.route?.name === 'review') hooks.render(); }).catch(() => {}); } }
   const mine = actionable(it);
   return `<div class="td-rv">${header(r, r.keys.length)}
-    ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an admin', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
+    ${mine && it.type === 'draft' && it.d.status === 'review' && standingIn(S.me, it.h) ? notice('warn', 'clock', '<b>You are standing in.</b> Nobody who usually gives the first approval has yet, and testimony is due soon, so you can approve it or send it back.') : ''}
+    ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an approver', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
     ${it.type === 'email' ? emailBody(it) : draftBody(it)}
     ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R ${it.type === 'email' ? 'send back' : 'request changes'}${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
 }

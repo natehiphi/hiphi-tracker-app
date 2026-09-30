@@ -233,7 +233,7 @@ function loginWord(a) {
   return 'Cannot sign in yet';
 }
 function tmRow(a) {
-  const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.is_reviewer ? 'Reviewer' : '';
+  const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Reviewer' : '';
   const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a)].filter(Boolean).join(' · ');
   // A link is offered on the row only while someone still has to sign in for the first time; a forgotten password
   // is rarer, so that link is in the person's sheet.
@@ -254,7 +254,8 @@ function personSheet(a) {
       ${field('tm-email', 'Email', email, locked ? 'They sign in with this email. Ask Claude to change it.' : 'Their hiphi.org address. It is how they sign in and how Slack finds them.')}
       ${field('tm-ini', 'Initials', `<input id="tm-ini" type="text" value="${esc(a?.initials || '')}" maxlength="3" autocomplete="off" autocapitalize="characters" aria-describedby="tm-ini-help">`, 'Shown in the small circle beside their bills.')}
       ${switchRow('tm-admin', 'Admin', !!a?.is_admin, me ? 'You cannot take away your own admin. Ask another admin.' : 'Approves testimony and emails, and can open Session setup.', me ? { disabled: true } : {})}
-      ${switchRow('tm-rev', 'Reviewer', !!a?.is_reviewer, 'Gives the second approval on testimony.')}
+      ${switchRow('tm-appr', 'Approver', !!a?.can_approve, 'Approves testimony and supporter emails, without the rest of an admin’s powers.')}
+      ${switchRow('tm-rev', 'Reviewer', !!a?.is_reviewer, 'Gives the second approval on testimony, and can stand in for the first from 6 hours before the deadline.')}
       <button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>${extra}`,
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-tmcancel': '1' } })}${btn(a ? 'Save' : 'Add', { attrs: { 'data-tmsave': '1' } })}`,
     wire: d => {
@@ -266,7 +267,7 @@ function personSheet(a) {
       const save = async () => {
         const b = d.querySelector('[data-tmsave]'); if (b.getAttribute('aria-busy')) return;
         d.querySelectorAll('.err').forEach(e => e.remove()); d.querySelectorAll('[aria-invalid]').forEach(e => e.removeAttribute('aria-invalid'));
-        const p = { full_name: v('tm-name').value, email: v('tm-email').value, initials: v('tm-ini').value, is_admin: v('tm-admin').checked, is_reviewer: v('tm-rev').checked, is_active: !off };
+        const p = { full_name: v('tm-name').value, email: v('tm-email').value, initials: v('tm-ini').value, is_admin: v('tm-admin').checked, can_approve: v('tm-appr').checked, is_reviewer: v('tm-rev').checked, is_active: !off };
         if (!p.full_name.trim()) return fieldErr(d, 'tm-name', 'Enter a name.');
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email.trim())) return fieldErr(d, 'tm-email', 'Enter an email address, like name@hiphi.org.');
         if (!/^[A-Za-z]{1,3}$/.test(p.initials.trim())) return fieldErr(d, 'tm-ini', 'Initials are one to three letters, like KV.');

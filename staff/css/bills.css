@@ -497,3 +497,14 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 @media (min-width: 1100px) {
   body.staff2:has(.band) .bl-page, body.staff2:has(.band) .bl-memopage { --bl-top0: calc(var(--header) + 28px); }
 }
+
+/* ---- the Edit switch (R-106): position, priority and owner as dropdowns on every row, the old app's editable table.
+   A native select, so the keyboard works as everywhere else: Tab to the next one, a letter or the arrows to choose. ---- */
+@media (min-width: 900px) {
+  .bl-table .bl-sel { width: 100%; min-width: 0; min-height: 36px; padding: 4px 26px 4px 8px; border: 1px solid var(--n300); border-radius: var(--r8);
+    background: var(--n0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237D8C93' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center;
+    appearance: none; -webkit-appearance: none; font-size: var(--t14); color: var(--n900); text-overflow: ellipsis; cursor: pointer; }
+  .bl-table .bl-sel:hover { border-color: var(--p700); }
+  .bl-table .bl-sel:focus-visible { outline: 2px solid var(--p700); outline-offset: 1px; }
+  .bl-table.bl-compact .bl-sel { min-height: 30px; padding-top: 2px; padding-bottom: 2px; }
+}

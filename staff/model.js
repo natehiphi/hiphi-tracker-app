@@ -370,7 +370,17 @@ export async function supaAnon() { if (S.supa) return S.supa; if (!S.supaAnon) {
 export async function geoSuggest(q) { const { data, error } = await (await supaAnon()).rpc('address_suggest', { q, n: 8 }); if (error) throw error; return data || []; }
 export async function geoDistricts(pt) { if (pt.sd && pt.hd) return { found: true, senate: pt.sd, house: pt.hd }; const { data } = await (await supaAnon()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; return { found: !!(d?.sd || d?.hd), senate: d?.sd, house: d?.hd }; }
 export const ALERT_STATUS = { draft: ['Draft', 'c-gray'], returned: ['Sent back', 'c-red'], submitted: ['Waiting for approval', 'c-gold'], approved: ['Approved, not sent', 'c-teal'], sent: ['Sent', 'c-green'] };
-export const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && S.me?.is_admin && a.author_id !== S.me?.id);
+// Who approves (098, R-103, Nate 9/30): an admin or an approver (Kris) gives a testimony its first approval and approves
+// supporter emails; from 6 hours before the testimony deadline a reviewer (Jess, Jaylen) can stand in for the first
+// approval. An approver or a stand-in never approves what they sent, and the second approval comes from someone other than
+// the first. The database (testimony_transition, action_alert_step) enforces the same rules; these decide what screens offer.
+export const STAND_IN_HOURS = 6;
+export const approves = a => !!a && a.is_active !== false && (!!a.is_admin || !!a.can_approve);
+const dueMs = h => h?.testimony_deadline ? new Date(h.testimony_deadline).getTime() : null;   // as the database: no deadline, no stand-in
+export const standingIn = (a, h) => !!a?.is_reviewer && !a.is_admin && !a.can_approve && dueMs(h) != null && dueMs(h) - Date.now() <= STAND_IN_HOURS * 3600e3;
+export const canFirstApprove = (a, d, h) => !!a && (!!a.is_admin || ((!!a.can_approve || standingIn(a, h)) && d?.submitted_by !== a.id));
+export const canSecondApprove = (a, d) => !!a?.is_reviewer && d?.approved_by !== a.id;
+export const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id);
 export const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : a.list_id ? ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list') : ((S.segments || []).find(x => x.id === a.segment_id)?.name || 'a segment');
 export const RTE_TAGS = { P: 'p', DIV: 'p', BR: 'br', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', A: 'a', UL: 'ul', OL: 'ol', LI: 'li', H1: 'h3', H2: 'h3', H3: 'h3', H4: 'h3', BLOCKQUOTE: 'blockquote' };
 export const escT = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -459,7 +469,7 @@ export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_
   .map(a => a.full_name).join(sep) || 'an admin';
 export function draftWho(d) {
   switch (d.status) {
-    case 'review': return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} \u00b7 waiting for ${listNames(a => a.is_admin, ' or ')}`;
+    case 'review': return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} \u00b7 waiting for ${listNames(a => (a.is_admin || a.can_approve) && a.id !== d.submitted_by, ' or ')}`;
     case 'second_review': return `Approved by ${nameOf(d.approved_by)} \u00b7 first testimony on this bill, needs ${listNames(a => a.is_reviewer, ' or ')}`;
     case 'approved': return `Approved by ${nameOf(d.second_approved_by || d.approved_by)} ${dWhen(d.second_approved_at || d.approved_at)} \u00b7 file it at the Capitol, then mark it filed`;
     case 'filed': return `Filed by ${nameOf(d.filed_by)} ${dWhen(d.filed_at)}`;

@@ -4,9 +4,10 @@
 // the toast's Undo puts each bill's own previous value back. The writes are the current app's calls: DB.bulkUpdate for
 // position and priority, DB.setOwner per bill (in parallel), DB.addToCampaign, DB.addListBills, and DB.follow (the
 // bill page's own Follow) per bill.
-// R-022, decision 9: changing owners or positions for many bills at once is for admins; anyone can still change one
-// bill (its page, or a cell of the table). Everyone can follow or unfollow many at once - Kris follows a coalition's
-// 28 live bills in one go instead of four clicks each.
+// R-022, decision 9 made changing owners or positions for many bills at once an admin's job. R-106 (Nate, 9/30: "Add 1,
+// 2 and 3 to the new staff app") gives it back to everyone, as the old app had it: the database always allowed any staff
+// member, and every change here has an Undo that puts each bill's own value back. Everyone can follow or unfollow many
+// at once too - Kris follows a coalition's 28 live bills in one go instead of four clicks each.
 import { S, DB, esc, advocate, isOwner, hooks } from './data.js';
 import { billNum, FACTS } from './model.js';
 import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, POS_ICON, POS_WORD } from './ui.js';
@@ -52,7 +53,6 @@ if (typeof window !== 'undefined') {
 // then the actions on the right. It replaces the tab bar on phones; on desktop it is the page's action bar. The
 // count's word drops to the hidden second line when there is no room, so "3 selected" shortens to "3" before
 // anything is cut. ----
-const admin = () => !!S.me?.is_admin;
 // Which of the selected bills each follow action would change. A bill you own is yours already (its page offers Mute
 // there, not Follow), so Follow leaves it alone.
 const followPlan = ids => ({ on: ids.filter(id => !S.follows?.has(id) && !isOwner({ id })), off: ids.filter(id => S.follows?.has(id)), owned: ids.filter(id => isOwner({ id }) && !S.follows?.has(id)) });
@@ -64,14 +64,14 @@ export function bulkBar() {
   if (wide) {
     const fp = followPlan(ids);
     const b = (label, act, ic, why) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act, 'aria-disabled': why ? 'true' : null, title: why || null } });
-    // Your own list first, then what changes the bills for everyone; owner and position for admins. Follow and Unfollow
+    // Your own list first, then what changes the bills for everyone (position, priority, owner: R-106). Follow and Unfollow
     // show when they would change something (as a mail app offers "Mark as read" or "Mark as unread" for what is
     // selected), so the bar stays one row at 1280; with nothing to change, Follow stays and says why.
     const follows = `${fp.on.length || !fp.off.length ? b('Follow', 'follow', 'bell', !fp.on.length && FOLLOW_WHY.on) : ''}${fp.off.length ? b('Unfollow', 'unfollow', 'bell-off') : ''}`;
     return `<div class="bl-bar bl-barw" role="toolbar" aria-label="Change the selected bills">
       ${iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
       ${follows}<span class="bl-barsep" aria-hidden="true"></span>
-      ${admin() ? b('Set position', 'pos', 'thumbs-up') : ''}${b('Set priority', 'pri', 'flag')}${admin() ? b('Set owner', 'own', 'user-round') : ''}${b('Add to…', 'add', 'plus')}</div>`;
+      ${b('Set position', 'pos', 'thumbs-up')}${b('Set priority', 'pri', 'flag')}${b('Set owner', 'own', 'user-round')}${b('Add to…', 'add', 'plus')}</div>`;
   }
   return `<div class="bl-bar" role="toolbar" aria-label="Change the selected bills">
     ${iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' })}${count}
@@ -89,7 +89,6 @@ export function wireBulkBar(root) {
     if (a === 'add') return openAddTo();
     if (a === 'follow' || a === 'unfollow') return follow(a === 'follow');
     if (a === 'camp' || a === 'list') return openAddTo(a);
-    if ((a === 'pos' || a === 'own') && !admin()) return;
     openValue(a);
   });
 }
@@ -101,9 +100,9 @@ export function openSet() {
   menuSheet({ title: `Change ${billsN(n)}`, items: [
     { label: 'Follow', icon: 'bell', sub: 'See them in your bills and get their updates', disabled: !fp.on.length, reason: FOLLOW_WHY.on, run: async () => { await settled(); follow(true); } },
     { label: 'Unfollow', icon: 'bell-off', sub: 'Stop seeing them in your bills', disabled: !fp.off.length, reason: FOLLOW_WHY.off, run: async () => { await settled(); follow(false); } },
-    admin() ? { label: 'Position', icon: 'thumbs-up', sub: 'Support, oppose, comments or monitor', run: async () => { await settled(); openValue('pos'); } } : null,
+    { label: 'Position', icon: 'thumbs-up', sub: 'Support, oppose, comments or monitor', run: async () => { await settled(); openValue('pos'); } },
     { label: 'Priority', icon: 'flag', sub: 'P1, P2 or P3', run: async () => { await settled(); openValue('pri'); } },
-    admin() ? { label: 'Owner', icon: 'user-round', sub: 'Who looks after them', run: async () => { await settled(); openValue('own'); } } : null,
+    { label: 'Owner', icon: 'user-round', sub: 'Who looks after them', run: async () => { await settled(); openValue('own'); } },
   ] });
 }
 // Follow or unfollow every selected bill that it changes, with one Undo for all of them. Each write is the bill page's

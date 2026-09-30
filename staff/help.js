@@ -49,10 +49,10 @@ const TOPICS = [
     items: () => Object.values(S.committees || {}).sort((a, b) => (a.chamber || '').localeCompare(b.chamber || '') || a.code.localeCompare(b.code))
       .map(c => [c.code, `${esc(c.name)}. ${c.chamber === 'S' ? 'Senate' : 'House'}.${c.chair ? ` Chair ${esc(c.chair)}` : ''}${c.vice_chair ? `, vice chair ${esc(c.vice_chair)}` : ''}${c.chair ? '.' : ''}`]) },
   { id: 'testimony', title: 'How testimony works', icon: 'file-text', sub: () => 'Write, review, second approval, file',
-    items: () => { const adm = orList(names(a => a.is_admin)) || 'an admin', rev = orList(names(a => a.is_reviewer)) || 'a reviewer';
+    items: () => { const adm = orList(names(a => a.is_admin || a.can_approve)) || 'an admin', rev = orList(names(a => a.is_reviewer)) || 'a reviewer';
       return [['1. Write', 'A hearing notice arrives. About an hour later a draft Google Doc is made in Drive for the bill\'s owner (only for bills with a position other than Monitor). The owner writes it and presses <b>Submit for review</b>.'],
-        ['2. Review', `An admin (${esc(adm)}) approves it or asks for changes with a note. A change request sends it back to the writer, with the note on their Today list.`],
-        ['3. Second approval', `The first testimony on a bill also needs a reviewer (${esc(rev)}). Later testimony on the same bill skips this step.`],
+        ['2. Review', `An admin or an approver (${esc(adm)}) approves it or asks for changes with a note, never on testimony they sent themselves. A change request sends it back to the writer, with the note on their Today list. If nobody has approved it 6 hours before the testimony deadline, a reviewer (${esc(rev)}) can stand in, and Slack tells them so.`],
+        ['3. Second approval', `The first testimony on a bill also needs a reviewer (${esc(rev)}), someone other than whoever gave the first approval. Later testimony on the same bill skips this step.`],
         ['4. File', 'The owner files it on the Capitol site and presses <b>Mark filed</b>, with the confirmation link if there is one. Written testimony is due 24 hours before the hearing.'],
         ['Undo', 'Mark filed, I\'m going, Not for us and removing a bill from a list can be undone for 10 seconds.'],
         ['A new version', 'If the bill changes (HD1, SD1) after the draft was written, Today asks the owner to check the draft against the new version.']]; } },
@@ -73,7 +73,7 @@ const TOPICS = [
       ['Following', 'Puts a bill in your Mine view and on your Today list, and gets you its chat messages. It never gives you a task. Anyone can follow anything.'],
       ['Muting', 'Takes a bill off your lists until its next hearing is posted. A bill with a hearing ahead cannot be muted.'],
       // Says what the select-many bar does (R-022, decision 9): the two used to disagree.
-      ['Changing owners and positions', 'Anyone can change one bill’s owner or position, on its page or in the Bills table. Only admins change owners or positions for many bills at once. Anyone can follow or unfollow many at once: select them in Bills, then Follow.'],
+      ['Changing owners and positions', 'Anyone can change a bill’s owner, position or priority: on its page, in a cell of the Bills table, or down the whole table with its Edit switch (a laptop). For many at once, tick them in Bills, then Set position, Set priority or Set owner. Every change can be undone from the message that follows it. Follow and Unfollow work on many at once the same way.'],
       ['Coalitions I support', 'For helping with a coalition’s bills without owning them. Choose them in My settings. Today then shows each one’s week (never in the count), Bills shows their bills under <b>My coalitions</b>, and the weekly memo starts on the one coalition you support.']] },
   { id: 'auto', title: 'What happens on its own', icon: 'rotate-ccw', sub: () => emailOff() ? 'Email is paused right now' : 'Email is on',
     items: () => { const burst = (S.syncCfg || {}).burst_until, hourly = burst && burst >= new Date().toISOString().slice(0, 10);
@@ -98,8 +98,8 @@ const TOPICS = [
     items: () => [['Drafts', 'Google Drive, in Testimony, then the year, the coalition and the bill.'], ['Alerts', `Slack ${esc((S.slackCfg || {}).main_channel || '#hearing-alerts')} and each coalition's channel. Your own steps come as DMs or email (My settings).`],
       ['Calendar', 'The HIPHI Hearings Google Calendar.'], ['Video', 'The Senate and House YouTube channels.'], ['Questions', `Ask ${esc(orList(names(a => a.is_admin)) || 'an admin')}.`]] },
   { id: 'keys', title: 'Keyboard shortcuts', icon: 'keyboard', hover: true, sub: () => 'For a keyboard and mouse',
-    items: () => [['/', 'Search'], ['g then t, b, l, o or r', 'Go to Today, Bills, Legislators, Outreach or Review'], ['j and k', 'Today: next and previous card. Bills and Legislators: next and previous row'], ['Enter', 'Today: do the card\'s main step. Bills: open the bill'], ['o', 'Today: a quick look at the bill. Bills: open the bill'], ['x', 'Bills: tick the row'], ['Space', 'Bills: a quick look at the marked row'],
-      ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves)'], ['r, o', 'Review: request changes, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 4', 'Bill: Overview, Activity, Pathway, Public'], ['[ and ]', 'Bill: previous and next bill'],
+    items: () => [['/', 'Search'], ['g then t, b, l, o, r or i', 'Go to Today, Bills, Legislators, Outreach, Review or the Inbox'], ['j and k', 'Today: next and previous card. Bills, Legislators and the Inbox: next and previous row'], ['Enter', 'Today: do the card\'s main step. Bills: open the bill'], ['o', 'Today: a quick look at the bill. Bills: open the bill'], ['x', 'Bills: tick the row'], ['Space', 'Bills: a quick look at the marked row'],
+      ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves). Inbox: mark the list read'], ['e', 'Inbox: mark the row read or unread'], ['r, o', 'Review: request changes, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 4', 'Bill: Overview, Activity, Pathway, Public'], ['[ and ]', 'Bill: previous and next bill'],
       ['t, n, l, u', 'Sort new bills: track, not for us, later, undo (u again undoes the one before)'], ['Arrow keys', 'In a menu or a picker: move; Enter chooses'], ['?', 'Open this list'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.'], ['Switch them off', 'My settings has a switch for all shortcuts.']] },
 ];
 const topic = id => TOPICS.find(t => t.id === id);
@@ -191,6 +191,8 @@ function renderDesk(route) {
   </div></div>`;
 }
 
+// Today shows these same five steps as its Getting started card (R-106).
+export { newSteps, frSet as markNewStep };
 export default {
   tab: '',
   // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.

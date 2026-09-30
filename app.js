@@ -770,7 +770,7 @@ function snapshotScenario(snap) {
 }
 let DEMO_TL = [];
 async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260930b', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20260930c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -3054,7 +3054,7 @@ function pathwayHTML(b) {
 // opted in; every one needs a second person's approval; it goes out from the
 // author's own address. Postmark reports opens, clicks and bounces back.
 const ALERT_STATUS = { draft: ['Draft', 'c-gray'], returned: ['Sent back', 'c-red'], submitted: ['Waiting for approval', 'c-gold'], approved: ['Approved, not sent', 'c-teal'], sent: ['Sent', 'c-green'] };
-const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && S.me?.is_admin && a.author_id !== S.me?.id);
+const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && (S.me?.is_admin || S.me?.can_approve) && a.author_id !== S.me?.id);
 const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : a.list_id ? ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list') : ((S.segments || []).find(x => x.id === a.segment_id)?.name || 'a segment');
 // ---- rich text for action alerts (no library). The email is HTML, so the composer edits HTML; a small
 // allowlist (p br b i u a ul ol li h3 blockquote, http/mailto links) keeps what mail clients render
@@ -3488,7 +3488,7 @@ function draftActions(d) {
   const mine = d.submitted_by && d.submitted_by === me.id;
   switch (d.status) {
     case 'draft': return [['submit', 'Submit for review', 'pri']];
-    case 'review': return me.is_admin ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+    case 'review': return me.is_admin || (me.can_approve && !mine) ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]   // 098: approvers (Kris) too
       : mine ? [['withdraw', 'Withdraw']] : [];
     case 'second_review': return me.is_reviewer ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
       : mine ? [['withdraw', 'Withdraw']] : [];
@@ -3561,7 +3561,7 @@ function demoTransition(d, action, note, url) {
   const bad = m => { throw new Error(m); };
   if (action === 'submit') Object.assign(d, { status: 'review', submitted_by: me.id, submitted_at: now, review_note: null });
   else if (action === 'approve' && d.status === 'review') {
-    if (!me.is_admin) bad('The first approval is by an admin');
+    if (!me.is_admin && !(me.can_approve && d.submitted_by !== me.id)) bad('The first approval is by an admin or an approver (not on testimony they sent)');
     const first = !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && ['approved', 'filed'].includes(x.status));
     Object.assign(d, { status: first ? 'second_review' : 'approved', approved_by: me.id, approved_at: now, first_for_bill: first });
   } else if (action === 'approve' && d.status === 'second_review') {
