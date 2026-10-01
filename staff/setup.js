@@ -517,16 +517,16 @@ const PAGES = {
   // link; staff cannot browse them. When someone reports a list that misuses HIPHI's page, an admin pastes its link here.
   lists: {
     status: () => ['list-checks', 'Turn off a list someone shared on the public page, if it is used to say something harmful.'],
-    body() { const s = st(); loadOffLists();
-      const offs = s.offLists || [];
+    body() { loadOffLists();
+      return `<div class="card st-form"><p class="small st-note st-top">Anyone who adds their email on the public page can make lists of bills and share one by a link. Lists are private: staff can’t browse them. If someone sends you a link to a list that misuses HIPHI’s page, paste it here. Its link stops working, the people who followed it stop seeing it, and its maker can’t share it again. Nothing is erased.</p>
+        ${txt('st-ul-link', 'The list’s link', '', { ph: 'https://…/track.html#/l/…' })}
+        ${area('st-ul-why', 'Why, for the record (optional)', '', { rows: 2, ph: 'For example: used to harass someone' })}</div>`; },
+    tail() { const s = st(), offs = s.offLists || [];
       const offRow = l => `<div class="row st-ulrow"><span class="lead">${icon('eye-off')}</span><span class="body"><span class="title">${esc(l.title)}</span>
           <span class="sub">Turned off ${esc(fmtDate(l.blocked_at))}${l.blocked_by ? ` by ${esc(l.blocked_by)}` : ''}${l.blocked_reason ? `: ${esc(l.blocked_reason)}` : ''}</span></span>
           <span class="end">${btn('Turn back on', { kind: 'text', sm: true, attrs: { 'data-ulon': l.id, 'aria-label': `Turn ${l.title} back on` } })}</span></div>`;
-      return `<div class="card st-form"><p class="small st-note st-top">Anyone who adds their email on the public page can make lists of bills and share one by a link. Lists are private: staff can’t browse them. If someone sends you a link to a list that misuses HIPHI’s page, paste it here. Its link stops working, the people who followed it stop seeing it, and its maker can’t share it again. Nothing is erased.</p>
-        ${txt('st-ul-link', 'The list’s link', '', { ph: 'https://…/track.html#/l/…' })}
-        ${area('st-ul-why', 'Why, for the record (optional)', '', { rows: 2, ph: 'For example: used to harass someone' })}</div>
-        ${s.offListsErr ? notice('bad', 'circle-alert', `Could not load the lists turned off. ${esc(s.offListsErr)}`) : offs.length ? `<h2 class="st-h2">Turned off</h2><div class="rows">${offs.map(offRow).join('')}</div>` : ''}`; },
-    wire(root) {
+      return s.offListsErr ? notice('bad', 'circle-alert', `Could not load the lists turned off. ${esc(s.offListsErr)}`) : offs.length ? `<section class="st-sec st-ultail" aria-labelledby="st-ul-off"><h2 class="st-h2" id="st-ul-off">Turned off</h2><div class="rows">${offs.map(offRow).join('')}</div></section>` : ''; },
+    wireTail(root) {
       root.querySelectorAll('[data-ulon]').forEach(b => b.onclick = async () => { const l = (st().offLists || []).find(x => String(x.id) === b.dataset.ulon); if (!l) return;
         if (!await confirmSheet({ title: `Turn ${l.title} back on?`, text: 'Its maker can share it again, with a new link. The people who followed it see it again.', ok: 'Turn it back on' })) return;
         b.setAttribute('aria-busy', 'true');
@@ -635,10 +635,12 @@ const statusHTML = p => { const [ic, line] = p.status(); return `${icon(ic)}<spa
 function renderSection(key) {
   const p = PAGES[key], head = `<div class="st-head"><h1>${esc(ALL[key].t)}</h1><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
   const form = `<form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`;
-  if (DESK()) return shell(key, `${head}${form}${saveBar(key, true)}`);
+  // tail: what a part lists below its Save, so the button sits under the fields it acts on (People's lists, R-013).
+  const tail = p.tail ? p.tail() : '';
+  if (DESK()) return shell(key, `${head}${form}${saveBar(key, true)}${tail}`);
   return `<div class="st-page st-setup st-subpage">
     <a class="st-crumb" href="#/setup" data-back>${icon('arrow-left')}<span>Session setup</span></a>
-    ${head}${form}
+    ${head}${form}${tail}
   </div>`;
 }
 const section = route => PAGES[route.section] ? route.section : '';
@@ -724,6 +726,7 @@ export default {
     const p = PAGES[key], form = root.querySelector('[data-stform]'), s = st();
     const refresh = () => { const el = root.querySelector('[data-ststatus]'); if (el) el.innerHTML = statusHTML(p); p.after && p.after(form); };
     p.wire && p.wire(form, { refresh });
+    p.wireTail && p.wireTail(root);
     // Switches: flip, save, say so, with Undo for ten seconds (B-5, R-022: they saved on the spot and could only be
     // flipped back by hand). A failed save puts the switch and the setting back. Undo is the same flip the other way:
     // one that would turn email ON asks first, exactly as the switch does - a stray tap must never start mail.

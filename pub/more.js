@@ -334,7 +334,7 @@ function signinView() {
   return `<div class="mr mr-signin">
     <header class="pagehead"><h1 class="hero">Add your email</h1>
       <p class="lede">Get hearing alerts and keep your issues on any device. No password: we email you a link.</p>
-      ${pendingPlace() ? `<p class="mr-back">${icon('list-checks')}<span>With your email you can make lists of bills. When you open the link, you come back to where you were.</span></p>` : ''}</header>
+      ${(pp => pp ? `<p class="mr-back">${icon(pp.then?.addto ? 'list-checks' : 'arrow-left')}<span>${pp.then?.addto ? 'With your email you can make lists of bills. When you open the link, you come back to the bill to finish.' : 'When you open the link, you come back to where you were.'}</span></p>` : '')(pendingPlace())}</header>
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no email is sent and nothing is saved. You can still try the page.') : ''}
     <form class="card mr-form mr-panel" id="mr-si" novalidate>
       <div class="field"><label for="mr-email">Your email</label>

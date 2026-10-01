@@ -61,6 +61,14 @@ export const ownLists = () => (UL.mine || []).filter(l => l.mine);
 export const followedLists = () => (UL.mine || []).filter(l => !l.mine);
 // The lists I made that a bill is on (the bill page's "On your lists").
 export const listsWith = billId => ownLists().filter(l => (l.bill_ids || []).includes(billId));
+// The bill page's line under its issue: which of my lists the bill is on, each a link, so an add from the sheet shows
+// on the page itself (B-7; the review 9/30 found the page gave no sign). Lists load once, on first need.
+export function onListsLine(b) {
+  if (!canMake()) return '';
+  if (UL.mine === null) { if (!UL.loading) loadMyLists().then(() => { if (listsWith(b.id).length && document.body.dataset.screen === 'bill') app.render(); }); return ''; }
+  const ls = listsWith(b.id); if (!ls.length) return '';
+  return `<p class="bl-issue bl-onlist">${icon('list-checks')}<span>On your list${ls.length > 1 ? 's' : ''}: ${ls.map(l => `<a href="#/mylist/${encodeURIComponent(l.id)}">${esc(l.title)}</a>`).join(', ')}</span></p>`;
+}
 
 // ---- the maker's changes ----
 export async function createList(title, note = '') {
@@ -100,9 +108,15 @@ async function share(l) {
   if (DEMO) writeDemo();
   return l.share_token;
 }
+// Stop sharing keeps the link aside for ten minutes, so Undo brings back the same link (B-5, backend migration 105).
 async function unshare(l) {
   if (!DEMO) { const { error } = await S.supa.rpc('unshare_user_list', { p_list: l.id }); if (error) throw new Error(plainErr(error)); }
-  l.share_token = null; if (DEMO) writeDemo();
+  l.unshared = l.share_token; l.share_token = null; if (DEMO) writeDemo();
+}
+async function reshare(l) {
+  if (DEMO) l.share_token = l.unshared;
+  else { const { data, error } = await S.supa.rpc('reshare_user_list', { p_list: l.id }); if (error) throw new Error(/too late/.test(error.message) ? 'It’s too late to undo. Share the list again for a new link.' : plainErr(error)); l.share_token = data; }
+  l.unshared = null; if (DEMO) writeDemo();
 }
 // Removing a list hides it for everyone; nothing is erased, so Undo brings it back as it was (B-5).
 async function remove(l, back = false) {
@@ -151,16 +165,16 @@ function billsBlock(l, key, { take = false } = {}) {
     ${law.length ? `<section aria-labelledby="ul-law-h">${sechead('ul-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true, take })}</section>` : ''}
     ${gone.length ? fold('ul-g-' + key, `Stopped this session (${gone.length})`, billList(gone, { why: true, take }), { open: take || (!mv.length && !law.length) }) : ''}`;
 }
-// How to add a bill, in the words of the device in hand: on a phone "Add to a list" sits in a bill's ⋯ menu.
-const howToAdd = () => matchMedia('(min-width: 1100px)').matches ? 'Open a bill and choose <b>Add to a list</b>.' : 'Open a bill, press <b>⋯</b> at the top, then <b>Add to a list</b>.';
 // The list's own small menu, as the bill page's ⋯ (same popover): what is done once in a while stays out of the way, so
-// the bills start high on a phone (A-1).
+// the bills start high on a phone (A-1). It sits right beside the main button (A-8); the two that take something away
+// come last, apart from the rest.
 const menu = items => `<div class="ul-menuwrap">${iconBtn('ellipsis', 'More for this list', { 'data-ulmenu': '1', 'aria-expanded': 'false', 'aria-controls': 'ul-menu' })}
   <div class="ul-menu" id="ul-menu" hidden>${items.map(([attr, ic, label]) => `<button type="button" class="ul-mi${/remove|unshare/.test(attr) ? ' bad' : ''}" ${attr}>${icon(ic)}<span>${label}</span></button>`).join('')}</div></div>`;
 
 function minePage(l) {
   const n = (l.bill_ids || []).length, fans = countOk(l.followers), taking = n > 0 && String(UL.taking) === String(l.id);
-  const meta = [plural(n, 'bill'), l.share_token ? 'Shared by link' : 'Private: only you can see it', fans ? `${fans} people follow it` : ''].filter(Boolean).join(' · ');
+  // The bill count is left to the group headings below (A-14); the line says who can see the list.
+  const meta = [l.share_token ? 'Shared by link' : 'Private: only you can see it', fans ? `${fans} people follow it` : ''].filter(Boolean).join(' · ');
   const editing = String(UL.editing) === String(l.id);
   if (editing) return `<div class="fd ul" data-page="mylist" data-list="${esc(l.id)}">${back('#/bills', 'My issues')}<form class="ul-edit card" data-ulsave="${esc(l.id)}">
       <div class="field"><label for="ul-t">Name</label><input id="ul-t" class="input" maxlength="80" value="${esc(l.title)}" required></div>
@@ -171,31 +185,34 @@ function minePage(l) {
   // One row of what the maker does: an empty list's job is to get bills (Share waits until there is something to
   // share, B-3); a list with bills shares, or copies its link once shared. The rest is in ⋯.
   const items = [...(l.share_token && navigator.share ? [['data-ulshare="' + esc(l.share_token) + '"', 'share-2', 'Share…']] : []),
-    ...(l.share_token ? [['data-ulunshare="1"', 'link-2-off', 'Stop sharing']] : []),
     ['data-uledit="1"', 'pencil', 'Edit name and note'], ...(n ? [['data-ultaking="1"', 'list-minus', taking ? 'Done taking bills off' : 'Take bills off']] : []),
+    ...(l.share_token ? [['data-ulunshare="1"', 'link-2-off', 'Stop sharing']] : []),
     ['data-ulremove="1"', 'trash-2', 'Remove list']];
   const main = !n ? btn('Find bills to add', { kind: 'primary', icon: 'search', href: '#/find', attrs: { 'data-ulfind': '1' } })
     : l.share_token ? btn('Copy link', { kind: 'secondary', icon: 'link', attrs: { 'data-ulcopy': l.share_token } })
     : btn('Share this list', { kind: 'secondary', icon: 'share-2', attrs: { 'data-ulsharemake': l.id } });
-  const say = !n ? `<p class="small muted ul-say">Nothing on it yet. ${howToAdd()}</p>`
-    : l.share_token ? '' : `<p class="small muted ul-say">Share gives you a link to send. Anyone with it can see the list and follow it; nobody can find it without the link.</p>`;
+  const say = n ? '' : `<p class="small muted ul-say">Nothing on it yet. Add bills from any bill’s page.</p>`;
   const takeBar = taking ? `<div class="ul-taking"><p>${icon('list-minus')}<span>Press <span class="ul-minus">${icon('circle-minus', { label: 'the minus button' })}</span> beside a bill to take it off this list. You still follow it.</span></p>${btn('Done', { kind: 'secondary', sm: true, attrs: { 'data-ultaking': '1' } })}</div>` : '';
   // Copying can fail after the wait for a new link (some browsers): then the link is shown, to copy by hand.
   const showLink = l.share_token && UL.showLink === l.share_token ? `<div class="ul-link"><label for="ul-url" class="small">Select the link and copy it</label><input id="ul-url" class="input" readonly value="${esc(shareUrl(l.share_token))}"></div>` : '';
-  return `<div class="fd ul" data-page="mylist" data-list="${esc(l.id)}">${back('#/bills', 'My issues')}${head}
-    <div class="ul-actions">${main}${menu(items)}</div>${say}${showLink}${takeBar}
+  // From 1100px the actions sit beside the title, so the bills start higher (A-1).
+  return `<div class="fd ul" data-page="mylist" data-list="${esc(l.id)}">${back('#/bills', 'My issues')}<div class="ul-top">${head}
+    <div class="ul-actions">${main}${menu(items)}</div></div>${say}${showLink}${takeBar}
     ${billsBlock(l, l.id, { take: taking })}${n ? `<p class="ul-add">${btn('Find more bills to add', { kind: 'text', icon: 'search', href: '#/find' })}</p>` : ''}</div>`;
 }
+// Someone else's list sits on HIPHI's site, so it says plainly, above its name, that HIPHI did not make it (P-5). Its
+// icon is a list in grey, not HIPHI's blue, and the line carries the one person icon.
+const notFromHipHi = () => `<p class="ul-notus">${icon('user')}<span>Made by a tracker user, not by HIPHI.</span></p>`;
+const theirHead = l => { const fans = countOk(l.followers);
+  return `<header class="fd-ihead ul-head"><span class="fd-icon ul-theirs">${icon('list-checks')}</span><h1 class="hero">${esc(l.title)}</h1>
+    ${l.note ? `<p class="lede ul-note"><span class="ul-notelab">Their note:</span> ${esc(l.note)}</p>` : ''}${fans ? `<p class="meta">${fans} people follow it</p>` : ''}</header>`; };
 function followedPage(l) {
   const n = (l.bill_ids || []).length;
-  return `<div class="fd ul" data-page="mylist">${back('#/bills', 'My issues')}${notFromHipHi()}<header class="fd-ihead ul-head"><span class="fd-icon ul-theirs">${icon('user')}</span><h1 class="hero">${esc(l.title)}</h1>
-    ${l.note ? `<p class="lede ul-note"><span class="ul-notelab">Their note:</span> ${esc(l.note)}</p>` : ''}<p class="meta">Shared with you · ${plural(n, 'bill')}</p></header>
+  return `<div class="fd ul" data-page="mylist">${back('#/bills', 'My issues')}${notFromHipHi()}${theirHead(l)}
     <div class="card fd-follow on"><p class="okmsg">${icon('circle-check')}<span>You follow this list</span></p><p class="small">When its maker adds a bill, it shows up in My issues.</p>
     <div>${btn('Stop following this list', { kind: 'text', sm: true, attrs: { 'data-ulunfollow': l.id } })}</div></div>${billsBlock(l, l.id)}
     ${n ? '' : '<p class="fd-none">Nothing on this list yet.</p>'}</div>`;
 }
-// Someone else's list sits on HIPHI's site, so it says plainly, above its name, that HIPHI did not make it (P-5).
-const notFromHipHi = () => `<p class="ul-notus">${icon('user')}<span>Made by a tracker user, not by HIPHI.</span></p>`;
 function myListPage(id) {
   if (UL.mine === null) { loadMyLists().then(() => app.render()); return `<div class="fd ul">${back('#/bills', 'My issues')}${skeleton(3)}</div>`; }
   const l = myList(id);
@@ -210,15 +227,15 @@ function sharedPage(token) {
   if (sl === 'err') return `<div class="fd ul">${back('#/', 'Home')}<div class="fd-err">${inlineErr('ul-err', 'We couldn’t load this list. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-ulretry': token } })}</div></div>`;
   if (!sl) return `<div class="fd ul">${back('#/', 'Home')}${emptyBox({ h: 'h1', title: 'This list isn’t available', text: 'The person who made it may have stopped sharing it, or the link was cut short.', action: btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' }) })}</div>`;
   if (sl.mine) return myList(sl.id) ? minePage(myList(sl.id)) : myListPage(sl.id);   // the maker opening their own link sees their own page
-  const n = (sl.bill_ids || []).length, fans = countOk(sl.followers), following = sl.following || localFollowed().has(token);
+  const n = (sl.bill_ids || []).length, following = sl.following || localFollowed().has(token);
   const live = billsOf(sl).filter(moving).length, account = !!S.user || DEMO;
+  // "too" only when something on it is moving now: between sessions nothing comes at once (A-14 honesty, the review 9/30).
   const cta = following ? `<div class="card fd-follow on"><p class="okmsg" id="ul-ok" tabindex="-1">${icon('circle-check')}<span>You follow this list</span></p>
         <p class="small">${account ? 'When its maker adds a bill, it shows up in My issues.' : 'Bills its maker adds later come to you once you add your email.'}</p>
         <div class="btnrow">${account ? '' : btn('Add my email', { kind: 'text', sm: true, icon: 'mail', attrs: { 'data-ulsigninfrom': token } })}${btn('Stop following this list', { kind: 'text', sm: true, attrs: { 'data-ulunfollowtok': token } })}</div></div>`
     : `<div class="fd-cta fd-follow">${btn('Follow this list', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-ulfollow': token } })}
-        <p class="small muted">${esc(live ? `Its ${plural(live, 'bill')} still moving join My issues, and so will bills added later.` : 'Bills its maker adds later will come to you too.')}</p></div>`;
-  return `<div class="fd ul" data-page="shared">${back('#/', 'Home')}${notFromHipHi()}<div class="fd-lhead"><header class="fd-ihead"><span class="fd-icon ul-theirs">${icon('user')}</span><h1 class="hero">${esc(sl.title)}</h1>
-    ${sl.note ? `<p class="lede ul-note"><span class="ul-notelab">Their note:</span> ${esc(sl.note)}</p>` : ''}<p class="meta">${plural(n, 'bill')}${fans ? ` · ${fans} people follow it` : ''}</p></header>${cta}</div>
+        <p class="small muted">${esc(live ? `Its ${plural(live, 'bill')} still moving join My issues, and so will bills added later.` : 'Bills its maker adds later will come to you.')}</p></div>`;
+  return `<div class="fd ul" data-page="shared">${back('#/', 'Home')}${notFromHipHi()}<div class="fd-lhead">${theirHead(sl)}${cta}</div>
     ${billsBlock(sl, 'tok')}${n ? '' : '<p class="fd-none">Nothing on this list yet.</p>'}</div>`;
 }
 
@@ -242,45 +259,47 @@ export function myListsSection() {
 }
 
 // ---- "Add to a list": a sheet from the bill page ----
-// Its words of what just happened go in a status line inside the sheet (a toast would sit behind the dialog). The line
-// stays put while the rest is repainted, so a screen reader hears each change once.
+// What just happened is said in a status line inside the sheet (a toast would sit behind it), right under the lists it
+// is about; a failure is red with its icon (B-8). The line stays put while the parts around it are repainted, so a
+// screen reader hears each change once.
 let dlg = null;
-const shBody = () => dlg.querySelector('#ul-shbody');
-const shSay = t => { const el = dlg?.querySelector('#ul-shstat'); if (el) el.textContent = t; };
+const part = id => dlg.querySelector('#' + id);
+const shSay = (t, err = false) => { const el = dlg?.querySelector('#ul-shstat'); if (!el) return; el.className = 'ul-status' + (err ? ' bad' : '');
+  el.innerHTML = t ? `${icon(err ? 'circle-alert' : 'circle-check')}<span>${esc(t)}</span>` : ''; };
 // b: the bill to add; null for a new, empty list (My issues' "New list").
 export function openAddTo(b) {
   UL.sheetFor = b ? b.id : 'new';
   if (!dlg) { dlg = document.createElement('dialog'); dlg.className = 'sheet ul-sheet'; dlg.setAttribute('aria-labelledby', 'ul-sh-h'); document.body.appendChild(dlg);
-    dlg.innerHTML = '<div class="ul-shin"><div id="ul-shbody" class="ul-shbody"></div><p class="ul-status" id="ul-shstat" role="status" aria-live="polite"></p></div>';
+    dlg.innerHTML = '<div class="ul-shin"><div id="ul-shbody" class="ul-shpart"></div><p class="ul-status" id="ul-shstat" role="status" aria-live="polite"></p><div id="ul-shrest" class="ul-shpart"></div></div>';
     dlg.addEventListener('close', () => { UL.sheetFor = null; app.render(); }); }
   shSay(''); paintSheet();
   try { dlg.showModal(); } catch { dlg.setAttribute('open', ''); }
   (dlg.querySelector('input[type=checkbox], #ul-newt, [data-ulsignin]') || dlg.querySelector('button'))?.focus();
   if (canMake() && UL.mine === null) loadMyLists().then(() => { if (dlg?.open) { paintSheet(); dlg.querySelector('input[type=checkbox], #ul-newt')?.focus(); } });
 }
+const NAME_HINT = 'For example: School bills';
 function paintSheet() {
   if (!dlg) return;
   if (UL.sheetFor === 'new') return paintNew();
   const b = billOf(UL.sheetFor) || findBill(UL.sheetFor); if (!b) return;
-  const sp = spaced(b.bill_number), name = nick(b);
-  const closeBtn = btn('Done', { kind: 'primary', full: true, attrs: { 'data-ulclose': '1' } });
-  let body;
-  if (!canMake()) body = `<p>Make your own lists of bills to keep them together, and share a list with anyone by a link. Lists are kept with your email, so they follow you to every device.</p>
+  const sp = spaced(b.bill_number), name = nick(b), h2 = `<h2 id="ul-sh-h">Add ${esc(name ? `${name} (${sp})` : sp)} to a list</h2>`;
+  let top, rest = '';
+  if (!canMake()) top = `${h2}<p>Make your own lists of bills to keep them together, and share a list with anyone by a link. Lists are kept with your email, so they follow you to every device.</p>
       <p class="small muted">After you open the link we email you, you come back to this bill to finish.</p>
       <div class="btncol">${btn('Add my email', { kind: 'primary', full: true, icon: 'mail', attrs: { 'data-ulsignin': '1' } })}${btn('Not now', { kind: 'text', attrs: { 'data-ulclose': '1' } })}</div>`;
-  else if (UL.mine === null || UL.loading) body = skeleton(2);
+  else if (UL.mine === null || UL.loading) top = h2 + skeleton(2);
   else {
     const own = ownLists();
-    body = `${own.length ? `<fieldset class="ul-pick"><legend class="sr">Your lists</legend>${own.map(l => { const on = (l.bill_ids || []).includes(b.id);
+    top = `${h2}${own.length ? `<fieldset class="ul-pick"><legend class="sr">Your lists</legend>${own.map(l => { const on = (l.bill_ids || []).includes(b.id);
         return `<label class="check ul-row"><input type="checkbox" data-ulpick="${esc(l.id)}" ${on ? 'checked' : ''}><span><b>${esc(l.title)}</b><span class="small muted"> · ${plural((l.bill_ids || []).length, 'bill')}</span></span></label>`; }).join('')}</fieldset>`
-      : '<p class="small muted">You have no lists yet. Name your first one:</p>'}
-      <form class="ul-new" data-ulnewform><label for="ul-newt">${own.length ? 'Or a new list' : 'List name'}</label><div class="ul-newrow"><input id="ul-newt" class="input" maxlength="80" placeholder="For example: Bills for my class" autocomplete="off">
+      : '<p class="small muted">You have no lists yet. Name your first one:</p>'}`;
+    rest = `<form class="ul-new" data-ulnewform><label for="ul-newt">${own.length ? 'Or a new list' : 'List name'}</label><div class="ul-newrow"><input id="ul-newt" class="input" maxlength="80" placeholder="${NAME_HINT}" autocomplete="off">
         ${own.length ? btn('Make list and add', { kind: 'secondary', sm: true, attrs: { type: 'submit' } }) : ''}</div><div id="ul-newerr"></div>
         ${own.length ? '' : btn(`Make the list and add ${esc(sp)}`, { kind: 'primary', full: true, attrs: { type: 'submit' } })}</form>
       <p class="small muted ul-fine">You follow the bills on your lists, so their hearings come to you. New lists are private until you share them.</p>
-      ${own.length ? closeBtn : btn('Cancel', { kind: 'text', attrs: { 'data-ulclose': '1' } })}`;   // one loud button: making the list when there is none (A-13)
+      ${own.length ? btn('Done', { kind: 'primary', full: true, attrs: { 'data-uldone': '1' } }) : btn('Cancel', { kind: 'text', attrs: { 'data-ulclose': '1' } })}`;   // one loud button: making the list when there is none (A-13)
   }
-  shBody().innerHTML = `<h2 id="ul-sh-h">Add ${esc(name ? `${name} (${sp})` : sp)} to a list</h2>${body}`;
+  part('ul-shbody').innerHTML = top; part('ul-shrest').innerHTML = rest;
   wireSheet(b);
 }
 function wireSheet(b) {
@@ -288,26 +307,39 @@ function wireSheet(b) {
   dlg.querySelector('[data-ulsignin]')?.addEventListener('click', () => { rememberPlace({ addto: b.id }); dlg.close(); app.go('#/signin'); });
   const followNote = was => !was && S.watch.has(b.id) ? ` You follow ${spaced(b.bill_number)} now.` : '';
   dlg.querySelectorAll('[data-ulpick]').forEach(el => el.onchange = async () => {
-    const l = myList(el.dataset.ulpick); if (!l) return; el.disabled = true; const was = S.watch.has(b.id);
-    try { await setOnList(l, b.id, el.checked); paintSheet(); shSay(el.checked ? `Added to ${l.title}.${followNote(was)}` : `Taken off ${l.title}.`); }
-    catch (e) { el.checked = !el.checked; paintSheet(); shSay(e.message); }
+    const l = myList(el.dataset.ulpick); if (!l) return; el.disabled = true; const was = S.watch.has(b.id), on = el.checked;
+    let said = '', bad = false;
+    try { await setOnList(l, b.id, on); said = on ? `Added to ${l.title}.${followNote(was)}` : `Taken off ${l.title}.`; }
+    catch (e) { said = e.message; bad = true; }
+    const typed = dlg.querySelector('#ul-newt')?.value || '';
+    paintSheet(); shSay(said, bad);
+    const t = dlg.querySelector('#ul-newt'); if (t && typed) t.value = typed;   // a name being typed survives the repaint (C-9)
     dlg.querySelector(`[data-ulpick="${CSS.escape(String(l.id))}"]`)?.focus();
   });
-  const f = dlg.querySelector('[data-ulnewform]');
-  if (f) f.onsubmit = async e => {
-    e.preventDefault(); const t = dlg.querySelector('#ul-newt'), v = t.value.trim(), was = S.watch.has(b.id);
+  // Make a list from the typed name and add the bill; true when it worked.
+  const make = async () => {
+    const t = dlg.querySelector('#ul-newt'), v = t.value.trim(), was = S.watch.has(b.id);
     try { const l = await createList(v); await setOnList(l, b.id, true); paintSheet(); shSay(`Made ${l.title} and added ${spaced(b.bill_number)}.${followNote(was)}`);
-      dlg.querySelector(`[data-ulpick="${CSS.escape(String(l.id))}"]`)?.focus(); }
-    catch (er) { const box = dlg.querySelector('#ul-newerr'); if (box) box.innerHTML = inlineErr('ul-newmsg', er.message); t.setAttribute('aria-invalid', 'true'); t.setAttribute('aria-describedby', 'ul-newmsg'); t.focus(); }
+      dlg.querySelector(`[data-ulpick="${CSS.escape(String(l.id))}"]`)?.focus(); return true; }
+    catch (er) { const box = dlg.querySelector('#ul-newerr'); if (box) box.innerHTML = inlineErr('ul-newmsg', er.message); t.setAttribute('aria-invalid', 'true'); t.setAttribute('aria-describedby', 'ul-newmsg'); t.focus(); return false; }
   };
+  const f = dlg.querySelector('[data-ulnewform]');
+  if (f) f.onsubmit = e => { e.preventDefault(); make(); };
+  // Done with a name typed in the box makes that list first: closing would lose it (C-9; the review 9/30 lost one so).
+  dlg.querySelector('[data-uldone]')?.addEventListener('click', async () => {
+    const v = (dlg.querySelector('#ul-newt')?.value || '').trim();
+    if (!v) return dlg.close();
+    if (await make()) dlg.close();
+  });
 }
 // A new list from My issues: the same sheet, without a bill. Name it (the note is optional), then add bills from their pages.
 function paintNew() {
-  shBody().innerHTML = `<h2 id="ul-sh-h">A new list</h2>
-    <form class="ul-new" data-ulmake><div class="field"><label for="ul-newt">Name</label><input id="ul-newt" class="input" maxlength="80" placeholder="For example: Bills for my class" autocomplete="off" required></div>
+  part('ul-shbody').innerHTML = `<h2 id="ul-sh-h">A new list</h2>
+    <form class="ul-new" data-ulmake><div class="field"><label for="ul-newt">Name</label><input id="ul-newt" class="input" maxlength="80" placeholder="${NAME_HINT}" autocomplete="off" required></div>
       <div class="field"><label for="ul-newn">A note for whoever sees it <span class="muted">(optional)</span></label><textarea id="ul-newn" maxlength="300" rows="2"></textarea></div>
       <div id="ul-newerr"></div><div class="btncol">${btn('Make the list', { kind: 'primary', full: true, attrs: { type: 'submit' } })}${btn('Cancel', { kind: 'text', attrs: { 'data-ulclose': '1', type: 'button' } })}</div></form>
     <p class="small muted ul-fine">New lists are private until you share them.</p>`;
+  part('ul-shrest').innerHTML = '';
   dlg.querySelectorAll('[data-ulclose]').forEach(el => el.onclick = () => dlg.close());
   dlg.querySelector('[data-ulmake]').onsubmit = async e => {
     e.preventDefault(); const t = dlg.querySelector('#ul-newt');
@@ -376,11 +408,12 @@ function wire(r) {
   // Share: make the link and copy it in one press; the page then offers Copy link.
   root.querySelectorAll('[data-ulsharemake]').forEach(el => el.onclick = async () => { busy(el);
     try { const t = await share(here()); const ok = await copy(t, { quiet: true }); app.render();
-      toast(ok ? 'Shared, and the link is copied. Paste it into a text or an email.' : 'Shared. Press Copy link to copy the link.', { yay: true });
+      toast(ok ? 'Shared, and the link is copied. Anyone with it can see the list and follow it.' : 'Shared. Press Copy link to copy it. Anyone with the link can see the list and follow it.', { yay: true });
       document.querySelector('.ul [data-ulcopy]')?.focus(); }
     catch (e) { el.removeAttribute('aria-busy'); toast(e.message || e, true); } });
-  item('[data-ulunshare]', el => run(el, async () => { await unshare(here()); UL.showLink = null;
-    toast('The link is off. Anyone who opens it now sees nothing; people who follow the list keep it. Sharing again makes a new link.'); }));
+  item('[data-ulunshare]', el => run(el, async () => { const l = here(); await unshare(l); UL.showLink = null;
+    toast('The link is off: anyone who opens it now sees nothing. People who follow the list keep it.', { undo: async () => {
+      try { await reshare(l); app.render(); toast('The same link works again.'); } catch (e) { toast(e.message, true); } } }); }));
   item('[data-ulremove]', el => run(el, async () => { const l = here(); await remove(l);
     app.go('#/bills', { replace: true }); toast(`Removed ${l.title}. Its bills stay in My issues.`, { undo: async () => { await remove(l, true); app.go(`#/mylist/${encodeURIComponent(l.id)}`); } }); }));
   item('[data-ultaking]', () => { const on = String(UL.taking) !== String(lid); UL.taking = on ? lid : null; app.render();
@@ -393,18 +426,23 @@ function wire(r) {
       .then(() => { const left = [...document.querySelectorAll('.ul [data-ultake]')]; (left[Math.min(i, left.length - 1)] || document.querySelector('[data-ulmenu]'))?.focus(); }); });
   root.querySelectorAll('[data-ulunfollow]').forEach(el => el.onclick = () => run(el, async () => { const l = myList(el.dataset.ulunfollow); await unfollow(l); app.go('#/bills', { replace: true });
     toast(`You stopped following ${l.title}. Its bills stay in My issues.`); }));
+  // Following is confirmed once, by the card that replaces the button (A-14); focus goes to its words.
   root.querySelectorAll('[data-ulfollow]').forEach(el => el.onclick = () => run(el, async () => { const tok = el.dataset.ulfollow, sl = UL.shared[tok];
-    const n = await follow(tok, sl); toast(n ? `Following ${plural(n, 'bill')} from ${sl.title}. Bills its maker adds later will come to you too.` : `You follow ${sl.title}. Bills its maker adds will come to you.`, { yay: true });
-    setTimeout(() => document.getElementById('ul-ok')?.focus(), 0); }));
+    await follow(tok, sl); setTimeout(() => document.getElementById('ul-ok')?.focus(), 0); }));
   root.querySelectorAll('[data-ulunfollowtok]').forEach(el => el.onclick = () => run(el, async () => { const tok = el.dataset.ulunfollowtok, sl = UL.shared[tok];
     await unfollow(S.user && !DEMO ? (UL.mine || []).find(x => x.id === sl.id) || { id: sl.id } : null, tok); toast(`You stopped following ${sl.title}. Its bills stay in My issues.`); }));
   root.querySelectorAll('[data-ulsigninfrom], [data-ulsignin-page]').forEach(el => el.onclick = e => { e.preventDefault(); rememberPlace(); app.go('#/signin'); });
 }
 
+// The tab bar: a list of one's own, or one followed, is part of My issues; a stranger's list opened from a link is
+// neither My issues nor Find, so no tab claims it (the review 9/30).
+let tabNow = 'bills';
 export default {
-  tab: 'bills',
+  get tab() { return tabNow; },
   title: r => r.name === 'shared' ? (UL.shared[r.token]?.title || 'A shared list') : (myList(r.id)?.title || 'Your list'),
   render(r) {
+    const sl = r.name === 'shared' ? UL.shared[r.token] : null;
+    tabNow = r.name !== 'shared' || (sl && typeof sl === 'object' && (sl.mine || sl.following || localFollowed().has(r.token))) ? 'bills' : '';
     const lid = r.name === 'shared' ? UL.shared[r.token]?.id : r.id;
     if (String(UL.editing) !== String(lid)) UL.editing = null;
     if (String(UL.taking) !== String(lid)) UL.taking = null;

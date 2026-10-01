@@ -236,6 +236,7 @@
 .st-tm .st-tmav { background: none; }
 .st-tmlink { flex: none; padding-right: var(--s12); }
 .st-page .st-teamoff { margin-top: var(--s16); }
+.st-page .st-ultail { margin-top: var(--s32); }   /* People's lists: what was turned off, below the Turn off button (R-013) */
 @media (max-width: 599px) { .st-tm { flex-wrap: wrap; } .st-tmlink { padding: 0 var(--s16) var(--s12) 60px; } }
 .st-tmform { display: flex; flex-direction: column; gap: var(--s12); }
 .st-tmmore { margin-top: var(--s16); border-top: 1px solid var(--n100); }

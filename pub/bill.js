@@ -15,7 +15,7 @@ import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActin
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
-import { openAddTo } from './mylists.js';
+import { openAddTo, onListsLine } from './mylists.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -522,7 +522,7 @@ function head(b, x) {
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}${onListsLine(b)}</div>`;
 }
 // The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
