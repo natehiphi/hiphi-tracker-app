@@ -79,6 +79,12 @@
 .hm .hm-day { font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
 .hm .rows .row .title, .hm .rows .row .sub, .hm .hm-pick .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hm .rows .row .sub { color: var(--n700); }
+/* "Since you were here": the news is the sentence itself, so it is never cut short (the review 9/30 lost the day and time) */
+.hm .hm-since .rows .row .sub { display: block; -webkit-line-clamp: none; overflow: visible; }
+/* the heading, with "2 more on your session page" beside it on a phone (the line under it left a 70px gap, A-1) */
+.hm .hm-since .hm-sincehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); margin-bottom: var(--s8); }
+.hm .hm-since .hm-sincehead h2 { margin-bottom: 0; }
+.hm .hm-since .hm-sincemore { min-height: 44px; padding-left: 0; padding-right: 0; }
 .hm .rows a.row:hover .title { text-decoration: underline; }
 
 /* Your session: the person's own numbers, weeks, milestones and results */
@@ -122,6 +128,7 @@
 .hm .hm-mark.t-up { background: var(--ok-wash); color: var(--ok-text); }
 .hm .hm-mark.t-wait { background: var(--p50); color: var(--p700); }
 .hm .hm-mark.t-stop { background: var(--n100); color: var(--n500); }
+.hm .hm-mark.t-on { background: var(--n100); color: var(--n700); }   /* moved on, against the person's side (R-046) */
 .hm .hm-mark.t-law { background: var(--o50); }
 .hm .hm-impb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .hm .hm-impt { font-weight: 700; color: var(--n900); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -267,3 +274,12 @@
   .hm.hm-anim .hm-blooms span, .hm.hm-anim .hm-did li, .hm.hm-anim .hm-art .st-sun { animation: none; }
   .hm-petalfx { display: none; }
 }
+
+/* ---- the session page, #/recap (R-046): one reading column; the stat tiles sit on the page, so they are white ---- */
+.hm-rcp { gap: var(--s24); }
+.hm-rcp .fd-back { align-self: flex-start; }
+.hm-rcp .hm-rcph { display: flex; align-items: center; gap: var(--s8); }
+.hm-rcp .hm-rcph .flower { flex: none; }
+.hm-rcp .hm-rcpstats .hm-stat { background: var(--n0); box-shadow: var(--sh1); }
+.hm-rcp .hm-sec > h2 { margin: 0 0 var(--s12); }
+.hm-rcp .card.hm-sec > h2 { font-size: var(--t18); }

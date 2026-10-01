@@ -166,7 +166,8 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
 }
 export function logAct(kind) {
   try {
-    if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) return Promise.resolve(false);
+    // 'recap' and 'moment' (R-046, migration 106): the session page opened, a result shown as a moment.
+    if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment'].includes(kind)) return Promise.resolve(false);
     return sendCount({ kind: 'act', act: kind, device: device() }).catch(() => false);
   } catch { return Promise.resolve(false); }
 }

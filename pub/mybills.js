@@ -49,7 +49,7 @@ export function statusChip(b, h) {
   let short, tone, ic, hearing = false;
   if (h && alive(b)) {
     const d = dueInfo(h), day = `Hearing ${dayWord(h.scheduled_at)}`;
-    short = d && !d.late ? `${day} · ${d.text.replace('Testimony ', 'testimony ')}` : day; tone = d?.tone || 'info'; ic = 'calendar'; hearing = true;
+    short = d && !d.late ? `${day} · ${d.text.replace('Testimony ', 'testimony ')}` : day; tone = d && !d.late ? d.tone || 'info' : 'info'; ic = 'calendar'; hearing = true;   // red only with the words that say why (A-5)
   } else {
     const p = plainStatus(b), st = stopOf(b); short = p.short; tone = p.tone; hearing = alive(b) && st.hearingState === 'scheduled';
     ic = STATUS_ICON[st.phase] || (hearing ? 'calendar' : st.hearingState === 'held' ? 'gavel' : 'hourglass');

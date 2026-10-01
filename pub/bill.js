@@ -679,7 +679,7 @@ function hearingRow(b, h, now) {
   return `<li class="bl-hr${past ? ' bl-past' : ''}"><span class="bl-hico">${icon(past ? 'calendar-days' : 'calendar')}</span><div class="bl-hbody">
     <p class="bl-htitle">${esc(cmteLabel(h.committee))}</p>
     <p class="bl-hwhen">${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))} · ${esc(roomLabel(h.room))}</p>
-    ${due ? `<p class="bl-hdue ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
+    ${due ? `<p class="bl-hdue ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
     ${tag || mine ? `<div class="chips">${tag}${mine}</div>` : ''}${acts ? `<div class="btnrow bl-hacts">${acts}</div>` : ''}</div></li>`;
 }
 function hearingsSection(b, x) {

@@ -203,11 +203,15 @@ function sampleBack(weeks) {
       acts: { email: 12 + (w % 5), testimony: 3 + (w % 3), share: 5, attend: w % 2 } }; });
 }
 const ACTS = { email: 'emails to a chair', legislators: 'emails to their own legislators', intro: 'introductions to their legislators', testimony: 'testimony', attend: 'went in person', share: 'shares' };   // 089 (R-087)
+// Counted the same private way, but not actions (106, R-046): a result shown to someone as a moment, and the session
+// page opened. They get their own tile so "actions marked done" stays actions.
+const SEEN = { moment: 'good-news moments shown', recap: 'session pages opened' };
+const actsOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([k]) => !SEEN[k]));
 function backHTML(rows) {
   if (!rows) return '';   // the call failed: the first-visit numbers above still stand
-  const t = { b: 0, n: 0, r: 0, week: 0, home: 0, acts: {} };
+  const t = { b: 0, n: 0, r: 0, week: 0, home: 0, acts: {}, seen: {} };
   for (const r of rows) { t.b += r.browsers || 0; t.n += r.new_browsers || 0; t.r += r.returners || 0; t.week += (r.gaps?.['1d'] || 0) + (r.gaps?.['2-7d'] || 0); t.home += r.home_screen || 0;
-    for (const [k, v] of Object.entries(r.acts || {})) t.acts[k] = (t.acts[k] || 0) + v; }
+    for (const [k, v] of Object.entries(r.acts || {})) { const into = SEEN[k] ? t.seen : t.acts; into[k] = (into[k] || 0) + v; } }
   const actN = Object.values(t.acts).reduce((a, b) => a + b, 0);
   const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
   const head = `<div class="le-sechead"><h2 id="fv-bh">Coming back</h2><span class="meta">once a day per browser, after the first visit too</span></div>`;
@@ -219,9 +223,10 @@ function backHTML(rows) {
       ${tile(nf(t.week), 'came back within a week', 'of their last visit')}
       ${tile(nf(actN), 'actions marked done', Object.entries(t.acts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${nf(v)} ${ACTS[k] || k}`).join(' · '))}
       ${tile(nf(t.home), 'opened from a home screen', 'the app added to a phone')}
+      ${t.seen.moment || t.seen.recap ? tile(nf(t.seen.moment || 0), SEEN.moment, `${nf(t.seen.recap || 0)} ${SEEN.recap}`) : ''}
     </div>
     ${wk.length > 1 ? `<div class="fv-tablewrap"><table class="fv-table"><thead><tr><th scope="col">Week of</th><th scope="col" class="num">Opened</th><th scope="col" class="num">New</th><th scope="col" class="num">Back</th><th scope="col" class="num">Actions</th></tr></thead>
-      <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(r.acts || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(actsOnly(r.acts) || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
   </section>`;
 }
 function weeksHTML(rows) {

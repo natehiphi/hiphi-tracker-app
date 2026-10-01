@@ -92,7 +92,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
     ${b.hiphi_action && !differs ? `<p class="ask">${esc(b.hiphi_action)}</p>` : ''}
     ${why ? `<p class="why">${icon('sparkles')}${esc(why)}</p>` : ''}
-    ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
+    ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
     <p class="meta hearing">${esc(hearingText(h))}</p>
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}

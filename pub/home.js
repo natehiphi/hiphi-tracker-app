@@ -15,8 +15,9 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
-  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE } from './core.js';
-import { burst } from './fx.js';
+  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
+  results, RESULT_MILESTONES, isResolution, sideOf } from './core.js';
+import { burst, celebrate } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
@@ -24,7 +25,7 @@ import { CAPITOL, islands, flower } from './art.js';
 // stop the whole page from loading).
 import * as more from './more.js';
 import { endHome } from './variant.js';
-import { logVisit } from './visitlog.js';
+import { logVisit, logAct } from './visitlog.js';
 
 S.hmOpen ??= {};   // which in-place lists are open ("Show 12 more", "See all"); kept for the visit so Back returns to the same page
 
@@ -66,7 +67,7 @@ function impacts(acts) {
     if ((a.at || '') > x.at) x.at = a.at || '';
     by.set(a.bill_id, x);
   }
-  const now = Date.now();
+  const now = Date.now(), heard = new Map(results().filter(r => r.kind === 'heard').map(r => [r.b.id, r]));
   return [...by.values()].sort((p, q) => q.at.localeCompare(p.at)).map(x => {
     const b = anyBill(x.id); if (!b) return null;
     const hs = [...x.hs].map(anyHearing).filter(Boolean).sort((p, q) => q.scheduled_at.localeCompare(p.scheduled_at));
@@ -77,13 +78,26 @@ function impacts(acts) {
     if (x.kinds.has('email')) v.push('emailed the chair');
     if (x.kinds.has('attend')) v.push(went ? 'went to the hearing' : 'planned to go');
     if (x.kinds.has('share')) v.push('shared it');
-    const [tone, text, moved] = resultOf(b, hs, x.kinds.has('testimony'));
+    let [tone, text, moved] = resultOf(b, hs, x.kinds.has('testimony'));
+    // They asked for a hearing and it got one (R-046): said as the good news it is, not as a bill still waiting (the
+    // review 9/30 found these as hourglass rows at the bottom of the session page).
+    const hd = heard.get(b.id);
+    if (hd && tone === 'wait' && !hs.length) { const h = hd.h, ahead = new Date(h.scheduled_at) > now;
+      tone = 'up'; moved = false; text = `It got a hearing${ahead ? `: ${who(h.committee)} hears it ${dayWord(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : ` on ${dateLong(h.scheduled_at)}`}.`; }
     return { b, tone, did: `You ${list(v)}.`, text, moved };
   }).filter(Boolean);
 }
-function resultOf(b, hs, testified) {
+// The marks follow the person's side (sideOf): for someone against a bill, its moving on is not their win and its
+// stopping is (the review 9/30); the words stay the same plain facts, without a thank-you for a law they opposed.
+const forSide = (b, r) => {
+  if (sideOf(b) !== 'against') return r;
+  const [tone, text] = r, flip = { law: 'on', up: 'on', stop: 'up' };   // 'on': it moved on, against their side (an arrow, as in the strip)
+  return [flip[tone] || tone, text.replace(' Mahalo for speaking up.', ''), false];
+};
+function resultOf(b, hs, testified) { return forSide(b, resultFacts(b, hs, testified)); }
+function resultFacts(b, hs, testified) {
   const kept = testified ? ' Your testimony stays on the record.' : '';
-  if (b.stage === 'enacted') return ['law', 'It became law. Mahalo for your part in it.'];
+  if (b.stage === 'enacted') return ['law', 'It became law. Mahalo for speaking up.'];
   if (b.stage === 'vetoed') return ['stop', `The Governor vetoed it.${kept}`];
   if (b.stage === 'governor') return ['up', 'It passed the House and Senate and is on the Governor’s desk.', true];
   if (b.stage === 'ballot') return ['up', 'It passed the House and Senate. The voters decide in November.', true];
@@ -113,16 +127,15 @@ function resultOf(b, hs, testified) {
 // R-067: a win on an issue they follow is theirs to hear about too, however they came to follow it ("On Free school
 // meals for every student." is true either way). Only wins: a stopped bill they never chose one by one is not listed.
 function followedRows(yr, skip) {
-  const win = b => b.stage === 'enacted' || b.stage === 'governor';
+  const win = b => (b.stage === 'enacted' || b.stage === 'governor') && sideOf(b) !== 'against';   // a bill HIPHI opposes becoming law is no win on its issue
   return S.bills.filter(b => !skip.has(b.id) && (S.direct.has(b.id) || (S.viaIssues.has(b.id) && win(b))) && (!b.session_year || b.session_year === yr)).map(b => {
     const via = !S.direct.has(b.id) && viaIssue(b.id), did = via ? `On ${via.name}.` : 'You followed it.';
-    if (b.stage === 'enacted') return { b, tone: 'law', did, text: 'It became law.' };
-    if (b.stage === 'governor') return { b, tone: 'up', did, text: 'It passed the House and Senate and is on the Governor’s desk.' };
-    if (b.stage === 'vetoed') return { b, tone: 'stop', did, text: 'The Governor vetoed it.' };
-    return alive(b) ? { b, tone: 'wait', did, text: plainStatus(b).text } : { b, tone: 'stop', did, text: whyStopped(b) };
+    const [tone, text] = forSide(b, b.stage === 'enacted' ? ['law', 'It became law.'] : b.stage === 'governor' ? ['up', 'It passed the House and Senate and is on the Governor’s desk.']
+      : b.stage === 'vetoed' ? ['stop', 'The Governor vetoed it.'] : alive(b) ? ['wait', plainStatus(b).text] : ['stop', whyStopped(b)]);
+    return { b, tone, did, text };
   });
 }
-const MARKS = { up: 'circle-check', wait: 'hourglass', stop: 'archive' };
+const MARKS = { up: 'circle-check', wait: 'hourglass', stop: 'archive', on: 'arrow-right' };
 // A result row opens the bill. It leads with the bill's everyday name when staff have written one; the number
 // always shows.
 const impRow = x => `<a class="hm-imp" href="${billPath(x.b)}"><span class="hm-mark t-${x.tone}">${x.tone === 'law' ? flower(22) : icon(MARKS[x.tone])}</span>
@@ -153,7 +166,7 @@ function milestoneState(acts) {
   const held = acts.filter(a => a.kind !== 'attend' || (h => h && new Date(h.scheduled_at) <= now)(anyHearing(a.hearing_id)));
   const has = m => m[3](m[0] === 'attend' ? held : acts);
   const COUNT = { three: [new Set(acts.filter(x => x.hearing_id).map(x => x.hearing_id)).size, 3], ten: [acts.length, 10] };
-  const todo = MILESTONES.filter(m => m[0] !== 'law' && !has(m));
+  const todo = MILESTONES.filter(m => !RESULT_MILESTONES.has(m[0]) && !has(m));
   const next = todo.find(m => COUNT[m[0]] && COUNT[m[0]][0] / COUNT[m[0]][1] >= 0.3) || todo[0] || null;
   return { got: MILESTONES.filter(has), next, count: next ? COUNT[next[0]] || null : null };
 }
@@ -184,21 +197,23 @@ function weeks(si, mine) {
 // Counts of what they have done (zeros are left out: nobody needs "0 actions" read back to them), the weeks, the
 // milestones earned, how far the next one is, and what happened after they acted. On the first visit the chips sit
 // in the page heading instead (they were just earned), and no action milestone is dangled as "next".
-function sessionPanel(si, { welcome = false } = {}) {
+// skip: bills already in the "Since you were here" strip above, so a result is not said twice on one Home (A-14).
+function sessionPanel(si, { welcome = false, skip = new Set() } = {}) {
   const all = myActions(), mine = all.filter(a => !a.year || a.year === si.yr);
   const thisYear = b => !b || !b.session_year || b.session_year === si.yr;
   // Issues first (R-018): what the person follows is issues; a follower of single bills only still sees their bills.
   const nIss = followedIssues().length, follows = nIss || S.bills.filter(thisYear).length;
   const stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && thisYear(anyBill(id))).length;
-  const ms = milestoneState(all), rows = impacts(mine);
+  const ms = milestoneState(all), rows = impacts(mine).filter(x => !skip.has(x.b.id));
   const stat = (k, label, href) => !k ? '' : href ? `<li><a class="hm-stat" href="${href}" data-hm-stat="bills"><b>${n(k)}</b><span>${label}${icon('chevron-right')}</span></a></li>` : `<li><span class="hm-stat"><b>${n(k)}</b><span>${label}</span></span></li>`;
   return `<section class="card hm-panel" aria-labelledby="hm-ys"><h2 id="hm-ys" class="hm-ptitle">${flower(24)}<span>Your ${si.yr} session</span></h2>
     <ul class="hm-stats">${stat(follows, nIss ? (follows === 1 ? 'issue followed' : 'issues followed') : (follows === 1 ? 'bill followed' : 'bills followed'), '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
     ${mine.length ? weeks(si, mine) : `<p class="muted small">${welcome ? 'Your progress adds up here through the session.' : 'Your first action will show up here, with what happened after it.'}</p>`}
     ${welcome ? '' : chipsHtml(ms.got)}${''/* no "Next:" goal since 9/27: a quiet record, not a badge ladder (C-7; R-067 decision 8b) */}
     ${!welcome && S.nudge === 'action' ? nudgeCard('action') : ''}
-    ${rows.length ? `<h3 class="hm-label">What happened after you acted</h3>${impList(rows, 2)}` : ''}
+    ${rows.length ? `<h3 class="hm-label">What happened after you acted</h3>${impList(rows.slice(0, 2), 2)}` : ''}${''/* the rest are on the session page, below */}
     ${DEMO && S.demoSeeded ? '<p class="meta">Sandbox: three sample actions are filled in so this panel has something to show.</p>' : ''}
+    ${!welcome && (mine.length || follows) ? btn('See your whole session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link' }) : ''}
   </section>`;
 }
 
@@ -237,43 +252,85 @@ function whatsNew(skip) {
 const RSEEN_KEY = 'hiphi_results_seen';
 const resultsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(RSEEN_KEY) || '[]')); } catch { return new Set(); } };
 const myName = () => { try { return (wiz().name || JSON.parse(localStorage.getItem('hiphi_me') || '{}').name || '').trim().split(/\s+/)[0]; } catch { return ''; } };
+// Moments (R-046, Nate 9/30: "You helped a bill get a hearing. You helped a bill pass a hearing."): a result on a bill the
+// person spoke up for, shown on Home once, the first time Home sees it (a month back at most), whatever their last
+// visit was. Sized to what happened (C-7): a hearing set or a committee's yes is a row with the small burst; a law is
+// the full-screen moment. Seen ones stay for the rest of the visit, so no row vanishes under a finger, and then live in
+// "What happened after you acted" and on the session page (#/recap). Counted privately, kind only ('moment', 106).
+const MSEEN_KEY = 'hiphi_moments_seen';
+const momentsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(MSEEN_KEY) || '[]')); } catch { return new Set(); } };
+S.hmShown ??= new Set();
+const MOMENT_ICON = { heard: 'calendar-check', passed: 'circle-check', held: 'circle-check', law: 'party-popper' };
+function momentText(r) {
+  const h = r.h, ahead = h && new Date(h.scheduled_at) > Date.now();
+  if (r.kind === 'heard') return `${r.did === 'You asked for a hearing' ? 'You asked for a hearing, and it got one' : 'You wrote to your legislators about it, and it got a hearing'}${ahead ? `: ${who(h.committee)} hears it ${dayWord(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : ` on ${dateLong(h.scheduled_at)}`}.`;
+  if (r.kind === 'passed') return `${r.did}, and ${who(h.committee)} passed it${r.amended ? ' with changes' : ''}.`;
+  if (r.kind === 'held') return `${r.did}, and ${who(h.committee)} put it on hold.`;
+  return `You spoke up for it, and it ${isResolution(r.b) ? 'was adopted' : 'became law'}.`;
+}
 function sinceItems() {
-  const prev = S.prevVisit ? +new Date(S.prevVisit) : 0, now = Date.now();
-  if (!prev || now - prev < 3 * 36e5) return null;   // a visit a few hours ago is the same visit, for this
-  const since = Math.max(prev, now - 30 * 864e5), acted = new Map(myActions().filter(a => a.hearing_id).map(a => [a.hearing_id, a.kind]));
+  const prev = S.prevVisit ? +new Date(S.prevVisit) : 0, now = Date.now(), month = now - 30 * 864e5;
+  const news = !!prev && now - prev >= 3 * 36e5;   // a visit a few hours ago is the same visit, for this
+  const mseen = momentsSeen(), rseen = resultsSeen();
+  const moments = results().filter(r => r.at && +new Date(r.at) > month
+    && (S.hmShown.has(r.key) || (!mseen.has(r.key) && !(r.kind === 'passed' && rseen.has(r.h.id)))));   // a committee's yes already burst before 9/30
+  if (!news && !moments.length) return null;
+  const since = news ? Math.max(prev, month) : now, acted = new Map(myActions().filter(a => a.hearing_id).map(a => [a.hearing_id, a.kind]));
   const DID = { email: 'you emailed the chair', testimony: 'you testified', attend: 'you went', share: 'you shared it' }, per = new Map();
-  const add = x => { const o = per.get(x.b.id); if (!o || (x.you && !o.you) || (x.you === o.you && x.t > o.t)) per.set(x.b.id, x); };
+  const add = x => { const o = per.get(x.b.id); if (!o || (x.moment && !o.moment) || (!o.moment && x.you && !o.you) || (!!x.moment === !!o.moment && x.you === o.you && x.t > o.t)) per.set(x.b.id, x); };
+  for (const r of moments) add({ b: r.b, t: +new Date(r.at), h: r.h, good: true, you: true, moment: r.key, law: r.kind === 'law', lead: MOMENT_ICON[r.kind], text: momentText(r) });
   for (const h of S.hearings) {
     const b = S.bills.find(x => x.id === h.bill_id); if (!b) continue;
     const num = spaced(b.bill_number), held = new Date(h.scheduled_at) <= now, o = held ? outcomeOf(h) : null, t = o && +new Date(o.reported_at || h.scheduled_at);
     if (o?.outcome && t > since) {
       const said = { passed: 'passed it', passed_amended: 'passed it with changes', deferred: 'put it on hold', recommitted: 'sent it back for more work' }[o.outcome];
       const k = acted.get(h.id);
-      if (said) add({ b, t, h, good: /passed/.test(o.outcome), you: !!k, lead: /passed/.test(o.outcome) ? 'circle-check' : 'archive', text: `${who(h.committee)} ${said}${k ? ` (${DID[k] || 'you acted'})` : ''}.` });
+      const good = sideOf(b) === 'against' ? o.outcome === 'deferred' : /passed/.test(o.outcome);   // good news goes the person's way
+      if (said) add({ b, t, h, good, you: !!k, lead: good ? 'circle-check' : /passed/.test(o.outcome) ? 'arrow-right' : 'archive', text: `${who(h.committee)} ${said}${k ? ` (${DID[k] || 'you acted'})` : ''}.` });
     } else if (!held && h.status === 'scheduled' && h.notice_posted_at && +new Date(h.notice_posted_at) > since && alive(b)) {
       const d = dayWord(h.scheduled_at); add({ b, t: +new Date(h.notice_posted_at), lead: 'calendar', text: `${num} has a hearing ${/^(today|tomorrow)/.test(d) ? d : 'on ' + d}.` });
     }
   }
   for (const b of S.bills) if ((b.stage === 'enacted' || b.stage === 'governor') && b.last_action_date && hiT(b.last_action_date) > since)
-    add({ b, t: hiT(b.last_action_date), good: true, you: myActions().some(a => a.bill_id === b.id), lead: 'circle-check', text: b.stage === 'enacted' ? 'It became law.' : 'It passed the House and Senate and is on the Governor’s desk.' });
-  return [...per.values()].sort((p, q) => (q.you - p.you) || (q.t - p.t)).slice(0, 3);
+    add({ b, t: hiT(b.last_action_date), good: sideOf(b) !== 'against', you: myActions().some(a => a.bill_id === b.id), lead: sideOf(b) !== 'against' ? 'circle-check' : 'arrow-right', text: b.stage === 'enacted' ? 'It became law.' : 'It passed the House and Senate and is on the Governor’s desk.' });
+  return [...per.values()].sort((p, q) => (!!q.moment - !!p.moment) || (q.you - p.you) || (q.t - p.t)).slice(0, 3);
 }
-function sinceStrip(inCards = new Set()) {
+// fullCards: the bills drawn as full action cards below (the first two), whose reason line can carry a moment.
+function sinceStrip(inCards = new Set(), fullCards = new Set()) {
   const all = sinceItems(); if (!all) return '';
   // A hearing already drawn as a card below is counted in one line, not repeated as a row.
-  const items = all.filter(x => !(x.lead === 'calendar' && inCards.has(x.b.id))), carded = all.length - items.length;
-  const d = new Date(S.prevVisit), days = Math.round((hiT(hstDay(Date.now())) - hiT(hstDay(d))) / 864e5);
+  let items = all.filter(x => !(x.lead === 'calendar' && inCards.has(x.b.id)));
+  const carded = all.length - items.length;
+  const news = !!S.prevVisit && Date.now() - +new Date(S.prevVisit) >= 3 * 36e5;   // else only moments are listed
+  const d = new Date(S.prevVisit || Date.now()), days = Math.round((hiT(hstDay(Date.now())) - hiT(hstDay(d))) / 864e5);
   const when = days <= 1 ? 'yesterday' : days < 7 ? d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) : `your last visit`;
-  const name = myName(), seen = resultsSeen();
-  S.hmBurst = items.find(x => x.you && x.good && x.h && !seen.has(x.h.id))?.h.id || null;
+  const name = myName(), seen = resultsSeen(), mseen = momentsSeen();
+  // The small burst goes to the first moment Home has not shown before; else, as before, a committee's yes on a hearing
+  // they acted on. wire() marks the new moments seen, counts them and gives a law its full-screen moment.
+  // A moment on a bill that also has an action card below is said once, as that card's reason line (A-14, the review
+  // 9/30: HB 1870's "House Finance passed it" sat right above its own Senate card).
+  S.hmCardMoments = new Map(items.filter(x => x.moment && fullCards.has(x.b.id)).map(x => [x.b.id, x]));
+  S.hmMoments = items.filter(x => x.moment && !mseen.has(x.moment));
+  items = items.filter(x => !(x.moment && fullCards.has(x.b.id)));
+  S.hmBurst = items.find(x => x.moment && !mseen.has(x.moment))?.moment || (items.some(x => x.moment) ? null : items.find(x => x.you && x.good && x.h && !seen.has(x.h.id))?.h.id) || null;
+  // The row that burst keeps its mark for the rest of the visit (a redraw must not drop it, nor burst it again).
+  const bursts = x => x.moment ? x.moment === S.hmBurst || x.moment === S.hmBursted : !!x.h && x.h.id === S.hmBurst;
   if (!items.length && carded) return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Since ${esc(when)}, ${carded === 1 ? 'a hearing was' : `${carded} hearings were`} set on your issues. ${carded === 1 ? 'It’s' : 'They’re'} below.</p></section>`;
   if (!items.length) {
     const next = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && S.bills.some(b => b.id === h.bill_id)).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
     const nb = next && S.bills.find(b => b.id === next.bill_id);
     return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Nothing new on your issues since ${esc(when)}.${nb ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
   }
-  return `<section class="hm-since" aria-labelledby="hm-since-h"><h2 id="hm-since-h"><span>Aloha${name ? `, ${esc(name)}` : ''}.</span> Since ${esc(when)}:</h2>
-    <div class="rows">${items.map(x => row({ lead: x.lead, title: esc(nick(x.b) || spaced(x.b.bill_number)), sub: esc(x.text), href: billPath(x.b), cls: x.you && x.good ? 'hm-you' + (x.h && x.h.id === S.hmBurst ? ' hm-youburst' : '') : '' })).join('')}</div>
+  // On a phone one row, so the day's actions stay near the top (A-1; three moments put the first card at 588px). The other
+  // moments are on the session page, which the link beside the heading opens (so they count as shown); other news left out
+  // here still shows in What's new (S.hmSinceShown is what this strip said).
+  const narrow = (() => { try { return matchMedia('(max-width: 719px)').matches; } catch { return false; } })();
+  const shown = narrow ? items.slice(0, 1) : items, more = items.slice(shown.length).filter(x => x.moment).length;
+  S.hmSinceShown = new Set([...shown.map(x => x.b.id), ...S.hmCardMoments.keys()]);
+  if (!shown.length) return '';
+  return `<section class="hm-since" aria-labelledby="hm-since-h"><div class="hm-sincehead"><h2 id="hm-since-h"><span>Aloha${name ? `, ${esc(name)}` : ''}.</span> ${news ? `Since ${esc(when)}:` : 'Good news:'}</h2>
+      ${more ? btn(`${more} more on your session page`, { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-sincemore' }) : ''}</div>
+    <div class="rows">${shown.map(x => row({ lead: x.lead, title: esc(nick(x.b) || spaced(x.b.bill_number)), sub: esc(x.text), href: billPath(x.b), cls: x.you && x.good ? 'hm-you' + (bursts(x) ? ' hm-youburst' : '') : '' })).join('')}</div>
     ${carded ? `<p class="meta">${carded === 1 ? 'A new hearing is' : `${carded} new hearings are`} in your list below.</p>` : ''}</section>`;
 }
 
@@ -339,7 +396,7 @@ const moreRows = (id, rows) => `${toggle(id, 'hm-' + id, `Show ${rows.length} mo
 // visit's "Ready now?" fold, where no card is singled out.
 function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
   const first = calm ? null : cards.find(x => !settledOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
-  const card = x => actionCard(x.b, x.h, { focus: x === first });
+  const card = x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text });
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
       ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
       ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : nudgeHtml}
@@ -404,11 +461,12 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   }
   // One email ask, under the first card, never above the page's heading (the "welcome back" one used to push it down).
   const nudgeHtml = S.nudge && S.nudge !== 'action' ? nudgeCard(S.nudge) : '';
-  const since = sinceStrip(inCards), inSince = new Set((sinceItems() || []).map(x => x.b.id));
+  S.hmSinceShown = new Set(); S.hmCardMoments = new Map();
+  const since = sinceStrip(inCards, new Set(cards.slice(0, 2).map(x => x.b.id))), inSince = S.hmSinceShown;
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
-  const sugInMain = !cards.length && !asks.length;
+  const sugInMain = !cards.length && !asks.length;   // (the strip, above, also decided which moments are a card's reason line)
   const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">${sugInMain ? 'A bill that still needs voices' : 'Another bill that needs voices'}</h2>
       ${sugCard(sug.b, sug.h)}
       ${btn('More bills that need voices', { kind: 'text', iconEnd: 'chevron-right', href: '#/find', cls: 'hm-link' })}</section>` : '';
@@ -422,7 +480,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
       ${sugInMain ? sugHtml : ''}
     </div><div class="side hm-side">
       ${newIssuesCard()}
-      ${sessionPanel(si)}
+      ${sessionPanel(si, { skip: inSince })}
       ${whatsNew(new Set([...inCards, ...inSince]))}
       ${homeScreenCard()}
       ${meetCard()}
@@ -466,7 +524,7 @@ function welcomeView(si, { cards, asks, total }) {
   const due = week ? dueInfo(week.h) : null;
   const weekCard = week ? `<section class="card hm-week" aria-labelledby="hm-wk"><p class="hm-eyebrow">This week</p>
       <h2 id="hm-wk">${esc(spaced(week.b.bill_number))} has a hearing ${esc(dayWord(week.h.scheduled_at))}</h2>
-      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${esc(due.text)}${S.session ? '; we’ll remind you' : ''}.` : ''}</p>
+      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${due.html}${S.session ? '; we’ll remind you' : ''}.` : ''}</p>
       ${btn('See how to help', { kind: 'text', iconEnd: 'arrow-right', href: billPath(week.b), cls: 'hm-link' })}</section>` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
   const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;
@@ -605,6 +663,24 @@ function myIssues(yr) {
   return rows;
 }
 const issueRow = r => row({ lead: r.lead, title: esc(r.title), sub: esc(r.sub), href: r.href });
+// The session in one sentence, for the recap on Home between sessions and the session page (R-046): what they did and
+// what came of it, wins first. "Moved forward" is only said of a bill that got somewhere. One that passed a committee and
+// then stopped reads "passed the committee you spoke to" (the old "2 moved forward" sat above two rows that said "stopped").
+const RMOM_KEY = 'hiphi_recap_moment';
+const recapMomentSeen = yr => { try { return localStorage.getItem(RMOM_KEY) === String(yr); } catch { return true; } };   // private mode: never, rather than every visit
+function recapSaid(acts, acted, followed, yr) {
+  const count = (a, f) => a.filter(f).length;
+  // The Governor's desk is a stage, not a tone: in session a committee's yes is 'up' too (R-046's session page said "3
+  // reached the Governor's desk" of three committee votes), so those count as "passed the committee you spoke to".
+  const gov = x => (x.b.stage === 'governor' || x.b.stage === 'ballot') && sideOf(x.b) !== 'against';
+  const aLaw = count(acted, x => x.tone === 'law'), aGov = count(acted, gov), aPassed = count(acted, x => x.moved && !gov(x) && (x.tone === 'stop' || x.tone === 'up'));
+  const fLaw = count(followed, x => x.tone === 'law'), fGov = count(followed, gov);
+  const wins = (law, gov, passed) => list([law && `${n(law)} became law`, gov && `${n(gov)} reached the Governor’s desk`, passed && `${n(passed)} passed the committee you spoke to`]);
+  return acts.length
+    ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} on your issues became law.` : ''}`
+    : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} on your issues became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill on your issues ' : 'bills on your issues '}reached the Governor’s desk`])}.`
+    : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} stopped for this session. Many bills come back the next year.`;
+}
 function offView(si) {
   const yr = si.recapYear, next = si.nextOpen, nextYr = next ? +next.slice(0, 4) : yr + 1, welcome = welcomed();
   const opens = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : '';
@@ -612,19 +688,13 @@ function offView(si) {
   const acts = myActions().filter(a => a.year === yr || (!a.year && anyBill(a.bill_id)?.session_year === yr));
   // The recap leads with the wins: became law, then moved forward, then the rest. Bills acted on come before bills
   // only followed (the sort is stable).
-  const RANK = { law: 0, up: 1, wait: 2, stop: 3 };
+  const RANK = { law: 0, up: 1, wait: 2, on: 2, stop: 3 };
   const acted = impacts(acts), followed = followedRows(yr, new Set(acted.map(x => x.b.id)));
   const rows = [...acted, ...followed].sort((p, q) => RANK[p.tone] - RANK[q.tone] || !!q.moved - !!p.moved);
-  const count = (a, f) => a.filter(f).length;
-  // "Moved forward" is only said of a bill that got somewhere. One that passed a committee and then stopped reads
-  // "passed the committee you spoke to" (the old "2 moved forward" sat above two rows that said "stopped").
-  const aLaw = count(acted, x => x.tone === 'law'), aGov = count(acted, x => x.tone === 'up'), aPassed = count(acted, x => x.moved && x.tone === 'stop');
-  const fLaw = count(followed, x => x.tone === 'law'), fGov = count(followed, x => x.tone === 'up');
-  const wins = (law, gov, passed) => list([law && `${n(law)} became law`, gov && `${n(gov)} reached the Governor’s desk`, passed && `${n(passed)} passed the committee you spoke to`]);
-  const said = acts.length
-    ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} on your issues became law.` : ''}`
-    : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} on your issues became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill on your issues ' : 'bills on your issues '}reached the Governor’s desk`])}.`
-    : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} stopped for this session. Many bills come back the next year.`;
+  const said = recapSaid(acts, acted, followed, yr);
+  // The session's end, once (R-046): someone who acted on bills that session gets the full-screen moment, their session in a
+  // sentence, the peak at the end (C-7), the first time Home shows them the session as over. wire() shows it.
+  S.hmRecapMoment = acted.length && !welcome && !recapMomentSeen(yr) ? { yr, said } : null;
   const mine = myIssues(yr), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
   const nothingYet = !rows.length && !mine.length && !lists.length;
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
@@ -652,7 +722,7 @@ function offView(si) {
   const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
   const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
   return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}">
-    ${accountCards()}
+    ${accountCards()}${welcome ? '' : sinceStrip()}
     ${v2 ? `<header class="hm-head hm-break hm-finhead"><div class="hm-art">${anim ? CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>') : CAPITOL}</div>
       <div class="hm-breakt">${finHead({ off: true, lede: v2lede })}${daysChip}</div></header>`
     : `<header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
@@ -664,7 +734,8 @@ function offView(si) {
       ${rows.length ? `<section class="card hm-recap" aria-labelledby="hm-rc"><div class="hm-recaphead"><h2 id="hm-rc">Your ${yr} session</h2><div class="hm-isl">${islands(myIsland())}</div></div>
         <p>${esc(said)}</p>
         ${chipsHtml(milestoneState(acts).got)}
-        <h3 class="hm-label">What happened</h3>${impList(rows, 3)}</section>` : setup}
+        <h3 class="hm-label">What happened</h3>${impList(rows, 3)}
+        ${btn(`See your whole ${yr} session`, { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link' })}</section>` : setup}
       ${nothingYet ? `<section class="card hm-ready" aria-labelledby="hm-st"><h2 id="hm-st">Start with what you care about</h2>
         <p class="muted">Pick a few health issues now. When the session opens, HIPHI’s bills for them will be waiting here.</p>
         <div class="btncol">${btn('Pick the issues I care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}</div></section>` : ''}
@@ -677,6 +748,47 @@ function offView(si) {
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
     </div></div>
+  </div>`;
+}
+
+// ---------------- the session page, #/recap (R-046, Nate 9/30: "Personal session recap") ----------------
+// One page for the person's session: what they did, what came of it, their moments, the bills they followed and their
+// issues. In session it reads "so far"; between sessions it is the session that ended. Private: it reads only this
+// device's marks and the person's own account. Reached from "Your session" on Home and from More. Opening it is counted
+// privately, kind only ('recap', migration 106), once a visit.
+const KIND_LABEL = { testimony: ['testimony sent', 'testimonies sent'], email: ['email to a committee chair', 'emails to committee chairs'],
+  legislators: ['email to your legislators', 'emails to your legislators'], attend: ['hearing you went to', 'hearings you went to'], share: ['bill you shared', 'bills you shared'] };
+function recapView() {
+  const si = sessionInfo(), so = si.phase === 'in', yr = so ? si.yr : si.recapYear;
+  const acts = myActions().filter(a => a.year === yr || (!a.year && anyBill(a.bill_id)?.session_year === yr));
+  // "I plan to go" counts as going once the hearing has started (as the milestones do).
+  const real = acts.filter(a => a.kind !== 'attend' || (h => h && new Date(h.scheduled_at) <= Date.now())(anyHearing(a.hearing_id)));
+  const RANK = { law: 0, up: 1, wait: 2, on: 2, stop: 3 };
+  // One list of what happened, wins first (the review 9/30: a separate "Good news" list said the same results twice, A-14).
+  const acted = impacts(acts).sort((p, q) => RANK[p.tone] - RANK[q.tone]), followed = followedRows(yr, new Set(acted.map(x => x.b.id))).sort((p, q) => RANK[p.tone] - RANK[q.tone]);
+  const mine = myIssues(yr), stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && (b => !b || !b.session_year || b.session_year === yr)(anyBill(id))).length;
+  const said = acts.length || !so ? recapSaid(acts, acted, followed, yr)
+    : followed.length ? `You follow ${plural(followed.length, 'bill')} this session. When one has a hearing, a simple way to help shows up on Home.` : '';
+  const stat = (k, [one, many]) => k ? `<li><span class="hm-stat"><b>${n(k)}</b><span>${k === 1 ? one : many}</span></span></li>` : '';
+  // What they follow, counted as Home counts it: issues first, else bills (the review 9/30 found "14 bills" here and "2
+  // issues" on Home for the same person).
+  const nIss = followedIssues().length, nFol = nIss || S.bills.filter(b => !b.session_year || b.session_year === yr).length;
+  const stats = [...KINDS.map(k => stat(real.filter(a => a.kind === k).length, KIND_LABEL[k])), stat(stands, ['stand taken', 'stands taken']),
+    stat(nFol, nIss ? ['issue followed', 'issues followed'] : ['bill followed', 'bills followed'])].join('');
+  const ms = milestoneState(acts);
+  const nothing = !acts.length && !followed.length && !mine.length;
+  if (!S.recapLogged) { S.recapLogged = true; logAct('recap'); }
+  return `<div class="hm hm-rcp">
+    <a class="fd-back" href="#/" data-back>${icon('arrow-left')}<span>Home</span></a>
+    <header class="hm-head hm-rcphead"><h1 class="hero hm-rcph">${flower(28)}<span>Your ${yr} session${so ? ' so far' : ''}</span></h1>${said ? `<p class="lede">${esc(said)}</p>` : ''}</header>
+    ${nothing ? `<section class="card hm-ready"><h2>Your session adds up here</h2><p class="muted">Follow the issues you care about. When their bills have hearings, what you do and what comes of it is kept here, for you only.</p>
+      <div class="btncol">${btn('Pick the issues I care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}</div></section>` : `
+    ${stats ? `<ul class="hm-stats hm-rcpstats">${stats}</ul>` : ''}
+    ${ms.got.length ? `<section class="hm-sec" aria-labelledby="hm-rcp-ms"><h2 id="hm-rcp-ms">Milestones</h2>${chipsHtml(ms.got)}</section>` : ''}
+    ${acted.length ? `<section class="card hm-sec" aria-labelledby="hm-rcp-imp"><h2 id="hm-rcp-imp">What happened after you acted</h2>${impList(acted, 6)}</section>` : ''}
+    ${followed.length ? `<section class="card hm-sec" aria-labelledby="hm-rcp-fol"><h2 id="hm-rcp-fol">Bills you followed</h2><div class="hm-imps">${followed.map(impRow).join('')}</div></section>` : ''}
+    ${mine.length ? `<section class="hm-sec" aria-labelledby="hm-rcp-iss"><h2 id="hm-rcp-iss">Your issues</h2><div class="rows">${mine.map(issueRow).join('')}</div></section>` : ''}`}
+    ${so ? '' : btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
   </div>`;
 }
 
@@ -749,9 +861,10 @@ window.addEventListener('resize', fitSide);
 // ---------------- the screen ----------------
 export default {
   tab: 'home',
-  title: () => 'Home',
-  render() {
+  title: route => route?.name === 'recap' ? 'Your session' : 'Home',
+  render(route) {
     if (!S.featured || !S.pool) return skeleton(4);
+    if (route?.name === 'recap') return recapView();
     // A fresh arrival on Home (not a re-render after a tap) decides which Home to show and notes what was already
     // done. Re-renders keep the same shape, so following the first bill from "explore" does not swap the page under
     // the person's finger.
@@ -782,7 +895,25 @@ export default {
     finFx();
     // A result on a hearing they acted on, seen for the first time: the small burst, once (sinceStrip).
     const yb = S.hmBurst && root.querySelector('.hm-youburst .lead');
-    if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ } S.hmBurst = null; }
+    if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ }
+      if (String(S.hmBurst).includes(':')) S.hmBursted = S.hmBurst; S.hmBurst = null; }
+    // New moments (R-046): seen from now on (they stay on Home for this visit), counted privately by kind only, and a law
+    // gets the full-screen moment, the biggest there is (C-7).
+    const ms = S.hmMoments || []; S.hmMoments = null;
+    const law = ms.find(x => x.law);
+    if (ms.length) {
+      const m = momentsSeen(); ms.forEach(x => { m.add(x.moment); S.hmShown.add(x.moment); logAct('moment'); });
+      try { localStorage.setItem(MSEEN_KEY, JSON.stringify([...m].slice(-500))); } catch { /* private mode: shown again next visit */ }
+      if (law) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(law.b) ? 'was adopted' : 'became law'}`, sub: `${nick(law.b) || spaced(law.b.bill_number)}. Mahalo for speaking up.`, go: 'Continue' }), 400);
+    }
+    // One full-screen moment a visit: a law first; the session's end waits for the next visit then.
+    const rm = S.hmRecapMoment; S.hmRecapMoment = null;
+    // Only its main button opens the session page; Not now, Escape and a tap outside stay on Home (B-4, the review 9/30).
+    if (rm && !law) { try { localStorage.setItem(RMOM_KEY, String(rm.yr)); } catch { /* private mode */ }
+      let go = false;
+      setTimeout(() => { celebrate({ title: `The Legislature’s ${rm.yr} session is over`, sub: rm.said, go: 'See your session', alt: { label: 'Not now', act: () => {} } },
+        () => { if (go) app.go('#/recap'); });
+        document.getElementById('fx-mgo')?.addEventListener('click', () => { go = true; }, { capture: true }); }, 400); }
     root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
     root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
     root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {

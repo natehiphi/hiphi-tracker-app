@@ -525,7 +525,7 @@ function knowScreen() {
         <p class="hp-knw">${esc(w || cleanDesc(b.title) || '')}</p>
         ${capitolLink(b, h, 'Read the bill on the Capitol website', { kind: 'text', sm: true, cls: 'hp-inl' })}</div>
       ${p ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(p.text)} it.${act ? ' ' + esc(act) : ''}</p></div>` : ''}
-      ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${esc(due.text)}</span></p>` : ''}
+      ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
       ${isMail(x) ? whyNow(x) : ''}
     </div>
     ${pts.length ? `<section class="hp-ptsec" aria-labelledby="hp-pth"><h4 class="hp-knh" id="hp-pth">Points you can make</h4>

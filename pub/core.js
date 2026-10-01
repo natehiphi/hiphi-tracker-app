@@ -946,6 +946,52 @@ export function myActions() {
 export const anyBill = id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null);
 export const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat(), ...(DEMO ? D.hearings : [])].find(h => h.id === id) || null) : null;
 export const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
+// Which way the person is on a bill: their own stance, else HIPHI's position when they have none; null when neither
+// says. Good news has to go their way (the review 9/30: someone who testified against a bill was told "Good news" when
+// a committee passed it).
+export function sideOf(b) {
+  const st = (S.stances || {})[b?.id];
+  if (st === 'support') return 'for';
+  if (st === 'oppose') return 'against';
+  const p = b?.hiphi_position || '';
+  return /support/.test(p) ? 'for' : /oppose/.test(p) ? 'against' : null;
+}
+// What came after the person acted, when it went their way (R-046, Nate 9/30: "You helped a bill get a hearing. You
+// helped a bill pass a hearing."). Each is a fact said plainly, what they did and then what happened, never a claim that
+// they caused it:
+//   heard   for the bill: they asked for a hearing (an email to the chair, or to their own legislators, while the bill
+//           waited) and a hearing notice for it was posted after
+//   passed  for the bill: they acted on a hearing (testimony, an email to the chair, went, shared it) and the committee
+//           passed it
+//   held    against the bill: they acted on a hearing and the committee put it on hold
+//   law     for the bill: they acted on it and it became law (or, for a resolution, was adopted)
+// Where the side is unknown there is no moment, only the plain fact in "What happened after you acted".
+// { key, kind, b, h, at, did } newest first; key names the moment once (Home shows each one once, R-046).
+const billHearings = id => { const seen = new Set();
+  return [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat(), ...(DEMO ? D.hearings : [])]
+    .filter(h => h.bill_id === id && !seen.has(h.id) && seen.add(h.id)); };
+const DID = { testimony: 'You testified', email: 'You emailed the chair', legislators: 'You wrote to your legislators', attend: 'You went', share: 'You shared it' };
+export function results() {
+  const acts = myActions(), by = new Map(), out = [];
+  for (const a of acts) { if (!by.has(a.bill_id)) by.set(a.bill_id, []); by.get(a.bill_id).push(a); }
+  for (const [id, as] of by) {
+    const b = anyBill(id); if (!b) continue;
+    const side = sideOf(b); if (!side) continue;
+    const asks = as.filter(a => !a.hearing_id && (a.kind === 'email' || a.kind === 'legislators') && a.at).sort((x, y) => x.at.localeCompare(y.at));
+    if (asks.length && side === 'for') {
+      const t0 = +new Date(asks[0].at);
+      const h = billHearings(id).filter(x => x.notice_posted_at && +new Date(x.notice_posted_at) > t0 && x.status !== 'cancelled').sort((x, y) => x.notice_posted_at.localeCompare(y.notice_posted_at))[0];
+      if (h) out.push({ key: 'heard:' + h.id, kind: 'heard', b, h, at: h.notice_posted_at, did: asks[0].kind === 'legislators' ? 'You wrote to your legislators' : 'You asked for a hearing' });
+    }
+    for (const hid of new Set(as.filter(a => a.hearing_id).map(a => a.hearing_id))) {
+      const h = anyHearing(hid), o = h && outcomeOf(h), k = KINDS.find(x => as.some(a => a.hearing_id === hid && a.kind === x));
+      if (o && side === 'for' && /passed/.test(o.outcome || '')) out.push({ key: 'passed:' + hid, kind: 'passed', b, h, at: o.reported_at || h.scheduled_at, did: DID[k] || 'You spoke up', amended: o.outcome === 'passed_amended' });
+      if (o && side === 'against' && o.outcome === 'deferred') out.push({ key: 'held:' + hid, kind: 'held', b, h, at: o.reported_at || h.scheduled_at, did: DID[k] || 'You spoke up' });
+    }
+    if (b.stage === 'enacted' && side === 'for') out.push({ key: 'law:' + id, kind: 'law', b, h: null, at: b.last_action_date || '', did: 'You spoke up for it' });
+  }
+  return out.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+}
 // Milestones mark real acts, are shown only to the person, and never expire.
 export const MILESTONES = [
   ['follow', 'Following along', 'follow your first issue', () => followsAnything()],
@@ -959,8 +1005,11 @@ export const MILESTONES = [
   ['both', 'Both chambers', 'act on one bill in the House and in the Senate', a => { const m = {};
     for (const x of a) { const h = anyHearing(x.hearing_id), ch = h && S.committees[codesOf(h.committee)[0]]?.chamber; if (ch) (m[x.bill_id] ??= new Set()).add(ch); }
     return Object.values(m).some(v => v.size > 1); }],
-  ['law', 'Made it law', 'a bill you acted on becomes law', a => a.some(x => anyBill(x.bill_id)?.stage === 'enacted')],
+  // A result, so never offered as a goal (nobody earns it by trying harder); named for what the person did, not as if they
+  // made the law (the review 9/30), and only for a bill they were for.
+  ['law', 'Spoke up for a new law', 'speak up for a bill that becomes law', a => a.some(x => { const b = anyBill(x.bill_id); return b?.stage === 'enacted' && sideOf(b) === 'for'; })],
 ];
+export const RESULT_MILESTONES = new Set(['law']);
 // "You testified on HB 123 → the Health committee passed it": the result is the reward.
 export function impactRows(acts, limit = 5) {
   const by = new Map();
@@ -970,7 +1019,7 @@ export function impactRows(acts, limit = 5) {
   return [...by.values()].sort((x, y) => y.at.localeCompare(x.at)).map(x => {
     const b = anyBill(x.bill_id); if (!b) return null;
     const h = anyHearing(x.hearing_id), o = h && outcomeOf(h), past = h && new Date(h.scheduled_at) < Date.now(), who = h ? cmteName(h.committee) : '';
-    const [tone, text] = b.stage === 'enacted' ? ['law', `${isResolution(b) ? 'Adopted' : 'Became law'}. Mahalo for your part in it.`]
+    const [tone, text] = b.stage === 'enacted' ? ['law', `${isResolution(b) ? 'Adopted' : 'Became law'}.${sideOf(b) === 'for' ? ' Mahalo for speaking up.' : ''}`]
       : b.stage === 'ballot' ? ['law', 'Passed the Legislature. The voters decide in November.']
       : b.stage === 'vetoed' ? ['stop', 'Vetoed by the Governor.']
       : o && /passed/.test(o.outcome || '') ? ['up', `${who} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`]
@@ -1082,13 +1131,27 @@ export function cmteLabel(code, { short = false } = {}) {
   return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
 export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
-// Testimony deadline wording and urgency: danger under 24 hours, warning under 48.
+// Testimony deadline wording and urgency (A-5): amber within 24 hours, red once overdue.
+// html: the same line for a page; within a day an honest countdown leads it (R-046, Nate 9/30: only a real deadline, in
+// words, never seconds): "Testimony due in under 5 hours · today at 1:00 PM". Rounded up and said as "under", so it never
+// disagrees with the time beside it (the review 9/30 caught "in 3 hours · today at 1:00 PM" at 9:01). The countdown is a
+// span the page's minute timer rewrites (below), so a page left open stays true.
+export const inHours = ms => { const h = Math.ceil(ms / 36e5); return h <= 1 ? 'in under an hour' : `in under ${h} hours`; };
 export function dueInfo(h) {
   if (!h?.testimony_deadline) return null;
-  const t = new Date(h.testimony_deadline).getTime(), left = t - Date.now();
-  if (left <= 0) return { text: `Testimony deadline passed ${dateLong(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}`, tone: 'warn', late: true };
-  return { text: `Testimony due ${dayWord(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}`, tone: left < 864e5 ? 'danger' : left < 2 * 864e5 ? 'warn' : '', late: false };
+  const iso = h.testimony_deadline, t = new Date(iso).getTime(), left = t - Date.now();
+  if (left <= 0) { const text = `Testimony deadline passed ${dateLong(iso)} at ${timeWord(iso)}`; return { text, html: esc(text), tone: 'danger', late: true }; }
+  const text = `Testimony due ${dayWord(iso)} at ${timeWord(iso)}`;
+  const html = left < 864e5 ? `<span data-due="${esc(iso)}">Testimony due ${inHours(left)}</span> · ${esc(dayWord(iso))} at ${esc(timeWord(iso))}` : esc(text);
+  return { text, html, tone: left < 864e5 ? 'warn' : '', late: false };
 }
+// The countdowns' minute timer. When one runs out, the page is drawn again: the card changes to its late state.
+if (typeof window !== 'undefined') setInterval(() => {
+  if (document.hidden) return;
+  let over = false;
+  document.querySelectorAll('[data-due]').forEach(el => { const left = new Date(el.dataset.due) - Date.now(); if (left <= 0) over = true; else { const t = `Testimony due ${inHours(left)}`; if (el.textContent !== t) el.textContent = t; } });
+  if (over) app.render?.();
+}, 60000);
 export const hearingText = h => h ? `Hearing ${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}` : '';
 // One plain sentence for where a bill is and what happens next.
 export function plainStatus(b) {
@@ -1107,7 +1170,7 @@ export function plainStatus(b) {
   const passed = st.leg === 'second' ? `Passed the ${other}. ` : '';
   if (st.hearingState === 'scheduled') {
     const d = dueInfo(st.hearing);
-    return { text: `${passed}${cap(where)} ${codesOf(st.committee).length > 1 ? 'hear' : 'hears'} it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d?.tone || 'info' };
+    return { text: `${passed}${cap(where)} ${codesOf(st.committee).length > 1 ? 'hear' : 'hears'} it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d && !d.late ? d.tone || 'info' : 'info' };
   }
   if (st.hearingState === 'held') return { text: `${passed}${cap(where)} heard it ${dateLong(st.hearing.scheduled_at)}. Waiting for ${codesOf(st.committee).length > 1 ? 'their' : 'its'} decision.`, short: 'Heard, waiting for the decision', tone: 'info' };
   if (!st.committee) return { text: `${passed}Waiting to be sent to a ${ch} committee.`, short: `Waiting for a ${ch} committee`, tone: '' };
