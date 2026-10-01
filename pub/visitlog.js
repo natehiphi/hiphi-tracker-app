@@ -31,7 +31,7 @@ const gpc = () => { try { return navigator.globalPrivacyControl === true || navi
 // tests/visitlog.py, which intercepts every request, turns counting back on with window.__hiphiCountTests (a page flag,
 // not storage: the sandbox renames hiphi_ storage names).
 const testRun = () => { try { return (navigator.webdriver === true || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) && window.__hiphiCountTests !== true; } catch { return false; } };
-const quiet = () => gpc() || testRun();
+export const quiet = () => gpc() || testRun();   // errlog.js (R-111) follows the same rules
 
 // ---- this visit: its id and where it came from, worked out once and kept for the life of the tab ----
 let mem = null;   // when sessionStorage is not available (a private window that refuses it), this page load only
@@ -60,7 +60,7 @@ function refSite() {
     return SITE.test(h) ? h : '';
   } catch { return ''; }
 }
-const device = () => { const w = window.innerWidth || document.documentElement.clientWidth || 0; return w < 600 ? 'phone' : w < 1024 ? 'tablet' : 'laptop'; };
+export const device = () => { const w = window.innerWidth || document.documentElement.clientWidth || 0; return w < 600 ? 'phone' : w < 1024 ? 'tablet' : 'laptop'; };
 function visit() {
   let v = read();
   if (!v || !v.id) { v = { id: newId(), n: 0, src: { ...fromUrl(), ref_domain: refSite(), device: device() } }; write(v); }

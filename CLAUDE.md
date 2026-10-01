@@ -113,6 +113,21 @@ session's bill of that number) and `b/2026/HB2121` (that session's), every one f
 Tests: `tests/year_links.py` (the sandbox, with a 2025 copy of one bill served into the snapshot) and
 `tests/year_links_live.py` (the published site).
 
+**The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
+(imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen
+that failed to draw, a start that failed) to `log_public_error` (backend migration 110): the kind, the screen's address
+part (`placeOf`: bill/HB2121, home; never a query string, a shared list's link or an account id), the first 200
+characters of the message, the file and line (the site's own path), phone/tablet/laptop and whether it is the sandbox.
+Nothing with the privacy signal or from a test run (`quiet()` in `visitlog.js`); at most five a page load; a dropped
+connection is not reported. `track.html` has a small plain-script catcher for errors before the modules run and for a
+page whose code never starts (it reports `boot` after 20 seconds unless `app.js` set `__hiphiErrs.booted`); its address
+and key must equal `pub/core.js`'s. Staff see the week's list in Staff v2 > Session setup ("The public page's errors",
+`DB.publicErrors()` reading `public_errors_recent`); the hourly health check tells admins by Slack at ten or more in an
+hour. The privacy page says so ("If the page breaks"). **GitHub runs the tests on every push** (`.github/workflows/tests.yml`,
+free in this public repo): the module-aware syntax check of every JS file, `parity.mjs`, `rank_test.mjs`, then
+`screens_smoke.py`, `year_links.py` and `errlog.py` against the commit served locally; a red run emails whoever pushed.
+`uptime.yml` loads the published page hourly from November to June (`tests/uptime.py`) and fails if it does not draw.
+
 **A bill's pathway names each committee (R-081, 9/29):** `railInfo` in `pub/bill.js` expands the House and Senate
 committee steps into one step per committee (two heard together are one step), so a path has 4 to 11 dots; a chamber that
 has not picked its committees yet stays one "Senate committees" step. Committees have their **full names** (Nate 9/29:
@@ -437,6 +452,10 @@ python3 tests/moments.py            # good news for results, honest countdowns, 
 python3 tests/moments_live.py       # the session page and Home on live data, signed out (R-046); 6 checks
 python3 tests/staff_daily_email.py  # Staff v2: a supporter email goes in the 4:30 pm email, Undo, Take it back, Session setup > Email (R-101); 13 checks
 python3 tests/consent.py            # the sign-in page's "Keep me updated" starts empty; a hearing-alert ask turns on only hearing alerts (R-101); 5 checks
+python3 tests/year_links.py         # year-proof bill links in the sandbox, with a 2025 copy of one bill served into the snapshot (R-110); 14 checks
+python3 tests/year_links_live.py    # the same on the published site, with the share pages (R-110); 7 checks
+python3 tests/errlog.py             # the public page's error reports: what is sent, what never is, the early catcher (R-111); 17 checks
+python3 tests/uptime.py             # the published page draws four screens with no error, as the hourly GitHub job checks it (R-111)
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

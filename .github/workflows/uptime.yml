@@ -1,0 +1,27 @@
+# The published public page, checked once an hour from November to June (R-111, the assessment's U1): a phone-sized
+# browser loads it with the privacy signal set (so the visit is not counted) and the job fails if the page does not
+# draw within 30 seconds, shows "We couldn't load the bills" or throws, on Home, a bill page, Find and the legislators.
+# GitHub emails the person who last changed this file when a run fails. The database's own hourly check (health_probe,
+# R-104) only sees that the page and its data answer; this sees that the app runs. Free: a public repository's Actions
+# minutes are not counted. GitHub may start it late; it is a backstop behind the error reports visitors' browsers send.
+name: Public page check
+on:
+  schedule:
+    - cron: '23 * * 1-6,11,12 *'
+  workflow_dispatch:
+concurrency: uptime
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Playwright
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+      - name: Load the published page
+        run: python3 tests/uptime.py

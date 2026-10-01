@@ -44,13 +44,40 @@ const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees',
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED].map(([k, t, ic]) => [k, { t, ic }]));
 
 // ---- async state: readiness and secret status load once per visit and on "Check again" ----
-const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
+const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 function loadReady(force) {
   const s = st(); if (s.readyBusy || (s.ready && !force)) return;
   s.readyBusy = true; s.readyErr = '';
   DB.readiness().then(r => { s.ready = r || []; }).catch(e => { s.readyErr = e.message || 'Could not check.'; s.ready = s.ready || null; })
     .finally(() => { s.readyBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+// The public page's own error reports, the last 7 days (110, R-111). Loads once per visit and with "Check again".
+function loadErrors(force) {
+  const s = st(); if (s.errsBusy || (s.errs && !force)) return;
+  s.errsBusy = true; s.errsErr = '';
+  DB.publicErrors().then(r => { s.errs = r || []; }).catch(e => { s.errsErr = e.message || 'Could not load.'; s.errs = s.errs || null; })
+    .finally(() => { s.errsBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+// What the public page reported: the week's total and today's, then the five most frequent errors outside the sandbox.
+// Each row is a distinct error (message and screen); its file and line are for Claude, who fixes it.
+const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+function errorsHTML() {
+  const s = st(); loadErrors();
+  if (!s.errs) return s.errsErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the public page's error reports. ${esc(s.errsErr)}`)}</div>`
+    : `<div class="rows st-ready" aria-busy="true"><div class="st-rrow"><div class="skel" style="height:40px;flex:1"></div></div></div>`;
+  const today = hstToday(), live = s.errs.filter(e => !e.sandbox), sum = l => l.reduce((a, e) => a + (e.reports || 0), 0);
+  const n = sum(live), nToday = sum(live.filter(e => e.day === today)), sb = sum(s.errs.filter(e => e.sandbox));
+  const by = new Map();
+  for (const e of live) { const k = `${e.message}|${e.place}`, g = by.get(k) || { ...e, reports: 0 }; g.reports += e.reports || 0; if (e.last_at > g.last_at) { g.last_at = e.last_at; g.day = e.day; g.source = e.source; } by.set(k, g); }
+  const top = [...by.values()].sort((a, b) => b.reports - a.reports).slice(0, 5);
+  const words = n ? `${plural(n, 'error report')} from visitors' browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
+    : `No errors reported by visitors' browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
+  const rowH = e => `<div class="st-rrow ${e.day === today ? 'bad' : 'info'}"><span class="st-ric">${icon(e.day === today ? 'circle-x' : 'info')}</span>
+    <div class="st-rbody"><span class="st-rlab">${esc(e.message)}</span><span class="st-rdet">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, e.place ? `on ${e.place}` : '', e.source || '', `last ${fmtDate(e.last_at)}`].filter(Boolean).join(' · '))}</span></div></div>`;
+  return `<p class="st-sum">${n ? chip(nToday ? 'Errors today' : 'Errors this week', nToday ? 'danger' : 'info', 'circle-alert') : chip('No errors', 'ok', 'circle-check')}<span>${esc(words)}</span></p>
+    ${top.length ? `<div class="rows st-ready">${top.map(rowH).join('')}</div>` : ''}
+    <p class="st-rfix">A report says which screen broke, what the error said and the file it came from, never who the person is; nothing is sent with the privacy signal. The hourly health check tells admins by Slack when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
 }
 function loadOffLists() {
   const s = st(); if (s.offListsBusy || s.offLists) return;
@@ -165,12 +192,17 @@ function renderIndex() {
     </section>`;
   // Desktop: the checklist is the page (its heading is the h1); the list of parts is also in the left column.
   if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h1>Ready for session?</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
-    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>${parts}`);
+    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>
+    <section class="st-sec" aria-labelledby="st-eh"><div class="st-sechead"><h2 id="st-eh" class="st-h2">The public page's errors</h2></div>${errorsHTML()}</section>${parts}`);
   return `<div class="st-page st-setup">
     <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>
     <section class="st-sec" aria-labelledby="st-rh">
       <div class="st-sechead"><h2 id="st-rh">Ready for session?</h2>${recheck}</div>
       ${ready}
+    </section>
+    <section class="st-sec" aria-labelledby="st-eh">
+      <div class="st-sechead"><h2 id="st-eh">The public page's errors</h2></div>
+      ${errorsHTML()}
     </section>
     ${parts}
   </div>`;
@@ -194,7 +226,7 @@ function shell(cur, pane) {
 }
 function wireIndex(root) {
   const s = st();
-  root.querySelectorAll('[data-recheck]').forEach(b => b.onclick = () => { s.ready = null; loadReady(true); hooks.render(); });
+  root.querySelectorAll('[data-recheck]').forEach(b => b.onclick = () => { s.ready = null; loadReady(true); loadErrors(true); hooks.render(); });
   const adv = root.querySelector('[data-adv]');
   if (adv) adv.onclick = () => { s.advOpen = !s.advOpen; hooks.render(); root.querySelector('[data-adv]')?.focus(); };
   const pass = root.querySelector('[data-pass]');

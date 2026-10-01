@@ -485,6 +485,12 @@ export const DB = {
     if (DEMO) return DEMO_READINESS;
     const { data, error } = await S.supa.rpc('readiness'); if (error) throw error; return data;
   },
+  // The public page's own error reports, the last 7 days (110, R-111): staff only, nothing personal in them.
+  async publicErrors() {
+    if (DEMO) return DEMO_PUBLIC_ERRORS;
+    const { data, error } = await S.supa.from('public_errors_recent').select('*').order('last_at', { ascending: false }).limit(200);
+    if (error) throw error; return data || [];
+  },
   async saveReadinessManual(key, done, note) {
     const cur = { ...(S.readinessManual || {}) }; cur[key] = { done, note: note || '', by: S.me?.initials || null, at: new Date().toISOString() };
     S.readinessManual = cur;
@@ -1381,6 +1387,14 @@ export function demoTriageQueue(campaignId, matchedOnly) {
   return rows.filter(r => (!campaignId || (r.matches || []).some(m => m.campaign_id === campaignId)) && (!matchedOnly || r.matches))
     .sort((a, b) => (b.matches ? 1 : 0) - (a.matches ? 1 : 0) || a.bill_number.localeCompare(b.bill_number));
 }
+// Sample error reports for the sandbox's Session setup (110, R-111): one from yesterday, one from today, one in the sandbox.
+const DEMO_DAY = d => new Date(Date.now() - d * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const DEMO_AT = (d, h) => new Date(Date.now() - d * 864e5 - h * 36e5).toISOString();
+export const DEMO_PUBLIC_ERRORS = [
+  { day: DEMO_DAY(0), at_hour: DEMO_AT(0, 2), kind: 'render', place: 'bill/HB1075', message: "TypeError: Cannot read properties of undefined (reading 'scheduled_at')", source: '/hiphi-tracker-app/pub/bill.js:412:31', device: 'phone', sandbox: false, reports: 3, first_at: DEMO_AT(0, 2), last_at: DEMO_AT(0, 1) },
+  { day: DEMO_DAY(1), at_hour: DEMO_AT(1, 5), kind: 'error', place: 'home', message: 'ReferenceError: fmtWhen is not defined', source: '/hiphi-tracker-app/pub/home.js:88:9', device: 'laptop', sandbox: false, reports: 1, first_at: DEMO_AT(1, 5), last_at: DEMO_AT(1, 5) },
+  { day: DEMO_DAY(2), at_hour: DEMO_AT(2, 3), kind: 'rejection', place: 'start/4', message: 'Error: the lesson example has no hearings', source: '', device: 'tablet', sandbox: true, reports: 2, first_at: DEMO_AT(2, 3), last_at: DEMO_AT(2, 3) },
+];
 export const DEMO_READINESS = [
   { key: 'deadlines', level: 'block', label: '2026 session calendar loaded', ok: true, detail: '12 deadlines for 2026', fix: '' },
   { key: 'slots', level: 'block', label: 'Committee hearing schedules loaded', ok: true, detail: '91 meeting slots', fix: '' },

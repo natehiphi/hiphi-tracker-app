@@ -90,6 +90,33 @@ try {
   }
 } catch (e) { /* storage blocked: nothing to clear */ }
 </script>
+<script>
+/* The page's own error reports, part one (R-111, the assessment's U1; the rest is pub/errlog.js, which takes over once
+   the app's code runs). Errors from before that, and a page whose code never starts (9/28: blank for 15 minutes), would
+   otherwise go unreported. The same rules as errlog.js: nothing with the privacy signal or from a test run, nothing
+   personal. The address and key are pub/core.js's SUPABASE_URL and SUPABASE_KEY (tests/errlog.py checks they match). */
+(function () {
+  var E = window.__hiphiErrs = { early: [], handled: false, booted: false };
+  var text = function (e) { try { var r = e && (e.reason || e.error); return String((e && e.message) || (r && r.message) || r || '').slice(0, 200); } catch (x) { return ''; } };
+  var file = function (e) { try { return e && e.filename ? String(e.filename).replace(/^https?:\/\/[^/]+/, '').split('?')[0] + ':' + (e.lineno || 0) + ':' + (e.colno || 0) : ''; } catch (x) { return ''; } };
+  window.addEventListener('error', function (e) { if (!E.handled && E.early.length < 5) E.early.push({ kind: 'error', message: text(e), source: file(e) }); });
+  window.addEventListener('unhandledrejection', function (e) { if (!E.handled && E.early.length < 5) E.early.push({ kind: 'rejection', message: text(e), source: '' }); });
+  setTimeout(function () {
+    if (E.handled || E.booted) return;
+    var quiet = false;
+    try { quiet = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1' || ((navigator.webdriver === true || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) && window.__hiphiCountTests !== true); } catch (x) { quiet = true; }
+    if (quiet) return;
+    var first = E.early[0] || {}, w = window.innerWidth || 0;
+    var p = { kind: 'boot', place: 'start-up', message: ('The page did not start in 20 seconds. ' + (first.message || '')).slice(0, 200), source: first.source || '',
+      device: w < 600 ? 'phone' : w < 1024 ? 'tablet' : 'laptop', sandbox: /[?&]demo=1/.test(location.search) };
+    try {
+      fetch('https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/rpc/log_public_error', { method: 'POST', keepalive: true,
+        headers: { 'content-type': 'application/json', apikey: 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul', authorization: 'Bearer sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul' },
+        body: JSON.stringify({ p: p }) }).catch(function () {});
+    } catch (x) { /* nothing to do */ }
+  }, 20000);
+})();
+</script>
 <script type="module" src="pub/testbed.js"></script>
 <script type="module" src="pub/app.js"></script>
 </body>

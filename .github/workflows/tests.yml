@@ -1,0 +1,54 @@
+# Tests on every push (R-111, the assessment's U1). A public repository's GitHub Actions minutes are free, so this costs
+# nothing against the private Bill-Tracker repository's 2,000 a month (R-104). It fails the push when a screen breaks:
+# the module-aware syntax check of every JS file, the two staff apps' data-call parity, the suggested-bill rules, and
+# three Playwright runs against this commit served locally: every public screen as three kinds of person in the sandbox
+# and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py). The live
+# half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
+# pushed. The daily share-pages commit (b/ and i/ only) does not run it.
+name: Tests
+on:
+  push:
+    paths-ignore:
+      - 'b/**'
+      - 'i/**'
+  workflow_dispatch:
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax of every JS file (module-aware)
+        run: |
+          bad=0
+          for f in $(git ls-files '*.js' '*.mjs'); do
+            node --input-type=module --check < "$f" || { echo "SYNTAX ERROR in $f"; bad=1; }
+          done
+          exit $bad
+      - name: The two staff apps make the same data calls
+        run: node staff/tools/parity.mjs
+      - name: The suggested bill's rules
+        run: node tests/rank_test.mjs
+      - name: Playwright
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+      - name: Serve this commit
+        run: |
+          python3 -m http.server 8832 > /dev/null 2>&1 &
+          sleep 1
+      - name: Every public screen, three kinds of person, sandbox and live
+        run: python3 tests/screens_smoke.py
+      - name: Year-proof bill links
+        run: python3 tests/year_links.py
+      - name: The error reporter
+        run: python3 tests/errlog.py

@@ -1,6 +1,7 @@
 // HIPHI public tracker, redesign 9/19: the page frame and the router.
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
+import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
   wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY } from './core.js';
 import { MARK } from './art.js';
@@ -112,7 +113,7 @@ export function render() {
   document.body.classList.toggle('hasbar', !!bar);
   document.body.dataset.screen = route.name;
   let main;
-  try { main = scr.render(route); } catch (e) { console.error(e); main = errorCard(); }
+  try { main = scr.render(route); } catch (e) { console.error(e); reportError('render', e); main = errorCard(); }
   const keep = location.hash === lastRouteKey ? focusKey(document.activeElement) : null;
   // The sticky action bar is part of the page's main content (it holds the page's main button), so it sits inside <main>.
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
@@ -219,9 +220,10 @@ async function boot() {
       else history.replaceState({ y: 0 }, '', toHash(r));
     }
     render();
+    if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
     finishPlace(place);
   } catch (e) {
-    console.error(e);
+    console.error(e); reportError('boot', e);
     $app().innerHTML = `${header({ name: 'error' }, {})}<main id="main">${errorCard()}</main>`;
   }
 }
@@ -230,4 +232,4 @@ $app().innerHTML = `<div class="hdr"></div><main>${skeleton(4)}</main>`;
 // The clock starts with the script, so a start that hangs anywhere (the data file, the Supabase client) ends in the
 // "Try again" card instead of a skeleton that never goes away.
 Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))]).then(boot)
-  .catch(e => { console.error(e); $app().innerHTML = `<main id="main">${errorCard()}</main>`; });
+  .catch(e => { console.error(e); reportError('boot', e); $app().innerHTML = `<main id="main">${errorCard()}</main>`; });
