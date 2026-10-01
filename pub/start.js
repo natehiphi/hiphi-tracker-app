@@ -473,7 +473,7 @@ function example() {
   // Between sessions the example is already on the page (last session's bills) and only its hearings are missing:
   // one load, the full history. Two loads raced, and the 30-day one emptied what the full one had filled.
   if (b && isOff()) fullHistory(b);
-  else if (b && !full && !S.exLoading.has(b.id)) { S.exLoading.add(b.id); ensureBill(b.bill_number).then(() => { exKey = ''; app.render(); }).catch(() => {}); }
+  else if (b && !full && !S.exLoading.has(b.id)) { S.exLoading.add(b.id); ensureBill(b.bill_number, b.session_year).then(() => { exKey = ''; app.render(); }).catch(() => {}); }
   // A lesson opened from a bill page says it is that bill's story.
   const via = S.learnBill && location.hash.startsWith('#/learn/') && b && b.id === S.learnBill ? 'bill' : w.via ? (viaFollowed() ? 'followed' : 'link') : '';
   const key = `${isOff()}|${via}|${b ? b.id : ''}|${full}|${[...S.watch].length}|${S.bills.length}|${(S.recapPool || {}).yr || ''}`;

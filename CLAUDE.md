@@ -101,6 +101,18 @@ from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the 
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
 50 ready-made conversations (R-075: tap a question, a short answer with a small drawing, the next question; no typing
 box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`.
+**Bill links carry the session year when it isn't the current one (R-110, 10/1; the assessment's P6).** Numbers start
+again at HB 1 every January, so `#/bill/HB2121` means the current session's bill (`sessionInfo().yr`, the calendar's
+year) and a bill from an earlier session is `#/bill/2026/HB2121`. In `pub/core.js`: `yearPrefix(b)` ('' or '2026/'),
+`billRef(b)`, `billPath(b)` (use it for every bill link; never build `#/bill/` + number by hand), `pickBill(cands, year)`
+(the named year, else the current session's, else the newest) and `ensureBill(num, year)`, which asks the database for a
+newer bill when a number is on hand only from an earlier session. The bill page (`pub/bill.js`) keys its loading sets by
+"2026/HB2121" or "HB2121"; `?from=` on the legislators pages is `billRef`; the share pages are `b/HB2121` (the latest
+session's bill of that number) and `b/2026/HB2121` (that session's), every one forwarding to the exact bill, and
+`404.html` keeps the year; Staff v2's "Public page" link and Make a link add the year for an earlier session's bill.
+Tests: `tests/year_links.py` (the sandbox, with a 2025 copy of one bill served into the snapshot) and
+`tests/year_links_live.py` (the published site).
+
 **A bill's pathway names each committee (R-081, 9/29):** `railInfo` in `pub/bill.js` expands the House and Senate
 committee steps into one step per committee (two heard together are one step), so a path has 4 to 11 dots; a chamber that
 has not picked its committees yet stays one "Senate committees" step. Committees have their **full names** (Nate 9/29:

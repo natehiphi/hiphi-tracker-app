@@ -121,7 +121,7 @@ function goPanel(b, h, k) {
 function icsFor(b, h) {
   const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-  const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`, short = nick(b) || blurb(b, 60);
+  const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
   const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
     `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2('Hawaiʻi State Capitol, 415 S Beretania St, Honolulu, HI 96813, ' + roomLabel(h.room))}`, `URL:${url}`,
     ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, 'TRIGGER:-PT2H', 'END:VALARM'] : []), 'END:VEVENT'];
@@ -133,7 +133,7 @@ function icsFor(b, h) {
 // Written like a friend talking, not a notice (Nate 9/29: "too professional and not encouraging"). acted: sent by someone who
 // has just spoken up, so it starts from what they did.
 export function shareText(b, h, { acted = false } = {}) {
-  const url = `${location.origin}${location.pathname}#/bill/${b.bill_number}`;
+  const url = `${location.origin}${location.pathname}${billPath(b)}`;
   const name = nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
   const when = h && new Date(h.scheduled_at) > Date.now() ? ` The committee hears it ${dayWord(h.scheduled_at)}.` : '';
   const text = acted
@@ -162,7 +162,7 @@ export async function followToggle(id, label) {
   const b = anyBill(id), cnums = b ? companionsOf(b) : [];
   if (cnums.length === 1) {
     try {
-      const comp = await ensureBill(cnums[0]);
+      const comp = await ensureBill(cnums[0], b.session_year);   // its twin is in the same session
       if (comp && !S.watch.has(comp.id)) {
         toast(`Following ${label || 'this bill'}`.trim(), { yay: true, also: { label: `Follow ${spaced(cnums[0])} too?`,
           action: async () => { await toggleWatch(comp.id); toast(`Following ${spaced(cnums[0])} too`, { yay: true }); } } });

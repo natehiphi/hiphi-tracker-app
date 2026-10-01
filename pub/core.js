@@ -1364,13 +1364,20 @@ export const testimonyDraft = h => { try { return !!h && !!JSON.parse(localStora
 export const settledOn = (b, h) => ['testimony', 'email', 'attend'].some(k => didKind(b, h, k))
   || (didKind(b, h, 'share') && (!!dueInfo(h)?.late || agrees(b) === false || !posInfo(b)));
 // A bill by number ("HB1563"), loaded with its hearings and outcomes even when nobody follows it (shared links, search).
-export async function ensureBill(num) {
-  const n = String(num || '').replace(/\s/g, '').toUpperCase();
-  let b = S.bills.find(x => x.bill_number === n) || Object.values(S.extra).find(x => x.bill_number === n) || (S.results || []).find(x => x.bill_number === n);
-  if (!b && DEMO) b = D.bills.find(x => x.bill_number === n) || D.index.find(x => x.bill_number === n);
+// year: the session a link named (#/bill/2026/HB2121). Without one, the current session's bill of that number, else the
+// newest (R-110): a number on hand only as an earlier session's bill may have a newer one in the database, so ask.
+export async function ensureBill(num, year) {
+  const n = String(num || '').replace(/\s/g, '').toUpperCase(), y = +year || 0;
+  const have = [...S.bills, ...Object.values(S.extra), ...(S.results || []), ...(DEMO ? [...D.bills, ...D.index] : [])].filter(x => x.bill_number === n);
+  let b = pickBill(have, y);
   // The Supabase client hands back a dropped connection as an error value, not a throw. Throw it, so a caller can tell
   // "no such bill" (null) from "could not ask" (an error) and never blames the person for a weak signal.
-  if (!b && !DEMO) { const { data, error } = await S.supa.from('public_all_bills').select('*').eq('bill_number', n).limit(1); if (error) throw error; b = data?.[0]; }
+  if (!DEMO && (!b || (!y && +b.session_year !== sessionInfo().yr))) {
+    let q = S.supa.from('public_all_bills').select('*').eq('bill_number', n);
+    q = y ? q.eq('session_year', y) : q.order('session_year', { ascending: false });
+    const { data, error } = await q.limit(1); if (error) throw error;
+    if (data?.[0] && (!b || +data[0].session_year > +b.session_year)) b = data[0];
+  }
   if (!b) return null;
   if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] = b;
   if (DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
@@ -1395,7 +1402,17 @@ export const firstVisit = () => !followsAnything() && !myActions().length && !ha
 const hasDrafts = () => { try { return Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}).length > 0; } catch { return false; } };
 // Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
 export const readyForSession = () => !!wiz().ready && !followsAnything() && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
-export const billPath = b => '#/bill/' + String(b.bill_number).replace(/\s/g, '');
+// A bill's address (R-110). Numbers start again at HB 1 every session, so a bill from an earlier session carries its
+// year (#/bill/2026/HB2121) and the current session's bills keep the short form (#/bill/HB2121), which opens the
+// current session's bill when a number repeats. yearPrefix: '' for the current session, '2026/' for an earlier one.
+export const yearPrefix = b => b && b.session_year && +b.session_year !== sessionInfo().yr ? `${b.session_year}/` : '';
+export const billRef = b => yearPrefix(b) + String(b.bill_number).replace(/\s/g, '');
+export const billPath = b => '#/bill/' + billRef(b);
+// Of several bills with one number (one per session), the one a link means: the named year, else the current
+// session's, else the newest.
+export const pickBill = (cands, year) => { const c = (cands || []).filter(Boolean); if (!c.length) return null;
+  if (+year) return c.find(x => +x.session_year === +year) || null;
+  return c.find(x => +x.session_year === sessionInfo().yr) || c.slice().sort((a, b) => (+b.session_year || 0) - (+a.session_year || 0))[0]; };
 export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
 // Asking a chair for a hearing is remembered per committee, so a bill asked about in its House committee is offered
 // again when it later waits in the Senate. The email itself is still the person's action under the usual key

@@ -4,10 +4,11 @@
 <script>
 // GitHub Pages shows this for any address it does not have. A share link to a bill or issue whose page is not built yet
 // (tools/share_pages.mjs runs each morning; a position taken today has none until tomorrow) still reaches the tracker
-// (R-067). Anything else goes to the tracker's front door.
+// (R-067). A bill page from an earlier session carries its year (b/2026/HB2121 -> #/bill/2026/HB2121, R-110). Anything
+// else goes to the tracker's front door.
 (function () {
-  var p = location.pathname, m = /\/(b|i)\/([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/[^/]*$/, '/').replace(/[^/]*$/, '');
-  var to = m ? base + 'track.html?via=share#/' + (m[1] === 'b' ? 'bill/' + m[2].toUpperCase() : 'issue/' + m[2].toLowerCase()) : base + 'track.html';
+  var p = location.pathname, m = /\/(b|i)\/(?:(\d{4})\/)?([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/.*$/, '/').replace(/[^/]*$/, '');
+  var to = m ? base + 'track.html?via=share#/' + (m[1] === 'b' ? 'bill/' + (m[2] ? m[2] + '/' : '') + m[3].toUpperCase() : 'issue/' + m[3].toLowerCase()) : base + 'track.html';
   location.replace(to);
 })();
 </script></head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="track.html">Go to HIPHI’s Bill Tracker</a></p></body></html>

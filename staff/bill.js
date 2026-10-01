@@ -8,7 +8,7 @@
 // long Activity stream never costs you your place or the tab strip. The side panel is Next up and Team only; the key
 // facts moved into Details, which is what makes the panel fit on a 1280x800 screen without an inner scrollbar.
 // The Activity tab lives in activity.js, the Public tab in public.js, Pathway in pathway.js.
-import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
+import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail,
   billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
@@ -730,7 +730,9 @@ function detailsSection(b) {
   const stops = st.phase === 'committee' && st.stops > 1 && !dead
     ? `<span class="bw-gloss">Committee ${st.stop} of ${st.stops} in the ${esc(CHAMBER_NAME[st.chamber] || '')}: it needs a yes from each, in order</span>` : '';
   const live = pubStateCls(b).includes('live');
-  const pub = live ? `<a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a>` : '';
+  // The public page's address carries the year for a bill from an earlier session (#/bill/2026/HB2121, R-110).
+  const pubYear = b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : '';
+  const pub = live ? `<a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + pubYear + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a>` : '';
   // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">

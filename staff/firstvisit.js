@@ -10,7 +10,7 @@
 // A link is track.html?via=<partner>&utm_campaign=<word>: people arriving by it are counted under the partner and see
 // its welcome line (public_partners). The sandbox has no visits, so it shows made-up numbers, labelled as samples.
 // Both are views of the Issues screen (issues.js hands over), so the frame and its router stay as they are.
-import { S, DB, DEMO, hooks, esc } from './data.js';
+import { S, DB, DEMO, SESSION_YEAR, hooks, esc } from './data.js';
 import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, notice, pickerSheet, pickerChip, segmented, skeleton } from './ui.js';
 import { plural, afterClose } from './lists.js';
 
@@ -50,7 +50,10 @@ const slugOf = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02
 const wordOf = t => String(t || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40);
 // A link can open on one issue or one bill instead of the first screen (R-067): a flyer about the vape ban can land on
 // the vape ban. The ?via= still counts the arrival under the partner. dest: '' | 'issue:<slug>' | 'bill:<HB2121>'.
-const destHash = d => { const [k, x] = String(d || '').split(':'); return k === 'issue' && x ? `#/issue/${encodeURIComponent(x)}` : k === 'bill' && x ? `#/bill/${x}` : ''; };
+const destHash = d => { const [k, x] = String(d || '').split(':'); return k === 'issue' && x ? `#/issue/${encodeURIComponent(x)}` : k === 'bill' && x ? `#/bill/${billYear(x)}${x}` : ''; };
+// A bill from an earlier session carries its year in the link (#/bill/2026/HB2121, R-110); the current session's keep
+// the short form. The staff app holds the tracked bills, so a number it knows from an earlier session gets its year.
+const billYear = n => { const b = (S.bills || []).find(x => x.bill_number === n); return b && b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : ''; };
 export const linkFor = (slug, word = '', dest = '') => `${LINK_BASE}?via=${encodeURIComponent(slug)}${word ? `&utm_campaign=${encodeURIComponent(word)}` : ''}${destHash(dest)}`;
 const billNo = t => { const m = /^\s*([HS])\.?\s*([BRC]|CR|HR|SR)?\.?\s*(\d{1,4})\s*$/i.exec(String(t || '')); return m ? `${m[1].toUpperCase()}${(m[2] || 'B').toUpperCase()}${+m[3]}` : ''; };
 const destName = d => { const [k, x] = String(d || '').split(':'); if (k === 'issue') return (S.issues || []).find(i => i.slug === x)?.name || x; if (k === 'bill') return x.replace(/^([A-Z]+)(\d)/, '$1 $2'); return 'The first visit'; };

@@ -2,7 +2,9 @@
 // pasted into a text or a post previews with the bill's own name and what it does, instead of the tracker's general
 // card (R-067). The tracker's bill pages are addresses after a # (#/bill/HB2121), which no link preview can read. Each
 // page sends a person straight on to the tracker (?via=share, so arrivals by shared link are counted as such) and gives
-// a preview robot the title, description and picture.
+// a preview robot the title, description and picture. Bill numbers start again every session (R-110): b/HB2121 is the
+// latest session's bill of that number, b/2026/HB2121 that session's, and every page sends people to the exact bill it
+// describes (#/bill/2026/HB2121), so a link shared in 2026 still opens the 2026 bill in 2027.
 //
 //   node tools/share_pages.mjs            writes b/ and i/ from the live public views (read-only, the public key)
 //   node tools/share_pages.mjs --check    says what would change, writes nothing
@@ -57,11 +59,13 @@ function page({ title, desc, to, self }) {
 const bills = (await rows('public_all_bills?select=bill_number,session_year,hiphi_nickname,hiphi_summary,description,hiphi_position&hiphi_position=not.is.null&order=session_year.asc'));
 const issues = await rows('public_issues?select=slug,name,description,bill_ids');
 const want = new Map();   // file -> html
-for (const b of bills) {   // the latest session wins when a number repeats
-  const n = b.bill_number.replace(/\s/g, ''), name = b.hiphi_nickname;
+for (const b of bills) {   // oldest session first, so the latest wins b/<number> when a number repeats
+  const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0, name = b.hiphi_nickname;
   const title = `${name ? `${name} (${spaced(n)})` : spaced(n)} · HIPHI Bill Tracker`;
   const desc = `${cut(b.hiphi_summary || b.description || '', 180)} ${POS[b.hiphi_position] || ''} Follow it and speak up in a few minutes.`.replace(/\s+/g, ' ').trim();
-  want.set(`b/${n}.html`, page({ title, desc, to: `../track.html?via=share#/bill/${n}`, self: `${SITE}b/${n}` }));
+  const hash = `#/bill/${y ? `${y}/` : ''}${n}`;   // the exact bill, by its session (R-110)
+  want.set(`b/${n}.html`, page({ title, desc, to: `../track.html?via=share${hash}`, self: `${SITE}b/${n}` }));
+  if (y) want.set(`b/${y}/${n}.html`, page({ title, desc, to: `../../track.html?via=share${hash}`, self: `${SITE}b/${y}/${n}` }));
 }
 for (const i of issues) {
   if (!/^[a-z0-9-]+$/.test(i.slug)) continue;
@@ -72,11 +76,15 @@ for (const i of issues) {
 let added = 0, changed = 0, removed = 0;
 for (const dir of ['b', 'i']) {
   const d = join(ROOT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
-  for (const f of existsSync(d) ? readdirSync(d) : []) if (f.endsWith('.html') && !want.has(`${dir}/${f}`)) { removed++; if (!CHECK) unlinkSync(join(d, f)); }
+  const years = existsSync(d) ? readdirSync(d).filter(f => /^\d{4}$/.test(f)) : [];   // b/2026/, one folder per session
+  for (const sub of ['', ...years]) {
+    const dd = sub ? join(d, sub) : d;
+    for (const f of readdirSync(dd)) if (f.endsWith('.html') && !want.has(`${dir}/${sub ? `${sub}/` : ''}${f}`)) { removed++; if (!CHECK) unlinkSync(join(dd, f)); }
+  }
 }
 for (const [f, html] of want) {
   const p = join(ROOT, f), old = existsSync(p) ? readFileSync(p, 'utf8') : null;
   if (old === html) continue; old === null ? added++ : changed++;
-  if (!CHECK) writeFileSync(p, html);
+  if (!CHECK) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, html); }
 }
 console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed${CHECK ? ' (check only, nothing written)' : ''}`);

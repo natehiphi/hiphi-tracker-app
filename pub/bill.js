@@ -6,7 +6,7 @@
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
-  toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
+  pickBill, billRef, billPath, yearPrefix, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
@@ -19,7 +19,12 @@ import { openAddTo, onListsLine } from './mylists.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
-const numFromHash = () => normNum((/bill[=/]([A-Za-z]+\s?\d+)/i.exec(decodeURIComponent(location.hash)) || [])[1]);
+// The address names a number, and for a bill from an earlier session its year too (#/bill/2026/HB2121, R-110). The
+// loading sets below are keyed by "2026/HB2121" or "HB2121" (keyOf): one key per address.
+const keyOf = (num, year) => (year ? `${year}/` : '') + num;
+const refFromHash = () => { const m = /bill[=/](?:(\d{4})\/)?([A-Za-z]+\s?\d+)/i.exec(decodeURIComponent(location.hash)); return { num: normNum(m ? m[2] : ''), year: +(m ? m[1] : 0) || 0 }; };
+const numFromHash = () => refFromHash().num;
+const keyFromHash = () => { const r = refFromHash(); return keyOf(r.num, r.year); };
 const originOf = b => b.chamber || (/^S/.test(b.bill_number) ? 'S' : 'H');
 const me = () => { try { return JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { return {}; } };
 // The districts the people screen saves ("Remember on this device"): {senate, house, label}.
@@ -33,8 +38,9 @@ const capitolUrl = b => b.state_url || (m => m ? `https://capitol.hawaii.gov/ses
 // A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
 // pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
 // tomorrow. Other bills, and the sandbox, share the tracker's own address.
-const shareUrl = b => { const n = String(b.bill_number).replace(/\s/g, '');
-  return b.hiphi_position && !DEMO ? `${location.origin}${location.pathname.replace(/[^/]*$/, '')}b/${n}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}#/bill/${n}`; };
+// A bill from an earlier session shares b/2026/HB2121 and #/bill/2026/HB2121 (R-110).
+const shareUrl = b => { const ref = billRef(b);
+  return b.hiphi_position && !DEMO ? `${location.origin}${location.pathname.replace(/[^/]*$/, '')}b/${ref}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}${billPath(b)}`; };
 const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? `+1${d}` : d; };
 
 // Two layouts from the same parts. A phone reads top to bottom: what the bill is, where you stand, where it is, what
@@ -51,44 +57,49 @@ WIDE.addEventListener?.('change', () => { if (onBill()) app.render(); });
 // A bill opened from a shared link or search is not in the followed set; ensureBill fetches it with its hearings.
 S.blLoading ??= new Set(); S.blMissing ??= new Set(); S.blErr ??= new Set(); S.blTried ??= new Set(); S.blSocial ??= new Set();
 S.blOpen ??= new Set();   // which folds are open ("<bill id>|steps"), so a redraw never closes what the person opened
-const lookup = num => S.bills.find(x => x.bill_number === num) || Object.values(S.extra || {}).find(x => x.bill_number === num) || null;
+const lookup = (num, year) => pickBill([...S.bills, ...Object.values(S.extra || {})].filter(x => x.bill_number === num), year);
 const ready = b => S.bills.some(x => x.id === b.id) || !!(S.xh || {})[b.id];
 // The bill, once its page can be drawn: it is known and its hearings are in. (A bill that is known but whose hearings
 // never arrived is still drawn after one try, rather than never.)
-function drawn(num) {
-  const b = lookup(num); if (!b) return null;
-  return ready(b) || (S.blTried.has(num) && !S.blLoading.has(num) && !S.blErr.has(num)) ? b : null;
+function drawn(num, year) {
+  const b = lookup(num, year); if (!b) return null;
+  const key = keyOf(num, year);
+  // An address with no year means the current session's bill: one on hand only from an earlier session is drawn once
+  // the database has been asked for a newer one (ensureBill, R-110).
+  if (!year && +b.session_year !== sessionInfo().yr && !S.blTried.has(key)) return null;
+  return ready(b) || (S.blTried.has(key) && !S.blLoading.has(key) && !S.blErr.has(key)) ? b : null;
 }
 // "We couldn't find it" is said only when the lookup really came back empty. The Supabase client reports a dropped
 // connection as an error VALUE, it does not throw, so ensureBill answers null both for "no such bill" and for "could
 // not ask" (9/19: a bill that became law read "We couldn't find SB 2175. Check the number" on a weak signal). When it
 // answers null the question is asked once more here, as one plain request: the client has by then retried for about
 // seven seconds, and a plain request fails at once instead of doubling that wait.
-async function reallyMissing(num) {
+async function reallyMissing(num, year) {
   if (DEMO) return true;
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/public_all_bills?select=id&bill_number=eq.${encodeURIComponent(num)}&limit=1`, { headers: { apikey: SUPABASE_KEY } });
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/public_all_bills?select=id&bill_number=eq.${encodeURIComponent(num)}${year ? `&session_year=eq.${year}` : ''}&limit=1`, { headers: { apikey: SUPABASE_KEY } });
   if (!r.ok) throw new Error('lookup failed: ' + r.status);
   return !(await r.json()).length;
 }
-async function fetchBill(num) {
+async function fetchBill(num, year) {
   if (!DEMO && navigator.onLine === false) throw new Error('offline');   // no signal at all: say so now, not after the retries
-  const b = await ensureBill(num); if (b) return b;
-  if (await reallyMissing(num)) return null;
-  const again = await ensureBill(num); if (again) return again;   // it exists: the first ask failed quietly
+  const b = await ensureBill(num, year); if (b) return b;
+  if (await reallyMissing(num, year)) return null;
+  const again = await ensureBill(num, year); if (again) return again;   // it exists: the first ask failed quietly
   throw new Error('The bill did not load');
 }
-function load(num) {
-  if (S.blLoading.has(num)) return;
-  S.blLoading.add(num); S.blErr.delete(num); S.blMissing.delete(num); S.blTried.add(num);
+function load(num, year) {
+  const key = keyOf(num, year);
+  if (S.blLoading.has(key)) return;
+  S.blLoading.add(key); S.blErr.delete(key); S.blMissing.delete(key); S.blTried.add(key);
   // A connection that hangs ends in "Try again", not in a skeleton that never goes away.
   let timer; const slow = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), 12000); });
-  Promise.race([fetchBill(num), slow]).then(b => { if (!b) S.blMissing.add(num); })
-    .catch(e => { console.error(e); S.blErr.add(num); })
-    .finally(() => { clearTimeout(timer); S.blLoading.delete(num); if (numFromHash() === num) app.render(); });
+  Promise.race([fetchBill(num, year), slow]).then(b => { if (!b) S.blMissing.add(key); })
+    .catch(e => { console.error(e); S.blErr.add(key); })
+    .finally(() => { clearTimeout(timer); S.blLoading.delete(key); if (keyFromHash() === key) app.render(); });
 }
-const retry = num => { S.blErr.delete(num); S.blMissing.delete(num); S.blTried.delete(num); app.render(); };
+const retry = key => { S.blErr.delete(key); S.blMissing.delete(key); S.blTried.delete(key); app.render(); };
 // Back on a signal: the bill that failed loads by itself.
-window.addEventListener('online', () => { const num = numFromHash(); if (onBill() && S.blErr.has(num)) retry(num); });
+window.addEventListener('online', () => { const key = keyFromHash(); if (onBill() && S.blErr.has(key)) retry(key); });
 // The numbers for one bill (its followers' stances, actions taken on it) load with the followed set. A bill opened by
 // link needs its own two small reads. They are decoration: a failure is silent.
 function loadSocial(b) {
@@ -266,7 +277,7 @@ function mainButton(b, x) {
     case 'ask': return btn(x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
     case 'hold': return btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });
     case 'floor': case 'conference': {
-      if (!x.to.length) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(b.bill_number)}` });
+      if (!x.to.length) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
       const one = x.to.length === 1 ? x.to[0] : null, yes = /oppose/.test(b.hiphi_position || '') ? 'no' : 'yes';
       const label = x.differs ? (x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : one ? `Email ${legTitle(one)} ${surname(one)}` : 'Email your legislators')
         : x.kind === 'floor' ? `Ask ${legTitle(one)} ${surname(one)} to vote ${yes}` : x.conf ? `Email the conference ${one ? 'chair' : 'chairs'}` : 'Email your legislators';
@@ -278,7 +289,7 @@ function mainButton(b, x) {
     case 'stopped': {
       // Between sessions nothing is moving: the useful step is getting ready for January.
       const off = sessionInfo().phase !== 'in';
-      if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(b.bill_number)}` });
+      if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
       // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018).
       const bi = issuesOf(b)[0];
       if (bi) return issueFollowed(bi) ? btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' })
@@ -632,7 +643,7 @@ function whoDecides(b, x) {
   if (!x.code || !x.chairs.length) return '';
   const d = myDistricts(), plural = x.chairs.length > 1, chairIds = new Set(x.chairs.map(c => c.leg?.id).filter(Boolean));
   const others = legsOf(x.code).filter(m => m.role !== 'chair' && !chairIds.has(m.l.id)), joint = x.chairs.length > 1;
-  const c1 = plural ? 'chairs' : 'chair', from = `?from=${encodeURIComponent(b.bill_number)}`;
+  const c1 = plural ? 'chairs' : 'chair', from = `?from=${encodeURIComponent(billRef(b))}`;
   const hold = (x.kind === 'hold' || (x.waiting && x.pos && /oppose/.test(x.pos.verb))) && !x.differs;
   const intro = x.act ? (didKind(b, x.act.h, 'testimony') ? `Mahalo for your testimony. A short email to the ${c1} adds even more weight.`
       : x.act.late ? `The deadline for written testimony has passed. A short email to the ${c1} is the quickest way to be heard now.`
@@ -717,7 +728,7 @@ function details(b, x) {
     // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
     spons ? ['Introduced by', esc(spons)] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
-    comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
+    comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(yearPrefix(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
     b.current_version ? ['Version', esc(versionText(b.current_version))] : null,
   ].filter(Boolean);
   return `<details class="bl-more" ${fold(b, 'more')}><summary><span>More details</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
@@ -746,7 +757,7 @@ function page(num, b) {
 }
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
-const missing = num => `<div class="empty bl-empty">${icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}</h1><p>Check the number, or search for the bill by a word like vaping.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
+const missing = (num, year) => `<div class="empty bl-empty">${icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like vaping.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
 const failed = () => `<div class="empty bl-empty" role="alert">${icon('circle-alert', { size: 40 })}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
 
 // ---------------- actions ----------------
@@ -817,18 +828,18 @@ let stanceBusy = false;
 // ---------------- the screen ----------------
 export default {
   // No tab bar here (the page has its own bars); on wide screens the header nav marks where bills live.
-  get tab() { const b = lookup(numFromHash()); return b && S.watch.has(b.id) ? 'bills' : 'find'; },
+  get tab() { const r = refFromHash(), b = lookup(r.num, r.year); return b && S.watch.has(b.id) ? 'bills' : 'find'; },
   tabs: false,
-  title: route => { const num = normNum(route.num), b = lookup(num), sp = spaced(num) || 'Bill'; return b && nick(b) ? `${nick(b)} · ${sp}` : sp; },
+  title: route => { const num = normNum(route.num), b = lookup(num, +route.year || 0), sp = spaced(num) || 'Bill'; return b && nick(b) ? `${nick(b)} · ${sp}` : sp; },
   render(route) {
-    const num = normNum(route.num);
-    if (!/^[A-Z]{1,4}\d{1,5}$/.test(num)) return shell(num, missing(num));
-    const b = lookup(num);
-    if (!drawn(num)) {
-      if (S.blLoading.has(num)) return shell(num, loading());
-      if (S.blErr.has(num)) return shell(num, failed());
-      if (!b && S.blMissing.has(num)) return shell(num, missing(num));
-      load(num); return shell(num, loading());
+    const num = normNum(route.num), year = +route.year || 0, key = keyOf(num, year);
+    if (!/^[A-Z]{1,4}\d{1,5}$/.test(num)) return shell(num, missing(num, year));
+    const b = lookup(num, year);
+    if (!drawn(num, year)) {
+      if (S.blLoading.has(key)) return shell(num, loading());
+      if (S.blErr.has(key)) return shell(num, failed());
+      if (!b && S.blMissing.has(key)) return shell(num, missing(num, year));
+      load(num, year); return shell(num, loading());
     }
     keepOutcomes(b, hearingsOf(b));
     loadSocial(b);
@@ -837,16 +848,16 @@ export default {
   // Phones and tablets: the main button in the sticky bottom bar. Wide screens have it in the side panel instead.
   bar(route) {
     if (wide()) return '';
-    const b = drawn(normNum(route.num)); if (!b) return '';
+    const b = drawn(normNum(route.num), +route.year || 0); if (!b) return '';
     const x = situation(b), main = mainButton(b, x);
     // A newcomer on a shared bill can turn the action down right beside it (R-023).
     return main && firstVisit() && !S.blLooking.has(b.id) && (x.act || x.kind === 'ask') ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
   },
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
-    const num = normNum(route.num), b = lookup(num);
+    const num = normNum(route.num), year = +route.year || 0, key = keyOf(num, year), b = lookup(num, year);
     root.querySelector('[data-bl-back]')?.addEventListener('click', goBack);
-    root.querySelector('[data-bl-retry]')?.addEventListener('click', () => retry(num));
+    root.querySelector('[data-bl-retry]')?.addEventListener('click', () => retry(key));
     if (!b || !root.querySelector('.bl-head')) return;
     stampRoot();
     const x = situation(b), bar = document.querySelector('.actionbar'), both = [root, bar].filter(Boolean);
@@ -884,7 +895,7 @@ export default {
         // Only a first answer follows the bill: someone who undid that follow and then changes their answer is left alone.
         if (next && !had && !S.watch.has(b.id)) {
           await flipFollow(b, { quiet: true });
-          if (S.watch.has(b.id)) toast(`Saved. You now follow ${spaced(b.bill_number)}.`, { yay: true, undo: () => flipFollow(lookup(num) || b, { quiet: true }) });
+          if (S.watch.has(b.id)) toast(`Saved. You now follow ${spaced(b.bill_number)}.`, { yay: true, undo: () => flipFollow(lookup(num, year) || b, { quiet: true }) });
         }
       } finally { stanceBusy = false; }
       app.render();

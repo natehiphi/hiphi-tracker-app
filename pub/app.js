@@ -28,7 +28,7 @@ const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, 
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 
 // ---- routes ----
-// New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563, #/legislators,
+// New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563 (#/bill/2026/HB1563 for an earlier session's bill), #/legislators,
 // #/legislator/<id>, #/more, #/help, #/signin, #/settings, #/privacy. Links shared before 9/19 (#bill=HB1563,
 // #list=slug, #legislator=id, #legislators) still open the same pages.
 export function parseRoute(h = location.hash) {
@@ -55,7 +55,9 @@ export function parseRoute(h = location.hash) {
     case 'list': return { name: 'list', slug: seg[1] || '' };
     case 'mylist': return { name: 'mylist', id: seg[1] || '' };   // a person's own list, or one shared with them (R-013, pub/mylists.js)
     case 'l': return { name: 'shared', token: seg[1] || '' };      // a list shared by its link
-    case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase() };
+    // #/bill/HB1563 means the current session's bill; #/bill/2026/HB1563 names the session, because numbers start
+    // again at HB 1 every January (R-110).
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined }; }
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
@@ -63,7 +65,7 @@ export function parseRoute(h = location.hash) {
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
 }
-export const toHash = r => ({ bill: `#/bill/${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
+export const toHash = r => ({ bill: `#/bill/${r.year ? r.year + '/' : ''}${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
   committee: `#/committee/${r.code}`, committees: '#/committees', help: r.slug ? `#/help/${r.slug}` : '#/help' })[r.name] || '#/';
 
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.

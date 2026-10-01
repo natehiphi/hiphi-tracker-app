@@ -10,7 +10,7 @@
 // directory as a grid under an island picker drawn with the new island chain, a legislator page with a contact
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
-import { S, app, esc, icon, blurb, nick, spaced, billPath, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
+import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
   ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
@@ -274,27 +274,31 @@ function contact(l, k, { primary = false } = {}) {
 }
 
 // ---------------- where people come from ----------------
-const billNum = r => /^(HB|SB|HCR|SCR|HR|SR|GM)\d+$/i.test(r?.from || '') ? r.from.toUpperCase() : '';
+// ?from= is the bill's address part: HB1563, or 2026/HB1563 for a bill from an earlier session (R-110, billRef).
+const billNum = r => /^(\d{4}\/)?(HB|SB|HCR|SCR|HR|SR|GM)\d+$/i.test(r?.from || '') ? r.from.toUpperCase() : '';
+const refParts = ref => { const [y, n] = String(ref || '').includes('/') ? ref.split('/') : ['', ref]; return { num: n || '', year: +y || 0 }; };
+const numOnly = ref => refParts(ref).num;
 const legHref = (id, from) => `#/legislator/${id}${from ? '?from=' + encodeURIComponent(from) : ''}`;
 // The bill someone came from, for "Back to HB 1563" and so the email is about it. Loaded once if not on hand.
-function fromBill(num) {
-  if (!num) return null;
-  const b = [...(S.bills || []), ...Object.values(S.extra || {})].find(x => x.bill_number === num);
+function fromBill(ref) {
+  if (!ref) return null;
+  const { num, year } = refParts(ref);
+  const b = pickBill([...(S.bills || []), ...Object.values(S.extra || {})].filter(x => x.bill_number === num), year);
   if (b) return b;
-  if (!P.bills[num]) { P.bills[num] = 'loading'; ensureBill(num).then(x => { P.bills[num] = x || 'none'; if (x) app.render(); }).catch(() => { P.bills[num] = 'none'; }); }
-  return typeof P.bills[num] === 'object' ? P.bills[num] : null;
+  if (!P.bills[ref]) { P.bills[ref] = 'loading'; ensureBill(num, year).then(x => { P.bills[ref] = x || 'none'; if (x) app.render(); }).catch(() => { P.bills[ref] = 'none'; }); }
+  return typeof P.bills[ref] === 'object' ? P.bills[ref] : null;
 }
 const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)}" data-back>${icon('arrow-left')}<span>${esc(label)}</span></a>`;
 
 // ---------------- the finder ----------------
 function finderPage(route) {
   const from = billNum(route), b = fromBill(from), sv = saved();
-  if (!seated().length) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(from)}`) : ''}
+  if (!seated().length) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}
     <div class="pagehead"><h1 class="hero">Your legislators</h1></div>${notice('bad', 'circle-alert', 'We couldn’t load the list of legislators. Check your connection and try again.')}
     <div class="pp-retry">${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-pp-reload': '' } })}</div></div>`;
   const pick = P.pick || (!P.changing && sv ? savedPick(sv) : null);
   return `<div class="pp pp-finder">
-    ${from ? backLink('#/bill/' + from, `Back to ${spaced(from)}`) : ''}
+    ${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}
     <div class="pagehead"><h1 class="hero">Your legislators</h1>
       <p class="lede">Find the two people who represent you: one senator and one representative.</p></div>
     ${P.finding ? findingHTML() : pick ? resultHTML(pick, b, from) : searchHTML(sv)}
@@ -450,7 +454,7 @@ function personPage(route) {
   // From 1100px the contact panel moves to the side and stays in view (wide.css .cols + .side), with "Your senator"
   // on it, and the email opens in the wide column where there is room to write.
   return `<div class="pp pp-person">
-    ${backLink(from ? '#/bill/' + from : '#/legislators', from ? `Back to ${spaced(from)}` : 'All legislators')}
+    ${backLink(from ? '#/bill/' + from : '#/legislators', from ? `Back to ${spaced(numOnly(from))}` : 'All legislators')}
     <div class="cols pp-cols">
       <div class="pp-main">
         <header class="pp-prof">${legPhoto(l, 'pp-photo xl')}
