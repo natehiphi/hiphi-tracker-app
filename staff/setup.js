@@ -40,17 +40,23 @@ const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_r
 // The sub-pages, in the order the index lists them. Advanced ones are listed under "Advanced", closed by default.
 const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], ['alerts', 'Hearing alerts', 'bell'], ['coalitions', 'Coalitions', 'users'], ['sync', 'Session days and sync', 'calendar-days'],
   ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe']];
-const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round']];
+const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks']];
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED].map(([k, t, ic]) => [k, { t, ic }]));
 
 // ---- async state: readiness and secret status load once per visit and on "Check again" ----
-const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null };
+const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 function loadReady(force) {
   const s = st(); if (s.readyBusy || (s.ready && !force)) return;
   s.readyBusy = true; s.readyErr = '';
   DB.readiness().then(r => { s.ready = r || []; }).catch(e => { s.readyErr = e.message || 'Could not check.'; s.ready = s.ready || null; })
     .finally(() => { s.readyBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+function loadOffLists() {
+  const s = st(); if (s.offListsBusy || s.offLists) return;
+  s.offListsBusy = true; s.offListsErr = '';
+  DB.offLists().then(r => { s.offLists = r || []; }).catch(e => { s.offListsErr = e.message || 'Could not load.'; s.offLists = []; })
+    .finally(() => { s.offListsBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
 function loadSecrets(force) {
   const s = st(); if (s.secretsBusy || (s.secrets && !force)) return;
@@ -153,7 +159,7 @@ function renderIndex() {
       <h2 id="st-ph" class="st-h2">Settings</h2>
       <div class="rows">${SECTIONS.map(secRow).join('')}</div>
       <div class="rows st-advbox">
-        <button type="button" class="row st-adv" data-adv aria-expanded="${s.advOpen}" aria-controls="st-advlist"><span class="lead">${icon('settings')}</span><span class="body"><span class="title">Advanced</span><span class="sub">Message wording, committee map and keys</span></span><span class="end">${icon(s.advOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</span></button>
+        <button type="button" class="row st-adv" data-adv aria-expanded="${s.advOpen}" aria-controls="st-advlist"><span class="lead">${icon('settings')}</span><span class="body"><span class="title">Advanced</span><span class="sub">Message wording, committee map, keys and people’s lists</span></span><span class="end">${icon(s.advOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</span></button>
         <div id="st-advlist" ${s.advOpen ? '' : 'hidden'}>${ADVANCED.map(secRow).join('')}</div>
       </div>
     </section>`;
@@ -506,6 +512,36 @@ const PAGES = {
       const c = root.querySelector('[data-connect]'); if (c) c.onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e, { err: true }); } };
     },
     auto: Object.fromEntries([['st-cal-on', 'enabled'], ['st-cal-test', 'include_test']].map(([id, k]) => [id, { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, [k]: v }) }])),
+  },
+  // People's own lists (R-013, migration 103). Anyone signed in on the public page can make a list and share it by a
+  // link; staff cannot browse them. When someone reports a list that misuses HIPHI's page, an admin pastes its link here.
+  lists: {
+    status: () => ['list-checks', 'Turn off a list someone shared on the public page, if it is used to say something harmful.'],
+    body() { const s = st(); loadOffLists();
+      const offs = s.offLists || [];
+      const offRow = l => `<div class="row st-ulrow"><span class="lead">${icon('eye-off')}</span><span class="body"><span class="title">${esc(l.title)}</span>
+          <span class="sub">Turned off ${esc(fmtDate(l.blocked_at))}${l.blocked_by ? ` by ${esc(l.blocked_by)}` : ''}${l.blocked_reason ? `: ${esc(l.blocked_reason)}` : ''}</span></span>
+          <span class="end">${btn('Turn back on', { kind: 'text', sm: true, attrs: { 'data-ulon': l.id, 'aria-label': `Turn ${l.title} back on` } })}</span></div>`;
+      return `<div class="card st-form"><p class="small st-note st-top">Anyone who adds their email on the public page can make lists of bills and share one by a link. Lists are private: staff can’t browse them. If someone sends you a link to a list that misuses HIPHI’s page, paste it here. Its link stops working, the people who followed it stop seeing it, and its maker can’t share it again. Nothing is erased.</p>
+        ${txt('st-ul-link', 'The list’s link', '', { ph: 'https://…/track.html#/l/…' })}
+        ${area('st-ul-why', 'Why, for the record (optional)', '', { rows: 2, ph: 'For example: used to harass someone' })}</div>
+        ${s.offListsErr ? notice('bad', 'circle-alert', `Could not load the lists turned off. ${esc(s.offListsErr)}`) : offs.length ? `<h2 class="st-h2">Turned off</h2><div class="rows">${offs.map(offRow).join('')}</div>` : ''}`; },
+    wire(root) {
+      root.querySelectorAll('[data-ulon]').forEach(b => b.onclick = async () => { const l = (st().offLists || []).find(x => String(x.id) === b.dataset.ulon); if (!l) return;
+        if (!await confirmSheet({ title: `Turn ${l.title} back on?`, text: 'Its maker can share it again, with a new link. The people who followed it see it again.', ok: 'Turn it back on' })) return;
+        b.setAttribute('aria-busy', 'true');
+        try { await DB.turnOnList(l.id); st().offLists = null; toast(`${l.title} is back on.`, { ok: true }); hooks.render(); }
+        catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); } });
+    },
+    saveLabel: 'Turn off this list', track: false,
+    async save(root) {
+      const link = val(root, 'st-ul-link');
+      if (!/[0-9a-f]{40}/.test(link)) { fieldErr(root, 'st-ul-link', 'Paste the whole link. It ends in #/l/ and 40 letters and numbers.'); return null; }
+      if (!await confirmSheet({ title: 'Turn off this list?', text: 'Its link stops working for everyone, the people who followed it stop seeing it, and its maker can’t share it again. You can turn it back on here.', ok: 'Turn it off', danger: true })) return null;
+      const title = await DB.turnOffList(link, val(root, 'st-ul-why'));
+      st().offLists = null;
+      return `Turned off ${title}.`;
+    },
   },
   embed: {
     status: () => ['globe', 'Put a table of the bills we have a public position on into any web page.'],

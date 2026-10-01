@@ -1031,6 +1031,19 @@ export const DB = {
     const { error: e1 } = await S.supa.from('committee_counterparts').delete().neq('house_code', ''); if (e1) throw e1;
     if (pairs.length) { const { error } = await S.supa.from('committee_counterparts').insert(pairs); if (error) throw error; }
   },
+  // ---- people's own lists (R-013, migration 103): an admin turns off a shared list by its link ----
+  async turnOffList(link, reason) {
+    if (DEMO) { const title = 'A list from the sandbox'; (S.demoOffLists ??= []).unshift({ id: 'demo-ul-' + Date.now(), title, blocked_at: new Date().toISOString(), blocked_by: S.me?.initials || '', blocked_reason: reason || null }); return title; }
+    const { data, error } = await S.supa.rpc('turn_off_user_list', { p_link: link, p_reason: reason || null }); if (error) throw error; return data;
+  },
+  async offLists() {
+    if (DEMO) return S.demoOffLists ??= [];
+    const { data, error } = await S.supa.rpc('turned_off_user_lists'); if (error) throw error; return data || [];
+  },
+  async turnOnList(id) {
+    if (DEMO) { S.demoOffLists = (S.demoOffLists || []).filter(l => l.id !== id); return; }
+    const { error } = await S.supa.rpc('turn_on_user_list', { p_list: id }); if (error) throw error;
+  },
   // ---- curated lists ----
   async createList({ title, description, icon }) {
     const base = title.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'list';

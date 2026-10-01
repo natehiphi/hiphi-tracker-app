@@ -17,12 +17,13 @@ import allbills from './allbills.js';
 import more from './more.js';
 import helper from './helper.js';
 import tour from './tour.js';
+import mylists, { takePlace, finishPlace } from './mylists.js';
 import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
 const SCREENS = { start, learn: start, home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, settings: more, privacy: more };
+  committees, committee: committees, allbills, more, help: more, signin: more, settings: more, privacy: more, mylist: mylists, shared: mylists };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 
@@ -52,6 +53,8 @@ export function parseRoute(h = location.hash) {
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
     case 'issue': return { name: 'issue', slug: seg[1] || '' };
     case 'list': return { name: 'list', slug: seg[1] || '' };
+    case 'mylist': return { name: 'mylist', id: seg[1] || '' };   // a person's own list, or one shared with them (R-013, pub/mylists.js)
+    case 'l': return { name: 'shared', token: seg[1] || '' };      // a list shared by its link
     case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase() };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
@@ -204,12 +207,17 @@ async function boot() {
     logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
     // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets the
     // guided start behind it, so Back goes somewhere helpful.
+    // Someone who went to add their email in the middle of a list task comes back to it once the emailed link signs
+    // them in (R-013): that link opens the plain address, so the place was kept in this browser (pub/mylists.js).
+    const place = takePlace();
+    if (place) history.replaceState({ y: 0 }, '', place.hash);
     const r = parseRoute();
     if (r.legacy) {
       if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/start/1'); history.pushState({ y: 0, arrived: true }, '', toHash(r)); }
       else history.replaceState({ y: 0 }, '', toHash(r));
     }
     render();
+    finishPlace(place);
   } catch (e) {
     console.error(e);
     $app().innerHTML = `${header({ name: 'error' }, {})}<main id="main">${errorCard()}</main>`;

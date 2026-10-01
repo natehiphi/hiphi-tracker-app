@@ -1,0 +1,60 @@
+/* People's own bill lists (R-013, pub/mylists.js): a list's page, a shared list's page, the "Add to a list" sheet, and
+   the lists on My issues. The pages reuse Find's list-page layout (.fd, .fd-ihead, .fd-cta, .fd-follow); this file only
+   adds what they lack. Every control is 44px (A-6); sizes 13/14/16/18 only. */
+/* The maker's one row: the main button and the list's ⋯ menu (the bill page's menu, same look). */
+.ul .ul-actions { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); }
+.ul .ul-menuwrap { position: relative; margin-left: auto; }
+.ul .ul-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 236px; display: flex; flex-direction: column;
+  padding: var(--s4); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+.ul .ul-menu[hidden] { display: none; }
+.ul .ul-mi { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 48px; padding: 0 var(--s12); border-radius: var(--r8);
+  color: var(--n900); font-weight: 700; text-align: left; }
+.ul .ul-mi:hover { background: var(--n50); }
+.ul .ul-mi:active { background: var(--p50); }
+.ul .ul-mi .ic { width: 20px; height: 20px; color: var(--p700); }
+.ul .ul-mi.bad, .ul .ul-mi.bad .ic { color: var(--bad-text); }
+.ul .ul-say { margin: 0 0 var(--s16); max-width: 65ch; }
+.ul .ul-link { display: flex; flex-direction: column; gap: var(--s4); margin: 0 0 var(--s16); }
+.ul .ul-link .input { min-height: 44px; font-size: var(--t14); color: var(--n700); background: var(--n50); }
+/* Taking bills off: a bar says what the minus buttons do, and Done ends it. */
+.ul .ul-taking { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin: 0 0 var(--s16);
+  padding: var(--s12) var(--s16); background: var(--p50); border-radius: var(--r12); font-size: var(--t14); color: var(--n900); }
+.ul .ul-taking p { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; flex: 1 1 260px; }
+.ul .ul-taking p > .ic { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--p700); }
+.ul .ul-minus .ic { width: 1.1em; height: 1.1em; vertical-align: -3px; color: var(--bad-text); }
+.mb-row .mb-star.mb-take { color: var(--bad-text); }
+/* Someone else's list: a plain line above its name says HIPHI did not make it, and its icon is a person, not a list. */
+.ul .ul-notus { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 0; padding: var(--s8) var(--s12); background: var(--n50);
+  border-radius: var(--r8); font-size: var(--t14); color: var(--n700); }
+.ul .ul-notus .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
+.ul .fd-ihead .fd-icon.ul-theirs { background: var(--n100); color: var(--n700); }
+.ul .ul-notelab { font-weight: 700; color: var(--n700); }
+.ul .ul-edit { display: flex; flex-direction: column; gap: var(--s12); }
+.ul .ul-edit .btnrow { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; }
+.ul .ul-add { margin: var(--s24) 0 0; }
+
+/* My issues */
+.mb .ul-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s16); margin: var(--s24) 0 0; }
+.mb .ul-hint p { display: flex; align-items: flex-start; gap: var(--s8); margin: 0; flex: 1 1 280px; }
+.mb .ul-hint p .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.mb .sechead .btn.text { margin-left: auto; }
+
+/* The sheet: full screen on a phone, a card from 720px (base.css dialog.sheet) */
+.ul-sheet .ul-shin { padding: var(--s24) var(--s16); display: flex; flex-direction: column; gap: var(--s16); }
+.ul-sheet h2 { margin: 0; font-size: var(--t18); }
+.ul-sheet .ul-pick { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ul-sheet .ul-row { align-items: center; min-height: 52px; padding: var(--s8) 0; border-top: 1px solid var(--n100); }
+.ul-sheet .ul-row:first-of-type { border-top: 0; }
+.ul-sheet .ul-new { display: flex; flex-direction: column; gap: var(--s8); }
+.ul-sheet .ul-new > label { font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.ul-sheet .ul-newrow { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.ul-sheet .ul-newrow .input { flex: 1 1 200px; min-width: 0; }
+.ul-sheet .btncol { display: flex; flex-direction: column; gap: var(--s8); }
+.ul-sheet .ul-shbody { display: flex; flex-direction: column; gap: var(--s16); }
+.ul-sheet .ul-fine { margin: 0; }
+/* What just happened, inside the sheet (a toast would sit behind it); empty takes no room. */
+.ul-sheet .ul-status { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
+.ul-sheet .ul-status:empty { display: none; }
+/* A short task, so on a phone the sheet rises from the bottom as tall as it needs, not the whole screen. */
+@media (max-width: 719px) { dialog.sheet.ul-sheet { top: auto; bottom: 0; height: fit-content; max-height: 92%; margin: 0; border-radius: var(--r16) var(--r16) 0 0; } }   /* a modal dialog is pinned top and bottom: pin it to the bottom only */
+@media (min-width: 720px) { .ul-sheet { width: 520px; } }

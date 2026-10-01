@@ -19,7 +19,8 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'table issue_helpers', 'rpc review_issue {p_action,p_id,p_note}', 'rpc tell_issue_owners',   // the issues' prep for 2027 (091, R-088)
   'rpc team_logins', 'rpc team_save {p_email,p_full_name,p_id,p_initials,p_is_active,p_is_admin,p_is_reviewer}', 'function team-admin',   // Session setup > Team (093, R-092)
   'table issue_links', 'table issue_link_choices',   // an issue's Related issues (095, R-094)
-  'rpc team_set_approver {p_id,p_on}']);   // the Team page's Approver switch (098, R-103)
+  'rpc team_set_approver {p_id,p_on}',   // the Team page's Approver switch (098, R-103)
+  'rpc turn_off_user_list {p_link,p_reason}', 'rpc turned_off_user_lists', 'rpc turn_on_user_list {p_list}']);   // Session setup > People's lists (103, R-013)
 const cur = calls(read('app.js')), v2 = new Set([...calls(read('staff/data.js')), ...calls(read('staff/model.js'))].filter(x => !V2_ONLY.has(x)));
 // Calls the current app makes only from its screens (none expected: every call lives in DB) would show up here.
 const onlyCur = [...cur].filter(x => !v2.has(x)), onlyV2 = [...v2].filter(x => !cur.has(x));

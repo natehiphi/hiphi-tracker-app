@@ -31,7 +31,7 @@
   /* screens with a main/side split get the wide frame; reading pages (help, privacy, settings, sign in) stay at 720px */
   body[data-screen="home"] main, body[data-screen="bill"] main, body[data-screen="bills"] main, body[data-screen="find"] main,
   body[data-screen="issue"] main, body[data-screen="list"] main, body[data-screen="legislators"] main, body[data-screen="legislator"] main,
-  body[data-screen="start"] main, body[data-screen="more"] main { max-width: 1120px; }
+  body[data-screen="start"] main, body[data-screen="more"] main, body[data-screen="mylist"] main, body[data-screen="shared"] main { max-width: 1120px; }
   /* .cols: main column + a 380px side column that stays in view */
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s32); align-items: start; }
   .cols > .side { position: sticky; top: calc(var(--header) + var(--s24)); display: flex; flex-direction: column; gap: var(--s16); }

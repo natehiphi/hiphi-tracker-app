@@ -25,6 +25,7 @@ import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSu
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
+import { pendingPlace } from './mylists.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
 const HIPHI = {
@@ -283,7 +284,8 @@ function wireMore() {
     try { const { error } = await S.supa.auth.signOut(); if (error) throw error; }
     catch (e) { out.removeAttribute('aria-busy'); t.textContent = 'Sign out'; toast(e, true); return; }
     // Signing out reloads the page's data (core's onAuthStateChange). What was saved on this device stays here.
-    S.session = null; S.user = null; app.render();
+    // People's own lists live on the account (R-013): the page forgets them until the next sign-in.
+    S.session = null; S.user = null; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; } app.render();
     toast('You’re signed out. Your bills stay on this device.');
   };
 }
@@ -331,7 +333,8 @@ function signinView() {
   </div>`;
   return `<div class="mr mr-signin">
     <header class="pagehead"><h1 class="hero">Add your email</h1>
-      <p class="lede">Get hearing alerts and keep your issues on any device. No password: we email you a link.</p></header>
+      <p class="lede">Get hearing alerts and keep your issues on any device. No password: we email you a link.</p>
+      ${pendingPlace() ? `<p class="mr-back">${icon('list-checks')}<span>With your email you can make lists of bills. When you open the link, you come back to where you were.</span></p>` : ''}</header>
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no email is sent and nothing is saved. You can still try the page.') : ''}
     <form class="card mr-form mr-panel" id="mr-si" novalidate>
       <div class="field"><label for="mr-email">Your email</label>
@@ -499,12 +502,12 @@ function wireSettings() {
     if (error) { unbusy(yes); say('mr-del-msg', inlineErr('mr-del-err', friendly(error))); return; }
     // The account is gone; the copies of it on this device go too (issues, bills, stances, actions, list follows, districts,
     // and the email the testimony helper remembered; the name, town and letters typed there were never on the account).
-    try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY].forEach(k => localStorage.removeItem(k));
+    try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY, 'hiphi_ulist_follows'].forEach(k => localStorage.removeItem(k));
       const me = JSON.parse(localStorage.getItem('hiphi_me') || 'null'); if (me && me.email) { delete me.email; localStorage.setItem('hiphi_me', JSON.stringify(me)); }
       // the picked issues were on the account too; the guided start stays finished, so the person is not sent through it again
       const w = JSON.parse(localStorage.getItem('hiphi_wiz') || 'null'); if (w && w.issues?.length) { w.issues = []; localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } } catch { /* private mode */ }
     S.direct = new Set(); S.issueFollows = new Set(); S.catFollows = new Set(); S.skips = new Set(); recomputeWatch();
-    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); S.profile = {}; F = null;
+    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); S.profile = {}; F = null; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
     try { await S.supa.auth.signOut(); } catch { /* the account is already deleted */ }
     S.session = null; S.user = null;
     app.go('#/', { replace: true });
@@ -520,6 +523,7 @@ function wireSettings() {
 const PRIVACY = [
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in Settings. HIPHI staff can see this, so they can reach out about your issues. What you saved on this device joins your account.'],
+  ['list-checks', 'Lists you make', 'A list of bills you make is private: only you can see it, not HIPHI staff. If you share it, anyone with the link can see its name, your note and its bills, but not who made it. HIPHI can turn off a shared list that is used to harm someone. Deleting your account erases your lists.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
   ['map-pin', 'Your home address', 'We never store it. In Settings it is used once to find your districts, and only the district numbers are saved on your account; HIPHI staff see just those. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
   ['notebook-pen', 'Your testimony and emails', 'Your name and letter stay on this device until you send the letter on the Capitol website. Testimony is public there: the Capitol posts your name and letter online. An email to a lawmaker goes from your own email account; we never see it or send it for you, and its draft stays on this device. If you type your email in the letter helper, we use it for your link and your hearing alerts. It is never added to your letter.'],

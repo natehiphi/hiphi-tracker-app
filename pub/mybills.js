@@ -13,6 +13,7 @@ import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, pl
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
 import { VOICES } from './art.js';
+import { myListsSection, wireMyLists } from './mylists.js';
 
 // ---- words for one bill ----
 // What the bill does, in a sentence: HIPHI's plain summary, else the cleaned official description. A bill HIPHI has
@@ -174,8 +175,9 @@ export function newsOf(b, seen = S.mbSeen) {
 // focus on it, stay put and following again is one press).
 // watch (with pos: a bill HIPHI only keeps an eye on says so, on the every-bill page, instead of an empty cell),
 // status (words in place of the status chip, where the group heading already says the chip), alt (a line beside
-// the number naming other bills with the same nickname, so two versions of one idea don't read as a duplicate).
-export function billRow(b, { note = '', pos = false, fresh = false, why = false, hearing = null, ghost = false, watch = false, status = '', alt = '' } = {}) {
+// the number naming other bills with the same nickname, so two versions of one idea don't read as a duplicate),
+// take (a list's maker is taking bills off: the star's place holds a Take off button instead, R-013).
+export function billRow(b, { note = '', pos = false, fresh = false, why = false, hearing = null, ghost = false, watch = false, status = '', alt = '', take = false } = {}) {
   const on = S.watch.has(b.id), num = spaced(b.bill_number), name = nick(b), sentence = what(b, name ? 120 : 170);   // one sentence under a nickname; more when it is the headline
   const p = pos ? posInfo(b) || (watch && b.hiphi_position === 'monitor' ? { icon: 'eye', text: 'HIPHI is watching' } : null) : null, mine = stanceInfo(b.id), news = fresh && !ghost ? newsOf(b) : '', nd = why ? null : nextDate(b, hearing);
   const head = name ? `<span class="mb-nick">${esc(name)}</span><span class="mb-what">${esc(sentence)}</span>` : `<span class="mb-head">${esc(sentence)}</span>`;
@@ -187,7 +189,8 @@ export function billRow(b, { note = '', pos = false, fresh = false, why = false,
       <span class="mb-status">${ghost ? '<span class="mb-why">Unfollowed. Select the star to follow it again.</span>' : why ? `<span class="mb-why">${esc(stoppedWhy(b))}</span>` : status ? `<span class="mb-why">${esc(status)}</span>` : statusChip(b, hearing)}</span>
       ${why || ghost ? '' : `<span class="mb-next">${nd ? `<b>${esc(nd.day)}</b><span>${esc(nd.sub)}</span>` : moving(b) ? '<span>No date set</span>' : ''}</span>`}
     </a>
-    ${iconBtn('star', `Follow ${name ? `${name}, ${num}` : num}`, { 'data-star': b.id, 'data-label': nameOf(b), 'aria-pressed': on ? 'true' : 'false' }, 'mb-star' + (on ? ' on' : ''))}
+    ${take ? iconBtn('circle-minus', `Take ${name ? `${name}, ${num}` : num} off this list`, { 'data-ultake': b.id }, 'mb-star mb-take')
+      : iconBtn('star', `Follow ${name ? `${name}, ${num}` : num}`, { 'data-star': b.id, 'data-label': nameOf(b), 'aria-pressed': on ? 'true' : 'false' }, 'mb-star' + (on ? ' on' : ''))}
   </li>`;
 }
 // An empty state with an h2 (ui.js's empty() uses h3, which would skip a level under this page's h1).
@@ -203,7 +206,7 @@ export function billList(bills, opt, { compact = false } = {}) {
   const dated = !first.why && bills.some(b => !o(b).ghost && nextDate(b, o(b).hearing));
   const cols = [first.why ? ['Bill', 'What happened'] : dated ? ['Bill', 'Status', 'Next date'] : ['Bill', 'Status'], first.pos ? 'HIPHI’s position' : 'Your stance'].flat();
   return `<div class="mb-list${compact ? ' mb-compact' : ''}${dated ? '' : ' mb-c3'}">
-    <div class="mb-hdr" aria-hidden="true"><div class="mb-hcells">${cols.map(t => `<span>${t}</span>`).join('')}</div><span class="mb-hstar">Follow</span></div>
+    <div class="mb-hdr" aria-hidden="true"><div class="mb-hcells">${cols.map(t => `<span>${t}</span>`).join('')}</div><span class="mb-hstar">${first.take ? 'Take off' : 'Follow'}</span></div>
     <ul class="mb-rows">${bills.map(b => billRow(b, o(b))).join('')}</ul></div>`;
 }
 
@@ -371,7 +374,7 @@ function render() {
     ${!anything && listLine ? '' : `<p class="small muted mb-sub">${off ? `When HIPHI adds its ${nextYear(si)} bills to one of these lists, they show up here.` : 'When HIPHI adds a bill to one of these lists, it shows up here.'}</p>`}
     ${listCards(lists, { where: 'here', mine: true })}</section>` : '';
   const onward = anything ? `<p class="mb-onward">${btn('Browse more issues', { kind: 'secondary', icon: 'search', href: '#/find' })}</p>` : '';
-  return `<div class="mb" data-mbroot>${head}${body}${ownSec}${listSec}${onward}</div>`;
+  return `<div class="mb" data-mbroot>${head}${body}${ownSec}${listSec}${myListsSection()}${onward}</div>`;   // people's own lists (R-013)
 }
 // Letting go of an issue or a whole category, with Undo (B-5): Undo puts back exactly what was followed before.
 async function letGo(change, said) {
@@ -391,7 +394,7 @@ export default {
   render,
   wire() {
     stampSeen(mine()); const root = document.querySelector('.mb'); if (!root) return;
-    wireRows(root);
+    wireRows(root); wireMyLists(root);
     root.querySelectorAll('[data-unfollowissue]').forEach(el => el.onclick = () => {
       const i = S.issueById.get(el.dataset.unfollowissue); if (!i) return;
       const whole = (i.categories || [i.category]).filter(c => S.catFollows.has(c)).map(c => catOf(c)?.name).filter(Boolean);

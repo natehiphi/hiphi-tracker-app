@@ -15,6 +15,7 @@ import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActin
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { openAddTo } from './mylists.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -435,6 +436,7 @@ function topbar(num, b) {
   const tools = b && !w ? `${issuesOf(b).length ? '' : iconBtn('star', `Follow ${sp}`, { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' }, on ? 'on' : '')}
       <div class="bl-menuwrap">${iconBtn('ellipsis', 'More options', { 'data-bl-menu': '1', 'aria-expanded': 'false', 'aria-controls': 'bl-menu' })}
         <div class="bl-menu" id="bl-menu" hidden>
+          <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
           <button type="button" class="bl-mi" data-bl-copy="1">${icon('link')}<span>Copy link</span></button>
           <button type="button" class="bl-mi" data-bl-share="1">${icon('share-2')}<span>Share</span></button>
           <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
@@ -544,12 +546,13 @@ function stanceInner(b, x) {
     <div class="chips" role="group" aria-labelledby="bl-stance-h">${STANCES.map(([v, label]) => `<button type="button" class="chip" data-bl-stance="${v}" aria-pressed="${mine === v}">${mine === v ? icon('check') : ''}${label}</button>`).join('')}</div>
     <p class="bl-stnote">${mine ? 'Saved. ' : ''}Your answer is private. We only show totals.</p>${own}`;
 }
-// Follow, share and copy link on a wide screen (a phone has them in the top bar).
+// Follow, share, copy link and "Add to a list" (R-013) on a wide screen (a phone has them in the top bar).
 function sideTools(b) {
   const on = S.watch.has(b.id), own = !issuesOf(b).length;   // a bill with an issue is followed by its issue (above)
   return `<div class="bl-stools" role="group" aria-label="${own ? 'Follow and share' : 'Share'}">
     ${own ? btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' } }) : ''}
-    ${btn('Share', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-bl-share': '1' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-bl-copy': '1' } })}</div>`;
+    ${btn('Share', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-bl-share': '1' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-bl-copy': '1' } })}
+    ${btn('Add to a list', { kind: 'text', sm: true, icon: 'list-plus', attrs: { 'data-bl-addto': '1' } })}</div>`;
 }
 // Community numbers live here, inside one bill, and nowhere wider (Nate, 9/19): how its followers lean, and what has
 // been done about it through HIPHI. Every number is shown only from 10 people; with none, the block is not drawn.
@@ -888,6 +891,7 @@ export default {
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelector('[data-bl-copy]')?.addEventListener('click', () => { setMenu(false, true); copyLink(b); });
+    root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));
     root.querySelector('[data-bl-share]')?.addEventListener('click', () => { setMenu(false, true); shareBill(b, x); });
     root.querySelector('[data-bl-close]')?.addEventListener('click', () => setMenu(false));
     root.querySelectorAll('[data-bl-compose]').forEach(el => el.addEventListener('click', () => openComposer(el.dataset.blCompose)));

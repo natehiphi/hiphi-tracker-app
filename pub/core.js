@@ -445,6 +445,10 @@ export async function loadUser() {
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
   for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
   try { localStorage.removeItem(LISTS_KEY); } catch {}
+  // Lists people shared, followed on this device before signing in (R-013, pub/mylists.js), join the account the same way.
+  { let toks = []; try { toks = JSON.parse(localStorage.getItem('hiphi_ulist_follows') || '[]'); } catch { /* none */ }
+    for (const t of toks) { const r = await S.supa.rpc('follow_user_list', { p_token: t }); if (r.error) console.warn('shared list:', r.error.message); }
+    if (toks.length) { try { localStorage.removeItem('hiphi_ulist_follows'); } catch { /* private mode */ } if (S.ul) S.ul.mine = null; } }
   const [wl, isf, caf, sk] = await Promise.all([S.supa.from('watchlist').select('bill_id,stance'), S.supa.from('issue_follows').select('issue_id'),
     S.supa.from('category_follows').select('category'), S.supa.from('bill_skips').select('bill_id')]);
   const server = new Set((wl.data || []).map(r => r.bill_id));
