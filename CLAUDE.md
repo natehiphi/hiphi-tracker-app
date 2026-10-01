@@ -3,7 +3,14 @@
 Public repo `natehiphi/hiphi-tracker-app`, deployed by GitHub Pages from `main` at
 https://natehiphi.github.io/hiphi-tracker-app/. The backend (schema, migrations, sync, runbooks, `HANDOFF.md`) is
 the private repo in `../backend`. **Read `../backend/HANDOFF.md` first** in any session: section 3 holds the
-newest entries (3.19, 3.18, …) with every decision Nate has made and what is still open.
+newest entries (3.70, 3.69, …) with every decision Nate has made and what is still open.
+
+**The plan of record until the 2027 session: `../backend/docs/ASSESSMENT-2026-09.md`** (R-096: the whole-project
+assessment of 29 Sep 2026 and Nate's 15 decisions of 30 Sep). Read it with `../backend/REQUESTS.md` before any UI work:
+its section 9 lists every recommendation for the public page and the staff app and where it stands, section 10 is the
+latest handoff. Put a new screen or feature on that board before building it; the freeze dates (no new "try both"
+versions from 15 Oct 2026, no new features from 1 Dec 2026) and the 10-item check pause are in the backend CLAUDE.md
+(rules 13 and 14).
 
 ## Who this is for
 
@@ -410,7 +417,17 @@ python3 tests/visitlog.py           # the private first-visit counting (pub/visi
 node tests/rank_test.mjs            # the suggested bill's rules (pub/rank.js, R-094; plan and Nate's decisions: ../backend/docs/RECOMMENDATION-PLAN.md): 50 exact checks, no server needed
 python3 tests/recommend.py          # the suggested bill on Home and Find in the sandbox (R-094): 23 checks, related issues included
 python3 tests/staff_related.py      # Staff v2: an issue's Related issues (095, R-094): unlink, Undo, link another, Link again; 22 checks at two sizes
+python3 tests/screens_smoke.py      # every public screen as three kinds of person, sandbox and live; fails on any page error (R-100): 90 checks
+python3 tests/lists.py              # people's own bill lists in the sandbox (R-013): make, share, Undo, someone else's list, phone and laptop; 55 checks
+python3 tests/lists_live.py         # lists on live data, signed out (R-013): the sign-in detour keeps the place; 7 checks
+python3 tests/staff_lists.py        # Staff v2 Session setup > Advanced > People's lists: turn a list off and on (R-013); 14 checks
+python3 tests/moments.py            # good news for results, honest countdowns, the session page (R-046), sandbox with ?seed=1; 44 checks
+python3 tests/moments_live.py       # the session page and Home on live data, signed out (R-046); 6 checks
+python3 tests/staff_daily_email.py  # Staff v2: a supporter email goes in the 4:30 pm email, Undo, Take it back, Session setup > Email (R-101); 13 checks
+python3 tests/consent.py            # the sign-in page's "Keep me updated" starts empty; a hearing-alert ask turns on only hearing alerts (R-101); 5 checks
 ```
+Each takes the page to test as its first argument, so the published site works too (for example
+`python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).
 Hash-only navigation does not reload in Playwright: `goto` then `reload()`, then wait about 2.5s.
 `public_journey.py` and `staff_desktop.py` print one `net::ERR_FAILED` / `Failed to fetch` in their `errors:`
 line, from `demoLoad` in `pub/core.js`. It is the harness aborting the in-flight 5MB `snapshot.json` fetch when a
