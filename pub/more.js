@@ -308,7 +308,8 @@ const wireHelp = route => { if (TALK) TALK.wire(route); };
 // ---------------- Add your email (the page behind "Add my email", and the header's "Sign in") ----------------
 // M: this visit's page. The typed email and the tick survive a re-render; a fresh arrival starts clean. One box, ticked:
 // the page says what the email is for, so giving it is the consent, for hearing alerts and HIPHI's updates alike (C-4).
-const M = { email: '', choices: { alerts: true, action: true }, sent: '', demo: false, err: '', sendErr: '' };
+// The box starts empty (Nate 10/1, R-101 rule 1; B-12): ticking it is the consent, never a box someone has to notice.
+const M = { email: '', choices: { alerts: false, action: false }, sent: '', demo: false, err: '', sendErr: '' };
 const PRIVACY_BULLETS = [
   'HIPHI staff can see the issues and bills you follow, where you stand on them and the actions you mark, so they can reach out about them.',
   'If you add your home address, only you see it. Staff see just your districts.',
@@ -344,7 +345,7 @@ function signinView() {
         ${M.err ? errLine('mr-email-err', M.err) : ''}</div>
       <fieldset class="mr-set"><legend>What we’ll email you</legend>
         ${check('mr-si-keep', KEEP[0], KEEP[1], !!(M.choices.alerts && M.choices.action))}
-        <p class="small muted">Untick it if you only want to keep your issues on any device.</p>
+        <p class="small muted">Without it, your email only keeps your issues on any device.</p>
       </fieldset>
       <div id="mr-si-msg">${M.sendErr ? inlineErr('mr-si-err', M.sendErr) : ''}</div>
       <div class="mr-send">${submitBtn('Email me a link', 'mail', 'mr-si-send')}</div>

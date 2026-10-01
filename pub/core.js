@@ -1417,7 +1417,9 @@ export function waitingBills(bills) {
 // is part of the flow, and saying yes IS the consent for both hearing alerts and HIPHI's own advocacy alerts -
 // one opt-in, not two. The choices wait in this browser until the link is opened (loadUser applies them), exactly
 // like the sign-in page.
-export async function sendEmailLink(email, { hearing_alerts = true, action_alerts = true } = {}) {
+// Both choices are off unless the ask names them (C-4): the hearing-alert asks on Home and in the testimony walkthrough
+// pass only hearing_alerts, and until 10/1 the default here quietly turned HIPHI's action alerts on for them too.
+export async function sendEmailLink(email, { hearing_alerts = false, action_alerts = false } = {}) {
   // The sandbox sends nothing, but it remembers the email was given, as the live page does: otherwise Home asked a tester
   // for their email again a minute after they gave it (R-098). Its storage is the sandbox's own (every hiphi_ name is
   // hiphi_*_demo there, see the top of this file), so no consent reaches the live page in this browser.

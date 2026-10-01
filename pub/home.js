@@ -524,7 +524,7 @@ function welcomeView(si, { cards, asks, total }) {
   const due = week ? dueInfo(week.h) : null;
   const weekCard = week ? `<section class="card hm-week" aria-labelledby="hm-wk"><p class="hm-eyebrow">This week</p>
       <h2 id="hm-wk">${esc(spaced(week.b.bill_number))} has a hearing ${esc(dayWord(week.h.scheduled_at))}</h2>
-      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${due.html}${S.session ? '; we’ll remind you' : ''}.` : ''}</p>
+      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${due.html}${S.session && S.user?.prefs?.hearing_alerts ? '; we’ll remind you' : ''}.` : ''}</p>
       ${btn('See how to help', { kind: 'text', iconEnd: 'arrow-right', href: billPath(week.b), cls: 'hm-link' })}</section>` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
   const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;
