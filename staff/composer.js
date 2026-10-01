@@ -32,13 +32,22 @@ export const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Dat
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
 export const canApprove = a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id;   // never your own; admins and approvers (098)
-export const canSend = a => a.status === 'approved' && (a.author_id === S.me?.id || !!S.me?.is_admin);
+export const canSend = a => a.status === 'approved' && !a.scheduled_for && (a.author_id === S.me?.id || !!S.me?.is_admin);
+// Since 10/1 (R-101 rule 2, migration 109) Send puts the email into each follower's one email of the day, at 4:30 pm,
+// together with their hearing alerts; until then the writer or an admin can take it back (B-5).
+export const canUnsend = a => a.status === 'approved' && !!a.scheduled_for && (a.author_id === S.me?.id || !!S.me?.is_admin);
+const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const afterCut = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()).map(x => [x.type, x.value])); return +p.hour * 60 + +p.minute >= 16 * 60 + 30; };
+// "today" or "tomorrow": which 4:30 pm email a Send now joins, or which one a waiting email is in.
+export const dailyWord = (t = null) => t ? (hstDay(t) === hstDay(Date.now()) ? 'today' : hstDay(t) === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long' })) : afterCut() ? 'tomorrow' : 'today';
 const canTest = a => !!a.id && a.status !== 'sent' && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const canDelete = a => !!a.id && ['draft', 'returned'].includes(a.status) && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const approvers = authorId => S.advocates.filter(x => approves(x) && x.id !== authorId);
 export const approverNames = authorId => orJoin(approvers(authorId).map(x => first(x.id)));
 export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['Waiting for approval', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
-export const statusChip = a => { const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
+export const statusChip = a => { if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`, 'info', 'clock');
+  const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
+const canWait = a => a.status === 'approved' && !!a.scheduled_for;
 
 // ---- who it goes to ----
 export function audienceOf(a) {
@@ -67,7 +76,7 @@ const AUD = {
     : u.kind === 'segment' ? `Goes to ${people(n)} in this segment who said yes to action alerts.` : `Goes to ${people(n)} who asked for action alerts.`,
   to: (n, u) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to action alerts` : `People who follow ${u.name} and asked for action alerts`)
     : u.kind === 'segment' ? `${people(n)} in ${u.name}` : `${people(n)} who follow ${u.name}`,
-  send: n => n == null || n < 0 ? 'Send to the followers' : `Send to ${people(n)}`,
+  send: n => n == null || n < 0 ? 'Send at 4:30 pm' : `Send at 4:30 pm to ${people(n)}`,
 };
 export const audHTML = (a, fmt) => `<span data-aud="${esc(audKey(a))}" data-fmt="${fmt}">${esc(AUD[fmt](audN(a), audienceOf(a)))}</span>`;
 function paintAud(k) {
@@ -84,20 +93,26 @@ export function emailPreview(a) {
   html = html.replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');     // a link in the preview must not leave the tracker
   const target = u.name || 'the tracker';
   const app = PUBLIC_APP() + (u.b ? '#bill=' + u.b.bill_number : u.l ? '#list=' + u.l.slug : '');
-  const why = u.kind === 'segment' ? 'You get this because you asked HIPHI for action alerts' : `You get this because you follow ${target} on the HIPHI Bill Tracker and asked for action alerts`;
+  // As queue_public_digests builds it since 10/1 (migration 109, R-101 rules 2 and 7): the ask goes out in each person's one
+  // email of the day at 4:30 pm, from "HIPHI Bill Tracker", replies to its writer; their hearing alerts follow it.
+  const why = 'You get this because you asked the HIPHI Bill Tracker for HIPHI’s alerts on what you follow. One email a day at most.';
   const postal = String(S.emailCfg?.postal || '').trim() || '707 Richards Street, Suite 300, Honolulu, HI 96813';
+  const fromAddr = String(S.emailCfg?.from_email || '').trim();
   return `<article class="le-mail" aria-label="The email as supporters get it">
     <dl class="le-mhead">
-      <div><dt>From</dt><dd>${esc(au.full_name || '')} <span class="le-mute">&lt;${esc(au.email || '')}&gt;</span></dd></div>
+      <div><dt>From</dt><dd>HIPHI Bill Tracker${fromAddr ? ` <span class="le-mute">&lt;${esc(fromAddr)}&gt;</span>` : ''}</dd></div>
+      <div><dt>Replies</dt><dd>${esc(au.full_name || '')} <span class="le-mute">&lt;${esc(au.email || '')}&gt;</span></dd></div>
       <div><dt>To</dt><dd>${!u.kind ? 'Nobody yet' : a.status === 'sent' && a.recipients != null ? esc(AUD.to(a.recipients, u)) : audHTML(a, 'to')}</dd></div>
       <div><dt>Subject</dt><dd class="le-msubj">${esc(a.subject || '(no subject)')}</dd></div>
     </dl>
     <div class="le-mbody">
-      <p class="le-meb">HIPHI · action alert · ${esc(target)}</p>
+      <p class="le-meb">From HIPHI${u.kind && u.kind !== 'segment' ? ` · ${esc(target)}` : ''}</p>
+      <p class="le-msubj2"><b>${esc(a.subject || '(no subject)')}</b></p>
       <div class="le-mtext">${html || '<p class="le-mute">The message is empty.</p>'}</div>
       <p class="le-mcta"><a class="le-mbtn" href="${esc(app)}" target="_blank" rel="noopener">Open ${u.kind === 'segment' ? 'the HIPHI Bill Tracker' : esc(target) + ' on the tracker'}</a></p>
       <p>— ${esc(au.full_name || '')}, Hawaiʻi Public Health Institute</p>
-      <p class="le-mfoot">${esc(why)}. <span class="le-mlink">Stop action alerts</span> · <span class="le-mlink">Stop all email</span><br>Hawaiʻi Public Health Institute · ${esc(postal)}</p>
+      <p class="le-mfoot">Their hearing alerts for the day follow here, in the same email.</p>
+      <p class="le-mfoot">${esc(why)} <span class="le-mlink">Stop HIPHI’s alerts</span> · <span class="le-mlink">Stop all email</span><br>Hawaiʻi Public Health Institute · ${esc(postal)}</p>
     </div>
   </article>`;
 }
@@ -313,6 +328,7 @@ function statusView(a) {
     : own ? `Waiting for ${esc(appr)} to approve it.${approves(me) ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
   else if (a.status === 'approved') line = `${a.approved_by ? `${a.approved_by === me.id ? 'You' : esc(first(a.approved_by))} approved it. ` : ''}${own ? 'Send it when you are ready.' : me.is_admin ? `It is ${esc(who)}’s to send; an admin can send it too.` : `Waiting for ${esc(who)} to send it.`}`;
   else if (a.status === 'sent') line = `Sent ${esc(fmtDT(a.sent_at))} to ${people(a.recipients || 0)}.`;
+  if (canWait(a)) line = `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
   else if (a.status === 'returned') line = `Sent back to ${esc(who)}. Only ${esc(who)} can change it.`;
   else line = `${esc(who)} is still writing it. Only ${esc(who)} can change it.`;
   const stats = a.status === 'sent' ? `<p class="le-stats">${[`${a.opens || 0} opened`, `${a.clicks || 0} clicked`, `${a.bounces || 0} bounced`].map(s => `<span>${s}</span>`).join('')}</p>` : '';
@@ -347,6 +363,7 @@ function statusActions(a) {
   // Send is the writer's step. An admin looking at someone else's approved email can send it too, but for them it is
   // not the page's main button (it appears where Approve was a moment ago), and it always asks first.
   if (canSend(a)) return btn(audHTML(a, 'send'), { kind: a.author_id === S.me?.id ? 'primary' : 'secondary', icon: 'send', attrs: { 'data-le': 'send' } });
+  if (canUnsend(a)) return btn('Take it back', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-le': 'unsend' } });
   return '';
 }
 
@@ -557,13 +574,19 @@ function returnSheet(a) {
     } });
 }
 async function sendNow(el, a) {
-  const n = audCount(a), au = advocate(a.author_id);
-  const ok = await confirmSheet({ title: n != null ? `Send to ${people(n)}?` : 'Send to the followers?', ok: 'Send',
-    text: `${esc(a.subject)}<br><span class="small muted">It goes out from ${esc(au?.email || 'the writer’s address')} and cannot be taken back.${paused() ? ' Email is paused, so nothing leaves until an admin turns it back on.' : ''}</span>` });
+  const n = audCount(a), au = advocate(a.author_id), day = dailyWord();
+  const ok = await confirmSheet({ title: n != null ? `Send at 4:30 pm to ${people(n)}?` : 'Send at 4:30 pm?', ok: 'Send at 4:30 pm',
+    text: `${esc(a.subject)}<br><span class="small muted">It goes out ${day} at 4:30 pm, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.${paused() ? ' Email is paused, so nothing leaves until an admin turns it back on.' : ''}</span>` });
   if (!ok) return;
   await afterClose();
   busy(el, true);
-  try { const r = await DB.alertStep(a.id, 'send'); hooks.render(); toast(`Sent to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true }); }
+  try { const r = await DB.alertStep(a.id, 'send'); hooks.render();
+    toast(`In ${day}’s 4:30 pm email to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); }
+  catch (e) { busy(el, false); toast(e, { err: true }); }
+}
+async function unsendNow(el, a) {
+  busy(el, true);
+  try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out. It stays approved, ready to send again.'); }
   catch (e) { busy(el, false); toast(e, { err: true }); }
 }
 async function test(el, a) {
@@ -612,6 +635,7 @@ function wire(route, root) {
     });
     on('[data-le="return"]', () => canApprove(src) && returnSheet(src));
     on('[data-le="send"]', el => canSend(src) && sendNow(el, src));
+    on('[data-le="unsend"]', el => canUnsend(src) && unsendNow(el, src));
     on('[data-le="test"]', el => test(el, src));
     on('[data-le="more"]', () => moreMenu(null, src));
     return;

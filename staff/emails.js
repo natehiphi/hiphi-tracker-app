@@ -10,7 +10,7 @@ import { S, esc, fmtDT, advocate } from './data.js';
 import { alertsToReview } from './model.js';
 import { icon, btn, row, empty } from './ui.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
-import { audienceOf, statusChip, approverNames, pausedNotice, ago } from './composer.js';
+import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord } from './composer.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const when = a => a.updated_at || a.submitted_at || a.created_at || '';
@@ -23,6 +23,7 @@ function emailRow(a, kind) {
   switch (kind) {
     case 'review': sub = `From ${esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(a.submitted_at || when(a)))}`; break;
     case 'send': sub = `Approved${a.approved_by ? ' by ' + esc(first(a.approved_by)) : ''} · ${esc(toWhom(a))}`; break;
+    case 'going': sub = `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm · ${a.recipients || 0} ${a.recipients === 1 ? 'person' : 'people'} · ${esc(toWhom(a))}`; break;
     case 'draft': sub = a.status === 'returned' && a.review_note ? `<span class="le-rnote">“${esc(a.review_note)}”</span>` : `${mine ? 'You' : esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(when(a)))}`; end = statusChip(a); break;
     case 'wait': sub = a.status === 'approved' ? `Approved. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
     case 'sent': sub = `<span class="le-sline">Sent to ${a.recipients || 0} · ${a.opens || 0} opened · ${a.clicks || 0} clicked · ${a.bounces || 0} bounced</span><span class="le-smeta">${esc(u.name || '')} · ${esc(first(a.author_id))} · ${esc(ago(a.sent_at))}</span>`; break;
@@ -50,6 +51,7 @@ function nextLine(a, rv) {
   const me = S.me?.id, mine = a.author_id === me, who = esc(first(a.author_id));
   const you = (ic, t) => `<span class="le-next you">${icon(ic)}${t}</span>`, other = t => `<span class="le-next">${t}</span>`;
   if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Needs your approval') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
+  if (a.status === 'approved' && a.scheduled_for) return other(`Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`);
   if (a.status === 'approved') return mine ? you('send', 'Approved. Ready for you to send') : other(`Approved. Waiting for ${who} to send it`);
   if (a.status === 'returned') return mine ? you('undo-2', `Sent back to you${a.review_note ? `: “${esc(a.review_note)}”` : ''}`) : other(`Sent back to ${who}${a.review_note ? `: “${esc(a.review_note)}”` : ''}`);
   if (a.status === 'sent') return other(`Sent ${esc(ago(a.sent_at))}${a.bounces ? ` · ${a.bounces} bounced` : ''}`);
@@ -79,21 +81,24 @@ export default {
     const review = alertsToReview().sort(newest), rv = new Set(review.map(a => a.id));
     // Ready to send: the writer's own approved emails. An admin can send someone else's too (from its page), but it
     // is the writer's to send, so those wait under "Waiting on someone else".
-    const ready = all.filter(a => a.status === 'approved' && a.author_id === me);
+    const ready = all.filter(a => a.status === 'approved' && !a.scheduled_for && a.author_id === me);
+    // Sent, waiting for the 4:30 pm email (R-101): its own group, so nobody wonders whether it went.
+    const going = all.filter(a => a.status === 'approved' && a.scheduled_for);
     const drafts = all.filter(a => ['draft', 'returned'].includes(a.status)).sort((x, y) => (y.author_id === me) - (x.author_id === me) || (y.status === 'returned') - (x.status === 'returned') || newest(x, y));
-    const waiting = all.filter(a => (a.status === 'submitted' && !rv.has(a.id)) || (a.status === 'approved' && a.author_id !== me));
+    const waiting = all.filter(a => (a.status === 'submitted' && !rv.has(a.id)) || (a.status === 'approved' && !a.scheduled_for && a.author_id !== me));
     const sent = all.filter(a => a.status === 'sent').sort((x, y) => String(y.sent_at || '').localeCompare(String(x.sent_at || '')));
     const newBtn = btn('New email', { icon: 'mail-plus', href: '#/email/new' });
     const desk = isDesk(), needs = review.length + ready.length + drafts.filter(a => a.author_id === me).length;
     return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
       ${pageHead('emails', 'Emails', desk ? 'Emails to supporters. Someone other than the writer approves each one before it can be sent.' : 'Emails to supporters. Someone else approves each one.', all.length ? newBtn : '')}
       ${pausedNotice()}
-      <p class="le-hear">${icon('bell')}<span>Hearing alerts send on their own, once a day, to people who asked for them.</span></p>
+      <p class="le-hear">${icon('bell')}<span>Supporters get one email a day at most, at 4:30 pm: their hearing alerts, which send on their own, and any of these emails sent that day.</span></p>
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
-        : desk ? `<p class="le-tsum" aria-live="polite"><b>${plural(all.length, 'email')}</b> · ${needs ? `${needs} ${needs === 1 ? 'needs' : 'need'} you` : 'none needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...drafts, ...waiting, ...sent], v, rv)}`
+        : desk ? `<p class="le-tsum" aria-live="polite"><b>${plural(all.length, 'email')}</b> · ${needs ? `${needs} ${needs === 1 ? 'needs' : 'need'} you` : 'none needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
         : group('review', 'Needs your approval', review, 'review')
         + group('send', 'Ready to send', ready, 'send')
+        + group('going', 'Going out at 4:30 pm', going, 'going')
         + group('drafts', 'Drafts and sent back', drafts, 'draft')
         + group('wait', 'Waiting on someone else', waiting, 'wait')
         + group('sent', 'Sent', sent, 'sent')}

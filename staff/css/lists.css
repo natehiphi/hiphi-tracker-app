@@ -238,6 +238,7 @@
 .le-mail .le-mute { color: var(--n500); }
 .le-mail .le-mbody { padding: var(--s16) var(--s16) var(--s24); font-size: var(--t16); line-height: 1.55; overflow-wrap: anywhere; }
 .le-mail .le-meb { margin-bottom: var(--s12); font-size: var(--t13); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--n500); }
+.le-mail .le-msubj2 { margin: 0 0 var(--s8); font-size: var(--t18); color: var(--n900); }   /* the ask's subject, as the 4:30 pm email shows it (R-101) */
 .le-mail .le-mtext p, .le-mail .le-mtext ul, .le-mail .le-mtext ol, .le-mail .le-mtext blockquote { margin: 0 0 var(--s12); }
 .le-mail .le-mtext ul, .le-mail .le-mtext ol { padding-left: var(--s24); }
 .le-mail .le-mtext h3 { font: 700 var(--t18)/1.3 var(--font); letter-spacing: 0; color: var(--n900); margin: var(--s16) 0 6px; }

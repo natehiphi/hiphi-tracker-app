@@ -940,7 +940,12 @@ export const DB = {
     Object.assign(S.alerts.find(x => x.id === a.id) || {}, data); return data;
   },
   async alertStep(id, action, note) {
-    if (DEMO) { const a = S.alerts.find(x => x.id === id); const next = { submit: 'submitted', approve: 'approved', unapprove: 'submitted', return: 'returned', send: 'sent', test: a.status }[action]; Object.assign(a, { status: next, review_note: action === 'return' ? note : a.review_note, sent_at: action === 'send' ? new Date().toISOString() : a.sent_at, recipients: action === 'send' ? 12 : a.recipients }); return a; }
+    // Sandbox: the same steps as action_alert_step. Send waits for the 4:30 pm email (migration 109, R-101); Unsend takes it back.
+    if (DEMO) { const a = S.alerts.find(x => x.id === id); const now = new Date(), hst = new Date(now.toLocaleString('en-US', { timeZone: 'Pacific/Honolulu' }));
+      const at = new Date(now.getTime() + ((hst.getHours() * 60 + hst.getMinutes() < 990 ? 0 : 1440) + 990 - hst.getHours() * 60 - hst.getMinutes()) * 60000 - hst.getSeconds() * 1000);
+      if (action === 'send') { if (a.status !== 'approved' || a.scheduled_for) throw new Error('approve it first'); Object.assign(a, { scheduled_for: at.toISOString(), recipients: a.recipients ?? 12, updated_at: now.toISOString() }); return a; }
+      if (action === 'unsend') { if (!a.scheduled_for) throw new Error('Nothing is waiting to go out.'); Object.assign(a, { scheduled_for: null, updated_at: now.toISOString() }); return a; }
+      const next = { submit: 'submitted', approve: 'approved', unapprove: 'submitted', return: 'returned', test: a.status }[action]; Object.assign(a, { status: next, review_note: action === 'return' ? note : a.review_note, sent_at: action === 'send' ? new Date().toISOString() : a.sent_at, recipients: action === 'send' ? 12 : a.recipients }); return a; }
     const { data, error } = await S.supa.rpc('action_alert_step', { p_id: id, p_action: action, p_note: note || null }); if (error) throw error;
     Object.assign(S.alerts.find(x => x.id === id) || {}, data);
     const tok = S.session?.access_token;   // nudge the outbox so DMs, tests and sends go now

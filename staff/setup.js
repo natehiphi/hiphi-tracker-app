@@ -343,7 +343,9 @@ const PAGES = {
     body() { const c = S.emailCfg || {};
       return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Held email is not sent later. This switch saves as soon as you flip it.')}
         <p class="small muted st-note" id="st-email-note">${this.note()}</p>
-        ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}</div>`; },
+        ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}
+        ${txt('st-email-from', 'Public email comes from', c.from_email || '', { type: 'email', ph: 'alerts@hiphi.org', help: 'Shown as “HIPHI Bill Tracker”. It must be an address Postmark is set up to send from (a hiphi.org sender).' })}
+        ${txt('st-email-reply', 'Replies go to', c.reply_to || '', { type: 'email', ph: 'info@hiphi.org', help: 'A mailbox a person reads. Replies to a supporter email sent by someone on the team go to its writer instead.' })}</div>`; },
     // The switch saves itself. Pausing is the safe direction, so it just happens; turning email back ON starts mail
     // to the public again, so it asks first (a stray tap must never do that).
     auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings(c),
@@ -351,9 +353,15 @@ const PAGES = {
       confirm: v => v ? { title: 'Turn email on?', text: 'Alerts, reminders, digests and hearing emails to the public start going out again. Email held while it was paused is not sent.', ok: 'Turn email on' } : null,
       msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' } },
     after(root) { const n = root.querySelector('#st-email-note'); if (n) n.innerHTML = this.note(); },
-    saveLabel: 'Save the address',
-    // Only the address: the switch has already saved itself, and a Save here must never flip it.
-    async save(root) { await DB.saveEmailSettings({ ...(S.emailCfg || {}), postal: val(root, 'st-email-postal') }); return 'Postal address saved.'; },
+    saveLabel: 'Save',
+    // Only the fields: the switch has already saved itself, and a Save here must never flip it. The sender and the reply
+    // address are R-101's rule 7 (Nate 10/1): from "HIPHI Bill Tracker", replies to a person.
+    async save(root) {
+      const okMail = v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), from = val(root, 'st-email-from'), reply = val(root, 'st-email-reply');
+      if (!okMail(from)) { fieldErr(root, 'st-email-from', 'Enter an email address like alerts@hiphi.org, or leave it blank.'); return null; }
+      if (!okMail(reply)) { fieldErr(root, 'st-email-reply', 'Enter an email address like info@hiphi.org, or leave it blank.'); return null; }
+      await DB.saveEmailSettings({ ...(S.emailCfg || {}), postal: val(root, 'st-email-postal'), from_email: from, from_name: 'HIPHI Bill Tracker', reply_to: reply });
+      return 'Saved.'; },
   },
   alerts: {
     status: () => ['bell', status('alerts') + '.'],
