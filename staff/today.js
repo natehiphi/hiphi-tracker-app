@@ -330,7 +330,7 @@ export function todayItems(scope = 'mine', who = null) {
         const due = askDue(h), past = due <= now;
         push({ kind: 'ask', key: `s:${b.id}:ask`, b, h, due, who, s: past ? `Write the public ask before ${when} hearing` : `Write the public ask by ${byLine(due)}`,
           wk: `Write the public ask for ${whoseDay(d, now)} ${c} hearing`,
-          note: 'Until then the public page shows supporters only the official title.', btns: [{ label: 'Write it', href: `#/bill/${b.bill_number}/public` }] });
+          note: 'Until then the public page asks people to act on the next hearing in its own words, not HIPHI’s.', btns: [{ label: 'Write it', href: `#/bill/${b.bill_number}/public` }] });
       }
     }
     if (!ups.length && b.priority === 1) {
@@ -717,7 +717,7 @@ const monBtn = (n, scope, who, cls = 'td-pmore') => `<button type="button" class
 // the hearing's own page (R-022): the room, the members, every bill we have on its agenda and who from the team is going.
 function hearingRow({ h, b, t }) {
   const o = S.outcomes?.[h.id]?.outcome, past = t < Date.now() - 2 * HR;
-  return `<a class="td-hrow${past ? ' past' : ''}" href="#/hearing/${esc(h.id)}">
+  return `<a class="td-hrow${past ? ' past' : ''}" href="#/hearing/${esc(h.id)}?from=today">
     <span class="td-htime">${esc(timeOf(h.scheduled_at))}</span>
     <span class="td-hbody"><span class="td-hbill${b.nickname ? '' : ' td-clamp'}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} ${shortName(b)}</span>
       <span class="td-hline"><span class="td-hmeta">${esc(h.committee)} · ${esc(room(h.room))} · ${esc(o ? OUTCOME_LABEL[o] || o : goingLine(h))}</span><span class="sr">Testimony: </span>${stateChip(draftOf(h))}</span></span></a>`;
@@ -1083,7 +1083,7 @@ function wkHearing(list, owners, now, wkend) {
   const h = list[0].h, past = list[0].t < now - 2 * HR, when = wkWhen(list[0].t, wkend), monOnly = list.every(x => isMon(x.b));
   const rows = list.map(x => { const o = S.outcomes?.[x.h.id]?.outcome; return wkBill(x.b, past && o ? chip(OUTCOME_LABEL[o] || o) : '', owners); }).join('');
   // Every sitting opens its own page (R-022): the agenda, the members, and who from the team is going.
-  const page = `<a class="wk-hpage" href="#/hearing/${esc(h.id)}">${icon('landmark')}<span>Open the hearing</span></a>`;
+  const page = `<a class="wk-hpage" href="#/hearing/${esc(h.id)}?from=week">${icon('landmark')}<span>Open the hearing</span></a>`;
   // A hearing that is over needs nothing from anyone, so it keeps its place in the day as one quiet line that opens to
   // its bills and what happened to them. Drawn in full, the morning's hearings pushed the afternoon's overdue testimony
   // below the fold, and their pale boxes looked like deadline cards (review, 9/21). A sitting that hears only bills we
@@ -1093,7 +1093,7 @@ function wkHearing(list, owners, now, wkend) {
   // Who is going, only when someone is (Nate, 9/21).
   const going = goingOf(goersAt(h));
   return `<section class="wk-blk wk-hr" data-at="${list[0].t}" aria-label="${esc(`Hearing, ${when}, ${h.committee}, ${room(h.room)}${going ? '. ' + going : ''}`)}">
-    <p class="wk-bh">${icon('landmark')}<a class="wk-hl" href="#/hearing/${esc(h.id)}"><b>${esc(when)} · Hearing</b></a></p>
+    <p class="wk-bh">${icon('landmark')}<a class="wk-hl" href="#/hearing/${esc(h.id)}?from=week"><b>${esc(when)} · Hearing</b></a></p>
     <p class="wk-bs">${esc(h.committee)} · ${esc(room(h.room))}</p>${going ? `<p class="wk-bs wk-going">${icon('users')}<span>${esc(going)}</span></p>` : ''}
     <ul class="wk-bills">${rows}</ul></section>`;
 }
@@ -1232,7 +1232,7 @@ function coalSection(r) {
   const count = [sit.size ? plural(sit.size, 'hearing') : '', racing.length ? `${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing` : '', todos.length ? plural(todos.length, 'open to-do') : ''].filter(Boolean).join(' · ');
   const owner = b => { const a = advocate((S.assignments[b.id] || [])[0]); return `${avatar(a, 20)}<span class="td-cown">${esc(a ? (a.id === S.me.id ? 'You' : first(a.id)) : 'No owner')}</span>`; };
   const sitRow = list => { const h = list[0].h, going = goingOf(goersAt(h));
-    return `<a class="td-crow" href="#/hearing/${esc(h.id)}"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
+    return `<a class="td-crow" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
       <span class="td-cbody"><span class="td-cbills">${list.map(x => `<b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}`).join('<span class="td-csep">, </span>')}</span>
       <span class="td-cmeta">${esc(h.committee)} · ${esc(room(h.room))} · ${going ? esc(going) : `<span class="td-cnone">${icon('user-round-plus')}Nobody from the team yet</span>`}</span></span></a>`; };
   const raceRow = b => `<a class="td-crow td-crace" href="#/bill/${esc(b.bill_number)}"><span class="td-cbody"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} ${esc(b.nickname || blurb(b, 60))}</span></span><span class="td-cwho">${owner(b)}</span></a>`;

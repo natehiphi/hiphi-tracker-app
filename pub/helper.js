@@ -30,7 +30,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, c
   billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
   hearingText, chairContacts, legById, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
-import { nudgeCard, wireNudge, shareText } from './actions.js';
+import { nudgeCard, wireNudge, shareFor, doShare } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
 
@@ -924,14 +924,10 @@ function burst() {
   setTimeout(() => box.remove(), 1100);
 }
 async function tellFriend() {
-  const x = S.helper, t = shareText(x.b, x.h, { acted: true }); let how = '';
-  try {
-    if (navigator.share) { await navigator.share({ title: spaced(x.b.bill_number), text: t.text.replace(t.url, '').trim(), url: t.url }); how = 'Shared. Mahalo!'; }
-    else { await navigator.clipboard.writeText(t.text); how = 'Link copied'; }
-  } catch (e) {
-    if (e?.name === 'AbortError') return;   // they closed the share sheet
-    if (await copyText(t.text)) how = 'Link copied';
-  }
+  const x = S.helper, t = shareFor(x.b, x.h, { acted: true });
+  const r = await doShare(t);   // the bill's own share page, the deadline in the words, the link once (R-113)
+  let how = r === 'shared' ? 'Shared. Mahalo!' : r === 'copied' ? 'Link copied' : '';
+  if (!how && !navigator.share && await copyText(t.copy)) how = 'Link copied';   // older browsers: the hidden-field copy
   if (!how || S.helper !== x) return;
   // A share counts as an action (plan 7, "every action counts").
   if (!didKind(x.b, x.h, 'share')) await markDone(x.b.id, x.h?.id || '', 'share', true, { quiet: true });

@@ -129,7 +129,7 @@ export function visitVia() {
 const welcomes = new Map();
 export function partnerWelcome(slug) {
   const s = String(slug || '').toLowerCase();
-  if (!/^[a-z0-9-]{2,40}$/.test(s)) return Promise.resolve(null);
+  if (!/^[a-z0-9-]{2,40}$/.test(s) || s === 'share') return Promise.resolve(null);   // ?via=share is a friend's link, not a partner (R-114)
   if (DEMO) return Promise.resolve(`Welcome, friends of ${s.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')}!`);
   if (!welcomes.has(s)) welcomes.set(s, supa()
     .then(sb => sb.from('public_partners').select('welcome').eq('slug', s).maybeSingle())

@@ -113,6 +113,20 @@ session's bill of that number) and `b/2026/HB2121` (that session's), every one f
 Tests: `tests/year_links.py` (the sandbox, with a 2025 copy of one bill served into the snapshot) and
 `tests/year_links_live.py` (the published site).
 
+**One share everywhere, and a link newcomer is left to finish (R-113 P3 and R-114 P4, 10/1).** Every share of a bill
+goes through `shareFor(b, h, { acted, law, differs })` and `doShare()` in `pub/actions.js`: the words, the testimony
+deadline while it is open ("Testimony is due Wed, Mar 18 at 9:30 AM"), the bill's own share page as the address
+(`billShareUrl` in core.js: `b/HB2121`, or `b/2026/HB2121`; the tracker's address in the sandbox), and the link passed
+once (the share sheet gets it as the url, the clipboard copy has it at the end). `shareIssue(i)` shares an issue's page
+(`i/<slug>`, `issueShareUrl`) and counts it: the issue page's "Share this issue" (find.js) and the finale's "Know someone
+who cares about <issue>? Send it" (`shareLine`/`wireShareLine` in start.js, also on the ending that lands on Home). The
+share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in place of `via=share` (W1). A newcomer on
+a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
+on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
+Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting the "voice" step offers
+"Go to my home page" beside "Show me how it works (2 min)". Tests: `tests/share_links.py` (22 checks, with Staff v2's
+hearing back link and the Help words from R-112).
+
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen
 that failed to draw, a start that failed) to `log_public_error` (backend migration 110): the kind, the screen's address
@@ -456,6 +470,7 @@ python3 tests/year_links.py         # year-proof bill links in the sandbox, with
 python3 tests/year_links_live.py    # the same on the published site, with the share pages (R-110); 7 checks
 python3 tests/errlog.py             # the public page's error reports: what is sent, what never is, the early catcher (R-111); 17 checks
 python3 tests/uptime.py             # the published page draws four screens with no error, as the hourly GitHub job checks it (R-111)
+python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 22 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

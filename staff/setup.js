@@ -126,7 +126,7 @@ function readyRows() {
   const em = rows.find(r => r.key === 'email'); if (em) em.detail = (S.emailCfg || {}).enabled === false ? 'Paused. Nothing is sent.' : 'On.';
   const gaps = S.bills.filter(b => b.tracked !== false && ['strongly_support', 'strongly_oppose'].includes(b.position) && !diedish(b) && (!(b.public_summary || '').trim() || !(b.public_action || '').trim()));
   rows.push({ key: 'public_copy', level: 'warn', label: 'Public page copy on the bills we push hardest', ok: !gaps.length, gaps,
-    detail: gaps.length ? `${plural(gaps.length, 'strongly supported or opposed bill')} without a one-line summary or an ask. The public page shows the official title instead.` : 'Every strongly supported or opposed bill has a summary and an ask.' });
+    detail: gaps.length ? `${plural(gaps.length, 'strongly supported or opposed bill')} without a one-line summary or an ask. Without an ask, the public page asks people to act on the next hearing in its own words; without a summary it shows the official title.` : 'Every strongly supported or opposed bill has a summary and an ask.' });
   const rank = r => r.ok === true ? 5 : r.level === 'block' ? 0 : r.level === 'warn' ? 1 : r.level === 'manual' ? 2 : 3;
   return rows.sort((a, b) => rank(a) - rank(b));
 }

@@ -20,6 +20,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
 import { burst, celebrate } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
+import { shareLine, wireShareLine } from './start.js';
 import { CAPITOL, islands, flower } from './art.js';
 // A namespace import, so Home still loads while More is being built (a named import of a missing export would
 // stop the whole page from loading).
@@ -595,6 +596,7 @@ function homeFirst({ cards, asks, ask }) {
       <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here.` })}</header>
       ${rightNow(cards, asks)}
       ${yourIssues()}
+      ${shareLine('hm-share')}
       ${ask}
     </div></div>
   </div>`;
@@ -881,7 +883,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root);
+    wireActions(root); wireNudge(root); wireShareLine(root);
     try { more.wireAccountCards?.(); } catch (e) { console.error(e); }
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {

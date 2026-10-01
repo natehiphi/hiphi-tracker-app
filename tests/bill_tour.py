@@ -130,8 +130,9 @@ with sync_playwright() as pw:
     ok(p.locator('.bl-newbie').count() == 1, 'phone: a newcomer on a shared bill gets the "New here?" card')
     ok(not tip(p, 1500), 'phone: no tour while the "New here?" card is up')
     p.locator('[data-bl-newlater]').first.click()
-    ok(tip(p), 'phone: after "Just looking" the tour shows')
-    ok(p.locator('.bl-newbie').count() == 0, 'phone: the card is gone when the tour shows')
+    # R-114 (10/1): someone who arrived on a shared link is never interrupted by the tour; one quiet line offers it.
+    ok(not tip(p, 2500) and 'Take the 2-minute tour' in p.locator('main').inner_text(), 'phone: after "Just looking" no tour starts by itself; the quiet line offers it')
+    ok(p.locator('.bl-newbie').count() == 0, 'phone: the card is gone after "Just looking"')
     c.close()
     c, p = ctx(b, 1440, 900); fresh(p, returning=False); visit(p, '/bill/HB2121', wait=3000)
     ok(p.locator('.bl-newbie').count() == 1 and not tip(p, 1500), 'laptop: no tour while the "New here?" card is up')

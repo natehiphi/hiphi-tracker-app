@@ -9,6 +9,11 @@
 (function () {
   var p = location.pathname, m = /\/(b|i)\/(?:(\d{4})\/)?([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/.*$/, '/').replace(/[^/]*$/, '');
   var to = m ? base + 'track.html?via=share#/' + (m[1] === 'b' ? 'bill/' + (m[2] ? m[2] + '/' : '') + m[3].toUpperCase() : 'issue/' + m[3].toLowerCase()) : base + 'track.html';
+  // A partner's word or a campaign's utm_ words on the link go on in place of ?via=share (R-113, W1).
+  try { var q = new URLSearchParams(location.search), u = new URL(to, location.href);
+    if (/^[a-z0-9-]{2,40}$/i.test(q.get('via') || '')) u.searchParams.set('via', q.get('via'));
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (q.get(k)) u.searchParams.set(k, q.get(k).slice(0, 60)); });
+    to = u.href; } catch (e) { /* the plain address */ }
   location.replace(to);
 })();
 </script></head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="track.html">Go to HIPHI’s Bill Tracker</a></p></body></html>

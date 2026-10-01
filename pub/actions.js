@@ -4,7 +4,9 @@
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
-  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft } from './core.js';
+  nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft,
+  billShareUrl, issueShareUrl, dueWords, isResolution } from './core.js';
+import { logAct } from './visitlog.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
 
@@ -132,15 +134,33 @@ function icsFor(b, h) {
 }
 // Written like a friend talking, not a notice (Nate 9/29: "too professional and not encouraging"). acted: sent by someone who
 // has just spoken up, so it starts from what they did.
-export function shareText(b, h, { acted = false } = {}) {
-  const url = `${location.origin}${location.pathname}${billPath(b)}`;
-  const name = nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
-  const when = h && new Date(h.scheduled_at) > Date.now() ? ` The committee hears it ${dayWord(h.scheduled_at)}.` : '';
-  const text = acted
-    ? `I just spoke up at the Legislature on a bill I care about: ${name}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in: ${url}`
-    : `Have you seen this? ${name}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps: ${url}`;
-  return { url, text };
+// One share everywhere (R-113, the assessment's P3): the bill's own share page when it has one (billShareUrl: a text or
+// a post previews with the bill's name, and the friend's visit counts as a share), the deadline in the words while
+// testimony is still open, and the link passed once: the share sheet gets it as the url, the clipboard copy at the end.
+export function shareFor(b, h, { acted = false, law = false, differs = false } = {}) {
+  const sp = spaced(b.bill_number), name = nick(b), named = name ? `${name} (${sp})` : sp, url = billShareUrl(b);
+  const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.`
+    : h && new Date(h.scheduled_at) > Date.now() ? ` The committee hears it ${dayWord(h.scheduled_at)}.` : '';
+  const text = law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
+    : acted ? `I just spoke up at the Legislature on a bill I care about: ${named}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in.`
+    : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps.`;
+  return { title: name || sp, text, url, copy: `${text} ${url}` };
 }
+// The share itself: the device's share sheet, else the clipboard. 'shared' | 'copied' | '' (closed, or nothing works).
+export async function doShare({ title, text, url, copy }) {
+  try { if (navigator.share) { await navigator.share({ title, text, url }); return 'shared'; } } catch (e) { if (e?.name === 'AbortError') return ''; }
+  try { await navigator.clipboard.writeText(copy || `${text} ${url}`); return 'copied'; } catch { return ''; }
+}
+// An issue's page shared (R-113: Share on the issue page, "Know someone who cares about <issue>? Send it" at the finale).
+// Counted as a share (visit_counts), with no bill to mark. Resolves 'shared' | 'copied' | ''.
+export async function shareIssue(i) {
+  const n = (i.bill_ids || []).length;
+  const text = `${i.name} at the Hawaiʻi Legislature: ${(i.description || '').replace(/([^.!?…])$/, '$1.')} ${n ? `HIPHI is working on ${n} ${n === 1 ? 'bill' : 'bills'} on it. ` : ''}Follow it and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
+  const how = await doShare({ title: i.name, text, url: issueShareUrl(i), copy: `${text} ${issueShareUrl(i)}` });
+  if (how) logAct('share');
+  return how;
+}
+export const shareText = (b, h, o) => { const t = shareFor(b, h, o); return { url: t.url, text: t.copy }; };   // the old shape, for anything still asking
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
   const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
 // Follow or unfollow with feedback, and Undo on unfollow. Following a bill with one companion (its
@@ -184,9 +204,8 @@ export function wireActions(root = document) {
   $$('[data-speak]').forEach(el => el.onclick = () => openKey(el.dataset.speak));
   mountHome(root);
   $$('[data-share]').forEach(el => el.onclick = async () => { const k = el.dataset.share, [bid, hid] = k.split('|'), { b, h } = findBH(k); if (!b) return;
-    const t = shareText(b, h); let ok = false;
-    try { if (navigator.share) { await navigator.share({ title: spaced(b.bill_number), text: t.text, url: t.url }); ok = true; } else { await navigator.clipboard.writeText(t.text); ok = true; S.chips[k + 'share'] = true; } } catch { /* cancelled */ }
-    if (ok && !didKind(b, h, 'share')) await markDone(bid, hid, 'share'); app.render(); });
+    const how = await doShare(shareFor(b, h)); if (how === 'copied') S.chips[k + 'share'] = true;
+    if (how && !didKind(b, h, 'share')) await markDone(bid, hid, 'share'); app.render(); });
   $$('[data-go]').forEach(el => el.onclick = () => { const k = el.dataset.go; S.goOpen.has(k) ? S.goOpen.delete(k) : S.goOpen.add(k); app.render(); });
   $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'); await markDone(bid, hid, 'attend', !S.done.has(doneKey(bid, hid, 'attend'))); app.render(); });
   $$('[data-ics]').forEach(el => el.onclick = () => { const k = el.dataset.ics, { b, h } = findBH(k); if (!b || !h) return;

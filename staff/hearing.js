@@ -245,17 +245,23 @@ async function takeOff(c, id) {
 
 // ?from=HB1780 (a bill) or ?from=<coalition id>: the back link names where the person came from, as a legislator's page
 // does for a bill. Opened from inside the app, the back link is real Back anyway (app.js).
+// ?from=today or ?from=week: opened from Today or the Week view (B9, the staff review: the back link used to say
+// "Legislators" whatever the way in). With nothing said, Today is the usual way in.
 function backOf(route) {
   const from = String(route.q?.from || '');
+  if (from === 'today') return { href: '#/', label: 'Today' };
+  if (from === 'week') return { href: '#/?view=week', label: 'Week' };
+  if (from === 'legislators') return { href: '#/legislators', label: 'Legislators' };
   const b = from && S.bills.find(x => x.bill_number === from.replace(/\s/g, '').toUpperCase());
   if (b) return { href: `#/bill/${encodeURIComponent(b.bill_number)}`, label: b.bill_number };
   const co = from && (S.campaigns || []).find(x => String(x.id) === from);
   if (co) return { href: `#/coalition/${encodeURIComponent(co.id)}`, label: co.name };
-  return { href: '#/legislators', label: 'Legislators' };
+  return { href: '#/', label: 'Today' };
 }
 
 export default {
-  tab: 'legislators',
+  // The tab lit is where the person came from (Today, or Legislators for a committee's page).
+  get tab() { return /[?&]from=(today|week)\b/.test(location.hash) || !/[?&]from=/.test(location.hash) ? 'today' : 'legislators'; },
   // The two columns need more than the 720px column the frame gives a plain page between 900 and 1099px.
   wide: () => DESK(),
   title: route => { const h = hearingById(route.id); return h ? `${h.committee} hearing` : 'Hearing'; },

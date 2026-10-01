@@ -51,7 +51,16 @@ function page({ title, desc, to, self }) {
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta http-equiv="refresh" content="0; url=${esc(to)}">
-<script>location.replace(${JSON.stringify(to)});</script>
+<script>
+/* A partner's word or a campaign's utm_ words on this link go on to the tracker in place of ?via=share, so the arrival
+   is counted under them (R-113, W1). */
+(function () { var t = ${JSON.stringify(to)};
+  try { var p = new URLSearchParams(location.search), u = new URL(t, location.href);
+    if (/^[a-z0-9-]{2,40}$/i.test(p.get('via') || '')) u.searchParams.set('via', p.get('via'));
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (p.get(k)) u.searchParams.set(k, p.get(k).slice(0, 60)); });
+    t = u.href; } catch (e) { /* the plain address */ }
+  location.replace(t); })();
+</script>
 </head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="${esc(to)}">${esc(title)}</a></p></body></html>
 `;
 }

@@ -6,12 +6,12 @@
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
-  pickBill, billRef, billPath, yearPrefix, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
+  pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
-import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, RANKED, nextStep, shareFor, doShare } from './actions.js';
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
@@ -38,9 +38,8 @@ const capitolUrl = b => b.state_url || (m => m ? `https://capitol.hawaii.gov/ses
 // A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
 // pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
 // tomorrow. Other bills, and the sandbox, share the tracker's own address.
-// A bill from an earlier session shares b/2026/HB2121 and #/bill/2026/HB2121 (R-110).
-const shareUrl = b => { const ref = billRef(b);
-  return b.hiphi_position && !DEMO ? `${location.origin}${location.pathname.replace(/[^/]*$/, '')}b/${ref}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}${billPath(b)}`; };
+// The address to share (core.js billShareUrl, R-110 and R-113): a bill from an earlier session shares b/2026/HB2121.
+const shareUrl = billShareUrl;
 const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? `+1${d}` : d; };
 
 // Two layouts from the same parts. A phone reads top to bottom: what the bill is, where you stand, where it is, what
@@ -472,13 +471,16 @@ function newcomer(b, x) {
   if (!S.blNew.has(b.id)) logVisit('arrive', 'view', { path: 'link' });   // counted privately (R-023 decision 8)
   S.blNew.add(b.id);
   const h = x.act?.h, i = issuesOf(b)[0];
-  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}. You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
+  // The deadline is the thing a newcomer from a link most needs to know (R-114): said here, and in the head's chip.
+  const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.` : '';
+  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
     : x.kind === 'ask' ? 'This bill is waiting for a hearing. You can ask the chair for one, in about 2 minutes, or follow it and we’ll tell you when.'
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   // A partner's link can open on a bill now (Make a link, R-067): their welcome line leads the card, as it does on the
   // first visit's first screen.
+  // ?via=share is a friend's shared link, not a partner (R-114, B4): no welcome line is looked up for it.
   const via = visitVia();
-  if (via && S.blWelcome === undefined) { S.blWelcome = null; partnerWelcome(via).then(w => { if (w) { S.blWelcome = w; app.render(); } }).catch(() => {}); }
+  if (via && via !== 'share' && S.blWelcome === undefined) { S.blWelcome = null; partnerWelcome(via).then(w => { if (w) { S.blWelcome = w; app.render(); } }).catch(() => {}); }
   return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">${S.blWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.blWelcome)}</span></p>` : ''}
     <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
     <p class="small muted">A free tool from the Hawaiʻi Public Health Institute, a nonprofit. Emails open in your own mail app; nothing is sent for you.</p>
@@ -530,6 +532,8 @@ function head(b, x) {
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
   const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted this session' : 'Stopped this session', '', 'archive') : '',
     p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
+    // The testimony deadline on the first phone screen (R-114): a newcomer from a link should not have to scroll to it.
+    x.act?.h?.testimony_deadline && new Date(x.act.h.testimony_deadline) > Date.now() && !dueInfo(x.act.h)?.late ? chip(`Testimony due ${dueWords(x.act.h.testimony_deadline)}`, 'info', 'calendar-clock') : '',
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
@@ -786,17 +790,12 @@ async function flipFollow(b, { quiet = false } = {}) {
   else if (S.bills.some(y => y.id === b.id)) delete S.xh[b.id];
 }
 // Share counts as an action once the share sheet finishes, or the text is copied (Nate, 9/18: every action counts).
+// One share everywhere (R-113): the words, the deadline and the bill's own share page come from shareFor (actions.js).
 async function shareBill(b, x) {
-  const sp = spaced(b.bill_number), url = shareUrl(b), h = x.act?.h || null, name = nick(b);
-  const what = name ? `${name} (${sp}). ${blurb(b, 110)}` : `${sp}: ${blurb(b, 110)}`;
-  const text = x.law ? `${x.differs ? '' : 'Good news: '}${name ? `${name} (${sp})` : sp} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
-    : h ? `${what} Hearing ${dayWord(h.scheduled_at)}. You can add your voice in a few minutes.`
-    : `${what} Follow it on HIPHI’s Bill Tracker.`;
-  let ok = false, copied = false;
-  const copy = async () => { await navigator.clipboard.writeText(`${text} ${url}`); ok = copied = true; };
-  try { if (navigator.share) { await navigator.share({ title: name || sp, text, url }); ok = true; } else await copy(); }
-  catch (e) { if (e?.name !== 'AbortError') { try { await copy(); } catch { toast('Sharing is not available here. Use Copy link instead.'); } } }
-  if (!ok) return;
+  const h = x.act?.h || null;
+  const how = await doShare(shareFor(b, h, { law: !!x.law, differs: !!x.differs }));
+  if (!how) { if (!navigator.share) toast('Sharing is not available here. Use Copy link instead.'); return; }
+  const copied = how === 'copied';
   if (!didKind(b, h, 'share')) await markDone(b.id, h?.id || '', 'share', true, { quiet: copied });
   if (copied) yay('Copied. Paste it into a text or email. Mahalo for spreading the word.');
   app.render();

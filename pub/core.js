@@ -172,7 +172,7 @@ export async function init() {
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [], issueLinks: [] };
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20260930c', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261001a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -1408,6 +1408,15 @@ export const readyForSession = () => !!wiz().ready && !followsAnything() && sess
 export const yearPrefix = b => b && b.session_year && +b.session_year !== sessionInfo().yr ? `${b.session_year}/` : '';
 export const billRef = b => yearPrefix(b) + String(b.bill_number).replace(/\s/g, '');
 export const billPath = b => '#/bill/' + billRef(b);
+// The address to share a bill at (R-067, R-113): a bill HIPHI has a position on has its own share page (b/HB2121, or
+// b/2026/HB2121 for an earlier session; built daily by tools/share_pages.mjs), so a link pasted into a text or a post
+// previews with the bill's name, and the friend's arrival counts as a share (?via=share); 404.html catches a page not
+// built yet. Other bills, and the sandbox, share the tracker's own address. An issue has i/<slug> the same way.
+const siteRoot = () => `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
+export const billShareUrl = b => b.hiphi_position && !DEMO ? `${siteRoot()}b/${billRef(b)}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}${billPath(b)}`;
+export const issueShareUrl = i => !DEMO ? `${siteRoot()}i/${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
+// "Wed, Mar 18 at 9:30 AM": a deadline in a text to a friend (R-113).
+export const dueWords = iso => `${fmtDate(iso, { weekday: 'short', month: 'short', day: 'numeric' })} at ${timeWord(iso)}`;
 // Of several bills with one number (one per session), the one a link means: the named year, else the current
 // session's, else the newest.
 export const pickBill = (cands, year) => { const c = (cands || []).filter(Boolean); if (!c.length) return null;

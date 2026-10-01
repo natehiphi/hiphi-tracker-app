@@ -253,7 +253,9 @@ function finish(how, o) { const d = T?.def; if (d) { markSeen(d, how); try { d.d
 
 // ---------------- the tours ----------------
 const BILL = { key: 'hiphi_tour_bill', label: 'Reading a bill', route: 'bill', on: onBill, wide, tips,
-  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => true, delay: () => 450 };
+  // Never by itself for someone who arrived on a shared link (R-114): they came for the bill, and the "New here?" card
+  // (bill.js) offers the tour in one quiet line. They see the tips on a later bill page.
+  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !wiz().via, delay: () => 450 };
 
 // Home's tips (R-098) never start over a dialog or the testimony walkthrough.
 const onHome = () => document.body.dataset.screen === 'home' && !!$('#main .hm-fin2');

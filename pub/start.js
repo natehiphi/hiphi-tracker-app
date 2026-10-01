@@ -28,6 +28,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
 import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStep, lessonStop, LESSON_TITLES } from './lessons.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { shareIssue } from './actions.js';
 import { endHome } from './variant.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
@@ -690,8 +691,10 @@ function stepSoon(step) {
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}
     ${list}`,
-    `<div id="st-askbox">${askCard()}</div>`);
+    `<div id="st-askbox">${S.nudgedThisVisit && !S.session && !mailSent() ? quietAsk() : askCard()}</div>`);
 }
+// One email ask per visit (R-114, B3): someone who acted from a shared link was already asked on the Mahalo screen.
+const quietAsk = () => `<p class="small muted st-quietask">${icon('mail')}<span>Want email reminders? Add your email any time under More.</span></p>`;
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
 // Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
@@ -736,7 +739,23 @@ function stepDone(step) {
       <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span>'
         : '<b>When it’s your moment, it’s on your home page.</b><span>One simple way to help, most in about 2 minutes. Turn on reminders in More so you don’t miss one.</span>'}</div></li>
       <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result shows up on your home page.</span></div></li>
-    </ol>`);
+    </ol>${shareLine()}`);
+}
+
+// "Know someone who cares about <issue>? Send it" (R-113): the first followed issue's own share page, at the moment
+// people are proud. One line, a text button; nothing else on the finale asks for anything.
+export function shareLine(cls = 'st-share') {
+  const i = followedIssues()[0]; if (!i) return '';
+  const did = S.chips['share:' + i.id];
+  return `<p class="${cls}">${icon('share-2')}<span>Know someone who cares about ${esc(i.name)}? ${btn(did ? 'Link copied' : 'Send it', { kind: 'text', sm: true, icon: did ? 'check' : '', attrs: { 'data-stshare': i.id } })}</span></p>`;
+}
+export function wireShareLine(root) {
+  root.querySelectorAll('[data-stshare]').forEach(el => el.onclick = async () => {
+    const i = S.issueById.get(el.dataset.stshare); if (!i) return;
+    const how = await shareIssue(i);
+    if (how === 'copied') { S.chips['share:' + i.id] = true; el.innerHTML = `${icon('check')}<span>Link copied</span>`; }
+    else if (how === 'shared') el.innerHTML = `${icon('check')}<span>Sent. Mahalo!</span>`;
+  });
 }
 
 // ================= From a shared bill: follow this issue? =================
@@ -855,6 +874,8 @@ function wire(route) {
     if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
     app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
+  $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); lessonStop(); finish(); });   // R-114: after acting from a link, Home now
+  wireShareLine(document);
 
   if (name === 'topics') {
     $$('[data-stissue]').forEach(el => el.onclick = () => {
@@ -1093,7 +1114,11 @@ export default {
         if (m.loading || m.none) return barBusy();
         return bar2(followLabel(m.count), { icon: 'star' });
       }
-      case 'bill': case 'voice': return bar2('Next', { iconEnd: 'arrow-right' });
+      case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });
+      // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
+      case 'voice': return wiz().via && wiz().viaActed
+        ? `<div class="st-bar"><div class="st-btns">${btn('Go to my home page', { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
+        : bar2('Next', { iconEnd: 'arrow-right' });
       case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
       // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
       case 'soon': return S.session || mailSent() ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
