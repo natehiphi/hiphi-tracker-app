@@ -26,8 +26,8 @@ direction; Claude builds, tests, pushes and verifies the published site.
 - **The public tracker** (`track.html`, `pub/`): people follow issues (R-018); the first visit is R-023's, with two endings
   under A/B test (R-098, R-121); every bill link carries its session year when it is not the current one (R-110); the page
   reports its own errors (R-111); one share everywhere and a link newcomer left to finish (R-113, R-114); the My issues
-  link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the walkthrough and two screens load
-  on first use (R-122).
+  link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the first screen loads first and every
+  other screen on first use (R-122; "How the page loads" below).
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
