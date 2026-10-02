@@ -26,9 +26,15 @@ import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
-import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStep, lessonStop, LESSON_TITLES } from './lessons.js';
+import { LESSON_TITLES } from './topics.js';
+// The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
+// screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
+// that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
+let LZ = null, lzP = null;
+const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), app.ensureCss ? app.ensureCss(['lessons']) : null]).then(([m]) => (LZ = m)).catch(e => { lzP = null; throw e; });
+const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()).catch(e => console.error(e)); return !!LZ; };
 import { logVisit, visitVia, partnerWelcome, logAct } from './visitlog.js';
-import { shareIssue } from './actions.js';
+import { shareLine, keepLine, wireShareLine, wireKeepLine } from './keep.js';
 import { endHome } from './variant.js';
 
 const isOff = () => sessionInfo().phase !== 'in';
@@ -82,7 +88,7 @@ window.addEventListener('pagehide', () => { if (document.body.dataset.screen ===
 
 // ---------- moving between screens: forward steps are tagged, so the on-screen Back can use the real Back ----------
 function goStep(from, to) {
-  lessonStop();
+  LZ?.lessonStop();
   // Past the last step: Home (only the version that ends on Home gets here; today's last screen calls finish() itself).
   if (to > total(isOff())) { finish(); return; }
   swap(() => {
@@ -98,7 +104,7 @@ function goBack(step) {
   while (to >= 1 && redirectFor(to, off)) to--;
   if (to < 1) { history.back(); return; }
   track(nameAt(step, off), 'back');
-  lessonStop();
+  LZ?.lessonStop();
   S.stBack = true;
   // A person who resumed straight onto a later step has no step behind them; history.back() would leave the site.
   swap(() => { if (history.state?.stFrom === to) history.back(); else app.go('#/start/' + to); }, 'back');
@@ -478,7 +484,8 @@ function example() {
   // A lesson opened from a bill page says it is that bill's story.
   const via = S.learnBill && location.hash.startsWith('#/learn/') && b && b.id === S.learnBill ? 'bill' : w.via ? (viaFollowed() ? 'followed' : 'link') : '';
   const key = `${isOff()}|${via}|${b ? b.id : ''}|${full}|${[...S.watch].length}|${S.bills.length}|${(S.recapPool || {}).yr || ''}`;
-  if (key !== exKey) { exKey = key; exCache = exampleFrom(b, { off: isOff(), via }); }
+  if (!lessonsAsk()) return null;   // the lessons are still on their way: the step draws a skeleton and comes back
+  if (key !== exKey) { exKey = key; exCache = LZ.exampleFrom(b, { off: isOff(), via }); }
   return exCache;
 }
 // ================= The short version's one page: why your voice matters (R-067 #11) =================
@@ -511,7 +518,7 @@ function stepLearn(route) {
   S.learnBill = route.bill || '';
   const name = learnName(route), E = example();
   if (!E) return skel(1, 'Finding a bill to show you');
-  const L = lessonHTML(name, E);
+  const L = LZ.lessonHTML(name, E);
   return shell('st-lesson st-learn', `<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>${L.intro}`, L.main);
 }
 
@@ -519,7 +526,7 @@ function stepLearn(route) {
 function stepLesson(step) {
   const E = example();
   if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
-  const L = lessonHTML('story', E);
+  const L = LZ.lessonHTML('story', E);
   return shell('st-lesson', `${topRow('bill', step)}${L.intro}`, L.main);
 }
 
@@ -573,7 +580,7 @@ function stepYou(step) {
     const legCard = l => `<li class="st-leg">${legPhoto(l, 'st-legpic')}<span class="st-tbody"><b>${esc(legTitle(l))} ${esc(l.name)}</b><span>Your ${l.chamber === 'S' ? 'senator' : 'representative'} · District ${esc(String(l.district))}</span></span></li>`;
     body = `<p class="st-addrline">${icon('map-pin')}<span>${esc(A.pick.label || A.q)}</span></p>
       <ul class="st-legs" id="st-legs" role="list">${legs.map(legCard).join('')}</ul>
-      <p class="st-connect">${icon('sparkles')}<span>${esc(connection(E, legs))}</span></p>
+      <p class="st-connect">${icon('sparkles')}<span>${E ? esc(connection(E, legs)) : ''}</span></p>
       ${btn('Use a different address', { kind: 'text', attrs: { 'data-staddrclear': '1' } })}`;
   } else if (A.finding) {
     body = `<p class="st-info-small" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding your districts…</span></p>`;
@@ -742,37 +749,6 @@ function stepDone(step) {
     </ol>${shareLine()}${keepLine()}`);
 }
 
-// "Know someone who cares about <issue>? Send it" (R-113): the first followed issue's own share page, at the moment
-// people are proud. One line, a text button; nothing else on the finale asks for anything.
-export function shareLine(cls = 'st-share') {
-  const i = followedIssues()[0]; if (!i) return '';
-  const did = S.chips['share:' + i.id];
-  return `<p class="${cls}">${icon('share-2')}<span>Know someone who cares about ${esc(i.name)}? ${btn(did ? 'Link copied' : 'Send it', { kind: 'text', sm: true, icon: did ? 'check' : '', attrs: { 'data-stshare': i.id } })}</span></p>`;
-}
-// "Keep your issues on any phone": the My issues link (R-123) and, for a followed issue, its calendar feed (R-125).
-// Copy, or text it to yourself (an sms: link with the body filled in; the phone's own app sends it).
-export function keepLine(cls = 'st-keep') {
-  const link = issuesLink(); if (!link) return '';
-  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\//i.test(navigator.userAgent);
-  const i = followedIssues()[0], cal = i ? calendarUrl(i) : '';
-  // Short button labels: a label that names the issue ran past a phone's edge and the finale's own button missed its tap.
-  return `<p class="${cls}">${icon('link')}<span>${inApp ? 'You’re in an app’s own browser, which forgets. ' : ''}Keep your issues on any phone or browser: ${btn(S.chips['keep'] ? 'Link copied' : 'Copy my issues link', { kind: 'text', sm: true, icon: S.chips['keep'] ? 'check' : '', attrs: { 'data-stkeep': 'copy' } })} · ${btn('Text it to myself', { kind: 'text', sm: true, href: `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`, attrs: { 'data-stkeep': 'sms' } })}${cal ? `<br>Hearings on ${esc(i.name)}: ${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', href: cal, attrs: { 'data-stkeep': 'cal' } })}` : ''}</span></p>`;
-}
-export function wireKeepLine(root) {
-  root.querySelectorAll('[data-stkeep]').forEach(el => el.onclick = async e => {
-    const k = el.dataset.stkeep;
-    if (k === 'copy') { e.preventDefault(); try { await navigator.clipboard.writeText(issuesLink()); S.chips['keep'] = true; el.innerHTML = `${icon('check')}<span>Link copied</span>`; } catch { toast('Could not copy. Use "Text it to myself" instead.'); } }
-    else if (k === 'cal') logAct('calendar');
-  });
-}
-export function wireShareLine(root) {
-  root.querySelectorAll('[data-stshare]').forEach(el => el.onclick = async () => {
-    const i = S.issueById.get(el.dataset.stshare); if (!i) return;
-    const how = await shareIssue(i);
-    if (how === 'copied') { S.chips['share:' + i.id] = true; el.innerHTML = `${icon('check')}<span>Link copied</span>`; }
-    else if (how === 'shared') el.innerHTML = `${icon('check')}<span>Sent. Mahalo!</span>`;
-  });
-}
 
 // ================= From a shared bill: follow this issue? =================
 // The easiest action came first, on the bill page (pub/bill.js); following is offered next (C-3), then the story of
@@ -841,16 +817,17 @@ function wireLearn(route) {
   const name = learnName(route), E = example(); if (!E) return;
   document.body.classList.add('st-lessonpage');
   const key = `${location.hash}|${E.id}`, redraw = name === 'story' && key === learnWired; learnWired = key;
-  lessonStart(name, E, { redraw });
-  const leave = () => { lessonStop?.(); learnWired = ''; S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
+  LZ.lessonStart(name, E, { redraw });
+  const leave = () => { LZ?.lessonStop?.(); learnWired = ''; S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
   const nb = document.querySelector('[data-stlearnnext]');
-  const label = () => { if (!nb || name !== 'story') return; const last = lessonStep(name) >= 3;
+  const label = () => { if (!nb || name !== 'story') return; const last = LZ.lessonStep(name) >= 3;
     nb.innerHTML = `<span>${last ? 'Done' : 'Next'}</span>${icon(last ? 'check' : 'arrow-right')}`; };
   label();
-  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (lessonPrev(name)) label(); else leave(); });
-  if (nb) nb.onclick = () => { if (lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
+  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (LZ.lessonPrev(name)) label(); else leave(); });
+  if (nb) nb.onclick = () => { if (LZ.lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
 }
 function wire(route) {
+  if (!LZ) setTimeout(() => lessonsLoad().catch(() => {}), 600);   // after this screen's own paint (R-122)
   if (route.name === 'learn') return wireLearn(route);
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
@@ -876,21 +853,21 @@ function wire(route) {
     // of HIPHI's bills (R-019: Skip must never lead back to where it started).
     // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
     // screen again; now it is simply the screen after the issues: the story, or the short version's one page.)
-    if (name === 'topics' && !pickedIssues().length) { lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
+    if (name === 'topics' && !pickedIssues().length) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
     if (name === 'issues') { if (!followsAnything()) nudge('follow'); goStep(step, step + 1); return; }
-    if (name === 'soon' || name === 'you') lessonStop();
+    if (name === 'soon' || name === 'you') LZ?.lessonStop();
     goStep(step, step + 1);
   });
   // Back leaves the screen (B-4). The story walks back through its stages first (lessonPrev).
-  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && lessonPrev('story')) return; goBack(+el.dataset.stback); });
+  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; goBack(+el.dataset.stback); });
   $$('[data-stretry]').forEach(el => el.onclick = async () => { S.recapFailed = null;
     if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
     app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
-  $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); lessonStop(); finish(); });   // R-114: after acting from a link, Home now
+  $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); LZ?.lessonStop(); finish(); });   // R-114: after acting from a link, Home now
   wireShareLine(document); wireKeepLine(document);
 
   if (name === 'topics') {
@@ -988,10 +965,11 @@ function wire(route) {
   if (name === 'bill') {
     const E = example();
     // A redraw of the same screen (data landing) shows the still picture, without replaying the road.
-    lessonStart('story', E, { back, redraw: !fresh });
+    if (!E) return;   // the lessons are still on their way: the step is drawn again when they land
+    LZ.lessonStart('story', E, { back, redraw: !fresh });
     const nb = $('[data-stnext]');
     if (nb) nb.onclick = () => {
-      if (lessonNext('story', E)) return;
+      if (LZ.lessonNext('story', E)) return;
       // Finishing "How a bill becomes law": the second moment (C-7), then on to the last part. Its three ticks (fx.js
       // learnArt: a bill, the Capitol, people) are what the page showed: the bill, its road, and the people who help.
       S.stLearned = true; track(name, 'next');

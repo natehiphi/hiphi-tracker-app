@@ -6,29 +6,53 @@ import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser
   wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY, restoreFollows } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
-import start from './start.js';
-import home from './home.js';
-import mybills from './mybills.js';
-import find, { headerSuggest } from './find.js';
 import { suggest } from './suggest.js';
-import bill from './bill.js';
-import people from './people.js';
-import more from './more.js';
-import tour from './tour.js';
-import mylists, { takePlace, finishPlace } from './mylists.js';
 import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
-// Screens a first visit never needs load on first use (R-122, the assessment's P5): the committee pages, every bill, and
-// the walkthrough (helper.js, the largest module), which sets app.openHelper and app.openMail itself once loaded. Until
-// then a stand-in screen shows a skeleton and asks for the module; the walkthrough's two openers load it first.
-const LOADING = new Set();
-const lazy = (key, load) => { const ph = { tab: 'find', tabs: true, title: () => 'Loading', render() {
-    if (!LOADING.has(key)) { LOADING.add(key); load().then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; render(); }).catch(e => { console.error(e); reportError('render', e); LOADING.delete(key); }); }
-    return `<div class="skelpage">${skeleton(4)}</div>`; }, wire() {} }; return ph; };
+// Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
+// Find, People or More; a returning person's carries Home and not the first visit and its lessons (track.html preloads
+// the right one from what this browser remembers, so the first screen costs no extra round trip); the committee pages,
+// every bill, the tour and the walkthrough (helper.js, the largest module, which sets app.openHelper and app.openMail
+// itself once loaded) come when first asked for. Until a module is in, a stand-in draws a skeleton under the right tab
+// and asks for it; `load()` fetches it once and puts it in SCREENS in the stand-in's place.
+const lazy = (key, load, o = {}) => {
+  const ph = { tab: o.tab || 'find', tabs: o.tabs !== false, title: () => o.title || 'Loading', wire() {},
+    load() { if (!ph.p) ph.p = load().then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; return m; }).catch(e => { ph.p = null; throw e; }); return ph.p; },
+    render() { ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); }); return `<div class="skelpage">${skeleton(4)}</div>`; } };
+  return ph;
+};
+const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => import('./home.js'), { tab: 'home', title: 'Home' });
+const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
+const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
+const bill = lazy('bill', () => import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
+const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
+// Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
+// first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
+// is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'talk', 'helper', 'tour', 'mylists', 'wide'];
+// (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
+const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['find'], issue: ['find'], category: ['find'], list: ['find'],
+  bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
+  more: ['more', 'talk'], help: ['more', 'talk'], signin: ['more'], settings: ['more'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
+const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
+const cssDone = new Set(), cssP = {};
+const cssOne = n => cssP[n] ??= new Promise(res => {
+  const done = () => { cssDone.add(n); res(); };
+  const have = cssLink(n); if (have && have.sheet) return done();
+  const l = have || document.createElement('link'); l.rel = 'stylesheet'; l.href = `pub/${n}.css`; l.onload = l.onerror = done;
+  if (!have) { const after = CSS_ORDER.slice(CSS_ORDER.indexOf(n) + 1).map(cssLink).find(Boolean); document.head.insertBefore(l, after || null); }
+});
+const ensureCss = names => Promise.all((names || []).map(cssOne));
+const cssReady = names => (names || []).every(n => cssDone.has(n) || !!cssLink(n)?.sheet);
+// The screen a route needs, module and stylesheet, loaded before its first draw (no skeleton for the first screen).
+const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(SCREEN_CSS[route.name])]); };
+// The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
+let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['tour'])]).then(([m]) => tourMod = m.default);
+const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
-const helperLoad = () => helperMod ? Promise.resolve(helperMod) : import('./helper.js').then(m => { helperMod = m.default; return helperMod; });
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper'])]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
 // A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
@@ -123,15 +147,19 @@ export function render() {
   if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.
   if (route.name === 'home' && firstVisit()) { history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : wiz().step || 1}`); route = parseRoute(); }
-  const scr = SCREENS[route.name] || home;
+  const scr = SCREENS[route.name] || SCREENS.home;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
   document.body.classList.toggle('notabs', !tabs);
   document.body.classList.toggle('withtabs', tabs);
   document.body.classList.toggle('hasbar', !!bar);
   document.body.dataset.screen = route.name;
+  // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands.
+  const need = SCREEN_CSS[route.name], styled = cssReady(need);
+  if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
+  const draw = styled ? scr : { render: () => `<div class="skelpage">${skeleton(4)}</div>`, wire() {} };
   let main;
-  try { main = scr.render(route); } catch (e) { console.error(e); reportError('render', e); main = errorCard(); }
+  try { main = draw.render(route); } catch (e) { console.error(e); reportError('render', e); main = errorCard(); }
   const keep = location.hash === lastRouteKey ? focusKey(document.activeElement) : null;
   // The sticky action bar is part of the page's main content (it holds the page's main button), so it sits inside <main>.
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
@@ -139,7 +167,7 @@ export function render() {
     ${tabs ? tabbar(scr) : ''}
     ${helperMod ? helperMod.render() : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'HIPHI Bill Tracker';
-  try { scr.wire && scr.wire(route); } catch (e) { console.error(e); }
+  try { draw.wire && draw.wire(route); } catch (e) { console.error(e); }
   helperMod?.wire();
   wireFrame();
   if (keep && !document.querySelector('dialog[open]')) { const el = findByKey(keep); if (el && el !== document.activeElement) el.focus({ preventScroll: true }); }
@@ -147,9 +175,11 @@ export function render() {
   const key = location.hash;
   if (key !== lastRouteKey) { lastRouteKey = key; if (document.activeElement === document.body || !$app().contains(document.activeElement)) $app().querySelector('main')?.focus({ preventScroll: true }); }
   // The first bill page anyone opens gets a short tour (R-062, pub/tour.js); it decides for itself, and closes if the page moves on.
-  try { tour.after(route); } catch (e) { console.error(e); }
+  try { if (tourMod) tourMod.after(route); else if (tourWanted(route)) tourLoad().then(t => t.after(parseRoute())).catch(e => console.error(e)); } catch (e) { console.error(e); }
 }
+let findMod = null;
 app.render = render;
+app.ensureCss = ensureCss;   // start.js asks for the lessons' stylesheet with their module
 const $app = () => document.getElementById('app');
 // A redraw replaces every element, which used to drop keyboard and screen-reader focus to the top of the page after
 // "More ways to help", a follow star, a stance chip... Remember what had focus (its id, or its first data-* hook) and
@@ -184,7 +214,9 @@ function wireFrame() {
   if (hs) { const inp = hs.querySelector('input'); const r = parseRoute(); if (r.name === 'find' && r.q) inp.value = r.q;
     hs.onsubmit = e => { e.preventDefault(); const q = inp.value.trim(); go('#/find' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Matching issues and bills listed as you type (R-032). On Find itself the results under the page's box are the list.
-    suggest(inp, { source: headerSuggest, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
+    // Find's search code loads at the first letters typed, and the suggestions are asked for again once it is in.
+    const source = q => { if (findMod) return findMod.headerSuggest(q); find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); }).catch(e => console.error(e)); return { groups: [] }; };
+    suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
       busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
       empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } }); }
@@ -229,9 +261,10 @@ async function boot() {
     // Only when firstVisit() can already be trusted: never for a signed-in person (their actions come with the bills)
     // and never in the practice copy (one file, so nothing is early; and its seeded actions come with the bills too).
     // 10/1: an early render that judged wrong rewrote the address to #/start/1, and the bills' arrival could not undo it.
-    const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') render(); };
+    const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
     if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await loadLists(); await loadBills(); })(), timeout]);
+    await ensureScreen(parseRoute());
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
     logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
@@ -239,8 +272,8 @@ async function boot() {
     // guided start behind it, so Back goes somewhere helpful.
     // Someone who went to add their email in the middle of a list task comes back to it once the emailed link signs
     // them in (R-013): that link opens the plain address, so the place was kept in this browser (pub/mylists.js).
-    const place = takePlace();
-    if (place) history.replaceState({ y: 0 }, '', place.hash);
+    let place = null, lists = null;
+    if (S.user) { lists = await import('./mylists.js'); place = lists.takePlace(); if (place) history.replaceState({ y: 0 }, '', place.hash); }
     const r = parseRoute();
     if (r.legacy) {
       if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/start/1'); history.pushState({ y: 0, arrived: true }, '', toHash(r)); }
@@ -248,7 +281,8 @@ async function boot() {
     }
     render();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
-    finishPlace(place);
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide')).catch(() => {}), 2500);   // the other screens' styles, after the first screen
+    lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
     $app().innerHTML = `${header({ name: 'error' }, {})}<main id="main">${errorCard()}</main>`;
@@ -258,5 +292,19 @@ app.boot = boot;
 $app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>`;
 // The clock starts with the script, so a start that hangs anywhere (the data file, the Supabase client) ends in the
 // "Try again" card instead of a skeleton that never goes away.
-Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 60000 : 15000))]).then(boot)
+// The first screen before the library (R-122): a browser with no stored sign-in and a first visit to do draws the topics
+// from the catalog track.html asked for before any module arrived (or from the copy kept last time), and only then asks
+// for the library, the lists and the bills: on a slow phone every file competes for the same thin pipe, so the first
+// screen's files go first. boot() redraws once everything is in. A stored sign-in means a session may exist, and that
+// is only known once the library answers, so such a browser goes straight to the library. track.html's catalog promise
+// settles within ten seconds either way, so this never waits longer than that.
+const storedSession = () => { try { return !!localStorage.getItem('hiphi-public-auth'); } catch { return false; } };
+async function earlyFirst() {
+  if (DEMO || storedSession() || parseRoute().name !== 'home') return;
+  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await start.load(); render(); } };
+  if (applyCachedCatalog()) await draw();
+  if (window.__hiphiCatalog) { await loadCatalog(); if (S.cats.length) await draw(); }
+}
+const initP = () => Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 60000 : 15000))]);
+earlyFirst().catch(e => console.error(e)).then(initP).then(boot)
   .catch(e => { console.error(e); reportError('boot', e); $app().innerHTML = `<main id="main">${errorCard()}</main>`; });

@@ -58,7 +58,8 @@ import { situation, railHTML } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
 import { endHome } from './variant.js';
 
-export const LESSON_TITLES = { bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is', story: 'A bill’s story' };
+import { LESSON_TITLES } from './topics.js';   // moved there (R-122): the first visit needs the titles before the lessons
+export { LESSON_TITLES };
 const LAST = { bill: 2, session: 4, hearing: 2, story: 3 };   // the story: one page in three stages (9/29)
 
 // ---------------------------------------------------------------- small helpers

@@ -113,3 +113,6 @@ export function policies(bills = []) {
   }
   return [...map.values()];
 }
+
+// The lessons' titles, here rather than in lessons.js so the first visit's title bar has them before the lessons load (R-122).
+export const LESSON_TITLES = { bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is', story: 'A bill’s story' };

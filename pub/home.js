@@ -20,11 +20,11 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
 import { burst, celebrate } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
-import { shareLine, wireShareLine, keepLine, wireKeepLine } from './start.js';
+import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
 import { CAPITOL, islands, flower } from './art.js';
-// A namespace import, so Home still loads while More is being built (a named import of a missing export would
-// stop the whole page from loading).
-import * as more from './more.js';
+// More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
+// sees them, and Home must not carry More, People and the address picker for everyone (R-122).
+let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
 import { endHome } from './variant.js';
 import { logVisit, logAct } from './visitlog.js';
 
@@ -55,7 +55,7 @@ const welcomed = () => { try { return sessionStorage.getItem('hiphi_welcome') ==
 // An email was already given (the guided start's email step, or the sign-in page) and is waiting for its link to be
 // opened. Home does not ask again.
 const emailGiven = () => { try { return !!(sessionStorage.getItem('hiphi_link_sent') || localStorage.getItem(CONSENT_KEY)); } catch { return false; } };
-const accountCards = () => { try { return more.accountCardsHTML ? more.accountCardsHTML() || '' : ''; } catch (e) { console.error(e); return ''; } };
+const accountCards = () => { try { if (!S.user) return ''; if (!more) { moreLoad().catch(e => console.error(e)); return ''; } return more.accountCardsHTML ? more.accountCardsHTML() || '' : ''; } catch (e) { console.error(e); return ''; } };
 
 // ---------------- what you did, and what it led to (the result is the reward) ----------------
 // Grouped by bill, newest first. The bill's final state is checked before any committee vote, so a bill that later
@@ -885,7 +885,7 @@ export default {
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
     wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root);
-    try { more.wireAccountCards?.(); } catch (e) { console.error(e); }
+    try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {
       const box = document.getElementById(el.getAttribute('aria-controls')); if (!box) return;

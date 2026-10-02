@@ -48,7 +48,7 @@ with sync_playwright() as p:
     ok('Link copied' in pg.locator('[data-shareissue]').first.inner_text(), 'the button says Link copied')
     # ---- 3. the finale's line, for someone who follows an issue ----
     pg.evaluate("async s => { const c = await import('./pub/core.js'); const i = c.S.issues.find(x => x.slug === s); await c.setFollows({ issuesOn: [i.id] }); }", islug)
-    line = pg.evaluate("async () => (await import('./pub/start.js')).shareLine()")
+    line = pg.evaluate("async () => (await import('./pub/keep.js')).shareLine()")
     ok('Know someone who cares about' in line and 'data-stshare' in line, 'the finale has "Know someone who cares about <issue>? Send it"')
     ctx.close()
     # ---- 4. a newcomer on a shared link: the deadline up top, no partner welcome, no automatic tour ----

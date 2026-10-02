@@ -23,45 +23,56 @@
      is pinned in pub/core.js (SUPABASE_JS); change both together. -->
 <link rel="preconnect" href="https://eivzjbnygscguqqiiuvh.supabase.co" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- The page's own styles and the first screen's (added by the script below); each other screen's come with it (pub/app.js CSS).
+     wide.css stays last: it overrides the screens' files on wide screens. -->
 <link rel="stylesheet" href="pub/base.css">
 <link rel="stylesheet" href="pub/fx.css">
 <link rel="stylesheet" href="pub/actions.css">
-<link rel="stylesheet" href="pub/start.css">
-<link rel="stylesheet" href="pub/lessons.css">
-<link rel="stylesheet" href="pub/home.css">
-<link rel="stylesheet" href="pub/mybills.css">
-<link rel="stylesheet" href="pub/find.css">
-<link rel="stylesheet" href="pub/bill.css">
-<link rel="stylesheet" href="pub/people.css">
-<link rel="stylesheet" href="pub/committees.css">
-<link rel="stylesheet" href="pub/allbills.css">
-<link rel="stylesheet" href="pub/more.css">
-<link rel="stylesheet" href="pub/talk.css">
-<link rel="stylesheet" href="pub/helper.css">
-<link rel="stylesheet" href="pub/tour.css">
-<link rel="stylesheet" href="pub/mylists.css">
 <link rel="stylesheet" href="pub/wide.css">
+<!-- Every module the first load needs, in one wave (R-122): the second wave used to wait for its importers to be parsed.
+     The screens load on first use (pub/app.js lazy); the script below preloads the one this browser will draw first. -->
 <link rel="modulepreload" href="pub/app.js">
 <link rel="modulepreload" href="pub/core.js">
-<link rel="modulepreload" href="pub/lessons.js">
+<link rel="modulepreload" href="pub/errlog.js">
 <link rel="modulepreload" href="pub/fx.js">
 <link rel="modulepreload" href="pub/ui.js">
 <link rel="modulepreload" href="pub/actions.js">
+<link rel="modulepreload" href="pub/speakup.js">
 <link rel="modulepreload" href="pub/art.js">
 <link rel="modulepreload" href="icons.js">
 <link rel="modulepreload" href="stops.js">
-<link rel="modulepreload" href="pub/start.js">
-<link rel="modulepreload" href="pub/home.js">
-<link rel="modulepreload" href="pub/mybills.js">
-<link rel="modulepreload" href="pub/find.js">
-<link rel="modulepreload" href="pub/bill.js">
-<link rel="modulepreload" href="pub/people.js">
-<link rel="modulepreload" href="pub/more.js">
-<link rel="modulepreload" href="pub/mylists.js">
+<link rel="modulepreload" href="pub/topics.js">
+<link rel="modulepreload" href="pub/rank.js">
+<link rel="modulepreload" href="pub/variant.js">
+<link rel="modulepreload" href="pub/visitlog.js">
+<link rel="modulepreload" href="pub/suggest.js">
+<link rel="modulepreload" href="pub/keep.js">
+<script>
+/* What this browser will need first, preloaded from what it remembers (R-122). A first visit still to do gets the guided
+   start and its lessons, and nothing of the database library yet: its first screen needs only the catalog (fetched
+   below), and on a slow phone every file competes for the same thin pipe, so the library follows the first screen
+   (pub/app.js earlyFirst). Anyone else gets Home and the library with its own parts, pinned with it (pub/core.js
+   SUPABASE_JS); without the parts named here the browser would find them only after the library arrived. A wrong guess
+   costs one extra download, nothing else. */
+(function () {
+  var first = true;
+  try { var w = JSON.parse(localStorage.getItem('hiphi_wiz') || '{}'); first = !(w.done || w.skipped); } catch (e) { /* storage blocked: a first visit */ }
+  var h = location.hash || '', onBill = /^#\/bill\//.test(h);
+  var paths = onBill ? ['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js'] : first ? ['pub/start.js', 'pub/addresspicker.js'] : ['pub/home.js', 'pub/actions.js', 'pub/speakup.js'];
+  if (!first || onBill || /[?&]demo=1/.test(location.search)) paths = paths.concat(['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm',
+    'https://cdn.jsdelivr.net/npm/@supabase/postgrest-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/auth-js@2.117.2/+esm',
+    'https://cdn.jsdelivr.net/npm/@supabase/realtime-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/storage-js@2.117.2/+esm',
+    'https://cdn.jsdelivr.net/npm/@supabase/functions-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/phoenix@0.4.5/+esm',
+    'https://cdn.jsdelivr.net/npm/tslib@2.8.1/+esm', 'https://cdn.jsdelivr.net/npm/iceberg-js@0.8.1/+esm']);
+  for (var i = 0; i < paths.length; i++) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = paths[i]; if (paths[i].indexOf('https:') === 0) l.crossOrigin = 'anonymous'; document.head.appendChild(l); }
+  // The first screen's stylesheets, before wide.css (the order of the list in pub/app.js CSS_ORDER).
+  var css = onBill ? ['bill', 'mylists'] : first ? ['start'] : ['home'], wide = document.querySelector('link[href="pub/wide.css"]');
+  for (var j = 0; j < css.length; j++) { var s = document.createElement('link'); s.rel = 'stylesheet'; s.href = 'pub/' + css[j] + '.css'; document.head.insertBefore(s, wide); }
+})();
+</script>
 <style>
 /* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
 .boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
@@ -112,6 +123,22 @@ try {
         body: JSON.stringify({ p: p }) }).catch(function () {});
     } catch (x) { /* nothing to do */ }
   }, 20000);
+})();
+</script>
+<script>
+/* The catalog (categories, issues, their links) is asked for before any module arrives (R-122): three plain fetches with
+   the public key in the address (a simple request, so no CORS preflight), and pub/core.js's loadCatalog() takes the
+   answer. The address and key are pub/core.js's SUPABASE_URL and SUPABASE_KEY (tests/errlog.py checks they match). */
+(function () {
+  try {
+    if (/[?&]demo=1/.test(location.search)) return;
+    var U = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/', K = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+    var get = function (q) { return fetch(U + q + '&apikey=' + K).then(function (r) { if (!r.ok) throw new Error('catalog ' + r.status); return r.json(); }); };
+    var all = Promise.all([get('public_categories?select=*&order=sort_order'), get('public_issues?select=*&order=sort_order'), get('public_issue_links?select=issue_a,issue_b')]);
+    var late = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('catalog slow')); }, 10000); });
+    window.__hiphiCatalog = Promise.race([all, late]);   // settles within ten seconds, so nothing waits on it longer
+    window.__hiphiCatalog.catch(function () { /* boot() asks again with the library */ });
+  } catch (e) { /* no fetch: the library asks */ }
 })();
 </script>
 <script type="module" src="pub/testbed.js"></script>

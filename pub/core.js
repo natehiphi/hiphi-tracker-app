@@ -150,10 +150,12 @@ export const CONSENT_KEY = 'hiphi_consent_pending';
 // The Supabase library, pinned: "@2" cost a redirect on every cold load and could change under us (R-067 speed).
 // track.html preloads this same address; change both together.
 export const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
+// One client, however many ask first (init() and supa() used to make their own, and two auth clients fight over storage).
+let clientP = null;
+const makeClient = () => clientP ??= import(SUPABASE_JS).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)));
 export async function init() {
   if (DEMO) { await demoLoad(); return; }
-  const { createClient } = await import(SUPABASE_JS);
-  S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH);
+  await makeClient();
   const { data } = await S.supa.auth.getSession(); S.session = data.session;
   S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
 }
@@ -396,13 +398,21 @@ export function recomputeWatch() {
 }
 // Categories and issues: loaded before anything else, because what a person follows is worked out from them.
 export async function loadCatalog() {
-  let cats = [], issues = [], links = [];
-  if (DEMO) { cats = D.cats; issues = D.issues; links = D.issueLinks; }
+  if (S.catalogLive) return;   // already in from the network this page life (the early path, R-122)
+  let cats = [], issues = [], links = [], got = false;
+  if (DEMO) { cats = D.cats; issues = D.issues; links = D.issueLinks; got = true; }
   else {
-    try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
-        S.supa.from('public_issue_links').select('issue_a,issue_b')]);
-      cats = c.data || []; issues = i.data || []; links = l.data || []; } catch (e) { console.error(e); }   // without them the page still works, by bills
+    // track.html asks for the catalog before any module arrives (plain fetches, the key in the address, so no preflight);
+    // its answer is taken when it is there, else the library asks. Without either the page still works, by bills.
+    if (window.__hiphiCatalog) { try { [cats, issues, links] = await window.__hiphiCatalog; got = Array.isArray(cats) && Array.isArray(issues); } catch { got = false; } }
+    if (!got && S.supa) {
+      try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
+          S.supa.from('public_issue_links').select('issue_a,issue_b')]);
+        cats = c.data || []; issues = i.data || []; links = l.data || []; got = true; } catch (e) { console.error(e); }
+    }
+    if (!got) return;   // the early path without a network answer: boot() asks again with the library
   }
+  S.catalogLive = true;
   applyCatalog(cats, issues, links);
   // A copy for next time (R-122): a returning browser draws its first screen from it before the network answers.
   if (!DEMO && cats.length) { try { localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), cats, issues, links })); } catch { /* storage blocked */ } }
@@ -591,7 +601,7 @@ export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
-export async function supa() { if (!S.supa) { const { createClient } = await import(SUPABASE_JS); S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH); } return S.supa; }
+export async function supa() { return S.supa || makeClient(); }
 export async function fetchAddrSuggest(q) {
   const { data, error } = await (await supa()).rpc('address_suggest', { q, n: 8 }); if (error) throw error;
   return (data || []).map(x => ({ label: x.label, lat: x.lat, lon: x.lon, sd: x.sd, hd: x.hd, exact: x.exact }));
@@ -693,7 +703,8 @@ export async function loadRecapPool(yr) {
   let bills;
   if (DEMO) bills = D.bills.filter(b => b.hiphi_position && b.hiphi_position !== 'monitor' && (!b.session_year || +b.session_year === yr));
   else {
-    const { data, error } = await S.supa.from('public_all_bills').select('*').eq('session_year', yr).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').limit(1000);
+    // supa(), not S.supa: the topics screen asks for this before the library is in (the early first screen, R-122).
+    const { data, error } = await (await supa()).from('public_all_bills').select('*').eq('session_year', yr).not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').limit(1000);
     if (error) throw error; bills = data || [];
   }
   S.recapPool = { yr, bills };

@@ -35,9 +35,12 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/more'); ready(pg)
     ok('My issues link' in pg.locator('main').inner_text(), 'More offers "My issues link"')
     ctx2 = br.new_context(viewport={'width': 390, 'height': 844}); pg2 = ctx2.new_page(); errs2 = []; pg2.on('pageerror', lambda e: errs2.append(str(e)))
-    pg2.goto(link); pg2.wait_for_timeout(3500)
-    t = pg2.locator('body').inner_text()
-    ok(pg2.evaluate("location.hash") in ('#/', '') and 'are here' in t or 'is here' in t, f'opened in a fresh browser, the link follows the issues and lands on Home (hash {pg2.evaluate("location.hash")!r})')
+    pg2.goto(link)
+    # The toast says so for a few seconds: wait for it rather than a fixed time (10/2: a faster page let it expire first)
+    try: pg2.wait_for_function("() => /(are|is) here/.test(document.getElementById('toast')?.textContent || '')", timeout=8000); said = True
+    except Exception: said = False
+    pg2.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage')", timeout=20000); pg2.wait_for_timeout(300)
+    ok(pg2.evaluate("location.hash") in ('#/', '') and said, f'opened in a fresh browser, the link follows the issues and lands on Home (hash {pg2.evaluate("location.hash")!r}, said so: {said})')
     got = pg2.evaluate("async () => { const c = await import('./pub/core.js'); return { issues: [...c.S.issueFollows].length, cats: [...c.S.catFollows].length, first: c.wiz().done }; }")
     ok(got['issues'] >= 1 and got['cats'] >= 1 and got['first'] is True, f'the issue and the category are followed, and the first visit is skipped: {got}')
     ctx2.close()
@@ -45,7 +48,7 @@ with sync_playwright() as p:
     nxt = pg.evaluate("async n => { const c = await import('./pub/core.js'); const b = c.S.bills.find(x => x.bill_number === n) || Object.values(c.S.extra).find(x => x.bill_number === n) || c.D.bills.find(x => x.bill_number === n); return c.nextWords(b); }", NUM)
     ok(nxt.startswith('Next:') and ('hearing' in nxt or 'vote' in nxt or 'report' in nxt), 'the next step for ' + NUM + ': ' + nxt)
     # 4. the finale's keep line and the calendar address
-    keep = pg.evaluate("async () => (await import('./pub/start.js')).keepLine()")
+    keep = pg.evaluate("async () => (await import('./pub/keep.js')).keepLine()")
     ok('Copy my issues link' in keep and 'Text it to myself' in keep and 'sms:' in keep, 'the finale offers the issues link, with a way to text it')
     cal = pg.evaluate("async s => { const c = await import('./pub/core.js'); return c.calendarUrl(c.S.issues.find(x => x.slug === s)); }", slug1)
     ok(cal == f'#/issue/{slug1}', f'the sandbox has no feeds, so the calendar link opens the issue page ({cal})')
