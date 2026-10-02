@@ -301,7 +301,7 @@ $app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-n
 const storedSession = () => { try { return !!localStorage.getItem('hiphi-public-auth'); } catch { return false; } };
 async function earlyFirst() {
   if (DEMO || storedSession() || parseRoute().name !== 'home') return;
-  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await start.load(); render(); } };
+  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(SCREEN_CSS.start)]); render(); } };
   if (applyCachedCatalog()) await draw();
   if (window.__hiphiCatalog) { await loadCatalog(); if (S.cats.length) await draw(); }
 }
