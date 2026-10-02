@@ -63,9 +63,11 @@ export function legMoments(b, { all = false } = {}) {
     const on = mine(st.committee), chair = on.some(m => m.role === 'chair');
     if (on.length) out.push({ kind: chair ? 'chair' : 'member', key: 'cmte-' + st.committee, code: st.committee, chair, legs: (chair ? on.filter(m => m.role === 'chair') : on).map(m => m.l), days: st.deadline?.days });
   }
-  return all ? out : out.filter(m => !S.done.has(askMark(b, m.key)));
+  // An ask already sent: by this moment, or by the bill page's own "Email the chair" for the same committee (R-120, Bug 4).
+  const sent = m => S.done.has(askMark(b, m.key)) || (m.code && !m.h && S.done.has(askMark(b, m.code)));
+  return all ? out : out.filter(m => !sent(m));
 }
-export const momentSent = (b, m) => S.done.has(askMark(b, m.key));
+export const momentSent = (b, m) => S.done.has(askMark(b, m.key)) || (!!m.code && !m.h && S.done.has(askMark(b, m.code)));
 export function openMoment(b, m) {
   app.openMail?.({ mode: 'legislators', bill: b.id, hearing: m.h?.id, legs: m.legs.map(l => l.id),
     moment: { kind: m.kind, key: m.key, chamber: m.chamber || m.legs[0]?.chamber, code: m.code || null, chair: !!m.chair } });
@@ -161,7 +163,7 @@ export function openKey(k) {
 const numOf = () => String((/#\/bill\/([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash)) || [])[1] || '').replace(/\s/g, '').toUpperCase();
 function planFor(el, b) {
   const act = openActions([b], hearingsOf(b))[0] || null, st = stopOf(b), waiting = st.phase === 'committee' && st.hearingState === 'none' && !!st.committee;
-  if (el.matches('[data-bl-compose]')) { const hid = el.dataset.blCompose.split('|')[1]; return hid ? { mode: 'email', bill: b.id, hearing: hid } : null; }
+  if (el.matches('[data-bl-compose]')) { const hid = el.dataset.blCompose.split('|')[1]; return hid ? { mode: 'email', bill: b.id, hearing: hid, chair: el.dataset.blChair || '' } : null; }
   if (el.matches('[data-bl-go="compose"]')) return act ? { mode: 'email', bill: b.id, hearing: act.h.id } : null;
   if (el.matches('[data-bl-main="ask"], [data-bl-main="hold"]')) return waiting ? { mode: 'email', bill: b.id, code: st.committee } : null;
   if (el.matches('[data-bl-main="floor"]')) {

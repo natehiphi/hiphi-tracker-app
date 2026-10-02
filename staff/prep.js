@@ -8,7 +8,7 @@
 // issue's own page, which is where every step is done. A new issue is a draft until an admin publishes it, and the card
 // on a draft lists what it still needs instead (the database refuses to publish one that lacks any: issue_missing()).
 import { S, DB, hooks, esc, advocate } from './data.js';
-import { plain } from './model.js';
+import { plain, legislativeDay } from './model.js';
 import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented } from './ui.js';
 import { plural, afterClose } from './lists.js';
 
@@ -83,6 +83,8 @@ export function todayPrepNotice() {
   const own = mine(), left = own.filter(i => !['ready', 'approved'].includes(stateOf(i)));
   if (!left.length) return '';
   const back = own.filter(i => stateOf(i) === 'sent_back').length;
+  // After the due day the notice is for what came back, not a standing reminder (R-118: it had no end date).
+  if (!back && Date.now() > dueDay().getTime() + 864e5) return '';
   return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('My issues', { kind: 'secondary', href: '#/outreach/issues?view=mine' }));
 }
 // The two links under the Issues index heading.
@@ -229,11 +231,15 @@ export function prepCardHTML(i) {
     : `<span class="small">Waiting for ${esc(adminWord())} to approve it.</span>${owner ? btn('Not ready yet', { kind: 'text', attrs: { 'data-pr': 'unready' } }) : ''}`;
   else if (st !== 'approved' && (owner || isAdmin())) foot = `${btn('Mark ready', { icon: 'send', attrs: { 'data-pr': 'ready', ...(n < STEPS.length ? { 'aria-disabled': 'true' } : {}) } })}<span class="small muted">${n < STEPS.length ? `${STEPS.length - n} step${STEPS.length - n === 1 ? '' : 's'} left.` : `${esc(Cap(adminWord()))} approve${adminWord() === 'you' ? '' : 's'} it next.`}</span>`;
   else if (st !== 'approved') foot = `<span class="small muted">${esc(first(ownerOfIssue(i)))} marks it ready.</span>`;
+  const inner = `<p class="small pr-lede">Due ${esc(dueText())}</p>
+    ${note}${peopleHTML(i)}${stepsHTML(i, STEPS)}
+    ${foot ? `<div class="pr-foot">${foot}</div>` : ''}`;
+  // Session work first (R-118): once the issue is approved, or the session is under way, the card folds to one line and
+  // the issue's bills come first on its page.
+  if (st === 'approved' || legislativeDay()) return `<details class="card pr-card pr-fold"><summary><span class="pr-foldt">${icon('clipboard-check')}<b>Getting ready for 2027</b>${SAYS.has(st) ? stateChip(i) : ''}</span>${icon('chevron-down', { cls: 'chev' })}</summary>${inner}</details>`;
   return `<section class="card pr-card" aria-labelledby="pr-h">
     <div class="pr-head"><h2 id="pr-h">Getting ready for 2027</h2>${SAYS.has(st) ? stateChip(i) : ''}</div>
-    <p class="small pr-lede">Due ${esc(dueText())}</p>
-    ${note}${peopleHTML(i)}${stepsHTML(i, STEPS)}
-    ${foot ? `<div class="pr-foot">${foot}</div>` : ''}
+    ${inner}
   </section>`;
 }
 const listWords = l => l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;

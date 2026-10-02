@@ -681,6 +681,7 @@ function hearingRow(b, h, now) {
   // No report yet: the committee is still deciding, unless the bill has had news since (then it simply was heard).
   const pending = past && now - t < 12 * 864e5 && !(b.last_action_date && b.last_action_date > hstDay(h.scheduled_at));
   const tag = off ? chip('Cancelled', '', 'circle-x')
+    : o?.outcome && deferredTo(h, o) ? chip(`Deferred to ${fmtDate(deferredTo(h, o), { month: 'short', day: 'numeric' })}`, '', 'calendar-clock')
     : o?.outcome ? chip(OUTCOME_PLAIN[o.outcome] || 'Decided', /passed/.test(o.outcome) ? 'ok' : '', /passed/.test(o.outcome) ? 'circle-check' : o.outcome === 'deferred' ? 'hourglass' : 'undo-2')
     : past ? chip(pending ? 'Waiting for the decision' : 'Heard', '', pending ? 'hourglass' : 'check') : '';
   // What this person did for this hearing stays with it after the hearing (R-067: the page forgot it the day after).
@@ -738,6 +739,14 @@ function details(b, x) {
   return `<details class="bl-more" ${fold(b, 'more')}><summary><span>More details</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
     <dl>${rows.map(([k, v]) => `<div class="bl-kv"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
     <p class="bl-cap">${btn('Capitol bill page', { kind: 'text', sm: true, icon: 'landmark', iconEnd: 'external-link', href: capitolUrl(b), attrs: { target: '_blank', rel: 'noopener' } })}</p></details>`;
+}
+// A hearing whose decision was reported only after the same committee's later sitting was deferred to that sitting (076
+// gives the earlier row the later decision, so both read "Passed"): the earlier one says "Deferred to Apr 7" (R-120).
+function deferredTo(h, o) {
+  if (!o?.reported_at) return null;
+  const b = lookup(h.bill_number || '', 0) || Object.values(S.extra || {}).find(x => x.id === h.bill_id) || S.bills.find(x => x.id === h.bill_id); if (!b) return null;
+  const later = hearingsOf(b).find(x => x.id !== h.id && x.committee === h.committee && x.scheduled_at > h.scheduled_at && x.status !== 'cancelled' && o.reported_at >= x.scheduled_at);
+  return later ? later.scheduled_at : null;
 }
 function page(num, b) {
   // Every hearing of the bill, with its recording (R-033): the lists load only 30 days, so the rest comes once, here.

@@ -27,7 +27,7 @@
 // mail app first on a phone and Gmail first on a laptop. Then "Did you send it?" and the same Mahalo screen.
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
-  billPath, cleanDesc, nick, agrees, myStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
+  billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
   hearingText, chairContacts, legById, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare } from './actions.js';
@@ -96,6 +96,8 @@ function askLine(b, n, stance) {
     : 'I respectfully ask the committee to consider these comments.';
 }
 const STANCE_WORD = { support: 'SUPPORT', oppose: 'OPPOSITION', comments: 'COMMENTS' };
+// "Testimony in SUPPORT of HB 1", "in OPPOSITION to", "Comments on", "in SUPPORT of HB 1, with amendments" (R-120, Bug 6).
+const headingFor = (word, n) => word === 'COMMENTS' ? `Comments on ${n}` : word === 'SUPPORT WITH AMENDMENTS' ? `Testimony in SUPPORT of ${n}, with amendments` : `Testimony in ${word} ${/OPPOS/.test(word) ? 'to' : 'of'} ${n}`;
 // HIPHI's own position as the person's default when they have said nothing either way.
 const hiphiStance = b => /oppose/.test(b.hiphi_position || '') ? 'oppose' : /support/.test(b.hiphi_position || '') ? 'support' : 'comments';
 // The sign-off is the person's own (Nate 9/28: "the closing shouldn't be automatically generated"): whatever they wrote,
@@ -105,7 +107,7 @@ function letterFor(b, h, { name, why, points = [], closing = '', stance = hiphiS
   const n = spaced(b.bill_number), room = roomLabel(h.room), ours = sameAsHiphi(b, stance);
   const when = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   return [
-    [`Testimony in ${ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance]} of ${n}`, cmteLabel(h.committee),
+    [headingFor(ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance], n), cmteLabel(h.committee),
       `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n'),
     greeting(h),
     `${openingLine(b, n, stance)} My name is ${String(name).trim()}.`,
@@ -123,7 +125,7 @@ const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), x.points || []
 // Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
 // Chairs come from core's chairContacts (the directory's address, else the Capitol pattern), as the quick email did.
 const chairsTo = code => chairContacts(code).map(c => ({ greet: `Chair ${c.last}`, label: `${c.title} ${c.leg?.name || c.name}`, role: `Chair, ${c.committee}`,
-  email: c.email || '', url: c.leg?.capitol_url || '', leg: c.leg || null, phone: c.phone || '' }));
+  email: c.email || '', url: c.leg?.capitol_url || '', leg: c.leg || null, phone: c.phone || '', code: c.code }));
 const legSurname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
 export const legTo = (l, role = '') => ({ greet: `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${legSurname(l)}`, label: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`,
   role: role || `Your ${l.chamber === 'S' ? 'senator' : 'representative'}, ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, email: l.email || '', url: l.capitol_url || '', leg: l, phone: l.phone || '' });
@@ -293,7 +295,8 @@ function openMail(o = {}) {
   if (S.helper) return;
   const mode = o.mode || 'email', h = o.hearing ? anyHearing(o.hearing) : null, b = mode === 'intro' ? null : anyBill(o.bill || h?.bill_id);
   const code = mode === 'email' ? (h ? h.committee : o.code) : o.moment?.code || null;
-  const to = (mode === 'email' ? chairsTo(code) : (o.legs || []).map(legById).filter(Boolean).map(l => legTo(l, o.roles?.[l.id]))).filter(t => t.email || t.url);
+  // o.chair: the one chair whose Email was pressed (a joint hearing has two; the button used to write to both, R-120).
+  const to = (mode === 'email' ? chairsTo(code).filter(t => !o.chair || t.code === o.chair) : (o.legs || []).map(legById).filter(Boolean).map(l => legTo(l, o.roles?.[l.id]))).filter(t => t.email || t.url);
   if ((mode !== 'intro' && !b) || (o.hearing && !h) || !to.length) { toast('We couldn’t open the email helper. Try again in a moment.', { err: true }); return; }
   const me = loadMe(), x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '',
     why: b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : '', points: o.points || [],
@@ -563,12 +566,14 @@ function aboutScreen() {
         <span class="help" id="hp-why-help">${own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.'}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
-        <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
+        <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${closingsFor(x).map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
 }
 // Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it.
 const CLOSINGS = ['Mahalo for the opportunity to testify', 'Mahalo nui loa', 'With aloha'];
+const MAIL_CLOSINGS = ['Mahalo for your time', 'Mahalo nui loa', 'With aloha'];   // an email is not testimony (R-120, Bug 9)
+const closingsFor = x => isMail(x) ? MAIL_CLOSINGS : CLOSINGS;
 const ERR = { name: 'Enter your name', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
 const own2 = () => { const x = S.helper; return !!x && !!x.b && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
@@ -999,7 +1004,7 @@ function onClick(e) {
   else if (a === 'copy') copyLetter();
   else if (a === 'next') goNext();
   else if (a === 'back') goBack();
-  else if (a === 'stance') { S.helper.stance = t.dataset.v; saveDraft(); goNext(); }
+  else if (a === 'stance') { S.helper.stance = t.dataset.v; if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
   else if (a === 'point') {
     // Add or take out one talking point. Kept in the order the bill lists them, so the letter reads the same way.
     const x = S.helper, all = pointsOf(x), s = all[+t.dataset.i]; if (!s) return;

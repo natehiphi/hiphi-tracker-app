@@ -5,7 +5,7 @@
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord,
   roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet,
   nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft,
-  billShareUrl, issueShareUrl, dueWords, isResolution } from './core.js';
+  billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues } from './core.js';
 import { logAct } from './visitlog.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
@@ -225,7 +225,7 @@ export function wireActions(root = document) {
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
   if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>${DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`;
-  const nb = S.watch.size, na = myActions().length, ni = S.issueFollows.size;   // count issues, not their bills (R-067: "your 25 bills" to someone following 4 issues)
+  const nb = S.watch.size, na = myActions().length, ni = followedIssues().length;   // every issue followed, by itself or with its whole category (R-120, Bug 9); issues, not their bills (R-067)
   const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when a bill on your issues gets a hearing. It also keeps your record on any device.'
     : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while. Add your email so they’re still here in January, and to hear when a hearing is set.`
     : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your issues on any device.';

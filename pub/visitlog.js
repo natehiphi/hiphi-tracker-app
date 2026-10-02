@@ -17,6 +17,7 @@
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
 //   logAct(kind)                  an action marked done, its kind only (078)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './core.js';
+import { variantInfo } from './variant.js';
 
 const KEY = 'hiphi_fv', CAP = 60;
 const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask', 'voice']);
@@ -109,7 +110,7 @@ export function logVisit(step, event, extra = {}) {
     if (!STEPS.has(step) || !EVENTS.has(event)) { console.warn('logVisit: not a first-visit step or event:', step, event); return Promise.resolve(false); }
     const v = visit();
     if (v.n >= CAP) return Promise.resolve(false);
-    const payload = { visit: v.id, step, event };
+    const payload = { visit: v.id, step, event, ...variantInfo() };   // the version this browser has (R-121)
     for (const [k, val] of Object.entries(v.src || {})) if (val) payload[k] = val;
     Object.assign(payload, pick(step, event, extra || {}));
     if (DEMO) { if (DEBUG) console.debug('first visit (sandbox, not sent):', payload); return Promise.resolve(false); }
@@ -159,7 +160,7 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
     const first = (mem && /^\d{4}-\d{2}$/.test(mem.first || '') ? mem.first : today.slice(0, 7));
     try { localStorage.setItem(DAYS_KEY, JSON.stringify({ first, last: today })); } catch { /* ignore */ }
     const src = visit().src || {};
-    const p = { kind: 'visit', gap, first_month: first, follows: !!follows, signed_in: !!signedIn, home_screen: homeScreen(), season: season === 'in' ? 'in' : 'off' };
+    const p = { kind: 'visit', gap, first_month: first, follows: !!follows, signed_in: !!signedIn, home_screen: homeScreen(), season: season === 'in' ? 'in' : 'off', variant: variantInfo().variant };
     if (src.via) p.via = src.via; if (src.device) p.device = src.device;
     return sendCount(p).catch(() => false);
   } catch { return Promise.resolve(false); }
@@ -168,6 +169,6 @@ export function logAct(kind) {
   try {
     // 'recap' and 'moment' (R-046, migration 106): the session page opened, a result shown as a moment.
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment'].includes(kind)) return Promise.resolve(false);
-    return sendCount({ kind: 'act', act: kind, device: device() }).catch(() => false);
+    return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
   } catch { return Promise.resolve(false); }
 }

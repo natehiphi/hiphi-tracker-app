@@ -370,3 +370,21 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 body.sidenarrow .sv-sync span { display: none; }
 /* The band stays one line on a phone (a second line pushed Bills past the 400px arrival limit, A-1). */
 @media (max-width: 599px) { .band .band-hint { display: none; } }
+
+/* R-117: the public's response on a Week bill and a hearing's agenda row; the share kit. R-118: the folded prep card. */
+.wk-pub { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--ink-2, #5F6F76); margin-left: 8px; }
+.wk-pub svg { width: 14px; height: 14px; }
+.hr-pub svg { width: 14px; height: 14px; }
+.hr-kit .hr-kitrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line, #DBE3E7); }
+.hr-kit .hr-kitrow:first-of-type { border-top: 0; }
+.pr-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 4px 0; }
+.pr-fold summary::-webkit-details-marker { display: none; }
+.pr-fold .pr-foldt { display: inline-flex; align-items: center; gap: 8px; }
+.pr-fold[open] summary { margin-bottom: 8px; }
+
+/* R-121: the Versions comparison on the First visit page */
+.fv-vars .fv-tablewrap { overflow-x: auto; margin: 8px 0; }
+.fv-vtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fv-vtable th, .fv-vtable td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line, #DBE3E7); }
+.fv-vtable th.num, .fv-vtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.fv-vtable th[scope="row"] { font-weight: 600; }

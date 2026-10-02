@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     ok(p0.get('device') == 'phone', 'a 390px window is a phone')
     ok(p0.get('seconds') == 0 and p0.get('path') == 'in', 'seconds rounded, path kept')
     p1 = rpc[1]['p'] if len(rpc) > 1 else {}
-    ok(set(p1.keys()) <= {'visit', 'step', 'event', 'via', 'utm_source', 'utm_medium', 'ref_domain', 'device', 'path', 'seconds', 'counts', 'issue_ids'}, 'only the allowed keys leave the browser: ' + ','.join(sorted(p1.keys())))
+    ok(set(p1.keys()) <= {'visit', 'step', 'event', 'via', 'utm_source', 'utm_medium', 'ref_domain', 'device', 'path', 'seconds', 'counts', 'issue_ids', 'variant', 'forced'}, 'only the allowed keys leave the browser (the version and whether a link forced it since R-121): ' + ','.join(sorted(p1.keys())))
     ok('email' not in p1 and 'name' not in p1 and 'Leilani' not in json.dumps(p1) and 'someone@' not in json.dumps(p1), 'never an email or a name, even when a caller passes one')
     ok(p1.get('counts') == {'cats': 2, 'issues': 3}, 'counts: known keys only, a number out of range dropped: ' + json.dumps(p1.get('counts')))
     ok(p1.get('issue_ids') == ['a1', 'b2'] and p1.get('seconds') == 41, 'issue ids once each, strings only; seconds rounded')

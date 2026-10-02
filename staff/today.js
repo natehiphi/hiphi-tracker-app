@@ -38,7 +38,7 @@
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF } from './data.js';
-import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
+import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, publicWords, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
@@ -126,8 +126,16 @@ function byLine(ms) {
   const d = hst(ms), t0 = hst(Date.now()), time = timeOf(new Date(ms).toISOString());
   return d === t0 ? `${time} today` : d === dayAdd(t0, 1) ? `${time} tomorrow` : atLine(ms);
 }
-// The public ask is due at 4:00 PM Hawaiʻi time two calendar days before the hearing's date (Nate, R-025 answer 4).
-const askDue = h => new Date(dayAdd(hst(new Date(h.scheduled_at).getTime()), -2) + 'T16:00:00-10:00').getTime();
+// The public ask is due at 4:00 PM Hawaiʻi time two calendar days before the hearing's date (Nate, R-025 answer 4), and
+// never later than the last 4:00 PM at least twelve hours before written testimony closes (R-116: at CPN, 48 hours,
+// the old rule fell after the deadline). Since R-101 an approved ask goes out in the next 4:30 pm email, so 4:00 PM
+// leaves time to approve it.
+const askDue = h => {
+  const two = new Date(dayAdd(hst(new Date(h.scheduled_at).getTime()), -2) + 'T16:00:00-10:00').getTime();
+  if (!h.testimony_deadline) return two;
+  const cut = new Date(h.testimony_deadline).getTime() - 12 * HR, four = new Date(hst(cut) + 'T16:00:00-10:00').getTime();
+  return Math.min(two, four <= cut ? four : four - DAY);
+};
 // "Testimony due Tue 1:00 PM" (R-022, B-6): Today files a card under the day its testimony is due, and the rows used to
 // show only the hearing's time, a day later, so people had to work the deadline out for themselves.
 const testDueText = due => `Testimony ${due <= Date.now() ? 'was due' : 'due'} ${atLine(due)}`;
@@ -516,7 +524,7 @@ let LAST = new Map();   // key -> task for the list on screen, so a click finds 
 // deadline panel of its own (the Week view), the next deadline; then the layout switch (wide screens) and whose list it
 // is. The list's panel says the deadline, so saying it here as well was the same fact twice (A-14, R-022).
 function toolbar(route, clockShown = false) {
-  const now = Date.now(), ld = SESSION_OVER ? null : legislativeDay(), g = clockShown || SESSION_OVER ? null : currentDeadline(), scope = scopeOf(), who = scope === 'person' ? advocate(S.tdWho) : null;
+  const now = Date.now(), ld = SESSION_OVER ? null : legislativeDay(), g = clockShown || SESSION_OVER ? null : currentDeadline(clockBills(scopeOf(), whoOf())), scope = scopeOf(), who = scope === 'person' ? advocate(S.tdWho) : null;
   const week = viewOf(route) === 'week';
   const day = new Date(now).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' });
   const a = [day, ld ? (ld.today ? `Day ${ld.day} of ${ld.of}` : `Recess · day ${ld.day} of ${ld.of}`) : SESSION_OVER ? 'Between sessions' : ''].filter(Boolean).join(' · ');
@@ -556,11 +564,14 @@ function oneNotice() {
   }
   // Getting the issues ready for 2027 (R-088): an owner's issues left to do, or what is waiting for an admin to approve.
   // Before "Email is paused", which is true all autumn and would otherwise hide it from admins.
+  const n = S.tdTriage?.suggested || S.tdTriage?.undecided;
+  const sort = n ? notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })) : '';
+  // Session work first (R-118): in the opening weeks and in session, new bills to sort take the slot; the issue prep
+  // notice waits for a quiet day.
+  if (sort && (openWeeks() || legislativeDay())) return sort;
   const prep = todayPrepNotice(); if (prep) return prep;
   if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; nothing sends.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
-  if (S.tdTriage?.suggested || S.tdTriage?.undecided) { const n = S.tdTriage.suggested || S.tdTriage.undecided;
-    return notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })); }
-  return '';   // Getting started is its own card now (startCard), not this one notice slot (R-106)
+  return sort;   // Getting started is its own card now (startCard), not this one notice slot (R-106)
 }
 // The opening weeks around the introduction cutoff are when new bills need a decision (the same window as app.js 1633).
 const openWeeks = () => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(), now = Date.now(); return now > cut - 18 * DAY && now < cut + 3 * DAY; };
@@ -894,8 +905,10 @@ function suggestFor(scope, who, r) {
   // A bill already on the list must never also be a suggestion: one with a card due today, and a P1 bill whose dated
   // "Ask the chair" card is on the list, whenever it falls (the same step, twice; R-022).
   const dated = new Set(r.cards.filter(c => c.b && (c.group === 'overdue' || c.group === 'today' || c.tasks.some(t => t.kind === 'chair'))).map(c => c.b.id));
-  const all = suggestions(only || clockBills(scope, who), { cap: only ? Infinity : SUGGEST_CAP, skip: b => dated.has(b.id) });
-  return { only, clock, dated, all, list: all.slice(0, SUGGEST_CAP) };
+  // Opened from the deadline's "N bills with no hearing yet", the list is every one of those N, bills already on the
+  // list included, so the number on the button, the list and Bills agree (R-119: 12, "5 of 11" and 16 for one job).
+  const all = suggestions(only || clockBills(scope, who), { cap: only ? Infinity : SUGGEST_CAP, skip: only ? () => false : b => dated.has(b.id) });
+  return { only, clock, dated, all, list: only ? all : all.slice(0, SUGGEST_CAP) };
 }
 // "HB1", "HB1 and HB2", "HB1, HB2 and HB3", "HB1, HB2 and 4 others".
 const billList = bs => { const ns = bs.map(billNum); return ns.length > 3 ? `${ns.slice(0, 2).join(', ')} and ${ns.length - 2} others` : ns.join(', ').replace(/, ([^,]+)$/, ' and $1'); };
@@ -909,7 +922,8 @@ function billsTarget(only, clock, scope, who) {
   const ids = new Set(only.map(b => b.id)), same = list => list.length === ids.size && list.every(b => ids.has(b.id));
   const risk = pool.filter(b => factsOf(b).risk), wait = pool.filter(b => { const f = factsOf(b); return f.stand === 'a' && POSITIONS.includes(f.posx); });
   const f = same(risk) || (!same(wait) && clock.days <= RISK_DAYS && risk.length) ? 'risk' : 'wait', list = f === 'risk' ? risk : wait;
-  return { f, n: list.length, label: same(list) ? `See all ${list.length} in Bills` : f === 'risk' ? `See the ${list.length} at risk in Bills` : `See all ${list.length} waiting for a hearing in Bills` };
+  // A second number beside the deadline's own confuses (R-119): the link says a count only when Bills shows exactly these.
+  return { f, n: list.length, label: same(list) ? `See all ${list.length} in Bills` : f === 'risk' ? 'See the bills at risk in Bills' : 'See every bill waiting for a hearing in Bills' };
 }
 function openInBills(f) {
   const scope = scopeOf(), who = whoOf(), v = bl();
@@ -1064,7 +1078,7 @@ function weekOf(mon, scope, who, r) {
 // One bill in a card or a block: the number (and P1) with the one fact that matters here, then its name on one line.
 function wkBill(b, right, owners) {
   const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
-  return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="#/bill/${esc(b.bill_number)}"><span class="wk-b1"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2"><span class="wk-name">${esc(b.nickname || blurb(b, 80))}</span>${own}</span></a></li>`;
+  return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="#/bill/${esc(b.bill_number)}"><span class="wk-b1"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2"><span class="wk-name">${esc(b.nickname || blurb(b, 80))}</span>${own}${publicWords(b) ? `<span class="wk-pub">${icon('users')}${esc(publicWords(b))}</span>` : ''}</span></a></li>`;
 }
 // "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
 const wkWhen = (t, wkend) => (wkend ? dayFmt(hst(t), { weekday: 'short' }) + ' ' : '') + timeOf(new Date(t).toISOString());

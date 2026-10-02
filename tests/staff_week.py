@@ -141,12 +141,15 @@ with sync_playwright() as pw:
     p.locator('.td-wnav [data-mon]').click(); p.wait_for_timeout(900); s3 = p.evaluate(WEEK)
     ok(s3['monOn'] == 'false' and s3['monBills'] == 0 and s3['sum'] == s0['sum'], f'monitor: pressed again, folded away again ("{s3["sum"]}")')
     c.close()
-    # the public ask (R-025 answer 4): due 4:00 PM two days before its hearing, so Kevin's HB2121 (heard Fri 9:30 AM) is
-    # a timed step at 4:00 PM on Wednesday, on Everyone's week
+    # the public ask (R-025 answer 4; R-116): due 4:00 PM two days before its hearing, and never later than the last
+    # 4:00 PM twelve hours before testimony closes. Kevin's HB2121 is heard Fri 9:30 AM by HHS/CPN, whose testimony
+    # closes 48 hours ahead (Wed 9:30 AM), so the ask is a timed step at 4:00 PM on Tuesday, on Everyone's week
     c, p = ctx(b, 1440, 900, 'team'); s = week(p)
+    tue = next(x for x in s['cols'] if x['h'].startswith('Tue'))
+    ask = [t for t in tue['steps'] if 'HB2121' in t]
+    ok(len(ask) == 1 and ask[0].startswith('4:00 PM') and 'public ask' in ask[0] and 'Fri' in ask[0], f'public ask: HB2121 at 4:00 PM Tuesday, before testimony closes ({ask})')
     wed = next(x for x in s['cols'] if x['h'].startswith('Wed'))
-    ask = [t for t in wed['steps'] if 'HB2121' in t]
-    ok(len(ask) == 1 and ask[0].startswith('4:00 PM') and 'public ask' in ask[0] and 'Fri' in ask[0], f'public ask: HB2121 at 4:00 PM Wednesday ({ask})')
+    ok(not [t for t in wed['steps'] if 'HB2121' in t and 'public ask' in t], 'and no longer on Wednesday, after testimony closed')
     # No owner (R-025 answer 1): the one picker narrows the week to the bills nobody owns
     p.locator('[data-whopick]').click(); p.wait_for_timeout(500)
     p.locator('dialog[open] [role="radio"]').filter(has_text='No owner').first.click(); p.wait_for_timeout(1200); s = p.evaluate(WEEK)

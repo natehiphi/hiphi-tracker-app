@@ -56,14 +56,14 @@ with sync_playwright() as pw:
           document.querySelector('[data-prstep="plan"]').click(); await w(400); document.querySelector('[data-pv="keep"]').click(); await w(700);
           out.done = document.querySelectorAll('.pr-step.done').length + ' of 5 done';
           document.querySelector('[data-pr="ready"]').click(); await w(700);
-          out.ready = document.querySelector('.pr-head .chip').innerText.trim();
+          out.ready = document.querySelector('.pr-card .chip').innerText.trim();
           document.querySelector('[data-pr="sendback"]').click(); await w(400); document.querySelector('[data-prsave]').click(); await w(300);
           out.noteNeeded = document.querySelector('#pr-note-err').innerText.trim();
           set('#pr-note', 'Say by when.'); document.querySelector('[data-prsave]').click(); await w(700);
           out.back = document.querySelector('.pr-card').innerText.includes('sent it back: Say by when.');
           document.querySelector('[data-pr="ready"]').click(); await w(700);
           document.querySelector('[data-pr="approve"]').click(); await w(700);
-          out.approved = document.querySelector('.pr-head .chip').innerText.trim();
+          out.approved = document.querySelector('.pr-card .chip').innerText.trim();
           return out; })()""")
         ok(res['lbl'] == 'Looks right', f'{tag}: an unchanged name and description are confirmed with "Looks right" ({res["lbl"]})')
         ok('three' in res['tooFew'], f'{tag}: two talking points are refused ({res["tooFew"]!r})')

@@ -19,7 +19,8 @@
 //   stop, stops: 2, 3                               position in this chamber's referral sequence
 //   isFinal:   true when the current committee is the last one in this chamber
 //   deadlineKey, deadline: { label, date, days, missed } | null
-//   hearing, hearingState: 'scheduled' | 'held' | 'none'
+//   hearing, hearingState: 'scheduled' | 'held' | 'decided' | 'none' (decided: the committee's report is in but the bill
+//   has not moved on yet, the sync's lag or the sandbox's day picker; decided: the outcome. R-115, R-120)
 //   column:    'a' | 'b' | 'c' | null               board column, null = off the board
 //   says:      one plain sentence
 // }
@@ -149,6 +150,9 @@ export function billStop(b, ctx) {
       const held = hs.filter(h => now - new Date(h.scheduled_at).getTime() < 12 * 864e5).pop();
       const reported = held && ((ctx.outcomes || {})[held.id]?.outcome || (b.last_action_date && b.last_action_date > dayOf(held.scheduled_at)));
       if (held && !reported) { out.hearing = held; out.hearingState = 'held'; }
+      // Reported, but the bill still sits at this committee (the sync moves it in the same run; the sandbox's day picker adds
+      // the week's decisions without moving bills): it is not waiting for a hearing any more (R-115, the testers' day picker).
+      else if (held && (ctx.outcomes || {})[held.id]?.outcome) { out.hearing = held; out.hearingState = 'decided'; out.decided = (ctx.outcomes || {})[held.id].outcome; }
     }
   }
 
@@ -159,6 +163,7 @@ export function billStop(b, ctx) {
   if (out.phase === 'committee') {
     if (out.hearingState === 'scheduled') { out.column = 'b'; out.says = `${out.committee || ch + ' committee'} hearing ${fmtShort(out.hearing.scheduled_at)}${pos}.`; }
     else if (out.hearingState === 'held') { out.column = 'b'; out.says = `Heard by ${out.committee} ${fmtShort(out.hearing.scheduled_at)} · waiting for the committee’s report${pos}.`; }
+    else if (out.hearingState === 'decided') { out.column = 'b'; out.says = `${out.decided === 'deferred' ? 'Put on hold' : /passed/.test(out.decided) ? 'Passed' : 'Decided'} by ${out.committee} ${fmtShort(out.hearing.scheduled_at)}${/passed/.test(out.decided) ? ' · on to its next step' : ''}${pos}.`; }
     else if (out.deadline?.missed) { out.column = null; out.says = `Needed a ${out.committee || ch} hearing by ${out.deadline.label} ${fmtDay(out.deadline.date)} and did not get one.`; }
     else { out.column = 'a'; out.says = out.committee ? `Needs a hearing in ${out.committee}${pos}${dl}.`
       : out.leg === 'first' ? `Introduced · waiting for a ${ch} committee referral${dl}.` : `Passed the ${CHAMBER_NAME[other(out.chamber)]} · waiting for a ${ch} referral${dl}.`; }

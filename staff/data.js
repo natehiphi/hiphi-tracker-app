@@ -171,7 +171,7 @@ export const DB = {
         .order('occurred_at', { ascending: false }).order('id')),
       this.loadIssues(),
     ].map(p => Promise.resolve(p).catch(() => null)));
-    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut] = await Promise.all([
+    const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut, pac, wc] = await Promise.all([
       S.supa.from('advocates').select('*').order('full_name'),
       allRows(o => S.supa.from('bills').select('*', o).eq('tracked', true).order('bill_number').order('id')),
       allRows(o => S.supa.from('bill_assignments').select('bill_id,advocate_id', o).order('bill_id').order('advocate_id')),
@@ -208,6 +208,8 @@ export const DB = {
       S.supa.from('people_segments').select('*').order('name'),
       S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }),
       allRows(o => S.supa.from('bill_mutes').select('advocate_id,bill_id', o).is('unmuted_at', null).order('advocate_id').order('bill_id')),
+      S.supa.from('public_action_counts').select('*'),   // the public's response, counts only (R-117)
+      S.supa.rpc('watch_counts'),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
@@ -226,6 +228,10 @@ export const DB = {
     S.followersBy = {}; (fol?.data || []).forEach(r => (S.followersBy[r.bill_id] ??= []).push(r.advocate_id));
     S.attend = {}; (att?.data || []).forEach(r => (S.attend[r.hearing_id] ??= []).push(r.advocate_id));
     S.outcomes = Object.fromEntries((outc?.data || []).map(o => [o.hearing_id, o]));
+    // The public's response per bill (R-117): follows, and the actions people with accounts marked. Counts only.
+    S.pubCounts = {};
+    (wc?.data || []).forEach(r => { (S.pubCounts[r.bill_id] ??= {}).followers = Number(r.watchers) || 0; });
+    (pac?.data || []).forEach(r => { Object.assign(S.pubCounts[r.bill_id] ??= {}, { emails: Number(r.emails) || 0, testimonies: Number(r.testimonies) || 0, attending: Number(r.attending) || 0, shares: Number(r.shares) || 0, people: Number(r.people) || 0 }); });
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data; hooks.afterLoad();
@@ -827,6 +833,14 @@ export const DB = {
     if (error) throw error;
     return data || [];
   },
+  // Per version of the first visit (113, R-121): visits, finished, gave an email, came back, actions. Forced (by a
+  // tester's or a staff link) are their own rows and never in the comparison.
+  async firstVisitVariants(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('first_visit_variants', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error;
+    return data || [];
+  },
   // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
   async firstVisitSources(weeks = 12) {
     if (DEMO) return [];
@@ -1245,6 +1259,10 @@ export async function demoInit() {
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.mutes = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
+  // Sample public response for the sandbox (R-117): made up from each bill's id, as the public sandbox's follower counts are.
+  { const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    S.pubCounts = Object.fromEntries(snap.bills.filter(b => b.position && b.position !== 'monitor').map(b => { const s = seed(b.id);
+      return [b.id, { followers: b.priority === 1 ? 12 + s % 40 : s % 9, emails: s % 5, testimonies: b.priority === 1 ? s % 7 : s % 3, attending: s % 2, shares: s % 4, people: s % 9 }]; })); }
   S.demoTriaged = new Set();
   // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
   // A message reaches the bill's owners and followers, anyone who wrote on it lately, and anyone @mentioned, as the

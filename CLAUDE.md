@@ -113,6 +113,36 @@ session's bill of that number) and `b/2026/HB2121` (that session's), every one f
 Tests: `tests/year_links.py` (the sandbox, with a 2025 copy of one bill served into the snapshot) and
 `tests/year_links_live.py` (the published site).
 
+**A/B testing has a process and a measurement spine (R-121, 10/1; `../backend/docs/AB-TESTING.md`).** `pub/variant.js`
+tosses a coin once per new browser between the first visit's two endings (`EXPERIMENT`: key `end`, arms `today` and
+`home`), remembers it (`hiphi_wiz.arm`, `forced`), and a link's `?end=` forces one and marks it forced (the testers'
+links; automated browsers never toss). `variantInfo()` goes on every private count (`visitlog.js`: `variant`, `forced`
+on first-visit events; `variant` on the day and action counts; migration 113). Staff read the comparison on Outreach >
+Issues > First visit > **Versions** (`first_visit_variants`, `variantsHTML` in `staff/firstvisit.js`: a two-proportion
+test on "finished" at 95%, trusted only from 100 visits per version; forced visits shown apart). One test at a time, and
+no new "try both" versions from 15 Oct (rule 13).
+
+**The six recommendations of 1 Oct (R-115 to R-120).** The tester day-picker tells the truth (P9): `stops.js` gives a
+bill whose current committee already reported a `hearingState` of `decided` (with `decided`: the outcome), so it is never
+"waiting for a hearing" on Home, the bill page or the legislators' pages; `plainStatus` says the decision. The rally
+prompts (S4, R-116): `askDue` in `staff/today.js` is the last 4:00 PM at least twelve hours before testimony closes (two
+days before the hearing at most); the email-blast to-do (migration 112) is due the notice day or the day before the
+deadline, and reads "Send the ask to HIPHI's list and partners" while email is paused. The public's response and the
+share kit (S5, R-117): `S.pubCounts` (`public_action_counts` and `watch_counts`), `publicWords(b)`, `shareKit(b, h)` and
+`sharePageUrl(b)` in `staff/model.js`; shown on the hearing page's agenda rows and its Share kit section, the Week view's
+bill rows and the Public tab ("The public's response", Copy share link, Copy a ready message); the partner memo links the
+share pages. Session work first (S6, R-118): in the opening weeks and in session "new bills to sort" takes Today's notice
+slot, the prep notice ends with its due date for non-admins, and the prep card folds to one line once approved or in
+session. One count for "needs a hearing" (S8, R-119): the deadline's "N bills with no hearing yet" lists every one of
+them; `gateApplies` drops a bill-specific deadline (Budget decking) from lists that hold none of its bills, in Today, the
+Week view and the memo. The consistency set (P8, R-120): `hearingsOf` reads the week's pool and the featured bills'
+hearings too (legislator and committee pages); a hearing deferred to a later sitting says "Deferred to Apr 7"
+(`deferredTo` in bill.js); the walkthrough saves the stance (`setStance`), heads the letter "in SUPPORT of" / "in
+OPPOSITION to" / "Comments on" (`headingFor`), offers email sign-offs in email mode, writes to the one chair whose Email
+was pressed (`o.chair`), and "Your N issues" counts categories followed; an emailed chair is not asked again as "your
+legislator who chairs it" (speakup.js). Tests updated: `bill_tour.py`, `email_walk.py` (the floor case clears the pool
+too), `staff_week.py` (the ask on Tuesday), `staff_prep.py` (the folded card), `visitlog.py` (the two new keys).
+
 **One share everywhere, and a link newcomer is left to finish (R-113 P3 and R-114 P4, 10/1).** Every share of a bill
 goes through `shareFor(b, h, { acted, law, differs })` and `doShare()` in `pub/actions.js`: the words, the testimony
 deadline while it is open ("Testimony is due Wed, Mar 18 at 9:30 AM"), the bill's own share page as the address

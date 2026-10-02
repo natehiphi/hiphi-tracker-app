@@ -11,7 +11,7 @@
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
 import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead } from './model.js';
+import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit } from './model.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD } from './ui.js';
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender } from './bill.js';
@@ -126,6 +126,7 @@ function billRow(x, c) {
   // The number first, as everywhere in Outreach and on Today: a two-line clamp on a narrow phone may cut the name, never the number.
   const name = `<b class="hr-num">${esc(billNum(b))}</b> ${b.nickname ? `<b>${esc(b.nickname)}</b>` : `<span class="hr-t">${esc(blurb(b, 110))}</span>`}`;
   const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : first(own)) : 'No owner'}</span></span>`;
+  const pub = publicWords(b);   // the public's response (R-117)
   let end = '';
   if (c.cancelled) end = '';   // the notice above says it once for the whole sitting (A-14)
   else if (h.status === 'cancelled') end = chip('Taken off the agenda', '', 'circle-x');
@@ -134,7 +135,7 @@ function billRow(x, c) {
     end = chip(t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).
-  return `<a class="row hr-bill" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+  return `<a class="row hr-bill" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 // Bills we only monitor are folded away when bills with a position share the sitting (R-022 decision 4, as on Today and
 // the Week); a sitting of monitored bills alone shows them, or the page would be empty.
@@ -145,7 +146,25 @@ function agendaHTML(c) {
   if (!items.length) inner = `<p class="hr-empty">None of the bills heard here is on the tracker any more.</p>`;
   else if (!pos.length) inner = rows(mon);
   else inner = rows(pos) + (mon.length ? `<details class="hr-fold"${S.hrMon ? ' open' : ''}><summary>${icon('eye')}<span>${mon.length === 1 ? '1 more bill we monitor' : `${mon.length} more bills we monitor`}</span>${icon('chevron-down', { cls: 'chev' })}</summary>${rows(mon)}</details>` : '');
-  return section('hr-s1', 'Our bills on the agenda', items.length, inner);
+  return section('hr-s1', 'Our bills on the agenda', items.length, inner) + shareKitHTML(c);
+}
+// The share kit (R-117): for each bill with a position still to be heard, its share page's link and a ready message
+// (the ask, the deadline, the link) to paste into a text, HIPHI's email or a post.
+function shareKitHTML(c) {
+  const list = c.over || c.cancelled ? [] : c.items.filter(x => isPos(x.b) && x.b.is_public && x.b.tracked !== false);
+  if (!list.length) return '';
+  return `<section class="hr-sec hr-kit" aria-labelledby="hr-kit-h"><div class="hr-sech"><h2 id="hr-kit-h">Share kit</h2></div>
+    <p class="small muted">The link previews with the bill's name in a text or a post; the message carries the ask and the deadline.</p>
+    ${list.map(x => `<div class="hr-kitrow"><b class="hr-num">${esc(billNum(x.b))}</b>${btn('Copy share link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-kit': 'link', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}${btn('Copy a ready message', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}</div>`).join('')}
+  </section>`;
+}
+export function wireShareKit(root) {
+  root.querySelectorAll('[data-kit]').forEach(el => el.onclick = async () => {
+    const b = billById(el.dataset.kitb), h = (S.hearings || []).find(x => x.id === el.dataset.kith) || hearingAhead(b); if (!b) return;
+    const kit = shareKit(b, h), text = el.dataset.kit === 'link' ? kit.link : kit.message;
+    try { await navigator.clipboard.writeText(text); toast(el.dataset.kit === 'link' ? 'Share link copied. Paste it into a text, an email or a post.' : 'Message copied. Paste it into a text, an email or a post, and change anything you like.', { ok: true }); }
+    catch { toast('Could not copy. Select the text and copy it yourself: ' + text); }
+  });
 }
 
 // A cancelled sitting points to where each bill is heard next, so the page is never a dead end (B-3).
@@ -275,7 +294,7 @@ export default {
   },
   wire(route, app) {
     const root = app.querySelector('.hr-page'), h = hearingById(route.id); if (!root || !h) return;
-    wireLinks(root);
+    wireLinks(root); wireShareKit(root);
     const c = context(h);
     root.querySelector('[data-hrgo]')?.addEventListener('click', () => toggleGoing(c));
     root.querySelector('[data-hrput]')?.addEventListener('click', () => putDown(c));

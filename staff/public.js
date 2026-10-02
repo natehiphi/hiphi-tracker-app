@@ -13,7 +13,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead } from './model.js';
 import { icon, btn, iconBtn, toast, notice, switchRow } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
@@ -119,6 +119,12 @@ export function renderPublic(b) {
       <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
         return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}
   </section>
+  <section class="bw-sec" aria-labelledby="bw-resp-h">
+    <h2 id="bw-resp-h">The public's response</h2>
+    <p class="small">${publicWords(b) ? `${icon('users')} ${esc(publicWords(b))}.` : 'No one from the public has followed or acted on this bill yet.'} ${DEMO ? '<span class="muted">(sample numbers in the sandbox)</span>' : '<span class="muted">Counts only, from people with accounts; never who.</span>'}</p>
+    ${listed ? `<p class="small muted">The share kit: the link previews with the bill's name in a text or a post; the message carries the ask and the next deadline.</p>
+    <div class="bw-acts">${btn('Copy share link', { kind: 'secondary', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}</div>` : '<p class="small muted">Make it public to get its share link.</p>'}
+  </section>
   <section class="bw-sec" aria-labelledby="bw-mail-h">
     <h2 id="bw-mail-h">Email supporters</h2>
     <p class="small muted">${emailOk ? 'It goes to the people following this bill who asked for action alerts. Someone else who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first. Only people following a public bill can get its email.'}</p>
@@ -127,6 +133,12 @@ export function renderPublic(b) {
 }
 
 export function wirePublic(pnl, b, { focusAsk = false } = {}) {
+  // The share kit (R-117): the bill's share page, or the ask with the next deadline and the link.
+  pnl.querySelectorAll('[data-kit]').forEach(el => el.onclick = async () => {
+    const kit = shareKit(b, hearingAhead(b)), text = el.dataset.kit === 'link' ? kit.link : kit.message;
+    try { await navigator.clipboard.writeText(text); toast(el.dataset.kit === 'link' ? 'Share link copied. Paste it into a text, an email or a post.' : 'Message copied. Paste it into a text, an email or a post, and change anything you like.', { ok: true }); }
+    catch { toast('Could not copy. Select the text and copy it yourself: ' + text); }
+  });
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
   const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil'), talking_points: form.querySelector('#bw-ptp') };
   const errBox = form.querySelector('#bw-perr');

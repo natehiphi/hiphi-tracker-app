@@ -46,12 +46,17 @@ export const codesOf = code => String(code || '').split('/').map(c => c.trim()).
 export const cmteName = code => codesOf(code).map(c => S.committees?.[c]?.name || c).join(' / ');
 export const streamOf = h => hearingStream(h, S.committees?.[codesOf(h.committee)[0]]?.chamber);
 export function deadlineCalendar() {
-  return Object.entries(DEADLINES).flatMap(([phase, arr]) => arr.map(([label, date]) => ({ phase, label, date })))
+  // A row that names its own bills (Budget decking and crossover for HB1800 and HB2095, migration 087) carries them.
+  const rowOf = (label, date) => (DEADLINE_ROWS || []).find(r => r.label === label && String(r.deadline_date).slice(0, 10) === date);
+  return Object.entries(DEADLINES).flatMap(([phase, arr]) => arr.map(([label, date]) => { const r = rowOf(label, date); return { phase, label, date, bills: r && (r.bills || []).length ? r.bills : null }; }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
-export function currentDeadline() {
+// A deadline that names its own bills counts only for a list holding one of them (R-119: "Budget decking is today" led
+// the Week view and the partner memo for everyone, when it only matters to the budget bill).
+export const gateApplies = (g, list) => !g.bills || (list || []).some(b => g.bills.includes(String(b.bill_number).replace(/\s/g, '')));
+export function currentDeadline(list = S.bills) {
   const now = Date.now();
-  return deadlineCalendar().find(d => new Date(d.date + 'T23:59:59-10:00') > now) || null;
+  return deadlineCalendar().find(d => gateApplies(d, list) && new Date(d.date + 'T23:59:59-10:00') > now) || null;
 }
 export function billDeadline(b) {
   return stopOf(b).deadline;
@@ -101,7 +106,7 @@ export function sessionGates(list) {
   const dead = list.filter(b => diedish(b) && b.position !== 'monitor');
   const tag = g => { const d = new Date(g.date + 'T12:00:00-10:00'); return `${g.label} ${d.getUTCMonth() + 1}/${d.getUTCDate()}/${String(d.getUTCFullYear()).slice(2)}`; };
   let nextSeen = false;
-  return deadlineCalendar().map(g => { const past = endOf(g.date) < now, next = !past && !nextSeen; if (next) nextSeen = true;
+  return deadlineCalendar().filter(g => gateApplies(g, list)).map(g => { const past = endOf(g.date) < now, next = !past && !nextSeen; if (next) nextSeen = true;
     const racing = past ? [] : live.filter(x => x.st.deadline && !x.st.deadline.missed && x.st.deadline.date === g.date);
     const noHearing = racing.filter(x => x.st.column === 'a');
     return { ...g, name: gateName(g), past, next, days: Math.floor((endOf(g.date) - now) / 864e5), racing, noHearing,
@@ -255,6 +260,23 @@ export function parseTrackerCsv(text) {
 }
 export const unslack = t => String(t || '').replace(/<([^|>]+)\|([^>]+)>/g, '$2').replace(/<([^>]+)>/g, '$1').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
 export const billById = id => S.bills.find(b => b.id === id);
+// The bill's own share page on the public site (b/HB2121, or b/2026/HB2121 for an earlier session; R-110, R-117): pasted
+// into a text or a post it previews with the bill's name, and the friend's arrival counts as a share.
+export const sharePageUrl = b => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
+// The public's response to a bill (R-117): follows (watch_counts) and the actions people with accounts marked
+// (public_action_counts). Staff only, counts only, nothing personal. '' when nobody has.
+export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
+export function publicWords(b) {
+  const c = publicResponse(b); if (!c) return '';
+  return [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} going` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean).join(' · ');
+}
+// The share kit (R-117): the bill's share page and a ready message, the ask from the Public tab, the deadline, the link.
+export function shareKit(b, h) {
+  const link = sharePageUrl(b), name = b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+  const ask = String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${name}.`;
+  const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The ${h.committee} hearing is ${fmtDT(h.scheduled_at)}.` : '';
+  return { link, message: `${ask}${when} It takes a few minutes: ${link}` };
+}
 export const inboxCount = () => (S.inbox || []).filter(i => i.direct && i.unread).length;
 export function inboxRows() {
   const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
@@ -300,7 +322,7 @@ export function memoData() {
   // One line of the memo: the bill, HIPHI's position, then what the section says about it. A partner's line links the
   // bill's public page, where the bill is on it.
   const line = (b, text) => ({ num: billNum(b).replace(/^(\D+)/, '$1 '), name: short(b), text: `${MEMO_SAYS[b.position] ? MEMO_SAYS[b.position] + '. ' : ''}${text}`,
-    href: partners && b.is_public && b.tracked !== false ? `${PUBLIC_APP()}#/bill/${b.bill_number.replace(/\s/g, '')}` : '' });
+    href: partners && b.is_public && b.tracked !== false ? sharePageUrl(b) : '' });   // the share page: a partner's text previews with the bill's name (R-117)
   const more = (n, what = 'more') => n > 0 ? [`…and ${n} ${what}.`] : [];
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
   const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();

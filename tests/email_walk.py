@@ -227,7 +227,7 @@ with sync_playwright() as pw:
         c.close()
     # 6. a floor vote on the bill page: the bill made to wait for the Senate vote in this browser only
     c, p = ctx(br, False); follower(p, pre=districts); visit(p, '/bill/HB2121')
-    p.evaluate("""async id => { const c = await import('./pub/core.js'); const b = c.anyBill(id); b.stage = 'second_floor'; c.S.hearings = c.S.hearings.filter(h => h.bill_id !== id); if (c.S.xh[id]) c.S.xh[id] = []; c.app.render(); }""", ID['HB2121']); p.wait_for_timeout(1200)
+    p.evaluate("""async id => { const c = await import('./pub/core.js'); const b = c.anyBill(id); b.stage = 'second_floor'; c.S.hearings = c.S.hearings.filter(h => h.bill_id !== id); if (c.S.xh[id]) c.S.xh[id] = []; if (c.S.pool) c.S.pool.hearings = (c.S.pool.hearings || []).filter(h => h.bill_id !== id); if (c.S.featured) c.S.featured.hearings = (c.S.featured.hearings || []).filter(h => h.bill_id !== id); c.app.render(); }""", ID['HB2121']); p.wait_for_timeout(1200)
     fb = p.locator('[data-bl-main="floor"]:visible').first
     check(fb.count() == 1 and f'Sen. {sen["last"]}' in fb.inner_text(), f'floor: the bill page asks your senator to vote ({fb.inner_text() if fb.count() else ""!r})')
     fb.click(); p.wait_for_timeout(900)

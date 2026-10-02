@@ -817,7 +817,10 @@ export async function ensureHistory(b) {
     S.hist[b.id] = true; return true;
   } catch (e) { delete S.hist[b.id]; console.warn('hearing history', e); return false; }
 }
-export const hearingsOf = b => [...new Map([...S.hearings.filter(h => h.bill_id === b.id), ...(S.xh[b.id] || [])].map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
+// Every hearing the page has loaded for this bill: the followed set's, the week's pool and the featured bills' (the
+// legislator and committee pages list bills nobody follows, and read "waiting for a hearing" for one heard tomorrow:
+// R-120, Bug 2), and a bill opened on its own (S.xh).
+export const hearingsOf = b => [...new Map([...S.hearings, ...((S.pool || {}).hearings || []), ...((S.featured || {}).hearings || [])].filter(h => h.bill_id === b.id).concat(S.xh[b.id] || []).map(h => [h.id, h])).values()].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
@@ -1173,6 +1176,11 @@ export function plainStatus(b) {
     return { text: `${passed}${cap(where)} ${codesOf(st.committee).length > 1 ? 'hear' : 'hears'} it ${dateLong(st.hearing.scheduled_at)} at ${timeWord(st.hearing.scheduled_at)}.`, short: d && !d.late ? `Hearing ${dayWord(st.hearing.scheduled_at)} · ${d.text.replace('Testimony ', 'testimony ')}` : `Hearing ${dayWord(st.hearing.scheduled_at)}`, tone: d && !d.late ? d.tone || 'info' : 'info' };
   }
   if (st.hearingState === 'held') return { text: `${passed}${cap(where)} heard it ${dateLong(st.hearing.scheduled_at)}. Waiting for ${codesOf(st.committee).length > 1 ? 'their' : 'its'} decision.`, short: 'Heard, waiting for the decision', tone: 'info' };
+  // The committee decided and the bill has not moved on yet (R-115): say the decision, never "waiting for a hearing".
+  if (st.hearingState === 'decided') {
+    const o = st.decided, ok = /passed/.test(o), verb = o === 'passed_amended' ? 'passed it with changes' : ok ? 'passed it' : o === 'deferred' ? 'put it on hold' : 'sent it back';
+    return { text: `${passed}${cap(where)} ${verb} ${dateLong(st.hearing.scheduled_at)}.${ok ? ' Next it moves on to its next step.' : ''}`, short: ok ? 'Passed · on to the next step' : o === 'deferred' ? 'Put on hold' : 'Sent back', tone: ok ? 'ok' : o === 'deferred' ? 'warn' : '' };
+  }
   if (!st.committee) return { text: `${passed}Waiting to be sent to a ${ch} committee.`, short: `Waiting for a ${ch} committee`, tone: '' };
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
   return { text: `${passed}Waiting for a hearing in ${where}.${dl ? ` If it is not heard by ${dateLong(dl.date + 'T12:00:00-10:00')}, it stops for this year.` : ''}`,
