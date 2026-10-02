@@ -3,7 +3,7 @@
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY } from './core.js';
+  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY, restoreFollows } from './core.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import start from './start.js';
@@ -13,14 +13,27 @@ import find, { headerSuggest } from './find.js';
 import { suggest } from './suggest.js';
 import bill from './bill.js';
 import people from './people.js';
-import committees from './committees.js';
-import allbills from './allbills.js';
 import more from './more.js';
-import helper from './helper.js';
 import tour from './tour.js';
 import mylists, { takePlace, finishPlace } from './mylists.js';
 import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
+
+// Screens a first visit never needs load on first use (R-122, the assessment's P5): the committee pages, every bill, and
+// the walkthrough (helper.js, the largest module), which sets app.openHelper and app.openMail itself once loaded. Until
+// then a stand-in screen shows a skeleton and asks for the module; the walkthrough's two openers load it first.
+const LOADING = new Set();
+const lazy = (key, load) => { const ph = { tab: 'find', tabs: true, title: () => 'Loading', render() {
+    if (!LOADING.has(key)) { LOADING.add(key); load().then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; render(); }).catch(e => { console.error(e); reportError('render', e); LOADING.delete(key); }); }
+    return `<div class="skelpage">${skeleton(4)}</div>`; }, wire() {} }; return ph; };
+const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
+let helperMod = null;
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : import('./helper.js').then(m => { helperMod = m.default; return helperMod; });
+app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
+app.openMail = o => helperLoad().then(() => app.openMail(o));
+// A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
+// comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
+try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => render()); } catch { /* storage blocked */ }
 
 // name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
@@ -58,7 +71,10 @@ export function parseRoute(h = location.hash) {
     case 'l': return { name: 'shared', token: seg[1] || '' };      // a list shared by its link
     // #/bill/HB1563 means the current session's bill; #/bill/2026/HB1563 names the session, because numbers start
     // again at HB 1 every January (R-110).
-    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined }; }
+    // #/bill/HB1780/testify (or /email) opens the bill with its walkthrough already open: for emails, texts and the calendar feed (R-124).
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email'].includes(open) ? open : undefined }; }
+    // #/follow/vaping-free-schools,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
+    case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean) };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
@@ -66,7 +82,7 @@ export function parseRoute(h = location.hash) {
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
 }
-export const toHash = r => ({ bill: `#/bill/${r.year ? r.year + '/' : ''}${r.num}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
+export const toHash = r => ({ bill: `#/bill/${r.year ? r.year + '/' : ''}${r.num}${r.open ? '/' + r.open : ''}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
   committee: `#/committee/${r.code}`, committees: '#/committees', help: r.slug ? `#/help/${r.slug}` : '#/help' })[r.name] || '#/';
 
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.
@@ -101,6 +117,8 @@ function tabbar(scr) {
 let lastRouteKey = '';
 export function render() {
   let route = parseRoute();
+  // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
+  if (route.name === 'follow') { restoreFollows(route.slugs); history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
   // A mistyped or old address lands on Home with one line saying so, then becomes the plain Home address (R-067).
   if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.
@@ -119,10 +137,10 @@ export function render() {
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
     <main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main>
     ${tabs ? tabbar(scr) : ''}
-    ${helper.render()}`;
+    ${helperMod ? helperMod.render() : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'HIPHI Bill Tracker';
   try { scr.wire && scr.wire(route); } catch (e) { console.error(e); }
-  helper.wire();
+  helperMod?.wire();
   wireFrame();
   if (keep && !document.querySelector('dialog[open]')) { const el = findByKey(keep); if (el && el !== document.activeElement) el.focus({ preventScroll: true }); }
   // Screen changes move focus to the page for screen readers (not on re-renders of the same screen).
@@ -171,7 +189,8 @@ function wireFrame() {
       empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } }); }
 }
-const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
+// Honest words (R-122): offline is the person's connection; anything else is ours, and says so.
+const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2><p>${navigator.onLine === false ? 'You’re offline. Check your connection and try again.' : 'The tracker can’t reach its data right now. It’s not you. Check your connection and try again in a minute.'}</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
 
 // ---- keyboard (people with a keyboard only; Help lists these) ----
 document.addEventListener('keydown', e => {
@@ -199,12 +218,20 @@ function welcomeBack() {
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
 async function boot() {
-  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
+  // The practice copy is one big file (about 6 MB; the testers' links), so it gets far longer than the live page (R-122).
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 45000 : 12000));
   try {
     // The issues come first: what a person follows is worked out from them (063, R-018). HIPHI's live bills and the
     // session's reference data do not depend on that, so they start now, alongside (R-067 speed).
     if (!DEMO) { loadReference().catch(() => {}); loadPool().catch(() => {}); }
-    await Promise.race([(async () => { await loadCatalog(); await loadUser(); await loadLists(); await loadBills(); })(), timeout]);
+    // A first visit's first screen needs only the categories and issues (R-122): a copy kept from the last visit draws
+    // it before the network answers, the live catalog draws it as soon as it lands, and the bills and lists follow.
+    // Only when firstVisit() can already be trusted: never for a signed-in person (their actions come with the bills)
+    // and never in the practice copy (one file, so nothing is early; and its seeded actions come with the bills too).
+    // 10/1: an early render that judged wrong rewrote the address to #/start/1, and the bills' arrival could not undo it.
+    const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') render(); };
+    if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
+    await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await loadLists(); await loadBills(); })(), timeout]);
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
     logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
@@ -228,8 +255,8 @@ async function boot() {
   }
 }
 app.boot = boot;
-$app().innerHTML = `<div class="hdr"></div><main>${skeleton(4)}</main>`;
+$app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>`;
 // The clock starts with the script, so a start that hangs anywhere (the data file, the Supabase client) ends in the
 // "Try again" card instead of a skeleton that never goes away.
-Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))]).then(boot)
+Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 60000 : 15000))]).then(boot)
   .catch(e => { console.error(e); reportError('boot', e); $app().innerHTML = `<main id="main">${errorCard()}</main>`; });

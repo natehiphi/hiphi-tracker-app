@@ -243,6 +243,11 @@
 
 /* ---- the sticky bar: Skip about one column of four, the primary about three ---- */
 .st-bar { width: 100%; }
+/* The share and keep lines (R-113, R-123, R-125): plain sentences with text buttons. A button may wrap rather than run
+   past a phone's edge (a wider page made the finale's own button miss its tap, 10/1). */
+.st-share, .st-keep { display: flex; gap: 10px; align-items: flex-start; margin: 0; }
+.st-share > svg, .st-keep > svg { flex: 0 0 auto; margin-top: 12px; color: var(--p700); }
+.st-share .btn, .st-keep .btn { white-space: normal; max-width: 100%; text-align: left; }
 .st-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--s16); align-items: center; }
 .st-btns .btn { width: 100%; padding: 0 12px; }
 .st-one { display: flex; }

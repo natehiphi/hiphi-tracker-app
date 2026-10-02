@@ -25,6 +25,7 @@ import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSu
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
+import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
@@ -268,6 +269,8 @@ function moreView() {
         </div>
       </details>`}
     </nav>
+    ${issuesLink() ? `<h2 class="mr-grouphead" id="mr-g-keep">Your issues, anywhere</h2>
+    <div class="rows mr-grid" aria-labelledby="mr-g-keep">${row({ lead: 'link', title: 'My issues link', sub: 'Open it in any browser or phone and your issues come with you. No account needed.', attrs: { 'data-mr-keep': '1', role: 'button', tabindex: '0' } })}</div>` : ''}
     <h2 class="mr-grouphead" id="mr-g-about">About this tracker</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-about">
       ${row({ lead: 'lock', title: 'Privacy', sub: 'What we keep and who sees it', href: '#/privacy' })}
@@ -278,6 +281,8 @@ function moreView() {
 }
 function wireMore() {
   const f = $('.mr-fold'); if (f) f.ontoggle = () => { S.mrFold = f.open; };
+  // My issues link (R-123): copied, with a text-it-to-myself way beside it in the toast.
+  $('[data-mr-keep]')?.addEventListener('click', async () => { const link = issuesLink(); try { await navigator.clipboard.writeText(link); toast('Your issues link is copied. Paste it into a text or a note, and open it on any phone.', { yay: true }); } catch { location.href = `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`; } });
   const out = $('[data-mr-signout]');
   if (out) out.onclick = async () => {
     if (out.getAttribute('aria-busy')) return;

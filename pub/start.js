@@ -17,7 +17,7 @@
 // to the next page" (3.5), and a primary button is never disabled. Celebrations are in proportion (DESIGN C-7 as
 // rewritten 9/21): a small burst for a small win, a moment that waits for Continue for the first follow and for the
 // lessons, and the peak at the end. Motion follows A-10 (pub/fx.js) and stops under Reduce Motion.
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance,
+import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance, issuesLink, calendarUrl,
   setStance, sendEmailLink, validEmail, friendly, toast, nudge, legTitle, legPhoto, ensureRecapPool, loadCatalog,
   recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, issuePos, setFollows,
   issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, winsIn, didKind, WEIGHT, SOON_DAYS, sidePoints } from './core.js';
@@ -27,7 +27,7 @@ import { topics } from './topics.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, swap, reduced } from './fx.js';
 import { exampleFrom, lessonHTML, lessonStart, lessonNext, lessonPrev, lessonStep, lessonStop, LESSON_TITLES } from './lessons.js';
-import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { logVisit, visitVia, partnerWelcome, logAct } from './visitlog.js';
 import { shareIssue } from './actions.js';
 import { endHome } from './variant.js';
 
@@ -739,7 +739,7 @@ function stepDone(step) {
       <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span>'
         : '<b>When it’s your moment, it’s on your home page.</b><span>One simple way to help, most in about 2 minutes. Turn on reminders in More so you don’t miss one.</span>'}</div></li>
       <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result shows up on your home page.</span></div></li>
-    </ol>${shareLine()}`);
+    </ol>${shareLine()}${keepLine()}`);
 }
 
 // "Know someone who cares about <issue>? Send it" (R-113): the first followed issue's own share page, at the moment
@@ -748,6 +748,22 @@ export function shareLine(cls = 'st-share') {
   const i = followedIssues()[0]; if (!i) return '';
   const did = S.chips['share:' + i.id];
   return `<p class="${cls}">${icon('share-2')}<span>Know someone who cares about ${esc(i.name)}? ${btn(did ? 'Link copied' : 'Send it', { kind: 'text', sm: true, icon: did ? 'check' : '', attrs: { 'data-stshare': i.id } })}</span></p>`;
+}
+// "Keep your issues on any phone": the My issues link (R-123) and, for a followed issue, its calendar feed (R-125).
+// Copy, or text it to yourself (an sms: link with the body filled in; the phone's own app sends it).
+export function keepLine(cls = 'st-keep') {
+  const link = issuesLink(); if (!link) return '';
+  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\//i.test(navigator.userAgent);
+  const i = followedIssues()[0], cal = i ? calendarUrl(i) : '';
+  // Short button labels: a label that names the issue ran past a phone's edge and the finale's own button missed its tap.
+  return `<p class="${cls}">${icon('link')}<span>${inApp ? 'You’re in an app’s own browser, which forgets. ' : ''}Keep your issues on any phone or browser: ${btn(S.chips['keep'] ? 'Link copied' : 'Copy my issues link', { kind: 'text', sm: true, icon: S.chips['keep'] ? 'check' : '', attrs: { 'data-stkeep': 'copy' } })} · ${btn('Text it to myself', { kind: 'text', sm: true, href: `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`, attrs: { 'data-stkeep': 'sms' } })}${cal ? `<br>Hearings on ${esc(i.name)}: ${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', href: cal, attrs: { 'data-stkeep': 'cal' } })}` : ''}</span></p>`;
+}
+export function wireKeepLine(root) {
+  root.querySelectorAll('[data-stkeep]').forEach(el => el.onclick = async e => {
+    const k = el.dataset.stkeep;
+    if (k === 'copy') { e.preventDefault(); try { await navigator.clipboard.writeText(issuesLink()); S.chips['keep'] = true; el.innerHTML = `${icon('check')}<span>Link copied</span>`; } catch { toast('Could not copy. Use "Text it to myself" instead.'); } }
+    else if (k === 'cal') logAct('calendar');
+  });
 }
 export function wireShareLine(root) {
   root.querySelectorAll('[data-stshare]').forEach(el => el.onclick = async () => {
@@ -875,7 +891,7 @@ function wire(route) {
     app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
   $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); lessonStop(); finish(); });   // R-114: after acting from a link, Home now
-  wireShareLine(document);
+  wireShareLine(document); wireKeepLine(document);
 
   if (name === 'topics') {
     $$('[data-stissue]').forEach(el => el.onclick = () => {

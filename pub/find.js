@@ -16,6 +16,8 @@ import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, 
   recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
+import { calendarUrl } from './core.js';   // the calendar feed (R-125)
+import { logAct } from './visitlog.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
   issueList, issueOrder, billsOfIssue, what } from './mybills.js';
 
@@ -365,7 +367,7 @@ function issuePageNew(i) {
     ${pos ? `<div class="chips">${posChip({ hiphi_position: pos })}</div>` : ''}
     ${also.length ? `<p class="small fd-also">Also part of ${also.map(k => `<a href="#/find/category/${esc(k.key)}">${esc(k.name)}</a>`).join(' and ')}</p>` : ''}
     ${off && i.outlook ? `<p class="fd-outlook">${icon('history')}<span>${esc(i.outlook)}</span></p>` : ''}
-    <p class="fd-share">${btn(S.chips['share:' + i.id] ? 'Link copied' : 'Share this issue', { kind: 'text', sm: true, icon: S.chips['share:' + i.id] ? 'check' : 'share-2', attrs: { 'data-shareissue': i.id } })}</p></header>`;   // is it alive? (R-067, staff edit it); Share: R-113
+    <p class="fd-share">${btn(S.chips['share:' + i.id] ? 'Link copied' : 'Share this issue', { kind: 'text', sm: true, icon: S.chips['share:' + i.id] ? 'check' : 'share-2', attrs: { 'data-shareissue': i.id } })}${DEMO ? '' : ` · ${btn('Add hearings to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', href: calendarUrl(i), attrs: { 'data-calissue': i.id } })}`}</p></header>`;   // is it alive? (R-067, staff edit it); Share: R-113
   if (!ready) return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load its bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissuebills': i.id } })}</div>` : skeleton(2)}</div>`;
   // The one thing to do this week, as a full card (R-067: someone arriving on an issue link saw only a "Hearing Fri" chip
@@ -632,6 +634,7 @@ export default {
     const root = document.querySelector('.fd'); if (!root) return;
     if (r.name === 'find') { wireSearch(); wireRegion(document.getElementById('fd-results'), false); if (S.fdFocus) { root.querySelector(S.fdFocus)?.focus({ preventScroll: true }); S.fdFocus = null; } }
     else { wirePage(root); wireActions(root); }
+    root.querySelectorAll('[data-calissue]').forEach(el => el.onclick = () => logAct('calendar'));   // the calendar feed (R-125), counted
     // Share this issue (R-113): the issue's own share page (i/<slug>), counted as a share.
     root.querySelectorAll('[data-shareissue]').forEach(el => el.onclick = async () => {
       const i = S.issueById.get(el.dataset.shareissue); if (!i) return;

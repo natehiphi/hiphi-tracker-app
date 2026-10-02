@@ -864,6 +864,11 @@ export default {
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
     const num = normNum(route.num), year = +route.year || 0, key = keyOf(num, year), b = lookup(num, year);
+    // #/bill/HB1780/testify or /email (R-124): the walkthrough opens once the page is drawn, once per address.
+    if (b && route.open && drawn(num, year) && !(S.blOpened ??= new Set()).has(key + route.open)) {
+      S.blOpened.add(key + route.open); const x = situation(b), h = x.act?.h || null;
+      setTimeout(() => { if (route.open === 'testify' && h && !x.differs) app.openHelper?.(b.id, h.id); else if (route.open === 'email' && h) app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id }); }, 50);
+    }
     root.querySelector('[data-bl-back]')?.addEventListener('click', goBack);
     root.querySelector('[data-bl-retry]')?.addEventListener('click', () => retry(key));
     if (!b || !root.querySelector('.bl-head')) return;

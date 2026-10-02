@@ -1,4 +1,5 @@
 # Share pages (tools/share_pages.mjs, R-067): one small page per HIPHI bill and issue, so a shared link previews with
+# the bill's own name; and one calendar feed per issue (cal/<slug>.ics, R-125).
 # the bill's own name. Rebuilt every morning (5:00 Hawaii time) from the public views, and committed only when a page
 # changed (a new position, a nickname or summary edited by staff). Reads with the public key only; no secrets.
 name: share-pages
@@ -20,7 +21,7 @@ jobs:
       - run: node tools/share_pages.mjs
       - name: Commit when a page changed
         run: |
-          git add b i
+          git add b i cal
           if git diff --cached --quiet; then echo "No change."; exit 0; fi
           git config user.name "share-pages bot"
           git config user.email "actions@users.noreply.github.com"

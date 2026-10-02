@@ -160,7 +160,7 @@ export async function shareIssue(i) {
   if (how) logAct('share');
   return how;
 }
-export const shareText = (b, h, o) => { const t = shareFor(b, h, o); return { url: t.url, text: t.copy }; };   // the old shape, for anything still asking
+   // the old shape, for anything still asking
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
   const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
 // Follow or unfollow with feedback, and Undo on unfollow. Following a bill with one companion (its

@@ -11,7 +11,7 @@
 // are gone (Nate, 9/19); numbers about other people appear only inside one bill or one hearing.
 // On wide screens Home is two columns (wide.css .cols): things to do on the left, your session, what's new and the
 // suggestion on the right. The full bill list lives in My bills.
-import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair,
+import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink,
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
@@ -20,7 +20,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
 import { burst, celebrate } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
-import { shareLine, wireShareLine } from './start.js';
+import { shareLine, wireShareLine, keepLine, wireKeepLine } from './start.js';
 import { CAPITOL, islands, flower } from './art.js';
 // A namespace import, so Home still loads while More is being built (a named import of a missing export would
 // stop the whole page from loading).
@@ -140,7 +140,7 @@ const MARKS = { up: 'circle-check', wait: 'hourglass', stop: 'archive', on: 'arr
 // A result row opens the bill. It leads with the bill's everyday name when staff have written one; the number
 // always shows.
 const impRow = x => `<a class="hm-imp" href="${billPath(x.b)}"><span class="hm-mark t-${x.tone}">${x.tone === 'law' ? flower(22) : icon(MARKS[x.tone])}</span>
-  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b> · ${esc(x.did)} ${esc(x.text)}</span></span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;
+  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b> · ${esc(x.did)} ${esc(x.text)}</span>${x.tone === 'up' || x.tone === 'wait' ? (n => n ? `<span class="hm-impnext">${esc(n)}</span>` : '')(nextWords(x.b)) : ''}</span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;   // "What's next" (R-126)
 // A text button that opens a list in place. The box is only shown or hidden (no redraw), so keyboard focus stays on
 // the button; the button sits above the box so it does not move when the box opens. data-hm-toggle is its first
 // data attribute: app.js uses that to give focus back after a redraw.
@@ -287,7 +287,7 @@ function sinceItems() {
       const said = { passed: 'passed it', passed_amended: 'passed it with changes', deferred: 'put it on hold', recommitted: 'sent it back for more work' }[o.outcome];
       const k = acted.get(h.id);
       const good = sideOf(b) === 'against' ? o.outcome === 'deferred' : /passed/.test(o.outcome);   // good news goes the person's way
-      if (said) add({ b, t, h, good, you: !!k, lead: good ? 'circle-check' : /passed/.test(o.outcome) ? 'arrow-right' : 'archive', text: `${who(h.committee)} ${said}${k ? ` (${DID[k] || 'you acted'})` : ''}.` });
+      if (said) add({ b, t, h, good, you: !!k, lead: good ? 'circle-check' : /passed/.test(o.outcome) ? 'arrow-right' : 'archive', text: `${who(h.committee)} ${said}${k ? ` (${DID[k] || 'you acted'})` : ''}.${/passed/.test(o.outcome) ? ' ' + nextWords(b) : ''}`.trim() });   // the result, and what comes next (R-126)
     } else if (!held && h.status === 'scheduled' && h.notice_posted_at && +new Date(h.notice_posted_at) > since && alive(b)) {
       const d = dayWord(h.scheduled_at); add({ b, t: +new Date(h.notice_posted_at), lead: 'calendar', text: `${num} has a hearing ${/^(today|tomorrow)/.test(d) ? d : 'on ' + d}.` });
     }
@@ -597,6 +597,7 @@ function homeFirst({ cards, asks, ask }) {
       ${rightNow(cards, asks)}
       ${yourIssues()}
       ${shareLine('hm-share')}
+      ${keepLine('hm-share')}
       ${ask}
     </div></div>
   </div>`;
@@ -883,7 +884,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireShareLine(root);
+    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root);
     try { more.wireAccountCards?.(); } catch (e) { console.error(e); }
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {

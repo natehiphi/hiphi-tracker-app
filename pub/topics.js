@@ -91,7 +91,6 @@ export function topics(bills = []) {
       subs: t.subs.map(s => ({ key: s.key, name: s.name, bills: bills.filter(b => inSub(b, t.key, s.key)).length })) };
   });
 }
-export const TOPIC_KEYS = TOPICS.map(t => t.key);
 
 // ---- policies ----------------------------------------------------------------------------
 // The 248 bills HIPHI has a position on are only 153 distinct policies: "Let counties regulate
