@@ -17,27 +17,46 @@
 // to the next page" (3.5), and a primary button is never disabled. Celebrations are in proportion (DESIGN C-7 as
 // rewritten 9/21): a small burst for a small win, a moment that waits for Continue for the first follow and for the
 // lessons, and the peak at the end. Motion follows A-10 (pub/fx.js) and stops under Reduce Motion.
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, billPath, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, myStance, issuesLink, calendarUrl,
-  setStance, sendEmailLink, validEmail, friendly, toast, nudge, legTitle, legPhoto, ensureRecapPool, loadCatalog,
-  recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, issuePos, setFollows,
-  issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, winsIn, didKind, WEIGHT, SOON_DAYS, sidePoints } from './core.js';
-import { btn, chip, posChip } from './ui.js';
-import { CAPITOL, VOICES, islands, flower } from './art.js';
-import { topics } from './topics.js';
-import { createAddressPicker } from './addresspicker.js';
-import { burst, celebrate, later, swap, reduced } from './fx.js';
-import { LESSON_TITLES } from './topics.js';
+
+
+
+
+
+
+
+
+
+
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-let LZ = null, lzP = null;
-const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), app.ensureCss ? app.ensureCss(['lessons']) : null]).then(([m]) => (LZ = m)).catch(e => { lzP = null; throw e; });
-const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()).catch(e => console.error(e)); return !!LZ; };
-import { logVisit, visitVia, partnerWelcome, logAct } from './visitlog.js';
-import { shareLine, keepLine, wireShareLine, wireKeepLine } from './keep.js';
+import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf } from './kernel.js';
+import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
+import { btn } from './ui.js';
+import { CAPITOL, VOICES, islands } from './art.js';
+import { topics } from './topics.js';
+import { burst, later, swap, reduced } from './fx.js';
+import { LESSON_TITLES } from './topics.js';
+import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { wireShareLine, wireKeepLine } from './keep.js';
 import { endHome } from './variant.js';
+export let LZ = null, lzP = null;
+// The rest of the first visit (start-rest.js: every step after the topics, the lessons' pages, the address and email
+// steps) and the bill-level code (core.js) load after the topics screen is up (R-122, the split): a newcomer's first
+// screen needs neither. Until they are in, a later step draws a skeleton and is drawn again when they land.
+let REST = null, restP = null, C = null, cP = null;
+const restLoad = () => restP ??= import('./start-rest.js').then(m => (REST = m)).catch(e => { restP = null; throw e; });
+const coreLoad = () => cP ??= import('./core.js').then(m => (C = m)).catch(e => { cP = null; throw e; });
+const restAsk = () => { if (!REST) restLoad().then(() => app.render()).catch(e => console.error(e)); return !!REST; };
+export const lessons = () => LZ;   // start-rest.js reads the lessons through this (an import is read-only)
+export const core = () => C;
+const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), app.ensureCss ? app.ensureCss(['lessons']) : null]).then(([m]) => (LZ = m)).catch(e => { lzP = null; throw e; });
+export const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()).catch(e => console.error(e)); return !!LZ; };
 
-const isOff = () => sessionInfo().phase !== 'in';
+
+
+
+export const isOff = () => sessionInfo().phase !== 'in';
 // The first visit as named screens (the same in and out of session since "Where do you stand?" left it, R-053). From a
 // shared bill (wiz().via is its number), the first part happened on the bill page.
 // 'bill' is the one lesson, "A bill's story" (R-062, Nate 9/29: "Let's use concept 1 as a primer for how session works
@@ -63,14 +82,14 @@ const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 const flowOf = off => { const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
-const total = off => flowOf(off).length;
+export const total = off => flowOf(off).length;
 const pathKey = () => wiz().via ? 'link' : isOff() ? 'off' : 'in';
-const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const andList = a => a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+export const andList = a => a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
 // "Wednesday, January 20" for a Hawaiʻi calendar day
 const longDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' });
-const shortDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' });
-const hasPos = b => b && b.hiphi_position && b.hiphi_position !== 'monitor';
+export const shortDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' });
+export const hasPos = b => b && b.hiphi_position && b.hiphi_position !== 'monitor';
 // Which island to pick out in the drawing, when this device or the account knows the person's Senate district:
 // 1-4 Hawaiʻi Island, 5-6 Maui, 8 Kauaʻi, 9-25 Oʻahu (7 spans Maui, Molokaʻi and Lānaʻi, so it picks none).
 function myIsland() {
@@ -81,13 +100,13 @@ function myIsland() {
 
 // ---------- the private visit counts (R-023 decision 8): one row per screen reached and how it was left ----------
 let viewKey = '', viewAt = 0;
-const track = (step, event, extra = {}) => { try { logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
+export const track = (step, event, extra = {}) => { try { logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
 
 // Closing the tab (or leaving the site) mid-visit is counted as leaving that screen, with the seconds spent on it.
 window.addEventListener('pagehide', () => { if (document.body.dataset.screen === 'start' && viewKey) track(viewKey.split('|')[1], 'leave'); });
 
 // ---------- moving between screens: forward steps are tagged, so the on-screen Back can use the real Back ----------
-function goStep(from, to) {
+export function goStep(from, to) {
   LZ?.lessonStop();
   // Past the last step: Home (only the version that ends on Home gets here; today's last screen calls finish() itself).
   if (to > total(isOff())) { finish(); return; }
@@ -111,10 +130,10 @@ function goBack(step) {
 }
 // Home shows a calm welcome for the rest of this visit instead of pushing actions (home.js reads this key). It is set
 // as soon as issues are followed, so leaving early by Skip or the logo still lands on the calm Home.
-const welcome = () => { try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode */ } };
+export const welcome = () => { try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode */ } };
 // Finishing the first visit. Between sessions we also note when the next session opens, so the start can greet them
 // with HIPHI's picks then (core: readyForSession).
-function finish() {
+export function finish() {
   const si = sessionInfo();
   // The version that ends on Home (R-098) has no finale screen, so the finale's count is taken here, and Home plays the
   // celebration once for this page (S.hmFinale, pub/home.js).
@@ -155,44 +174,36 @@ function tickChapter(name, back) {
 
 // ---------- the page frame of a step: the story (left on wide screens) and the choices (right) ----------
 const backBtn = step => btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stback': String(step) } });
-const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : ''}`;
-const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
+export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : ''}`;
+export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
+export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
-const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
+export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
 // On wide screens the reassurance belongs with the story on the left, and only the message shows above the choices.
-const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)}<span>${sure}</span></p>`;
+export const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)}<span>${sure}</span></p>`;
 
 // ---------- the bar: one Skip, one primary ----------
-const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = 'Skip') => `<div class="st-bar"><div class="st-btns">
+export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = 'Skip') => `<div class="st-bar"><div class="st-btns">
   ${btn(skip, { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(label, { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the
 // one button on the screen is never a dead one.
-const barBusy = () => bar2('Finding issues…', { icon: 'loader-circle' }, { 'data-stnext': '1', 'aria-busy': 'true' });
-const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1' });
-const bar1 = (label, ic = 'arrow-right', attrs = { 'data-stnext': '1' }) => `<div class="st-bar st-one">${btn(label, { kind: 'primary', iconEnd: ic, attrs })}</div>`;
+export const barBusy = () => bar2('Finding issues…', { icon: 'loader-circle' }, { 'data-stnext': '1', 'aria-busy': 'true' });
+export const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1' });
+export const bar1 = (label, ic = 'arrow-right', attrs = { 'data-stnext': '1' }) => `<div class="st-bar st-one">${btn(label, { kind: 'primary', iconEnd: ic, attrs })}</div>`;
 // Only Skip, as a quiet full-width button: an optional screen before anything is done on it (A-3: no primary yet).
-const barSkip = () => `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stskip': '1' } })}</div>`;
-const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
-
-// ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
-// An issue's importance, used only for order (FIRST-VISIT-PLAN "Importance"): HIPHI's strongest position on a moving
-// bill in it (strongly support 40, support 20, only opposes 15, neutral 5); the team's priority 1 on one of its bills
-// (public_issues.top_priority: only this flag is public, never a bill's priority) +30; recommended by staff (the issue
-// or one of its bills) +25; a hearing in the next 7 days +15; 3 for each moving bill, up to 3. Between sessions
-// "moving" means any of last session's bills, there is no hearing term, and an issue already won loses 25 so the open
-// fights lead. A category's importance is the sum of its top four. Staff can leave an issue out of the first visit
-// altogether (issues.first_visit, the switch in Staff v2 Outreach > Issues).
+export const barSkip = () => `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stskip': '1' } })}</div>`;
 const supports = b => /support/.test(b.hiphi_position || b.position || '');
-const poolBills = () => (S.pool && S.pool.bills) || [];
+// A bill the page already has (core.js's anyBill without core.js: the topics screen must not wait for it).
+const billById = id => S.bills.find(b => b.id === id) || (S.extra || {})[id] || (DEMO ? D.bills.find(b => b.id === id) : null) || null;
+export const poolBills = () => (S.pool && S.pool.bills) || [];
 let poolRef = null, poolSet = new Set();
 const poolIds = () => { if (poolRef !== S.pool) { poolRef = S.pool; poolSet = new Set(poolBills().map(b => b.id)); } return poolSet; };
-const shown = i => i.first_visit !== false;
+export const shown = i => i.first_visit !== false;
 const inPlay = i => shown(i) && (isOff() ? issueBills(i).length > 0 : issueBills(i).some(id => poolIds().has(id)));
 // Soonest upcoming hearing per bill, from what the page already loaded (the next two weeks).
-function ranker() {
+export function ranker() {
   const now = Date.now(), soon = new Map();
   for (const h of [...((S.pool || {}).hearings || []), ...((S.featured || {}).hearings || []), ...S.hearings]) {
     if (h.status !== 'scheduled' || new Date(h.scheduled_at) <= now) continue;
@@ -207,9 +218,9 @@ function ranker() {
 }
 // One issue as the first visit sees it: its bills (this session's, or last session's between sessions), HIPHI's
 // position on it, what is happening, and how important it is.
-function issueInfo(i, R) {
+export function issueInfo(i, R) {
   const off = isOff(), from = off ? ((S.recapPool && S.recapPool.bills) || []) : poolBills();
-  const bills = issueBills(i).map(id => from.find(b => b.id === id) || anyBill(id)).filter(Boolean);
+  const bills = issueBills(i).map(id => from.find(b => b.id === id) || billById(id)).filter(Boolean);
   const live = bills.filter(b => alive(b) || b.stage === 'governor');
   const lead = (off ? bills : live).slice().sort(R.cmp)[0] || bills[0] || null;
   const law = bills.some(b => b.stage === 'enacted');
@@ -223,13 +234,14 @@ function issueInfo(i, R) {
   // already won.
   return { i, bills, live, lead, law, pos: issuePos(off ? bills : live.length ? live : bills, i), promoted: rec || (strong && !(off && law)), inf, score };
 }
-const byScore = (x, y) => y.score - x.score || (x.i.sort_order ?? 100) - (y.i.sort_order ?? 100) || x.i.name.localeCompare(y.i.name);
+export const byScore = (x, y) => y.score - x.score || (x.i.sort_order ?? 100) - (y.i.sort_order ?? 100) || x.i.name.localeCompare(y.i.name);
 const TOP = 4;
 // R-039 (Nate 9/22: "the list is way too long"): the four most important issues across the chosen categories come
 // first, then three more in each category, and nothing else on this screen. The rest stay in Find, and later visits
 // can suggest them.
-const TOP_PICKS = 4, PER_CAT = 3;
-const catScore = rows => rows.slice(0, TOP).reduce((n, x) => n + x.score, 0);
+export const TOP_PICKS = 4;
+export const PER_CAT = 3;
+export const catScore = rows => rows.slice(0, TOP).reduce((n, x) => n + x.score, 0);
 // The six categories, most important first (R-018's categories; if they did not load, the old six from topics.js
 // stand in, counted by bills, so the screen still works).
 function catList() {
@@ -242,7 +254,7 @@ function catList() {
 }
 const topicList = catList;
 // The picks on screen 1 are categories (R-018).
-const pickedIssues = () => { const sel = new Set(wiz().issues || []); return topicList().filter(i => sel.has(i.key) || i.names.some(n => sel.has(n))); };
+export const pickedIssues = () => { const sel = new Set(wiz().issues || []); return topicList().filter(i => sel.has(i.key) || i.names.some(n => sel.has(n))); };
 
 // ================= Your issues, 1: what do you care about? =================
 // Six tiles, most important first (Nate 9/21), each saying what is in play: in session the issues still moving,
@@ -259,7 +271,7 @@ function tiles(off, yr) {
   // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
   // the six tiles for the moment it takes; if it fails they fall back to issue counts.
   if (off && !(S.recapPool && S.recapPool.yr === yr) && S.recapFailed !== yr) {
-    ensureRecapPool(yr);
+    if (C) C.ensureRecapPool(yr);   // once the bill-level code is in (wire() asks for it right after this paint)
     return `<div class="st-tiles" aria-busy="true" aria-label="Loading">${'<div class="skel" style="min-height:176px"></div>'.repeat(6)}</div>`;
   }
   const sel = new Set(wiz().issues || []);
@@ -282,7 +294,7 @@ function partnerLine() {
 function stepTopics(step) {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
-  const w = off ? winsIn(yr) : null;   // between sessions, the proof it works (R-067)
+  const w = off && C ? C.winsIn(yr) : null;   // between sessions, the proof it works (R-067); said once core.js is in
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
     <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll ${endHome() ? 'show' : 'tell'} you when your voice can count.`
@@ -296,487 +308,26 @@ function stepTopics(step) {
 // session's - reach the person without them doing anything more. Only the four shown can start ticked, so nothing is
 // followed unseen: HIPHI's strongly supported and staff-recommended ones among them, else the most important one. One
 // "Follow all" per category, which also brings issues HIPHI takes up there later (R-018).
-const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.topicKey || i.key).join('|')}`;
-function model2() {
-  const off = isOff(), sel = pickedIssues(), sig = sigOf(off, sel), yr = sessionInfo().recapYear;
-  if (!sel.length) return { none: true };
-  if (!S.issues.length) return { err: true, sig, sel };
-  if (off && !(S.recapPool && S.recapPool.yr === yr)) {
-    if (S.recapFailed === yr) return { err: true, sig, sel };
-    ensureRecapPool(yr); return { loading: true, sig, sel };
-  }
-  const R = ranker(), w = wiz();
-  const per = sel.map(c => ({ c, rows: c.rows && c.rows.length ? c.rows : (c.issues || []).map(i => issueInfo(i, R)).sort(byScore) }))
-    .sort((a, b) => catScore(b.rows) - catScore(a.rows));
-  // An issue in two picked categories (the DUI limit is alcohol policy and road safety) is shown once, in the more
-  // important one, so it is never ticked in one place and hidden in another (the review, 9/21).
-  const once = new Set();
-  per.forEach(p => { p.rows = p.rows.filter(x => !once.has(x.i.id) && once.add(x.i.id)); });
-  // full: every issue of the category in play (what "Follow all" counts and follows); rows: the three shown under it.
-  per.forEach(p => { p.full = p.rows; });
-  const top = per.flatMap(p => p.full).sort(byScore).slice(0, TOP_PICKS), topIds = new Set(top.map(x => x.i.id));
-  per.forEach(p => { p.rows = p.full.filter(x => !topIds.has(x.i.id)).slice(0, PER_CAT); p.open = S.stOpen[p.c.topicKey] ?? true; });
-  const all = [...top, ...per.flatMap(p => p.rows)];
-  // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
-  let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
-  if (!picks) {
-    // Ticked for you only where the person can see it, and only at the top (B-12): the staff-recommended and strongly
-    // supported among the four most important, else the first of them.
-    const pro = top.filter(x => x.promoted);
-    picks = { issues: (pro.length ? pro : top.slice(0, 1)).map(x => x.i.id), cats: [] };
-  }
-  const catOn = new Set(picks.cats), issueOn = new Set(picks.issues);
-  const ticked = x => issueOn.has(x.i.id) || x.i.categories.some(c => catOn.has(c));
-  const count = new Set(all.filter(ticked).map(x => x.i.id)).size;
-  return { off, sig, sel, per, top, all, picks, catOn, issueOn, ticked, count, R };
-}
-// One issue to follow. The whole card is the toggle (a real button). Where its description is cut, a small "What it
-// does" button opens it in place, on the card's bottom edge beside the toggle rather than inside it.
-S.stWhat ??= new Set();
-function issueCard(x, m, secKey, extra) {
-  const i = x.i, on = m.ticked(x), tid = `st-w-${secKey}-${i.slug}`, open = S.stWhat.has(tid);
-  const h = x.inf && x.inf.h, within8 = h && new Date(h.scheduled_at) - Date.now() < 8 * 864e5;
-  const day = within8 ? (hstDay(h.scheduled_at) === hstDay(Date.now()) ? 'today' : new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' })) : '';
-  const top = day ? chip(`Hearing ${day}`, 'info', 'calendar') : m.off && x.law ? chip(`Became law in ${sessionInfo().recapYear}`, 'ok', 'circle-check') : '';
-  const n = m.off ? x.bills.length : x.live.length, b = x.lead, billsText = n > 1 ? `${n} bills${b ? `, including ${spaced(b.bill_number)}` : ''}` : b ? spaced(b.bill_number) : '';
-  return `<li class="st-pcard${on ? ' on' : ''}${open ? ' st-open' : ''}${extra ? ' st-extra' : ''}"${extra && !S.stMore[secKey] ? ' hidden' : ''}>
-    <button type="button" class="st-pick" data-stpick="${esc(i.id)}" data-stcat="${esc(secKey)}" aria-pressed="${on}">
-      <span class="st-tick" aria-hidden="true">${icon('check')}</span>
-      <span class="st-pbody">
-        ${top ? `<span class="st-ptop">${top}</span>` : ''}
-        <span class="st-phead">${esc(i.name)}</span>
-        ${i.description ? `<span class="st-pwhat st-clamp" id="${tid}">${esc(i.description)}</span>` : ''}
-        <span class="st-pmeta"><span>${esc(billsText)}</span>${x.pos ? posChip({ hiphi_position: x.pos }) : ''}</span>
-      </span></button>
-    ${i.description ? `<button type="button" class="st-what" data-stwhat="${esc(tid)}" aria-expanded="${open}" aria-controls="${tid}" hidden><span>What it does<span class="sr">: ${esc(i.name)}</span></span>${icon('chevron-down')}</button>` : ''}</li>`;
-}
-// Show "What it does" only on cards whose text is really cut off at this width (or is open, so it can be closed).
-function fitWhat() {
-  document.querySelectorAll('.st-pcard:not([hidden])').forEach(card => {
-    const t = card.querySelector('.st-clamp'), w = card.querySelector('.st-what'); if (!t || !w) return;
-    const need = card.classList.contains('st-open') || t.scrollHeight > t.clientHeight + 1;
-    w.hidden = !need; card.classList.toggle('st-haswhat', need);
-  });
-}
-let fitT = 0;
-window.addEventListener('resize', () => { cancelAnimationFrame(fitT); fitT = requestAnimationFrame(fitWhat); });
-const catAll = (c, n, all) => `${btn(`${all ? 'Following all' : 'Follow all'}<span class="sr"> of ${esc(c.key)}</span>`, { kind: 'text', sm: true, icon: all ? 'check' : 'star', cls: all ? 'on' : '', attrs: { 'data-stfollowcat': c.topicKey, 'aria-pressed': String(all) } })}
-  <p class="st-catnote">${all ? 'New issues HIPHI takes up too.' : n > 1 ? `All ${n}, plus new ones.` : 'Plus any new ones.'}</p>`;
-// One <details> per category. The first always starts open; a small one (four issues or fewer) also starts open; a busy
-// one past the first starts folded, and then says what is ticked inside it (A-14).
-S.stOpen ??= {};
-S.stMore ??= {};
-function pickedLine(p, m) {
-  if (m.catOn.has(p.c.topicKey)) return 'Following all';
-  const on = p.full.filter(m.ticked).map(x => x.i.name);
-  return !on.length ? '' : `${on.length} ticked: ${andList(on)}`;
-}
-function catSection(p, m) {
-  const c = p.c, n = p.full.length, open = p.open, said = pickedLine(p, m);
-  return `<details class="st-tsec"${open ? ' open' : ''} data-stsec="${esc(c.topicKey)}">
-    <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span><span class="st-tcount">${plural(n, 'issue')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
-    <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
-      ${p.rows.length ? `<ul class="st-picks" role="list">${p.rows.map(x => issueCard(x, m, c.topicKey, false)).join('')}</ul>`
-        : `<p class="st-catnote">${n === 1 ? 'Its issue is' : 'Its issues are'} in the list above.</p>`}
-    </div></details>`;
-}
-// A category with nothing in play right now can still be followed whole: its issues and bills come as they start.
-const quietCat = (c, m) => `<li class="card st-quiet"><span class="st-ilead">${icon(c.icon)}</span>
-    <span class="st-ibody"><span class="st-iname">${esc(c.key)}</span><span class="st-idesc">Nothing is moving on it right now.</span></span>
-    <div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, 0, m.catOn.has(c.topicKey))}</div></li>`;
-const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
+export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:128px"></div>'.repeat(3), true);
-const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
-function stepIssues(step) {
-  const off = isOff(), m = model2();
-  if (m.none || m.loading) return skel(step);
-  if (m.err) return loadErr(step);
-  const si = sessionInfo(), yr = off ? si.recapYear : si.yr, next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
-  const groups = m.per.filter(p => p.full.length), quiet = m.per.filter(p => !p.full.length).map(p => p.c);
-  const total = new Set(m.all.map(x => x.i.id)).size, ticked = m.count;
-  const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
-    : off ? `Here’s what HIPHI worked on in ${yr}, most important first. Follow an issue, and its ${next} bills come to you.`
-    : ticked ? `Most important first. We ticked ${ticked === 1 ? 'one' : ticked} to start you off; change them any time.` : 'Most important first. Tick the ones you care about.';
-  return shell('st2', `${topRow('issues', step)}
-    <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
-    `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${m.top.length ? `<section class="st-topsec" aria-labelledby="st-toph"><h2 class="st-toph" id="st-toph">${off ? `Most important in ${yr}` : 'Most important right now'}</h2>
-      <ul class="st-picks" role="list">${m.top.map(x => issueCard(x, m, 'top', false)).join('')}</ul></section>` : ''}
-    ${groups.length ? `${m.top.length ? `<h2 class="st-toph st-moreh">More in your topics</h2>` : ''}<div class="st-tsecs" role="group" aria-label="More in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
-    ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
-}
-
-// ================= What was followed, still moving =================
-// The issues just followed, most urgent first, each with its bills still moving (then bills followed on their own).
-// "Coming up" and the finale read it. (It also fed a "Where do you stand?" screen here, removed 9/26, R-053: the
-// answer changed nothing the person saw next (C-13), and the bill page asks it where it matters.)
-function standIdeas() {
-  const R = ranker(), w = wiz(), seen = new Set(), out = [];
-  for (const id of [...(w.followedIssues || []), ...followedIssues().map(i => i.id)]) {
-    if (seen.has(id)) continue; seen.add(id);
-    const i = S.issueById.get(id); if (!i || !issueFollowed(i)) continue;
-    const bills = issueBills(i).filter(bid => S.watch.has(bid)).map(bid => S.bills.find(b => b.id === bid) || anyBill(bid)).filter(b => b && alive(b)).sort(R.cmp);
-    if (bills.length) out.push({ key: 'i:' + i.id, name: i.name, desc: i.description || '', bills });
-  }
-  for (const b of S.bills) if (S.direct.has(b.id) && !viaIssue(b) && alive(b)) out.push({ key: 'b:' + b.id, name: nick(b) || null, desc: blurb(b, 140), bills: [b] });
-  return out;
-}
-const followedBills = () => standIdeas().flatMap(x => x.bills);
-
-// ================= How it works: the story of the person's own bill (pub/lessons.js) =================
-// The example (decision 6, which answers R-020). In session: the first followed issue, in the order the person picked
-// categories and then screen 2's order, with a bill that has a scheduled hearing in the next 7 days; else a followed
-// bill alive in its second chamber; else the most advanced followed bill. Between sessions: a 2026 law with a HIPHI
-// position in the first picked category; else the next category's; else SB 2175. From a shared bill: that bill. Never
-// a bill in an issue staff left out of the first visit.
-let exCache = null, exKey = '';
-function exampleBill() {
-  const off = isOff(), w = wiz();
-  if (S.learnBill && location.hash.startsWith('#/learn/')) { const lb = anyBill(S.learnBill); if (lb) return lb; }   // a lesson opened from a bill page teaches on that bill
-  if (w.via) return anyBill(w.viaId) || S.bills.find(b => b.bill_number === w.via) || null;
-  const left = b => issuesOf(b).length && issuesOf(b).every(i => !shown(i));
-  if (off) {
-    // Last session's bills load once per visit (a person who skipped the first screens has not loaded them yet); the
-    // lesson waits for them rather than drawing nothing.
-    const yr = sessionInfo().recapYear; if (!(S.recapPool && S.recapPool.yr === yr)) { ensureRecapPool(yr); return null; }
-    const R = ranker(), cats = [...new Set([...(w.followedCats || []), ...pickedIssues().map(c => c.topicKey), ...followedIssues().map(i => i.category)])];
-    for (const k of cats) for (const i of issuesIn(k).filter(i => shown(i) && issueFollowed(i))) {
-      const law = issueInfo(i, R).bills.find(b => b.stage === 'enacted' && hasPos(b)); if (law) return law; }
-    const recap = (S.recapPool && S.recapPool.bills) || [];
-    return recap.find(b => b.bill_number === 'SB2175') || anyBill((recap.find(b => b.stage === 'enacted' && hasPos(b)) || {}).id) || recap.find(b => b.stage === 'enacted') || null;
-  }
-  const R = ranker(), bills = followedBills().filter(b => !left(b));
-  const soon = b => { const h = R.soon.get(b.id); return h && new Date(h.scheduled_at) - Date.now() < 7 * 864e5; };
-  const second = b => /^second|conference/.test(b.stage || '');
-  const pick = bills.find(soon) || bills.find(second) || bills[0];
-  if (pick) return pick;
-  // Nothing followed (Skip on the first screen): one HIPHI is working on, with a hearing ahead if there is one.
-  const pool = poolBills().filter(b => hasPos(b) && !left(b)).sort(R.cmp);
-  return pool.find(b => b.hiphi_position === 'strongly_support' && soon(b)) || pool.find(soon) || pool[0] || null;
-}
-// An example the page has not loaded in full (a law between sessions, a bill HIPHI works on that nobody here follows) is
-// fetched once with its hearings, then the lessons redraw with its real hearing instead of a made-up one.
-S.exLoading ??= new Set();
-// Between sessions the example is a law whose hearings are months old, older than the public hearings view keeps (30
-// days), so its whole history comes from public_bill_hearings (migration 070), once, merged into what is loaded.
-S.histLoading ??= new Set();
-async function fullHistory(b) {
-  if (DEMO || !b || S.histLoading.has(b.id)) return;
-  S.histLoading.add(b.id);
-  try {
-    const { data, error } = await (await supa()).rpc('public_bill_hearings', { bill: b.id }); if (error) throw error;
-    const have = new Map(((S.xh || {})[b.id] || []).map(h => [h.id, h]));
-    for (const r of data || []) {
-      have.set(r.id, { ...have.get(r.id), id: r.id, bill_id: r.bill_id, bill_number: b.bill_number, committee: r.committee, scheduled_at: r.scheduled_at,
-        room: r.room, status: r.status, testimony_deadline: r.testimony_deadline, notice_posted_at: r.notice_posted_at });
-      if (r.outcome) S.outcomes[r.id] = { hearing_id: r.id, bill_id: r.bill_id, committee: r.committee, scheduled_at: r.scheduled_at, outcome: r.outcome };
-    }
-    S.xh[b.id] = [...have.values()];
-    exKey = ''; app.render();
-  } catch (e) { console.error(e); }   // the lesson keeps its labelled example hearing
-}
-function example() {
-  const w = wiz(), b = exampleBill(), full = !!b && (S.bills.some(x => x.id === b.id) || !!(S.xh || {})[b.id]);
-  // Between sessions the example is already on the page (last session's bills) and only its hearings are missing:
-  // one load, the full history. Two loads raced, and the 30-day one emptied what the full one had filled.
-  if (b && isOff()) fullHistory(b);
-  else if (b && !full && !S.exLoading.has(b.id)) { S.exLoading.add(b.id); ensureBill(b.bill_number, b.session_year).then(() => { exKey = ''; app.render(); }).catch(() => {}); }
-  // A lesson opened from a bill page says it is that bill's story.
-  const via = S.learnBill && location.hash.startsWith('#/learn/') && b && b.id === S.learnBill ? 'bill' : w.via ? (viaFollowed() ? 'followed' : 'link') : '';
-  const key = `${isOff()}|${via}|${b ? b.id : ''}|${full}|${[...S.watch].length}|${S.bills.length}|${(S.recapPool || {}).yr || ''}`;
-  if (!lessonsAsk()) return null;   // the lessons are still on their way: the step draws a skeleton and comes back
-  if (key !== exKey) { exKey = key; exCache = LZ.exampleFrom(b, { off: isOff(), via }); }
-  return exCache;
-}
-// ================= The short version's one page: why your voice matters (R-067 #11) =================
-// Nate's words, 9/28 (option B of three: written for someone who has never written to a lawmaker, so it answers "I
-// don't know enough" rather than explaining the Capitol; the lessons below do that). Three short points, the person's
-// own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062).
-function stepVoice(step) {
-  const E = example(), off = isOff(), b = exampleBill();
-  const pts = [
-    ['mail', 'They read what you send', 'Before a committee votes on a bill, its members read the notes people send.'],
-    ['message-circle', 'You don’t need to be an expert', 'Say who you are and why it matters to you. That’s enough.'],
-    ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
-  ];
-  const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
-  return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
-    <h1 class="hero" id="st-h">Your voice counts here</h1>
-    <p class="lede">Lawmakers hear from far fewer people than you’d think. The ones who write in get noticed.</p>`,
-    `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
-    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>${off ? `Like <b>${esc(E.name)}</b>, one of the bills on your issues.` : `Your first one to watch: <b>${esc(E.name)}</b>.`}</span></p>` : ''}
-    <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);
-}
-
-// ================= A lesson on its own, in the moment (#/learn/<lesson>[/<bill id>]; R-067 #11) =================
-// A lesson opened from where it helps: "What a hearing is" beside a hearing, "The session" under a bill's steps, the
-// three older lessons from Help, and the full first visit's story (#/learn/story, R-062) from the short version's page.
-// Next walks the lesson; at the end, Done goes back where the person came from.
+export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
 const LEARN = ['story', 'bill', 'session', 'hearing'];
-const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
-function stepLearn(route) {
-  S.learnBill = route.bill || '';
-  const name = learnName(route), E = example();
-  if (!E) return skel(1, 'Finding a bill to show you');
-  const L = LZ.lessonHTML(name, E);
-  return shell('st-lesson st-learn', `<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>${L.intro}`, L.main);
-}
-
-// The first visit's one lesson: the flow calls the screen 'bill' (the recorded step name), the lesson is the story.
-function stepLesson(step) {
-  const E = example();
-  if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
-  const L = LZ.lessonHTML('story', E);
-  return shell('st-lesson', `${topRow('bill', step)}${L.intro}`, L.main);
-}
-
-// ================= Stay connected, 1: who speaks for you, by street address =================
-// A street address only (Nate, 9/21: a town is not enough to find a legislator). The debounced address search is its
-// own module (addresspicker.js) so this screen runs an independent instance. The address is used to find the districts
-// and is never saved, and staff never see it (CLAUDE.md rule 3).
-const APstart = createAddressPicker();
-S.stAddr ??= { q: '', pick: null, finding: false, err: '' };
-const roleWord = r => r === 'chair' ? 'chairs' : r === 'vice_chair' ? 'is vice chair of' : 'sits on';
-// Why these two people matter to the example bill: their committee seats against its referrals.
-function connection(E, legs) {
-  if (!E || !(E.path || []).length) return 'They vote on your bills when they reach the House and Senate floors, and they listen closest to the people they represent.';
-  const hearing = new Set((E.hear && !E.hear.example && !E.hear.past ? E.hear.codes : []) || []);
-  // The note names the bill (Nate 9/29: with one legislator it said "hears it" and nobody knew which bill). With two, the
-  // bill is named once up front ("Both have a hand in ..."), so each clause can say "it".
-  const label = E.hasNick ? `${E.name} (${E.num})` : E.num;
-  const parts = legs.map(l => {
-    const seats = S.committeeMembers.filter(m => m.legislator_id === l.id && E.path.includes(m.committee))
-      .sort((a, b) => ({ chair: 0, vice_chair: 1, member: 2 }[a.role] ?? 3) - ({ chair: 0, vice_chair: 1, member: 2 }[b.role] ?? 3));
-    const s = seats[0]; if (!s) return null;
-    const ch = l.chamber === 'S' ? 'Senate' : 'House', now = hearing.has(s.committee);
-    const crossed = E.now >= 3 && ch === E.start;   // the first side's committees are behind it once it has crossed
-    const it = '\u0000';   // filled in below: the bill's name for one legislator, "it" after "Both have a hand in"
-    const what = now ? `one of the committees hearing ${it}${E.hear?.day ? ` on ${E.hear.day}` : ''}` : crossed || E.off ? `a ${ch} committee that ${E.off ? 'passed' : 'already passed'} ${it}` : `a ${ch} committee that hears ${it}`;
-    return `${legTitle(l)} ${l.last || l.name.split(' ').slice(-1)[0]} ${roleWord(s.role)} ${what}`;
-  });
-  const said = parts.filter(Boolean);
-  if (!said.length) return 'They vote on your bills when they reach the House and Senate floors, and they listen closest to the people they represent.';
-  return said.length === 2 ? `Both have a hand in ${label}: ${said[0].replace('\u0000', 'it')}, and ${said[1].replace('\u0000', 'it')}.` : `${said[0].replace('\u0000', label)}.`;
-}
-// An address that looks complete can be looked up as typed, as in the full legislator finder: the suggestions come from
-// our own address list, which a new street or a slow connection can leave empty (Enter does the same).
-const typed = (q, results) => q.length >= 5 && /^\d/.test(q) && !results.some(r => r.exact);
-const lastName = l => { const s = String(l.sort_name || '').split(',')[0].trim(); return s || String(l.name || '').split(' ').slice(-1)[0]; };
-// The error and the address suggestions under the box. Typing repaints only this (R-040): redrawing the whole screen
-// on every letter replaced the box itself, which on a phone threw the cursor to the end and broke the keyboard's own
-// word suggestions mid-word.
-function addrSugsHTML() {
-  const A = S.stAddr, q = A.q.trim(), results = APstart.results(q);
-  return `${A.err ? `<p class="st-info-small">${icon('info')}<span>${esc(A.err)}</span></p>` : ''}
-    ${results.length || typed(q, results) ? `<div class="st-sugs" role="group" aria-label="Addresses">${results.map((r, i) => `<button type="button" class="st-sug" data-staddrpick="${i}">${icon('map-pin')}<span>${esc(r.label)}</span></button>`).join('')}
-      ${typed(q, results) ? `<button type="button" class="st-sug" data-staddrtyped="1">${icon('search')}<span>Look up “${esc(q)}” as typed</span></button>` : ''}</div>` : ''}`;
-}
-function stepYou(step) {
-  const A = S.stAddr, E = example();
-  let body;
-  if (A.pick) {
-    const legs = A.pick.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean).map(l => ({ ...l, last: lastName(l) }))
-      .sort((a, b) => (a.chamber === 'H' ? 0 : 1) - (b.chamber === 'H' ? 0 : 1));
-    const legCard = l => `<li class="st-leg">${legPhoto(l, 'st-legpic')}<span class="st-tbody"><b>${esc(legTitle(l))} ${esc(l.name)}</b><span>Your ${l.chamber === 'S' ? 'senator' : 'representative'} · District ${esc(String(l.district))}</span></span></li>`;
-    body = `<p class="st-addrline">${icon('map-pin')}<span>${esc(A.pick.label || A.q)}</span></p>
-      <ul class="st-legs" id="st-legs" role="list">${legs.map(legCard).join('')}</ul>
-      <p class="st-connect">${icon('sparkles')}<span>${E ? esc(connection(E, legs)) : ''}</span></p>
-      ${btn('Use a different address', { kind: 'text', attrs: { 'data-staddrclear': '1' } })}`;
-  } else if (A.finding) {
-    body = `<p class="st-info-small" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding your districts…</span></p>`;
-  } else {
-    body = `<div class="field"><label for="st-addr">Your street address</label>
-        <input id="st-addr" type="text" autocomplete="street-address" placeholder="Start typing, like 45-600 Keaahala Rd" value="${esc(A.q)}" data-staddr="1">
-        <span class="help">We use it only to find your districts. It isn’t saved.</span></div>
-      <div id="st-addrsugs">${addrSugsHTML()}</div>`;
-  }
-  return shell('st1 st-you', `${topRow('you', step)}${artFor('you')}
-    <h1 class="hero" id="st-h">Who speaks for you</h1>
-    <p class="lede">One senator and one representative speak for where you live. Lawmakers listen closest to the people they represent.</p>`,
-    `<div class="st-legwrap" id="st-youstage">${body}</div>`);
-}
-
-// ================= Stay connected, 2: coming up on your issues, then the one ask =================
-// The value first: what is happening this week on the issues they follow (hearings in date order, with the day
-// testimony is due). Then one ask, named after that value: a reminder before testimony is due, by email, with an
-// optional first name (Nate 9/21: ask for the email after the value). One "keep me updated" opt-in covers hearing
-// alerts and HIPHI's advocacy alerts (HANDOFF 3.5). Signed in, there is nothing to ask. Email to the public stays
-// paused regardless (sendEmailLink only sends the sign-in link).
-S.stMail ??= { email: '', name: '', sent: '', demo: false };
-function mailSent() {
+const STEPS = ['issues', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
+export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
+export function mailSent() {
   if (!S.stMail.sent) { try { S.stMail.sent = sessionStorage.getItem('hiphi_link_sent') || ''; } catch { /* ignore */ } }
   return S.stMail.sent;
 }
-const WEEKDAY = d => new Date(d).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' });
-// A committee named briefly enough for one line on a phone: "Senate Health and Commerce committees". A long name keeps
-// its first part ("Health and Human Services" -> "Health"); a short one stays whole ("Ways and Means").
-function briefCmte(code) {
-  const cs = String(code || '').split('/').map(c => S.committees[c.trim()]).filter(Boolean);
-  if (!cs.length) return 'A committee';
-  const ch = cs[0].chamber === 'S' ? 'Senate' : 'House';
-  const short = n => { const words = n.split(/\s+/); return words.length <= 3 ? n : n.split(/\s+(?:and|&)\s+|,\s*/)[0]; };
-  return `${ch} ${andList(cs.map(c => short(c.name)))} ${cs.length > 1 ? 'committees' : 'Committee'}`;
-}
-const WEEKDAY_LONG = d => new Date(d).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' });
-function upcoming() {
-  const off = isOff(), R = ranker(), out = [];
-  if (off) {
-    const si = sessionInfo(), yr = si.recapYear, next = si.nextOpen;
-    // What happened on each issue they follow (R-067: the screen promised "What happened in 2026" and showed only laws):
-    // laws first, then the staff-edited outlook, three at most.
-    const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
-    for (const { i, x } of fol.slice(0, 3)) out.push({ when: String(yr), title: i.name, line: i.outlook || (x.law ? `Became law in ${yr}` : 'Stopped this session'), kind: x.law ? 'ok' : 'soon' });
-    if (next) out.push({ when: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' }), title: `The ${+next.slice(0, 4)} session opens`,
-      line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.`, kind: 'soon' });
-    return out;
-  }
-  // One row per followed issue: its soonest hearing in the next 7 days.
-  const seen = new Set(), E = example();
-  const rows = [];
-  for (const i of followedIssues().filter(shown)) {
-    const x = issueInfo(i, R), bs = x.live.map(b => ({ b, h: R.soon.get(b.id) })).filter(y => y.h && new Date(y.h.scheduled_at) - Date.now() < 7 * 864e5)
-      .sort((p, q) => p.h.scheduled_at.localeCompare(q.h.scheduled_at));
-    if (!bs.length || seen.has(i.id)) continue; seen.add(i.id);
-    const { b, h } = bs[0], due = h.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}.` : '';
-    rows.push({ at: h.scheduled_at, when: WEEKDAY(h.scheduled_at), title: `${i.name}`, line: `${spaced(b.bill_number)}: ${briefCmte(h.committee)} hearing, ${timeWord(h.scheduled_at)}. ${due}`.trim(), kind: 'hear', b, h });
-  }
-  rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
-  if (!out.length) {
-    // Someone who came from a link and follows nothing yet was told "No hearing on your issues this week" right
-    // after being shown this bill's hearing (R-067). The bill they came for leads when it has one.
-    const vb = wiz().via ? exampleBill() : null;
-    const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
-    if (vh) {
-      const due = vh.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(vh.testimony_deadline)} at ${timeWord(vh.testimony_deadline)}.` : '';
-      out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear', b: vb, h: vh });
-    } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? 'No hearing on your issues this week yet. We’ll tell you when one is set.' : 'No hearing set on it this week yet.', kind: 'soon' });
-  }
-  return out;
-}
-function askCard() {
-  const M = S.stMail, sent = mailSent(), off = isOff();
-  if (S.session) return `<section class="card st-sent" aria-labelledby="st-sent-t"><span class="st-ilead">${icon('bell')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t">You’re signed in</h2><p>Reminders and HIPHI’s alerts go to your account’s email. Change them any time in More.</p></div></section>`;
-  if (sent) return `<section class="card st-sent" aria-labelledby="st-sent-t" id="st-sentbox">
-    <span class="st-ilead">${icon('mail-check')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">${endHome() ? 'Link sent to' : 'Check your inbox at'} <span class="st-break">${esc(sent)}</span></h2>
-      <p>${endHome() ? 'Tap it when you finish here to turn on reminders.' : 'Tap the link in the email to turn on your reminders.'} It can take a minute; check spam if you don’t see it.</p>
-      ${M.demo ? '<p class="small muted">This is the sandbox, so nothing was sent.</p>' : ''}
-      ${M.named ? `<p class="small">${icon('check')} We’ll greet you as ${esc(M.named)}.</p>` : `<div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
-        <div class="st-namerow"><input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}">${btn('Save', { kind: 'secondary', sm: true, attrs: { 'data-stname': '1' } })}</div></div>`}
-      <div class="st-formbtns">${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div></section>`;
-  // One line, so the box fits under the list (R-078). The version that ends on Home (R-098) says the email is extra: the
-  // home page always has what's next ("Want a reminder?" read as the thing the app is for).
-  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : endHome() ? 'Want an email too?' : 'Want a reminder?';
-  return `<form class="card st-form st-askcard" id="st-eform" novalidate>
-    <h2 class="st-askh">${icon('bell')}<span>${esc(title)}</span></h2>
-    <div class="field"><label for="st-email">Your email</label>
-      <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
-      <span class="err" id="st-email-err" role="alert"></span></div>
-    <p class="st-askline">${endHome() ? 'Home always has what’s next. We’ll also email you when it’s your moment, plus HIPHI’s alerts on your issues.'
-      : 'We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them.'} Unsubscribe in one tap.</p>
-    <p class="meta">No password: we send you a sign-in link. HIPHI staff can see which issues you follow and where you stand. <a href="#/privacy">Privacy</a></p>
-  </form>`;
-}
-// One action inside the first visit, and only when it cannot wait (R-067 #12, Nate 9/27: "if there is a hearing, the
-// action should be testimony"): the first row whose testimony is due within 48 hours offers the walkthrough. Everything
-// else still waits for Home.
-const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
-function stepSoon(step) {
-  const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
-  // Nate 9/29 (R-078): "Coming up" first, then the reminder, and both on the first screen. So each item is one compact row
-  // (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one due soonest always first.
-  // Rows by the screen's height, so the reminder box still fits under them: three on a tall phone, two on a mid-size one
-  // (700px and up), one on smaller phones (iPhone SE, 667px and 640px); the rest fold under "More coming up".
-  const fit = typeof innerHeight === 'number' ? (innerHeight >= 780 ? 3 : innerHeight >= 700 ? 2 : 1) : 3;
-  const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, fit), more = lead.slice(fit);
-  const short = it => it.h?.testimony_deadline ? `Testimony due ${WEEKDAY(it.h.testimony_deadline)}` : it.kind === 'hear' ? 'Hearing' : it.line;
-  const row = (it, k) => `<li class="st-srow" style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(short(it))}</span>
-    ${it === now ? `<span class="st-now">${btn('Write it now', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${it.title}, due soon` } })}</span>` : ''}</div></li>`;
-  const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + fit)).join('')}</ol></details>` : ''}`;
-  return shell('st4 st-soonpage', `${topRow('soon', step)}
-    <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
-    ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}
-    ${list}`,
-    `<div id="st-askbox">${S.nudgedThisVisit && !S.session && !mailSent() ? quietAsk() : askCard()}</div>`);
-}
-// One email ask per visit (R-114, B3): someone who acted from a shared link was already asked on the Mahalo screen.
-const quietAsk = () => `<p class="small muted st-quietask">${icon('mail')}<span>Want email reminders? Add your email any time under More.</span></p>`;
-
-// ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
-// Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
-// comes up (the bookend to the first screen's drawing). Then what happens next. Nothing here asks for anything.
-function recapRows() {
-  const f = followedIssues(), off = isOff(), stances = S.stances || {}, n = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
-  const stood = new Set(followedBills().filter(b => ['support', 'oppose'].includes(stances[b.id])).map(b => viaIssue(b)?.id || b.id)).size;
-  const acted = wiz().via && wiz().viaActed;
-  const legs = S.stAddr.pick ? S.stAddr.pick.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean)
-    .sort((a, b) => (a.chamber === 'H' ? 0 : 1) - (b.chamber === 'H' ? 0 : 1)) : [];
-  const sent = mailSent();
-  return [
-    f.length || n ? ['star', f.length ? `You follow ${plural(f.length, 'issue')}` : `You follow ${plural(n, 'bill')}`, off ? 'Their new bills come to you as they start' : `${plural(n, 'bill')} we’ll watch for you`, 'ok'] : null,
-    acted ? ['send', `You spoke up on ${wiz().viaName || spaced(wiz().via)}`, 'You told the committee what you think', 'ok'] : null,
-    stood ? ['thumbs-up', `You took a stand on ${plural(stood, 'issue')}`, 'Never shown publicly', 'ok'] : null,
-    S.stLearned ? ['landmark', 'You know how a bill becomes law', 'And when your voice counts most', 'ok'] : null,
-    legs.length ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${lastName(l)}`).join(' and '), 'ok'] : null,
-    S.session ? ['bell', 'Reminders are on', 'At your account’s email', 'ok']
-      : sent ? ['mail', 'Reminders: one tap to go', `Tap the link we sent to ${sent}`, 'wait'] : ['bell', 'Reminders are off', 'Turn them on any time in More', 'off'],
-  ].filter(Boolean);
-}
-function stepDone(step) {
-  const name = (S.stMail.name || wiz().name || '').trim(), off = isOff();
-  const rows = recapRows();
-  // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
-  // "we tell you" with no way to be told (R-067). The words follow what really happened.
-  const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok'), follows = followsAnything();
-  const told = !!(S.session || mailSent());
-  const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
-    : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
-  const petals = Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
-  const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
-  return shell('st-done', `${topRow('done', step)}
-    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals}</div>
-      <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div></div>
-    <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
-    <p class="lede">${lede}</p>`,
-    `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
-    <h2 class="st-nexth">What happens next</h2>
-    <ol class="st-next3" role="list">
-      <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${!follows ? 'We follow HIPHI’s issues every day. Follow one any time and it becomes yours.' : off ? `From ${esc(shortDay(sessionInfo().nextOpen))} we check your issues every day, so you don’t have to.` : 'We check your issues every day, so you don’t have to.'}</span></div></li>
-      <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span>'
-        : '<b>When it’s your moment, it’s on your home page.</b><span>One simple way to help, most in about 2 minutes. Turn on reminders in More so you don’t miss one.</span>'}</div></li>
-      <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result shows up on your home page.</span></div></li>
-    </ol>${shareLine()}${keepLine()}`);
-}
-
-
-// ================= From a shared bill: follow this issue? =================
-// The easiest action came first, on the bill page (pub/bill.js); following is offered next (C-3), then the story of
-// that bill. "Not now" goes to the story.
-function viaIssueOf() { const b = exampleBill(); return b ? issuesOf(b).find(shown) || issuesOf(b)[0] || null : null; }
-const viaFollowed = () => { const b = exampleBill(), i = viaIssueOf(); return !!b && (i ? issueFollowed(i) : S.watch.has(b.id)); };
-function stepFollowAsk(step) {
-  const b = exampleBill(), i = viaIssueOf(), what = i ? i.name : b ? (nick(b) || spaced(b.bill_number)) : 'this issue';
-  return shell('st1 st-followask', `${topRow('followask', step)}${artFor('followask')}
-    <h1 class="hero" id="st-h">Want us to tell you next time?</h1>
-    <p class="lede">Follow ${esc(what)}, and we’ll tell you when there’s another hearing or a way to help.</p>${sureWide('info', 'No account needed. You can stop any time.')}`,
-    `${sayRow('info', 'No account needed. You can stop any time.')}`);
-}
-async function followVia() {
-  const b = exampleBill(), i = viaIssueOf(); if (!b) return;
-  if (i) await setFollows({ issuesOn: [i.id] }); else if (!S.watch.has(b.id)) await toggleWatch(b.id);
-  wizSet({ done: true, followedIssues: i ? [i.id] : [] }); welcome();
-}
-
-// ================= wiring =================
-function flash(text) {
+export function viaIssueOf() { const b = REST ? REST.exampleBill() : null; return b ? issuesOf(b).find(shown) || issuesOf(b)[0] || null : null; }
+export const viaFollowed = () => { const b = REST ? REST.exampleBill() : null, i = viaIssueOf(); return !!b && (i ? issueFollowed(i) : S.watch.has(b.id)); };
+export function flash(text) {
   const el = document.getElementById('st-alert'); if (!el) return;
   el.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`;
   const box = el.closest('.st-say'); box.classList.add('st-alerting');
   const r = box.getBoundingClientRect();
   if (r.top < 64 || r.bottom > window.innerHeight - 96) box.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
 }
-function clearFlash() {
+export function clearFlash() {
   const el = document.getElementById('st-alert'); if (!el || !el.innerHTML) return;
   el.innerHTML = ''; el.closest('.st-say').classList.remove('st-alerting');
 }
@@ -789,16 +340,7 @@ function toggleTick(el) {
 }
 // Follow what is ticked on the issues screen. Coming back to it and unticking undoes what this screen followed a moment
 // ago, and nothing else, so "Follow 7 issues" always ends with exactly those.
-async function commitIssues(m) {
-  const w = wiz(), catsOn = [...m.picks.cats];
-  const issuesOn = m.picks.issues.filter(id => !(S.issueById.get(id)?.categories || []).some(c => catsOn.includes(c)));
-  const issuesOff = (w.followedIssues || []).filter(id => !issuesOn.includes(id)), catsOff = (w.followedCats || []).filter(k => !catsOn.includes(k));
-  await setFollows({ issuesOn, catsOn, issuesOff, catsOff });
-  // done: Home stops sending them back here even if they later unfollow everything. ready: the off-season promise is kept.
-  wizSet({ done: true, ready: null, followedIssues: issuesOn, followedCats: catsOn });
-  welcome();
-}
-const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}${label ? `<span>${esc(label)}</span>` : ''}`; };
+export const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}${label ? `<span>${esc(label)}</span>` : ''}`; };
 
 // Where a step cannot be shown, where to go instead.
 function redirectFor(step, off) {
@@ -812,23 +354,10 @@ function redirectFor(step, off) {
 // A lesson on its own: Next walks it; after its last step the button says Done and goes back where they came from.
 // The story's three stages: its button says Next, then Done on the last stage; Back steps back a stage before it leaves.
 // The page can be drawn again while it is open (its bill's hearings landing): the story then keeps its stage.
-let learnWired = '';
-function wireLearn(route) {
-  const name = learnName(route), E = example(); if (!E) return;
-  document.body.classList.add('st-lessonpage');
-  const key = `${location.hash}|${E.id}`, redraw = name === 'story' && key === learnWired; learnWired = key;
-  LZ.lessonStart(name, E, { redraw });
-  const leave = () => { LZ?.lessonStop?.(); learnWired = ''; S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
-  const nb = document.querySelector('[data-stlearnnext]');
-  const label = () => { if (!nb || name !== 'story') return; const last = LZ.lessonStep(name) >= 3;
-    nb.innerHTML = `<span>${last ? 'Done' : 'Next'}</span>${icon(last ? 'check' : 'arrow-right')}`; };
-  label();
-  document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (LZ.lessonPrev(name)) label(); else leave(); });
-  if (nb) nb.onclick = () => { if (LZ.lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
-}
 function wire(route) {
-  if (!LZ) setTimeout(() => lessonsLoad().catch(() => {}), 600);   // after this screen's own paint (R-122)
-  if (route.name === 'learn') return wireLearn(route);
+  // After this screen's own paint: the rest of the first visit, the bill-level code and the lessons (R-122).
+  if (!REST || !C || !LZ) setTimeout(() => Promise.all([restLoad(), coreLoad()]).then(() => { if (!LZ) lessonsLoad().catch(() => {}); app.render(); }).catch(e => console.error(e)), 400);
+  if (route.name === 'learn') { if (REST) REST.wireLearn(route); return; }
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
   const to = redirectFor(step, off);
@@ -886,212 +415,25 @@ function wire(route) {
     };
   }
 
-  if (name === 'issues') {
-    const save = picks => { const m = model2(); if (m.sig) wizSet({ picksFor: m.sig, picks }); };
-    // The ticks, the "Follow all" blocks and the button are redrawn in place, so focus and open sections stay put.
-    const paint = () => {
-      const m = model2(); if (!m.all) return;
-      $$('[data-stpick]').forEach(t => { const x = m.all.find(r => r.i.id === t.dataset.stpick), on = !!x && m.ticked(x);
-        t.setAttribute('aria-pressed', String(on)); t.closest('.st-pcard')?.classList.toggle('on', on); });
-      $$('[data-stcatall]').forEach(box => { const k = box.dataset.stcatall, p = m.per.find(q => q.c.topicKey === k);
-        if (p) box.innerHTML = catAll(p.c, p.full.length, m.catOn.has(k)); });
-      $$('[data-stpicked]').forEach(el => { const p = m.per.find(q => q.c.topicKey === el.dataset.stpicked); if (!p) return;
-        const said = pickedLine(p, m); el.textContent = said; el.hidden = !said; });
-      wireCatAll();
-      const lb = $('[data-stnext] span'); if (lb) lb.textContent = followLabel(m.count);
-      clearFlash();
-    };
-    const wireCatAll = () => $$('[data-stfollowcat]').forEach(el => el.onclick = () => {
-      const m = model2(); if (!m.picks) return;
-      const k = el.dataset.stfollowcat, picks = { issues: [...m.picks.issues], cats: [...m.picks.cats] };
-      if (picks.cats.includes(k)) picks.cats = picks.cats.filter(c => c !== k);
-      else { picks.cats.push(k); const inCat = new Set(issuesIn(k).map(i => i.id)); picks.issues = picks.issues.filter(id => !inCat.has(id)); }
-      save(picks); paint();
-      document.querySelector(`[data-stfollowcat="${k}"]`)?.focus({ preventScroll: true });
-    });
-    $$('[data-stpick]').forEach(el => el.onclick = () => {
-      const m = model2(); if (!m.picks) return;
-      const id = el.dataset.stpick, x = m.all.find(r => r.i.id === id); if (!x) return;
-      const picks = { issues: [...m.picks.issues], cats: [...m.picks.cats] };
-      if (!m.ticked(x)) picks.issues.push(id);
-      else {
-        picks.issues = picks.issues.filter(v => v !== id);
-        // Taking one issue out of a category followed whole: the category becomes its other issues, one by one.
-        for (const c of x.i.categories.filter(k => picks.cats.includes(k))) {
-          picks.cats = picks.cats.filter(k => k !== c);
-          for (const r of m.per.find(p => p.c.topicKey === c)?.full || []) if (r.i.id !== id && !picks.issues.includes(r.i.id)) picks.issues.push(r.i.id);
-        }
-      }
-      save(picks); paint();
-      const t = el.querySelector('.st-tick'); if (t && el.getAttribute('aria-pressed') === 'true' && !reduced()) { t.classList.remove('st-draw'); void t.offsetWidth; t.classList.add('st-draw'); }
-    });
-    wireCatAll();
-    // "Show N more issues": the rest of a category, in place; only the newly shown ones slide in.
-    $$('[data-stmore]').forEach(el => el.onclick = () => {
-      const k = el.dataset.stmore, open = !S.stMore[k]; S.stMore[k] = open;
-      const sec = el.closest('.st-tsec'), extra = sec.querySelectorAll('.st-extra');
-      extra.forEach((li, j) => { li.hidden = !open; li.classList.remove('st-in'); if (open && !reduced()) { li.style.animationDelay = `${Math.min(j, 8) * 40}ms`; void li.offsetWidth; li.classList.add('st-in'); } });
-      el.setAttribute('aria-expanded', String(open));
-      el.querySelector('span').textContent = open ? 'Show fewer' : `Show ${plural(extra.length, 'more issue')}`;
-      fitWhat();
-    });
-    // "What it does" opens the text in place (no redraw), so focus and the ticks stay exactly where they were.
-    $$('[data-stwhat]').forEach(el => el.onclick = () => {
-      const open = el.getAttribute('aria-expanded') !== 'true', id = el.dataset.stwhat;
-      el.setAttribute('aria-expanded', String(open)); el.closest('.st-pcard').classList.toggle('st-open', open);
-      if (open) S.stWhat.add(id); else { S.stWhat.delete(id); fitWhat(); }
-    });
-    $$('[data-stsec]').forEach(d => d.addEventListener('toggle', () => { S.stOpen[d.dataset.stsec] = d.open; fitWhat(); }));
-    fitWhat();
-    document.fonts?.ready?.then(fitWhat);
-    const nb = $('[data-stnext]');
-    if (nb) nb.onclick = async () => {
-      const m = model2();
-      if (m.loading || m.err || m.none) { flash(m.err ? 'The issues did not load. Try again.' : 'Still finding issues — one moment.'); return; }
-      if (!m.count && !m.catOn.size) { flash('Tick at least one issue, or select Skip.'); return; }
-      if (nb.getAttribute('aria-busy') === 'true') return;
-      busy(nb, 'Following…');
-      const ids = m.all.filter(m.ticked).map(x => x.i.id);
-      await commitIssues(m);
-      track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
-      // The first success: a moment that fills the screen and waits for Continue (C-7).
-      const n = new Set(ids).size, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
-      celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
-        small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.` },
-        () => goStep(step, step + 1));
-    };
-  }
+  if (name !== 'topics' && REST) REST.wireStep(name, { step, off, back, fresh, next, $, $$ });
 
-  if (name === 'bill') {
-    const E = example();
-    // A redraw of the same screen (data landing) shows the still picture, without replaying the road.
-    if (!E) return;   // the lessons are still on their way: the step is drawn again when they land
-    LZ.lessonStart('story', E, { back, redraw: !fresh });
-    const nb = $('[data-stnext]');
-    if (nb) nb.onclick = () => {
-      if (LZ.lessonNext('story', E)) return;
-      // Finishing "How a bill becomes law": the second moment (C-7), then on to the last part. Its three ticks (fx.js
-      // learnArt: a bill, the Capitol, people) are what the page showed: the bill, its road, and the people who help.
-      S.stLearned = true; track(name, 'next');
-      celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'A bill’s road, and when your voice can help.' }, () => goStep(step, step + 1));
-    };
-  }
-
-
-  if (name === 'you') {
-    const abox = $('[data-staddr]');
-    // Only the list under the box is redrawn while typing; the box itself stays, with the cursor where the person put it.
-    const paintSugs = () => { const box = document.getElementById('st-addrsugs'); if (!box) return; box.innerHTML = addrSugsHTML(); wireSugs(); };
-    if (abox) abox.oninput = () => {
-      S.stAddr.q = abox.value; S.stAddr.err = '';
-      APstart.search(abox.value.trim(), paintSugs);
-      paintSugs();
-    };
-    const look = async r => {
-      S.stAddr.finding = true; app.render();
-      try {
-        const res = await APstart.resolve(r.label, r.pt);
-        if (!res || res.none || !res.ids?.length) { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t find that address. Check the street and number, or pick a suggestion.'; app.render(); return; }
-        S.stAddr.pick = { ids: res.ids, label: res.matched || r.label }; S.stAddr.finding = false;
-        // The districts (never the address) stay on this device, so bill pages can say "your senator" (people.js does the same).
-        const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
-        try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
-        app.render();
-        later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
-      } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
-    };
-    function wireSugs() {
-      $$('[data-staddrpick]').forEach(el => el.onclick = () => { const r = APstart.results(S.stAddr.q.trim())[+el.dataset.staddrpick]; if (r) look({ label: r.label, pt: r }); });
-      $$('[data-staddrtyped]').forEach(el => el.onclick = () => look({ label: S.stAddr.q.trim(), pt: null }));
-    }
-    wireSugs();
-    if (abox) abox.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault();
-      const q = abox.value.trim(), r = APstart.results(q)[0];
-      if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null }); };
-    const aclear = $('[data-staddrclear]'); if (aclear) aclear.onclick = () => { S.stAddr = { q: '', pick: null, finding: false, err: '' }; app.render(); requestAnimationFrame(() => document.getElementById('st-addr')?.focus()); };
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { track(name, 'next', { counts: { address: !!S.stAddr.pick } }); goStep(step, step + 1); };
-  }
-
-  if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
-  if (name === 'voice') {
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
-  }
-  if (name === 'soon') {
-    // This is the visit's one email ask, so Home will not ask again.
-    S.nudge = null; S.nudgedThisVisit = true;
-    const form = $('#st-eform');
-    if (form) {
-      const inp = form.querySelector('#st-email'), err = form.querySelector('#st-email-err'), send = document.getElementById('st-send');
-      const showErr = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'st-email-err'); err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; };
-      inp.oninput = () => { S.stMail.email = inp.value; if (err.innerHTML) { err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); } };
-      form.onsubmit = async e => {
-        e.preventDefault();
-        if (send?.getAttribute('aria-busy') === 'true') return;
-        const email = inp.value.trim();
-        // Checked only now, never while typing (C-9: nothing typed is lost to an error).
-        if (!validEmail(email)) { showErr(email ? 'That email doesn’t look complete. Check it and try again.' : 'Add your email, or select Skip.'); inp.focus(); return; }
-        const label = send ? send.innerHTML : ''; busy(send, 'Sending…');
-        try {
-          const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true });
-          S.stMail = { email, name: S.stMail.name || '', sent: email, demo: !!(r && r.demo) };
-          track(name, 'next', { counts: { email: true } });
-          app.render();
-          document.getElementById('st-sent-t')?.focus({ preventScroll: true });
-          later(() => burst(document.querySelector('#st-sentbox .st-ilead'), 12, 46), 150);   // a small celebration (C-7)
-        } catch (error) { console.error(error); if (send) { send.removeAttribute('aria-busy'); send.innerHTML = label; } showErr(friendly(error)); inp.focus(); }
-      };
-    }
-    // The first name, asked after the email is sent (R-078: the reminder box had to be short enough to fit under the list).
-    $$('[data-stname]').forEach(el => el.onclick = () => {
-      const f = document.getElementById('st-name'), first = (f?.value || '').trim().slice(0, 40); if (!first) { f?.focus(); return; }
-      wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; app.render();
-    });
-    $$('[data-stother]').forEach(el => el.onclick = () => {
-      S.stMail = { email: S.stMail.sent || '', name: S.stMail.name, sent: '', demo: false };
-      try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ }
-      app.render(); const i = document.getElementById('st-email'); if (i) { i.focus(); i.select(); }
-    });
-    const nb = $('[data-stnext]'); if (nb && !form) nb.onclick = next;
-  }
-
-  if (name === 'done') {
-    wizSet({ finale: true });
-    if (fresh) later(() => burst(document.getElementById('st-h'), 16, 90), 500);
-    const nb = $('[data-stdone]'); if (nb) nb.onclick = () => finish();
-  }
-
-  if (name === 'followask') {
-    const nb = $('[data-stnext]');
-    if (nb) nb.onclick = async () => {
-      if (nb.getAttribute('aria-busy') === 'true') return;
-      busy(nb, 'Following…'); await followVia(); track(name, 'next');
-      burst(document.querySelector('.actionbar .btn.primary') || nb, 12, 48);
-      later(() => goStep(step, step + 1), 420);
-    };
-  }
 }
 
 const TITLE = { topics: 'What do you care about?', issues: 'Your issues', bill: LESSON_TITLES.story,
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };
+// The steps after the topics, wired (start-rest.js). ctx: the step, the flow, Back, whether the screen is new, the
+// next() helper and the page's two query helpers from wire().
 export default {
   tab: 'home',
   tabs: false,
   title: route => route.name === 'learn' ? LESSON_TITLES[learnName(route)] : TITLE[nameAt(route.step || 1, isOff())] || 'Get started',
   render(route) {
-    if (route.name === 'learn') return stepLearn(route);
+    if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)));   // wire() sends them on
-    switch (nameAt(step, off)) {
-      case 'topics': return stepTopics(step);
-      case 'issues': return stepIssues(step);
-      case 'bill': return stepLesson(step);
-      case 'voice': return stepVoice(step);
-      case 'you': return stepYou(step);
-      case 'soon': return stepSoon(step);
-      case 'done': return stepDone(step);
-      case 'followask': return stepFollowAsk(step);
-      default: return stepTopics(step);
-    }
+    const name = nameAt(step, off);
+    if (name === 'topics' || !STEPS.includes(name)) return stepTopics(step);
+    return restAsk() ? REST.renderStep(name, step) : skel(step);   // the rest of the first visit, once it is in
   },
   wire,
   bar(route) {
@@ -1100,25 +442,8 @@ export default {
     if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
-    switch (nameAt(step, off)) {
-      case 'topics': return bar2('Next', { iconEnd: 'arrow-right' });
-      case 'issues': {
-        const m = model2();
-        if (m.err) return barRetry();
-        if (m.loading || m.none) return barBusy();
-        return bar2(followLabel(m.count), { icon: 'star' });
-      }
-      case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });
-      // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
-      case 'voice': return wiz().via && wiz().viaActed
-        ? `<div class="st-bar"><div class="st-btns">${btn('Go to my home page', { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
-        : bar2('Next', { iconEnd: 'arrow-right' });
-      case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
-      // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
-      case 'soon': return S.session || mailSent() ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
-      case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
-      case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
-      default: return '';
-    }
+    const name = nameAt(step, off);
+    if (name === 'topics') return bar2('Next', { iconEnd: 'arrow-right' });
+    return REST ? REST.barStep(name, step, off) : '';
   },
 };

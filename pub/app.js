@@ -2,11 +2,9 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, loadLists, loadBills, onb, onbSet, nudge,
-  wiz, firstVisit, readyForSession, ensureBill, listBillsFor, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, loadReference, loadPool, CONSENT_KEY, restoreFollows } from './core.js';
+import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
-import { suggest } from './suggest.js';
 import { logDay, logAct } from './visitlog.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
@@ -177,7 +175,8 @@ export function render() {
   // The first bill page anyone opens gets a short tour (R-062, pub/tour.js); it decides for itself, and closes if the page moves on.
   try { if (tourMod) tourMod.after(route); else if (tourWanted(route)) tourLoad().then(t => t.after(parseRoute())).catch(e => console.error(e)); } catch (e) { console.error(e); }
 }
-let findMod = null;
+let findMod = null, suggestMod = null;
+const suggestLoad = () => suggestMod ? Promise.resolve(suggestMod) : import('./suggest.js').then(m => (suggestMod = m));
 app.render = render;
 app.ensureCss = ensureCss;   // start.js asks for the lessons' stylesheet with their module
 const $app = () => document.getElementById('app');
@@ -214,12 +213,14 @@ function wireFrame() {
   if (hs) { const inp = hs.querySelector('input'); const r = parseRoute(); if (r.name === 'find' && r.q) inp.value = r.q;
     hs.onsubmit = e => { e.preventDefault(); const q = inp.value.trim(); go('#/find' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Matching issues and bills listed as you type (R-032). On Find itself the results under the page's box are the list.
-    // Find's search code loads at the first letters typed, and the suggestions are asked for again once it is in.
+    // Find's search code loads at the first letters typed, and the suggestions are asked for again once it is in; the
+    // combobox itself (suggest.js) loads when the box is first focused (R-122: the first screen has no search box).
     const source = q => { if (findMod) return findMod.headerSuggest(q); find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); }).catch(e => console.error(e)); return { groups: [] }; };
-    suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
+    const arm = () => suggestLoad().then(({ suggest }) => suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
       busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
       empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
-      seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } }); }
+      seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } })).catch(e => console.error(e));
+    if (suggestMod) arm(); else inp.addEventListener('focus', arm, { once: true }); }
 }
 // Honest words (R-122): offline is the person's connection; anything else is ours, and says so.
 const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2><p>${navigator.onLine === false ? 'You’re offline. Check your connection and try again.' : 'The tracker can’t reach its data right now. It’s not you. Check your connection and try again in a minute.'}</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
@@ -255,7 +256,10 @@ async function boot() {
   try {
     // The issues come first: what a person follows is worked out from them (063, R-018). HIPHI's live bills and the
     // session's reference data do not depend on that, so they start now, alongside (R-067 speed).
-    if (!DEMO) { loadReference().catch(() => {}); loadPool().catch(() => {}); }
+    // The bill-level code (core.js: the bills, the lists, the reference data) comes after the first screen (R-122): the
+    // kernel is all app.js carries; track.html preloads core.js for a browser that has been here before.
+    const C = await import('./core.js');
+    if (!DEMO) { C.loadReference().catch(() => {}); C.loadPool().catch(() => {}); }
     // A first visit's first screen needs only the categories and issues (R-122): a copy kept from the last visit draws
     // it before the network answers, the live catalog draws it as soon as it lands, and the bills and lists follow.
     // Only when firstVisit() can already be trusted: never for a signed-in person (their actions come with the bills)
@@ -263,7 +267,7 @@ async function boot() {
     // 10/1: an early render that judged wrong rewrote the address to #/start/1, and the bills' arrival could not undo it.
     const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
     if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
-    await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await loadLists(); await loadBills(); })(), timeout]);
+    await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await C.loadLists(); await C.loadBills(); })(), timeout]);
     await ensureScreen(parseRoute());
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).

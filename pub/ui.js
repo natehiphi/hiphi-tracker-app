@@ -1,6 +1,6 @@
 // Shared building blocks for every public screen: buttons, chips, rows, empty states, skeletons, the step bar.
 // Screens compose these so a button, a chip or a row looks and behaves the same everywhere.
-import { esc, icon, posInfo, issueIcon } from './core.js';
+import { esc, icon, posInfo, issueIcon } from './kernel.js';
 
 const attrs = a => Object.entries(a || {}).filter(([, v]) => v !== undefined && v !== null && v !== false)
   .map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${esc(v)}"`).join('');

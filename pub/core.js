@@ -2,103 +2,21 @@
 // Screens live in pub/*.js and import from this module; pub/app.js owns routing and the page frame.
 // Moved out of track.js on 9/19 for the mobile-first redesign; the data code is unchanged unless a comment says so.
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, stoppedAt } from '../stops.js';
-import { ICONS, icon } from '../icons.js';
 import { topicOf } from './topics.js';
 import { rankAll, shortList, markShown, actedKind } from './rank.js';
-export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, ICONS, icon };
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
-export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
-export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
-// The public page keeps its sign-in apart from the staff app's. Both live at the same address, so with Supabase's
-// default slot a staff sign-in showed up here too, and the "staff accounts use the main app" sign-out below ended the
-// staff session in every tab: Nate could not stay signed in to staff while the tracker was open (9/26, R-063).
-const AUTH = { auth: { storageKey: 'hiphi-public-auth' } };
-export const DEMO = new URLSearchParams(location.search).has('demo');
-export const LOCAL_KEY = DEMO ? 'hiphi_watch_ids_demo' : 'hiphi_watch_ids';
-// Sandbox (?demo=1): the real 2026 session frozen at Monday March 16, 2026,
-// 9:00 HST, from demo/snapshot.json. Same file the staff sandbox uses; no
-// account, no network writes, the watchlist lives in this browser only.
-export const SEASON_OFF = DEMO && new URLSearchParams(location.search).get('season') === 'off';
-export const DEMO_ASOF = SEASON_OFF ? '2026-09-18T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
-if (DEMO) {
-  const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
-  window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
-  // The sandbox and the real page share one web address, so they share this browser's storage. A practice run left
-  // the real page past its first visit, with the sandbox's legislators "saved" (R-067), because only some names had a
-  // _demo copy. Here every hiphi_ name gets one, whichever screen reads or writes it.
-  try {
-    const P = Storage.prototype, apart = k => typeof k === 'string' && k.startsWith('hiphi_') && !k.endsWith('_demo') ? k + '_demo' : k;
-    for (const f of ['getItem', 'setItem', 'removeItem']) { const orig = P[f]; P[f] = function (k, ...a) { return orig.call(this, apart(k), ...a); }; }
-  } catch { /* storage blocked: nothing to keep apart */ }
-}
-export const $ = s => document.querySelector(s);
-export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const HST = 'Pacific/Honolulu';
+// The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
+// importing from this module; the modules on the first load import from kernel.js and never from here.
+import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, spaced } from './kernel.js';
+export * from './kernel.js';
+export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE };
 export const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
 export const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
 export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-export const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
-// One message at a time, in one polite live region above the tab bar (a new one replaces the old). Errors are never
-// raw: friendly(e) turns them into a sentence. toast(msg, { undo }) adds an Undo button and stays 10 seconds.
-// toast(msg, { also: { label, action } }) offers a DIFFERENT action instead ("Follow both?"), not an undo of what
-// just happened - at most one button either way, so the toast never has to choose between two competing asks.
-export function toast(m, opt = {}) {
-  if (opt === true) opt = { err: true };
-  const box = $('#toast'); if (!box) return;
-  box.innerHTML = '';
-  const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.yay ? ' yay' : '');
-  const btnLabel = opt.also ? opt.also.label : opt.undo ? 'Undo' : '';
-  el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
-    + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (btnLabel ? `<button type="button" class="toastundo">${esc(btnLabel)}</button>` : '');
-  const run = opt.also ? opt.also.action : opt.undo;
-  if (run) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await run(); } catch (e) { toast(e, true); } app.render(); };
-  box.appendChild(el);
-  // A toast someone is reading or reaching for stays put; its clock starts again when they leave it. One with a
-  // button gets 10 seconds. (Undo is never only here: the star and the done card both undo in place.)
-  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) el.remove(); }, run ? 10000 : 4000); };
-  const hold = () => clearTimeout(toast.t);
-  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
-  arm();
-}
-// Sentences, not error codes. Anything we do not recognise becomes the connection sentence.
-export function friendly(e) {
-  const m = String(e?.message || e || '');
-  if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
-  if (/invalid.*email|email.*invalid/i.test(m)) return 'That email address does not look right. Try one like name@example.com.';
-  // The sign-in mailer refusing or failing (an address it is not allowed to send to, or its own error) is our problem,
-  // not the person's connection, which is what they were told (R-067).
-  if (/not authori[sz]ed|error sending|sending.*email|smtp|signups not allowed/i.test(m)) return 'We couldn’t send the email just now. That’s on our side, not yours. What you follow is still saved in this browser; please try again later.';
-  if (/^[A-Z][^{}<>]{3,120}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token)/i.test(m)) return m;
-  return 'We could not do that. Check your connection and try again.';
-}
-// Official descriptions end with drafting notes ("Effective 7/1/3000.  (HD1)") that mean nothing to a neighbour and
-// look wrong in a letter sent under their name. Strip them wherever a description is shown or quoted.
-export function cleanDesc(t) {
-  let x = String(t || '').replace(/\s+/g, ' ').trim(), prev;
-  do { prev = x;
-    x = x.replace(/\s*\((?:[HSC]D\s?\d+[\s,]*)+\)\s*$/i, '')                              // (HD1), (HD2 SD1)
-      .replace(/\s*(?:Effective|Takes effect|Sunsets?)\b[^.]*?\d{4}\.?\s*$/i, '')          // Effective 7/1/3000.
-      .replace(/([.!?])\s*\d{1,2}\/\d{1,2}\/\d{4}\.?\s*$/, '$1').trim();                   // a bare trailing date after a sentence
-  } while (x !== prev);
-  return x;
-}
-// A bill's short everyday name ("Disposable vape ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
-export const nick = b => (b && (b.hiphi_nickname || b.nickname)) || '';
-// Bare bill numbers from bills.companions: not always one clean number per array element, so split and
-// normalize defensively. Excludes self-references.
 export const companionsOf = b => (b?.companions || []).flatMap(c => String(c).split(/[,\s]+/))
   .map(c => c.trim().toUpperCase()).filter(c => /^[A-Z]+\d+$/.test(c) && c !== b.bill_number);
 // What the bill does, in a sentence or two: HIPHI's plain summary, else the cleaned official description. Cut at the
 // end of a sentence when one fits, never mid-word.
-export function blurb(b, n = 110) {
-  const t = (b.hiphi_summary || cleanDesc(b.description) || b.title || '').replace(/\s+/g, ' ').trim();
-  if (t.length <= n) return t;
-  const cut = t.slice(0, n + 1), stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
-  if (stop >= 40) return cut.slice(0, stop + 1).replace(/;$/, '.');
-  return t.slice(0, n - 1).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…';
-}
-// The name a card or page leads with: the nickname when there is one, else the plain summary.
 export const headline = (b, n = 110) => nick(b) || blurb(b, n);
 // "Bans the sale of…" reads as a fragment inside a letter; "It bans the sale of…" is a sentence. Only when the text
 // clearly starts with a verb (a summary that starts with a noun, "Counties may…", is left alone).
@@ -127,108 +45,12 @@ export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current
 // Coalitions keep their internal name as the key; the public sees public_name.
 export const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_name || n;
 // Tiles are grouped by public name: two internal coalitions can share one tile.
-export function groups() {
-  const g = {};
-  for (const c of S.coalitions || []) { const k = c.public_name || c.name; const x = g[k] ??= { key: k, names: [], icon: c.icon, description: c.description, bills: 0, live: 0, sort_order: c.sort_order || 99 };
-    x.names.push(c.name); x.bills += c.bills || 0; x.live += c.live || 0; x.icon = x.icon || c.icon; x.description = x.description || c.description; x.sort_order = Math.min(x.sort_order, c.sort_order || 99); }
-  return Object.values(g);
-}
 export const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
-export const S = { sugWhy: new Map(), supa: null, session: null, user: null, watch: new Set(), bills: [], hearings: [], activity: [], deadlines: [],
-  committees: {}, coalitions: [], outcomes: {}, view: 'home', q: '', results: null, browse: null, open: null, weekOffset: 0,
-  extra: {}, xh: {}, slots: [], done: new Set(), actionCounts: {}, helper: null, lists: [], listFollows: new Set(), listBills: {}, listSlug: null, consentCard: false, legislators: [], committeeMembers: [], counterparts: [], legQ: '', legPick: null, legOpen: null, mailOpen: null,
-  // Following (063, R-018): what the person chose - issues, whole categories, single bills ("direct") and "Not for me"
-  // (skips). S.watch is worked out from those (recomputeWatch) and is what every screen reads as "followed bills".
-  direct: new Set(), issueFollows: new Set(), catFollows: new Set(), skips: new Set(), viaIssues: new Set(),
-  cats: [], issues: [], issueById: new Map(), issueBySlug: new Map(), issuesByBill: new Map() };
-export const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
-export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
-export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
-export const SKIPS_KEY = DEMO ? 'hiphi_skips_demo' : 'hiphi_skips';
-export const CONSENT_KEY = 'hiphi_consent_pending';
-// ---------------- data ----------------
-// The Supabase library, pinned: "@2" cost a redirect on every cold load and could change under us (R-067 speed).
-// track.html preloads this same address; change both together.
-export const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
-// One client, however many ask first (init() and supa() used to make their own, and two auth clients fight over storage).
-let clientP = null;
-const makeClient = () => clientP ??= import(SUPABASE_JS).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)));
-export async function init() {
-  if (DEMO) { await demoLoad(); return; }
-  await makeClient();
-  const { data } = await S.supa.auth.getSession(); S.session = data.session;
-  S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
-}
-// ---------------- sandbox data ----------------
-export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [], issueLinks: [] };
-export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261001a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
-  const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
-  const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
-  const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  // Shape tracked bills like public_all_bills; every tracked bill is public.
-  D.bills = snap.bills.map(b => ({ id: b.id, bill_number: b.bill_number, session_year: b.session_year, chamber: b.chamber, title: b.title, description: b.description,
-    committee: b.committee, referrals: b.referrals, stage: b.stage, last_action: b.last_action, last_action_date: b.last_action_date, state_url: b.state_url,
-    sponsors: b.sponsors, companions: b.companions, origin_stops: b.origin_stops, second_stops: b.second_stops, current_version: b.current_version,
-    died_deadline: b.died_deadline, died_at_stage: b.died_at_stage, hiphi_position: b.position, hiphi_summary: b.public_summary, hiphi_action: b.public_action,
-    hiphi_nickname: b.is_public ? b.nickname || null : null,   // as public_all_bills does
-    hiphi_recommended: !!b.recommended, hiphi_points: b.is_public && b.talking_points?.length ? b.talking_points : null,   // 084, the testimony walkthrough's talking points (R-068)
-    hiphi_follows: true, coalitions: coalOf[b.id] || [], watchers: b.priority === 1 ? 12 + seed(b.id) % 40 : seed(b.id) % 9 }));
-  D.index = snap.index.map(b => ({ id: b.id, bill_number: b.bill_number, chamber: b.chamber, title: b.title, description: null, stage: 'introduced', referrals: [], sponsors: [], companions: [], coalitions: [], watchers: 0, hiphi_follows: false, sandbox_untracked: true }));
-  D.hearings = snap.hearings.map(h => ({ ...h, bill_number: snap.bills.find(b => b.id === h.bill_id)?.bill_number }));
-  D.activity = snap.activity.map(a => ({ bill_id: a.bill_id, title: a.title, details: a.details, occurred_at: a.occurred_at }));
-  D.outcomes = snap.outcomes;
-  if (SEASON_OFF) {
-    // The real end of the 2026 session, from the snapshot's b.final (R-067: an imagined ending showed SB 2175, which became
-    // law, as stopped, so the between-sessions sandbox disagreed with the live page). A snapshot built before 9/28 has
-    // no final: then the old imagined ending stands in.
-    const fin = new Map(snap.bills.filter(b => b.final).map(b => [b.id, b.final]));
-    for (const b of D.bills) {
-      const f = fin.get(b.id);
-      if (f) Object.assign(b, { stage: f.stage, last_action: f.last_action, last_action_date: f.last_action_date, died_at_stage: f.died_at_stage, died_deadline: f.died_deadline });
-      else if (!['dead', 'enacted', 'vetoed'].includes(b.stage)) {
-        b.stage = b.hiphi_position === 'strongly_support' && ['conference', 'second_decking', 'second_crossover', 'governor'].includes(b.stage) ? 'enacted' : 'dead';
-        if (b.stage === 'dead' && !b.died_deadline) b.died_deadline = 'Sine die'; }
-    }
-  }
-  D.lists = (snap.lists || []).map(l => ({ ...l, is_published: true })); D.listBills = snap.listBills || [];
-  // Categories and issues, shaped like public_categories / public_issues: an issue lists the position bills that carry
-  // it, with each one's session, and every bill knows its issues (public_all_bills.hiphi_issues).
-  D.cats = (snap.categories || []).slice().sort((x, y) => x.sort_order - y.sort_order);
-  { const extra = {}; for (const r of snap.issueCategories || []) (extra[r.issue_id] ??= []).push(r.category);
-    const byId = new Map(D.bills.map(b => [b.id, b])), byIssue = {}, ofBill = {};
-    for (const r of snap.billIssues || []) { const b = byId.get(r.bill_id); if (!b || !b.hiphi_position || b.hiphi_position === 'monitor') continue;
-      (byIssue[r.issue_id] ??= []).push(b); (ofBill[b.id] ??= []).push(r.issue_id); }
-    // As public_issues does (R-023): top_priority is true when one of the issue's position bills in the latest session is the
-    // team's priority 1 (only that flag is public, never a bill's priority); first_visit is the staff switch "Show in the
-    // first visit" (true unless staff turned it off).
-    const prio = new Map(snap.bills.map(x => [x.id, x.priority])), latest = Math.max(...snap.bills.map(x => +x.session_year || 0));
-    D.issues = (snap.issues || []).map(i => { const bs = (byIssue[i.id] || []).sort((a, b) => a.bill_number.localeCompare(b.bill_number));
-      return { ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)], bill_ids: bs.map(b => b.id), bill_years: bs.map(b => b.session_year), followers: 0,
-        first_visit: i.first_visit !== false, top_priority: bs.some(b => +b.session_year === latest && prio.get(b.id) === 1) }; });
-    for (const b of D.bills) b.hiphi_issues = ofBill[b.id] || null;
-    D.issueLinks = snap.issueLinks || []; }   // public_issue_links: pairs of related issues (095, R-094)
-  S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || [];
-  S.deadlines = snap.deadlines.slice().sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
-  S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
-  S.slots = snap.slots;
-  const counts = {}, live = {}; for (const b of D.bills) for (const n of b.coalitions) { counts[n] = (counts[n] || 0) + 1; if (alive(b)) live[n] = (live[n] || 0) + 1; }
-  S.coalitions = snap.campaigns.filter(c => c.is_public && counts[c.name]).map(c => ({ name: c.name, public_name: c.public_name || c.name, slug: c.slug, description: c.description, icon: c.icon, bills: counts[c.name], live: live[c.name] || 0, sort_order: c.sort_order }));
-}
 export const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
 // "I did it" marks: in this browser until sign-in, then in public_actions.
-export const DONE_KEY = DEMO ? 'hiphi_done_demo' : 'hiphi_done';
-export function localDone() { try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); } catch { return new Set(); } }
-export function saveDone() { try { localStorage.setItem(DONE_KEY, JSON.stringify([...S.done])); } catch { /* ignore */ } }
-export const doneKey = (billId, hearingId, kind) => `${billId}|${hearingId || ''}|${kind}`;
-// When each mark was made (for the session weeks and the recap), in this browser; the account has created_at.
-export const DONE_AT_KEY = DEMO ? 'hiphi_done_at_demo' : 'hiphi_done_at';
-export function localDoneAt() { try { return JSON.parse(localStorage.getItem(DONE_AT_KEY) || '{}') || {}; } catch { return {}; } }
-export function saveDoneAt() { try { localStorage.setItem(DONE_AT_KEY, JSON.stringify(S.doneAt || {})); } catch { /* ignore */ } }
-export const KINDS = ['testimony', 'email', 'legislators', 'attend', 'share'];   // 'legislators': an email to your own legislators (089, R-087)
 export async function loadActions(ids) {
   S.done = localDone(); S.doneAt = localDoneAt();
-  if (DEMO) { if (new URLSearchParams(location.search).has('seed')) seedDemoActions();
+  if (DEMO) { if (new URLSearchParams(location.search).has('seed')) (await import('./demo.js')).seedDemoActions();
     for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; }
     // sandbox numbers for one hearing and one bill, so those lines have something to show
     S.voices = Object.fromEntries(D.hearings.map(h => [h.id, [...h.id].reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7) % 50]).filter(([, n]) => n >= 10));
@@ -276,9 +98,6 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
 // Where the person stands on a bill: 'support' | 'oppose' | 'unsure'. Kept in this browser; for a signed-in person it
 // also rides on their follow (watchlist.stance, migration 056). A first visit is "follow a few bills and say where
 // you stand" (Nate, 9/19); the asks to act come on later visits.
-export const STANCE_KEY = DEMO ? 'hiphi_stances_demo' : 'hiphi_stances';
-export function localStances() { try { return JSON.parse(localStorage.getItem(STANCE_KEY) || '{}') || {}; } catch { return {}; } }
-export function saveStances() { try { localStorage.setItem(STANCE_KEY, JSON.stringify(S.stances || {})); } catch { /* ignore */ } }
 export const myStance = id => (S.stances || {})[id] || null;
 export async function setStance(id, stance) {
   S.stances ??= {};
@@ -307,48 +126,7 @@ export function agrees(b) {
 // as four sets - issues, whole categories ("Follow all": Nate, it also brings issues HIPHI takes up there later), bills
 // followed on their own, and bills marked "Not for me" - and S.watch, the followed bills every screen reads, is worked
 // out from them here, the same way the database's follow_set decides who gets a hearing alert.
-const readSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
-const writeSet = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* private mode */ } };
-export const localWatch = () => readSet(LOCAL_KEY);   // bills followed on their own
-export function saveLocal() { writeSet(LOCAL_KEY, S.direct); writeSet(ISSUES_KEY, S.issueFollows); writeSet(CATS_KEY, S.catFollows); writeSet(SKIPS_KEY, S.skips); }
-// The session whose bills an issue brings: this one, or between sessions the one just ended (so its outcomes show).
-export const followYear = () => { const si = sessionInfo(); return si.phase === 'in' ? si.yr : si.recapYear; };
 export const catOf = key => S.cats.find(c => c.key === key) || null;
-export const issueFollowed = i => !!i && (S.issueFollows.has(i.id) || (i.categories || [i.category]).some(c => S.catFollows.has(c)));
-export const issuesOf = b => (b && S.issuesByBill.get(typeof b === 'string' ? b : b.id)) || [];
-// The issue a bill is followed through, or null when it is followed on its own (or not at all).
-export const viaIssue = b => issuesOf(b).find(issueFollowed) || null;
-export const issueBills = i => (i.bill_ids || []).filter((id, k) => +(i.bill_years || [])[k] === followYear());
-export const issuesIn = key => S.issues.filter(i => (i.categories || [i.category]).includes(key));
-export const followedIssues = () => S.issues.filter(issueFollowed);
-// The "My issues link" (R-123, the assessment's P2): one address that follows the same issues in any browser, with no
-// account and nothing personal in it: the issues' public slugs and the categories' keys. Solves Instagram's browser to
-// Chrome, Safari's seven-day wipe, the iPhone home-screen app starting fresh, and a new phone.
-export const issuesLink = () => {
-  const parts = [...[...(S.catFollows || [])].map(k => 'cat:' + k), ...[...(S.issueFollows || [])].map(id => S.issueById?.get(id)?.slug).filter(Boolean)];
-  return parts.length ? `${location.origin}${location.pathname}${DEMO ? location.search : ''}#/follow/${parts.join(',')}` : '';
-};
-// An issue's calendar feed (R-125, the assessment's W3): cal/<slug>.ics, built daily by tools/share_pages.mjs with every
-// hearing and testimony deadline on the issue's bills; webcal:// opens the phone's calendar app to subscribe. The sandbox
-// has no feeds, so it points at the issue page.
-export const calendarUrl = i => DEMO ? `#/issue/${i.slug}` : `webcal://${location.host}${location.pathname.replace(/[^/]*$/, '')}cal/${i.slug}.ics`;
-export async function restoreFollows(slugs) {
-  const issuesOn = [], catsOn = [];
-  for (const x of slugs || []) {
-    if (x.startsWith('cat:')) { if ((S.cats || []).some(c => c.key === x.slice(4))) catsOn.push(x.slice(4)); }
-    else { const i = (S.issues || []).find(y => y.slug === x); if (i) issuesOn.push(i.id); }
-  }
-  if (!issuesOn.length && !catsOn.length) { toast('That link has no issues we know. Pick yours under Find.'); return false; }
-  const ok = await setFollows({ issuesOn, catsOn });
-  if (!ok) return false;
-  wizSet({ done: true, skipped: true });   // they have a setup: no first visit
-  const n = followedIssues().length;
-  toast(`Your ${n === 1 ? 'issue is' : `${n} issues are`} here. Mahalo!`, { yay: true });
-  try { app.onAct?.('restore'); } catch { /* counted only */ }
-  return true;
-}
-// "What's next" after a result (R-126, the assessment's W4): where the bill goes from here, in one line, so a result is
-// never a dead end. '' when nothing follows (it became law, or stopped).
 export function nextWords(b) {
   if (!b || !alive(b)) return '';
   const st = stopOf(b);
@@ -369,171 +147,22 @@ export function nextWords(b) {
   if (st.phase === 'governor') return 'Next: the Governor signs it, lets it become law, or vetoes it.';
   return '';
 }
-export const followsAnything = () => S.watch.size > 0 || S.issueFollows.size > 0 || S.catFollows.size > 0;
-// The categories this person cares about: picked at the start, followed whole, or holding an issue they follow.
 export const likedCats = () => new Set([...(wiz().issues || []), ...S.catFollows, ...followedIssues().flatMap(i => i.categories)]);
 // HIPHI's position on an issue. Staff set its stance (094, R-093): support, oppose or mixed, and the bills only say how
 // strongly ("HIPHI strongly supports" when one of them is strongly supported). Not set, it comes from the bills that carry
 // it: what it is for, when it is for any of them (an issue can hold a bill HIPHI opposes because it would push the other
 // way), else what it opposes, else comments.
-const SUPPORTS = ['strongly_support', 'support', 'support_amend'], OPPOSES = ['strongly_oppose', 'oppose'];
-export const issuePos = (bills, i) => { const ps = new Set(bills.map(b => b && b.hiphi_position).filter(Boolean));
-  if (i?.stance === 'mixed') return 'mixed';
-  if (i?.stance === 'support') return SUPPORTS.find(p => ps.has(p)) || 'support';
-  if (i?.stance === 'oppose') return OPPOSES.find(p => ps.has(p)) || 'oppose';
-  return [...SUPPORTS, ...OPPOSES, 'neutral'].find(p => ps.has(p)) || null; };
-// "all of Food & Nutrition and 3 more issues", "7 issues": what this person follows, in words.
 export function followSummary() {
   const cats = S.cats.filter(c => S.catFollows.has(c.key));
   const rest = S.issues.filter(i => S.issueFollows.has(i.id) && !(i.categories || [i.category]).some(c => S.catFollows.has(c))).length;
   const parts = [...cats.map(c => `all of ${c.name}`), ...(rest ? [`${rest}${cats.length ? ' more' : ''} ${rest === 1 ? 'issue' : 'issues'}`] : [])];
   return parts.length <= 1 ? (parts[0] || '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
-export function recomputeWatch() {
-  const via = new Set();
-  for (const i of S.issues) if (issueFollowed(i)) for (const id of issueBills(i)) via.add(id);
-  const out = new Set([...S.direct, ...via]);
-  for (const id of S.skips) if (!S.direct.has(id)) out.delete(id);   // "Not for me", unless also followed on its own
-  S.viaIssues = via; S.watch = out;
-}
-// Categories and issues: loaded before anything else, because what a person follows is worked out from them.
-export async function loadCatalog() {
-  if (S.catalogLive) return;   // already in from the network this page life (the early path, R-122)
-  let cats = [], issues = [], links = [], got = false;
-  if (DEMO) { cats = D.cats; issues = D.issues; links = D.issueLinks; got = true; }
-  else {
-    // track.html asks for the catalog before any module arrives (plain fetches, the key in the address, so no preflight);
-    // its answer is taken when it is there, else the library asks. Without either the page still works, by bills.
-    if (window.__hiphiCatalog) { try { [cats, issues, links] = await window.__hiphiCatalog; got = Array.isArray(cats) && Array.isArray(issues); } catch { got = false; } }
-    if (!got && S.supa) {
-      try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
-          S.supa.from('public_issue_links').select('issue_a,issue_b')]);
-        cats = c.data || []; issues = i.data || []; links = l.data || []; got = true; } catch (e) { console.error(e); }
-    }
-    if (!got) return;   // the early path without a network answer: boot() asks again with the library
-  }
-  S.catalogLive = true;
-  applyCatalog(cats, issues, links);
-  // A copy for next time (R-122): a returning browser draws its first screen from it before the network answers.
-  if (!DEMO && cats.length) { try { localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), cats, issues, links })); } catch { /* storage blocked */ } }
-}
-const CATALOG_KEY = 'hiphi_catalog';
-function applyCatalog(cats, issues, links) {
-  // Related issues (095, R-094): each issue's neighbours, both ways. Only the suggested bill reads them.
-  S.issueLinks = new Map();
-  for (const { issue_a: a, issue_b: b } of links) { (S.issueLinks.get(a) || S.issueLinks.set(a, new Set()).get(a)).add(b); (S.issueLinks.get(b) || S.issueLinks.set(b, new Set()).get(b)).add(a); }
-  S.cats = cats;
-  S.issues = issues.map(i => ({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
-  S.issueById = new Map(S.issues.map(i => [i.id, i])); S.issueBySlug = new Map(S.issues.map(i => [i.slug, i]));
-  S.issuesByBill = new Map();
-  for (const i of S.issues) for (const id of i.bill_ids) (S.issuesByBill.get(id) || S.issuesByBill.set(id, []).get(id)).push(i);
-}
-// The catalog kept from the last visit, no older than a week: true when it was applied (R-122).
-export function applyCachedCatalog() {
-  try { const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null'); if (!c || !c.cats?.length || Date.now() - c.at > 7 * 864e5) return false; applyCatalog(c.cats, c.issues || [], c.links || []); return true; } catch { return false; }
-}
-// Follow or unfollow issues and whole categories in one go (the first visit, a category or issue page, Undo).
-export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], catsOff = [] } = {}) {
-  const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
-  issuesOn.forEach(x => S.issueFollows.add(x)); issuesOff.forEach(x => S.issueFollows.delete(x));
-  catsOn.forEach(x => S.catFollows.add(x)); catsOff.forEach(x => S.catFollows.delete(x));
-  recomputeWatch(); saveLocal();
-  if (S.user && !DEMO) {
-    const uid = S.user.id, calls = [];
-    const addI = [...new Set(issuesOn)].filter(x => !before.i.has(x)), delI = issuesOff.filter(x => before.i.has(x));
-    const addC = [...new Set(catsOn)].filter(x => !before.c.has(x)), delC = catsOff.filter(x => before.c.has(x));
-    if (addI.length) calls.push(S.supa.from('issue_follows').insert(addI.map(issue_id => ({ user_id: uid, issue_id }))));
-    if (delI.length) calls.push(S.supa.from('issue_follows').delete().eq('user_id', uid).in('issue_id', delI));
-    if (addC.length) calls.push(S.supa.from('category_follows').insert(addC.map(category => ({ user_id: uid, category }))));
-    if (delC.length) calls.push(S.supa.from('category_follows').delete().eq('user_id', uid).in('category', delC));
-    const err = (await Promise.all(calls)).find(r => r.error)?.error;
-    if (err) { toast(err, true); S.issueFollows = before.i; S.catFollows = before.c; recomputeWatch(); saveLocal(); return false; }
-  }
-  try { await loadBills(); } catch (e) { console.error(e); }
-  return true;
-}
-// Stop following one issue. If it came with a whole category, that category becomes its other issues, one by one:
-// "Follow all" also covered issues HIPHI takes up later, and taking one out ends that (the screen says so).
 export function unfollowIssue(i) {
   const cats = (i.categories || [i.category]).filter(c => S.catFollows.has(c));
   const others = [...new Set(cats.flatMap(issuesIn).map(x => x.id))].filter(id => id !== i.id);
   return setFollows({ issuesOff: [i.id], catsOff: cats, issuesOn: others });
 }
-export async function loadUser() {
-  S.user = null;
-  S.stances = localStances();
-  // This browser's own actions, now rather than with the bills (R-122): the first screen is drawn before the bills
-  // arrive, and firstVisit() must see an action taken on a shared bill, or it would start the first visit over.
-  S.done = localDone(); S.doneAt = localDoneAt();
-  if (DEMO || !S.session) {
-    S.direct = localWatch(); S.issueFollows = readSet(ISSUES_KEY); S.catFollows = readSet(CATS_KEY); S.skips = readSet(SKIPS_KEY);
-    recomputeWatch(); return;
-  }
-  const { data, error } = await S.supa.rpc('ensure_public_user');
-  if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut({ scope: 'local' }); return; } throw error; }
-  S.user = data;
-  // Choices made on the sign-in page, before the account existed.
-  let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
-  // A new account takes them as given. An account that already recorded its choices (a returning person adding their
-  // email on a second device) only ever gains what was asked for here: every email ask sends action_alerts false by
-  // default, and that default must never switch off something the person chose earlier (9/19).
-  if (pending) {
-    const had = S.user.prefs || {}, first = !had.consent_at;
-    const hearing_alerts = first ? !!pending.hearing_alerts : !!(had.hearing_alerts || pending.hearing_alerts);
-    const action_alerts = first ? !!pending.action_alerts : !!(had.action_alerts || pending.action_alerts);
-    // The name given in the wizard joins the account the same way issues do below: it fills in an account that
-    // has none, and never overwrites one the account already has (it may have been set on another device since).
-    // Read straight from this device's wiz() rather than the pending object: the magic link is opened on the
-    // same device, and the name step comes AFTER the email step, so it wasn't typed yet when the link was sent.
-    const name = had.name || (wiz().name || '').trim();
-    const changed = first || hearing_alerts !== !!had.hearing_alerts || action_alerts !== !!had.action_alerts || name !== (had.name || '');
-    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, ...(name ? { name } : {}), consent_at: new Date().toISOString() };
-      const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; }
-    try { localStorage.removeItem(CONSENT_KEY); } catch {}
-  }
-  S.consentCard = !(S.user.prefs || {}).consent_at;
-  // Issues: this device's picks join an account that has none; otherwise the account's picks come to this device.
-  { const mine = wiz().issues || [], theirs = (S.user.prefs || {}).issues || [];
-    if (mine.length && !theirs.length) saveIssues(mine);
-    else if (theirs.length && JSON.stringify(mine) !== JSON.stringify(theirs)) { const w = { ...wiz(), issues: theirs }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ } } }
-  // Name: the account's name (now possibly just set above) comes to this device too, so a returning visit on
-  // another device is greeted by name without asking again.
-  { const acctName = (S.user.prefs || {}).name || ''; if (acctName && acctName !== (wiz().name || '')) wizSet({ name: acctName }); }
-  try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
-  // Lists followed on this device join the account (and stay in sync from here on).
-  const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
-  for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }
-  try { localStorage.removeItem(LISTS_KEY); } catch {}
-  // Lists people shared, followed on this device before signing in (R-013, pub/mylists.js), join the account the same way.
-  { let toks = []; try { toks = JSON.parse(localStorage.getItem('hiphi_ulist_follows') || '[]'); } catch { /* none */ }
-    for (const t of toks) { const r = await S.supa.rpc('follow_user_list', { p_token: t }); if (r.error) console.warn('shared list:', r.error.message); }
-    if (toks.length) { try { localStorage.removeItem('hiphi_ulist_follows'); } catch { /* private mode */ } if (S.ul) S.ul.mine = null; } }
-  const [wl, isf, caf, sk] = await Promise.all([S.supa.from('watchlist').select('bill_id,stance'), S.supa.from('issue_follows').select('issue_id'),
-    S.supa.from('category_follows').select('category'), S.supa.from('bill_skips').select('bill_id')]);
-  const server = new Set((wl.data || []).map(r => r.bill_id));
-  // Issues, whole categories and "Not for me" chosen on this device join the account, as bills and lists do.
-  const merge = async (table, col, local, have) => {
-    const add = [...local].filter(x => !have.has(x));
-    if (add.length) { const r = await S.supa.from(table).insert(add.map(x => ({ user_id: S.user.id, [col]: x }))); if (!r.error) add.forEach(x => have.add(x)); }
-    return have;
-  };
-  S.issueFollows = await merge('issue_follows', 'issue_id', [...readSet(ISSUES_KEY)].filter(id => S.issueById.has(id)), new Set((isf.data || []).map(r => r.issue_id)));
-  S.catFollows = await merge('category_follows', 'category', [...readSet(CATS_KEY)].filter(k => S.cats.some(c => c.key === k)), new Set((caf.data || []).map(r => r.category)));
-  S.skips = await merge('bill_skips', 'bill_id', readSet(SKIPS_KEY), new Set((sk.data || []).map(r => r.bill_id)));
-  // First sign-in: what was starred on this device joins the account, with the stance taken on it.
-  const local = localWatch(); const missing = [...local].filter(id => !server.has(id));
-  if (missing.length) { await S.supa.from('watchlist').insert(missing.map(bill_id => ({ user_id: S.user.id, bill_id, stance: S.stances[bill_id] || null }))); missing.forEach(id => server.add(id)); }
-  // Stances: the account wins where it has one; a stance taken on this device for a bill already followed is sent up.
-  for (const r of wl.data || []) { if (r.stance) S.stances[r.bill_id] = r.stance; else if (S.stances[r.bill_id]) await S.supa.from('watchlist').update({ stance: S.stances[r.bill_id] }).eq('user_id', S.user.id).eq('bill_id', r.bill_id); }
-  saveStances();
-  S.direct = server; recomputeWatch(); saveLocal();
-}
-// ---------------- curated lists ----------------
-// HIPHI staff curate lists of public bills. Following a list follows every
-// bill on it now and every bill added later (the database does that for
-// signed-in members; signed-out follows live in this browser and join the
-// account at sign-in).
-export function localListFollows() { try { return new Set(JSON.parse(localStorage.getItem(LISTS_KEY) || '[]')); } catch { return new Set(); } }
 export function saveListFollows() { try { localStorage.setItem(LISTS_KEY, JSON.stringify([...S.listFollows])); } catch {} }
 export async function loadLists() {
   if (DEMO) { S.lists = D.lists.map(l => ({ ...l, bills: D.listBills.filter(x => x.list_id === l.id).length, followers: l.followers || 0, curated_by: 'HIPHI' })); }
@@ -601,7 +230,6 @@ export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
-export async function supa() { return S.supa || makeClient(); }
 export async function fetchAddrSuggest(q) {
   const { data, error } = await (await supa()).rpc('address_suggest', { q, n: 8 }); if (error) throw error;
   return (data || []).map(x => ({ label: x.label, lat: x.lat, lon: x.lon, sd: x.sd, hd: x.hd, exact: x.exact }));
@@ -798,10 +426,6 @@ export async function loadFeatured() {
   S.featured = { hearings: hs, bills: S.pool.bills.filter(b => ids.has(b.id)) };
 }
 // Onboarding state lives in this browser: which steps are done, nudges shown, tour seen.
-export function onb() { try { return JSON.parse(localStorage.getItem('hiphi_onb') || '{}'); } catch { return {}; } }
-export function onbSet(patch) { const o = { ...onb(), ...patch }; try { localStorage.setItem('hiphi_onb', JSON.stringify(o)); } catch { /* ignore */ } return o; }
-// The star on one bill. A bill that came with an issue: pressing it is "Not for me" (the issue stays followed). A bill
-// nobody's issue covers: it follows or unfollows that bill on its own. Pressing it again undoes either.
 export async function toggleWatch(id) {
   const on = S.watch.has(id), covered = S.viaIssues.has(id), wasDirect = S.direct.has(id), wasSkip = S.skips.has(id);
   if (on) { S.direct.delete(id); if (covered) S.skips.add(id); }
@@ -842,7 +466,6 @@ export async function browseCoalition(name) {
   S.browse = { name: names[0], rows: data || [] }; S.results = null; S.q = '';
 }
 // ---------------- helpers ----------------
-export const bill = id => S.bills.find(b => b.id === id);
 export const findBill = id => bill(id) || (S.results || []).find(x => x.id === id) || (S.browse?.rows || []).find(x => x.id === id) || ((S.featured || {}).bills || []).find(x => x.id === id) || ((S.pool || {}).bills || []).find(x => x.id === id) || ((S.recapPool || {}).bills || []).find(x => x.id === id) || S.extra[id] || null;
 // A bill page shows every hearing of the bill, not only the 30 days the lists load (R-033, 9/26): its whole history,
 // each with its recording, which since 9/26 opens at the bill's own minute where the video's description has one
@@ -877,7 +500,6 @@ export function deadlineOf(b, key) {
   const d = alt || S.deadlines.filter(x => x.key === key && !(x.bills || []).length).slice(-1)[0];
   return d ? { label: d.label, date: d.deadline_date } : null;
 }
-export const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].includes(b.stage || '') && !HELD_RE.test(b.last_action || '');
 export const streamOf = h => hearingStream(h, S.committees[codesOf(h.committee)[0]]?.chamber);
 export const POS_WORD = { strongly_support: 'SUPPORT', support: 'SUPPORT', support_amend: 'SUPPORT WITH AMENDMENTS', strongly_oppose: 'OPPOSITION', oppose: 'OPPOSITION', neutral: 'COMMENTS' };
 // ---------------- progress: what you did, what it led to, the community ----------------
@@ -908,26 +530,6 @@ export function celebrate(kind, firstTestimony) {
 }
 // ---- asking for an email, gently (research 9/18: ask after something worthwhile is done, name the benefit,
 // inline and never a pop-up, one ask per visit, and after "Not now" wait 14 days, then 60) ----
-export function nudgeOk() {
-  if (S.session || S.nudgedThisVisit) return false;
-  const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
-  return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
-}
-export function nudge(kind) { if (nudgeOk()) { S.nudge = kind; S.nudgedThisVisit = true; } }
-// ---- the session calendar: opens the third Wednesday of January, ends at sine die ----
-export const thirdWed = y => { const dow = new Date(Date.UTC(y, 0, 1)).getUTCDay(); return `${y}-01-${String(1 + ((3 - dow + 7) % 7) + 14).padStart(2, '0')}`; };
-export const hiT = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').getTime();
-export function sessionInfo() {
-  const sd = S.deadlines.find(d => d.key === 'sine_die') || S.deadlines[S.deadlines.length - 1];
-  const yr = sd ? +String(sd.deadline_date).slice(0, 4) : new Date().getFullYear(), end = sd ? String(sd.deadline_date).slice(0, 10) : `${yr}-05-08`, open = thirdWed(yr);
-  let phase = Date.now() < hiT(open) ? 'before' : Date.now() <= hiT(end) + 864e5 ? 'in' : 'after';
-  if (DEMO && new URLSearchParams(location.search).get('season') === 'off') phase = 'after';   // sandbox preview of the recap
-  return { yr, open, end, phase, recapYear: phase === 'before' ? yr - 1 : yr, nextOpen: phase === 'in' ? null : thirdWed(phase === 'before' ? yr : yr + 1) };
-}
-export function myActions() {
-  return [...S.done].map(k => { const [bill_id, hearing_id, kind] = k.split('|'), at = (S.doneAt || {})[k] || null;
-    return { k, bill_id, hearing_id: hearing_id || null, kind, at, year: at ? +hstDay(at).slice(0, 4) : null }; }).filter(a => KINDS.includes(a.kind));
-}
 export const anyBill = id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null);
 export const anyHearing = id => id ? ([...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat(), ...(DEMO ? D.hearings : [])].find(h => h.id === id) || null) : null;
 export const outcomeOf = h => S.outcomes[h.id] || (DEMO ? D.outcomes.find(o => o.hearing_id === h.id) : null);
@@ -996,16 +598,6 @@ export const MILESTONES = [
 ];
 export const RESULT_MILESTONES = new Set(['law']);
 // Sandbox: three real March hearings the committee passed, marked as if you had acted, so the panel shows.
-export function seedDemoActions() {
-  try { if (S.done.size || localStorage.getItem('hiphi_demo_seeded')) { S.demoSeeded = localStorage.getItem('hiphi_demo_seeded') === '1' && S.done.size > 0; return; } } catch { return; }
-  const now = Date.now(), hs = D.hearings.filter(h => new Date(h.scheduled_at) < now && new Date(h.scheduled_at) > now - 20 * 864e5 && D.outcomes.some(o => o.hearing_id === h.id && /passed/.test(o.outcome || '')))
-    .filter(h => D.bills.some(b => b.id === h.bill_id && b.hiphi_position && b.hiphi_position !== 'monitor')).slice(-3);
-  hs.forEach((h, i) => { const k = doneKey(h.bill_id, h.id, i === 1 ? 'email' : 'testimony'); S.done.add(k); S.doneAt[k] = new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(); });
-  if (hs.length) { saveDone(); saveDoneAt(); S.demoSeeded = true; try { localStorage.setItem('hiphi_demo_seeded', '1'); } catch { /* ignore */ } }
-}
-// HIPHI's picks for a coalition: strongly supported/opposed first, then bills
-// with a position and a hearing coming up, then the rest with a position. Dead
-// bills stay out. Capped so a first-timer sees a handful, not hundreds.
 export const POS_RANK = { strongly_support: 0, strongly_oppose: 0, support: 1, oppose: 1, support_amend: 2, neutral: 3 };
 export function curate(rows, cap = 6) {
   const now = Date.now(), up = new Set([...S.hearings, ...((S.featured || {}).hearings || [])].filter(h => new Date(h.scheduled_at) > now).map(h => h.bill_id));
@@ -1014,38 +606,7 @@ export function curate(rows, cap = 6) {
   return { picks: live.slice(0, cap), rest: rows.filter(b => !live.slice(0, cap).includes(b)) };
 }
 // ---------- the guided start: pick issues -> pick bills -> done ----------
-export function wiz() { try { return JSON.parse(localStorage.getItem('hiphi_wiz') || '{"step":1,"issues":[]}'); } catch { return { step: 1, issues: [] }; } }
-export function wizSet(patch) { const w = { ...wiz(), ...patch }; try { localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } catch { /* ignore */ }
-  if ('issues' in patch) saveIssues(w.issues);
-  return w; }
-// Picked issues ride along with the account (public_users.prefs.issues), so "we saved your issues" is true on any
-// device. Signed out, they live in this browser only. A failed save is silent: the local copy still works.
-function saveIssues(list) {
-  if (DEMO || !S.user) return;
-  const issues = [...new Set(list || [])].slice(0, 20), had = (S.user.prefs || {}).issues || [];
-  if (JSON.stringify(had) === JSON.stringify(issues)) return;
-  const prefs = { ...(S.user.prefs || {}), issues }; S.user.prefs = prefs;
-  S.supa.from('public_users').update({ prefs }).eq('id', S.user.id).then(r => { if (r.error) console.error(r.error); });
-}
-// ---------------- plain language (redesign 9/19) ----------------
-// Newcomers never see Capitol shorthand ("2nd Lateral", "Decking", "HHS/CPN", "Rm 229") outside "More details".
-// Every screen words bills, hearings and deadlines through these helpers so the whole page says things one way.
 export const countOk = n => (Number(n) >= 10 ? Number(n) : 0);   // a group number is shown only from 10 people
-export const EMOJI_TO_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout',
-  '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby', '📋': 'heart-pulse', '☰': 'list-checks' };
-// Issue and list icons are Lucide names now; an emoji left in the data still maps to one.
-export function issueIcon(v, kind = 'issue') {
-  const x = String(v || '').trim();
-  return ICONS[x] ? x : EMOJI_TO_ICON[x] || EMOJI_TO_ICON[x.replace(/️/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse');
-}
-// Issues in the order a newcomer should see them: the most live bills first, the catch-all last.
-export function issues() {
-  return groups().map(g => ({ ...g, icon: issueIcon(g.icon), general: /general/i.test(g.key) }))
-    .sort((a, b) => a.general - b.general || (b.live > 0) - (a.live > 0) || (b.live || 0) - (a.live || 0) || a.sort_order - b.sort_order);
-}
-// The category a bill's issue sits in, as a line on a card ("Food & Nutrition", its icon). Coalition names are HIPHI's
-// own way of organising its partners and no longer show on the public page (R-018, answer 5); a bill with no issue
-// falls back to its coalition only until staff give it one.
 export function issueOf(b) {
   const iss = issuesOf(b)[0], cat = iss && catOf(iss.category);
   if (cat) return { key: cat.name, names: [cat.key], icon: cat.icon };
@@ -1054,16 +615,6 @@ export function issueOf(b) {
   return g || { key: cname(n), names: [n], icon: 'heart-pulse' };
 }
 // "HIPHI supports" with its icon; position is a chip with an icon, never a colour stripe.
-export function posInfo(b) {
-  const p = b?.hiphi_position;
-  if (/support/.test(p || '')) return { text: p === 'support_amend' ? 'HIPHI supports with changes' : p === 'strongly_support' ? 'HIPHI strongly supports' : 'HIPHI supports',
-    icon: 'thumbs-up', strong: p === 'strongly_support', verb: 'support' };
-  if (/oppose/.test(p || '')) return { text: p === 'strongly_oppose' ? 'HIPHI strongly opposes' : 'HIPHI opposes',
-    icon: 'thumbs-down', strong: p === 'strongly_oppose', verb: 'oppose' };
-  if (p === 'neutral') return { text: 'HIPHI has comments', icon: 'message-square', verb: 'comment on' };
-  if (p === 'mixed') return { text: 'HIPHI’s side depends on the bill', icon: 'scale' };   // an issue's stance only (094)
-  return null;
-}
 const DOW = { timeZone: HST, weekday: 'short' };
 export const dayWord = iso => {   // "today", "tomorrow (Tue)", "Thu", "Mon, Mar 30"
   const d = hstDay(iso), today = hstDay(Date.now()), tmr = hstDay(Date.now() + 864e5), days = (new Date(d + 'T12:00:00-10:00') - new Date(today + 'T12:00:00-10:00')) / 864e5;
@@ -1359,20 +910,6 @@ export async function ensureBill(num, year) {
 // Where a person is in the guided start: a first visit is someone who has not finished or skipped it, follows nothing
 // and has done nothing. Someone who sent the quick email from a link, then said "Don't follow it", came back to the
 // start as if new (R-067): an action they marked counts as having been here.
-export const firstVisit = () => !followsAnything() && !myActions().length && !hasDrafts() && ((!wiz().done && !wiz().skipped) || readyForSession());
-const hasDrafts = () => { try { return Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}).length > 0; } catch { return false; } };
-// Picked issues off-season (step O3 saves the opening day in wiz().ready): once the session is open, show them the bills.
-export const readyForSession = () => !!wiz().ready && !followsAnything() && sessionInfo().phase === 'in' && Date.now() >= hiT(wiz().ready);
-// A bill's address (R-110). Numbers start again at HB 1 every session, so a bill from an earlier session carries its
-// year (#/bill/2026/HB2121) and the current session's bills keep the short form (#/bill/HB2121), which opens the
-// current session's bill when a number repeats. yearPrefix: '' for the current session, '2026/' for an earlier one.
-export const yearPrefix = b => b && b.session_year && +b.session_year !== sessionInfo().yr ? `${b.session_year}/` : '';
-export const billRef = b => yearPrefix(b) + String(b.bill_number).replace(/\s/g, '');
-export const billPath = b => '#/bill/' + billRef(b);
-// The address to share a bill at (R-067, R-113): a bill HIPHI has a position on has its own share page (b/HB2121, or
-// b/2026/HB2121 for an earlier session; built daily by tools/share_pages.mjs), so a link pasted into a text or a post
-// previews with the bill's name, and the friend's arrival counts as a share (?via=share); 404.html catches a page not
-// built yet. Other bills, and the sandbox, share the tracker's own address. An issue has i/<slug> the same way.
 const siteRoot = () => `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
 export const billShareUrl = b => b.hiphi_position && !DEMO ? `${siteRoot()}b/${billRef(b)}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}${billPath(b)}`;
 export const issueShareUrl = i => !DEMO ? `${siteRoot()}i/${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
@@ -1383,13 +920,6 @@ export const dueWords = iso => `${fmtDate(iso, { weekday: 'short', month: 'short
 export const pickBill = (cands, year) => { const c = (cands || []).filter(Boolean); if (!c.length) return null;
   if (+year) return c.find(x => +x.session_year === +year) || null;
   return c.find(x => +x.session_year === sessionInfo().yr) || c.slice().sort((a, b) => (+b.session_year || 0) - (+a.session_year || 0))[0]; };
-export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
-// Asking a chair for a hearing is remembered per committee, so a bill asked about in its House committee is offered
-// again when it later waits in the Senate. The email itself is still the person's action under the usual key
-// (<bill id>||email): that is what is counted and what reaches their account. The committee mark,
-// <bill id>|<committee code as referred, e.g. HHS/EIG>|ask, lives in this browser only: 'ask' is not an action kind, so
-// it is neither counted nor uploaded. A mark from before 9/19 (the usual key, with no committee mark on the bill at
-// all) still counts, for every committee.
 export const askMark = (b, code) => `${b.id}|${code}|ask`;
 export const askedChair = (b, code) => S.done.has(askMark(b, code))
   || (S.done.has(doneKey(b.id, '', 'email')) && ![...S.done].some(k => k.startsWith(b.id + '|') && k.endsWith('|ask')));
@@ -1419,3 +949,4 @@ export async function sendEmailLink(email, { hearing_alerts = false, action_aler
   return { sent: true };
 }
 export const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
+

@@ -164,20 +164,34 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   Each screen keeps its own desktop rules in its own CSS.
 - Screen contract: `{ tab, tabs?, noTabs?, title?, render(route), wire(route), bar?(route) }`. Screens reach
   the frame through `app.render / app.go / app.openHelper` on the `app` object exported by `core.js`.
-- **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it).** The first screen
-  must not wait for everything. `track.html` carries the base styles and the modules every screen needs; an inline
-  script reads what the browser remembers and preloads the first screen's own module and stylesheet (a first visit still
-  to do: `start.js`; anyone else: `home.js` and the database library's parts; a `#/bill/` address: the bill page), and
-  fetches the catalog (categories, issues, links) with plain `fetch` and the public key in the address, so no preflight,
-  before any module arrives (`window.__hiphiCatalog`, read by `loadCatalog()`). `app.js` draws a newcomer's topics from
-  that catalog (or the copy kept in `localStorage` from last time) before the library, the lists or the bills are asked
-  for (`earlyFirst`), then `boot()` loads the rest. Every other screen is a `lazy()` stand-in in `SCREENS` that loads its
-  module and stylesheet on first use (`SCREEN_CSS`, in `CSS_ORDER` so `wide.css` stays last); the walkthrough, the tour,
-  the lessons (`start.js` asks for them after the topics screen) and Find's search code come the same way; the remaining
-  stylesheets are fetched a moment after the first screen. Rules that follow: a module another screen needs on its first
-  paint must not import a lazy one (`keep.js` exists so Home does not pull the first visit in; `LESSON_TITLES` live in
-  `topics.js`); a new screen gets a `lazy()` entry, a `SCREEN_CSS` entry and its place in `CSS_ORDER`; a new module every
-  screen needs gets a `modulepreload` line; nothing on the early path may touch `S.supa` directly (use `supa()`).
+- **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
+  tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
+  is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`
+  is the bill-level code (bills, hearings, actions, the stage words) and re-exports the kernel, so every screen keeps
+  importing from `core.js`; only the modules on the first wave (`app.js`, `ui.js`, `fx.js`, `keep.js`, `visitlog.js`,
+  `variant.js`, `errlog.js`, `topics.js`, `start.js`) import from `kernel.js`, and the kernel never imports `core.js`,
+  `stops.js` or `demo.js` (the sandbox's data, loaded only with `?demo=1`). `app.js` loads `core.js` in `boot()`, after the
+  early first screen. **The first visit** is two halves: `start.js` (the frame and the topics screen, kernel-only, plus
+  `rank.js` for the tiles' scores) and `start-rest.js` (every later step, the lessons' pages, the address and email
+  steps), which `start.js` loads 400 ms after the topics' paint together with `core.js` and then the lessons; until they
+  are in, a later step draws a skeleton and comes back. Shared helpers are exported from `start.js` and imported by the
+  rest (read-only: the lessons through `lessons()`, the example bill back through `REST.exampleBill()`). `track.html`
+  carries the base styles and the first wave's `modulepreload` lines; an inline script at the top of the head reads what
+  the browser remembers and preloads what it will draw first (a first visit still to do: `start.js`; anyone else:
+  `home.js`, `core.js`, `stops.js`, `rank.js` and the database library's parts; a `#/bill/` address: the bill page and the
+  lists), and fetches the catalog with plain `fetch` and the public key in the address (no preflight) before any module
+  arrives, the issues slim (only what the topics show; the full rows come with the library). `app.js` draws a newcomer's
+  topics from that (or the copy kept from last time) before the library, the lists or the bills are asked for
+  (`earlyFirst`), then `boot()` loads the rest. Every other screen is a `lazy()` stand-in in `SCREENS` that loads its module
+  and stylesheet on first use (`SCREEN_CSS`, in `CSS_ORDER` so `wide.css` stays last); the walkthrough, the tour, the
+  header search's combobox (on focus) and Find's search code come the same way; the remaining stylesheets are fetched a
+  moment after the first screen. Rules that follow: a module on the first wave must not import a lazy one or `core.js`
+  (`keep.js` exists so Home does not pull the first visit in; `LESSON_TITLES` live in `topics.js`); a helper the first
+  screen needs goes in the kernel, a bill-level one in `core.js`; a new first-visit step goes in `start-rest.js` and its
+  name in `STEPS`; a new screen gets a `lazy()` entry, a `SCREEN_CSS` entry and its place in `CSS_ORDER`; a new module
+  every screen needs gets a `modulepreload` line; nothing on the early path may touch `S.supa` directly (use `supa()`).
+  The split was made by two scripts kept in the handoff's record (HANDOFF 3.77); by hand, keep `kernel.js` free of
+  bill-level code and the first wave free of `core.js`, and the check will say when either slips.
 - **The header search suggests as you type (R-032, 9/21).** From 900px the header box lists what the words so far
   match, seven rows at most, then "See all results" (Find). A word search lists policies: issues (a matching topic
   first), with a bill on an issue shown as that issue, so a House bill and its Senate twin are one row; then HIPHI's

@@ -13,7 +13,7 @@
 // The comparison is on Staff v2 > Outreach > Issues > First visit > Versions (first_visit_variants, migration 113). The
 // process, the measure and the rule for ending a test: ../backend/docs/AB-TESTING.md. Today's version is the
 // default for anything that does not toss (the sandbox never tosses: the testers pick by link).
-import { DEMO, wiz, wizSet } from './core.js';
+import { DEMO, wiz, wizSet } from './kernel.js';
 
 export const EXPERIMENT = { key: 'end', arms: ['today', 'home'], since: '2026-10-01' };
 

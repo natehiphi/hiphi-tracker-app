@@ -86,7 +86,8 @@ with sync_playwright() as p:
     ok(len(sent) == 1 and sent[0].get('kind') == 'boot' and 'did not start' in sent[0].get('message', '') and sent[0].get('sandbox') is True, f'a page whose code never starts is reported once, as a boot error: {sent}')
     ctx.close()
     # 8. the early catcher uses the same address and key as the app
-    core = open(os.path.join(ROOT, 'pub', 'core.js'), encoding='utf-8').read(); html = open(os.path.join(ROOT, 'track.html'), encoding='utf-8').read()
+    core = open(os.path.join(ROOT, 'pub', 'kernel.js'), encoding='utf-8').read(); html = open(os.path.join(ROOT, 'track.html'), encoding='utf-8').read()
+    # the address and key live in pub/kernel.js since the split (R-122)
     url = re.search(r"SUPABASE_URL\s*=\s*'([^']+)'", core).group(1); key = re.search(r"SUPABASE_KEY\s*=\s*'([^']+)'", core).group(1)
     ok(url + '/rest/v1/rpc/log_public_error' in html and html.count(key) >= 2, "track.html's early catcher uses the same address and key as pub/core.js")
     # 9. the privacy page says so

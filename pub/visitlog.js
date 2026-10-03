@@ -16,7 +16,7 @@
 //   partnerWelcome(slug)          the partner's welcome line (public_partners), or null; asked once per slug
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
 //   logAct(kind)                  an action marked done, its kind only (078)
-import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './core.js';
+import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
 import { variantInfo } from './variant.js';
 
 const KEY = 'hiphi_fv', CAP = 60;

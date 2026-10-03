@@ -14,7 +14,7 @@
 // never starts; this module takes over from it. Staff see the week's list in Staff v2 > Session setup; the hourly
 // health check tells the admins by Slack when ten or more arrive in an hour. The privacy page says all this
 // (pub/more.js, "If the page breaks"); a lawyer should confirm the wording.
-import { SUPABASE_URL, SUPABASE_KEY, DEMO } from './core.js';
+import { SUPABASE_URL, SUPABASE_KEY, DEMO } from './kernel.js';
 import { quiet, device } from './visitlog.js';
 
 const MAX = 5;

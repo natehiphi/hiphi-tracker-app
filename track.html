@@ -28,13 +28,14 @@
 <script>
 /* The catalog (categories, issues, their links) is asked for before any module arrives (R-122): three plain fetches with
    the public key in the address (a simple request, so no CORS preflight), and pub/core.js's loadCatalog() takes the
-   answer. The address and key are pub/core.js's SUPABASE_URL and SUPABASE_KEY (tests/errlog.py checks they match). */
+   answer. The issues come slim, only what the topics screen shows (the bill lists and the outlook are two thirds of the
+   rows); the full rows follow with the bills. The address and key are pub/core.js's SUPABASE_URL and SUPABASE_KEY (tests/errlog.py checks they match). */
 (function () {
   try {
     if (/[?&]demo=1/.test(location.search)) return;
     var U = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/', K = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
     var get = function (q) { return fetch(U + q + '&apikey=' + K).then(function (r) { if (!r.ok) throw new Error('catalog ' + r.status); return r.json(); }); };
-    var all = Promise.all([get('public_categories?select=*&order=sort_order'), get('public_issues?select=*&order=sort_order'), get('public_issue_links?select=issue_a,issue_b')]);
+    var all = Promise.all([get('public_categories?select=*&order=sort_order'), get('public_issues?select=id,slug,name,description,category,categories,sort_order,first_visit,top_priority&order=sort_order'), get('public_issue_links?select=issue_a,issue_b')]);
     var late = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('catalog slow')); }, 10000); });
     window.__hiphiCatalog = Promise.race([all, late]);   // settles within ten seconds, so nothing waits on it longer
     window.__hiphiCatalog.catch(function () { /* boot() asks again with the library */ });
@@ -52,7 +53,10 @@
   var first = true;
   try { var w = JSON.parse(localStorage.getItem('hiphi_wiz') || '{}'); first = !(w.done || w.skipped); } catch (e) { /* storage blocked: a first visit */ }
   var h = location.hash || '', onBill = /^#\/bill\//.test(h);
-  var paths = onBill ? ['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js'] : first ? ['pub/start.js', 'pub/addresspicker.js'] : ['pub/home.js', 'pub/actions.js', 'pub/speakup.js'];
+  // core.js (the bill-level code, with stops.js and rank.js) comes after a newcomer's first screen; everyone else needs it first.
+  var core = ['pub/core.js', 'stops.js', 'pub/rank.js'];
+  var paths = onBill ? core.concat(['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js']) : first ? ['pub/start.js'] : core.concat(['pub/home.js', 'pub/actions.js', 'pub/speakup.js']);
+  if (/[?&]demo=1/.test(location.search)) paths = paths.concat(core, ['pub/demo.js']);
   if (!first || onBill || /[?&]demo=1/.test(location.search)) paths = paths.concat(['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/postgrest-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/auth-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/realtime-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/storage-js@2.117.2/+esm',
@@ -77,18 +81,15 @@
 <!-- Every module the first load needs, in one wave (R-122): the second wave used to wait for its importers to be parsed.
      The screens load on first use (pub/app.js lazy); the script below preloads the one this browser will draw first. -->
 <link rel="modulepreload" href="pub/app.js">
-<link rel="modulepreload" href="pub/core.js">
+<link rel="modulepreload" href="pub/kernel.js">
 <link rel="modulepreload" href="pub/errlog.js">
 <link rel="modulepreload" href="pub/fx.js">
 <link rel="modulepreload" href="pub/ui.js">
 <link rel="modulepreload" href="pub/art.js">
 <link rel="modulepreload" href="icons.js">
-<link rel="modulepreload" href="stops.js">
 <link rel="modulepreload" href="pub/topics.js">
-<link rel="modulepreload" href="pub/rank.js">
 <link rel="modulepreload" href="pub/variant.js">
 <link rel="modulepreload" href="pub/visitlog.js">
-<link rel="modulepreload" href="pub/suggest.js">
 <link rel="modulepreload" href="pub/keep.js">
 <style>
 /* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
@@ -142,7 +143,10 @@ try {
   }, 20000);
 })();
 </script>
-<script type="module" src="pub/testbed.js"></script>
+<script>
+/* The sandbox's day picker (pub/testbed.js) is only for the practice copy; the live page does not load it (R-122). */
+if (/[?&]demo=1/.test(location.search)) { var tb = document.createElement('script'); tb.type = 'module'; tb.src = 'pub/testbed.js'; document.currentScript.parentNode.insertBefore(tb, document.currentScript); }
+</script>
 <script type="module" src="pub/app.js"></script>
 </body>
 </html>

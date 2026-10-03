@@ -36,6 +36,8 @@ jobs:
           exit $bad
       - name: The two staff apps make the same data calls
         run: node staff/tools/parity.mjs
+      - name: The public page's first load carries the kernel only (R-122)
+        run: node tools/check_split.mjs
       - name: The suggested bill's rules
         run: node tests/rank_test.mjs
       - name: Playwright

@@ -1,7 +1,7 @@
 // The share line and the keep line (R-113, R-123, R-125): "Know someone who cares about <issue>? Send it" and "Keep your
 // issues on any phone or browser", shown on the finale and on Home's first-time card. Their own module (R-122): Home
 // imported them from start.js, which pulled the whole first visit and its lessons into every returning visit.
-import { S, esc, icon, toast, issuesLink, calendarUrl, followedIssues } from './core.js';
+import { S, esc, icon, toast, issuesLink, calendarUrl, followedIssues } from './kernel.js';
 import { btn } from './ui.js';
 import { logAct } from './visitlog.js';
 

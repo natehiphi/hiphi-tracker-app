@@ -9,7 +9,7 @@
 //   swap(fn, dir)  a screen change that slides the way the person is going (a View Transition where the browser has
 //                  one; otherwise the change simply happens).
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
-import { icon } from './core.js';
+import { icon } from './kernel.js';
 import { CAPITOL } from './art.js';
 
 export const reduced = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
