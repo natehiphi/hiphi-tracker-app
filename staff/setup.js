@@ -39,7 +39,7 @@ const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_r
 
 // The sub-pages, in the order the index lists them. Advanced ones are listed under "Advanced", closed by default.
 const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], ['alerts', 'Hearing alerts', 'bell'], ['coalitions', 'Coalitions', 'users'], ['sync', 'Session days and sync', 'calendar-days'],
-  ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe']];
+  ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe'], ['tests', 'Tests', 'flask-conical']];
 const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks']];
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED].map(([k, t, ic]) => [k, { t, ic }]));
 
@@ -158,6 +158,7 @@ function status(key) {
     case 'import': return 'Load the session, or replace the tracked list';
     case 'connections': return sec ? `Slack ${sec.slack_bot_token ? 'connected' : 'not connected'} · Calendar ${sec.google_calendar_refresh_token ? 'connected' : 'not connected'} · YouTube ${sec.youtube_api_key ? 'key set' : 'feed only'}` : 'Slack, Google Calendar and YouTube';
     case 'embed': return 'A table of our public bills for hiphi.org';
+    case 'tests': { const T = st().ab?.tests; return T ? `${T.filter(t => t.is_on).length} of ${plural(T.length, 'test')} on the public page` : 'The public page’s A/B tests'; }
     case 'templates': return `${TEMPLATE_KINDS.length} Slack messages`;
     case 'committees': return `${plural((S.counterparts || []).length, 'House and Senate pair')}`;
     case 'keys': { if (!sec) return 'Slack, Google and YouTube keys'; const n = ['slack_bot_token', 'google_oauth_client_id', 'google_oauth_client_secret', 'youtube_api_key'].filter(k => sec[k]).length; return `${n} of 4 keys set`; }
@@ -352,6 +353,94 @@ async function makeLink(a) {
       try { await navigator.clipboard.writeText(text); toast(x.dataset.cp === 'link' ? 'Link copied.' : 'Message copied. Paste it into Slack or an email.', { ok: true }); }
       catch { const t = d.querySelector('#tm-msg'); t.focus(); t.select(); toast('Select the message and copy it.'); }
     }) });
+}
+
+// ---- Tests: the public page's A/B tests (migration 116, R-135; ../backend/docs/AB-TESTS-PLAN.md) ----
+// A person comes here to decide each A/B test of the public page: keep it running, stop it, or pick its winner (B-1).
+// Nate 10/3: "turned on or off by me in my staff settings", "by default at random", "each different test should easily be
+// tracked by effectiveness". One card per test: its switch (on: each new visitor gets A or B at random and keeps it;
+// off: everyone gets one, today's unless a winner was picked), its numbers, one sentence on whether to trust the
+// difference, and two actions (A-20): Pick the winner, and See it (a sheet with a link to each version in the practice
+// copy, and where on it the difference is). A switch saves the moment it is flipped, with Undo, like every switch here;
+// turning on a test with a note (the email ask, waiting on a lawyer) asks first.
+function loadAb(force) {
+  const s = st(); if (s.abBusy || (s.ab && !force)) return;
+  s.abBusy = true; s.abErr = '';
+  Promise.all([DB.abTests(), DB.abResults()]).then(([tests, res]) => { s.ab = { tests: tests || [], res: res || [] }; })
+    .catch(e => { s.abErr = e.message || 'Could not load.'; })
+    .finally(() => { s.abBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+const armName = (t, a) => (t.arm_names || {})[a] || a;
+const AB = (t, a) => a === t.arms[0] ? 'A' : 'B';
+const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
+// Where each version can be seen in the practice copy, and what to do there to meet the difference.
+const SEE = {
+  end: ['track.html?demo=1&restart&ab=end.', 'A practice first visit from the start: the difference is at its end.'],
+  fv: ['track.html?demo=1&restart&ab=fv.', 'A practice first visit from the start: the difference is its second part.'],
+  email: ['track.html?demo=1&restart&ab=email.', 'A practice first visit: the difference is on “Coming up on your issues”.'],
+  rank: ['track.html?demo=1&ab=rank.', 'Free school bus passes: write practice testimony and say you sent it. The difference is the card after.', '#/bill/HB1780'],
+  share: ['track.html?demo=1&ab=share.', 'Free school bus passes: press Share. The difference is the message.', '#/bill/HB1780'],
+  home: ['compare.html?ab=home.', 'Pick Leilani (16 issues), then Open today’s version. The difference is the top of Home.'],
+};
+const seeUrl = (t, a) => `${APP_URL}${SEE[t.key]?.[0] || 'track.html?demo=1&ab=' + t.key + '.'}${a}${SEE[t.key]?.[2] || ''}`;
+// "Trust it" (R-121; Nate 10/3, the plan's question 5): a two-proportion test on the measure (the share test: friends
+// per share, a rate), only from 100 per version, at 99% while more than one test is on (95% for one). A real difference
+// of 10 points shows at about 600 per version at 99% (400 at 95%); short of that, "no difference" is "no difference yet".
+function zOf(t, a, b) {
+  const p1 = a.goal / a.seen, p2 = b.goal / b.seen, p = (a.goal + b.goal) / (a.seen + b.seen);
+  const se = t.rate ? Math.sqrt(a.goal / a.seen ** 2 + b.goal / b.seen ** 2) : Math.sqrt(p * (1 - p) * (1 / a.seen + 1 / b.seen));
+  return { z: se ? (p1 - p2) / se : 0, p1, p2 };
+}
+function abVerdict(t, a, b, bar) {
+  const unit = t.rate ? 'shares' : 'people', show = x => t.rate ? `${Math.round(100 * x.goal / x.seen)} per 100 shares` : pct(x.goal, x.seen);
+  if (!a.seen && !b.seen) return ['hourglass', t.is_on ? 'Nobody has met this test yet. The numbers fill as people arrive, most from January.' : 'Off, so nobody meets it.'];
+  if (a.seen < 100 || b.seen < 100) return ['hourglass', `Not enough ${unit} yet to trust a difference: ${a.seen} and ${b.seen}, and each version needs 100.`];
+  const r = zOf(t, a, b), win = r.p1 >= r.p2 ? a : b, lose = win === a ? b : a;
+  if (Math.abs(r.z) >= bar.z) return ['circle-check', `<b>Trust it:</b> ${AB(t, win.arm)} does better on “${esc(t.measure.toLowerCase())}” (${show(win)} against ${show(lose)}), beyond what chance would do (${bar.pct}%).${t.winner ? '' : ' Pick it, and the other version is removed within a week.'}`, win.arm];
+  const big = bar.pct === 99 ? 600 : 400;
+  if (a.seen < big || b.seen < big) return ['scale', `No clear difference yet (${show(a)} against ${show(b)}). Keep it running: a real difference of 10 points shows at about ${big} ${unit} per version.`];
+  return ['scale', `No real difference (${show(a)} against ${show(b)}, from ${a.seen} and ${b.seen} ${unit}). Either will do: pick on other grounds, or keep A.`];
+}
+const abBar = tests => tests.filter(t => t.is_on).length > 1 ? { z: 2.576, pct: 99 } : { z: 1.96, pct: 95 };
+// A test's numbers and verdict, worked out once for its card, the page's order and the status line. ready: trusted and
+// not yet picked. never: never switched on and nobody has met it, so there is nothing to show but the switch (A-14).
+function abState(t, res, bar) {
+  const rows = res.filter(r => r.test === t.key), get = a => rows.find(r => r.arm === a && !r.forced) || { arm: a, seen: 0, goal: 0, goal2: 0 };
+  const [a, b] = t.arms.map(get), v = abVerdict(t, a, b, bar);
+  return { a, b, v, forced: rows.filter(r => r.forced && r.seen), ready: !!v[2] && !t.winner, never: !t.started && !a.seen && !b.seen };
+}
+// Ready to decide first, then running, then picked, then off: the card that needs Nate is the first one he sees (A-13).
+const abRank = (t, x) => x.ready ? 0 : t.is_on ? 1 : t.winner ? 2 : 3;
+function abCard(t, x) {
+  const { a, b, v } = x;
+  const m = (r, k) => t.rate ? (r.seen ? String(Math.round(100 * r[k] / r.seen)) : '–') : pct(r[k], r.seen);
+  // On a phone each version's numbers are one line under its name ("640 visitors · 41% finished the first visit"): the
+  // cells carry their words in data-l (staff.css).
+  const tr = r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span><span class="sr">${AB(t, r.arm)}: </span>${esc(armName(t, r.arm))}${r.arm === t.arms[0] ? ' <span class="muted">(today’s)</span>' : ''}</th>`
+    + `<td class="num" data-l="${t.rate ? 'shares' : 'visitors'}">${r.seen}</td><td class="num" data-l="${esc(t.measure.toLowerCase())}">${m(r, 'goal')}</td><td class="num" data-l="${esc(t.measure2.toLowerCase())}">${m(r, 'goal2')}</td></tr>`;
+  const offLine = `Off: everyone gets ${AB(t, t.fallback)}, “${esc(armName(t, t.fallback))}”.`;
+  const verdict = x.never ? '' : x.ready ? notice('ok', 'circle-check', `<span>${v[1]}</span>`) : `<p class="small ab-verdict">${icon(v[0])}<span>${v[1]}</span></p>`;
+  const pick = x.ready ? btn(`Pick ${AB(t, v[2])}`, { kind: 'primary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': v[2] } })
+    : x.never ? '' : btn(t.winner ? 'Change the pick' : 'Pick the winner', { kind: 'text', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'aria-haspopup': 'dialog' } });
+  return `<section class="card ab-card${x.ready ? ' ab-ready' : ''}" aria-labelledby="ab-h-${esc(t.key)}">
+    <div class="ab-head"><h2 class="ab-t" id="ab-h-${esc(t.key)}">${esc(t.name)}</h2>${t.winner ? chip(`Picked ${AB(t, t.winner)}`, 'ok', 'trophy') : ''}</div>
+    <p class="small ab-q">${esc(t.question)}</p>
+    ${t.note && !t.is_on ? notice('warn', 'info', esc(t.note)) : ''}
+    ${verdict}
+    ${switchRow('ab-on-' + t.key, 'Test it on new visitors', t.is_on, t.is_on ? '' : offLine, { 'data-abon': t.key })}
+    ${x.never ? '' : `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}</caption>
+      <thead><tr><th scope="col">Version</th><th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th></tr></thead>
+      <tbody>${tr(a)}${tr(b)}</tbody></table></div>`}
+    ${x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : ''}
+    <div class="btnrow ab-acts">${pick}${btn('See it', { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-absee': t.key, 'aria-haspopup': 'dialog' } })}</div>
+    ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
+  </section>`;
+}
+// Save one test's switch, put the row the database sends back in place, and redraw.
+async function saveAb(key, patch) {
+  const row = await DB.setAbTest(key, patch), s = st();
+  if (s.ab) s.ab.tests = s.ab.tests.map(t => t.key === key ? { ...t, ...row } : t);
+  hooks.render(); return row;
 }
 
 const PAGES = {
@@ -598,6 +687,44 @@ const PAGES = {
     saveLabel: 'Copy the code', track: false,
     async save(root) { const t = root.querySelector('#st-emb-code');
       try { await navigator.clipboard.writeText(t.value); return 'Code copied.'; } catch { t.focus(); t.select(); return 'Selected. Copy it with Ctrl+C or Cmd+C.'; } },
+  },
+  tests: {
+    status: () => { const A = st().ab; if (!A) return ['flask-conical', 'The public page’s A/B tests.'];
+      const bar = abBar(A.tests), ready = A.tests.filter(t => abState(t, A.res, bar).ready);
+      return ['flask-conical', `${A.tests.filter(t => t.is_on).length} of ${plural(A.tests.length, 'test')} on.${ready.length ? ` Ready to decide: ${ready.map(t => esc(t.name)).join(', ')}.` : ' None ready to decide yet.'}`]; },
+    body() { loadAb(); const s = st();
+      if (!s.ab) return s.abErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the tests. ${esc(s.abErr)}`)}${btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-abretry': '1' } })}</div>`
+        : `<div aria-busy="true" aria-label="Loading the tests">${[0, 1].map(() => '<div class="card"><div class="skel" style="height:120px"></div></div>').join('')}</div>`;
+      const bar = abBar(s.ab.tests), cards = s.ab.tests.map(t => ({ t, x: abState(t, s.ab.res, bar) })).sort((p, q) => abRank(p.t, p.x) - abRank(q.t, q.x) || p.t.sort - q.t.sort);
+      return `<div class="ab-intro"><p class="small muted">Each new visitor gets A or B of every test that is on, at random. A card says “Trust it” when the difference is real.</p>
+        ${btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-abretry': '1', 'aria-busy': s.abBusy ? 'true' : null } })}</div>
+        <div class="ab-list">${cards.map(c => abCard(c.t, c.x)).join('')}</div>`; },
+    wire(root) {
+      const s = st(), test = k => s.ab?.tests.find(t => t.key === k);
+      root.querySelectorAll('[data-abretry]').forEach(b => b.onclick = () => { s.ab = null; loadAb(true); hooks.render(); });
+      root.querySelectorAll('[data-abon]').forEach(el => el.onchange = async () => {
+        const t = test(el.dataset.abon); if (!t) return;
+        const on = el.checked, before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner };
+        if (on && t.note && !await confirmSheet({ title: `Turn on “${t.name}”?`, text: `${esc(t.note)} New visitors start getting A or B at once.`, ok: 'Turn it on' })) { el.checked = false; return; }
+        try { await saveAb(t.key, on ? { is_on: true, winner: null } : { is_on: false });
+          toast(on ? `Saved. New visitors get A or B of “${t.name}” at random.` : `Saved. Everyone gets ${AB(t, t.fallback)} of “${t.name}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
+        catch (e) { el.checked = !on; toast(e, { err: true }); } });
+      // See it: the practice copy forced to each version, in a new tab, with where on it the difference is.
+      root.querySelectorAll('[data-absee]').forEach(b => b.onclick = () => { const t = test(b.dataset.absee); if (!t) return;
+        openSheet({ title: `See it: ${t.name}`, pop: true, body: `<p class="small muted ab-seehint">${esc(SEE[t.key]?.[1] || '')} The practice copy opens in a new tab; nothing there is saved or counted.</p>
+          <div class="rows">${t.arms.map(x => row({ lead: 'external-link', title: `See ${AB(t, x)}`, sub: esc(armName(t, x)), href: seeUrl(t, x), chevron: false, attrs: { target: '_blank', rel: 'noopener' } })).join('')}</div>` }); });
+      // Pick: everyone gets that version and the test stops (Undo). A test with a note (the email ask, waiting on a lawyer)
+      // asks first, as turning it on does: picking B gives every visitor that version at once.
+      const pick = async (t, arm) => { const before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner };
+        if (t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Give everyone ${AB(t, arm)}?`, text: `${esc(t.note)} Every visitor gets “${esc(armName(t, arm))}” at once.`, ok: `Pick ${AB(t, arm)}` })) return;
+        try { await saveAb(t.key, { is_on: false, fallback: arm, winner: arm }); toast(`Picked ${AB(t, arm)}. Everyone gets “${armName(t, arm)}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
+        catch (e) { toast(e, { err: true }); } };
+      root.querySelectorAll('[data-abpick]').forEach(b => b.onclick = () => { const t = test(b.dataset.abpick); if (!t) return;
+        if (b.dataset.abarm) { pick(t, b.dataset.abarm); return; }
+        pickerSheet({ title: `Pick the winner: ${t.name}`, value: t.winner || '', help: 'Everyone gets it from now on, and the test stops. The other version is removed within a week. Undo, or turn the test back on, to take it back.',
+          options: t.arms.map(x => [x, `${AB(t, x)}: ${armName(t, x)}`, x === t.winner ? 'trophy' : null, x === t.arms[0] ? 'Today’s version' : '']),
+          onPick: arm => pick(t, arm) }); });
+    },
   },
   templates: {
     status: () => ['square-pen', 'The wording of each Slack message. Leave one blank to use the standard wording.'],

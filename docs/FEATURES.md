@@ -106,7 +106,8 @@ links; automated browsers never toss). `variantInfo()` goes on every private cou
 on first-visit events; `variant` on the day and action counts; migration 113). Staff read the comparison on Outreach >
 Issues > First visit > **Versions** (`first_visit_variants`, `variantsHTML` in `staff/firstvisit.js`: a two-proportion
 test on "finished" at 95%, trusted only from 100 visits per version; forced visits shown apart). One test at a time, and
-no new "try both" versions from 15 Oct (rule 13).
+no new "try both" versions from 15 Oct (rule 13). **Superseded 3 Oct by R-135, below: six tests at once, and the
+Versions section points to Session setup > Tests.**
 
 **The six recommendations of 1 Oct (R-115 to R-120).** The tester day-picker tells the truth (P9): `stops.js` gives a
 bill whose current committee already reported a `hearingState` of `decided` (with `decided`: the outcome), so it is never
@@ -195,3 +196,46 @@ name, HIPHI's stance, the ask staff wrote in the Public section or "Please speak
 `?via=newsletter`) or the post text (one line per bill under 280 characters, `?via=social`); `weekAsksHTML` is the card
 above the grid with the two copy buttons (`[data-wkasks]`). Styles `.td-asks` in `staff/staff.css`. Checks in
 `tests/staff_week.py`.
+
+## Live A/B tests, each with its switch and its results (R-135; 3 Oct 2026, HANDOFF 3.79)
+
+Nate 10/3: every "try both" version tested at random on the public, each turned on or off by him in Staff v2, each
+tracked by effectiveness. The plan: `../backend/docs/AB-TESTS-PLAN.md`; the database: backend migrations 116-117.
+- **`pub/variant.js`** (first wave, kernel only) holds `TESTS`: `end` (today | home), `fv` (full | short), `rank` (today |
+  ranked), `email` (finale | after), `share` (summary | deadline), `home` (by-day | by-issue, which groups by topic). The
+  first version of each is today's. A new browser gets every test's version by its own coin toss and keeps it
+  (`hiphi_ab`); `armOf(key)` gives the version to draw: a tester's link first (`?ab=home.by-issue`, several with commas;
+  the older `?end=`, `?fv=`, `?rank` still work; counted apart), then the first visit's lock (`lockFirstVisit()`, called
+  by `start.js` as the first visit starts: `end` and `fv` keep it for good, `email` until the first visit is over), then
+  the switch (`public_ab_tests`, fetched by `track.html` with the catalog as `window.__hiphiAB`, kept in `hiphi_ab_cfg`; a
+  test that is off shows its fallback; a test the database lists with other versions is off). The sandbox and automated
+  browsers get today's version unless a link says otherwise (`window.__hiphiTossTests` lets `tests/abtests.py` watch the
+  toss). `app.js earlyFirst` waits for the switches at most 300 ms (`abSettled`), and not at all once they are kept.
+- **Counting:** `abSeen(key)` (met the test, once per browser; the share test, each bill shared), `abEvent(name)` for the
+  measures (`finished` from `start.js track`, `back` from `visitlog.js logDay`, `acted` from `logAct`, `email` from
+  `core.js sendEmailLink`, `step2` from `markDone` through `abStep`), each sent once within its window of days.
+  `visitlog.js` sends them to `log_ab` in batches of up to 12, by plain `fetch` (never the database library), under the
+  same rules as every count: nothing with the privacy signal, from a test run or from the sandbox. No identifier leaves
+  the browser. The share test's link carries `?via=share-<version>` (`shareTag()`; `visitlog.js` counts it as `share`
+  everywhere else); a friend's arrival and later action are credited to that message. The privacy page's "What we count"
+  says so (`pub/more.js`).
+- **Where each version lives:** `end` and `fv` as before (`endHome()`, `SHORT()` in `start.js`); `email`: `start-rest.js`
+  `noAsk()` shows the quiet line instead of the form on "Coming up", and Home's welcome leaves out its ask; `rank`:
+  `actions.js` `actionCard` (met where testimony is sent and another step is open; `nextStep` keeps testimony first for
+  everyone, R-068); `share`: `actions.js` `shareFor` (the deadline-first words, only where there is a deadline or a
+  hearing; `doShare` counts it); `home`: `home.js` `issueBlock` (topic sections in deadline order; the two soonest things
+  are full cards, as in today's version, and the rest one line each, so only the grouping differs; three topics then a
+  fold; the cards there leave out their own topic line, `actionCard`'s `noTopic`). On "Coming up", the quiet line
+  (`quietAsk`, styled in `start.css`) sits under the list, and the bottom button is Next whenever there is no email box
+  (it used to submit a form that was not on the page after an ask earlier in the visit, R-114).
+- **Staff:** `staff/setup.js` `tests` page (Session setup > Tests, admins). The status line names the tests ready to
+  decide; the cards are sorted ready, running, picked, off (`abState`, `abRank`). Per test: the verdict under the question
+  (`abVerdict`: a two-proportion test, a rate test for share, from 100 per version, at 99% while more than one test is on;
+  a trusted one on a green notice with a filled "Pick B"), the switch (saves at once, Undo; asks first when the test has a
+  note), the numbers (`DB.abTests`, `DB.abResults`; the deciding column marked; on a phone one line per version from the
+  cells' `data-l`), Pick the winner (off, fallback and winner set; Undo; a test with a note asks first) and See it (the
+  practice copy forced to each version, `SEE`). A test never switched on shows only its question, note, switch and See it. `compare.html`
+  passes `?ab=` on, for Home's "See it". Sandbox sample numbers: `DEMO_AB` in `staff/data.js`.
+- Tests: `tests/abtests.py` (59 checks: each version forced in the sandbox at two sizes; the toss over 200 browsers; the
+  switches; every measure; a friend by a shared link; the privacy signal; every database request intercepted).
+

@@ -34,7 +34,9 @@ def rig(ctx, sent, partners=None, fail_partners=False):
     # anything else on supabase.co would be a leak: refuse it and note it
     def other(route):
         sent.append({'url': route.request.url, 'leak': True}); route.abort()
-    ctx.route(re.compile(r'.*supabase\.co/(?!rest/v1/(rpc/log_first_visit|public_partners)).*'), other)
+    # the A/B tests' switches (R-135, pub/variant.js, imported by visitlog.js): answered with none, so no test runs here
+    ctx.route(re.compile(r'.*supabase\.co/rest/v1/public_ab_tests.*'), lambda route: route.fulfill(status=200, content_type='application/json', body='[]', headers={'access-control-allow-origin': '*'}))
+    ctx.route(re.compile(r'.*supabase\.co/(?!rest/v1/(rpc/log_first_visit|public_partners|public_ab_tests)).*'), other)
 
 IMPORT = "async () => { window.VL = await import('/pub/visitlog.js'); return true; }"
 # R-100: an automated browser on the test machine is never counted unless it opts in (this suite catches every request).

@@ -29,6 +29,10 @@ direction; Claude builds, tests, pushes and verifies the published site.
   link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the first screen loads first and every
   other screen on first use (R-122; "How the page loads" below); Home's first card counts the day's deadlines and twin bills
   are one card (R-131); Staff v2's Week view has "This week's asks" to paste into the newsletter or a post (R-132).
+- **Six live A/B tests (R-135, 10/3; `docs/FEATURES.md`, `../backend/docs/AB-TESTS-PLAN.md`):** every new browser gets
+  a version of each by its own coin toss (`pub/variant.js`), Nate switches each on or off and picks winners in Staff v2 >
+  Session setup > Tests, and every count is per version. A change to one of those screens keeps both versions working
+  until the winner is picked; `python3 tests/abtests.py` checks them.
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
@@ -103,9 +107,9 @@ session is dark (until January 2027).
   (`sameAsHiphi`); HIPHI's wording and ask only when they agree. A saved draft shows as "Finish sending your
   testimony" (`testimonyDraft` in core.js) and a card on Home; it counts as having been here. Sending follows the
   bill's issue with "Don't follow it"; a newcomer from a link goes on to the first visit (`app.newcomerNext`).
-- **The first visit's short version** (R-067 #11): `?fv=short` (remembered in `wiz().fv`; `?fv=full` switches back)
-  replaces the three lessons with one page, "Why your voice matters" (`stepVoice`, counted as step 'voice', backend
-  080). The full version stays the default until Nate picks. The lessons also open on their own at
+- **The first visit's short version** (R-067 #11): the A/B test `fv` since R-135 (coin toss; `?fv=short` and `?fv=full`
+  still force one) replaces the lesson with one page, "Your voice counts here" (`stepVoice`, counted as step 'voice',
+  backend 080). The lessons also open on their own at
   `#/learn/<bill|session|hearing>[/<bill id>]`, linked from bill pages, Help and the short page. "Coming up" offers
   testimony when it is due within 48 hours (one action, #12).
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
@@ -374,6 +378,7 @@ python3 tests/links_keep.py         # the walkthrough link, the My issues link r
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog, and someone with an action lands on Home; 5 checks
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
+python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 59 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

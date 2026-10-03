@@ -388,6 +388,37 @@ body.sidenarrow .sv-sync span { display: none; }
 .fv-vtable th, .fv-vtable td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line, #DBE3E7); }
 .fv-vtable th.num, .fv-vtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .fv-vtable th[scope="row"] { font-weight: 600; }
+/* Session setup > Tests: the public page's A/B tests (R-135). One card per test; A and B are marked in a small square so
+   the rows, the verdict and the buttons can say "A" and "B". */
+.ab-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.ab-intro p { margin: 0; max-width: 65ch; }
+.ab-intro .btn { flex: none; }
+@media (max-width: 599px) { .ab-intro { flex-direction: column; gap: 4px; } .ab-intro .btn { margin-left: -12px; } }
+.ab-list { display: flex; flex-direction: column; gap: 16px; }
+.ab-card { display: flex; flex-direction: column; gap: 12px; }
+.ab-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ab-t { font-size: 18px; line-height: 1.3; margin: 0; }
+.ab-q, .ab-foot, .ab-verdict { margin: 0; }
+.ab-q { color: var(--n700); }
+.ab-v { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--p50); color: var(--p700); font-weight: 700; font-size: 13px; margin-right: 8px; vertical-align: middle; }
+.ab-verdict { display: flex; gap: 8px; align-items: flex-start; }
+.ab-verdict .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+.ab-acts { flex-wrap: wrap; gap: 8px; }
+.ab-table td.num { white-space: nowrap; }
+.ab-dec { display: block; font-size: 13px; font-weight: 600; color: var(--p700); }
+.ab-ready { border-color: var(--ok-text, #1F7A4D); }
+/* A phone: each version is its name, then one line of its numbers in words; the column heads go to screen readers only. */
+@media (max-width: 599px) {
+  .ab-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ab-table, .ab-table tbody, .ab-table tr { display: block; }
+  .ab-table tr { padding: 8px; border-bottom: 1px solid var(--line, #DBE3E7); }
+  .ab-table tr:last-child { border-bottom: 0; }
+  .ab-table th[scope="row"], .ab-table td { border: 0; padding: 0; }
+  .ab-table th[scope="row"] { display: block; margin-bottom: 4px; }
+  .ab-table td.num { display: inline; text-align: left; white-space: normal; font-size: 14px; color: var(--n700); }
+  .ab-table td::after { content: ' ' attr(data-l); }
+  .ab-table td + td::before { content: ' · '; }
+}
 
 /* This week's asks (R-132, the assessment's W5): a card above the week grid, text staff copy for the newsletter or a post.
    One list, two buttons, nothing else asked of the page (A-14: the week's line above already counts the deadlines). */

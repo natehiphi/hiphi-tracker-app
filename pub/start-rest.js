@@ -9,7 +9,7 @@ import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, reduced } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
-import { endHome } from './variant.js';
+import { endHome, armOf } from './variant.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -399,6 +399,9 @@ function askCard() {
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
   const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
+  // No email box (already asked this visit, R-114; or the email-ask test's second version, R-135): the quiet line goes
+  // under the list it follows, not alone in the other column.
+  const quiet = (S.nudgedThisVisit || noAsk()) && !S.session && !mailSent();
   // Nate 9/29 (R-078): "Coming up" first, then the reminder, and both on the first screen. So each item is one compact row
   // (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one due soonest always first.
   // Rows by the screen's height, so the reminder box still fits under them: three on a tall phone, two on a mid-size one
@@ -412,11 +415,14 @@ function stepSoon(step) {
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}
-    ${list}`,
-    `<div id="st-askbox">${S.nudgedThisVisit && !S.session && !mailSent() ? quietAsk() : askCard()}</div>`);
+    ${list}${quiet ? quietAsk() : ''}`,
+    quiet ? '' : `<div id="st-askbox">${askCard()}</div>`);
 }
+// The email-ask test's second version (R-135, variant.js 'email'): the first visit does not ask; the first ask comes after
+// the person's first action ("Mahalo for speaking up", pub/actions.js nudgeCard) or when they come back another day.
+const noAsk = () => armOf('email') === 'after';
 // One email ask per visit (R-114, B3): someone who acted from a shared link was already asked on the Mahalo screen.
-const quietAsk = () => `<p class="small muted st-quietask">${icon('mail')}<span>Want email reminders? Add your email any time under More.</span></p>`;
+const quietAsk = () => `<p class="small muted st-quietask">${icon('mail')}<span>Want email reminders? Once you’re through, add your email any time from More.</span></p>`;
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
 // Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
@@ -708,7 +714,9 @@ export function barStep(name, step, off) {
       : bar2('Next', { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
-    case 'soon': return S.session || mailSent() ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
+    // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's
+    // second version, R-135) means Next, never a "Remind me" that submits a form that is not on the page.
+    case 'soon': return S.session || mailSent() || noAsk() || S.nudgedThisVisit ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
     case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
     default: return '';

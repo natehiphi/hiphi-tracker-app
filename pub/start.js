@@ -39,7 +39,7 @@ import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { wireShareLine, wireKeepLine } from './keep.js';
-import { endHome } from './variant.js';
+import { endHome, armOf, lockFirstVisit, abEvent } from './variant.js';
 export let LZ = null, lzP = null;
 // The rest of the first visit (start-rest.js: every step after the topics, the lessons' pages, the address and email
 // steps) and the bill-level code (core.js) load after the topics screen is up (R-122, the split): a newcomer's first
@@ -71,11 +71,9 @@ const FLOW_LINK = ['followask', 'bill', 'you', 'soon', 'done'];
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
 // very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
 // they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
-// against the full version with the outside testers, whose link carries ?fv=short (the first visit remembers it;
-// ?fv=full switches back); the full version stays the default until Nate picks. The counting records the page as 'voice'
-// (backend 080).
-const SHORT = () => wiz().fv === 'short';
-try { const f = new URLSearchParams(location.search).get('fv'); if (f === 'short' && !SHORT()) wizSet({ fv: 'short' }); else if (f === 'full' && SHORT()) wizSet({ fv: null }); } catch { /* ignore */ }
+// against the full version by coin toss since R-135 (variant.js, the test 'fv'; the testers' ?fv=short and ?fv=full still
+// force one). The counting records the page as 'voice' (backend 080).
+const SHORT = () => armOf('fv') === 'short';
 const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 // The version that ends on Home (?end=home, R-098) has no "You're all set" screen: the last step goes straight to Home,
 // where the celebration plays (pub/home.js).
@@ -100,7 +98,10 @@ function myIsland() {
 
 // ---------- the private visit counts (R-023 decision 8): one row per screen reached and how it was left ----------
 let viewKey = '', viewAt = 0;
-export const track = (step, event, extra = {}) => { try { logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
+export const track = (step, event, extra = {}) => { try {
+  // Reaching the end (the finale, or Home in the version that ends there) is the first-visit tests' measure (R-135).
+  if (step === 'done' && (event === 'view' || event === 'done')) abEvent('finished');
+  logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
 
 // Closing the tab (or leaving the site) mid-visit is counted as leaving that screen, with the seconds spent on it.
 window.addEventListener('pagehide', () => { if (document.body.dataset.screen === 'start' && viewKey) track(viewKey.split('|')[1], 'leave'); });
@@ -426,9 +427,11 @@ const TITLE = { topics: 'What do you care about?', issues: 'Your issues', bill: 
 export default {
   tab: 'home',
   tabs: false,
-  title: route => route.name === 'learn' ? LESSON_TITLES[learnName(route)] : TITLE[nameAt(route.step || 1, isOff())] || 'Get started',
+  // The first visit's A/B versions are fixed as it starts (variant.js lockFirstVisit, R-135), before anything asks which.
+  title: route => route.name === 'learn' ? LESSON_TITLES[learnName(route)] : (lockFirstVisit(), TITLE[nameAt(route.step || 1, isOff())] || 'Get started'),
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);
+    lockFirstVisit();
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)));   // wire() sends them on
     const name = nameAt(step, off);

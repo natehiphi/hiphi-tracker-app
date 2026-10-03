@@ -4,6 +4,7 @@
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE, stoppedAt } from '../stops.js';
 import { topicOf } from './topics.js';
 import { rankAll, shortList, markShown, actedKind } from './rank.js';
+import { abEvent, abStep } from './variant.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
@@ -85,6 +86,7 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   saveDone(); saveDoneAt();
   if (on && !quiet) { celebrate(kind, firstTestimony); }
   if (on) app.onAct?.(kind);   // counted privately, its kind only (visitlog.js logAct, migration 078)
+  if (on && hearingId) abStep(hearingId, kind);   // another step where the rank test was met (R-135)
   if (on && !S.session) nudge('action');
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
   const col = { testimony: 'testimonies', email: 'emails', legislators: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
@@ -946,6 +948,7 @@ export async function sendEmailLink(email, { hearing_alerts = false, action_aler
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
   if (error) throw error;
   try { sessionStorage.setItem('hiphi_link_sent', email); } catch { /* ignore */ }
+  abEvent('email');   // gave an email: the email-ask test's measure (R-135)
   return { sent: true };
 }
 export const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());

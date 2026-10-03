@@ -23,7 +23,7 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'rpc turn_off_user_list {p_link,p_reason}', 'rpc turned_off_user_lists', 'rpc turn_on_user_list {p_list}',   // Session setup > People's lists (103, R-013)
   'table public_errors_recent',   // Session setup: the public page's error reports (110, R-111)
   'table public_action_counts', 'rpc watch_counts',   // the public's response on hearings, the Week and the Public tab (R-117)
-  'rpc first_visit_variants {weeks}']);   // First visit > Versions (113, R-121)
+  'table ab_tests', 'rpc ab_results']);   // Session setup > Tests: the public page's A/B tests (116, R-135)
 const cur = calls(read('app.js')), v2 = new Set([...calls(read('staff/data.js')), ...calls(read('staff/model.js'))].filter(x => !V2_ONLY.has(x)));
 // Calls the current app makes only from its screens (none expected: every call lives in DB) would show up here.
 const onlyCur = [...cur].filter(x => !v2.has(x)), onlyV2 = [...v2].filter(x => !cur.has(x));

@@ -25,7 +25,7 @@ import { CAPITOL, islands, flower } from './art.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
-import { endHome } from './variant.js';
+import { endHome, armOf, abSeen } from './variant.js';
 import { logVisit, logAct } from './visitlog.js';
 
 S.hmOpen ??= {};   // which in-place lists are open ("Show 12 more", "See all"); kept for the visit so Back returns to the same page
@@ -404,10 +404,32 @@ function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
       ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
       ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : nudgeHtml}
-    ${asks.length ? `<section class="hm-sec hm-asks" aria-labelledby="hm-asks-t"><h2 id="hm-asks-t">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</h2>
+    ${asksSec(cards, asks, arest)}`;
+}
+const asksSec = (cards, asks, arest = asks.slice(2)) => asks.length ? `<section class="hm-sec hm-asks" aria-labelledby="hm-asks-t"><h2 id="hm-asks-t">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</h2>
       <p class="small hm-asksub">The committee chair decides which bills get a hearing. A short, polite note helps.</p>
       ${asks.slice(0, 2).map((x, i) => askCard(x, !cards.length && !i)).join('')}
-      ${arest.length ? moreRows('asks', arest.map(askRow)) : ''}</section>` : ''}`;
+      ${arest.length ? moreRows('asks', arest.map(askRow)) : ''}</section>` : '';
+// Home's top grouped by topic: the home test's second version (R-135, variant.js 'home'). By topic, the six the first
+// visit's first screen offers, not by issue: 55 of the 91 issues share their name with one of their bills, so an issue
+// heading would repeat the card title under it most of the time (A-14). Each topic with something to do is a section, the
+// one with the soonest deadline first (the cards come in deadline order). As in today's version, only the two soonest
+// things are full cards and everything else is one line (the review 10/3: one full card per topic made a later bill a
+// card and a sooner one a line, and three main buttons against two), so the test measures the grouping and nothing else.
+// Three topics show; the rest fold under "Show N more topics". The cards under a topic heading leave out their own topic
+// line. The asks for a hearing stay as they are.
+function issueBlock(cards, asks, { nudgeHtml = '' } = {}) {
+  const groups = new Map();
+  for (const x of cards) { const t = issueOf(x.b), k = t ? t.key : ''; if (!groups.has(k)) groups.set(k, { t, xs: [] }); groups.get(k).xs.push(x); }
+  const list = [...groups.values()].sort((a, b) => (a.t ? 0 : 1) - (b.t ? 0 : 1)), first = cards.find(x => !settledOn(x.b, x.h)), full = new Set(cards.slice(0, 2));
+  const sec = (g, n) => { const id = `hm-iss-${n}`, big = g.xs.filter(x => full.has(x)), small = g.xs.filter(x => !full.has(x));
+    return `<section class="hm-iss" aria-labelledby="${id}"><h2 class="hm-isst" id="${id}">${icon(g.t ? issueIcon(g.t.icon) : 'landmark')}<span>${esc(g.t ? g.t.key : 'Other bills you follow')}</span></h2>
+      ${big.map(x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text, twin: S.hmTwins?.get(x.b.id) || null, noTopic: !!g.t })).join('')}
+      ${small.length ? `<div class="rows">${small.map(actRow).join('')}</div>` : ''}</section>${n === 0 ? nudgeHtml : ''}`; };
+  const more = list.slice(3);
+  return `${cards.length ? `<div class="hm-now hm-byissue">${list.slice(0, 3).map(sec).join('')}
+      ${more.length ? `${toggle('iss', 'hm-issmore', `Show ${more.length} more ${more.length === 1 ? 'topic' : 'topics'}`)}<div id="hm-issmore" class="hm-now hm-more"${S.hmOpen.iss ? '' : ' hidden'}>${more.map((g, k) => sec(g, k + 3)).join('')}</div>` : ''}</div>` : nudgeHtml}
+    ${asksSec(cards, asks)}`;
 }
 
 // Why a suggestion is shown, in words: the biggest part of its score (rank.js). Empty when only the deadline would
@@ -484,6 +506,9 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
   const sugInMain = !cards.length && !asks.length;   // (the strip, above, also decided which moments are a card's reason line)
+  // The home test (R-135): met where its versions differ, two or more things to do.
+  if (cards.length >= 2) abSeen('home');
+  const byIssue = armOf('home') === 'by-issue';
   const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">${sugInMain ? 'A bill that still needs voices' : 'Another bill that needs voices'}</h2>
       ${sugCard(sug.b, sug.h)}
       ${btn('More bills that need voices', { kind: 'text', iconEnd: 'chevron-right', href: '#/find', cls: 'hm-link' })}</section>` : '';
@@ -491,7 +516,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
     ${accountCards()}
     <div class="cols"><div class="hm-main">
       ${draftsCard()}${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
-      ${todoBlock(cards, asks, { nudgeHtml })}
+      ${byIssue ? issueBlock(cards, asks, { nudgeHtml }) : todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
@@ -530,7 +555,8 @@ function welcomeView(si, { cards, asks, total }) {
   const stood = !stands ? '' : ` and said where you stand on ${stands === 1 ? 'one of them' : n(stands)}`;
   const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
-  const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge ? '' : nudgeCard(S.nudge);
+  // Not in the email-ask test's second version, which first asks after an action (R-135, variant.js 'email').
+  const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
   // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to

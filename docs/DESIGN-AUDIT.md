@@ -68,6 +68,7 @@ header comment promises. Measured: every screen is within A-4.
 | App | Width | Screen | Arrival | all | kinds | nav | sizes | colours |
 |---|---|---|---|---|---|---|---|---|
 | public | 390 | start | 342 | 8 | 7 | 1 | 4 | 5 |
+| public | 390 | start, re-measured 10/3 | 430 (accepted exception, section 4, 9/27) | 7 | 6 | 1 | 4 | 6 |
 | public | 390 | home | **225** | 9 | **3** | 6 | 6 | 6 |
 | public | 390 | my issues (9/21) | **205** | 16 | **2** | 6 | 6 | 5 |
 | public | 390 | category (9/21) | 379 | 14 | **3** | 6 | 5 | 6 |
@@ -85,6 +86,7 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 390 | coalitions (9/21) | **211** | 18 | **6** | 6 | 2 | 4 |
 | staff2 | 390 | one coalition (9/21) | 349 | 12 | **3** | 7 | 4 | 5 |
 | staff2 | 390 | hearing (9/21) | **308** | 15 | **6** | 7 | 4 | 5 |
+| staff2 | 390 | Session setup > Tests (10/3, R-135) | **298** | 4 | **1** | 3 | 5 | 5 |
 | public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
 | public | 1440 | home | **218** | 11 | **5** | 6 | 6 | 7 |
 | public | 1440 | my issues (9/21) | **246** | 16 | **2** | 6 | 6 | 5 |
@@ -104,6 +106,7 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 1440 | coalitions (9/21) | **210** | 30 | **1** | 16 | 3 | 4 |
 | staff2 | 1440 | one coalition (9/21) | 335 | 39 | **10** | 16 | 5 | 5 |
 | staff2 | 1440 | hearing (9/21) | **313** | 26 | **7** | 11 | 5 | 5 |
+| staff2 | 1440 | Session setup > Tests (10/3, R-135) | **251** | 28 | 17 | 11 | 5 | 7 |
 
 Bold = inside budget. **Every screen in both apps is now inside the A-2 content-control budget**, and
 seven readings sit between the arrival budget and the limit (G-8). Nothing in either app exceeds a limit.
@@ -222,6 +225,7 @@ proves it can be done in six words ("reach the last committee by this date"); To
 | Public first screen, phone (in session) | A-1 arrival | 430px at 390 (was 375; budget 320) | R-067: testers liked the first visit but were confused about what it is. Nate picked Version A on 9/27: a lede saying HIPHI follows the health bills at the Legislature and a three-part promise (we keep watch, we tell you when, you see what happened). The promise takes the Capitol drawing's place on phones and is left out below 359px, so two topic cards stay in view at 375×812 and 320×640. Judge with the testers' "what is this?" answer and screen-1 drop-off after January. 2026-09-27. |
 | First visit, "A bill's story" stage 3 | C-12 teaching shown, not hidden | The four choices' sentences appear only when a choice is tapped | R-062: Nate chose "one choice at the end" (a choose-your-own-adventure) on 9/29: the reader picks what they'd do (email the chair, send testimony, tell my legislators, stay quiet) and sees what can happen. The general point stays visible without a tap ("Few people write in, so each note gets noticed", a real win, and when we'll tell them). Judge with the testers: can they say, after the story, one way speaking up can help? 2026-09-29. |
 | Public Home, "Your session" | C-7 (no badge ladder) | milestone chips kept, no "Next:" goal | R-067 found the ten milestones with "Next: Took a stand" read as the badge ladder C-7 rules out. Nate chose (b) on 9/27: keep the milestones as a quiet record of what the person did, drop the "Next:" line and its bar. 2026-09-27. |
+| Staff Session setup > Tests, laptop | A-2 kinds | 17 at 1440 (phone 1; budget 15, limit 25) | R-135: six cards of the same shape, one per A/B test, each with its switch, Pick and See it; a trusted test's Pick is a filled button and the others are text buttons, on purpose, so the one ready to decide stands out (the fresh-eyes review, A-13). The kinds are the same few controls at two weights, repeated down a list (A-2's "repetition does not compete"). Claude's call, 2026-10-03. |
 | Public "Every bill HIPHI tracks", laptop | A-1 arrival | 383px at 1440 (phone 284) | R-091: Nate asked for filters (topic, HIPHI's position, where it stands) on 9/29. On a phone they wait behind one Filters button; from 900px they are a row of three labelled dropdowns above the table, so the row plus the table's own column header sit above the first bill. Hiding them behind a button on a laptop would save the space but make them easy to miss. Claude's call, 9/29; Nate can ask for the button on laptops too. |
 | Public Home, the version that ends there (`?end=home`, a test) | P-4 (nobody should need the manual) | two tips over Home, once | R-098: testers took the email ask as the end of the first visit and found Home doing nothing. What the tips cover for: Home does not say, by itself, that its top is where "what you can do right now" appears and that it changes as bills move. Nate asked for a second version to test beside today's (9/29). Judge with the testers (do they keep going on Home after the email, and can they say what Home is for?) and, after January, the private counts of 'home' done/skip and return visits. 2026-09-29. |
 | Desktop Bills | phone/desktop parity | three quick filter chips kept | On desktop they share a line with the totals and cost no vertical space. Nate has a standing offer to make them match. 2026-09-19. |

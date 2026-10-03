@@ -4,6 +4,7 @@
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf } from './core.js';
 import { logAct } from './visitlog.js';
+import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
 
@@ -25,20 +26,19 @@ function doneLabel(b, h, k) {
 // have acted, testimony leads. HIPHI's scripted email and letter are offered only when the person's own stance
 // matches HIPHI's or they have not said; someone who disagrees is pointed to the Capitol's own form instead.
 export const newToActing = () => myActions().length === 0;
-// Ranking by weight with the committee (R-005, Nate 9/26: yes, but he reviews it before it goes live): once a person has
-// taken a step on a hearing, the strongest step still open leads - testimony, then an email to the chair, then going in
-// person, then sharing - and "More ways to help" lists the rest in that order. Before, the main button simply went
-// away after testimony. A newcomer still starts with the two-minute email (the 9/19 ladder). Only with ?rank=1 in the
-// address until Nate says yes; then this switch goes.
-export const RANKED = new URLSearchParams(location.search).has('rank');
+// Ranking by weight with the committee (R-005, Nate 9/26), now the rank test (R-135, variant.js 'rank'): once testimony is
+// sent, the 'ranked' version offers the strongest step still open as the main button - an email to the chair, then going
+// in person, then sharing - and "More ways to help" lists the rest in that order; today's version has no main button
+// then. Until testimony is sent both versions are the same: testimony leads for everyone, late testimony too (R-068, Nate
+// 9/27 and 9/28, which came after this was first built with the quick email first for a newcomer). Someone who sees the
+// bill differently is offered going and sharing (the scripted email is HIPHI's words). The testers' ?rank=1 still forces it.
+const ranked = () => armOf('rank') === 'ranked';
 const WEIGHT = ['testimony', 'email', 'attend', 'share'];
 export function nextStep(b, h) {
-  if (agrees(b) === false) return null;
-  const late = !!dueInfo(h)?.late, open = k => !didKind(b, h, k) && !(k === 'testimony' && late);
-  if ((late || newToActing()) && open('email')) return 'email';
-  return WEIGHT.find(open) || null;
+  return (agrees(b) === false ? WEIGHT.filter(k => k !== 'email') : WEIGHT).find(k => !didKind(b, h, k)) || null;
 }
-export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null } = {}) {
+// noTopic: the card sits under its topic's heading (Home by topic, R-135), so its own topic line would say it twice.
+export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
   if (due && done) due.tone = '';   // acted: the deadline is no longer a warning
@@ -55,12 +55,15 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
   // step 4 (email a committee chair about a bill they met four seconds ago).
   const asking = !!suggest && !S.watch.has(b.id);
-  const step = RANKED ? nextStep(b, h) : null;
+  // The rank test is met where its versions differ: testimony sent on this hearing and another step still open (R-135).
+  const after = !asking && !compact && didKind(b, h, 'testimony') && !!nextStep(b, h), R = after && ranked();
+  if (after) abRankMet(h.id);
+  const step = R ? nextStep(b, h) : null;
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
   const primary = asking ? followBtn
-    : RANKED ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
+    : R ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
@@ -73,7 +76,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const legRow = hearingRow(b, h, moreRow);
   const rankedRows = () => [...WEIGHT.filter(x => x !== step).map(rowFor), legRow,
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready')].join('');
-  const rows = RANKED ? rankedRows() : [
+  const rows = R ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
     asking ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 10 minutes the first time.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
     differs ? '' : moreRow('mail', 'Send a quick email · 2 min', `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
@@ -85,7 +88,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   ].join('');
   const name = nick(b);
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
-    ${compact ? '' : `<div class="acrow">${issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
+    ${compact ? '' : `<div class="acrow">${noTopic ? '' : issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
     <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(name || blurb(b, 120))}</a></${heading}>
     ${name ? `<p class="acwhat">${esc(blurb(b, 160))}</p>` : ''}`}
     <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
@@ -136,18 +139,29 @@ function icsFor(b, h) {
 // a post previews with the bill's name, and the friend's visit counts as a share), the deadline in the words while
 // testimony is still open, and the link passed once: the share sheet gets it as the url, the clipboard copy at the end.
 export function shareFor(b, h, { acted = false, law = false, differs = false } = {}) {
-  const sp = spaced(b.bill_number), name = nick(b), named = name ? `${name} (${sp})` : sp, url = billShareUrl(b);
-  const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.`
-    : h && new Date(h.scheduled_at) > Date.now() ? ` The committee hears it ${dayWord(h.scheduled_at)}.` : '';
+  const sp = spaced(b.bill_number), name = nick(b), named = name ? `${name} (${sp})` : sp;
+  const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? dueWords(h.testimony_deadline) : '';
+  const heard = !due && h && new Date(h.scheduled_at) > Date.now() ? dayWord(h.scheduled_at) : '';
+  const when = due ? ` Testimony is due ${due}.` : heard ? ` The committee hears it ${heard}.` : '';
+  // The share test (R-135, variant.js 'share'): the 'deadline' version leads with the deadline. Only where there is one to
+  // lead with, and then the link says which message it was (?via=share-deadline), so a friend's arrival is credited to it.
+  const testing = !law && !!(due || heard), lead = testing && armOf('share') === 'deadline', tag = testing ? shareTag() : '';
+  const head = due ? `Testimony on ${named} closes ${due}.` : `The committee hears ${named} ${heard}.`;
   const text = law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
+    : lead && acted ? `${head} I just spoke up, and it took a few minutes. Will you add your voice too? Lawmakers really do notice when lots of us write in.`
+    : lead ? `${head} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} It takes a few minutes to tell them what you think, and every voice helps.`
     : acted ? `I just spoke up at the Legislature on a bill I care about: ${named}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps.`;
-  return { title: name || sp, text, url, copy: `${text} ${url}` };
+  const url = tag ? withVia(billShareUrl(b), tag) : billShareUrl(b);
+  return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '' };
 }
+// ?via= goes before the address's #/ part (a bill with no share page links straight to the tracker).
+const withVia = (u, v) => { const i = u.indexOf('#'), base = i < 0 ? u : u.slice(0, i); return `${base}${base.includes('?') ? '&' : '?'}via=${v}${i < 0 ? '' : u.slice(i)}`; };
 // The share itself: the device's share sheet, else the clipboard. 'shared' | 'copied' | '' (closed, or nothing works).
-export async function doShare({ title, text, url, copy }) {
-  try { if (navigator.share) { await navigator.share({ title, text, url }); return 'shared'; } } catch (e) { if (e?.name === 'AbortError') return ''; }
-  try { await navigator.clipboard.writeText(copy || `${text} ${url}`); return 'copied'; } catch { return ''; }
+export async function doShare({ title, text, url, copy, ab }) {
+  const done = how => { if (how && ab) abSeen('share', { bill: ab }); return how; };   // a share made under the share test (R-135)
+  try { if (navigator.share) { await navigator.share({ title, text, url }); return done('shared'); } } catch (e) { if (e?.name === 'AbortError') return ''; }
+  try { await navigator.clipboard.writeText(copy || `${text} ${url}`); return done('copied'); } catch { return ''; }
 }
 // An issue's page shared (R-113: Share on the issue page, "Know someone who cares about <issue>? Send it" at the finale).
 // Counted as a share (visit_counts), with no bill to mark. Resolves 'shared' | 'copied' | ''.

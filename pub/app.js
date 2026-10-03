@@ -6,6 +6,7 @@ import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser
 import { MARK } from './art.js';
 import { skeleton, btn } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
+import { abSettled } from './variant.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
@@ -305,7 +306,8 @@ $app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-n
 const storedSession = () => { try { return !!localStorage.getItem('hiphi-public-auth'); } catch { return false; } };
 async function earlyFirst() {
   if (DEMO || storedSession() || parseRoute().name !== 'home') return;
-  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(SCREEN_CSS.start)]); render(); } };
+  // The A/B switches come in the same moment as the catalog; abSettled waits for them a moment at most (R-135).
+  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(SCREEN_CSS.start), abSettled()]); render(); } };
   if (applyCachedCatalog()) await draw();
   if (window.__hiphiCatalog) { await loadCatalog(); if (S.cats.length) await draw(); }
 }

@@ -361,3 +361,8 @@
 .st-voicelearn a { font-weight: 700; }
 @media (max-width: 37.5em) { .st1.st-voicepage .st-art { display: none; } }   /* brief on a phone: the three points lead */
 .st-soon .st-now { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: var(--s8); }   /* one action, when it cannot wait (R-067 #12) */
+
+/* The quiet line in place of the email box on "Coming up" (R-114, R-135): an icon line like the reassurances, under the
+   list it follows. */
+.st-quietask { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s16) 0 0; }
+.st-quietask .ic { flex: none; width: 20px; height: 20px; margin-top: 1px; }

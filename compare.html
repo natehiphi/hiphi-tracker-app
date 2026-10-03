@@ -114,7 +114,9 @@ function setScene() {
 }
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
   const day = setScene(); if (!day) return;
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}#/`;
+  // Session setup > Tests opens this page with ?ab=home.by-issue to show one version of a test (R-135): it goes on.
+  const ab = new URLSearchParams(location.search).get('ab') || '', abq = /^[a-z0-9.,-]{1,80}$/.test(ab) ? '&ab=' + ab : '';
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}${abq}#/`;
 }));
 </script>
 </body>

@@ -17,7 +17,7 @@
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
 //   logAct(kind)                  an action marked done, its kind only (078)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
-import { variantInfo } from './variant.js';
+import { variantInfo, setAbSink, abEvent } from './variant.js';
 
 const KEY = 'hiphi_fv', CAP = 60;
 const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask', 'voice']);
@@ -47,7 +47,9 @@ function newId() {
 // The words that say where someone came from: lower case, and anything that does not fit the pattern is dropped.
 function fromUrl() {
   const q = new URLSearchParams(location.search), word = (k, re) => { const v = (q.get(k) || '').trim().toLowerCase(); return re.test(v) ? v : ''; };
-  return { via: word('via', SLUG), utm_source: word('utm_source', UTM), utm_medium: word('utm_medium', UTM), utm_campaign: word('utm_campaign', UTM) };
+  // A shared link says which message brought the friend (?via=share-deadline, R-135's share test, variant.js); for every
+  // other count it is a friend's link like any other: 'share'.
+  return { via: word('via', SLUG).replace(/^share-.*$/, 'share'), utm_source: word('utm_source', UTM), utm_medium: word('utm_medium', UTM), utm_campaign: word('utm_campaign', UTM) };
 }
 // The referring site's name only, when it is another site: l.instagram.com and lm.facebook.com are the apps' link
 // wrappers, m. and www. the same site again.
@@ -157,6 +159,7 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
     let mem = null; try { mem = JSON.parse(localStorage.getItem(DAYS_KEY) || 'null'); } catch { /* private mode: counted as new each day */ }
     if (mem && mem.last === today) return Promise.resolve(false);
     const gap = mem && mem.last ? band(Math.round((Date.parse(today) - Date.parse(mem.last)) / 864e5)) : 'new';
+    if (gap !== 'new') abEvent('back');   // came back on another day: a measure of several A/B tests (R-135)
     const first = (mem && /^\d{4}-\d{2}$/.test(mem.first || '') ? mem.first : today.slice(0, 7));
     try { localStorage.setItem(DAYS_KEY, JSON.stringify({ first, last: today })); } catch { /* ignore */ }
     const src = visit().src || {};
@@ -169,6 +172,23 @@ export function logAct(kind) {
   try {
     // 'recap' and 'moment' (R-046, migration 106): the session page opened, a result shown as a moment.
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment'].includes(kind)) return Promise.resolve(false);
+    if (!['recap', 'moment'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
     return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
   } catch { return Promise.resolve(false); }
 }
+
+// ---- the A/B tests' counts (R-135, backend migration 116) ----
+// variant.js decides what to count (a test met, a measure done, each once); this sends it, under the same rules as every
+// count here: nothing with the privacy signal, from a test run or from the sandbox. A plain request, gathered for a
+// moment so the first screen's three "met it" go as one, and never the database library (the first screen does not
+// wait for it, R-122). log_ab takes at most 12 events a call.
+let abq = [], abT = 0;
+function abFlush() {
+  clearTimeout(abT); abT = 0;
+  while (abq.length) {
+    const e = abq.splice(0, 12);
+    try { fetch(`${SUPABASE_URL}/rest/v1/rpc/log_ab`, { method: 'POST', keepalive: true, headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p: { e } }) }).catch(() => {}); } catch { /* never in the way */ }
+  }
+}
+setAbSink(evs => { try { if (DEMO || quiet()) return; abq.push(...evs); if (!abT) abT = setTimeout(abFlush, 1500); } catch { /* never in the way */ } });
+addEventListener('pagehide', abFlush);

@@ -104,10 +104,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), vars: sampleVariants(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back, from, vars] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.firstVisitVariants(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, vars, at: Date.now() }; v.from = from; }
+  try { const [rows, srcs, back, from] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -276,45 +276,17 @@ function numbersHTML() {
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
   if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${variantsHTML(have.vars)}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${variantsHTML()}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 
 // ---- the versions (R-121): the A/B comparison, with whether to trust it. Last on the page: the numbers and where
 // people came from are what the screen is for (B-1), and the comparison matters on the Mondays a test is read. ----
-// Two versions of the first visit run side by side (pub/variant.js: a coin toss per new browser; a tester's or staff
-// link forces one and is counted apart). One agreed measure, "finished" (reached the end, or Home in the version that
-// ends there), with gave an email, came back and actions beside it. "Trust it" is a two-proportion test at 95% on the
-// measure, and only once each version has 100 visits: fewer, and a difference is as likely chance as real.
-const VARIANT_NAME = { today: 'Today’s ending ("You’re all set")', home: 'The ending on Home', none: 'No version recorded (before 1 Oct)' };
-function zTest(a, b) {
-  if (!a.visits || !b.visits) return null;
-  const p1 = a.finished / a.visits, p2 = b.finished / b.visits, p = (a.finished + b.finished) / (a.visits + b.visits);
-  const se = Math.sqrt(p * (1 - p) * (1 / a.visits + 1 / b.visits)); if (!se) return null;
-  return { z: (p1 - p2) / se, p1, p2 };
-}
-function variantsHTML(vars) {
-  if (!vars) return '';
-  const live = vars.filter(r => !r.forced && r.variant !== 'none'), forced = vars.filter(r => r.forced);
-  const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
-  const row = r => `<tr><th scope="row">${esc(VARIANT_NAME[r.variant] || r.variant)}${r.forced ? ' <span class="muted">(by link: testers and staff)</span>' : ''}</th><td class="num">${r.visits}</td><td class="num">${pct(r.finished, r.visits)}</td><td class="num">${pct(r.gave_email, r.visits)}</td><td class="num">${r.forced ? '–' : pct(r.came_back, r.day_visits)}</td><td class="num">${r.forced ? '–' : r.actions}</td></tr>`;
-  let verdict = '';
-  if (live.length >= 2) {
-    const [a, b] = live, t = zTest(a, b), enough = a.visits >= 100 && b.visits >= 100;
-    verdict = !t ? '' : !enough ? `<p class="small">${icon('hourglass')} Not enough people yet to trust a difference: ${a.visits} and ${b.visits} visits, and each version needs 100. Keep both running.</p>`
-      : Math.abs(t.z) >= 1.96 ? `<p class="small">${icon('circle-check')} <b>Trust it:</b> ${esc(VARIANT_NAME[t.p1 > t.p2 ? a.variant : b.variant] || '')} finishes more often (${pct(Math.max(a.finished, b.finished), t.p1 > t.p2 ? a.visits : b.visits)} against ${pct(Math.min(a.finished, b.finished), t.p1 > t.p2 ? b.visits : a.visits)}), beyond what chance would do (95%). Call it, and the other version is retired within a week (docs/AB-TESTING.md).</p>`
-      : `<p class="small">${icon('scale')} No real difference so far on finishing (${pct(a.finished, a.visits)} against ${pct(b.finished, b.visits)}). Keep both running, or pick on other grounds.</p>`;
-  } else if (live.length === 1) verdict = `<p class="small">${icon('hourglass')} Only one version has visits so far. The coin toss gives each new browser one at random; the other appears as people arrive.</p>`;
-  return `<section class="card fv-card fv-vars" aria-labelledby="fv-vars-h"><h2 id="fv-vars-h">Versions</h2>
-    <p class="small muted">Two versions of the first visit, each given to half of new browsers at random (pub/variant.js). The measure: finished the first visit (reached the end, or Home in the version that ends there). Visits forced by a link are shown apart and never compared.</p>
-    ${live.length || forced.length ? `<div class="fv-tablewrap"><table class="fv-vtable"><thead><tr><th scope="col">Version</th><th scope="col" class="num">Visits</th><th scope="col" class="num">Finished</th><th scope="col" class="num">Gave an email</th><th scope="col" class="num">Came back</th><th scope="col" class="num">Actions</th></tr></thead><tbody>${[...live, ...forced].map(row).join('')}</tbody></table></div>` : '<p class="small muted">No visits with a version yet.</p>'}
-    ${verdict}</section>`;
-}
-// Sample rows for the sandbox: shaped like first_visit_variants.
-const sampleVariants = weeks => { const n = Math.max(10, weeks * 9); return [
-  { variant: 'today', forced: false, visits: n, finished: Math.round(n * 0.41), gave_email: Math.round(n * 0.23), acted_in_visit: Math.round(n * 0.1), day_visits: n * 2, came_back: Math.round(n * 0.3), actions: Math.round(n * 0.4) },
-  { variant: 'home', forced: false, visits: n - 3, finished: Math.round((n - 3) * 0.52), gave_email: Math.round((n - 3) * 0.19), acted_in_visit: Math.round((n - 3) * 0.14), day_visits: (n - 3) * 2, came_back: Math.round((n - 3) * 0.36), actions: Math.round((n - 3) * 0.5) },
-  { variant: 'home', forced: true, visits: 5, finished: 4, gave_email: 1, acted_in_visit: 2, day_visits: 0, came_back: 0, actions: 0 }]; };
+// The first visit's A/B tests (how it ends, how long it is, where the email ask goes) moved to Session setup > Tests in
+// R-135, with every other test, its switch and its results, so each comparison is read in one place (A-14).
+const variantsHTML = () => `<section class="card fv-card fv-vars" aria-labelledby="fv-vars-h"><h2 id="fv-vars-h">Versions</h2>
+    <p class="small">The first visit’s A/B tests (how it ends, how long it is, where the email ask goes), with the public page’s other tests, their switches and their results, are in Session setup, Tests${S.me?.is_admin ? '' : ', for admins'}.</p>
+    ${S.me?.is_admin ? btn('Open the tests', { kind: 'secondary', sm: true, iconEnd: 'chevron-right', href: '#/setup/tests' }) : ''}</section>`;
 
 // ---- make a link ----
 function linkHTML() {

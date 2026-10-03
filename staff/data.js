@@ -492,6 +492,27 @@ export const DB = {
     const { data, error } = await S.supa.rpc('readiness'); if (error) throw error; return data;
   },
   // The public page's own error reports, the last 7 days (110, R-111): staff only, nothing personal in them.
+  // The public page's A/B tests (116, R-135; Session setup > Tests): the switches and their words, and the sums per test
+  // and version (met it, measure, second measure; forced rows apart). Only is_on, fallback and winner can be changed,
+  // and only by an admin (the database refuses anything else).
+  async abTests() {
+    if (DEMO) return DEMO_AB.tests;
+    const { data, error } = await S.supa.from('ab_tests').select('*').order('sort');
+    if (error) throw error; return data || [];
+  },
+  async abResults() {
+    if (DEMO) return DEMO_AB.results;
+    const { data, error } = await S.supa.rpc('ab_results');
+    if (error) throw error; return data || [];
+  },
+  async setAbTest(key, patch) {
+    const p = Object.fromEntries(Object.entries(patch).filter(([k]) => ['is_on', 'fallback', 'winner'].includes(k)));
+    if (DEMO) { const t = DEMO_AB.tests.find(x => x.key === key); Object.assign(t, p, { changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); if (t.is_on && !t.started) t.started = DEMO_DAY(0); return { ...t }; }
+    const { data, error } = await S.supa.from('ab_tests').update(p).eq('key', key).select('*');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Only an admin can change a test.');
+    return data[0];
+  },
   async publicErrors() {
     if (DEMO) return DEMO_PUBLIC_ERRORS;
     const { data, error } = await S.supa.from('public_errors_recent').select('*').order('last_at', { ascending: false }).limit(200);
@@ -835,12 +856,6 @@ export const DB = {
   },
   // Per version of the first visit (113, R-121): visits, finished, gave an email, came back, actions. Forced (by a
   // tester's or a staff link) are their own rows and never in the comparison.
-  async firstVisitVariants(weeks = 12) {
-    if (DEMO) return [];
-    const { data, error } = await S.supa.rpc('first_visit_variants', { weeks: Math.round(+weeks || 12) });
-    if (error) throw error;
-    return data || [];
-  },
   // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
   async firstVisitSources(weeks = 12) {
     if (DEMO) return [];
@@ -1408,6 +1423,26 @@ export function demoTriageQueue(campaignId, matchedOnly) {
 // Sample error reports for the sandbox's Session setup (110, R-111): one from yesterday, one from today, one in the sandbox.
 const DEMO_DAY = d => new Date(Date.now() - d * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const DEMO_AT = (d, h) => new Date(Date.now() - d * 864e5 - h * 36e5).toISOString();
+// The practice copy's A/B tests: the six from migration 116, with made-up sums so the page can be seen (nothing is saved).
+const abSample = (key, a, b, n, ga, gb, g2a, g2b) => [{ test: key, arm: a, forced: false, seen: n, goal: Math.round(n * ga), goal2: Math.round(n * g2a) },
+  { test: key, arm: b, forced: false, seen: n - 7, goal: Math.round((n - 7) * gb), goal2: Math.round((n - 7) * g2b) }];
+export const DEMO_AB = {
+  tests: [
+    { key: 'end', sort: 1, name: 'How the first visit ends', question: 'Does ending on Home, with what you can do right now, get more people to the end?', arms: ['today', 'home'], arm_names: { today: 'Ends on “You’re all set”', home: 'Ends on Home, with what you can do right now' }, measure: 'Finished the first visit', measure2: 'Came back within 14 days', rate: false, is_on: true, fallback: 'today', winner: null, started: '2026-10-01', note: '' },
+    { key: 'fv', sort: 2, name: 'How long the first visit is', question: 'Does one short page instead of the lesson get more people to the end?', arms: ['full', 'short'], arm_names: { full: 'The lesson: a bill’s story', short: 'One page: Your voice counts here' }, measure: 'Finished the first visit', measure2: 'Acted within 14 days', rate: false, is_on: true, fallback: 'full', winner: null, started: '2026-10-03', note: '' },
+    { key: 'rank', sort: 3, name: 'The next step after testimony', question: 'Once someone has sent testimony, does offering the next strongest step get them to do more?', arms: ['today', 'ranked'], arm_names: { today: 'No main button once testimony is sent', ranked: 'The next strongest step leads: email the chair, go, share' }, measure: 'Took another step on that hearing', measure2: 'Came back within 14 days', rate: false, is_on: true, fallback: 'today', winner: null, started: '2026-10-03', note: '' },
+    { key: 'email', sort: 4, name: 'Where the email ask goes', question: 'Do more people give an email when the first ask comes after their first action instead of in the first visit?', arms: ['finale', 'after'], arm_names: { finale: 'Asked in the first visit', after: 'Not asked in the first visit: first asked after an action, or on coming back' }, measure: 'Gave an email within 14 days', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'finale', winner: null, started: null, note: 'Off until a lawyer checks both versions: they ask for consent at different moments.' },
+    { key: 'share', sort: 5, name: 'The share message', question: 'Do more friends come and act when the shared message starts with the deadline?', arms: ['summary', 'deadline'], arm_names: { summary: 'Starts with what the bill does', deadline: 'Starts with the deadline' }, measure: 'Friends who arrived, per 100 shares', measure2: 'Friends who acted, per 100 shares', rate: true, is_on: true, fallback: 'summary', winner: null, started: '2026-10-03', note: '' },
+    { key: 'home', sort: 6, name: 'Home’s top', question: 'Do people act more when Home groups what they can do by topic?', arms: ['by-day', 'by-issue'], arm_names: { 'by-day': 'The soonest deadline first', 'by-issue': 'Grouped by topic, the six on the first screen' }, measure: 'Acted within 7 days', measure2: 'Came back within 14 days', rate: false, is_on: true, fallback: 'by-day', winner: null, started: '2026-10-03', note: '' },
+  ],
+  results: [
+    ...abSample('end', 'today', 'home', 640, 0.41, 0.52, 0.30, 0.36), { test: 'end', arm: 'home', forced: true, seen: 5, goal: 4, goal2: 1 },
+    ...abSample('fv', 'full', 'short', 640, 0.46, 0.47, 0.18, 0.17),
+    ...abSample('rank', 'today', 'ranked', 74, 0.22, 0.31, 0.5, 0.55),
+    ...abSample('share', 'summary', 'deadline', 130, 0.62, 0.81, 0.21, 0.29),
+    ...abSample('home', 'by-day', 'by-issue', 310, 0.38, 0.41, 0.52, 0.55),
+  ],
+};
 export const DEMO_PUBLIC_ERRORS = [
   { day: DEMO_DAY(0), at_hour: DEMO_AT(0, 2), kind: 'render', place: 'bill/HB1075', message: "TypeError: Cannot read properties of undefined (reading 'scheduled_at')", source: '/hiphi-tracker-app/pub/bill.js:412:31', device: 'phone', sandbox: false, reports: 3, first_at: DEMO_AT(0, 2), last_at: DEMO_AT(0, 1) },
   { day: DEMO_DAY(1), at_hour: DEMO_AT(1, 5), kind: 'error', place: 'home', message: 'ReferenceError: fmtWhen is not defined', source: '/hiphi-tracker-app/pub/home.js:88:9', device: 'laptop', sandbox: false, reports: 1, first_at: DEMO_AT(1, 5), last_at: DEMO_AT(1, 5) },

@@ -1,36 +1,183 @@
-// The versions of the first visit, and how a browser gets one (R-098 the two endings; R-121 the A/B testing process).
+// The versions of the public page under test, and how a browser gets one (R-121 the process; R-135, Nate 10/3: several
+// tests at once, "turned on or off by me in my staff settings", "by default at random", "each different test should
+// easily be tracked by effectiveness"). The plan: ../backend/docs/AB-TESTS-PLAN.md; the process: AB-TESTING.md.
 //
-// The test now running: the first visit's ending. 'today' ends on "You're all set"; 'home' ends ON Home: the
-// celebration plays on the real page ("Mahalo! This is your home page"), "What you can do right now" is open, and
-// three tips show the page; the words say the home page shows your moment and email is a backup.
+// The tests (the first version of each is today's; the database's ab_tests, migration 116, holds the same keys and
+// versions with the switches staff flip in Staff v2 > Session setup > Tests):
+//   end    the first visit's ending: "You're all set" | ends on Home with "What you can do right now" (R-098)
+//   fv     the first visit's length: the lesson | one page, "Your voice counts here" (R-067 #11)
+//   rank   after testimony: no main button | the next strongest step leads (R-005)
+//   email  the email ask: in the first visit | not in it, first asked after an action or on coming back
+//   share  the share message: what the bill does first | the deadline first
+//   home   Home's top: the soonest deadline first | grouped by your issues
 //
-// How a browser gets a version (R-121):
-//   the coin toss   a browser that has never been given one gets one at random, half and half, the first time the
-//                   page loads, and keeps it (hiphi_wiz.end, with arm and forced). Every private count carries it
-//                   (visitlog.js: variant, forced), so the two can be compared on the same days.
-//   the link        ?end=home or ?end=today sets it and marks it forced: the testers' links and a staff check. A forced
-//                   browser is counted apart and never in the comparison (a tester is not the public).
-// The comparison is on Staff v2 > Outreach > Issues > First visit > Versions (first_visit_variants, migration 113). The
-// process, the measure and the rule for ending a test: ../backend/docs/AB-TESTING.md. Today's version is the
-// default for anything that does not toss (the sandbox never tosses: the testers pick by link).
-import { DEMO, wiz, wizSet } from './kernel.js';
+// How a browser gets a version:
+//   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
+//                   half and half, and keeps them (hiphi_ab). A test that is off shows everyone its fallback (today's,
+//                   unless staff picked another); its toss is kept for when it is on again.
+//   the lock        a first-visit test (end, fv, email) keeps the version the first visit started with, so a switch
+//                   flipped mid-visit never changes a visit under way; end and fv keep it for good (Home's welcome reads it).
+//   the link        ?ab=home.by-issue (several: ?ab=end.home,fv.short), and the testers' older ?end=, ?fv=, ?rank, set a
+//                   version and mark it forced: counted apart, never in the comparison (a tester is not the public).
+//   no toss         the sandbox and automated browsers get today's version unless a link says otherwise (a page flag,
+//                   window.__hiphiTossTests, lets tests/abtests.py watch the toss).
+// The switches come from public_ab_tests, fetched by track.html alongside the catalog (window.__hiphiAB) and kept for the
+// next visit; before any answer, the tests as built (all on but the email ask).
+//
+// What is counted (visitlog.js sends it, with the same privacy rules as every count, to log_ab): per test, "met it" once
+// (the moment the versions differ on screen; a share test, every share) and each of its two measures once, within its
+// window of days. No identifier leaves the browser; it remembers itself what it already sent.
+import { DEMO, wiz, hstDay, SUPABASE_URL, SUPABASE_KEY } from './kernel.js';
 
-export const EXPERIMENT = { key: 'end', arms: ['today', 'home'], since: '2026-10-01' };
+// goal, goal2: [event, days]: the event that is the measure, and within how many days of meeting the test (0: any time).
+export const TESTS = {
+  end: { arms: ['today', 'home'], first: 'keep', goal: ['finished', 0], goal2: ['back', 14] },
+  fv: { arms: ['full', 'short'], first: 'keep', goal: ['finished', 0], goal2: ['acted', 14] },
+  rank: { arms: ['today', 'ranked'], goal: ['step2', 14], goal2: ['back', 14] },
+  email: { arms: ['finale', 'after'], first: 'visit', goal: ['email', 14], goal2: ['back', 14] },
+  share: { arms: ['summary', 'deadline'], rate: true },
+  home: { arms: ['by-day', 'by-issue'], goal: ['acted', 7], goal2: ['back', 14] },
+};
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true };
+const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
+const BOT = (() => { try { return navigator.webdriver === true && window.__hiphiTossTests !== true; } catch { return false; } })();
+const today = () => hstDay(Date.now());
+const days = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
 
+// ---- this browser's versions and what it has counted ----
+let mem = null;
+const st = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') || mem || {}; } catch { return mem || {}; } };
+const save = s => { mem = s; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* this page load only */ } };
+
+// ---- the switches ----
+let cfg = null;
+const cached = () => { try { const c = JSON.parse(localStorage.getItem(CFG) || 'null'); return c && typeof c === 'object' ? c : null; } catch { return null; } };
+// A test the database does not list, or lists with other versions than this code has, is off: a migration can never
+// switch on a version the page cannot draw.
+function applyRows(rows) {
+  if (!Array.isArray(rows)) return;
+  const c = {};
+  for (const r of rows) { const t = TESTS[r?.key]; if (!t || !Array.isArray(r.arms) || r.arms.join() !== t.arms.join()) continue;
+    c[r.key] = { on: r.is_on === true, fallback: t.arms.includes(r.fallback) ? r.fallback : t.arms[0] }; }
+  cfg = c; try { localStorage.setItem(CFG, JSON.stringify(c)); } catch { /* this page load only */ }
+}
+const cfgOf = key => { const c = cfg || cached(); return c ? c[key] || { on: false, fallback: TESTS[key].arms[0] } : { on: BUILT[key], fallback: TESTS[key].arms[0] }; };
+let settled = DEMO;
+export const abReady = (DEMO ? Promise.resolve() : (window.__hiphiAB
+  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status)))))
+  .then(applyRows, () => { /* the switches kept from the last visit, or the tests as built */ }).finally(() => { settled = true; });
+// The first screen waits for the switches at most this long, and not at all when it has them from a last visit; they
+// come in the same moment as the catalog, which it waits for anyway (R-122).
+export const abSettled = (ms = 300) => settled || cached() ? Promise.resolve() : Promise.race([abReady, new Promise(r => setTimeout(r, ms))]);
+
+// ---- which version ----
+export function isForced(key) { try { return !!st().forced?.[key] && TESTS[key]?.arms.includes(st().arms?.[key]); } catch { return false; } }
+const firstOpen = () => { const w = wiz(); return !(w.done || w.skipped); };
+export function armOf(key) {
+  const t = TESTS[key]; if (!t) return null;
+  try {
+    const s = st(), a = s.arms?.[key];
+    if (s.forced?.[key] && t.arms.includes(a)) return a;
+    if (DEMO || BOT) return t.arms[0];
+    const lock = s.lock?.[key];
+    if (lock && t.arms.includes(lock) && (t.first === 'keep' || firstOpen())) return lock;
+    const c = cfgOf(key);
+    if (!c.on) return c.fallback;
+    return t.arms.includes(a) ? a : t.arms[0];
+  } catch { return t.arms[0]; }
+}
+// Counted only when the version came from the toss of a test that is on, or from a tester's link.
+const counted = key => isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+
+// ---- sending (before the toss below, which may count a friend's arrival) ----
+let sink = null; const waiting = [];
+// visitlog.js hands over its sender as it loads (it imports this file, so the sender cannot be imported here).
+export function setAbSink(fn) { sink = fn; if (waiting.length) fn(waiting.splice(0)); }
+function emit(ev) { if (DEMO) return; if (sink) sink([ev]); else waiting.push(ev); }
+
+// ---- the coin toss, the testers' links, and R-121's ending carried over, once as the page loads ----
+function fromUrl() {
+  const q = new URLSearchParams(location.search), out = {};
+  for (const part of (q.get('ab') || '').split(',')) { const [k, a] = part.split('.'); if (TESTS[k]?.arms.includes(a)) out[k] = a; }
+  if (['home', 'today'].includes(q.get('end'))) out.end = q.get('end');
+  if (['short', 'full'].includes(q.get('fv'))) out.fv = q.get('fv');
+  if (q.has('rank')) out.rank = q.get('rank') === '0' ? 'today' : 'ranked';
+  return out;
+}
 try {
-  const e = new URLSearchParams(location.search).get('end');
-  if (e === 'home' && (wiz().end !== 'home' || !wiz().forced)) wizSet({ end: 'home', arm: 'home', forced: true });
-  else if (e === 'today' && (wiz().end || !wiz().forced)) wizSet({ end: null, arm: 'today', forced: true });
-  // An automated browser (the test suites) never tosses: it gets today's version unless its link says otherwise, so a
-  // suite that asserts the ending it asked for never meets the other by chance.
-  else if (!DEMO && navigator.webdriver !== true && !wiz().arm && !wiz().done && !wiz().skipped) {
-    // The coin toss, once, for a browser on its first visit that no link has decided for.
-    const arm = EXPERIMENT.arms[Math.random() < 0.5 ? 0 : 1];
-    wizSet({ arm, end: arm === 'home' ? 'home' : null, forced: false });
+  const s = st(); s.arms ??= {}; s.forced ??= {};
+  if (!s.v) {   // R-121 kept the ending in the first visit's own state, and ?fv=short kept the short version there
+    const w = wiz();
+    if (TESTS.end.arms.includes(w.arm)) { s.arms.end = w.arm; if (w.forced) s.forced.end = true; } else if (w.end === 'home') { s.arms.end = 'home'; if (w.forced) s.forced.end = true; }
+    if (w.fv === 'short') { s.arms.fv = 'short'; s.forced.fv = true; }
+    s.v = 1;
   }
-} catch { /* storage blocked: today's version */ }
+  for (const [k, a] of Object.entries(fromUrl())) { s.arms[k] = a; s.forced[k] = true; }
+  if (!DEMO && !BOT) for (const [k, t] of Object.entries(TESTS)) if (!t.arms.includes(s.arms[k])) { s.arms[k] = t.arms[Math.random() < 0.5 ? 0 : 1]; delete s.forced[k]; }
+  // A friend who came by a shared link that said which message brought them (?via=share-deadline): their arrival is the
+  // share test's measure, credited once to that message.
+  const via = /^share-([a-z0-9-]{1,20})$/.exec(new URLSearchParams(location.search).get('via') || '');
+  if (via && TESTS.share.arms.includes(via[1]) && !s.arrived && !DEMO) { s.arrived = { arm: via[1], day: today() }; emit({ t: 'share', a: via[1], k: 'goal', f: false }); }
+  save(s);
+} catch { /* storage blocked: today's versions, nothing counted */ }
 
-export const endHome = () => wiz().end === 'home';
-// The version this browser has and whether a link forced it, for every count. A browser from before the toss (no arm
-// recorded) reports today's version as its own, unforced, so its counts still join the comparison.
-export const variantInfo = () => { try { const w = wiz(); return { variant: w.arm || (w.end === 'home' ? 'home' : 'today'), forced: !!w.forced }; } catch { return { variant: 'today', forced: false }; } };
+// ---- counting ----
+// Met a test: the moment its versions differ on screen. Once per browser; a share test counts each bill shared once.
+export function abSeen(key, { bill } = {}) {
+  const t = TESTS[key]; if (!t || !counted(key)) return;
+  try {
+    const s = st(), arm = armOf(key), f = isForced(key);
+    if (t.rate) { s.shared ??= {}; if (bill && s.shared[bill]) return; if (bill) s.shared[bill] = 1; save(s); emit({ t: key, a: arm, k: 'seen', f }); return; }
+    if ((s.seen ??= {})[key]) return;
+    s.seen[key] = { day: today(), arm, f }; save(s);
+    emit({ t: key, a: arm, k: 'seen', f });
+  } catch { /* never in the way */ }
+}
+// Something happened that may be a test's measure: 'finished' (the first visit), 'back' (a visit on a later day),
+// 'acted' (an action marked done), 'email' (an email given), 'step2' (another step on a hearing where the rank test was
+// met). Each test's measure is sent once, credited to the version it met, within its window.
+export function abEvent(name) {
+  try {
+    const s = st(), t0 = today(); let changed = false;
+    for (const [key, t] of Object.entries(TESTS)) for (const which of ['goal', 'goal2']) {
+      const g = t[which], seen = s.seen?.[key]; if (!g || g[0] !== name || !seen) continue;
+      const id = key + ':' + which, d = days(seen.day, t0); if (s.sent?.[id]) continue;
+      if ((g[1] && d > g[1]) || (name === 'back' && d < 1)) continue;
+      (s.sent ??= {})[id] = 1; changed = true;
+      emit({ t: key, a: seen.arm, k: which, f: !!seen.f });
+    }
+    // The share test's second measure: the friend who came by a shared link acted within 14 days.
+    if (name === 'acted' && s.arrived && !s.sent?.['share:goal2'] && days(s.arrived.day, t0) <= 14) {
+      (s.sent ??= {})['share:goal2'] = 1; changed = true; emit({ t: 'share', a: s.arrived.arm, k: 'goal2', f: false });
+    }
+    if (changed) save(s);
+  } catch { /* never in the way */ }
+}
+
+// ---- the tests' own moments ----
+// The first visit started: its tests take the version they have now and keep it (the lock), and are met.
+export function lockFirstVisit() {
+  try {
+    if (!firstOpen()) return;
+    const s = st(); let changed = false;
+    for (const [key, t] of Object.entries(TESTS)) if (t.first && !s.lock?.[key]) { (s.lock ??= {})[key] = armOf(key); changed = true; }
+    if (changed) { save(s); for (const [key, t] of Object.entries(TESTS)) if (t.first) abSeen(key); }
+  } catch { /* never in the way */ }
+}
+// The rank test is met on a hearing where testimony is sent and another step is still open; another step later on any
+// such hearing is its measure.
+export function abRankMet(hearingId) {
+  abSeen('rank');
+  try { const s = st(); if (!s.seen?.rank) return; s.rankH ??= []; if (!s.rankH.includes(hearingId)) { s.rankH = [...s.rankH, hearingId].slice(-50); save(s); } } catch { /* ignore */ }
+}
+export function abStep(hearingId, kind) {
+  try { if (kind !== 'testimony' && (st().rankH || []).includes(hearingId)) abEvent('step2'); } catch { /* ignore */ }
+}
+// The word a shared link carries, so a friend's arrival is credited to the message that brought them ('' when the share
+// test is not running for this browser).
+export const shareTag = () => counted('share') ? `share-${armOf('share')}` : '';
+
+// R-121's names, kept: the ending, and the version word every private count carries (first_visit_events.variant,
+// visit_counts.variant, migration 113).
+export const endHome = () => armOf('end') === 'home';
+export const variantInfo = () => ({ variant: armOf('end'), forced: isForced('end') });

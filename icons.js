@@ -176,7 +176,9 @@ export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "mail-open":"<path d=\"M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z\"/> <path d=\"m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10\"/>",
 "list-minus":"<path d=\"M16 5H3\"/> <path d=\"M11 12H3\"/> <path d=\"M16 19H3\"/> <path d=\"M21 12h-6\"/>",
 "circle-minus":"<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"M8 12h8\"/>",
-"link-2-off":"<path d=\"M9 17H7A5 5 0 0 1 7 7\"/> <path d=\"M15 7h2a5 5 0 0 1 4 8\"/> <line x1=\"8\" x2=\"12\" y1=\"12\" y2=\"12\"/> <line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\"/>"};
+"link-2-off":"<path d=\"M9 17H7A5 5 0 0 1 7 7\"/> <path d=\"M15 7h2a5 5 0 0 1 4 8\"/> <line x1=\"8\" x2=\"12\" y1=\"12\" y2=\"12\"/> <line x1=\"2\" x2=\"22\" y1=\"2\" y2=\"22\"/>",
+"flask-conical":"<path d=\"M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2\"/> <path d=\"M6.453 15h11.094\"/> <path d=\"M8.5 2h7\"/>",
+"trophy":"<path d=\"M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2\"/> <path d=\"M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2\"/> <path d=\"M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3\"/> <path d=\"M4 22h16\"/> <path d=\"M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z\"/> <path d=\"M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3\"/>"};
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
   const p = ICONS[name] || ICONS['circle'] || '';

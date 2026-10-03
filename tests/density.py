@@ -68,6 +68,8 @@ SV = [
   ('issue',       '/issue/05e0d6a9-4ea7-456c-b219-e3632ade358b', 'its bills', '.le-bills .le-brow'),
   ('firstvisit',  '/outreach/issues?view=first-visit', 'how far newcomers get', '.fv-tile'),
   ('makelink',    '/outreach/issues?view=links', 'who the link is for', '.fv-prow, .fv-none'),
+  # R-135: Session setup > Tests; a person comes to decide each A/B test of the public page
+  ('tests',       '/setup/tests',  'the first test',       '.ab-card'),
 ]
 
 TOP_JS = """(sel) => { for (const e of document.querySelectorAll(sel)) {
