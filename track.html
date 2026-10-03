@@ -55,7 +55,7 @@
   var h = location.hash || '', onBill = /^#\/bill\//.test(h);
   // core.js (the bill-level code, with stops.js and rank.js) comes after a newcomer's first screen; everyone else needs it first.
   var core = ['pub/core.js', 'stops.js', 'pub/rank.js'];
-  var paths = onBill ? core.concat(['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js']) : first ? ['pub/start.js'] : core.concat(['pub/home.js', 'pub/actions.js', 'pub/speakup.js']);
+  var paths = onBill ? core.concat(['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js']) : first ? ['pub/start.js', 'pub/rank.js'] : core.concat(['pub/home.js', 'pub/actions.js', 'pub/speakup.js']);
   if (/[?&]demo=1/.test(location.search)) paths = paths.concat(core, ['pub/demo.js']);
   if (!first || onBill || /[?&]demo=1/.test(location.search)) paths = paths.concat(['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/postgrest-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/auth-js@2.117.2/+esm',
