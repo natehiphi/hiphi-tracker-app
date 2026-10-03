@@ -11,7 +11,7 @@
 // are gone (Nate, 9/19); numbers about other people appear only inside one bill or one hearing.
 // On wide screens Home is two columns (wide.css .cols): things to do on the left, your session, what's new and the
 // suggestion on the right. The full bill list lives in My bills.
-import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink,
+import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink, companionsOf,
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
@@ -397,7 +397,10 @@ const moreRows = (id, rows) => `${toggle(id, 'hm-' + id, `Show ${rows.length} mo
 // visit's "Ready now?" fold, where no card is singled out.
 function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
   const first = calm ? null : cards.find(x => !settledOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
-  const card = x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text });
+  // The first card says how many are due the same day (Layout A's Now card, R-131): "1 of 3 due today".
+  const dayOf = x => x.h.testimony_deadline ? hstDay(x.h.testimony_deadline) : '';
+  const ofN = x => { if (x !== first || !dayOf(x)) return ''; const n = cards.filter(y => !settledOn(y.b, y.h) && dayOf(y) === dayOf(x)).length; return n > 1 ? `1 of ${n} due ${dayWord(x.h.testimony_deadline).replace(/ at .*$/, '')}` : ''; };
+  const card = x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text, ofN: ofN(x), twin: S.hmTwins?.get(x.b.id) || null });
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
       ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
       ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : nudgeHtml}
@@ -435,7 +438,20 @@ function followView(si) {
   // Anything already done when the person arrived on Home folds into "Done this week", so the page opens on what is
   // still open. A card finished while they are here stays where it was, in its done state: nothing jumps under a finger.
   const arrived = S.hmArrived || new Set(), wasDone = x => KINDS.some(k => arrived.has(doneKey(x.b.id, x.h.id, k)));
-  const folded = all.filter(x => settledOn(x.b, x.h) && wasDone(x)), cards = all.filter(x => !folded.includes(x));
+  const folded = all.filter(x => settledOn(x.b, x.h) && wasDone(x));
+  let cards = all.filter(x => !folded.includes(x));
+  // Twin bills as one card (R-131, the assessment's P7): a House bill and its Senate twin both open are one card, the
+  // sooner deadline leading and the twin named on it (the review 9/28: the two "Disposable vape ban" bills got two cards
+  // with opposite asks on one Home). actionCard reads the twin from S.hmTwins.
+  S.hmTwins = new Map();
+  for (const x of cards) {
+    if ([...S.hmTwins.values()].includes(x) || S.hmTwins.has(x.b.id)) continue;
+    // Twins by the companion link, or by the same nickname in the other chamber (the links are often not set yet).
+    const nums = companionsOf(x.b), ch = b => (b.bill_number || '')[0];
+    const t = cards.find(y => y !== x && !S.hmTwins.has(y.b.id) && (nums.includes(y.b.bill_number) || (nick(x.b) && nick(x.b) === nick(y.b) && ch(x.b) !== ch(y.b))));
+    if (t) S.hmTwins.set(x.b.id, t);
+  }
+  const folded2 = new Set([...S.hmTwins.values()]); cards = cards.filter(x => !folded2.has(x));
   const open = cards.filter(x => !settledOn(x.b, x.h)), asks = askList(), total = open.length + asks.length;
   const inCards = new Set(all.map(x => x.b.id));
   if (!welcome) {

@@ -27,7 +27,8 @@ direction; Claude builds, tests, pushes and verifies the published site.
   under A/B test (R-098, R-121); every bill link carries its session year when it is not the current one (R-110); the page
   reports its own errors (R-111); one share everywhere and a link newcomer left to finish (R-113, R-114); the My issues
   link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the first screen loads first and every
-  other screen on first use (R-122; "How the page loads" below).
+  other screen on first use (R-122; "How the page loads" below); Home's first card counts the day's deadlines and twin bills
+  are one card (R-131); Staff v2's Week view has "This week's asks" to paste into the newsletter or a post (R-132).
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
@@ -372,6 +373,7 @@ python3 tests/share_links.py        # one share everywhere, the link newcomer, t
 python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed and the finale's keep line on a phone (R-123 to R-126); 13 checks
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog, and someone with an action lands on Home; 5 checks
+python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

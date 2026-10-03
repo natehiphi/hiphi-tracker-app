@@ -70,6 +70,15 @@ with sync_playwright() as pw:
             sizes = {round(x) for x in checks.page_report(p, tag)['font_sizes']}
             ok(sizes <= ALLOWED, f'{tag}: type sizes {sorted(sizes)}')
             ok(s['old'] == 0, f'{tag}: nothing left of the old drawing ({s["old"]} old items)')
+            # This week's asks (R-132): a card above the grid with the week's position bills still due, and two copies
+            if (W, scope) == (1100, 'mine'):
+                asks = p.evaluate("() => ({ n: document.querySelectorAll('.td-asks .td-asklist li').length, btns: document.querySelectorAll('.td-asks [data-wkasks]').length, head: (document.querySelector('.td-asks h2') || {}).textContent || '' })")
+                ok(asks['n'] >= 1 and asks['btns'] == 2 and asks['head'] == 'This week’s asks', f'{tag}: the week’s asks card lists {asks["n"]} bill(s) with two copy buttons')
+                txt = p.evaluate("async () => { const m = await import('./staff/today.js'); const S = (await import('./staff/data.js')).S; return { social: m.weekAsksText(S.tdAsks, 'social'), news: m.weekAsksText(S.tdAsks, 'newsletter') }; }")
+                paras = [x for x in txt['social'].split('\n\n') if x.strip()]
+                ok(len(paras) == asks['n'] and all(len(x) <= 280 and '?via=social' in x and '/b/' in x for x in paras), f'{tag}: the post text is one line per bill, each under 280 characters with its share page marked ?via=social (longest {max(len(x) for x in paras)})')
+                ok(txt['news'].startswith('This week at the Legislature') and txt['news'].count('?via=newsletter') == asks['n'] and 'Testimony is due' in txt['news'], f'{tag}: the newsletter text opens with the week and names every deadline, links marked ?via=newsletter')
+                ok('monitor' not in txt['news'].lower() and all(('HIPHI supports' in x or 'HIPHI strongly' in x or 'HIPHI opposes' in x or 'HIPHI is commenting' in x) for x in txt['news'].split('\n\n')[1:]), f'{tag}: every ask carries HIPHI’s position and none is a monitored bill')
             days = [x for x in s['cols'] if x['day'] != 'weekend']
             ok(len(days) == 5, f'{tag}: five weekday columns ({len(days)})')
             for col in s['cols']:

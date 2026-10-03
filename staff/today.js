@@ -38,6 +38,7 @@
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF } from './data.js';
+import { sharePageUrl } from './model.js';   // this week's asks (R-132)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, publicWords, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { newSteps, markNewStep } from './help.js';
@@ -1165,7 +1166,43 @@ function weekView(route, scope, who, r) {
   return `<div class="td-wnav"><h2 class="td-wtitle">${esc(range)}</h2>
       <div class="td-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-week': off - 1 })}${off ? btn('This week', { kind: 'text', attrs: { 'data-week': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-week': off + 1 })}</div>
       <p class="td-wsum">${esc(sum)}</p>${wk.mon ? monBtn(wk.mon, scope, who, 'td-wmon') : ''}</div>
+    ${weekAsksHTML(all)}
     <div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>`;
+}
+
+// ---- "This week's asks" (R-132, the assessment's W5): the week's testimony deadlines on HIPHI's position bills, as text
+// staff paste into the newsletter or a post. The same words as the hearing page's share kit (public_action, the deadline,
+// the bill's share page), the link marked ?via=newsletter or ?via=social so arrivals from each are counted apart (R-113).
+// Only bills with a position that are on the public page: the email rules (R-101) never ask the other side, and a
+// monitored bill has no ask. Soonest deadline first; one line per bill for a post, a short paragraph for the newsletter.
+const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
+  strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
+function weekAsks(all) {
+  const now = Date.now(), seen = new Set(), out = [];
+  for (const c of all) for (const g of c.dl.values()) for (const r of g.rows) {
+    const b = r.b; if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || seen.has(b.id) || !(g.due > now)) continue;
+    seen.add(b.id); out.push({ b, h: g.h, due: g.due });
+  }
+  return out.sort((x, y) => x.due - y.due);
+}
+const askName = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+const askLine = b => String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;
+export function weekAsksText(items, kind) {
+  const via = kind === 'social' ? 'social' : 'newsletter';
+  if (kind === 'social') return items.map(x => { const link = `${sharePageUrl(x.b)}?via=${via}`, due = `Testimony due ${fmtDT(x.due)}.`;
+    let ask = askLine(x.b); const room = 280 - (askName(x.b).length + due.length + link.length + 6); if (ask.length > room) ask = ask.slice(0, Math.max(room - 1, 20)).replace(/\s+\S*$/, '') + '…';
+    return `${askName(x.b)}: ${ask} ${due} ${link}`; }).join('\n\n');
+  const head = `This week at the Legislature: ${items.length === 1 ? 'one bill on HIPHI’s issues needs' : `${items.length} bills on HIPHI’s issues need`} your voice. Each takes a few minutes.`;
+  return head + '\n\n' + items.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askLine(x.b)} Testimony is due ${fmtDT(x.due)}.\n${sharePageUrl(x.b)}?via=${via}`).join('\n\n');
+}
+function weekAsksHTML(all) {
+  const items = weekAsks(all); S.tdAsks = items;
+  if (!items.length) return '';
+  return `<section class="td-asks" aria-labelledby="td-asks-h"><div class="td-askhd"><h2 id="td-asks-h">This week’s asks</h2>
+      <p class="small muted">Ready to paste into HIPHI’s newsletter or a post: the ask, the deadline and each bill’s share page. Arrivals from the newsletter and from posts are counted apart.</p></div>
+    <ol class="td-asklist">${items.map(x => `<li><b>${esc(billNum(x.b))}</b> <span>${esc(x.b.nickname || blurb(x.b, 80))}</span> <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
+    <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>
+  </section>`;
 }
 
 // ---- Team: the team's work, by person (R-022, wave 3 #15) ----
@@ -1542,6 +1579,11 @@ function wire(route, root) {
   main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; save('today_scope', S.tdScope); S.tdCur = null; S.tdSuggOnly = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; hooks.render(); });
   // List or Week swaps the page in place (no new history entry: Back still leaves Today, as it always has).
   main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(el.dataset.val === 'week' ? '#/?view=week' : '#/', { replace: true }); });
+  main.querySelectorAll('[data-wkasks]').forEach(el => el.onclick = async () => {   // this week's asks (R-132)
+    const text = weekAsksText(S.tdAsks || [], el.dataset.wkasks);
+    try { await navigator.clipboard.writeText(text); toast(el.dataset.wkasks === 'social' ? 'Copied: one short ask per bill, each under a post’s length. Paste, and change anything you like.' : 'Copied the week’s asks for the newsletter. Paste, and change anything you like.'); }
+    catch { toast('Could not copy. Select the text in the list and copy it yourself.'); }
+  });
   main.querySelectorAll('[data-week]').forEach(el => el.onclick = () => { const w = +el.dataset.week || 0; S.tdRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.go(`#/?view=week${w ? '&w=' + w : ''}`, { replace: true, keepScroll: true }); });
   main.querySelector('[data-whopick]')?.addEventListener('click', pickWho);
   main.querySelectorAll('[data-who]').forEach(el => el.onclick = () => setWho(el.dataset.who, `[data-who="${el.dataset.who}"]`));

@@ -178,3 +178,20 @@ so it lands on the app's existing "Choose a password" screen. Staff v2 only (`pa
 
 **Until `classic.html` is deleted, data-layer changes still go into both staff apps** (`app.js` and `staff/data.js`,
 checked with `node staff/tools/parity.mjs`).
+
+## Home's Now card and twin bills (R-131, the assessment's P7; 3 Oct 2026, HANDOFF 3.78)
+
+`pub/home.js` `followView` pairs twin bills among the open cards (`companionsOf`, or the same nickname in the other
+chamber) into `S.hmTwins`, folds the later twin and passes it to `actionCard` (`twin`), which draws one line under the
+hearing naming the twin with its own hearing and deadline. `todoBlock` gives the first card `ofN` ("1 of 3 due today"),
+counted over the open cards whose deadline falls on the same Hawaiʻi day. Layout A's page (`track-a.html`) is untouched.
+Test: `tests/home_now.py`.
+
+## This week's asks (R-132, the assessment's W5; 3 Oct 2026, HANDOFF 3.78)
+
+`staff/today.js`: `weekAsks(all)` takes the Week view's deadline groups and keeps the position bills on the public page
+with a deadline still ahead, soonest first; `weekAsksText(items, kind)` writes the newsletter text (per bill: the everyday
+name, HIPHI's stance, the ask staff wrote in the Public section or "Please speak up", the deadline, the share page marked
+`?via=newsletter`) or the post text (one line per bill under 280 characters, `?via=social`); `weekAsksHTML` is the card
+above the grid with the two copy buttons (`[data-wkasks]`). Styles `.td-asks` in `staff/staff.css`. Checks in
+`tests/staff_week.py`.

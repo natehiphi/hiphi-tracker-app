@@ -388,3 +388,12 @@ body.sidenarrow .sv-sync span { display: none; }
 .fv-vtable th, .fv-vtable td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line, #DBE3E7); }
 .fv-vtable th.num, .fv-vtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .fv-vtable th[scope="row"] { font-weight: 600; }
+
+/* This week's asks (R-132, the assessment's W5): a card above the week grid, text staff copy for the newsletter or a post.
+   One list, two buttons, nothing else asked of the page (A-14: the week's line above already counts the deadlines). */
+.td-asks { margin: 12px 0 16px; padding: 14px 16px; background: var(--card, #fff); border: 1px solid var(--line, #DBE3E7); border-radius: 12px; }
+.td-askhd h2 { margin: 0 0 4px; font-size: var(--t16, 16px); }
+.td-askhd p { margin: 0 0 8px; }
+.td-asklist { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; font-size: var(--t14, 14px); line-height: 1.4; }
+.td-asklist li b { font-variant-numeric: tabular-nums; }
+.td-asks .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
