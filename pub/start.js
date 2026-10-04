@@ -265,8 +265,10 @@ const SURE1 = 'About 4 minutes. Free, and no account needed.';
 // were confused about what it is, and the only plain description was on the finale. In session only; between sessions
 // the screen already leads with the opening day.
 // The version that ends on Home (R-098) says the home page shows it: "we tell you" sold an alert service, so testers
-// took the email as the end of it.
-const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon(endHome() ? 'house' : 'bell')}<span>${endHome() ? 'Home shows when it’s your moment' : 'We tell you when it’s your moment'}</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
+// took the email as the end of it. Since R-099 (Nate's go 10/3) that version also says how, not only when: the person is
+// the one who speaks up, and the app helps them do it ("an active tool rather than just an alert system"). Today's version
+// keeps its words, so the ending test (R-135) compares the two first visits whole.
+const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon(endHome() ? 'notebook-pen' : 'bell')}<span>${endHome() ? 'When it’s time, we help you speak up' : 'We tell you when it’s your moment'}</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
 function tiles(off, yr) {
   // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
   // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
@@ -298,8 +300,8 @@ function stepTopics(step) {
   const w = off && C ? C.winsIn(yr) : null;   // between sessions, the proof it works (R-067); said once core.js is in
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
-    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll ${endHome() ? 'show' : 'tell'} you when your voice can count.`
-      : `HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll ${endHome() ? 'show' : 'tell'} you when a few minutes of your time can help get bills passed.`}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
+    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} ${endHome() ? 'Pick what you care about. When your voice can count, you’ll see what to do, and we’ll help you do it.' : 'Pick what you care about, and we’ll tell you when your voice can count.'}`
+      : `HIPHI follows the health bills at the Hawaiʻi Legislature. ${endHome() ? 'Pick what you care about.' : 'Pick what you care about, and we’ll tell you when a few minutes of your time can help get bills passed.'}`}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
 }
 

@@ -21,9 +21,10 @@ import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
 import { icon, btn, pickerChip, segmented, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON } from './ui.js';
 import { iconName } from './setup.js';
 import { deskBack } from './filters.js';
+import { suggestIssue } from './suggest_issue.js';
 
 const T = () => S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
-const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.pri ??= {}; t.done ??= 0; t.hist ??= []; return t; };
+const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.pri ??= {}; t.iss ??= {}; t.done ??= 0; t.hist ??= []; return t; };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 // Keyboard hints and keys only where there is a mouse to hover with (never on touch screens, plan 3.5).
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
@@ -65,6 +66,10 @@ const campOf = (t, r) => S.campaigns.find(c => c.id === t.pick[r.id]) || suggest
 // picked on the card stays put when the coalition changes; one that was not picked follows the coalition.
 const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (campOf(t, r)?.owner_id || null) : o === 'none' ? null : o; };
 const posOf = (t, r) => t.pos[r.id] || 'monitor';
+// R-088 part 2: the issue the bill goes on with Track. The suggestion (the earlier look-alike's issue, else the words,
+// staff/suggest_issue.js) is preselected; staff pick another or "No issue". Worked out once per card.
+const sugOf = r => r._sug === undefined ? (r._sug = suggestIssue(r, { issues: S.issues || [], billIssues: S.billIssues || [], lookalikeId: r.lookalike?.id || null })) : r._sug;
+const issOf = (t, r) => { const v = t.iss[r.id]; return v === 'none' ? null : v ? (S.issues || []).find(i => i.id === v) || null : sugOf(r)?.issue || null; };
 const priOf = (t, r) => Number(t.pri[r.id] || 2);
 // Real suggestions first, then look-alikes, then bills whose keyword only sat inside another word.
 const order = rows => rows.map((r, i) => [r, i]).sort(([a, i], [b, j]) => {
@@ -107,7 +112,7 @@ function progress(t) {
     <p class="st-progt"><b>${left.exact ? left.n.toLocaleString() : left.n + '+'} left</b>${t.done ? ` · ${t.done} decided this sitting` : ''}${c.tracked != null ? ` · ${c.tracked.toLocaleString()} tracked` : ''}</p></div>`;
 }
 // The last ten decisions, newest first, each with its own Undo (U takes the newest).
-const HIST_WORD = { track: h => `Tracked for ${h.camp || 'the tracker'}${h.pos && h.pos !== 'monitor' ? ` · ${POS_WORD[h.pos] || h.pos}` : ''}${h.pri === 1 ? ' · P1' : ''} · ${h.own || 'no owner'}`,
+const HIST_WORD = { track: h => `Tracked for ${h.camp || 'the tracker'}${h.pos && h.pos !== 'monitor' ? ` · ${POS_WORD[h.pos] || h.pos}` : ''}${h.pri === 1 ? ' · P1' : ''} · ${h.own || 'no owner'}${h.issue ? ` · on ${h.issue}` : ''}`,
   skip: () => 'Not for us', later: () => 'Moved to the back' };
 function recent(t) {
   const rows = t.hist.slice(0, 10), more = t.hist.length - rows.length;
@@ -122,6 +127,8 @@ function why(r) {
   else if (loose.length) out.push(`<p class="st-why">${icon('sparkles')}<span>Suggested for ${esc(loose[0].name)} because of "${esc(loose[0].terms[0])}", but only inside another word.</span></p>`);
   const l = r.lookalike;
   if (l) out.push(`<p class="st-why">${icon('history')}<span>Looks like <b>${esc(l.bill_number)}</b> (${esc(l.session_year)})${l.position ? `, which we ${esc(POS_PAST[l.position] || 'tracked')}` : ''}${l.coalition ? ` under ${esc(l.coalition)}` : ''}${l.priority ? `, P${esc(l.priority)}` : ''}</span></p>`);
+  const sg = sugOf(r);
+  if (sg) out.push(`<p class="st-why">${icon('tag')}<span>Track puts it on the issue <b>${esc(sg.issue.name)}</b> (${sg.how === 'lookalike' ? `because ${esc(r.lookalike.bill_number)} (${esc(r.lookalike.session_year)}) is on it` : `from the words ${sg.words.map(w => `<b>${esc(w)}</b>`).join(', ')}`}). Change it under Issue.</span></p>`);
   if (!out.length) out.push(`<p class="st-why muted">${icon('circle-dashed')}<span>No coalition keyword matches this bill.</span></p>`);
   return out.join('');
 }
@@ -131,6 +138,7 @@ const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)
       <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-plab">Position</span>${pickerChip(POS_WORD[pos] || pos, { 'data-tposp': '1', 'aria-describedby': 'st-plab' }, POS_ICON[pos])}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-prlab">Priority</span>${segmented('tpri', PRI, String(priOf(t, r)), 'Priority')}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-ilab">Issue</span>${pickerChip(issOf(t, r)?.name || 'No issue', { 'data-tiss': '1', 'aria-describedby': 'st-ilab' }, issOf(t, r) ? 'tag' : 'circle-dashed')}</div>
     </div>`; };
 const decideBtns = () => `${btn('Track', { kind: 'primary', sm: true, icon: 'check', attrs: { 'data-ttrack': '1' } })}${btn('Not for us', { kind: 'secondary', sm: true, attrs: { 'data-tskip': '1' } })}${btn('Later', { kind: 'text', sm: true, attrs: { 'data-tlater': '1' } })}`;
 const keysLine = () => HOVER() && keysOn() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
@@ -165,7 +173,7 @@ export default {
     const how = S.triageFirstVisit || t.how;
     const head = `${deskBack('triage')}<div class="st-head st-thead"><h1>Sort new bills</h1>${t.rows && !desk ? progress(t) : ''}</div>`;
     const filters = `<div class="st-tfilters">${pickerChip(t.camp ? campName(t) : 'All coalitions', { 'data-tcamp': '1', 'aria-label': `Coalition: ${campName(t)}. Change` }, t.camp ? iconName(S.campaigns.find(x => x.id === t.camp)?.icon) : null)}${pickerChip(t.matchedOnly ? 'Suggested bills' : 'Every undecided bill', { 'data-tmatch': '1', 'aria-label': `Showing ${t.matchedOnly ? 'suggested bills' : 'every undecided bill'}. Change` })}</div>`;
-    const howBox = how ? `<div class="notice info st-how">${icon('info')}<div><p><b>Track</b> puts the bill on the tracker under the coalition you pick, with the owner, position and priority you pick: unless you change them, the coalition's owner, Monitor and P2. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p>${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-thow': '0' } })}</div></div>` : '';
+    const howBox = how ? `<div class="notice info st-how">${icon('info')}<div><p><b>Track</b> puts the bill on the tracker under the coalition you pick, with the owner, position, priority and issue you pick: unless you change them, the coalition's owner, Monitor, P2 and the suggested issue, if there is one. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p>${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-thow': '0' } })}</div></div>` : '';
     const foot = `<div class="btnrow st-tfoot">${how ? '' : btn('How this works', { kind: 'text', sm: true, icon: 'circle-help', attrs: { 'data-thow': '1' } })}${btn('Search all introduced bills', { kind: 'text', sm: true, icon: 'search', href: '#/search' })}</div>`;
     const cls = `st-page st-triage${desk ? ' st-tdesk' : ''}`;
     if (t.rows === null) return `<div class="${cls}">${head}${filters}${skeleton(2)}</div>`;
@@ -221,6 +229,12 @@ export default {
       pickerSheet({ title: `Who owns ${r.bill_number}`, value: ownIdOf(t, r) || 'none',
         options: [...ads.map(a => [a.id, a.id === S.me?.id ? `You (${a.full_name})` : a.full_name, 'user-round', c && a.id === c.owner_id ? `Owns ${c.name}` : '']), ['none', 'No owner', 'circle-dashed']],
         onPick: v => { t.own[r.id] = v; rerender(back); } }); };
+    // Issue: the suggestion first, then the issues in its category, then the rest; "No issue" is a choice too.
+    $('[data-tiss]').onclick = e => { const back = after(e, '[data-tiss]'), sg = sugOf(r)?.issue || null, live = (S.issues || []).filter(i => !i.archived_at);
+      const near = sg ? live.filter(i => i !== sg && i.category === sg.category) : [], rest = live.filter(i => i !== sg && !near.includes(i)).sort((a, b) => a.name.localeCompare(b.name));
+      pickerSheet({ title: `Put ${r.bill_number} on an issue`, value: issOf(t, r)?.id || 'none', help: 'Its owner leads the bill, and the bill starts with the issue’s talking points.',
+        options: [...(sg ? [[sg.id, sg.name, 'tag', 'Suggested']] : []), ...near.map(i => [i.id, i.name, 'tag', 'Same topic']), ...rest.map(i => [i.id, i.name, 'tag']), ['none', 'No issue', 'circle-dashed']],
+        onPick: v => { t.iss[r.id] = v; rerender(back); } }); };
     $('[data-tposp]').onclick = e => { const back = after(e, '[data-tposp]');
       pickerSheet({ title: `Our position on ${r.bill_number}`, value: posOf(t, r), options: POS7.map(k => [k, POS_WORD[k] || k, POS_ICON[k]]),
         onPick: v => { t.pos[r.id] = v; rerender(back); } }); };
@@ -251,7 +265,7 @@ async function decide(kind) {
   const idx = t.focus;
   try {
     if (kind === 'track') {
-      const c = campOf(t, r), pos = posOf(t, r), pri = priOf(t, r), own = ownIdOf(t, r);
+      const c = campOf(t, r), pos = posOf(t, r), pri = priOf(t, r), own = ownIdOf(t, r), iss = issOf(t, r), sg = sugOf(r)?.issue || null;
       const b = await DB.triageTrack(r, c?.id);
       // triage_track tracks at Monitor and P2 with the coalition's owner (and keeps what a bill tracked before, then
       // undone, still has). What the card says is written straight after, so the bill leaves here fully decided.
@@ -259,9 +273,11 @@ async function decide(kind) {
         const patch = {}; if (b.position !== pos) patch.position = pos; if (b.priority !== pri) patch.priority = pri;
         if (Object.keys(patch).length) await DB.updateBill(b.id, patch);
         await DB.setOwner(b.id, own);
+        // The issue, and whether it was the suggestion (kept for February's "how often was it right", migration 119).
+        if (iss) await DB.setBillIssue(b.id, iss.id, true, { via: !sg ? 'staff' : sg.id === iss.id ? 'suggested' : 'changed' });
       }
       const who = own ? (own === S.me?.id ? 'You' : advocate(own)?.full_name || 'Someone') : '';
-      const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who }; t.hist.unshift(h); t.last = { ...r, tracked: true };
+      const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who, issueId: iss?.id || null, issue: iss?.name || '' }; t.hist.unshift(h); t.last = { ...r, tracked: true };
       count(t, r, -1, true); done(t, idx);
       toast(`${r.bill_number} tracked for ${c?.name || 'the tracker'}. ${!own ? 'No owner yet.' : own === S.me?.id ? 'You own it.' : `${who} owns it.`}`, { ok: true, undo: () => undoEntry(h), action: { label: 'Open', run: () => S.go('#/bill/' + r.bill_number) } });
     } else {
@@ -293,6 +309,7 @@ async function undoNow(h) {
       const i = t.rows ? t.rows.findIndex(x => x.id === h.row.id) : -1;
       if (i >= 0) { const [row] = t.rows.splice(i, 1), at = Math.min(h.idx, t.rows.length); t.rows.splice(at, 0, row); t.focus = at; }
     } else {
+      if (h.issueId) await DB.setBillIssue(h.row.id, h.issueId, false);   // the issue goes too (R-088)
       await DB.triageUndo({ ...h.row, tracked: h.kind === 'track' });
       if (t.rows && !t.rows.some(x => x.id === h.row.id)) { const at = Math.min(h.idx ?? t.focus, t.rows.length); t.rows.splice(at, 0, h.row); t.focus = at; t.done = Math.max(0, t.done - 1); count(t, h.row, 1, h.kind === 'track'); }
     }

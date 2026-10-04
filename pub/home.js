@@ -448,7 +448,7 @@ function keptSuggestion() {
 // Home's one suggestion is Find's first (the same short list), unless it is already on Home some other way.
 function pickSuggestion(skip) {
   const r = suggestionList(4).find(x => x.st?.hearing && !skip.has(x.b.id));
-  if (r) noteShown([r]);
+  if (r) noteShown([r], 'home');
   return r ? { b: r.b, h: r.st.hearing } : null;
 }
 
@@ -635,7 +635,7 @@ function homeFirst({ cards, asks, ask }) {
   return `<div class="hm hm-follow hm-welcome hm-fin hm-fin2${finNow() && !S.hmFinDrawn ? ' hm-anim' : ''}">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here.` })}</header>
+      <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here, and we help you speak up in a few minutes.` })}</header>
       ${rightNow(cards, asks)}
       ${yourIssues()}
       ${shareLine('hm-share')}
@@ -663,7 +663,7 @@ function finFx() {
 const pickRow = x => { const on = S.watch.has(x.b.id), num = spaced(x.b.bill_number);
   return `<div class="hm-pick"><a class="hm-pickmain" href="${billPath(x.b)}"><span class="lead">${icon(issueOf(x.b)?.icon || 'landmark')}</span>
     <span class="body"><span class="title">${esc(headline(x.b, 200))}</span><span class="sub">${esc(num)} · Hearing ${esc(dayWord(x.h.scheduled_at))}</span></span></a>
-    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'hm-star' + (on ? ' on' : ''), attrs: { 'data-follow': x.b.id, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${on ? 'Following' : 'Follow'} ${num}` } })}</div>`; };
+    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'hm-star' + (on ? ' on' : ''), attrs: { 'data-follow': x.b.id, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${on ? 'Following' : 'Follow'} ${num}`, title: on ? 'Following. Press to stop following.' : null } })}</div>`; };
 function exploreView() {
   const f = S.featured || { bills: [], hearings: [] }, seen = new Set(), skip = dismissed(), calm = welcomed();
   const cards = openActions(f.bills, f.hearings).filter(x => !x.late && !skip.has(x.b.id) && !seen.has(x.b.id) && seen.add(x.b.id)).slice(0, calm ? 5 : 3);

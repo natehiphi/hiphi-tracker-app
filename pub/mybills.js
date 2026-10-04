@@ -311,7 +311,7 @@ export function issueItem(i, { news = '', key = 'data-fdissue' } = {}) {
     <a class="fd-imain" href="#/issue/${esc(i.slug)}"><span class="fd-iname">${esc(i.name)}</span>
       ${i.description ? `<span class="fd-idesc mb-clamp">${esc(i.description)}</span>` : ''}
       <span class="fd-imeta">${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}${soon ? chip(`Hearing ${dayWord(soon.hearing.scheduled_at)}`, 'info', 'calendar') : ''}<span>${esc(meta)}</span>${pos ? posChip({ hiphi_position: pos }) : ''}</span></a>
-    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'fd-ifollow' + (on ? ' on' : ''), attrs: { [key]: i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}` } })}
+    ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'fd-ifollow' + (on ? ' on' : ''), attrs: { [key]: i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}`, title: on ? 'Following. Press to stop following.' : null } })}
   </li>`;
 }
 export const issueList = (list, opt = {}) => list.length ? `<ul class="fd-ilist" role="list">${list.map(i => issueItem(i, typeof opt === 'function' ? opt(i) : opt)).join('')}</ul>` : '';

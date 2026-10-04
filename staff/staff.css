@@ -384,6 +384,7 @@ body.sidenarrow .sv-sync span { display: none; }
 
 /* R-121: the Versions comparison on the First visit page */
 .fv-vars .fv-tablewrap { overflow-x: auto; margin: 8px 0; }
+.fv-vars { margin-top: 24px; }   /* a card after the Suggested bills table (R-094), not part of it */
 .fv-vtable { width: 100%; border-collapse: collapse; font-size: 14px; }
 .fv-vtable th, .fv-vtable td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line, #DBE3E7); }
 .fv-vtable th.num, .fv-vtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -428,3 +429,9 @@ body.sidenarrow .sv-sync span { display: none; }
 .td-asklist { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; font-size: var(--t14, 14px); line-height: 1.4; }
 .td-asklist li b { font-variant-numeric: tabular-nums; }
 .td-asks .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+/* A bill's Public tab: what each draft changed (R-060) */
+.bw-drlist { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.bw-drrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bw-drbody { display: flex; flex-direction: column; gap: 2px; }
+.bw-dracts { display: flex; gap: 4px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+

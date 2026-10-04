@@ -428,7 +428,7 @@ function personPage(route) {
   // A bill leads with its everyday name when staff have written one; what it does is the second line.
   const billRow = ({ b: x, r, when }) => {
     const meta = `${esc(spaced(x.bill_number))} · ${when === 'now' ? esc(plainStatus(x).short) : 'Comes to their committee next'}${r.role === 'chair' ? ` · ${when === 'now' ? 'they chair it' : 'they chair that committee'}` : ''}`;
-    const end = S.watch.has(x.id) ? chip('Following', 'info', 'star') : '';
+    const end = S.watch.has(x.id) ? chip('Following', 'info', 'check') : '';   // a tick, as on every followed state (R-061)
     return row({ title: esc(nick(x) || blurb(x, 160)), sub: nick(x) ? `<span class="pp-what">${esc(blurb(x, 160))}</span><span>${meta}</span>` : meta, end, href: billPath(x), cls: 'pp-billrow' });
   };
   // One page, two layouts. On a phone everything stacks: who they are, how to reach them, then their committees.

@@ -47,7 +47,8 @@ with sync_playwright() as pw:
     # ---- the new version, on a phone ----
     c, p = ctx(b)
     s = walk_to_soon(p, '&end=home')
-    ok('we’ll show you' in s['first'] and 'Home shows when it’s your moment' in s['first'], 'new: the first screen says the home page shows it')
+    # R-099 (10/3): the new version says how as well as when: "you'll see what to do, and we'll help you do it"
+    ok('When it’s time, we help you speak up' in s['first'] and 'we’ll tell you' not in s['first'], 'new: the first screen says we help you act when it is time (said once, in the promise row)')
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
     ok('at one of these moments now' in s['story'] and 'top of your home page' in s['story'], f'new: the story names the real moment ({s["story"][:90]})')
     ok('Want an email too?' in s['soon'] and 'Home always has what’s next' in s['soon'], 'new: the reminder box says email is extra')
@@ -59,7 +60,7 @@ with sync_playwright() as pw:
     p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
     ok(p.evaluate('location.hash') in ('#/', ''), 'new: the last step goes straight to Home')
     home = text(p)
-    ok('Mahalo, Leilani!' in home and 'This is your home page. When a bill on your issues needs you, it shows up here.' in home, 'new: Home opens with "Mahalo, Leilani! This is your home page" and what it is for')
+    ok('Mahalo, Leilani!' in home and 'This is your home page. When a bill on your issues needs you, it shows up here, and we help you speak up' in home, 'new: Home opens with "Mahalo, Leilani! This is your home page" and what it is for')
     ok('You’re all set' not in home, 'new: no "You\'re all set"')
     ok(p.locator('.hm-did li').count() >= 2, 'new: the ticks of what they did')
     ok(p.locator('.hm-rightnow .hm-rnh', has_text='What you can do right now').count() == 1, 'new: "What you can do right now"')

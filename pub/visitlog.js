@@ -177,18 +177,23 @@ export function logAct(kind) {
   } catch { return Promise.resolve(false); }
 }
 
-// ---- the A/B tests' counts (R-135, backend migration 116) ----
-// variant.js decides what to count (a test met, a measure done, each once); this sends it, under the same rules as every
-// count here: nothing with the privacy signal, from a test run or from the sandbox. A plain request, gathered for a
-// moment so the first screen's three "met it" go as one, and never the database library (the first screen does not
-// wait for it, R-122). log_ab takes at most 12 events a call.
-let abq = [], abT = 0;
-function abFlush() {
-  clearTimeout(abT); abT = 0;
-  while (abq.length) {
-    const e = abq.splice(0, 12);
-    try { fetch(`${SUPABASE_URL}/rest/v1/rpc/log_ab`, { method: 'POST', keepalive: true, headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p: { e } }) }).catch(() => {}); } catch { /* never in the way */ }
+// ---- the A/B tests' counts (R-135, backend migration 116) and the suggested bills' (R-094, migration 118) ----
+// variant.js and core.js decide what to count (a test met, a measure done, a suggestion shown or followed, each once);
+// this sends it, under the same rules as every count here: nothing with the privacy signal, from a test run or from the
+// sandbox. A plain request, gathered for a moment so the first screen's three "met it" go as one, and never the database
+// library (the first screen does not wait for it, R-122). log_ab and log_suggest take at most 12 events a call.
+const queues = { log_ab: [], log_suggest: [] };
+let flushT = 0;
+function flushCounts() {
+  clearTimeout(flushT); flushT = 0;
+  for (const [fn, q] of Object.entries(queues)) while (q.length) {
+    const e = q.splice(0, 12);
+    try { fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', keepalive: true, headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p: { e } }) }).catch(() => {}); } catch { /* never in the way */ }
   }
 }
-setAbSink(evs => { try { if (DEMO || quiet()) return; abq.push(...evs); if (!abT) abT = setTimeout(abFlush, 1500); } catch { /* never in the way */ } });
-addEventListener('pagehide', abFlush);
+const queue = (fn, evs) => { try { if (DEMO || quiet()) return; queues[fn].push(...evs); if (!flushT) flushT = setTimeout(flushCounts, 1500); } catch { /* never in the way */ } };
+setAbSink(evs => queue('log_ab', evs));
+// A suggested bill's event: { s: 'home' | 'find', l: 'pick' | 'yours' | 'other', k: 'shown' | 'followed' | 'dismissed' |
+// 'acted' }. No bill, no issue: core.js keeps which bill it was, in this browser, only to send each event once.
+export const logSuggest = ev => queue('log_suggest', [ev]);
+addEventListener('pagehide', flushCounts);

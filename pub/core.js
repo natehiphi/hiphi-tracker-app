@@ -5,6 +5,7 @@ import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwa
 import { topicOf } from './topics.js';
 import { rankAll, shortList, markShown, actedKind } from './rank.js';
 import { abEvent, abStep } from './variant.js';
+import { logSuggest } from './visitlog.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
@@ -87,6 +88,7 @@ export async function markDone(billId, hearingId, kind, on = true, { quiet = fal
   if (on && !quiet) { celebrate(kind, firstTestimony); }
   if (on) app.onAct?.(kind);   // counted privately, its kind only (visitlog.js logAct, migration 078)
   if (on && hearingId) abStep(hearingId, kind);   // another step where the rank test was met (R-135)
+  if (on) suggestEvent(billId, 'acted');   // acted on a bill it had suggested (R-094)
   if (on && !S.session) nudge('action');
   const c = S.actionCounts[billId] ??= { testimonies: 0, emails: 0, attending: 0 };
   const col = { testimony: 'testimonies', email: 'emails', legislators: 'emails', attend: 'attending' }[kind]; if (col) c[col] = Math.max(0, (c[col] || 0) + (on ? 1 : -1));
@@ -367,6 +369,9 @@ export function dismiss(id) { const d = dismissed(); d.add(id); try { localStora
 // ---------------- the suggested bill (R-094) ----------------
 // The scoring lives in pub/rank.js (pure, so the 2026 replay runs the same code); this builds the person it needs from
 // what the page already holds. Everything is worked out here in the browser: nothing about the person is sent anywhere.
+// What is sent (R-094 step 5, migration 118) is a count with no bill or person: a suggestion shown, followed, dismissed or
+// acted on, where (Home or Find) and in which place of the short list (HIPHI's top pick, the person's own interests,
+// or the rest), so January can say whether suggestions help.
 export { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 const SEEN_KEY = DEMO ? 'hiphi_sugg_seen_demo' : 'hiphi_sugg_seen';
 const readSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; } };
@@ -405,10 +410,33 @@ export function suggestionList(n = 4) {
 }
 export const reasonOf = b => S.sugWhy.get(b.id) || '';
 // Called when suggestions are put on screen: a bill shown on three separate days and never followed, acted on or
-// dismissed drops; after five it is not suggested again until it has a new hearing (FATIGUE in rank.js).
-export function noteShown(list) {
+// dismissed drops; after five it is not suggested again until it has a new hearing (FATIGUE in rank.js). surface: 'home'
+// or 'find'. The first showing of a bill each day is counted (R-094 step 5), and the entry keeps where and in which
+// place it was shown, so following, dismissing or acting on it later is counted the same way.
+const slotOf = r => r.fit > 0 ? 'yours' : r.topPick ? 'pick' : 'other';
+export function noteShown(list, surface = 'find') {
   if (!list.length) return;
-  try { localStorage.setItem(SEEN_KEY, JSON.stringify(markShown(readSeen(), list, Date.now()))); } catch { /* ignore */ }
+  try {
+    const before = readSeen(), today = hstDay(Date.now());
+    const fresh = list.filter(r => r.hearing?.id && !(before[r.b.id]?.h === r.hearing.id && (before[r.b.id].days || []).includes(today)));
+    const seen = markShown(before, list, Date.now());
+    for (const r of list) if (seen[r.b.id]) Object.assign(seen[r.b.id], { s: surface, l: slotOf(r) });
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+    for (const r of fresh) logSuggest({ s: surface, l: slotOf(r), k: 'shown' });
+  } catch { /* ignore */ }
+}
+// A suggested bill followed, dismissed or acted on: counted once per bill and hearing, and only when it was shown as a
+// suggestion in the last 14 days (the record noteShown keeps).
+const SUGC_KEY = 'hiphi_sugc';
+export function suggestEvent(billId, k) {
+  try {
+    const e = readSeen()[billId], last = e && (e.days || []).slice(-1)[0];
+    if (!e || !last || (Date.parse(hstDay(Date.now())) - Date.parse(last)) / 864e5 > 14) return;
+    const id = `${billId}|${e.h}|${k}`, sent = JSON.parse(localStorage.getItem(SUGC_KEY) || '[]');
+    if (sent.includes(id)) return;
+    localStorage.setItem(SUGC_KEY, JSON.stringify([...sent, id].slice(-300)));
+    logSuggest({ s: e.s === 'home' ? 'home' : 'find', l: ['pick', 'yours'].includes(e.l) ? e.l : 'other', k });
+  } catch { /* ignore */ }
 }
 export async function loadFeatured() {
   const now = Date.now(), until = new Date(now + 8 * 864e5).toISOString();

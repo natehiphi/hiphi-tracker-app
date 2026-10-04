@@ -52,7 +52,9 @@ with sync_playwright() as pw:
         ok(names[:3] == ['What you care about', 'Your issues', 'A bill’s story'] and names[-1].startswith('You'), f'first visit{tag}: screens in the order a person meets them: {names[:3]} ... {names[-1:]}')
         first_pc = p.locator('ol.fv-screens').first.locator('.fv-rn').first.inner_text()
         ok(first_pc.endswith('100%'), f'first visit{tag}: every first visit reaches the first screen ({first_pc})')
-        ok(p.locator('section:not([aria-labelledby=fv-bh]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
+        ok(p.locator('section:not([aria-labelledby=fv-bh]):not([aria-labelledby=fv-sg]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
+        # R-094 step 5 (10/3): the suggested bills, counted, with a row per place in the short list
+        ok(p.locator('section[aria-labelledby=fv-sg] table.fv-table tbody tr').count() == 3, f'first visit{tag}: suggested bills by place in the list')
         src = p.locator('table.fv-table').first.inner_text()
         ok('Keiki health fair (sample)' in src, f'first visit{tag}: a partner\'s visits are under its name')
         ok('spring-flyer' in src and 'no campaign word' in src, f'first visit{tag}: a partner\'s campaign words are rows under it, so two flyers can be told apart')

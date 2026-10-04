@@ -14,7 +14,7 @@
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead } from './model.js';
-import { icon, btn, iconBtn, toast, notice, switchRow } from './ui.js';
+import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
 
@@ -75,6 +75,54 @@ function issuesSection(b) {
   </section>`;
 }
 
+// ---- what each draft changed (R-060, migration 120): the notes the public page shows under "How it has changed" ----
+// Claude drafts them from the committee reports (backend tools/apply_draft_notes.js); a note still in Claude's words says
+// so, so someone checks it. Edit opens the note in a sheet; Save has Undo. The current draft with no note gets "Add".
+const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
+const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]} (${v})` : v; };
+const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || '') || []; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
+  return ({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) * 100 + (+m[2] || 0); };
+function loadDrafts(b) {
+  if ((S.billDrafts ??= {})[b.id] !== undefined) return;
+  S.billDrafts[b.id] = null;
+  DB.billDrafts(b.id).then(rows => { S.billDrafts[b.id] = rows; rerender(); }).catch(() => { S.billDrafts[b.id] = []; });
+}
+function draftsSection(b) {
+  loadDrafts(b);
+  // Up to the bill's current draft, as on the public page (the practice copy is frozen in March).
+  const cur = b.current_version, upto = cur ? draftRank(b, cur) : Infinity;
+  const rows = (S.billDrafts[b.id] || []).filter(d => draftRank(b, d.version) <= upto).sort((x, y) => draftRank(b, y.version) - draftRank(b, x.version));
+  const missing = cur && /^(HD|SD|CD|FD)\d+$/.test(cur) && !rows.some(d => d.version === cur);
+  if (!rows.length && !missing) return '';
+  return `<section class="bw-sec" aria-labelledby="bw-dr-h">
+    <h2 id="bw-dr-h">What each draft changed</h2>
+    <p class="small muted">The public page shows these under “How it has changed”, newest first, one or two plain sentences each.</p>
+    ${rows.length ? `<ul class="bw-drlist" role="list">${rows.map(d => `<li class="bw-drrow"><div class="bw-drbody"><b>${esc(draftName(d.version))}</b>
+      <span>${esc(d.summary)}</span>${d.written_by === 'staff' ? '' : '<span class="small muted">Drafted by Claude from the committee report: please check it.</span>'}
+      ${d.source_url ? `<a class="small bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Committee report${icon('external-link')}</a>` : ''}</div>
+      <div class="bw-dracts">${d.written_by === 'staff' ? '' : btn('Looks right', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-drok': d.version, 'aria-label': `The note on ${draftName(d.version)} looks right` } })}
+      ${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-dredit': d.version, 'aria-label': `Edit the note on ${draftName(d.version)}`, 'aria-haspopup': 'dialog' } })}</div></li>`).join('')}</ul>` : ''}
+    ${missing ? `<div class="bw-acts">${btn(`Add a note on ${draftName(cur)}`, { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'data-dredit': cur, 'aria-haspopup': 'dialog' } })}</div>` : ''}
+  </section>`;
+}
+function editDraft(b, version) {
+  const d = (S.billDrafts[b.id] || []).find(x => x.version === version), before = d ? d.summary : '';
+  openSheet({ title: `What ${draftName(version)} changed`, size: 'auto',
+    body: `${d?.source_url ? `<p class="small"><a class="bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Read the committee report${icon('external-link')}</a></p>` : ''}<div class="field"><label for="bw-drtxt">In plain words</label><textarea id="bw-drtxt" rows="4" maxlength="600" aria-describedby="bw-drtxt-h">${esc(before)}</textarea>
+      <span class="help" id="bw-drtxt-h">One or two sentences a neighbour would understand, from the committee’s report: what this draft added, took out or changed.</span><div id="bw-drerr" role="alert"></div></div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-drno': '1' } })}${btn('Save', { kind: 'primary', icon: 'check', attrs: { 'data-drsave': '1' } })}`,
+    wire: dlg => {
+      dlg.querySelector('[data-drno]').onclick = () => closeSheet();
+      dlg.querySelector('[data-drsave]').onclick = async () => {
+        const txt = dlg.querySelector('#bw-drtxt').value.trim();
+        if (!txt) { dlg.querySelector('#bw-drerr').innerHTML = '<span class="err">Write a sentence, or Cancel.</span>'; return; }
+        try { const row = await DB.saveBillDraft(b.id, version, txt); put(b, row); await closeSheet({ silent: true }); rerender('[data-dredit]');
+          toast(`Saved. The public page shows it under “How it has changed”.`, { ok: true, undo: before ? async () => { put(b, await DB.saveBillDraft(b.id, version, before)); rerender(); } : null }); }
+        catch (e) { toast(e, { err: true }); } };
+    } });
+}
+const put = (b, row) => { const list = S.billDrafts[b.id] ||= []; const i = list.findIndex(x => x.version === row.version); if (i >= 0) list[i] = row; else list.push(row); };
+
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
@@ -112,6 +160,7 @@ export function renderPublic(b) {
     </div>
   </section>
   ${issuesSection(b)}
+  ${draftsSection(b)}
   <section class="bw-sec" aria-labelledby="bw-lists-h">
     <h2 id="bw-lists-h">Lists</h2>
     ${!lists.length ? '<p class="small muted">No lists yet. Make one under Outreach, Lists.</p>'
@@ -206,6 +255,12 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     } catch (x) { el.disabled = false; toast(x, { err: true }); }
   });
   pnl.querySelector('[data-ispick]')?.addEventListener('click', () => openIssuePicker(b, { onClose: () => rerender('[data-ispick]') }));
+  pnl.querySelectorAll('[data-dredit]').forEach(el => el.onclick = () => editDraft(b, el.dataset.dredit));
+  // "Looks right": a checked note becomes the team's as it stands (saved unchanged, so the drafting tool leaves it alone).
+  pnl.querySelectorAll('[data-drok]').forEach(el => el.onclick = async () => { const d = (S.billDrafts[b.id] || []).find(x => x.version === el.dataset.drok); if (!d) return;
+    el.setAttribute('aria-busy', 'true');
+    try { put(b, await DB.saveBillDraft(b.id, d.version, d.summary)); rerender('[data-dredit]'); toast('Checked. The note is the team’s now.', { ok: true }); }
+    catch (e) { el.removeAttribute('aria-busy'); toast(e, { err: true }); } });
   pnl.querySelectorAll('[data-isstance]').forEach(el => el.onclick = () => {
     const i = (S.issues || []).find(x => x.id === el.dataset.isstance);
     if (i) pickStance(i, { bill: b, after: () => rerender(`[data-isstance="${CSS.escape(i.id)}"]`) });

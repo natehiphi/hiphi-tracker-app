@@ -761,7 +761,8 @@ export const DB = {
     const { error } = await S.supa.from('issue_link_choices').upsert(row, { onConflict: 'issue_a,issue_b' });
     if (error) { if (before) Object.assign(was, before); else S.issueLinkChoices = S.issueLinkChoices.filter(c => c !== row); throw error; }
   },
-  async setBillIssue(billId, issueId, on) {
+  // via (R-088 part 2, migration 119): 'suggested' or 'changed' from Sort new bills' suggestion, else 'staff'.
+  async setBillIssue(billId, issueId, on, { via = 'staff' } = {}) {
     const had = S.billIssues.some(x => x.bill_id === billId && x.issue_id === issueId);
     if (on === had) return;
     if (on) S.billIssues.push({ bill_id: billId, issue_id: issueId, added_at: new Date().toISOString() });
@@ -774,7 +775,7 @@ export const DB = {
       if (iss.talking_points?.length && !bill.talking_points?.length) Object.assign(bill, { talking_points: [...iss.talking_points], talking_points_edited_at: new Date().toISOString() });
     }
     if (DEMO) return;
-    const { error } = on ? await S.supa.from('bill_issues').insert({ bill_id: billId, issue_id: issueId })
+    const { error } = on ? await S.supa.from('bill_issues').insert({ bill_id: billId, issue_id: issueId, added_via: ['suggested', 'changed'].includes(via) ? via : 'staff' })
       : await S.supa.from('bill_issues').delete().eq('bill_id', billId).eq('issue_id', issueId);
     if (error) {
       if (on) S.billIssues = S.billIssues.filter(x => !(x.bill_id === billId && x.issue_id === issueId));
@@ -856,6 +857,27 @@ export const DB = {
   },
   // Per version of the first visit (113, R-121): visits, finished, gave an email, came back, actions. Forced (by a
   // tester's or a staff link) are their own rows and never in the comparison.
+  // What each draft of a bill changed (120, R-060): Claude drafts from the committee reports, staff edit here. A save
+  // from the app is stamped as the team's (the database's trigger), so the drafting tool never overwrites it.
+  async billDrafts(billId) {
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
+      return (await S.demoDrafts).filter(d => d.bill_id === billId).map(d => ({ written_by: 'claude', ...d })); }
+    const { data, error } = await S.supa.from('bill_drafts').select('*').eq('bill_id', billId);
+    if (error) throw error; return data || [];
+  },
+  async saveBillDraft(billId, version, summary) {
+    const row = { bill_id: billId, version, summary: String(summary || '').trim().replace(/\s+/g, ' ') };
+    if (DEMO) { const list = await S.demoDrafts || []; const i = list.findIndex(d => d.bill_id === billId && d.version === version);
+      const r = { ...(i >= 0 ? list[i] : {}), ...row, written_by: 'staff', edited_at: new Date().toISOString() }; if (i >= 0) list[i] = r; else list.push(r); return r; }   // keeps the report link, as the database does
+    const { data, error } = await S.supa.from('bill_drafts').upsert(row, { onConflict: 'bill_id,version' }).select('*').single();
+    if (error) throw error; return data;
+  },
+  // The suggested bills, counted (118, R-094 step 5): per week, where and in which place of the short list.
+  async suggestSummary(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('suggest_summary', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error; return data || [];
+  },
   // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
   async firstVisitSources(weeks = 12) {
     if (DEMO) return [];

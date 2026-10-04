@@ -921,8 +921,9 @@ function stageBody(E, k) {
   const H = E.hear, home = endHome();
   const now = !E.off && H && !H.example && !H.past && !E.stopped && !E.isLaw
     ? `${E.num.replace(NBSP, ' ')} is at one of these moments now: ${H.dueReal && new Date(H.due) > Date.now() ? `testimony is due ${H.dueDay}` : `it has a hearing ${H.when}`}.` : '';
-  const calm = now ? `${now} ${home ? 'It’ll be waiting at the top of your home page.' : 'We’ll show you how.'}`
-    : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do and by when.`
+  // R-099: the version that ends on Home says how, not only when: the moment waits on Home, with help to act on it.
+  const calm = now ? `${now} ${home ? 'It’ll be waiting at the top of your home page, and we’ll help you write your note.' : 'We’ll show you how.'}`
+    : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do by when, and we help you write it.`
     : E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
     : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';
   return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>

@@ -113,6 +113,39 @@ function loadSocial(b) {
     if (got && onBill() && numFromHash() === b.bill_number) app.render();
   })().catch(() => { /* decoration */ });
 }
+// ---- what each draft changed (R-060, backend migration 120) ----
+// The Legislature renames a bill each time a committee amends it (HD1, SD2, CD1). HIPHI's notes say in plain words what
+// each draft changed: drafted from the committee reports (backend tools/apply_draft_notes.js), edited by staff in Staff
+// v2. Asked for once per bill (public_bill_drafts); the practice copy reads demo/drafts.json. Only drafts up to the
+// bill's current one show, so the practice copy, frozen at 16 March, never shows April's.
+const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
+export const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]}` : v; };
+// The order drafts come in: the bill's own chamber first, then the other, then a floor draft, then conference.
+export const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || '') || []; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
+  return ({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) * 100 + (+m[2] || 0); };
+function loadDrafts(b) {
+  if ((S.blDrafts ??= new Map()).has(b.id)) return;
+  S.blDrafts.set(b.id, []);
+  (async () => {
+    let rows;
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); rows = (await S.demoDrafts).filter(d => d.bill_id === b.id); }
+    else { const r = await (await supa()).from('public_bill_drafts').select('version,summary').eq('bill_id', b.id); if (r.error) throw r.error; rows = r.data || []; }
+    S.blDrafts.set(b.id, rows);
+    if (rows.length && onBill() && numFromHash() === b.bill_number) app.render();
+  })().catch(() => { /* decoration: the page stands without it */ });
+}
+function draftsSection(b) {
+  const cur = b.current_version ? draftRank(b, b.current_version) : Infinity;
+  const list = (S.blDrafts?.get(b.id) || []).filter(d => draftRank(b, d.version) <= cur).sort((x, y) => draftRank(b, y.version) - draftRank(b, x.version));
+  if (!list.length) return '';
+  const [last, ...rest] = list;
+  return `<section class="bl-sec bl-drafts" aria-labelledby="bl-dr-h"><div class="sechead"><h2 id="bl-dr-h">How it has changed</h2></div>
+    <p class="meta bl-drwhy">Each time a committee changes a bill, it gets a new draft. What changed, from the committees’ reports:</p>
+    <p class="bl-drlast"><b>${esc(draftName(last.version))}${last.version === b.current_version ? ', the latest' : ''}:</b> ${esc(last.summary)}</p>
+    ${rest.length ? `<details class="bl-drmore"><summary>${icon('chevron-down', { cls: 'bl-chev' })}<span>Earlier drafts (${rest.length})</span></summary>
+      <ul class="bl-drlist" role="list">${rest.map(d => `<li><b>${esc(draftName(d.version))}:</b> ${esc(d.summary)}</li>`).join('')}</ul></details>` : ''}
+  </section>`;
+}
 // Following another bill reloads the followed set and drops this one's committee reports; keep them so where the bill
 // stands does not change under the reader.
 const OUT = {};
@@ -547,7 +580,7 @@ function issueLine(b) {
   // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
   // Follow button with another word). Pressing Following stops following the issue, with Undo.
   return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></span>
-    ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true' } })
+    ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
       : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}</p>`;   // a newcomer has it on their own card (A-14)
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
@@ -565,7 +598,7 @@ function stanceInner(b, x) {
 function sideTools(b) {
   const on = S.watch.has(b.id), own = !issuesOf(b).length;   // a bill with an issue is followed by its issue (above)
   return `<div class="bl-stools" role="group" aria-label="${own ? 'Follow and share' : 'Share'}">
-    ${own ? btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' } }) : ''}
+    ${own ? btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false', title: on ? 'Following. Press to stop following.' : null } }) : ''}
     ${btn('Share', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-bl-share': '1' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-bl-copy': '1' } })}
     ${btn('Add to a list', { kind: 'text', sm: true, icon: 'list-plus', attrs: { 'data-bl-addto': '1' } })}</div>`;
 }
@@ -755,7 +788,7 @@ function page(num, b) {
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
-    ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
+    ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${draftsSection(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
   // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
   // height (bill.css .bl-cols), so the page looks as before.
@@ -766,7 +799,7 @@ function page(num, b) {
       ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
     </aside>
-    <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div></div></div>`;
+    <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${draftsSection(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div></div></div>`;
 }
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
@@ -851,6 +884,7 @@ export default {
     }
     keepOutcomes(b, hearingsOf(b));
     loadSocial(b);
+    loadDrafts(b);
     return page(num, b);
   },
   // Phones and tablets: the main button in the sticky bottom bar. Wide screens have it in the side panel instead.

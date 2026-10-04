@@ -218,7 +218,9 @@ function stepVoice(step) {
   const pts = [
     ['mail', 'They read what you send', 'Before a committee votes on a bill, its members read the notes people send.'],
     ['message-circle', 'You don’t need to be an expert', 'Say who you are and why it matters to you. That’s enough.'],
-    ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
+    // R-099: the version that ends on Home says how, not only when.
+    endHome() ? ['notebook-pen', 'We help you do it', `When ${off ? 'the session opens and ' : ''}a bill on your issues has a hearing, your home page shows what to do by when, and we walk you through it.`]
+      : ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
   ];
   const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
   return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
@@ -364,7 +366,7 @@ function upcoming() {
     if (vh) {
       const due = vh.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(vh.testimony_deadline)} at ${timeWord(vh.testimony_deadline)}.` : '';
       out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear', b: vb, h: vh });
-    } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? 'No hearing on your issues this week yet. We’ll tell you when one is set.' : 'No hearing set on it this week yet.', kind: 'soon' });
+    } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? (endHome() ? 'No hearing on your issues this week yet. When one is set, your home page shows what to do.' : 'No hearing on your issues this week yet. We’ll tell you when one is set.') : 'No hearing set on it this week yet.', kind: 'soon' });
   }
   return out;
 }

@@ -33,6 +33,9 @@ direction; Claude builds, tests, pushes and verifies the published site.
   a version of each by its own coin toss (`pub/variant.js`), Nate switches each on or off and picks winners in Staff v2 >
   Session setup > Tests, and every count is per version. A change to one of those screens keeps both versions working
   until the winner is picked; `python3 tests/abtests.py` checks them.
+- **Four builds of 10/4 (R-099, R-094 step 5, R-061, R-088 part 2) and R-060** (`docs/FEATURES.md`, last section): the Home
+  ending's "how" words, the suggested bills counted, the Follow button's hint, Sort new bills' suggested issue, and each
+  bill draft's plain-language note (public "How it has changed", staff Public tab).
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
@@ -378,7 +381,9 @@ python3 tests/links_keep.py         # the walkthrough link, the My issues link r
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog, and someone with an action lands on Home; 5 checks
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
-python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 59 checks
+python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 61 checks
+python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
+node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

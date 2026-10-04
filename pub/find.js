@@ -197,7 +197,7 @@ function suggestions() {
   const skip = dismissed(), ok = r => r.st.hearing && !skip.has(r.b.id);
   const list = (F.recs || []).filter(ok), have = new Set(list.map(r => r.b.id));
   for (const r of suggestionList(4)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) list.push(r); }
-  noteShown(list);
+  noteShown(list, 'find');
   return F.recs = list;
 }
 

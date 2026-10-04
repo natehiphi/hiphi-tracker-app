@@ -239,3 +239,31 @@ tracked by effectiveness. The plan: `../backend/docs/AB-TESTS-PLAN.md`; the data
 - Tests: `tests/abtests.py` (59 checks: each version forced in the sandbox at two sizes; the toss over 200 browsers; the
   switches; every measure; a friend by a shared link; the privacy signal; every database request intercepted).
 
+## Five builds of 4 Oct (Nate 10/3: "Do all the builds except for R-033"; HANDOFF 3.80)
+
+- **R-099, "how" as well as "when":** the version of the first visit that ends on Home (the ending test's B, R-135) now says
+  the person speaks up and the app helps them do it: the first screen's lede and promise (`start.js`), the short page's
+  third point and "Coming up" (`start-rest.js`), the lesson's last line (`lessons.js`), Home's welcome (`home.js`). Today's
+  version keeps its words, so the ending test compares the two first visits whole. The email box's consent words are
+  unchanged (C-4).
+- **R-094 step 5, the suggested bills counted:** `core.js` `noteShown(list, surface)` counts each suggested bill's first
+  showing of the day, remembering where (home, find) and its place in the short list (`pick` HIPHI's top pick, `yours`
+  the person's interests, `other`); `suggestEvent(billId, kind)` counts followed (`actions.js` `followToggle`), dismissed
+  ("Not for me") and acted (`markDone`), once per bill and hearing, within 14 days of a showing. Sent by `visitlog.js`
+  `logSuggest` to `log_suggest` (migration 118) with no bill or person. Staff: Outreach > Issues > First visit >
+  **Suggested bills** (`suggHTML`, `suggest_summary`). The privacy page says so.
+- **R-061, the Follow button:** the followed state was already a filled blue "Following" with a tick everywhere (R-067);
+  every followed-state button now says "Following. Press to stop following." on hover, and the legislator page's
+  followed bills carry the tick, not a star.
+- **R-088 part 2, the suggested issue:** `staff/suggest_issue.js` (pure; `tests/issue_suggest_test.mjs`): the earlier
+  session's look-alike's issue (`triage_queue` now gives its id, migration 119), else an issue sharing at least three
+  words with the bill and a fifth ahead of the next. Sort new bills shows "Suggested issue: …" on the card and an
+  **Issue** row in the panel, preselected; Track puts the bill on it (`DB.setBillIssue(..., { via })`, kept in
+  `bill_issues.added_via`: suggested, changed or staff); Undo takes it off again.
+- **R-060, what each draft changed:** `bill_drafts` and `public_bill_drafts` (migration 120). Public bill page: "How it has
+  changed" (`bill.js` `draftsSection`, `loadDrafts`; the sandbox reads `demo/drafts.json`), the current draft's note first
+  in plain words ("Senate draft 2"), earlier ones folded, never a draft after the bill's current one. Staff v2, a bill's
+  Public tab: "What each draft changed" (`staff/public.js`), Edit in a sheet with Undo, Claude's notes marked "please
+  check it". Notes come from the committee reports through `../backend/tools/apply_draft_notes.js`; ten 2026 notes are
+  loaded (SB 2175, HB 2121, SB 2463). `tests/drafts.py`.
+

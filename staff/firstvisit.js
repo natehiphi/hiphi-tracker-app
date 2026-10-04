@@ -104,10 +104,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back, from] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, at: Date.now() }; v.from = from; }
+  try { const [rows, srcs, back, from, sugg] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -232,6 +232,29 @@ function backHTML(rows) {
       <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(actsOnly(r.acts) || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
   </section>`;
 }
+// The suggested bills (R-094 step 5, migration 118): how often a suggestion on Home or Find was followed, dismissed or
+// acted on, by its place in the short list (HIPHI's top pick, the person's own interests, the rest). Counts only; each
+// bill once a day for "shown", once per hearing for the rest. Its own call: if it fails, this section says nothing.
+const SLOT = { pick: 'HIPHI’s top pick', yours: 'Matches issues they follow', other: 'Another bill with a hearing' };
+function suggHTML(rows) {
+  if (!rows) return '';
+  const head = `<div class="le-sechead"><h2 id="fv-sg">Suggested bills</h2><span class="meta">on Home and Find; each bill once a day</span></div>`;
+  const t = { shown: 0, followed: 0, dismissed: 0, acted: 0 }, by = {};
+  for (const r of rows) { const k = r.slot; by[k] ??= { shown: 0, followed: 0, dismissed: 0, acted: 0 };
+    for (const f of Object.keys(t)) { t[f] += r[f] || 0; by[k][f] += r[f] || 0; } }
+  if (!t.shown) return `<section class="fv-sec" aria-labelledby="fv-sg">${head}<p class="meta">Nothing counted yet. Each time a suggested bill appears on Home or Find it counts once a day, and again if someone follows it, says “Not for me” or acts on it.</p></section>`;
+  const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
+  return `<section class="fv-sec" aria-labelledby="fv-sg">${head}
+    <div class="fv-tiles">${tile(nf(t.shown), 'times shown')}${tile(nf(t.followed), 'followed', `${pct(t.followed, t.shown)} of times shown`)}${tile(nf(t.acted), 'acted on', `${pct(t.acted, t.shown)} of times shown`)}${tile(nf(t.dismissed), 'said “Not for me”', `${pct(t.dismissed, t.shown)} of times shown`)}</div>
+    <div class="fv-tablewrap"><table class="fv-table"><thead><tr><th scope="col">Why it was shown</th><th scope="col" class="num">Shown</th><th scope="col" class="num">Followed</th><th scope="col" class="num">Acted on</th><th scope="col" class="num">Not for me</th></tr></thead>
+      <tbody>${['pick', 'yours', 'other'].filter(k => by[k]).map(k => { const x = by[k]; return `<tr><th scope="row">${SLOT[k]}</th><td class="num">${nf(x.shown)}</td><td class="num">${nf(x.followed)} <span class="fv-pc">${pct(x.followed, x.shown)}</span></td><td class="num">${nf(x.acted)} <span class="fv-pc">${pct(x.acted, x.shown)}</span></td><td class="num">${nf(x.dismissed)} <span class="fv-pc">${pct(x.dismissed, x.shown)}</span></td></tr>`; }).join('')}</tbody></table></div>
+  </section>`;
+}
+// Sample rows for the sandbox: shaped like suggest_summary.
+const sampleSugg = weeks => { const n = Math.max(6, weeks * 4); return [
+  { week: '2026-03-16', surface: 'home', slot: 'pick', shown: n * 9, followed: n, dismissed: Math.round(n / 2), acted: Math.round(n / 3) },
+  { week: '2026-03-16', surface: 'find', slot: 'yours', shown: n * 7, followed: Math.round(n * 1.4), dismissed: Math.round(n / 3), acted: Math.round(n / 2) },
+  { week: '2026-03-16', surface: 'find', slot: 'other', shown: n * 12, followed: Math.round(n * 0.8), dismissed: n, acted: Math.round(n / 4) }]; };
 function weeksHTML(rows) {
   const wk = by(rows, 'week').sort((a, b) => String(b[0]).localeCompare(String(a[0])));
   if (wk.length < 2) return '';
@@ -276,7 +299,7 @@ function numbersHTML() {
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
   if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${variantsHTML()}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${suggHTML(have.sugg)}${variantsHTML()}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 

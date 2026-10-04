@@ -2,7 +2,7 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
@@ -103,7 +103,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <div class="btncol">${compact ? '' : primary}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
-    ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true' }, cls: 'on' })}</div>` : ''}
+    ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
 const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
@@ -184,10 +184,11 @@ export async function followToggle(id, label) {
   // the other chamber and next session's bills. Only a bill with no issue (HIPHI only watches it) is followed alone.
   const iss = was ? null : issuesOf(id).find(i => !issueFollowed(i));
   if (iss) {
-    if (await setFollows({ issuesOn: [iss.id] })) toast(`Following ${iss.name}. Its bills come to you, this one included.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [iss.id] }); app.render(); } });
+    if (await setFollows({ issuesOn: [iss.id] })) { suggestEvent(id, 'followed'); toast(`Following ${iss.name}. Its bills come to you, this one included.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [iss.id] }); app.render(); } }); }
     return;
   }
   await toggleWatch(id);
+  if (!was) suggestEvent(id, 'followed');   // a suggested bill followed (R-094); counted only if it was suggested
   // A bill that came with an issue: its star is "Not for me", and the issue stays followed (R-018).
   if (was) { toast(via ? `You won’t hear about ${label || 'this bill'}. You still follow ${via.name}.` : `Unfollowed ${label || ''}`.trim(), { undo: async () => { await toggleWatch(id); } }); return; }
   // A bill with no issue, followed on its own, still offers its twin in the other chamber (R-021).
@@ -226,7 +227,7 @@ export function wireActions(root = document) {
   $$('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|'); await markDone(bid, hid, kind, false); app.render(); });
   $$('[data-follow]').forEach(el => el.onclick = async e => { e.stopPropagation(); const id = el.dataset.follow, b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === id);
     await followToggle(id, b ? spaced(b.bill_number) : ''); });
-  $$('[data-notforme]').forEach(el => el.onclick = () => { dismiss(el.dataset.notforme); toast('Okay, we won’t suggest that one again'); app.render(); });
+  $$('[data-notforme]').forEach(el => el.onclick = () => { suggestEvent(el.dataset.notforme, 'dismissed'); dismiss(el.dataset.notforme); toast('Okay, we won’t suggest that one again'); app.render(); });
 }
 
 // ---- the email ask (one component everywhere): after follows, after an action, welcome back.
