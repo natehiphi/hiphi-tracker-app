@@ -143,7 +143,6 @@
 .st-tname { min-width: 0; }
 .st-tpicked { font: 400 var(--t14)/1.35 var(--font); color: var(--n700); letter-spacing: 0; }
 .st-tsec[open] .st-tpicked { display: none; }
-.st-tcount { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
 .st-tchev { width: 20px; height: 20px; color: var(--n500); flex: none; transition: transform .15s; }
 .st-tsec[open] > summary .st-tchev { transform: rotate(180deg); }
 .st-tbody2 { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s12); }

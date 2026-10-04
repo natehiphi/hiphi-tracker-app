@@ -202,7 +202,10 @@ export async function loadCatalog() {
     // track.html asks for the catalog before any module arrives (plain fetches, the key in the address, so no preflight),
     // with the issues slim: only what the topics screen shows. Its answer is taken first; the full rows (the bill lists,
     // the outlook) come with the library, and only they are kept for next time. Without either the page still works, by bills.
-    if (window.__hiphiCatalog && !S.catalogLive) { try { [cats, issues, links] = await window.__hiphiCatalog; got = Array.isArray(cats) && Array.isArray(issues); slim = got && !!issues.length && !('bill_ids' in issues[0]); } catch { got = false; } }
+    // The slim answer only before the library is in (app.js's earlyFirst): boot() comes with the library and must get the
+    // full rows. 10/4: a first visit opened at #/start/1, a reload half-way through, or a stored sign-in skips the early
+    // path, so boot() took the slim answer itself and kept it: no issue had a bill, and every count said 0 (R-136).
+    if (window.__hiphiCatalog && !S.catalogLive && !S.supa) { try { [cats, issues, links] = await window.__hiphiCatalog; got = Array.isArray(cats) && Array.isArray(issues); slim = got && !!issues.length && !('bill_ids' in issues[0]); } catch { got = false; } }
     if (!got && S.supa) {
       try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
           S.supa.from('public_issue_links').select('issue_a,issue_b')]);

@@ -280,10 +280,11 @@ function tiles(off, yr) {
   const sel = new Set(wiz().issues || []);
   return `<div class="st-tiles" role="group" aria-labelledby="st-h">${catList().map(i => {
     const on = sel.has(i.key) || i.names.some(n => sel.has(n));
-    const meta = i.fallback ? plural(i.count || 0, 'bill') : off ? (i.wins ? `${plural(i.wins, 'win')} in ${yr}` : `${plural(i.count, 'issue')} in ${yr}`) : `${plural(i.count, 'issue')} moving`;
+    // The slim catalog (R-122's first paint) has no bill lists, so it cannot count yet: no count rather than "0" (R-136).
+    const meta = S.catalogLive === 'slim' && !i.fallback ? '' : i.fallback ? plural(i.count || 0, 'bill') : off ? (i.wins ? `${plural(i.wins, 'win')} in ${yr}` : `${plural(i.count, 'issue')} in ${yr}`) : `${plural(i.count, 'issue')} moving`;
     return `<button type="button" class="st-issue st-tile" data-stissue="${esc(i.names[0])}" aria-pressed="${on}">
       <span class="st-ilead">${icon(i.icon)}</span><span class="st-tick" aria-hidden="true">${icon('check')}</span>
-      <span class="st-iname">${esc(i.key)}</span>${i.description ? `<span class="st-idesc">${esc(i.description)}</span>` : ''}<span class="st-icount">${esc(meta)}</span></button>`;
+      <span class="st-iname">${esc(i.key)}</span>${i.description ? `<span class="st-idesc">${esc(i.description)}</span>` : ''}<span class="st-icount">${esc(meta) || '&nbsp;'}</span></button>`;
   }).join('')}</div>`;
 }
 // Someone who came from a partner's link or flyer (?via=slug) is welcomed in that partner's words, once, above the

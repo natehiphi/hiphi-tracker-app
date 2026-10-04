@@ -87,7 +87,9 @@ window.addEventListener('resize', () => { cancelAnimationFrame(fitT); fitT = req
 const catAll = (c, n, all) => `${btn(`${all ? 'Following all' : 'Follow all'}<span class="sr"> of ${esc(c.key)}</span>`, { kind: 'text', sm: true, icon: all ? 'check' : 'star', cls: all ? 'on' : '', attrs: { 'data-stfollowcat': c.topicKey, 'aria-pressed': String(all) } })}
   <p class="st-catnote">${all ? 'New issues HIPHI takes up too.' : n > 1 ? `All ${n}, plus new ones.` : 'Plus any new ones.'}</p>`;
 // One <details> per category. The first always starts open; a small one (four issues or fewer) also starts open; a busy
-// one past the first starts folded, and then says what is ticked inside it (A-14).
+// one past the first starts folded, and then says what is ticked inside it (A-14). Its heading has no count: it said
+// "16 issues" over the three listed (Nate 10/4, R-136); the whole topic is counted once, beside "Follow all", which
+// follows all of them.
 S.stOpen ??= {};
 S.stMore ??= {};
 function pickedLine(p, m) {
@@ -98,7 +100,7 @@ function pickedLine(p, m) {
 function catSection(p, m) {
   const c = p.c, n = p.full.length, open = p.open, said = pickedLine(p, m);
   return `<details class="st-tsec"${open ? ' open' : ''} data-stsec="${esc(c.topicKey)}">
-    <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span><span class="st-tcount">${plural(n, 'issue')}</span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
+    <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
     <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
       ${p.rows.length ? `<ul class="st-picks" role="list">${p.rows.map(x => issueCard(x, m, c.topicKey, false)).join('')}</ul>`
         : `<p class="st-catnote">${n === 1 ? 'Its issue is' : 'Its issues are'} in the list above.</p>`}
