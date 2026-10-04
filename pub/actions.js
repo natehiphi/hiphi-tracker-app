@@ -2,11 +2,12 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, sendEmailLink, validEmail, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML } from './alerts.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
 // S.compose and S.sentq are still read by the bill page (pub/bill.js); nothing here sets S.compose any more.
@@ -230,35 +231,30 @@ export function wireActions(root = document) {
   $$('[data-notforme]').forEach(el => el.onclick = () => { suggestEvent(el.dataset.notforme, 'dismissed'); dismiss(el.dataset.notforme); toast('Okay, we won’t suggest that one again'); app.render(); });
 }
 
-// ---- the email ask (one component everywhere): after follows, after an action, welcome back.
-// Nate, 9/19: the process should ask for an email naturally and warmly, and the ask is about the person (their
-// alerts, their record on any device), never about making their actions "count". The card says exactly what the
-// email is for, so giving it IS the consent for hearing alerts (HIPHI's own action alerts stay a separate, unticked
-// choice in Settings). One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
+// ---- the alerts ask (one component everywhere): after follows, after an action, welcome back.
+// Nate, 9/19: the process should ask naturally and warmly, and the ask is about the person (their alerts, their record on
+// any device), never about making their actions "count". Since R-146 (Nate 10/4) it is the phone-first box of
+// pub/alerts.js: a mobile number for texts, email as a link under it; both name the same two kinds of alert (C-4), so
+// giving either IS the consent for them. One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 export function nudgeCard(kind = S.nudge) {
   if (!kind || S.session) return '';
-  if (S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon('mail-check')}<div><p class="strong">Check your inbox at ${esc(S.nudgeSent)}</p><p class="small">Open the link on this device and your issues come with you. Hearing alerts start once you do.</p>${DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`;
+  if (S.nudgeText || S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon(S.nudgeText ? 'message-square' : 'mail-check')}<div>${alertDoneHTML(S.nudgeText ? { kind: 'phone', phone: S.nudgeText, demo: DEMO } : { kind: 'email', email: S.nudgeSent, demo: DEMO })}</div></div>`;
   const nb = S.watch.size, na = myActions().length, ni = followedIssues().length;   // every issue followed, by itself or with its whole category (R-120, Bug 9); issues, not their bills (R-067)
-  const text = kind === 'action' ? 'Mahalo for speaking up. Add your email and we’ll tell you when a bill on your issues gets a hearing. It also keeps your record on any device.'
-    : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while. Add your email so they’re still here in January, and to hear when a hearing is set.`
-    : 'Hearings are posted about two days ahead. Add your email and we’ll tell you in time. It also keeps your issues on any device.';
+  const email = S.alertMode === 'email', keep = email ? ' Your email also keeps your issues on any device.' : '';
+  // The box under it says what arrives (pub/alerts.js), so these lines only say why now, once (A-14).
+  const text = kind === 'action' ? `Mahalo for speaking up. Get a heads-up the next time one of your issues needs you.${keep}`
+    : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while.${email ? ' Add your email so they’re still here in January, and to hear when a hearing is set.' : ' Get a text when a hearing is set, so you don’t miss it.'}`
+    : `Hearings are set only about two days ahead, so a heads-up matters.${keep}`;
+  const b = alertButton();
   // The sandbox used to show the heading with no box to type in (Nate 9/29: "nowhere to enter an email address"). The form
-  // is the same there; sendEmailLink returns without sending or storing anything in the sandbox.
-  return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon('mail-check')}<div class="ngbody">
-    <p class="strong" id="ng-t">Get an email when a bill on your issues has a hearing</p><p class="small">${text}</p>
-    ${`<form class="ngform" novalidate><div class="field"><label for="ng-email">Your email</label><input id="ng-email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required></div>
-      <div class="btnrow">${btn('Send me alerts', { kind: 'primary', sm: true, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>
-      <p class="meta">No password. We email you a link to confirm. Unsubscribe any time.${DEMO ? ' In the sandbox nothing is sent.' : ''}</p></form>`}</div></section>`;
+  // is the same there; nothing is sent or saved in the sandbox.
+  return `<section class="card tint nudgecard" aria-labelledby="ng-t">${icon(email ? 'mail-check' : 'message-square')}<div class="ngbody">
+    <p class="strong" id="ng-t">Get alerts on your issues</p><p class="small">${text}</p>
+    <form class="ngform" id="ng-form" novalidate>${alertFields('ng', { compact: true })}
+      <div class="btnrow">${btn(b.label, { kind: 'primary', sm: true, icon: b.icon, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div></form></div></section>`;
 }
 export function wireNudge(root = document) {
   root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; app.render(); });
   const f = root.querySelector('.ngform'); if (!f) return;
-  f.onsubmit = async e => { e.preventDefault(); const inp = f.querySelector('input[type=email]'), email = inp.value.trim();
-    const bad = !validEmail(email);
-    inp.setAttribute('aria-invalid', bad ? 'true' : 'false'); f.querySelector('.err')?.remove();
-    if (bad) { inp.insertAdjacentHTML('afterend', `<span class="err" id="ng-err">${icon('circle-alert')}Enter an email like name@example.com</span>`); inp.setAttribute('aria-describedby', 'ng-err'); inp.focus(); return; }
-    const b = f.querySelector('button[type=submit]'); b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>Sending…</span>`;
-    try { await sendEmailLink(email, { hearing_alerts: true }); }
-    catch (error) { b.removeAttribute('aria-busy'); b.innerHTML = '<span>Send me alerts</span>'; toast(error, true); return; }
-    S.nudgeSent = email; app.render(); };
+  wireAlertForm(f, { pfx: 'ng', source: S.nudge === 'action' ? 'action' : 'home', onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; app.render(); } });
 }

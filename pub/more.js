@@ -5,6 +5,8 @@
 //   #/help      ready-made conversations (R-075: pub/talk.js, loaded on first use; #/help/<slug> opens one)
 //   #/signin    "Add your email": one email field, one "keep me updated" box (hearings on your issues and HIPHI's updates,
 //               ticked; DESIGN C-4, Nate 9/20), privacy in 3 bullets
+//   #/alerts    "Get alerts on your issues" (R-146): the phone-first box (pub/alerts.js); once a number is given, "Text
+//               alerts are on" with Change number and Stop texts. Email goes to #/signin, which keeps its own box.
 //   #/settings  the two email choices and About you, saved with ONE button; your data; deleting the account
 //   #/privacy   what we keep and who sees it, then a short accessibility statement
 // ONE vocabulary for the email step (Nate, 9/19; the assessment counted six names for it): a signed-out person is
@@ -21,12 +23,13 @@
 // deleting the account asks on the page instead of a browser pop-up, and every error is a sentence.
 import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
   CONSENT_KEY, LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, recomputeWatch, fmtDate,
-  sendEmailLink, validEmail } from './core.js';
+  sendEmailLink, validEmail, textSaved } from './core.js';
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
+import { alertFields, wireAlertForm, fmtPhone, saveText, stopText } from './alerts.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
 const HIPHI = {
@@ -240,10 +243,16 @@ WIDE?.addEventListener?.('change', () => { if (document.querySelector('#main .mr
 function moreView() {
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? `${esc(legName(s))} and ${esc(legName(h))}` : 'Find your senator and representative';
+  // Alerts (R-146): one row, phone first, for anyone; a person with a number but no email is still offered email, which
+  // also keeps their issues on any device.
+  const tx = textSaved();
+  const addEmail = row({ lead: 'mail-check', title: 'Add my email', sub: 'Get hearing alerts and keep your issues on any device. No password.', href: '#/signin' });
+  const textRow = tx ? row({ lead: 'message-square', title: 'Text alerts', sub: `On: ${esc(fmtPhone(tx.phone))}`, href: '#/alerts' })
+    : row({ lead: 'message-square', title: signedIn() ? 'Text alerts' : 'Get alerts', sub: signedIn() ? 'Get a text when it’s your moment to speak up' : 'By text or email, when it’s your moment to speak up. Free.', href: '#/alerts' });
   const account = signedIn()
     ? row({ lead: 'settings', title: 'Settings', sub: esc(S.session.user.email || ''), href: '#/settings' })
-      + row({ lead: 'log-out', title: 'Sign out', sub: 'Your bills stay on this device', chevron: false, attrs: { 'data-mr-signout': '' } })
-    : row({ lead: 'mail-check', title: 'Add my email', sub: 'Get hearing alerts and keep your issues on any device. No password.', href: '#/signin' });
+      + row({ lead: 'log-out', title: 'Sign out', sub: 'Your bills stay on this device', chevron: false, attrs: { 'data-mr-signout': '' } }) + textRow
+    : tx ? textRow + addEmail : textRow;
   const hiphi = `${extRow('megaphone', 'Action Center', 'More ways to speak up for health', HIPHI.act)}
           ${extRow('newspaper', 'Newsletter', 'HIPHI news and events by email', HIPHI.news)}
           ${extRow('scroll-text', 'Legislative Recap', 'What passed for health each year', HIPHI.recap)}
@@ -411,6 +420,50 @@ function wireSignin() {
   };
 }
 
+// ---------------- Get alerts (R-146) ----------------
+// The phone-first box on its own page, for More's alerts row and Home's "Get hearing alerts" between sessions. Email goes
+// to the sign-in page ("Prefer email?"), which keeps its own consent box and the returning person's way in.
+const A = { edit: false };
+function alertsView() {
+  const t = textSaved();
+  if (t && !A.edit) return `<div class="mr mr-alerts">
+    <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Text alerts are on</h1></header>
+    <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
+      <p>We’ll text <span class="strong">${esc(fmtPhone(t.phone))}</span> when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>
+      <p class="small">Our first text asks you to reply YES. Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
+      <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
+    </section>
+    ${S.session ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? It also keeps your issues on any device. <a href="#/signin">Add your email</a></span></p>`}
+  </div>`;
+  S.alertMode = 'phone';   // this page is the phone box; email has its own page
+  return `<div class="mr mr-alerts">
+    <header class="pagehead"><h1 class="hero">${t ? 'Change your number' : 'Get alerts on your issues'}</h1>
+      <p class="lede">${S.session ? 'Your email alerts are in Settings. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
+    <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !S.session })}
+      <div class="mr-send">${submitBtn('Text me', 'message-square', 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
+    </form>
+  </div>`;
+}
+function wireAlerts() {
+  wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
+    A.edit = false; app.render();
+    toast(`Almost set: our first text to ${fmtPhone(r.phone)} asks you to reply YES.`, { yay: true });
+    requestAnimationFrame(() => $('#mr-al-t')?.focus());
+  } });
+  const ch = $('[data-mr-alchange]');
+  if (ch) ch.onclick = () => { const t = textSaved(); A.edit = true; S.alertDraft.phone = t ? fmtPhone(t.phone) : ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-al-phone'); if (i) { i.focus(); i.select(); } }); };
+  const cancel = $('[data-mr-alcancel]'); if (cancel) cancel.onclick = () => { A.edit = false; S.alertDraft.phone = ''; app.render(); };
+  const stop = $('[data-mr-alstop]');
+  if (stop) stop.onclick = async () => {
+    if (stop.getAttribute('aria-busy')) return;
+    const phone = textSaved()?.phone; busy(stop, 'Stopping…');
+    try { await stopText(); } catch (e) { unbusy(stop); toast(e, true); return; }
+    app.render();
+    // Undo within the toast's ten seconds signs the same number up again, under the same words.
+    toast('Texts stopped. We won’t text you.', { undo: async () => { try { await saveText(phone, 'more'); } catch (e) { toast(e, true); } app.render(); } });
+  };
+}
+
 // ---------------- Settings ----------------
 // F: the form as the person is editing it. Filled from the account on arrival; kept across re-renders so nothing
 // typed is lost if the page redraws (a sign-in refresh, a toast's Undo).
@@ -529,6 +582,7 @@ function wireSettings() {
 // like follows and actions. Numbers about other people are totals inside one bill or hearing, from 10 people.
 const PRIVACY = [
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
+  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, and when you agreed to texts, and use them only to send you those texts. HIPHI staff never see your number. We never sell it, share it, or use it for anything else. The first text asks you to reply YES, to be sure the number is yours. Reply STOP to any text, or use More > Text alerts, to end them.'],
   ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in Settings. HIPHI staff can see this, so they can reach out about your issues. What you saved on this device joins your account.'],
   ['list-checks', 'Lists you make', 'A list of bills you make is private: only you can see it, not HIPHI staff. If you share it, anyone with the link can see its name, your note and its bills, but not who made it. HIPHI can turn off a shared list that is used to harm someone. Deleting your account erases your lists.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
@@ -558,9 +612,9 @@ function wirePrivacy() {
 }
 
 // ---------------- the module ----------------
-const VIEWS = { more: moreView, help: helpView, signin: signinView, settings: settingsView, privacy: privacyView };
-const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, settings: wireSettings, privacy: wirePrivacy };
-const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', settings: 'Settings', privacy: 'Privacy' };
+const VIEWS = { more: moreView, help: helpView, signin: signinView, settings: settingsView, privacy: privacyView, alerts: alertsView };
+const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, settings: wireSettings, privacy: wirePrivacy, alerts: wireAlerts };
+const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', settings: 'Settings', privacy: 'Privacy', alerts: 'Get alerts' };
 export default {
   tab: 'more',
   title: route => (route.name === 'help' && TALK ? TALK.title(route) : TITLES[route.name]) || 'More',
@@ -568,6 +622,7 @@ export default {
     // A fresh arrival (from another screen) starts the page clean; a re-render of the same page keeps what was typed.
     const fresh = !document.querySelector(`#main .mr-${route.name}`);
     if (fresh && route.name === 'signin') Object.assign(M, { sent: '', err: '', sendErr: '' });
+    if (fresh && route.name === 'alerts') A.edit = false;
     if (fresh && route.name === 'settings') F = null;
     return (VIEWS[route.name] || moreView)(route);
   },

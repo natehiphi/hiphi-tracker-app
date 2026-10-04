@@ -77,6 +77,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
+| public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
+| public | 390 | More > Get alerts (10/4, R-146) | **264** | 10 | **4** | 6 | 4 | 5 |
 | staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
 | staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |
 | staff2 | 390 | bill | **178** | 19 | **11** | 7 | 4 | 7 |
@@ -96,6 +98,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
+| public | 1440 | alerts, the first visit's step 3 (10/4, R-146) | **184** | 7 | **6** | 1 | 5 | 6 |
+| public | 1440 | More > Get alerts (10/4, R-146) | **282** | 10 | **4** | 6 | 4 | 5 |
 | staff2 | 1440 | today (9/21, R-022) | **290** | 44 | **11** | 12 | 5 | 9 |
 | staff2 | 1440 | week (9/21, R-022) | 348 | 39 | **15** | 12 | 5 | 8 |
 | staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |

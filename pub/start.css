@@ -365,3 +365,8 @@
    list it follows. */
 .st-quietask { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s16) 0 0; }
 .st-quietask .ic { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+/* The optional first name on "Coming up" (R-146: the alerts ask moved up, the name stayed after it). */
+.st-namecard { padding: var(--s16); margin-top: var(--s12); }
+.st-alchange { align-items: flex-start; }   /* "Use a different number" lines up with the words above it */
+.st-alchange .btn { width: auto; padding-inline: 0; justify-content: flex-start; }
+.st-named { display: flex; gap: var(--s8); align-items: center; margin-top: var(--s12); }

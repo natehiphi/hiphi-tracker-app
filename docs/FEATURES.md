@@ -39,14 +39,18 @@ with three named parts at the top ("Your issues · How it works · Stay connecte
 topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
 topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
 `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066; its numbers are `WEIGHT` in `pub/rank.js`, shared with the
-suggested bill on Home and Find since R-094: change them there, once) -> the "Mahalo!" moment -> ONE
+suggested bill on Home and Find since R-094: change them there, once) -> "Get alerts on your N issues" (R-146, 10/4: the
+alerts ask moved here from "Coming up"; a mobile number first, email as a link under it, `pub/alerts.js`, the same box as
+Home's card, the one after a first action and More > Get alerts at `#/alerts`; a number is kept privately with its consent
+version in `text_signups`, backend 121, nothing is sent until texts are set up; passed over when there is nothing to ask,
+`askAlerts()` in `pub/start.js`) -> the "Mahalo!" moment (naming the number or the email when one was given) -> ONE
 lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three stages walked with the primary button,
 the drawing changing in place: the bill, its road to where it really is, then "Why speaking up can help" with a choice of
 four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help)
 -> (its last button, "Next: your legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
-issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
+issues" (with the optional first name once a way to reach them was given) -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
 shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10

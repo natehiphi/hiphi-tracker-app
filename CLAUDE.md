@@ -217,7 +217,9 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      bills reach them through the issue). No action is pushed. Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
-  2. The email ask is a step in the flow (`sendEmailLink`); giving it is the consent for both hearing alerts
+  2. The alerts ask is a step in the flow (right after the issues since R-146, 10/4; one box in `pub/alerts.js`: a
+     mobile number first, email as a link; a number goes to `text_signup`, backend 121, and is only kept until texts
+     are set up; an email goes to `sendEmailLink`); giving either is the consent for both hearing alerts
      AND HIPHI's own advocacy alerts, in one "keep me updated" opt-in (Nate, 9/20, HANDOFF 3.5 - this reverses
      the earlier rule that action alerts stayed a separate, off-by-default choice). One ask per visit, always
      skippable. An existing account only ever GAINS choices from an ask, never loses one. Email to the public

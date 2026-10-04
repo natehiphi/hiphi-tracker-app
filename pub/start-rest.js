@@ -2,14 +2,15 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, sendEmailLink, validEmail, friendly, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind } from './core.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
+import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved } from './core.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, reduced } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf } from './variant.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -321,12 +322,53 @@ function stepYou(step) {
     `<div class="st-legwrap" id="st-youstage">${body}</div>`);
 }
 
-// ================= Stay connected, 2: coming up on your issues, then the one ask =================
-// The value first: what is happening this week on the issues they follow (hearings in date order, with the day
-// testimony is due). Then one ask, named after that value: a reminder before testimony is due, by email, with an
-// optional first name (Nate 9/21: ask for the email after the value). One "keep me updated" opt-in covers hearing
-// alerts and HIPHI's advocacy alerts (HANDOFF 3.5). Signed in, there is nothing to ask. Email to the public stays
-// paused regardless (sendEmailLink only sends the sign-in link).
+// ================= Your issues, 3: alerts on them (R-146) =================
+// Nate 10/4: "Let's move the "sign up for alerts" option to right after selecting issues, also include a phone number
+// option which should be more prominent." The visit's one ask is here now, right after the issues are followed and
+// before the "Mahalo!" that celebrates them (his pick), so the moment celebrates both: a mobile number first, email as a
+// link under it (pub/alerts.js, the same box as Home's and More's). Skip, or either kind given, plays the "Mahalo!" and
+// goes on. Back from the next screen shows what was given, with a way to change it. It used to sit on "Coming up on your
+// issues", after the story and the address, where most people never reached it.
+function stepAlerts(step) {
+  const off = isOff(), n = followedIssues().length, t = textSaved(), sent = mailSent();
+  // "your 2&nbsp;issues": the heading never breaks with "issues" alone on its line (the review, A-19).
+  const what = n ? (n === 1 ? 'your issue' : `your ${n}&nbsp;issues`) : 'your bills';
+  const done = !S.alertEdit && (t || sent);
+  const body = done
+    ? `<section class="card st-sent st-alertdone" aria-labelledby="st-al-t"><span class="st-ilead">${icon(t ? 'message-square' : 'mail-check')}</span>
+        <div class="st-sentbody" id="st-al-t" tabindex="-1">${alertDoneHTML(t ? { kind: 'phone', phone: t.phone, demo: DEMO } : { kind: 'email', email: sent, demo: DEMO, later: true },
+          { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', t ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>`
+    : `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
+  // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
+  // has to make sense on its own (the review, 10/4).
+  return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
+    <h1 class="hero" id="st-h">${done ? 'You’re almost set' : `Get alerts on ${what}`}</h1>
+    <p class="lede">${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.</p>`,
+    body);
+}
+// The first success: a moment that fills the screen and waits for Continue (C-7). It celebrates the issues just
+// followed and, when one was given, how we'll reach them. Once a visit; a shared bill's visit has no "Mahalo!" (its
+// follow got a small burst on "Follow this issue?").
+function mahalo(then, r = null) {
+  const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
+  if (wiz().via || S.mahaloShown) { then(); return; }
+  S.mahaloShown = true;
+  const told = r?.kind === 'phone' ? `Our first text to ${fmtPhone(r.phone)} asks you to reply YES. Then alerts start.`
+    : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
+  // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
+  celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
+    small: told || (off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`),
+    go: armOf('fv') === 'short' ? 'Next: why your voice matters' : 'Next: how a bill becomes law' }, then);
+}
+export function leaveAlerts(step, r = null) {
+  S.alertEdit = false;
+  mahalo(() => goStep(step, step + 1), r);
+}
+
+// ================= Stay connected, 2: coming up on your issues =================
+// What is happening this week on the issues they follow (hearings in date order, with the day testimony is due). The
+// alerts ask that followed the list (Nate 9/21: ask after the value) moved to right after the issues on 10/4 (R-146,
+// stepAlerts); someone who skipped it gets one quiet line here. S.stMail is the email given in this visit (mailSent).
 S.stMail ??= { email: '', name: '', sent: '', demo: false };
 const WEEKDAY = d => new Date(d).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' });
 // A committee named briefly enough for one line on a phone: "Senate Health and Commerce committees". A long name keeps
@@ -374,45 +416,18 @@ function upcoming() {
   }
   return out;
 }
-function askCard() {
-  const M = S.stMail, sent = mailSent(), off = isOff();
-  if (S.session) return `<section class="card st-sent" aria-labelledby="st-sent-t"><span class="st-ilead">${icon('bell')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t">You’re signed in</h2><p>Reminders and HIPHI’s alerts go to your account’s email. Change them any time in More.</p></div></section>`;
-  if (sent) return `<section class="card st-sent" aria-labelledby="st-sent-t" id="st-sentbox">
-    <span class="st-ilead">${icon('mail-check')}</span>
-    <div class="st-sentbody"><h2 id="st-sent-t" tabindex="-1">${endHome() ? 'Link sent to' : 'Check your inbox at'} <span class="st-break">${esc(sent)}</span></h2>
-      <p>${endHome() ? 'Tap it when you finish here to turn on reminders.' : 'Tap the link in the email to turn on your reminders.'} It can take a minute; check spam if you don’t see it.</p>
-      ${M.demo ? '<p class="small muted">This is the sandbox, so nothing was sent.</p>' : ''}
-      ${M.named ? `<p class="small">${icon('check')} We’ll greet you as ${esc(M.named)}.</p>` : `<div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
-        <div class="st-namerow"><input id="st-name" name="name" type="text" autocomplete="given-name" placeholder="Leilani" value="${esc(M.name || wiz().name || '')}">${btn('Save', { kind: 'secondary', sm: true, attrs: { 'data-stname': '1' } })}</div></div>`}
-      <div class="st-formbtns">${btn('Use a different email', { kind: 'text', attrs: { 'data-stother': '1' } })}</div></div></section>`;
-  // One line, so the box fits under the list (R-078). The version that ends on Home (R-098) says the email is extra: the
-  // home page always has what's next ("Want a reminder?" read as the thing the app is for).
-  const title = off ? 'Want to know when your issues start moving?' : wiz().via ? 'Want to hear how it goes?' : endHome() ? 'Want an email too?' : 'Want a reminder?';
-  return `<form class="card st-form st-askcard" id="st-eform" novalidate>
-    <h2 class="st-askh">${icon('bell')}<span>${esc(title)}</span></h2>
-    <div class="field"><label for="st-email">Your email</label>
-      <input id="st-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(M.email)}">
-      <span class="err" id="st-email-err" role="alert"></span></div>
-    <p class="st-askline">${endHome() ? 'Home always has what’s next. We’ll also email you when it’s your moment, plus HIPHI’s alerts on your issues.'
-      : 'We’ll email you when it’s your moment to speak up on your issues, and send HIPHI’s alerts about them.'} Unsubscribe in one tap.</p>
-    <p class="meta">No password: we send you a sign-in link. HIPHI staff can see which issues you follow and where you stand. <a href="#/privacy">Privacy</a></p>
-  </form>`;
-}
 // One action inside the first visit, and only when it cannot wait (R-067 #12, Nate 9/27: "if there is a hearing, the
 // action should be testimony"): the first row whose testimony is due within 48 hours offers the walkthrough. Everything
 // else still waits for Home.
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
   const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
-  // No email box (already asked this visit, R-114; or the email-ask test's second version, R-135): the quiet line goes
-  // under the list it follows, not alone in the other column.
-  const quiet = (S.nudgedThisVisit || noAsk()) && !S.session && !mailSent();
-  // Nate 9/29 (R-078): "Coming up" first, then the reminder, and both on the first screen. So each item is one compact row
-  // (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one due soonest always first.
-  // Rows by the screen's height, so the reminder box still fits under them: three on a tall phone, two on a mid-size one
-  // (700px and up), one on smaller phones (iPhone SE, 667px and 640px); the rest fold under "More coming up".
-  const fit = typeof innerHeight === 'number' ? (innerHeight >= 780 ? 3 : innerHeight >= 700 ? 2 : 1) : 3;
+  // No way to reach them yet (they skipped the alerts screen, or the email-ask test's second version, R-135): one quiet
+  // line under the list, never a second ask (C-3: once a visit).
+  const quiet = !S.session && !mailSent() && !textSaved();
+  // Each item is one compact row (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one
+  // due soonest always first (R-078, when the reminder box shared this screen).
+  const fit = 3;
   const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, fit), more = lead.slice(fit);
   const short = it => it.h?.testimony_deadline ? `Testimony due ${WEEKDAY(it.h.testimony_deadline)}` : it.kind === 'hear' ? 'Hearing' : it.line;
   const row = (it, k) => `<li class="st-srow" style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(short(it))}</span>
@@ -420,15 +435,24 @@ function stepSoon(step) {
   const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + fit)).join('')}</ol></details>` : ''}`;
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
-    ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}
-    ${list}${quiet ? quietAsk() : ''}`,
-    quiet ? '' : `<div id="st-askbox">${askCard()}</div>`);
+    ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}`,
+    `${list}${quiet ? quietAsk() : nameCard()}`);
 }
-// The email-ask test's second version (R-135, variant.js 'email'): the first visit does not ask; the first ask comes after
-// the person's first action ("Mahalo for speaking up", pub/actions.js nudgeCard) or when they come back another day.
-const noAsk = () => armOf('email') === 'after';
-// One email ask per visit (R-114, B3): someone who acted from a shared link was already asked on the Mahalo screen.
-const quietAsk = () => `<p class="small muted st-quietask">${icon('mail')}<span>Want email reminders? Once you’re through, add your email any time from More.</span></p>`;
+// The first name, optional, once there is a way to reach them (R-078 asked it after the email; since R-146 the ask is
+// earlier and leaves straight for the "Mahalo!", so it waits here): the finale and Home greet them by it, and it joins
+// the account like the issues do (core loadUser). Signed in, the account has its own.
+function nameCard() {
+  const M = S.stMail, given = mailSent() || textSaved();
+  if (S.session || !given) return '';
+  if (M.named) return `<p class="small st-named">${icon('check')}<span>We’ll greet you as ${esc(M.named)}.</span></p>`;
+  if ((wiz().name || '').trim()) return '';
+  // No Save button of its own (the review: a typed name was half-kept): Next, or Enter, keeps what is typed.
+  return `<section class="card st-namecard"><div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
+    <input id="st-name" name="name" type="text" autocomplete="given-name" enterkeyhint="next" placeholder="Leilani" value="${esc(M.name || '')}"></div></section>`;
+}
+// The email-ask test's second version (R-135, variant.js 'email'): the first visit does not ask (askAlerts passes the
+// alerts screen over); the first ask comes after the person's first action (pub/actions.js nudgeCard) or another day.
+const quietAsk = () => `<p class="small muted st-quietask">${icon('bell')}<span>Want alerts by text or email? Once you’re through, add them any time from More.</span></p>`;
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
 // Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
@@ -447,7 +471,8 @@ function recapRows() {
     S.stLearned ? ['landmark', 'You know how a bill becomes law', 'And when your voice counts most', 'ok'] : null,
     legs.length ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${lastName(l)}`).join(' and '), 'ok'] : null,
     S.session ? ['bell', 'Reminders are on', 'At your account’s email', 'ok']
-      : sent ? ['mail', 'Reminders: one tap to go', `Tap the link we sent to ${sent}`, 'wait'] : ['bell', 'Reminders are off', 'Turn them on any time in More', 'off'],
+      : textSaved() ? ['message-square', 'Text alerts are on', `We’ll text ${fmtPhone(textSaved().phone)}`, 'ok']
+      : sent ? ['mail', 'Reminders: one tap to go', `Tap the link we sent to ${sent}`, 'wait'] : ['bell', 'Alerts are off', 'Turn them on any time in More', 'off'],
   ].filter(Boolean);
 }
 function stepDone(step) {
@@ -456,7 +481,7 @@ function stepDone(step) {
   // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
   // "we tell you" with no way to be told (R-067). The words follow what really happened.
   const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok'), follows = followsAnything();
-  const told = !!(S.session || mailSent());
+  const told = !!(S.session || mailSent() || textSaved());
   const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
     : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
   const petals = Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
@@ -587,11 +612,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
       await commitIssues(m);
       track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
-      // The first success: a moment that fills the screen and waits for Continue (C-7).
-      const n = new Set(ids).size, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
-      celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
-        small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.` },
-        () => goStep(step, step + 1));
+      // The alerts ask comes next, and the "Mahalo!" after it (R-146). With nothing to ask (signed in, already told us how
+      // to reach them), the "Mahalo!" plays now and the alerts screen is passed over.
+      if (askAlerts()) { goStep(step, step + 1); return; }
+      mahalo(() => goStep(step, step + 2));
     };
   }
 
@@ -657,41 +681,27 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
   }
   if (name === 'soon') {
-    // This is the visit's one email ask, so Home will not ask again.
-    S.nudge = null; S.nudgedThisVisit = true;
-    const form = $('#st-eform');
-    if (form) {
-      const inp = form.querySelector('#st-email'), err = form.querySelector('#st-email-err'), send = document.getElementById('st-send');
-      const showErr = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'st-email-err'); err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; };
-      inp.oninput = () => { S.stMail.email = inp.value; if (err.innerHTML) { err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); } };
-      form.onsubmit = async e => {
-        e.preventDefault();
-        if (send?.getAttribute('aria-busy') === 'true') return;
-        const email = inp.value.trim();
-        // Checked only now, never while typing (C-9: nothing typed is lost to an error).
-        if (!validEmail(email)) { showErr(email ? 'That email doesn’t look complete. Check it and try again.' : 'Add your email, or select Skip.'); inp.focus(); return; }
-        const label = send ? send.innerHTML : ''; busy(send, 'Sending…');
-        try {
-          const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true });
-          S.stMail = { email, name: S.stMail.name || '', sent: email, demo: !!(r && r.demo) };
-          track(name, 'next', { counts: { email: true } });
-          app.render();
-          document.getElementById('st-sent-t')?.focus({ preventScroll: true });
-          later(() => burst(document.querySelector('#st-sentbox .st-ilead'), 12, 46), 150);   // a small celebration (C-7)
-        } catch (error) { console.error(error); if (send) { send.removeAttribute('aria-busy'); send.innerHTML = label; } showErr(friendly(error)); inp.focus(); }
-      };
-    }
-    // The first name, asked after the email is sent (R-078: the reminder box had to be short enough to fit under the list).
-    $$('[data-stname]').forEach(el => el.onclick = () => {
-      const f = document.getElementById('st-name'), first = (f?.value || '').trim().slice(0, 40); if (!first) { f?.focus(); return; }
-      wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; app.render();
+    // A first name typed here is kept when they move on: the finale and Home both read wiz().name.
+    const keepName = () => { const first = ($('#st-name')?.value || '').trim().slice(0, 40); if (first) { wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; } };
+    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { keepName(); next(); };
+    const nf = $('#st-name'); if (nf) { nf.oninput = () => { S.stMail.name = nf.value; }; nf.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); keepName(); next(); } }; }
+  }
+
+  if (name === 'alerts') {
+    // The visit's one alerts ask, so Home will not ask again (C-3); once drawn it stays in the flow (redirectFor).
+    S.nudge = null; S.nudgedThisVisit = true; S.alertsShown = true;
+    wireAlertForm($('#st-aform'), { pfx: 'st-a', source: 'first_visit', onDone: r => {
+      if (r.kind === 'email') S.stMail = { email: r.email, name: S.stMail.name || '', sent: r.email, demo: !!r.demo };
+      track(name, 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
+      leaveAlerts(step, r);
+    } });
+    $$('[data-stalchange]').forEach(el => el.onclick = () => {
+      S.alertEdit = true;
+      if (!textSaved()) { S.alertMode = 'email'; S.alertDraft.email = mailSent(); S.stMail.sent = ''; try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } }
+      else { S.alertMode = 'phone'; S.alertDraft.phone = fmtPhone(textSaved().phone); }
+      app.render(); requestAnimationFrame(() => { const i = document.getElementById(`st-a-${S.alertMode}`); if (i) { i.focus(); i.select(); } });
     });
-    $$('[data-stother]').forEach(el => el.onclick = () => {
-      S.stMail = { email: S.stMail.sent || '', name: S.stMail.name, sent: '', demo: false };
-      try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ }
-      app.render(); const i = document.getElementById('st-email'); if (i) { i.focus(); i.select(); }
-    });
-    const nb = $('[data-stnext]'); if (nb && !form) nb.onclick = next;
+    const nb = $('[data-stnext]'); if (nb && !$('#st-aform')) nb.onclick = () => { track(name, 'next'); leaveAlerts(step); };
   }
 
   if (name === 'done') {
@@ -732,7 +742,10 @@ export function barStep(name, step, off) {
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
     // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's
     // second version, R-135) means Next, never a "Remind me" that submits a form that is not on the page.
-    case 'soon': return S.session || mailSent() || noAsk() || S.nudgedThisVisit ? (endHome() ? bar1('See my home page', 'house') : bar1('Next')) : bar2(off ? 'Keep me posted' : endHome() ? 'Email me too' : 'Remind me', { icon: 'bell' }, { type: 'submit', form: 'st-eform', id: 'st-send' });
+    case 'soon': return endHome() ? bar1('See my home page', 'house') : bar1('Next');
+    // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
+    case 'alerts': { if (!S.alertEdit && (textSaved() || mailSent())) return bar1('Next');
+      const b = alertButton(); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
     case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
     default: return '';
@@ -747,6 +760,7 @@ export function renderStep(name, step) {
     case 'voice': return stepVoice(step);
     case 'you': return stepYou(step);
     case 'soon': return stepSoon(step);
+    case 'alerts': return stepAlerts(step);
     case 'done': return stepDone(step);
     case 'followask': return stepFollowAsk(step);
     default: return '';

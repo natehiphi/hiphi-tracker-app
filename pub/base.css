@@ -320,3 +320,15 @@ main:focus { outline: none; }
 .btn.secondary.on[aria-pressed="true"] { background: var(--p700); box-shadow: inset 0 0 0 2px var(--p700); color: #fff; }
 .btn.secondary.on[aria-pressed="true"]:hover { background: var(--p800); box-shadow: inset 0 0 0 2px var(--p800); }
 .btn.secondary.on[aria-pressed="true"] .ic { fill: none; color: #fff; }
+
+/* The alerts box (pub/alerts.js, R-146): one box on the first visit, Home and More. A mobile number first, the privacy
+   line right under it; the promise at reading size (n700 on white is 9.57:1), then the small print (YES, rates, STOP and
+   HELP) smaller but still body-safe (n500); the way to email is a quiet text button that keeps the 44px target. */
+.al-line { margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 65ch; }
+.al-fine { margin: 0; font-size: var(--t13); line-height: 1.45; color: var(--n500); max-width: 65ch; }
+.al-hint { margin: var(--s4) 0 0; }
+.al-swaprow { margin: 0; }
+.al-swap.btn.text { padding-inline: 0; justify-content: flex-start; }
+a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); font-weight: 600; }
+.al-break { overflow-wrap: anywhere; }
+.al-nowrap { white-space: nowrap; }

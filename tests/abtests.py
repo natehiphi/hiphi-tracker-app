@@ -34,13 +34,16 @@ with sync_playwright() as p:
         txt = pg.locator('main').inner_text()
         ok(all(w in txt for w in want), f'{ab}: the first visit says {want}')
         ok(not errs, f'{ab}: no page errors ' + '; '.join(errs[:2])); ctx.close()
-    # email: "Coming up on your issues" asks for an email (A) or only says it can be added later (B)
+    # email: the first visit asks for alerts right after the issues (A; R-146 moved the ask there from "Coming up on your
+    # issues") or not at all, the alerts screen passed over and one quiet line on Coming up (B)
     for arm in ('finale', 'after'):
         ctx, pg, errs = sandbox(f'email.{arm}', skip=False)
-        html = pg.evaluate("async () => { const r = await import('./pub/start-rest.js'); return r.renderStep('soon', 5) + '|BAR|' + r.barStep('soon', 5, false); }")
-        form, quiet = 'st-eform' in html.split('|BAR|')[0], 'st-quietask' in html
-        ok((form and not quiet) if arm == 'finale' else (quiet and not form), f'email.{arm}: {"the email form" if form else "the quiet line"} on Coming up')
-        ok(('st-send' in html.split('|BAR|')[1]) == (arm == 'finale'), f'email.{arm}: the bottom button {"sends the email" if arm == "finale" else "goes on"}')
+        out = pg.evaluate("""async () => { const c = await import('./pub/core.js'), s = await import('./pub/start.js'), r = await import('./pub/start-rest.js');
+          c.setFollows({ issuesOn: [c.S.issues[0].id] }); await new Promise(z => setTimeout(z, 300));
+          return { ask: s.askAlerts(), soon: r.renderStep('soon', 6) }; }""")
+        quiet = 'st-quietask' in out['soon']
+        ok(out['ask'] == (arm == 'finale'), f'email.{arm}: the alerts screen is {"shown" if out["ask"] else "passed over"}')
+        ok(quiet and 'st-a-phone' not in out['soon'], f'email.{arm}: Coming up never asks; one quiet line for someone not yet reachable')
         ok(not errs, f'email.{arm}: no page errors ' + '; '.join(errs[:2])); ctx.close()
     # rank: after testimony on HB 1780, A has no main button; B offers the quick email to the chair
     for arm in ('today', 'ranked'):

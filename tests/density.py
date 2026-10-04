@@ -47,6 +47,9 @@ PUB = [
   ('more',        '/more',         'the first choice',     '.mwrow, .mr .row'),
   # R-091: every bill HIPHI tracks, grouped by hearing status
   ('allbills',    '/allbills',     'the first bill',       '#ab-list .mb-row'),
+  # R-146: a person comes here to say how to reach them about their issues (the first visit's step 3, and More's page)
+  ('alerts',      '/start/3',      'the number box',       '#st-a-phone'),
+  ('getalerts',   '/alerts',       'the number box',       '#mr-al-phone'),
 ]
 SV = [
   ('today',       '/',             'the first thing due',  '.td-card, .td-root .row'),

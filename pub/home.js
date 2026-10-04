@@ -13,7 +13,7 @@
 // suggestion on the right. The full bill list lives in My bills.
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink, companionsOf,
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
-  nudge, CONSENT_KEY, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
+  nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf } from './core.js';
@@ -52,9 +52,10 @@ function myIsland() {
 }
 // The guided start sets this when someone finishes it. sessionStorage, so it lasts for this visit only.
 const welcomed = () => { try { return sessionStorage.getItem('hiphi_welcome') === '1'; } catch { return false; } };
-// An email was already given (the guided start's email step, or the sign-in page) and is waiting for its link to be
-// opened. Home does not ask again.
+// An email was already given (the guided start's alerts step, or the sign-in page) and is waiting for its link to be
+// opened, or a number was given for text alerts (R-146). Home does not ask again.
 const emailGiven = () => { try { return !!(sessionStorage.getItem('hiphi_link_sent') || localStorage.getItem(CONSENT_KEY)); } catch { return false; } };
+const alertsGiven = () => emailGiven() || !!textSaved();
 const accountCards = () => { try { if (!S.user) return ''; if (!more) { moreLoad().catch(e => console.error(e)); return ''; } return more.accountCardsHTML ? more.accountCardsHTML() || '' : ''; } catch (e) { console.error(e); return ''; } };
 
 // ---------------- what you did, and what it led to (the result is the reward) ----------------
@@ -556,7 +557,7 @@ function welcomeView(si, { cards, asks, total }) {
   const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   // Not in the email-ask test's second version, which first asks after an action (R-135, variant.js 'email').
-  const ask = S.session || (emailGiven() && !S.nudgeSent) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
+  const ask = S.session || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
   // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to
@@ -609,7 +610,7 @@ function finRecap() {
     iss.length ? ['check', `Following ${plural(iss.length, 'issue')}`] : S.watch.size ? ['check', `Following ${plural(S.watch.size, 'bill')}`] : null,
     f.learned ? ['check', 'Know how bills become law'] : null,
     f.legs || districtsKnown() ? ['check', 'Know who speaks for you'] : null,
-    S.session ? ['check', 'Email reminders on'] : f.told || emailGiven() ? ['mail', 'Email: tap the link we sent'] : null,
+    S.session ? ['check', 'Email reminders on'] : textSaved() ? ['check', 'Text alerts on'] : f.told || emailGiven() ? ['mail', 'Email: tap the link we sent'] : null,
   ].filter(Boolean);
 }
 function finHead({ off = false, lede = '' } = {}) {
@@ -743,13 +744,13 @@ function offView(si) {
   const mine = myIssues(yr), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
   const nothingYet = !rows.length && !mine.length && !lists.length;
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
-  const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !emailGiven();
+  const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !alertsGiven();
   const lede = `${welcome ? `The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}. When it opens,` : `${opens ? `The ${nextYr} session opens ${esc(opens)}. ` : ''}When hearings start,`} HIPHI’s ${nextYr} bills${mine.length ? ' for your issues' : ''} will show up here, with simple ways to help.`;
   // One real thing to do between sessions (R-067): lawmakers shape next session's bills now, and a hello from their
   // own district is what they notice. The legislators page already writes it ("I am writing to introduce myself").
   const ready = known ? [`Say aloha before ${nextYr}`, `Lawmakers are writing their ${nextYr} bills now. A short hello from someone in their district tells them what you care about. It takes about 2 minutes.`]
-    : ['Get ready for January', known ? 'Get an email when a bill on your issues has a hearing. It also keeps your issues on any device.'
-      : askBtn ? 'Know who represents you, and get an email when a bill on your issues has a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
+    : ['Get ready for January', known ? 'Get a text or email when a bill on your issues has a hearing.'
+      : askBtn ? 'Know who represents you, and get a text or email when a bill on your issues has a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
   // The saved issues and followed lists, named, with a way to change them. They sit under the recap's neighbour when
   // there is a recap (so the two columns stay even), else they lead the page: they are what the person just set up.
   const setup = `${mine.length ? `<section class="hm-sec" aria-labelledby="hm-mi"><div class="hm-sechead"><h2 id="hm-mi">Your issues</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', href: '#/start/1', attrs: { 'aria-label': 'Edit your issues' } })}</div>
@@ -762,7 +763,7 @@ function offView(si) {
   const readyCard = `<section class="card hm-ready" aria-labelledby="hm-rd"><${v2 ? 'h3' : 'h2'} id="hm-rd">${ready[0]}</${v2 ? 'h3' : 'h2'}>
         <p class="muted">${ready[1]}</p>
         <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: nothingYet ? 'secondary' : 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}
-          ${askBtn ? btn('Get hearing alerts by email', { kind: 'secondary', icon: 'bell', href: '#/signin' }) : ''}
+          ${askBtn ? btn('Get hearing alerts', { kind: 'secondary', icon: 'bell', href: '#/alerts' }) : ''}
           ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>`;
   const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
   const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
@@ -919,7 +920,7 @@ export default {
       S.hmSug = null; S.hmArrived = new Set(S.done || []);
       S.hmMode = si.phase !== 'in' ? 'off' : S.watch.size ? 'follow' : 'explore';
       // First visit, email step skipped: Home asks once, inline (nudge() keeps core's one-per-visit and "Not now" rules).
-      if (S.hmMode === 'follow' && welcomed() && !S.nudge && !S.session && !emailGiven()) nudge('follow');
+      if (S.hmMode === 'follow' && welcomed() && !S.nudge && !S.session && !alertsGiven()) nudge('follow');
     }
     const mode = si.phase !== 'in' ? 'off' : S.hmMode === 'explore' || !S.watch.size ? 'explore' : 'follow';
     return mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);

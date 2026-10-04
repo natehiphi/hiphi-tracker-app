@@ -1,7 +1,7 @@
 # The first visit that ends on Home (R-098, ?end=home, pub/variant.js), beside today's (?end=today).
 # python3 tests/home_end.py [base_url]   (sandbox; a phone at 390x844, an iPhone SE at 375x667 and a laptop at 1440x900)
 # Checks, new version: the first screen says "we'll show you" and the last part is "Your home page"; the story's last
-# stage names the real moment when the bill has one; the reminder box is "Want an email too?" and still fits the SE; the
+# stage names the real moment when the bill has one; the alerts box comes right after the issues and fits the SE (R-146); the
 # last step goes straight to Home (no "You're all set" screen) with "Mahalo, <name>!", the ticks, "What you can do right
 # now" with the real card and its button, and issue rows that open their issue; two tips labelled "Your home page"
 # (the first lights the card's real button, which works and ends the tips), Next, Done, and never again; after a reload it says Aloha and does not ask for the email again. Between sessions
@@ -25,13 +25,20 @@ def text(p, sel='main'):
 def click_text(p, sel, t):
     p.locator(sel, has_text=t).first.click()
 
-# Walk the first visit from a restart to the reminder step. Returns what the screens said on the way.
-def walk_to_soon(p, extra):
+# Walk the first visit from a restart to "Coming up". The alerts come right after the issues (R-146): an email given there
+# when email is passed, else Skip. Returns what the screens said on the way.
+def walk_to_soon(p, extra, email=None):
     p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
     seen = {'first': text(p)}
     click_text(p, '.st-tile', 'Food'); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
-    p.click('[data-stnext]'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(300); p.click('#fx-mgo')
+    p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=8000); p.wait_for_timeout(500)
+    seen['alerts'] = text(p)
+    seen['fit'] = p.evaluate('() => { const i = document.getElementById("st-a-phone").getBoundingClientRect(), bar = document.querySelector(".st-bar").getBoundingClientRect(); return i.bottom <= bar.top + 1; }')
+    if email:
+        p.click('[data-alswap="email"]'); p.wait_for_timeout(300); p.fill('#st-a-email', email); p.click('#st-send')
+    else: p.click('[data-stskip]')
+    p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(300); seen['mahalo'] = text(p, '#fx-moment'); p.click('#fx-mgo')
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
     seen['story'] = text(p, '.lx-calm')
@@ -46,17 +53,17 @@ with sync_playwright() as pw:
 
     # ---- the new version, on a phone ----
     c, p = ctx(b)
-    s = walk_to_soon(p, '&end=home')
+    s = walk_to_soon(p, '&end=home', email='tester@example.com')
     # R-099 (10/3): the new version says how as well as when: "you'll see what to do, and we'll help you do it"
     ok('When it’s time, we help you speak up' in s['first'] and 'we’ll tell you' not in s['first'], 'new: the first screen says we help you act when it is time (said once, in the promise row)')
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
     ok('at one of these moments now' in s['story'] and 'top of your home page' in s['story'], f'new: the story names the real moment ({s["story"][:90]})')
-    ok('Want an email too?' in s['soon'] and 'Home always has what’s next' in s['soon'], 'new: the reminder box says email is extra')
-    ok('HIPHI’s alerts' in s['soon'] and 'when it’s your moment' in s['soon'], 'new: the box still names both kinds of email (C-4)')
-    p.fill('#st-email', 'tester@example.com'); p.click('#st-send'); p.wait_for_selector('#st-sentbox', timeout=5000)
-    ok('Link sent to' in text(p, '#st-sentbox') and 'when you finish here' in text(p, '#st-sentbox'), 'new: after sending, it says to finish here first')
+    # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
+    ok('Get alerts on your' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
+    ok('We sent a link to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
+    ok(p.locator('#st-a-email, #st-eform').count() == 0 and p.locator('#st-name').count() == 1, 'new: Coming up asks only the optional first name')
     ok('See my home page' in text(p, '.st-bar'), 'new: the last button says where it goes')
-    p.fill('#st-name', 'Leilani'); p.click('[data-stname]'); p.wait_for_timeout(300)
+    p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: Next keeps it
     p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
     ok(p.evaluate('location.hash') in ('#/', ''), 'new: the last step goes straight to Home')
     home = text(p)
@@ -94,12 +101,11 @@ with sync_playwright() as pw:
     ok('Add your email' not in home2 and 'Welcome back' not in home2, 'the sandbox does not ask for the email again')
     c.close()
 
-    # ---- the new version on an iPhone SE: the reminder box still fits ----
+    # ---- the new version on an iPhone SE: the alerts box fits ----
     c, p = ctx(b, 375, 667)
-    walk_to_soon(p, '&end=home')
-    fit = p.evaluate('() => { const l = document.querySelector(".st-askline").getBoundingClientRect(), bar = document.querySelector(".st-bar").getBoundingClientRect(); return l.bottom <= bar.top + 1; }')
-    ok(fit, 'new: on an iPhone SE the reminder box line is above the button bar')
-    p.click('[data-stskip]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    s = walk_to_soon(p, '&end=home')
+    ok(s['fit'], 'new: on an iPhone SE the mobile number box is above the button bar')
+    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     ok(p.locator('.hm-rnh').first.evaluate('e => e.getBoundingClientRect().bottom < innerHeight - 64'), 'new: on an SE "What you can do right now" is on the first screen')
     c.close()
 
@@ -107,9 +113,9 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     s = walk_to_soon(p, '&end=today')
     ok('we’ll tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen is unchanged')
-    ok('Want a reminder?' in s['soon'], 'today: the reminder box is unchanged')
+    ok('Get alerts on your' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
     ok('We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
-    p.click('[data-stskip]'); p.wait_for_selector('.st-done', timeout=10000)
+    p.click('[data-stnext]'); p.wait_for_selector('.st-done', timeout=10000)
     ok('You’re all set' in text(p), 'today: the finale screen is still there')
     p.click('[data-stdone]'); p.wait_for_selector('#main .hm', timeout=10000); p.wait_for_timeout(3500)
     ok(p.locator('.tr-tip').count() == 0 and p.locator('.hm-fin2').count() == 0, 'today: Home as before, no tips')
@@ -119,7 +125,7 @@ with sync_playwright() as pw:
     # ---- the new version between sessions ----
     c, p = ctx(b)
     walk_to_soon(p, '&end=home&season=off')
-    p.click('[data-stskip]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
+    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
     off = text(p)
     ok('Mahalo for joining in!' in off and 'on break until' in off, 'off: Home opens with Mahalo and when the session opens')
     ok(p.locator('.hm-rightnow .hm-ready').count() == 1, 'off: "What you can do right now" is the hello to legislators')
@@ -134,7 +140,7 @@ with sync_playwright() as pw:
     # ---- the new version on a laptop ----
     c, p = ctx(b, 1440, 900)
     walk_to_soon(p, '&end=home')
-    p.click('[data-stskip]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     p.wait_for_selector('.tr-tip', timeout=10000); p.wait_for_timeout(500)
     for k in range(2):
         r = p.eval_on_selector('.tr-tip', 'e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom, b.left, b.right, innerWidth, innerHeight]; }')
@@ -146,7 +152,7 @@ with sync_playwright() as pw:
     # ---- the lit button in tip 1 works: it opens the testimony walkthrough and ends the tips ----
     c, p = ctx(b)
     walk_to_soon(p, '&end=home')
-    p.click('[data-stskip]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     t0 = p.evaluate('Date.now()'); p.wait_for_selector('.tr-tip', timeout=10000)
     waited = p.evaluate('Date.now()') - t0
     ok(waited >= 3500, f'new: the tips wait for the celebration ({waited} ms)')

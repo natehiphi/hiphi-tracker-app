@@ -1,17 +1,19 @@
 // The first visit (R-023, rebuilt 9/21 from the prototype Nate approved; backend docs/FIRST-VISIT-PLAN.md). Three named
 // parts at the top, "Your issues · How it works · Stay connected", and no counting (HANDOFF 3.5; Nate 9/21: keep the
 // named steps, remove the progress bar):
-//   Your issues     topics -> issues (the four most important, then three per category; followed, then "Mahalo!")
+//   Your issues     topics -> issues (the four most important, then three per category) -> alerts on them, by text
+//                   first or email (R-146, Nate 10/4: right after the issues, before the "Mahalo!"), then "Mahalo!"
 //   How it works    one drawn page on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29), in three
 //                   stages walked with Next: the bill itself, its road to where it is now and its next chance, and why
 //                   speaking up can help (pick what you'd do: email the chair, send testimony, tell your legislators or
 //                   stay quiet, and see what can happen); its last button says "Next: your legislators" (R-140)
-//   Stay connected  who speaks for you (street address only) -> coming up on your issues, THEN the one ask for an
-//                   email (Nate 9/21: ask after the value) -> you're all set (the peak, then Home)
+//   Stay connected  who speaks for you (street address only) -> coming up on your issues -> you're all set (the peak,
+//                   then Home). The alerts ask was here, after the value (Nate 9/21), until R-146 moved it up.
 // Someone who arrives on a shared bill starts on the bill page itself (pub/bill.js: the easiest action first); from
-// there the flow is "follow this issue?", the story of that bill, then the last part.
-// People follow ISSUES, not bills (R-018). No action is pushed here; the asks to act come on later visits. The email is
-// one "keep me updated" opt-in covering hearing alerts and HIPHI's own advocacy alerts (HANDOFF 3.5). Every step is its
+// there the flow is "follow this issue?", alerts on it, the story of that bill, then the last part.
+// People follow ISSUES, not bills (R-018). No action is pushed here; the asks to act come on later visits. The alerts ask
+// (pub/alerts.js) is one opt-in covering hearing alerts and HIPHI's own advocacy alerts (HANDOFF 3.5), by text (a mobile
+// number, the box shown first) or by email (a link under it). Every step is its
 // own route (#/start/1..N) and pushes history, so Back walks the steps. The step and the picks live in hiphi_wiz
 // (wiz()/wizSet()), so a reload resumes where the person left off. Every step can be skipped, "Skip" always means "go
 // to the next page" (3.5), and a primary button is never disabled. Celebrations are in proportion (DESIGN C-7 as
@@ -31,7 +33,7 @@
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf } from './kernel.js';
+import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { CAPITOL, VOICES, islands } from './art.js';
@@ -66,9 +68,10 @@ export const isOff = () => sessionInfo().phase !== 'in';
 // step name the private counting records and the database accepts (visitlog.js, backend 067), so no migration was
 // needed, and 'session' and 'hearing' are simply no longer recorded. Those three lessons still open on their own at
 // #/learn/<bill|session|hearing>.
-const FLOW_IN = ['topics', 'issues', 'bill', 'you', 'soon', 'done'];
-const FLOW_OFF = ['topics', 'issues', 'bill', 'you', 'soon', 'done'];
-const FLOW_LINK = ['followask', 'bill', 'you', 'soon', 'done'];
+// 'alerts' (R-146) stands right after the issues are picked; it is passed over when there is nothing to ask (askAlerts).
+const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'you', 'soon', 'done'];
+const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'you', 'soon', 'done'];
+const FLOW_LINK = ['followask', 'alerts', 'bill', 'you', 'soon', 'done'];
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
 // very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
 // they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
@@ -140,8 +143,8 @@ export function finish() {
   // The version that ends on Home (R-098) has no finale screen, so the finale's count is taken here, and Home plays the
   // celebration once for this page (S.hmFinale, pub/home.js).
   if (endHome()) {
-    track('done', 'view', { counts: { issues: followedIssues().length, address: !!S.stAddr.pick, email: !!(S.session || mailSent()) } });
-    S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent()), sent: mailSent() };
+    track('done', 'view', { counts: { issues: followedIssues().length, address: !!S.stAddr.pick, email: !!(S.session || mailSent()), phone: !!textSaved() } });
+    S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent() || textSaved()), sent: mailSent() };
   }
   track('done', 'done');
   wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}) });
@@ -157,7 +160,7 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
 // confused about what it is).
 const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
-const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
+const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".
 const chapterNames = () => [CHAPTERS[0], SHORT() ? 'Why your voice matters' : CHAPTERS[1], endHome() ? 'Your home page' : CHAPTERS[2]];
@@ -317,9 +320,16 @@ export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:128px"></div>'.repeat(3), true);
 export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
 const LEARN = ['story', 'bill', 'session', 'hearing'];
-const STEPS = ['issues', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
+const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
 export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
+// The alerts screen (R-146) asks only someone who follows something and has no way to be told yet: not signed in, no
+// link sent, no number given, not the email-ask test's second version (it asks after the first action, R-135), and not
+// already asked this visit (R-114: the Mahalo after acting from a shared link). Once drawn in this page's life it stays
+// in the flow, so Back finds it and a redraw under the "Mahalo!" does not jump past it.
+export const askAlerts = () => !S.session && !mailSent() && !textSaved() && armOf('email') !== 'after' && followsAnything() && !S.nudgedThisVisit;
 export function mailSent() {
+  // askAlerts can ask before start-rest.js (which sets S.stMail up) has loaded: a reload straight onto the alerts screen.
+  S.stMail ??= { email: '', name: '', sent: '', demo: false };
   if (!S.stMail.sent) { try { S.stMail.sent = sessionStorage.getItem('hiphi_link_sent') || ''; } catch { /* ignore */ } }
   return S.stMail.sent;
 }
@@ -351,6 +361,7 @@ export const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy
 function redirectFor(step, off) {
   const n = nameAt(step, off), T = total(off);
   if (step > T) return T;
+  if (n === 'alerts') return S.alertsShown || askAlerts() ? 0 : step + 1;
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);
   return 0;
@@ -376,7 +387,7 @@ function wire(route) {
   if (fresh) {
     viewKey = key; viewAt = Date.now(); tickChapter(name, back);
     track(name, 'view', name === 'done' ? { counts: { issues: followedIssues().length, stances: Object.values(S.stances || {}).filter(v => v === 'support' || v === 'oppose').length,
-      address: !!S.stAddr.pick, email: !!mailSent() } } : {});
+      address: !!S.stAddr.pick, email: !!mailSent(), phone: !!textSaved() } } : {});
   }
   const next = () => { track(name, 'next'); goStep(step, step + 1); };
 
@@ -392,6 +403,8 @@ function wire(route) {
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
     if (name === 'issues') { if (!followsAnything()) nudge('follow'); goStep(step, step + 1); return; }
+    // Skip on the alerts screen still celebrates the issues just followed (the "Mahalo!" comes after it, R-146).
+    if (name === 'alerts' && REST) { REST.leaveAlerts(step); return; }
     if (name === 'soon' || name === 'you') LZ?.lessonStop();
     goStep(step, step + 1);
   });
@@ -424,7 +437,7 @@ function wire(route) {
 
 }
 
-const TITLE = { topics: 'What do you care about?', issues: 'Your issues', bill: LESSON_TITLES.story,
+const TITLE = { topics: 'What do you care about?', issues: 'Your issues', alerts: 'Get alerts on your issues', bill: LESSON_TITLES.story,
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };
 // The steps after the topics, wired (start-rest.js). ctx: the step, the flow, Back, whether the screen is new, the
 // next() helper and the page's two query helpers from wire().

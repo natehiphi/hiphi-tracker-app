@@ -47,7 +47,9 @@ JOURNEYS = [
    dict(what='Next, to its issues', do=click_text('.st-bar [data-stnext]', '^Next$'),
         reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Your issues' && !!document.querySelector('[data-stpick]'))()"),
    dict(what='read the ticked issues and follow them', do=click_text('.st-bar [data-stnext]', 'Follow \\d+ issue'),
-        reach="(()=>{const m=document.querySelector('#fx-moment:not([hidden])'); return !!m && /following/i.test(m.innerText);})()"),
+        # Since R-146 the alerts screen comes right after the follow (it shows only once something is followed), and the
+        # "Mahalo!" after it; either proves the follow.
+        reach="(()=>{const m=document.querySelector('#fx-moment:not([hidden])'); return (!!m && /following/i.test(m.innerText)) || !!document.querySelector('.st-alertspage #st-h');})()"),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
@@ -82,14 +84,14 @@ JOURNEYS = [
    dict(what='open it in the mail app',  do=OPEN_MAIL_APP, reach=hp_seen('Did you send it')),
    dict(what='confirm it was sent',      do=click_text('#hp-dlg button', 'Yes, I sent it'), reach=hp_seen('Mahalo')),
  ]),
- # Counted from the moment the address is offered (B-2): the one ask sits under "Coming up on your issues", the last
- # screen before the finale (R-023). The walk there is a newcomer's (a category, its ticked issues, the story, no
- # street address) and is not counted. The first name is optional, so it is not a step.
- dict(name='public: give an email address', app=PUBLIC, budget=2, start='#/start/1', pick_cat=True,
-      walk_to="(()=>{const i=document.getElementById('st-email'); return !!i && i.offsetParent!==null;})()", steps=[
-   dict(what='type the address', fill=('#st-email', 'someone@example.com'),
-        reach="(()=>document.getElementById('st-email')?.value==='someone@example.com')()"),
-   dict(what='send it', do=click_text('.st-bar #st-send', 'Remind me|Keep me posted'), reach=seen('Check your inbox')),
+ # Counted from the moment the alerts are offered (B-2): right after the issues are followed (R-146, Nate 10/4; it was
+ # under "Coming up on your issues" until then). The walk there is a newcomer's (a category, its ticked issues) and is
+ # not counted. A mobile number is the box shown first; the "Mahalo!" that follows is the proof it was taken.
+ dict(name='public: sign up for alerts', app=PUBLIC, budget=2, start='#/start/1', pick_cat=True,
+      walk_to="(()=>{const i=document.getElementById('st-a-phone'); return !!i && i.offsetParent!==null;})()", steps=[
+   dict(what='type the number', fill=('#st-a-phone', '(808) 555-0123'),
+        reach="(()=>document.getElementById('st-a-phone')?.value==='(808) 555-0123')()"),
+   dict(what='send it', do=click_text('.st-bar #st-send', 'Text me'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /first text/.test(m.innerText);})()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

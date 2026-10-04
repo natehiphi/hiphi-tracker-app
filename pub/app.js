@@ -34,7 +34,7 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'home', 'mybills
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['find'], issue: ['find'], category: ['find'], list: ['find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
-  more: ['more', 'talk'], help: ['more', 'talk'], signin: ['more'], settings: ['more'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
+  more: ['more', 'talk'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
 const cssOne = n => cssP[n] ??= new Promise(res => {
@@ -58,9 +58,9 @@ app.openMail = o => helperLoad().then(() => app.openMail(o));
 // comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
 try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => render()); } catch { /* storage blocked */ }
 
-// name -> screen module. More covers help, sign in, settings and privacy; people covers legislators.
+// name -> screen module. More covers help, sign in, alerts (R-146), settings and privacy; people covers legislators.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, settings: more, privacy: more, mylist: mylists, shared: mylists };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: more, privacy: more, mylist: mylists, shared: mylists };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 

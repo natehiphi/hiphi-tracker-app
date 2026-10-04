@@ -353,7 +353,7 @@ anything that lengthens one needs a reason in the commit message.
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
 | Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
-| Public: give an email address (from the moment it is offered) | 2 steps |
+| Public: sign up for alerts (from the moment it is offered) | 2 steps (R-146, 10/4: a mobile number is the box shown first, type it and Text me; email is one tap more, behind "Prefer email?". It was "give an email address", also 2) |
 | Staff: open app → first thing due is on screen | 1 step |
 | Staff: bill number in hand → that bill's page | 2 steps |
 | Staff: bill page → position changed and saved | 3 steps |
@@ -505,11 +505,20 @@ One question, visible without scrolling, with a skip that costs nothing and is n
 
 *Reason.* P-2, and a first screen that presents a form is a first screen that presents work.
 
-### C-3 The email ask comes after a success, once per visit, always skippable
+### C-3 The alerts ask comes after a success, once per visit, always skippable
 
 Never on arrival. It follows something that just worked — an issue followed, an action sent — and it says
 plainly what will arrive and how often. Skipping is a plain, equal-weight choice, never a greyed-out
 afterthought and never a dark pattern ("No thanks, I don't care about my community").
+
+**Where and how, since 10/4 (R-146, Nate: "move the sign up for alerts option to right after selecting issues,
+also include a phone number option which should be more prominent").** In the first visit the ask is its own
+screen right after the issues are followed and before the "Mahalo!", which then celebrates both (the follow is
+the success; the moment comes once the person has answered). It is one box everywhere (`pub/alerts.js`: the
+first visit, Home, after a first action, More): a mobile number first, email as a link under it, the same two
+kinds of alert named for either (C-4), how often ("at most one a day"), and for texts the carrier words
+(message and data rates, STOP, HELP). Until 10/4 the ask sat on "Coming up on your issues", after the story and
+the address (Nate 9/21: after the value), where most people never reached it.
 
 *Reason.* Nate's product rule, and it matches every piece of consent guidance worth citing. The ask
 lands best at the moment somebody has just felt the thing work.
@@ -544,7 +553,8 @@ how to get back here. After: the same information on screen, not only in the ema
 
 A small win gets a small burst on the thing just done: a stance taken, a right answer, an address
 found, an email sent, a part of the first visit finished. The first followed issue and the first
-action sent get a moment that fills the screen and waits for Continue. The end of the first visit is
+action sent get a moment that fills the screen and waits for Continue (in the first visit the follow's
+moment plays once the alerts screen right after it is answered or skipped, R-146). The end of the first visit is
 the peak: the recap of everything the person did, with the petals and the flowers. Orange is the
 celebration colour and is used for these and almost nowhere else. Never a streak counter, a badge, a
 score, or a progress bar that implies homework. (Rewritten 9/21 for R-023, Nate's decision 4: "add

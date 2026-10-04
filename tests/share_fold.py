@@ -21,7 +21,7 @@ with sync_playwright() as p:
     # Follow the first topic's top issues through the first visit, then come back as a returning visitor.
     pg.goto(BASE + '#/start/1'); pg.reload(); pg.wait_for_timeout(3000)
     pg.locator('[data-stissue]').first.click(); pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1800)
-    pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1500); pg.locator('#fx-mgo').click(); pg.wait_for_timeout(1200)
+    pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1500); pg.locator('[data-stskip]').click(); pg.wait_for_timeout(600); pg.locator('#fx-mgo').click(); pg.wait_for_timeout(1200)   # the alerts screen (R-146): Skip
     pg.evaluate("sessionStorage.clear()"); pg.goto(BASE + '#/'); pg.reload(); pg.wait_for_timeout(3500)
     if pg.evaluate("location.hash").startswith('#/start'):   # still inside the first visit: step out of it
         pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(1500)

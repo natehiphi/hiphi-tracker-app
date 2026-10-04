@@ -31,12 +31,14 @@ const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm';
 const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
   // bill: until 9/29 this step was the "Reading a bill" lesson; now the drawn story (R-062).
   stand: 'Where do you stand?', bill: 'A bill’s story', session: 'The session, January to May', hearing: 'What a hearing is',
-  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)' };
+  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)',
+  alerts: 'Get alerts (text or email)' };
 const FLOWS = {
   // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).
-  in: ['topics', 'issues', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
-  off: ['topics', 'issues', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
-  link: ['arrive', 'act', 'followask', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  // 'alerts' (R-146, 10/4): the alerts ask right after the issues; it was part of "Coming up on your issues" before.
+  in: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  off: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  link: ['arrive', 'act', 'followask', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
 };
 const PERIODS = [['4', '4 weeks'], ['12', '12 weeks'], ['52', 'A year']];
 
@@ -64,8 +66,8 @@ const redraw = sel => { const y = scrollY; hooks.render(); if (sel) document.que
 function sampleRows(weeks) {
   const srcs = [['direct', 9], ['instagram.com', 7], ['keiki-health-fair', 5], ['facebook.com', 3], ['newsletter', 2]];
   const mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
-  const reach = { topics: 1, issues: .9, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
-  const time = { topics: 21, issues: 58, bill: 46, session: 64, hearing: 52, you: 37, soon: 31, done: 14, followask: 12, arrive: 40, act: 95 };
+  const reach = { topics: 1, issues: .9, alerts: .8, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
+  const time = { topics: 21, issues: 58, alerts: 24, bill: 46, session: 64, hearing: 52, you: 37, soon: 31, done: 14, followask: 12, arrive: 40, act: 95 };
   const rows = [];
   for (let w = 0; w < weeks; w++) {
     const wk = new Date(mon.getTime() - w * 7 * 864e5).toISOString().slice(0, 10);
@@ -73,12 +75,12 @@ function sampleRows(weeks) {
       const n = Math.max(1, Math.round(base * (1 + ((w * 7 + k * 3) % 5) / 6)));
       const off = src === 'newsletter' && w % 2 === 1, path = off ? 'off' : 'in', flow = FLOWS[path];
       const reached = Object.fromEntries(flow.map(s => [s, Math.max(0, Math.round(n * reach[s]))]));
-      const skips = { you: Math.round(n * .12), soon: Math.round(n * .2) };
+      const skips = { you: Math.round(n * .12), alerts: Math.round(n * .3) };
       rows.push({ week: wk, source: src, path, visits: n, reached, finished: reached.done, gave_email: Math.round(n * .28),
         median_seconds: Object.fromEntries(flow.map(s => [s, time[s] + ((w + k) % 7)])), skips: Object.fromEntries(Object.entries(skips).filter(([s, v]) => v && flow.includes(s))),
         quiz_right: Math.round(n * .45), quiz_answered: Math.round(n * .6), quiz_shown: Math.round(n * .05) });
       if (src === 'facebook.com') {   // a shared bill now and then
-        const m = 1 + (w % 3), fl = FLOWS.link, rr = { arrive: 1, act: .6, followask: .55, bill: .45, session: .42, hearing: .4, you: .36, soon: .33, done: .3 };
+        const m = 1 + (w % 3), fl = FLOWS.link, rr = { arrive: 1, act: .6, followask: .55, alerts: .5, bill: .45, session: .42, hearing: .4, you: .36, soon: .33, done: .3 };
         const re = Object.fromEntries(fl.map(s => [s, Math.round(m * rr[s])]));
         rows.push({ week: wk, source: src, path: 'link', visits: m, reached: re, finished: re.done, gave_email: Math.round(m * .3),
           median_seconds: Object.fromEntries(fl.map(s => [s, time[s]])), skips: {}, quiz_right: 0, quiz_answered: Math.round(m * .3), quiz_shown: 0 });
@@ -147,7 +149,7 @@ function tilesHTML(t, shared) {
   return `<div class="fv-tiles">
     ${tile(nf(t.visits), 'started the first visit', shared ? `${nf(shared)} of them on a bill someone shared` : '')}
     ${tile(nf(t.finished), 'finished it', `${pct(t.finished, t.visits)} of those who started`)}
-    ${tile(nf(t.email), 'gave an email', `${pct(t.email, t.visits)} of those who started`)}
+    ${tile(nf(t.email), 'signed up for alerts', `${pct(t.email, t.visits)} of those who started, by text or email`)}
     ${t.qa ? tile(`${nf(t.qr)} of ${nf(t.qa)}`, 'got the hearing question right', `the first time they answered${t.qs ? `; ${nf(t.qs)} more asked to see the answer` : ''}`) : tile('–', 'nobody has answered the hearing question yet')}
   </div>`;
 }
@@ -193,7 +195,7 @@ function sourcesHTML(srcs) {
     return [`<tr><th scope="row"><span class="fv-src">${esc(name)}</span><span class="fv-kind">${esc(kind)}</span></th>${nums(g.visits, g.finished, g.email)}</tr>`,
       ...words.map(w => `<tr class="fv-sub"><th scope="row"><span class="sr">${esc(name)}, </span>${w.campaign ? `<span class="fv-word">${esc(w.campaign)}</span>` : '<span class="fv-word none">no campaign word</span>'}</th>${nums(w.visits, w.finished, w.gave_email)}</tr>`)];
   });
-  return tableHTML('fv-ch', 'Where they came from', '', ['Came from', 'Started', 'Finished', 'Gave an email'], rows);
+  return tableHTML('fv-ch', 'Where they came from', '', ['Came from', 'Started', 'Finished', 'Signed up for alerts'], rows);
 }
 // ---- after the first visit: coming back (078, R-067) ----
 // Nate's first goal is that people come back. visit_counts_weekly: per week, browsers that opened the public page (one
@@ -258,7 +260,7 @@ const sampleSugg = weeks => { const n = Math.max(6, weeks * 4); return [
 function weeksHTML(rows) {
   const wk = by(rows, 'week').sort((a, b) => String(b[0]).localeCompare(String(a[0])));
   if (wk.length < 2) return '';
-  return tableHTML('fv-wh', 'By week', 'Monday to Sunday', ['Week of', 'Started', 'Finished', 'Gave an email'], wk.map(([k, t]) =>
+  return tableHTML('fv-wh', 'By week', 'Monday to Sunday', ['Week of', 'Started', 'Finished', 'Signed up for alerts'], wk.map(([k, t]) =>
     `<tr><th scope="row">${esc(weekOf(k))}</th><td class="num">${nf(t.visits)}</td><td class="num">${nf(t.finished)} <span class="fv-pc">${pct(t.finished, t.visits)}</span></td><td class="num">${nf(t.email)}</td></tr>`));
 }
 // The counts start on the team's count-from day (097, R-109): our own test runs filled 9/27 to 9/30, and rather than delete

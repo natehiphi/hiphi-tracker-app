@@ -78,8 +78,15 @@ with sync_playwright() as pw:
     ticked_below = p.evaluate("[...document.querySelectorAll('[data-stsec] [data-stpick][aria-pressed=true]')].length")
     ok(ticked_below == 0 and p.locator('.st-topsec [data-stpick][aria-pressed=true]').count() >= 1, 'only the top issues start ticked (B-12)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    # Then the alerts, right after the issues and before the "Mahalo!" (R-146, Nate 10/4): a mobile number first, email as
+    # a link under it. Here the email: the walk below greets them by the name asked after it.
+    ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Get alerts on your' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
+    std(p, 'alerts', axe=True); shot(p, 'p_alerts')
+    p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1500)
     # The first success: a moment that fills the screen and waits for Continue (C-7, WCAG 2.2.1).
     ok(p.locator('#fx-moment:not([hidden]) [role=dialog]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
+    ok('We sent a link to leilani@example.com' in p.inner_text('#fx-moment'), 'the "Mahalo!" says where the link went (C-6)')
     std(p, 'moment_follow', axe=True); shot(p, 'p_moment')
     p.wait_for_timeout(2500); ok(p.locator('#fx-moment:not([hidden])').count() == 1, 'the moment waits for Continue')
     p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
@@ -173,21 +180,13 @@ with sync_playwright() as pw:
     ok(p.locator('.actionbar .btn.primary').count() == 0 and p.locator('[data-stskip]').count() == 1, 'before an address there is only Skip')
     std(p, 'you', axe=True); shot(p, 'p_you')
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
-    # The value first, then the one ask (Nate 9/21: ask for the email after the value).
+    # Coming up: the value, and no ask any more (R-146 moved it up to right after the issues).
     ts = text(p); ok('Coming up on your issues' in ts, f"then coming up on your issues ({p.evaluate('location.hash')})")
-    # 9/29 (R-078, Nate: "the want a reminder needs to be below the coming up section but it still needs to fit"): compact
-    # rows first (as many as the screen's height allows, the rest under "More coming up"), then the short reminder box.
-    order = p.evaluate("(() => { const l = document.querySelector('.st-soon'), f = document.querySelector('#st-eform'); return !!l && !!f && (l.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) ? 1 : 0; })()")
-    ok(order == 1 and p.locator('.st-soon li').count() >= 1, 'what is coming up comes before the ask')
-    ok(p.locator('#st-name').count() == 0, 'the first name is asked after the email, not in the reminder box')
-    ok(p.evaluate("(() => { const f = document.getElementById('st-email'); return !!f && f.getBoundingClientRect().top < innerHeight - 80; })()"), 'the email box is on the first screen')
+    ok(p.locator('.st-soon li').count() >= 1 and p.locator('#st-a-phone, #st-a-email, #st-eform').count() == 0, 'coming up lists what is ahead and asks for nothing more')
     ok('testimony due' in ts.lower() and 'closes' not in ts.lower(), 'coming up names the value, and testimony is "due", never "closes"')
     std(p, 'soon', axe=True); shot(p, 'p_soon')
-    p.fill('#st-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1200)
-    ok('Check your inbox' in text(p), 'the ask says to check the inbox'); std(p, 'soon_sent', axe=True)
-    # The first name, now asked once the email has gone (R-078), is saved for the greeting.
-    p.fill('#st-name', 'Leilani'); p.locator('[data-stname]').click(); p.wait_for_timeout(500)
-    ok('We’ll greet you as Leilani' in text(p), 'the first name is saved after the email')
+    # The first name, asked once a way to reach them was given (R-078; on Coming up since R-146), is saved for the greeting.
+    p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: Next keeps what is typed
     p.locator('[data-stnext]').click(); p.wait_for_timeout(3200)
     # The peak: what they did, then what happens next; nothing asks for anything (Nate 9/21: end on a high).
     td = text(p); ok('You’re all set, Leilani!' in td and 'What happens next' in td, f"the last screen celebrates what they did ({p.evaluate('location.hash')})")
@@ -217,6 +216,8 @@ with sync_playwright() as pw:
     fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(1500)
     ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable vape ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
     p.locator('#fx-mgo').click(); p.wait_for_timeout(2000)
+    ok(p.locator('.st-alertspage').count() == 1, f"then the alerts on that issue (R-146) ({p.evaluate('location.hash')})")
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'just followed' in text(p), 'following from the card goes on to the story of that bill, without asking again')
     std(p, 'link_lesson', axe=True)
     fresh(p); p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); visit(p, '/start/1', wait=3000)
@@ -347,13 +348,14 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
     ok(re.search(r'HIPHI\u2019s top issues in 20\d\d', t) is not None and p.locator('[data-stpick]').count() > 0, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
+    ok(p.locator('main input[type=tel]').count() == 1 and 'start in January' in text(p), f"between sessions the issues lead on to the alerts, in off-season words ({p.evaluate('location.hash')})")
+    p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     for _ in range(24):
-        if p.locator('main input[type=email]').count(): break
+        if p.locator('[data-stdone]').count(): break
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
         (p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')).first.click(); p.wait_for_timeout(1300)
-    ok(p.locator('main input[type=email]').count() == 1 and 'start moving' in text(p), f"between sessions the story leads on to the ask, in off-season words ({p.evaluate('location.hash')})")
-    p.locator('[data-stskip]').click(); p.wait_for_timeout(2600); p.locator('[data-stdone]').click(); p.wait_for_timeout(3000); t = text(p)
+    ok(p.locator('[data-stdone]').count() == 1, f"between sessions the walk reaches the finale ({p.evaluate('location.hash')})")
+    p.locator('[data-stdone]').click(); p.wait_for_timeout(3000); t = text(p)
     ok('Your issues' in t and 'Pick a few health issues' not in t, 'off-season Home names the issues just picked and does not ask again')
     for extra in ('', '&season=off'):
         fresh(p, extra); p.goto(BASE + '?demo=1' + extra + '#/start/1'); p.reload(); p.wait_for_timeout(3000); p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)

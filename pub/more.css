@@ -159,3 +159,9 @@
 }
 .mr .mr-learn { margin: var(--s12) 0 0; font-size: var(--t14); }
 .mr .mr-learn a { font-weight: 700; }
+
+/* Get alerts (R-146) */
+.mr-alon { display: flex; flex-direction: column; gap: var(--s12); }
+.mr-alon p { margin: 0; }
+.mr-alemail { display: flex; gap: var(--s8); align-items: flex-start; }
+.mr-alemail .ic { flex: none; margin-top: 2px; }

@@ -109,6 +109,22 @@ export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follo
 export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
 export const SKIPS_KEY = DEMO ? 'hiphi_skips_demo' : 'hiphi_skips';
 export const CONSENT_KEY = 'hiphi_consent_pending';
+// Text alerts (R-146, Nate 10/4: a phone number option, more prominent than email). The number given on this device and
+// the random token its row in text_signups is kept under (backend 121): { token, phone: ten digits, at }. No texting
+// service exists yet, so the number is only kept; the first text, once texts are set up, asks for a YES reply. The
+// sandbox's copy is its own (every hiphi_ name is hiphi_*_demo there) and never reaches the database.
+export const TEXT_KEY = 'hiphi_text';
+export const textSaved = () => { try { const t = JSON.parse(localStorage.getItem(TEXT_KEY) || 'null'); return t && t.token && /^\d{10}$/.test(t.phone || '') ? t : null; } catch { return null; } };
+// The issues, bills and categories this device follows, as the text row keeps them.
+export const textLists = () => ({ issue_ids: [...S.issueFollows], bill_ids: [...S.direct], categories: [...S.catFollows] });
+// Follows changed: the text row follows them too, so the texts are about what the person follows now. Fire and forget,
+// at most once a second; the function ignores a row that has stopped.
+let textT = 0;
+export function syncText() {
+  if (DEMO || !textSaved()) return;
+  clearTimeout(textT);
+  textT = setTimeout(() => { const t = textSaved(); if (t) supa().then(sb => sb.rpc('text_follows', { p: { token: t.token, ...textLists() } })).catch(() => {}); }, 1000);
+}
 // ---------------- data ----------------
 // The Supabase library, pinned: "@2" cost a redirect on every cold load and could change under us (R-067 speed).
 // track.html preloads this same address; change both together.
@@ -239,7 +255,7 @@ export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], c
   const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
   issuesOn.forEach(x => S.issueFollows.add(x)); issuesOff.forEach(x => S.issueFollows.delete(x));
   catsOn.forEach(x => S.catFollows.add(x)); catsOff.forEach(x => S.catFollows.delete(x));
-  recomputeWatch(); saveLocal();
+  recomputeWatch(); saveLocal(); syncText();
   if (S.user && !DEMO) {
     const uid = S.user.id, calls = [];
     const addI = [...new Set(issuesOn)].filter(x => !before.i.has(x)), delI = issuesOff.filter(x => before.i.has(x));
@@ -339,7 +355,8 @@ export function onbSet(patch) { const o = { ...onb(), ...patch }; try { localSto
 export const bill = id => S.bills.find(b => b.id === id);
 export const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].includes(b.stage || '') && !HELD_RE.test(b.last_action || '');
 export function nudgeOk() {
-  if (S.session || S.nudgedThisVisit) return false;
+  // A number given for text alerts is an alerts sign-up too (R-146): nothing asks again.
+  if (S.session || S.nudgedThisVisit || textSaved()) return false;
   const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
   return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
 }
