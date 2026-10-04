@@ -260,7 +260,7 @@ export const pickedIssues = () => { const sel = new Set(wiz().issues || []); ret
 // ================= Your issues, 1: what do you care about? =================
 // Six tiles, most important first (Nate 9/21), each saying what is in play: in session the issues still moving,
 // between sessions the wins of last session (or its issues).
-const SURE1 = 'About 4 minutes. Free, and no account needed.';
+const SURE1 = 'About 4 minutes. Free.';
 // What the app does, said on the first screen (R-067, Nate's pick 9/27, Version A): testers liked the first visit but
 // were confused about what it is, and the only plain description was on the finale. In session only; between sessions
 // the screen already leads with the opening day.
