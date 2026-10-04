@@ -5,7 +5,7 @@
 //   How it works    one drawn page on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29), in three
 //                   stages walked with Next: the bill itself, its road to where it is now and its next chance, and why
 //                   speaking up can help (pick what you'd do: email the chair, send testimony, tell your legislators or
-//                   stay quiet, and see what can happen); then the "Now you know how it works" moment
+//                   stay quiet, and see what can happen); its last button says "Next: your legislators" (R-140)
 //   Stay connected  who speaks for you (street address only) -> coming up on your issues, THEN the one ask for an
 //                   email (Nate 9/21: ask after the value) -> you're all set (the peak, then Home)
 // Someone who arrives on a shared bill starts on the bill page itself (pub/bill.js: the easiest action first); from
@@ -15,8 +15,9 @@
 // own route (#/start/1..N) and pushes history, so Back walks the steps. The step and the picks live in hiphi_wiz
 // (wiz()/wizSet()), so a reload resumes where the person left off. Every step can be skipped, "Skip" always means "go
 // to the next page" (3.5), and a primary button is never disabled. Celebrations are in proportion (DESIGN C-7 as
-// rewritten 9/21): a small burst for a small win, a moment that waits for Continue for the first follow and for the
-// lessons, and the peak at the end. Motion follows A-10 (pub/fx.js) and stops under Reduce Motion.
+// rewritten 9/21): a small burst for a small win and for each part finished, a moment that waits for Continue for the
+// first follow only (one after the lessons read as the end, R-140), and the peak at the end. Motion follows A-10
+// (pub/fx.js) and stops under Reduce Motion.
 
 
 

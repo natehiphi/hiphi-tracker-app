@@ -25,14 +25,6 @@
 .fx-bloom .fx-petal { transform-box: fill-box; transform-origin: 50% 100%; animation: fx-petal .5s var(--spring) both; }
 .fx-bloom .fx-heart { transform-box: fill-box; transform-origin: center; animation: fx-pop .35s var(--spring) .45s both; }
 .fx-bloom .fx-spark { transform-box: fill-box; transform-origin: center; animation: fx-spark .9s var(--ease) .5s both; }
-.fx-learn { width: 220px; margin: 0 auto 12px; }
-.fx-learn .fx-ticks { display: flex; justify-content: center; gap: 22px; margin-bottom: 6px; }
-.fx-learn .fx-tk { position: relative; display: grid; place-items: center; width: 44px; height: 44px; color: var(--p800); animation: fx-rise .3s var(--ease) both; }
-.fx-learn .fx-tk > .ic { width: 28px; height: 28px; }
-.fx-learn .fx-tk b { position: absolute; right: -6px; bottom: -4px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--ok-text); color: #fff; box-shadow: 0 0 0 3px var(--n50); animation: fx-pop .35s var(--spring) both; animation-delay: inherit; }
-.fx-learn .fx-tk b .ic { width: 14px; height: 14px; }
-.fx-learn .fx-cap svg { width: 100%; height: auto; display: block; }
 
 @keyframes fx-fadein { from { opacity: 0; } }
 @keyframes fx-fadeout { to { opacity: 0; } }

@@ -3,14 +3,14 @@
 // Reduce Motion:
 //   burst(el)      a small burst of petals on the thing just done: a stance, a right answer, an address found, an email
 //                  sent, a part of the first visit finished. Skipped entirely under Reduce Motion.
-//   celebrate(...) a moment that fills the screen and waits for Continue (WCAG 2.2.1): the first follow, the lessons
-//                  done, the first action sent. Under Reduce Motion it still appears, without movement.
+//   celebrate(...) a moment that fills the screen and waits for Continue (WCAG 2.2.1): the first follow, the first
+//                  action sent, a law passed. Under Reduce Motion it still appears, without movement. Never mid-way
+//                  through the first visit after the first follow: a full-screen moment there reads as the end (R-140).
 //   travel(...)    moves one SVG group along a curve (the bill's trip through the Capitol, a letter to the committee).
 //   swap(fn, dir)  a screen change that slides the way the person is going (a View Transition where the browser has
 //                  one; otherwise the change simply happens).
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
 import { icon } from './kernel.js';
-import { CAPITOL } from './art.js';
 
 export const reduced = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // A pause that only exists when things move: under Reduce Motion the next beat happens at once.
@@ -70,20 +70,17 @@ export function bloom() {
     <g>${[0, 72, 144, 216, 288].map((r, i) => `<g transform="rotate(${r})"><ellipse class="fx-petal" cx="0" cy="-8.4" rx="6.1" ry="8.4" fill="var(--o400)" style="animation-delay:${i * 80}ms"/></g>`).join('')}</g>
     <circle class="fx-heart" r="3.3" fill="#F9D56E"/></svg></div>`;
 }
-// Finishing the lessons: the three of them tick off above the Capitol.
-const learnArt = () => `<div class="fx-learn" aria-hidden="true"><div class="fx-ticks">${['file-text', 'landmark', 'users'].map((ic, i) =>
-  `<span class="fx-tk" style="animation-delay:${250 + i * 220}ms">${icon(ic)}<b>${icon('check')}</b></span>`).join('')}</div><div class="fx-cap">${CAPITOL}</div></div>`;
 
 // A moment that fills the screen and waits for Continue (never moves on by itself: WCAG 2.2.1). The page behind is
 // inert while it shows; Esc, a tap outside the card, or Continue closes it, then `then` runs.
 // `alt` ({ label, act }) adds a quiet second button under Continue: it runs act, then closes like Continue (an Undo
 // for something the moment did on the person's behalf, R-067).
-export function celebrate({ title, sub = '', small = '', art = 'bloom', go = 'Continue', alt = null }, then = () => {}) {
+export function celebrate({ title, sub = '', small = '', go = 'Continue', alt = null }, then = () => {}) {
   let m = document.getElementById('fx-moment');
   if (!m) { m = document.createElement('div'); m.id = 'fx-moment'; m.className = 'fx-moment'; document.body.appendChild(m); }
   const app = document.getElementById('app');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  m.innerHTML = `<div class="fx-mcard" role="dialog" aria-modal="true" aria-labelledby="fx-mt" aria-describedby="fx-ms">${art === 'learn' ? learnArt() : bloom()}
+  m.innerHTML = `<div class="fx-mcard" role="dialog" aria-modal="true" aria-labelledby="fx-mt" aria-describedby="fx-ms">${bloom()}
     <p class="fx-mtitle" id="fx-mt">${esc(title)}</p>
     <div id="fx-ms">${sub ? `<p class="fx-msub">${esc(sub)}</p>` : ''}${small ? `<p class="fx-msmall">${esc(small)}</p>` : ''}</div>
     <button type="button" class="btn primary fx-mgo" id="fx-mgo"><span>${esc(go)}</span>${icon('arrow-right')}</button>${alt ? `<button type="button" class="btn text fx-malt" id="fx-malt">${esc(alt.label)}</button>` : ''}</div>`;

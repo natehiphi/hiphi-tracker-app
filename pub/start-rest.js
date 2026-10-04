@@ -601,12 +601,19 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     if (!E) return;   // the lessons are still on their way: the step is drawn again when they land
     lessons().lessonStart('story', E, { back, redraw: !fresh });
     const nb = $('[data-stnext]');
+    // On the story's last stage the button names the next screen (C-6), so finishing it reads as a step on, not the end.
+    const label = () => { if (!nb) return; const last = lessons().lessonStep('story') >= 3;
+      nb.querySelector('span').textContent = last ? GO_YOU : 'Next'; };
+    label();
+    // A stage can change without Next: Back, or a tap on the story's own stage dots.
+    $('.st')?.addEventListener('click', () => requestAnimationFrame(label));
     if (nb) nb.onclick = () => {
-      if (lessons().lessonNext('story', E)) return;
-      // Finishing "How a bill becomes law": the second moment (C-7), then on to the last part. Its three ticks (fx.js
-      // learnArt: a bill, the Capitol, people) are what the page showed: the bill, its road, and the people who help.
-      S.stLearned = true; track(name, 'next');
-      celebrate({ art: 'learn', title: 'Now you know how it works', sub: 'A bill’s road, and when your voice can help.' }, () => goStep(step, step + 1));
+      if (lessons().lessonNext('story', E)) { label(); return; }
+      // Finishing "How a bill becomes law" is a part of the first visit finished: its name ticks green at the top of the
+      // next screen with a small burst (tickChapter, C-7), as the short version's page does. Until 10/4 this was a moment
+      // that filled the screen with three ticks over the Capitol, which read as the end with Stay connected still to
+      // come (Nate: "makes it feel like everything is done", R-140).
+      S.stLearned = true; next();
     };
   }
 
@@ -704,6 +711,9 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   }
 }
 
+// The teaching part always hands on to "Who speaks for you", and its last button says so (R-140, C-6).
+// "Next:" keeps it the button that moves on: under "What would you do?", "Find my legislators" read as a fifth answer.
+const GO_YOU = 'Next: your legislators';
 // The action bar of the steps after the topics (start-rest.js).
 export function barStep(name, step, off) {
   switch (name) {
@@ -713,11 +723,11 @@ export function barStep(name, step, off) {
       if (m.loading || m.none) return barBusy();
       return bar2(followLabel(m.count), { icon: 'star' });
     }
-    case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });
+    case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU (wireStep)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
     case 'voice': return wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn('Go to my home page', { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
-      : bar2('Next', { iconEnd: 'arrow-right' });
+      : bar2(GO_YOU, { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
     // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's

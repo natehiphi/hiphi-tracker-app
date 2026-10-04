@@ -45,7 +45,7 @@ the drawing changing in place: the bill, its road to where it really is, then "W
 four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help)
--> the "Now you know how it works" moment -> who speaks for you (street address only) -> "Coming up on your
+-> (its last button, "Next: your legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
 issues", THEN the one email ask with the first name -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the

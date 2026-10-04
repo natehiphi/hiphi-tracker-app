@@ -35,7 +35,7 @@ def walk_to_soon(p, extra):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
     seen['story'] = text(p, '.lx-calm')
-    p.click('[data-stnext]'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(300); p.click('#fx-mgo')
+    p.click('[data-stnext]')   # finishing the story goes straight on to who speaks for you (R-140)
     p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(600)
     p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
     seen['soon'] = text(p)

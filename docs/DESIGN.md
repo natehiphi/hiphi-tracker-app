@@ -557,7 +557,10 @@ how far someone has come may start above zero only for something they really did
 their legislators), never a made-up head start; evidence **strong** that a real head start helps people
 finish (Nunes and Drèze 2006), and a faked one costs trust once noticed. Whether it helps here is a guess
 until `first_visit_funnel` shows it. Progress belongs to the person (Nate's rule); community numbers appear only inside a
-bill or hearing, and only from 10 people.
+bill or hearing, and only from 10 people. **No full-screen moment part-way through the first visit after the first
+follow (added 10/4, R-140):** one after the lessons, three green ticks over the Capitol, made the visit feel finished with
+Stay connected still to come (Nate: "makes it feel like everything is done"). A finished part gets its small burst on its
+tick at the top, and the button that leaves it names what comes next (C-6).
 
 ### C-8 A returning person is never made to start again
 

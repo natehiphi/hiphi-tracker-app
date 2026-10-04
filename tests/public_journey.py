@@ -155,11 +155,13 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '2', 'Back on stage 3 goes back to stage 2')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     ok(p.evaluate(STAGE) == '3' and p.locator('[data-lx-ch][aria-pressed=true]').count() == 0, 'coming forward again, nothing is chosen yet')
+    ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: your legislators', 'on stage 3 the button names the next screen (R-140)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
-    ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'how it works' in p.inner_text('#fx-moment').lower(), 'Next on stage 3 finishes the story: the "Now you know how it works" moment')
-    std(p, 'moment_learned', axe=True); p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
+    # No full-screen moment here: one mid-way read as the end of the first visit (R-140); the part's tick bursts instead.
+    ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'finishing the story goes straight on, with no full-screen moment (R-140)')
     seen = [p.evaluate("document.querySelector('main h1')?.innerText || ''")]
     ok(seen == ['Who speaks for you'], f'one lesson, then who speaks for you ({seen})')
+    std(p, 'after_story', axe=True)
     # Back from the next screen comes back to the story (Back on the story itself is checked with Skip, below).
     p.locator('[data-stback]').first.click(); p.wait_for_timeout(1500)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.evaluate(STAGE) == '3', 'Back from who speaks for you returns to the story, on its last stage')
