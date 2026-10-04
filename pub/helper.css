@@ -150,6 +150,10 @@
 .hp-dlg .hp-pt[aria-pressed="true"] { border: 2px solid var(--p700); padding: 11px 13px; background: var(--p50); }
 .hp-dlg .hp-pt[aria-pressed="true"] .hp-pti { background: var(--p700); color: #fff; }
 .hp-dlg .hp-own { display: flex; gap: var(--s8); margin-top: var(--s16); color: var(--n700); }
+/* R-141 (10/4): the points tapped show in a box under the list, in the letter's own words, ready to change. It grows with
+   its text like the letter does, so there is never a box scrolling inside the dialog's own scroll. */
+.hp-dlg .hp-ptbox { margin-top: var(--s24); }   /* set apart from the cards, which sit 8px apart (A-8) */
+.hp-dlg .hp-ptbox textarea { min-height: 72px; resize: none; overflow: hidden; }
 .hp-dlg .hp-sugs { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s8); }
 .hp-dlg .hp-sug { min-height: 44px; cursor: pointer; }
 .hp-dlg .hp-sug[aria-pressed="true"] { background: var(--p700); color: #fff; border-color: var(--p700); }

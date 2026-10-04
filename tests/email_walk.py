@@ -10,6 +10,8 @@
 #   4-6. your own legislator: a row at a hearing on their committee; Home's card for a bill waiting in their committee;
 #      a floor vote on the bill page
 #   7. the introduction card: offered once, "No thanks" is forever, and sent is forever
+#   8. R-141 (10/4): the talking points tapped on "Get to know the bill" show in a box under them, on the same step, in
+#      the words the email or letter will use, and can be changed there; what the box says is what is sent
 # python3 tests/email_walk.py [base url]
 import json, os, sys, urllib.parse
 from playwright.sync_api import sync_playwright
@@ -264,6 +266,92 @@ with sync_playwright() as pw:
         visit(p, '/'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: never offered again')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()
+
+    # ---- 8. R-141: the points box (Nate 10/4: "selecting talking points should show up in an editable box that they can
+    # see. It shouldn't be on a different page.") ----
+    pts_text = lambda p: p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-pt .hp-ptt')].map(e => e.innerText.trim())")
+    pressed = lambda p: p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-pt')].map(e => e.getAttribute('aria-pressed') === 'true')")
+    box = lambda p: p.input_value('#hp-pts')
+    def in_view(p, sel):
+        return p.evaluate("""sel => { const b = document.querySelector('#hp-dlg .hp-body').getBoundingClientRect(), r = document.querySelector(sel)?.getBoundingClientRect();
+          return !!r && r.top >= b.top && r.top + 60 <= b.bottom; }""", sel)
+    for wide in (False, True):
+        tag = 'box_' + ('laptop' if wide else 'phone')
+        c, p = ctx(br, wide); follower(p); visit(p, '/bill/HB2121')
+        e = p.locator('[data-bl-compose]').first; e.scroll_into_view_if_needed(); e.click(); p.wait_for_timeout(900)
+        if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
+        P = pts_text(p)
+        check(len(P) >= 3 and p.locator('#hp-pts').count() == 0, f'{tag}: three points or more, and no box before one is tapped ({len(P)})')
+        p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(700)
+        check(p.locator('#hp-pts').count() == 1 and box(p) == P[0] and 'In your email' in dlg(p), f'{tag}: the first tap shows the point in a box labelled "In your email", on the same step')
+        check('Get to know the bill' in dlg(p) and in_view(p, '#hp-pts'), f'{tag}: the box is on screen right away, no scrolling needed')
+        shot(p, f'{tag}_1_one')
+        p.locator('#hp-dlg .hp-pt').nth(2).click(); p.wait_for_timeout(400)
+        p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)
+        check(box(p) == P[2], f'{tag}: a second tap takes a point out of the box')
+        p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)
+        check(box(p) == P[0] + ' ' + P[2], f'{tag}: until the box is changed, the points keep the order the bill lists them')
+        # their own words: a clause added to one point. Its opening words are still there, so it still reads Added
+        # (the critic's finding: flipping to Add made people add the same point twice).
+        own0 = P[0].rstrip('.') + ', and my niece started vaping at 14.'
+        p.fill('#hp-pts', box(p).replace(P[0], own0)); p.wait_for_timeout(300)
+        check(pressed(p)[:3] == [True, False, True], f'{tag}: a point with words added to it still reads Added ({pressed(p)[:3]})')
+        p.locator('#hp-dlg .hp-pt').nth(2).click(); p.wait_for_timeout(400)
+        check(box(p) == own0, f'{tag}: after changes, a tap takes out just an untouched point\'s words ({box(p)[-60:]!r})')
+        p.locator('#hp-dlg .hp-pt').nth(1).click(); p.wait_for_timeout(400)
+        want = own0 + ' ' + P[1]
+        check(box(p) == want, f'{tag}: and adds a point at the end of their own words')
+        shot(p, f'{tag}_2_edited')
+        # a rewritten point is never cut by a tap: it is selected in the box, and Delete takes it out
+        p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(300)
+        sel = p.evaluate("(() => { const t = document.getElementById('hp-pts'); return [document.activeElement === t, t.value.slice(t.selectionStart, t.selectionEnd)]; })()")
+        check(box(p) == want and sel == [True, own0], f'{tag}: a tap on a rewritten point selects it in the box instead of cutting it ({sel[1][:40]!r})')
+        shot(p, f'{tag}_3_selected')
+        p.keyboard.press('Delete'); p.wait_for_timeout(300)
+        check(own0 not in box(p) and pressed(p)[:3] == [False, True, False], f'{tag}: Delete takes it out, and its card reads Add ({pressed(p)[:3]})')
+        p.fill('#hp-pts', want); p.wait_for_timeout(300)
+        tap(p, '^Next'); p.wait_for_timeout(500)
+        check('Your points are in your email' in dlg(p), f'{tag}: About you says their points are in the email')
+        p.fill('#hp-name', 'Kai Ho'); tap(p, 'See my email'); p.wait_for_timeout(600)
+        letter = p.input_value('#hp-letter')
+        check(want in letter and P[2] not in letter, f'{tag}: the email says exactly what the box said')
+        tap(p, '^Back'); p.wait_for_timeout(400); tap(p, '^Back'); p.wait_for_timeout(500)
+        check(box(p) == want, f'{tag}: Back to the bill step: the box still has their words')
+        # a phone that reloads the page comes back with the same words
+        tap(p, '^Next'); p.wait_for_timeout(400); tap(p, 'See my email'); p.wait_for_timeout(600)
+        p.reload(); p.wait_for_timeout(4000)
+        check(want in p.evaluate("document.getElementById('hp-letter')?.value || ''"), f'{tag}: after a reload the email still has their points')
+        check(not p.errs, f'{tag}: no page errors {p.errs}')
+        c.close()
+
+    # testimony uses the same step
+    c, p = ctx(br, False); follower(p); visit(p, '/bill/HB2121')
+    tb = p.locator('.bl-side .btn.primary, .actionbar .btn.primary').filter(has_text='testimony').first
+    tb.scroll_into_view_if_needed(); tb.click(); p.wait_for_timeout(900)
+    if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
+    P = pts_text(p); p.locator('#hp-dlg .hp-pt').nth(1).click(); p.wait_for_timeout(600)
+    check('In your letter' in dlg(p) and box(p) == P[1], 'testimony: the box says "In your letter"')
+    p.fill('#hp-pts', 'As a school nurse, ' + P[1][0].lower() + P[1][1:]); p.wait_for_timeout(200)
+    check(pressed(p)[:3] == [False, True, False], f'testimony: a lead-in before a point keeps it Added ({pressed(p)[:3]})')
+    tap(p, '^Next'); p.wait_for_timeout(400); p.fill('#hp-name', 'Kai Ho'); tap(p, 'See my letter'); p.wait_for_timeout(600)
+    check('As a school nurse, ' in p.input_value('#hp-letter'), 'testimony: the letter has the box\'s words')
+    shot(p, 'box_testimony')
+    p.reload(); p.wait_for_timeout(4000)
+    check('As a school nurse, ' in p.evaluate("document.getElementById('hp-letter')?.value || ''"), 'testimony: a reload keeps them (the saved draft)')
+    check(not p.errs, f'testimony: no page errors {p.errs}')
+    c.close()
+
+    # someone who changes their stance to one HIPHI's points argue against never sends the points they had tapped
+    c, p = ctx(br, False); follower(p); visit(p, '/bill/HB2121')
+    e = p.locator('[data-bl-compose]').first; e.scroll_into_view_if_needed(); e.click(); p.wait_for_timeout(900)
+    tap(p, '^I support it'); p.wait_for_timeout(500)
+    P = pts_text(p); p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)
+    tap(p, '^Back'); p.wait_for_timeout(400); tap(p, '^I oppose it'); p.wait_for_timeout(500)
+    check(p.locator('#hp-dlg .hp-pt').count() == 0 and p.locator('#hp-pts').count() == 0, 'stance: no points and no box for someone who opposes it')
+    tap(p, '^Next'); p.wait_for_timeout(400); p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'I think it goes too far.'); tap(p, 'See my email'); p.wait_for_timeout(600)
+    check(P[0] not in p.input_value('#hp-letter') and 'I think it goes too far.' in p.input_value('#hp-letter'), 'stance: the email has their own words and none of the points')
+    check(not p.errs, f'stance: no page errors {p.errs}')
+    c.close()
     br.close()
 print(f'\n{ok} passed, {fail} failed   screenshots: {SHOTS}')
 sys.exit(1 if fail else 0)
