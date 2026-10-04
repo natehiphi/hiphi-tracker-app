@@ -66,7 +66,10 @@ with sync_playwright() as pw:
     ok(p.locator('[data-stfollowcat]').count() >= 1 and p.locator('[data-stfollowall]').count() == 0, 'one "Follow all" per category, and no overall one')
     lbl = p.inner_text('.st-bar'); ok(re.search(r'Follow \d+ issues?', lbl) is not None, f'the button counts issues ("{lbl.strip()}")')
     top = p.locator('.st-topsec .st-pcard').count()
-    ok(1 <= top <= 4 and 'Most important' in p.inner_text('.st-topsec h2'), f'the four most important issues come first ({top})')
+    ok(1 <= top <= 4 and "HIPHI’s top issues" in p.inner_text('.st-topsec h2'), f'the four most important issues come first ({top})')
+    # R-138 (Nate 10/4): "Most important first" confused visitors; the line asks for every issue they care about.
+    lede2 = p.inner_text('.st2 .lede')
+    ok('Tick every issue you care about' in lede2 and 'Most important' not in t2, f'the issues line asks for every issue you care about ("{lede2.strip()}")')
     vis = p.evaluate("[...document.querySelectorAll('[data-stsec]')].map(d => d.querySelectorAll('.st-pcard').length)")
     ok(all(n <= 3 for n in vis), f'then three more per category at most ({vis})')
     ids = p.evaluate("[...document.querySelectorAll('[data-stpick]')].map(e => e.dataset.stpick)")
@@ -340,7 +343,7 @@ with sync_playwright() as pw:
     ok(re.search(r'(?<!\d)0 (bills|issues|wins) in', t) is None and re.search(r'[1-9]\d* (?:issues?|wins?) in 20\d\d', t) is not None, f"off-season categories count last session's issues and wins ({counts})")
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
-    ok(re.search(r'HIPHI worked on in 20\d\d', t) is not None and p.locator('[data-stpick]').count() > 0, 'the issues screen finds last session\u2019s issues')
+    ok(re.search(r'HIPHI\u2019s top issues in 20\d\d', t) is not None and p.locator('[data-stpick]').count() > 0, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
     for _ in range(24):

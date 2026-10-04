@@ -117,13 +117,15 @@ function stepIssues(step) {
   const si = sessionInfo(), yr = off ? si.recapYear : si.yr, next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
   const groups = m.per.filter(p => p.full.length), quiet = m.per.filter(p => !p.full.length).map(p => p.c);
   const total = new Set(m.all.map(x => x.i.id)).size, ticked = m.count;
+  // R-138 (Nate 10/4): "Most important first" left visitors asking important to whom, and nothing asked them to pick
+  // more than one. The lede now asks for every issue they care about; the top heading says whose top issues they are.
   const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
-    : off ? `Here’s what HIPHI worked on in ${yr}, most important first. Follow an issue, and its ${next} bills come to you.`
-    : ticked ? `Most important first. We ticked ${ticked === 1 ? 'one' : ticked} to start you off; change them any time.` : 'Most important first. Tick the ones you care about.';
+    : off ? `Tick every issue you care about, as many as you like, and their ${next} bills come to you.`
+    : ticked ? `Tick every issue you care about. We ticked ${ticked === 1 ? 'one' : ticked} to start you off; add as many as you like.` : 'Tick every issue you care about, as many as you like.';
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${m.top.length ? `<section class="st-topsec" aria-labelledby="st-toph"><h2 class="st-toph" id="st-toph">${off ? `Most important in ${yr}` : 'Most important right now'}</h2>
+    ${m.top.length ? `<section class="st-topsec" aria-labelledby="st-toph"><h2 class="st-toph" id="st-toph">${off ? `HIPHI’s top issues in ${yr}` : 'HIPHI’s top issues right now'}</h2>
       <ul class="st-picks" role="list">${m.top.map(x => issueCard(x, m, 'top', false)).join('')}</ul></section>` : ''}
     ${groups.length ? `${m.top.length ? `<h2 class="st-toph st-moreh">More in your topics</h2>` : ''}<div class="st-tsecs" role="group" aria-label="More in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
