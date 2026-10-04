@@ -52,7 +52,7 @@
 //   mine          the person follows it (S.watch); off, via as given ('link': opened from a shared link;
 //                 'followed': opened from a link and its issue just followed; 'bill': a lesson opened from that bill's page)
 import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, codesOf, cmteLabel, roomLabel, legPhoto,
-  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, EARLIER_WINS, loadRecapPool } from './core.js';
+  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool } from './core.js';
 import { posChip } from './ui.js';
 import { situation, railHTML } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
@@ -861,15 +861,14 @@ function storyNow(E) {
   if (st.phase === 'committee' && st.committee) return `Right now ${chairWords(E, ch)} whether ${num} gets a hearing. That’s where you come in.`;
   return where;
 }
-// Proof that speaking up works, counted from the data as Home's wins card counts it (core.js winsIn, EARLIER_WINS):
-// between sessions, the session just past; in session, the one before it (loaded quietly, see storySet), else the
-// latest year Nate listed by hand.
+// Why a note matters, then the proof, counted from the data as Home's wins card counts it (core.js winsIn): between
+// sessions, the session just past; in session, the one before it (loaded quietly, see storySet). R-143 (Nate 10/4):
+// "One 2025 win: more students can get free school meals" read as clunky and out of place on another bill's story, so
+// the wins Nate listed by hand (EARLIER_WINS) stay on Home's wins card, and with no count the reason stands alone.
 function winsYear(E) { const si = sessionInfo(); return E.off ? si.recapYear : si.yr - 1; }
-function winsWords(E) {
-  const yr = winsYear(E), w = winsIn(yr);
-  if (w && w.length) return `Speaking up works: in ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.`;
-  const y = Math.max(0, ...EARLIER_WINS.map(x => x.year)), win = EARLIER_WINS.find(x => x.year === y);
-  return win ? `Speaking up works. One ${y} win: ${esc(lcFirst(win.text))}.` : '';
+function whyWords(E) {
+  const yr = winsYear(E), n = (winsIn(yr) || []).length;
+  return `Few people write in, so each note gets noticed.${n ? ` In ${yr}, notes like these helped ${n === 1 ? 'a bill' : `${n} bills`} HIPHI backed become law.` : ''}`;
 }
 // The four choices: what each is called, its small drawing, and what CAN happen (never a promise).
 const CHOICES = [
@@ -929,7 +928,7 @@ function stageBody(E, k) {
   return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>
     <div class="lx-choose" role="group" aria-labelledby="lx-ask"><p class="lx-ask" id="lx-ask">${esc(voiceAsk(E))}</p>
       <div class="lx-chs">${CHOICES.map(([k2, label]) => `<button type="button" class="lx-ch lx-ch-${k2}" data-lx-ch="${k2}" aria-pressed="false"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k2]}</svg><span>${esc(label)}</span></button>`).join('')}</div></div>
-    <p class="lx-why">Few people write in, so each note gets noticed. <span id="lx-wins">${winsWords(E)}</span></p>
+    <p class="lx-why" id="lx-wins">${whyWords(E)}</p>
     <p class="lx-calm">${icon('info')}<span>${esc(calm)}</span></p>`;
 }
 const stageHTML = (E, k) => `<p class="lx-count">${k} of 3</p><h2>${esc(stageTitle(E, k))}</h2>${stageBody(E, k)}`;
@@ -1001,11 +1000,12 @@ function storySet(k, { instant = false, initial = false } = {}) {
   if (k === 3 && ST.story.choice) storyChoose(ST.story.choice, { instant: true });
   fitStory();
   if (!initial && !instant) reveal(pic, cap);
-  // In session the wins are the session before this one's, which nothing else here has loaded: load them quietly and
-  // change only that sentence when they land (no redraw, so nothing replays).
+  // The wins may not be loaded yet (in session they are the session before this one's; between sessions a link straight
+  // here skips the start that loads them): load them quietly and change only that line when they land (no redraw, so
+  // nothing replays).
   const yr = winsYear(E);
-  if (!E.off && !winsIn(yr) && !S.recapPool && !S.recapLoading) {
-    loadRecapPool(yr).then(() => { const el = document.getElementById('lx-wins'); if (el && L.E === E) el.textContent = unent(winsWords(E)); }).catch(() => {});
+  if (!winsIn(yr) && !S.recapPool && !S.recapLoading) {
+    loadRecapPool(yr).then(() => { const el = document.getElementById('lx-wins'); if (el && L.E === E) el.textContent = unent(whyWords(E)); }).catch(() => {});
   }
 }
 // The caption keeps the height of the taller of stages 1 and 2, so Next does not jump between them on a laptop (stage 3

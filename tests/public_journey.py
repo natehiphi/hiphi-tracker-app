@@ -127,8 +127,11 @@ with sync_playwright() as pw:
        'the choices are big, and shaped unlike the app’s pill buttons')
     # R-098: when the bill has a real hearing ahead, the last line names it ("HB 2300 is at one of these moments now:
     # testimony is due Tuesday") instead of "Nothing to do now"; either way nothing is asked here.
-    ok('Few people write in, so each note gets noticed' in cap3 and 'Speaking up works' in cap3 and ('Nothing to do now' in cap3 or 'at one of these moments now' in cap3),
-       'stage 3 says why it matters, a real win, and what is (or is not) coming, asking nothing yet')
+    # R-143 (Nate 10/4): no one-off win from another bill here ("One 2025 win: ..." was clunky and out of place); the
+    # proof is a count of HIPHI's laws when one has loaded, and the sandbox's year before has none.
+    ok('Few people write in, so each note gets noticed' in cap3 and ' win:' not in cap3 and 'free school meals' not in cap3
+       and ('Nothing to do now' in cap3 or 'at one of these moments now' in cap3),
+       'stage 3 says why it matters, no other bill’s win, and what is (or is not) coming, asking nothing yet')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
     for k, must in (('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent'), ('quiet', 'stop')):

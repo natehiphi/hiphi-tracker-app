@@ -95,7 +95,8 @@ session is dark (until January 2027).
   (`hiphi_results_seen`). Past hearing rows on a bill page keep "You emailed the chair" etc. `homeScreenCard()` offers
   Add to Home Screen on phones after a first action (Android's prompt is kept in `S.installPrompt`).
 - **Between sessions** (R-067): `winsCard()` and the first screen lead with the bills HIPHI backed that became law
-  (`winsIn(yr)` in core.js) plus `EARLIER_WINS` (2025, from Nate; add lines there). Each issue's `outlook` (migration
+  (`winsIn(yr)` in core.js) plus `EARLIER_WINS` (2025, from Nate; add lines there). The bill's story's last page uses
+  the count only, never a hand-listed win (`whyWords` in lessons.js; another bill's 2025 win read as out of place, R-143). Each issue's `outlook` (migration
   079; drafted by `backend/tools/apply_outlooks.js`, edited by staff in the issue form) shows on Home's issue rows, the
   issue page and "Your issues, this year and next". `meetCard()` shows the Meet HIPHI card staff post in Staff v2
   (Make a link page; `site_cards`, `public_site_cards`). Home between sessions offers "Write to my legislators".
