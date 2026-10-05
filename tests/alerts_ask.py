@@ -57,7 +57,7 @@ with sync_playwright() as pw:
     ok('At a hearing, lawmakers hear from the public' in t, 'the lede says what a hearing is (the story comes after this screen)')
     ok(p.evaluate("(() => { const i = document.getElementById('st-a-phone'), h = document.getElementById('st-a-hint'); return !!h && h.getBoundingClientRect().top > i.getBoundingClientRect().bottom && h.getBoundingClientRect().top - i.getBoundingClientRect().bottom < 40 && i.getAttribute('aria-describedby') === 'st-a-hint'; })()"), 'the privacy line sits right under the box, and the box points to it')
     ok('Use email instead' in t, 'email is a link under the box')
-    ok('never see it' in t, 'it says staff never see the number')
+    ok('never see your number' in t, 'it says staff never see the number')
     ok(p.locator('.st-bar button', has_text='Text me').count() == 1 and p.locator('[data-stskip]').count() == 1, 'the bar: Skip and Text me')
     ok(p.evaluate("getComputedStyle(document.querySelector('.st-chapters li.on')).fontWeight >= 600 && document.querySelector('.st-chapters li.on').innerText.includes('Your issues')"), 'it is still the "Your issues" part')
     shot(p, '1_alerts_phone')
@@ -123,7 +123,7 @@ with sync_playwright() as pw:
     # Home on the next load asks once, with the same box.
     p.reload(); p.wait_for_timeout(2500)
     ok(p.locator('.nudgecard #ng-phone').count() == 1 and p.locator('.nudgecard button', has_text='Text me').count() == 1, 'Home, next load: the ask is the phone box')
-    ok('Use email instead' in text(p, '.nudgecard') and 'never see it' in text(p, '.nudgecard'), 'Home: email is a link under it, and the privacy line is there too')
+    ok('Use email instead' in text(p, '.nudgecard') and 'never see your number' in text(p, '.nudgecard'), 'Home: email is a link under it, and the privacy line is there too')
     p.locator('.nudgecard').scroll_into_view_if_needed(); shot(p, '3_home_card')
     p.fill('#ng-phone', '(808) 555-0144'); p.locator('.nudgecard button', has_text='Text me').click(); p.wait_for_timeout(800)
     ok('Our first text to (808) 555-0144 asks you to reply YES' in text(p, '.nudgecard'), 'Home: "almost set" in the card')
@@ -170,7 +170,7 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1#/more'); p.wait_for_timeout(1200)
     ok('On: (808) 555-0166' in text(p) and p.locator('a.row[href="#/signin"]').count() == 1, 'More: "Text alerts, On", and email still offered')
     p.goto(BASE + '?demo=1#/privacy'); p.wait_for_timeout(1200)
-    ok('If you add your mobile number' in text(p) and 'never see your number' in text(p), 'the privacy page names numbers')
+    ok('If you add your mobile number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
     c.close()
 
     # ---- 7. an iPhone SE: the box and Text me on the first screen ----

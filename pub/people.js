@@ -150,7 +150,11 @@ function saved() {
 function remember(pick) {
   const s = pick.ids.map(legById).find(l => l?.chamber === 'S'), h = pick.ids.map(legById).find(l => l?.chamber === 'H');
   // The island rides along (never the street) so Home, the recap and the guided start can highlight it in their art.
-  try { if (s && h) localStorage.setItem(KEY, JSON.stringify({ senate: s.district, house: h.district, label: pick.label, island: islandKey(s.district, h.district, pick.town || pick.label) })); } catch { /* private mode */ }
+  // The label kept is a town, never a street: a typed address with no town found used to leave the street (or the
+  // Census's matched address) here (R-151, the privacy page's "we never store it"); with no town it stays blank and the
+  // page says "your districts".
+  const label = pick.kind === 'addr' ? (pick.town || '') : pick.label;
+  try { if (s && h) localStorage.setItem(KEY, JSON.stringify({ senate: s.district, house: h.district, label, island: islandKey(s.district, h.district, pick.town || pick.label) })); } catch { /* private mode */ }
 }
 function forget() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
 const mine = (l, d = saved()) => !!d && ((l.chamber === 'S' && l.district === d.senate) || (l.chamber === 'H' && l.district === d.house));

@@ -93,7 +93,7 @@ with sync_playwright() as p:
     # 9. the privacy page says so
     ctx, sent = context(); pg = ctx.new_page(); pg.goto(BASE + '#/privacy'); ready(pg)
     t = pg.locator('main').inner_text()
-    ok('If the page breaks' in t and 'never includes who you are' in t, 'the privacy page says what is reported and what never is')
+    ok('If the page breaks' in t and 'built to leave out who you are' in t, 'the privacy page says what is reported and what never is')
     ctx.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

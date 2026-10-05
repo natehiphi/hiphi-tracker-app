@@ -452,7 +452,7 @@ export const TALKS = [
     turns: [
       { q: 'Is my data private?', a: 'If you don’t add your email, we don’t know who you are. What you follow stays in this browser, on this device.' },
       { q: 'And if I add my email?', a: 'We keep your email, what you follow, where you stand and the actions you mark. HIPHI staff can see this, so they can reach out about your issues.' },
-      { q: 'Is it ever sold?', a: 'No. We never sell your information or share it outside HIPHI. You can delete your account at any time in Settings.' },
+      { q: 'Is it ever sold?', a: 'No. We never sell your information or give it to other groups. You can delete your account at any time in Settings.' },
       { q: 'What about my home address?', a: 'If you add it, only you see it. HIPHI staff see just your districts.' },
     ],
     related: ['testimony-public', 'alerts-and-email', 'contact'],

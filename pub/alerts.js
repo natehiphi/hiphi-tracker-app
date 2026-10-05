@@ -26,8 +26,8 @@ export const TEXT_FINE = 'Our first text asks you to reply YES. Message and data
 export const EMAIL_PROMISE = 'We’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one email a day.';
 const EMAIL_FINE = 'No password: we email you a link to confirm. Unsubscribe in one tap.';
 // What makes a number feel safe to type sits right under the box, where it is typed (P-5).
-const PHONE_HINT = 'Private: we never share your number, and HIPHI staff never see it.';
-const EMAIL_HINT = 'We never share your email outside HIPHI. Staff can see which issues you follow.';
+const PHONE_HINT = 'Private: HIPHI staff never see your number, and it is used only for these texts.';
+const EMAIL_HINT = 'We never sell your email or give it to other groups. Staff can see which issues you follow.';
 const PHONE_ERR = 'Enter a 10-digit mobile number, like (808) 555-0123.';
 const EMAIL_ERR = 'Enter an email like name@example.com.';
 
