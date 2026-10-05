@@ -29,6 +29,9 @@ def text(p, sel='main'):
     try: return p.inner_text(sel, timeout=3000)
     except Exception: return ''
 def shot(p, name): p.screenshot(path=os.path.join(OUT, name + '.png'))
+def until(p, js, t=30000):
+    try: p.wait_for_function(js, timeout=t); return True
+    except Exception: return False
 def moment(p):
     return p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
 def to_alerts(p, extra=''):
@@ -42,20 +45,20 @@ with sync_playwright() as pw:
 
     # ================= A. codes off (today) =================
     c, p = ctx(b, 1440, 900)
-    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_timeout(2500)
+    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
     t = text(p)
     ok('Made one before? Sign in with your email' in t, 'codes off: More still offers sign-in with an email')
     ok('Signed up with your number? Add your email on your phone, then sign in here with it.' in t, 'codes off: the line for a number-only person on a laptop')
     shot(p, 'A1_more_laptop')
-    p.goto(BASE + '?demo=1#/signin?by=number'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
     ok(p.locator('#mr-email').count() == 1 and p.locator('#mr-pi-phone').count() == 0, 'codes off: "Sign in" opens the email page')
-    p.goto(BASE + '?demo=1#/alerts'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
     ok('Our first text asks you to reply YES' in text(p) and '6-digit code' not in text(p), 'codes off: the box keeps the YES words')
-    p.goto(BASE + '?demo=1#/privacy'); p.wait_for_timeout(1000)
+    p.goto(BASE + '?demo=1#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
     ok('The first text asks you to reply YES' in text(p) and 'Updated 4 October 2026' in text(p), 'codes off: the privacy page is unchanged')
     c.close()
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_timeout(2500)
+    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
     ok('Made one before? Sign in with your email' in text(p) and 'Signed up with your number?' not in text(p), 'codes off, on a phone: no laptop line (it would contradict itself there)')
     c.close()
 
@@ -75,7 +78,8 @@ with sync_playwright() as pw:
     ok(p.locator('#st-send', has_text='Confirm').count() == 1, 'the bar button says Confirm')
     ok(moment(p) == '', 'no "Mahalo!" before the code')
     shot(p, 'B1_code_step')
-    p.click('#st-send'); p.wait_for_timeout(300)
+    p.wait_for_load_state('networkidle'); p.wait_for_timeout(500)
+    p.click('#st-send'); until(p, "(document.getElementById('st-a-err')?.innerText || '').includes('Enter the 6-digit code')", 5000)
     ok('Enter the 6-digit code' in text(p, '#st-a-err'), 'Confirm with nothing typed says what to do')
     p.fill('#st-a-code', '12'); p.click('#st-send'); p.wait_for_timeout(300)
     ok('all 6 digits' in text(p, '#st-a-err') and p.get_attribute('#st-a-code', 'aria-invalid') == 'true', 'a short code: the message, marked invalid')
@@ -99,7 +103,7 @@ with sync_playwright() as pw:
 
     # More on a laptop: "Sign in" by number
     c, p = ctx(b, 1440, 900)
-    p.goto(BASE + '?demo=1&restart&codes#/more'); p.wait_for_timeout(2500)
+    p.goto(BASE + '?demo=1&restart&codes#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
     t = text(p)
     ok('Made one before? Sign in' in t and 'Add your email on your phone' not in t, 'codes on: More says "Made one before? Sign in", no stopgap line')
     p.click('a[href="#/signin?by=number"]'); p.wait_for_selector('#mr-pi-phone', timeout=5000); p.wait_for_timeout(300)
@@ -113,14 +117,14 @@ with sync_playwright() as pw:
     shot(p, 'B5_signin_code')
     p.type('#mr-pi-code', '654321'); p.wait_for_selector('#mr-pi-h', timeout=5000); p.wait_for_timeout(500)
     ok('Code accepted' in text(p) and 'you stay signed out' in text(p), 'the sandbox: "Code accepted", and it says you stay signed out there')
-    p.goto(BASE + '?demo=1&codes#/privacy'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1&codes#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
     t = text(p)
     ok('6-digit code' in t and 'signs you in, the way an email does' in t and 'never your number' in t and 'Updated 5 October 2026' in t, 'codes on: the privacy page says the number signs people in, staff never see it')
     c.close()
 
     # More > Get alerts, and the profile's invitation
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart&codes#/alerts'); p.wait_for_timeout(2000)
+    p.goto(BASE + '?demo=1&restart&codes#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000); p.wait_for_load_state('networkidle')
     p.fill('#mr-al-phone', '808 555 0166'); p.click('#mr-al-send'); p.wait_for_selector('#mr-al-code', timeout=5000)
     ok(p.locator('#mr-al-send', has_text='Confirm').count() == 1 and 'Check your texts' in p.inner_text('h1'), 'More > Get alerts: the code step, Confirm, "Check your texts"')
     ok(p.locator('#mr-alform a.al-swap[href="#/signin"]').count() == 1, 'More > Get alerts: email is still a way out from the code step')
@@ -129,7 +133,7 @@ with sync_playwright() as pw:
     ok('Text alerts are on' in t and '(808) 555-0166' in t and 'reply YES' not in t, 'More > Get alerts: on, with no YES text to wait for')
     c.close()
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart&codes#/profile'); p.wait_for_timeout(2000)
+    p.goto(BASE + '?demo=1&restart&codes#/profile'); p.wait_for_selector('#pf-alf-phone', timeout=60000); p.wait_for_load_state('networkidle')
     ok('Made one before? Sign in' in text(p), 'the profile’s invitation: "Made one before? Sign in"')
     p.fill('#pf-alf-phone', '808 555 0188'); p.click('#pf-al-send'); p.wait_for_selector('#pf-alf-code', timeout=5000)
     p.type('#pf-alf-code', '222222'); p.wait_for_timeout(1200)
@@ -196,7 +200,7 @@ with sync_playwright() as pw:
     otp = [json.loads(d or '{}') for k, d in calls if k == 'otp']
     ok(otp and otp[-1].get('phone') == '+18085550123', f'the code is asked for +18085550123 ({otp[-1] if otp else None})')
     url_before = p.url
-    p.type('#mr-pi-code', '123456'); p.wait_for_function("location.hash.startsWith('#/profile')", timeout=10000); p.wait_for_timeout(1500)
+    p.type('#mr-pi-code', '123456'); p.wait_for_function("location.hash.startsWith('#/profile')", timeout=10000); until(p, "(document.querySelector('main')?.innerText || '').includes('Signed in with')", 30000); p.wait_for_timeout(500)
     ver = [json.loads(d or '{}') for k, d in calls if k == 'verify']
     ok(ver and ver[-1].get('type') == 'sms' and ver[-1].get('token') == '123456', f'the code is checked as a sign-in ({ver[-1] if ver else None})')
     names = [k for k, _ in calls]
