@@ -15,6 +15,7 @@ import { S, app, esc, icon, toast, blurb, nick, headline, spaced, billPath, aliv
   roomLabel, hstDay, hiT, HST, followedIssues, issueBills, issuesOf, posInfo, outcomeOf, didKind, myActions, testimonyDraft, sessionInfo,
   followsAnything, waitingBills, chairContacts, askedChair, agrees, plainStatus, stopOf, codesOf, CHAMBER_NAME, wiz, anyHearing, anyBill,
   settledOn, OUTCOME_PLAIN } from '../core.js';
+import { testifyLabel } from '../letters.js';
 import { btn, chip } from '../ui.js';
 import { nudgeCard, wireNudge, wireActions } from '../actions.js';
 import today from '../home.js';
@@ -90,7 +91,7 @@ function nowCard(items) {
   const left = Date.parse(due) - Date.now(), mins = Math.floor(left / 6e4);
   const hurry = mins < 180 ? ` ${mins < 60 ? plural(Math.max(mins, 1), 'minute') : plural(Math.floor(mins / 60), 'hour')} left to send it.` : '';
   const rest = sameDay.filter(x => x !== first), p = posInfo(b);
-  const label = testimonyDraft(h) ? 'Finish sending your testimony' : 'Write my testimony';
+  const label = testifyLabel(b, h);
   // What the bill does and where HIPHI stands come before the ask: nobody should be asked to write to the Senate about a
   // name alone (review 9/28; the bill-name rule in the frontend CLAUDE.md: nickname, plain summary, always the number).
   const sum = nick(b) ? blurb(b, 140) : '';

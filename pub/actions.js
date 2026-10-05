@@ -3,6 +3,7 @@
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { testifyLabel, againLine } from './letters.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
@@ -50,7 +51,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
   // The quick email is the email walkthrough now (R-079, 9/29): data-mailwalk opens it in pub/helper.js, like testimony.
   const differs = agrees(b) === false, emailFirst = false;
-  const testimonyBtn = btn(testimonyDraft(h) ? 'Finish sending your testimony' : late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
+  const testimonyBtn = btn(testifyLabel(b, h, late), { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
   const emailBtn = btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-mailwalk': k } });
   const followBtn = btn('Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false' } });
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
@@ -97,6 +98,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${why ? `<p class="why">${icon('sparkles')}${esc(why)}</p>` : ''}
     ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${due.html}${ofN ? ` <span class="ofn">· ${esc(ofN)}</span>` : ''}</span></p>` : ''}
     <p class="meta hearing">${esc(hearingText(h))}</p>
+    ${done ? '' : againLine(b, h)}
     ${twin ? `<p class="twin">${icon('copy')}<span>Its twin in the ${esc(CHAMBER_NAME[twin.h.committee && codesOf(twin.h.committee)[0] && S.committees[codesOf(twin.h.committee)[0]]?.chamber] || 'other chamber')}, <a href="${billPath(twin.b)}">${esc(spaced(twin.b.bill_number))}</a>: ${esc([twin.h.testimony_deadline ? (dueInfo(twin.h)?.text || '').replace(/\.$/, '') : '', hearingText(twin.h).replace(/ · Room.*$/, '').replace(/^Hearing/, 'hearing')].filter(Boolean).join(' · '))}.</span></p>` : ''}
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}

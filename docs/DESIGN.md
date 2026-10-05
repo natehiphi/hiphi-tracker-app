@@ -352,6 +352,7 @@ anything that lengthens one needs a reason in the commit message.
 | Public: arrive → follow a first issue | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
+| Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 5 steps (R-148, 10/4: Send my letter again, Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
 | Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
 | Public: sign up for alerts (from the moment it is offered) | 2 steps (R-146, 10/4: a mobile number is the box shown first, type it and Text me; email is one tap more, behind "Prefer email?". It was "give an email address", also 2) |
 | Staff: open app → first thing due is on screen | 1 step |

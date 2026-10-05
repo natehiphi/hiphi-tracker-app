@@ -340,6 +340,9 @@ export async function loadUser() {
   for (const r of wl.data || []) { if (r.stance) S.stances[r.bill_id] = r.stance; else if (S.stances[r.bill_id]) await S.supa.from('watchlist').update({ stance: S.stances[r.bill_id] }).eq('user_id', S.user.id).eq('bill_id', r.bill_id); }
   saveStances();
   S.direct = server; recomputeWatch(); saveLocal();
+  // The testimony letters sent (R-148) join the account and come to this device, in the background: a dynamic import, as
+  // core.js above, because letters.js needs core.js and the kernel must not carry it.
+  import('./letters.js').then(m => m.syncLetters()).catch(() => { /* kept on each device until the next sign-in */ });
 }
 // ---------------- curated lists ----------------
 // HIPHI staff curate lists of public bills. Following a list follows every

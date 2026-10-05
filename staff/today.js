@@ -37,7 +37,7 @@
 //   - Coalitions I support (advocates.prefs.coalitions, decision 7) adds that coalition's week to Mine, never the badge;
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
-import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF } from './data.js';
+import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF, draftNotesOf } from './data.js';
 import { sharePageUrl } from './model.js';   // this week's asks (R-132)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, publicWords, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
@@ -150,9 +150,13 @@ const mentionHref = (b, ids) => `#/bill/${b.bill_number}/activity?mention=${ids.
 const msgWho = ids => ids.length === 2 ? 'both' : ids.length > 2 ? 'all of them' : names(ids);
 const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref(b, ids), text: true });
 
+// "House draft 2 (HD2)" (R-148), as the Public tab names drafts.
+const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
+const draftWord = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]} (${v})` : v; };
+
 // ---- the model ----
 // When a bill has several tasks, the earliest one leads the card; on a tie, the step closest to the Capitol wins.
-const RANK = { file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
+const RANK = { file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
 const TESTIMONY = new Set(['file', 'review', 'review2', 'revise', 'submit', 'write', 'stale', 'nodraft', 'wait']);
 const byBill = () => { const m = new Map(); for (const h of S.hearings || []) { if (!m.has(h.bill_id)) m.set(h.bill_id, []); m.get(h.bill_id).push(h); } return m; };
 export function hearingFor(d, idx) {
@@ -323,6 +327,19 @@ export function todayItems(scope = 'mine', who = null) {
     if (!ups.length && b.priority !== 1) continue;
     if (diedish(b)) continue;
     const who = isOwner(b) ? 'yours' : 'anyone';
+    // A new draft with a hearing coming and no note on what it changed (R-148): people who testified on an earlier draft
+    // are told to read what changed before they send their letter again, so the note is due before testimony closes.
+    // Also Claude's suggestion that a draft changes what people should say, waiting for staff's tick.
+    if (ups.length && b.is_public && /^(HD|SD|CD|FD)\d+$/.test(b.current_version || '')) {
+      const notes = draftNotesOf(b.id), n = notes && notes.find(x => x.version === b.current_version), v = esc(draftWord(b.current_version));
+      const to = `#/bill/${b.bill_number}/public?focus=drafts`;
+      if (notes && !n) push({ kind: 'dnote', key: `s:${b.id}:dn:${b.current_version}`, b, h: ups[0], due: testDue(ups[0]), who, s: `Say what ${v} changed`,
+        note: 'People sending their letter again are shown what changed. One or two sentences; warn them if their letter could now be wrong.',
+        btns: [{ label: 'Write it', href: to }] });
+      else if (n && n.changes_suggested && !n.changes_letters && n.written_by !== 'staff') push({ kind: 'dnote', key: `s:${b.id}:dt:${b.current_version}`, b, h: ups[0], due: testDue(ups[0]), who,
+        s: `Check Claude’s note on ${v}: it suggests warning people who wrote before`,
+        note: n.letter_note ? `Its advice to them: “${esc(n.letter_note)}”` : 'Warn them from the Public tab if you agree.', btns: [{ label: 'Check it', href: to }] });
+    }
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee), c = esc(h.committee);
       if (!dr) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: `No testimony draft yet for the ${c} hearing`,
@@ -1033,7 +1050,7 @@ const WK_STATE = { nodraft: ['No draft yet', 'file-text', 0], stale: ['Out of da
   revise: ['Sent back', 'undo-2', 3], review: ['To review', 'scan-eye', 4], review2: ['To approve', 'scan-eye', 4], file: ['Ready to file', 'clipboard-check', 6] };
 const WK_WAIT = { Draft: ['Draft', 2], 'Sent back': ['Sent back', 3], 'In review': ['In review', 5], '2nd approval': ['2nd approval', 5], Approved: ['Ready to file', 6] };
 const wkState = t => { if (t.kind !== 'wait') return WK_STATE[t.kind] || ['Open', 'circle-dot', 5]; const [w, n] = WK_WAIT[t.chip] || [t.chip || 'Waiting', 5]; return [w, 'hourglass', n]; };
-const WK_ICON = { email: 'mail', fix: 'mail', send: 'send', followup: 'user-round', todo: 'list-todo', ask: 'megaphone', chair: 'mail', wait: 'hourglass', review: 'clipboard-check', review2: 'clipboard-check', nodraft: 'file-text', stale: 'triangle-alert', write: 'pencil', submit: 'pencil', revise: 'pencil', file: 'clipboard-check' };
+const WK_ICON = { dnote: 'pencil', email: 'mail', fix: 'mail', send: 'send', followup: 'user-round', todo: 'list-todo', ask: 'megaphone', chair: 'mail', wait: 'hourglass', review: 'clipboard-check', review2: 'clipboard-check', nodraft: 'file-text', stale: 'triangle-alert', write: 'pencil', submit: 'pencil', revise: 'pencil', file: 'clipboard-check' };
 // "today's", "tomorrow's", "Wed's": the hearing a deadline is for, said the way a person would.
 const whoseDay = (day, now) => day === hst(now) ? 'today’s' : day === hst(now + DAY) ? 'tomorrow’s' : dayFmt(day, { weekday: 'short' }) + '’s';
 // Only the public ask has a time of its own (its hearing's start); every other step without a testimony deadline is

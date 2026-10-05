@@ -480,3 +480,6 @@
   @container bwtabs (max-width: 512px) { .bw-tabs a { padding: 0 var(--s8); } }
   @container bwtabs (max-width: 432px) { .bw-tabs a { font-size: var(--t14); } }
 }
+/* A draft the job started from HIPHI's earlier testimony on the bill (R-148) */
+.bw-from { display: flex; gap: 6px; align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.bw-from .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }

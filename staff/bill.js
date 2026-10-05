@@ -13,12 +13,12 @@ import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail,
   billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
   listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen } from './model.js';
-import { personById } from './data.js';
+import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
-import { renderPublic, wirePublic } from './public.js';
+import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
@@ -398,7 +398,8 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
     <p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>
     ${d.status === 'draft' && d.review_note ? `<blockquote class="bw-quote"><span class="meta">Changes asked for</span>${esc(d.review_note)}</blockquote>` : ''}
-    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.`) : ''}
+    ${startedFromLine(b, d) ? `<p class="bw-from">${icon('copy')}<span>${esc(startedFromLine(b, d))}</span></p>` : ''}
+    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
     ${links ? `<div class="bw-links">${links}</div>` : ''}
   </div>`;
@@ -1024,7 +1025,9 @@ export default {
     const pnl = page.querySelector('#bw-panel');
     // "Write it" on Today (and ?ask=1) opens the Public tab at the ask, with the cursor in it, the way ?reply=1
     // opens Activity at the message box. A tab tap never does: it would raise the keyboard uninvited.
-    const focusAsk = tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
+    // ?focus=drafts (R-148, Today's "Say what HD2 changed") opens it at the draft notes instead.
+    const toDrafts = tab === 'public' && arrival && route.q?.focus === 'drafts';
+    const focusAsk = !toDrafts && tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
     measureStick();                        // publishes --bw-under before the tab's own sticky pieces are placed
     markScrolled();
     if (tab === 'overview') wireOverview(pnl, b);
@@ -1035,7 +1038,9 @@ export default {
     // A deep link to a tab (#/bill/HB1562/pathway) on a phone: the strip goes under the header so the tab's content
     // is what shows, as a tap on the tab does. After the frame's own scroll to the top, hence the frame's next paint.
     // Activity and the ask bring themselves into view; on desktop the content is on the first screen already.
-    if (arrival && !DESK() && (tab === 'pathway' || tab === 'testimony' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
+    // The notes arrive a moment after the tab (public.js loadDrafts): wirePublic lands on them once they are drawn.
+    if (toDrafts) { S.focusDrafts = b.id; wireDraftsFocus(pnl, b); }
+    else if (arrival && !DESK() && (tab === 'pathway' || tab === 'testimony' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
   },
 };
 

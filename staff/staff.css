@@ -435,3 +435,18 @@ body.sidenarrow .sv-sync span { display: none; }
 .bw-drbody { display: flex; flex-direction: column; gap: 2px; }
 .bw-dracts { display: flex; gap: 4px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 
+/* R-148: staff's tick on a draft ("changes what people should say") and Claude's suggestion of it */
+.bw-drbig, .bw-drsug { display: flex; gap: 6px; align-items: flex-start; font-size: var(--t14); margin-top: 2px; }
+.bw-drbig { color: var(--warn-text); }
+.bw-drbig b { color: inherit; }
+.bw-drsug { color: var(--n700); }
+.bw-drbig .ic, .bw-drsug .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-drbigf .check { display: flex; gap: 8px; align-items: center; min-height: 44px; font-weight: 700; color: var(--n900); cursor: pointer; }
+.bw-drbigf .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--p700); }
+/* With a third button (Tick it, R-148) the buttons wrap under the note on a phone instead of squeezing it. */
+.bw-drrow { flex-wrap: wrap; }
+.bw-drbody { flex: 1 1 240px; min-width: 0; }
+.bw-dracts { flex: 0 1 auto; }
+/* The note's buttons sit with their own note, not between two (fresh-eyes review 10/4, A-8). */
+.bw-drlist { gap: 20px; }
+.bw-dracts { margin-top: 4px; }

@@ -181,3 +181,15 @@
 .hp-dlg .hp-other .hp-knh { margin: 0; }
 .hp-dlg .hp-other .small { color: var(--n700); }
 .hp-dlg .hp-copies { margin: var(--s4) 0 0 -12px; }
+/* A letter sent again (R-148): what changed since, as a short list inside the notice; the amber box when it matters. */
+.hp-dlg .hp-why-list, .hp-dlg .hp-drafts { margin: var(--s4) 0 var(--s8); padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--s4); }
+.hp-dlg .hp-why-list li, .hp-dlg .hp-drafts li { list-style: disc; }
+.hp-dlg .notice p { margin: 0 0 var(--s4); }
+.hp-dlg .hp-again-warn .strong { color: inherit; font-size: var(--t16); }
+.hp-dlg .hp-who { font-weight: 400; }
+.hp-dlg .hp-checking { margin: var(--s8) 0; }
+@media (prefers-reduced-motion: no-preference) { .hp-dlg .hp-checking .ic-loader-circle { animation: spin 1s linear infinite; } }
+.hp-dlg .hp-forget { margin: var(--s16) 0 0 -12px; }
+.hp-dlg .hp-advice { display: block; margin-top: 2px; }
+.hp-dlg .hp-boxlinks { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin-top: var(--s4); }
+.hp-dlg .hp-quietbtn, .hp-dlg .hp-quietbtn .ic { color: var(--n500); }

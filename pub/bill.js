@@ -9,6 +9,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
+import { draftName, draftRank, draftNotes, testifyLabel } from './letters.js';
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
@@ -118,21 +119,15 @@ function loadSocial(b) {
 // each draft changed: drafted from the committee reports (backend tools/apply_draft_notes.js), edited by staff in Staff
 // v2. Asked for once per bill (public_bill_drafts); the practice copy reads demo/drafts.json. Only drafts up to the
 // bill's current one show, so the practice copy, frozen at 16 March, never shows April's.
-const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
-export const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]}` : v; };
-// The order drafts come in: the bill's own chamber first, then the other, then a floor draft, then conference.
-export const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || '') || []; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
-  return ({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) * 100 + (+m[2] || 0); };
+// The names, the order and the loader live in letters.js (R-148), which also checks a saved letter against them.
+export { draftName, draftRank };
 function loadDrafts(b) {
   if ((S.blDrafts ??= new Map()).has(b.id)) return;
   S.blDrafts.set(b.id, []);
-  (async () => {
-    let rows;
-    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); rows = (await S.demoDrafts).filter(d => d.bill_id === b.id); }
-    else { const r = await (await supa()).from('public_bill_drafts').select('version,summary').eq('bill_id', b.id); if (r.error) throw r.error; rows = r.data || []; }
+  draftNotes(b).then(rows => {
     S.blDrafts.set(b.id, rows);
     if (rows.length && onBill() && numFromHash() === b.bill_number) app.render();
-  })().catch(() => { /* decoration: the page stands without it */ });
+  }).catch(() => { /* decoration: the page stands without it */ });
 }
 function draftsSection(b) {
   const cur = b.current_version ? draftRank(b, b.current_version) : Infinity;
@@ -304,7 +299,7 @@ function mainButton(b, x) {
   if (x.act && S.compose === x.k) return '';
   switch (x.kind) {
     case 'email': return btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-bl-go': 'compose' } });
-    case 'testify': return btn(testimonyDraft(x.act?.h) ? 'Finish sending your testimony' : x.act?.late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
+    case 'testify': return btn(testifyLabel(b, x.act?.h, x.act?.late), { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
     case 'capitol': return btn(x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: capitolUrl(b), attrs: { 'data-bl-go': 'capitol', target: '_blank', rel: 'noopener' } });
     case 'ask': return btn(x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
     case 'hold': return btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });

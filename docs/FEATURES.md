@@ -271,3 +271,35 @@ tracked by effectiveness. The plan: `../backend/docs/AB-TESTS-PLAN.md`; the data
   check it". Notes come from the committee reports through `../backend/tools/apply_draft_notes.js`; ten 2026 notes are
   loaded (SB 2175, HB 2121, SB 2463). `tests/drafts.py`.
 
+
+## Testifying again on a bill (R-148; 4 Oct 2026, HANDOFF 3.86)
+
+Nate: "When someone wants to submit a testimony on a specific issue that they've already testified on, their previous
+testimony should be ready to submit easily. A potential alert should occur if the bill draft has significantly changed".
+His answers: the public and HIPHI's own drafts; the letter kept with the profile; a big change is a staff tick.
+
+- **Kept:** every letter sent (the green box or "I already sent it") is kept, the newest one per bill: in the browser
+  (`hiphi_me.letters`) and, signed in, with the account (`my_letters`, backend migration 124; only the person can read it,
+  never staff; it joins the account at sign-in, newer wins, `letters.js` `syncLetters` from `kernel.js` `loadUser`). Deleting
+  the account deletes them (`more.js`); the privacy page and Your data say so.
+- **Offered:** the same bill's next hearing (or its twin's, by the companion link or the same nickname in the other
+  chamber) gets "Send my letter again" as its testimony button (`letters.js` `testifyLabel`, on the action card, the bill
+  page and Layout A's Now card) and one line on the card (`againLine`). The walkthrough (`helper.js`) opens on "Your letter
+  is ready" ('again'), then the letter, then the Capitol: 3 parts, no account step. The letter is written again from their
+  answers with the new committee, chairs, date and HIPHI's wording; a letter they rewrote by hand keeps every word, gets a
+  new top and greeting, and any sentence naming the old hearing's day or committee is pointed out.
+- **Checked:** `letters.js` `letterCheck` compares the draft the letter was written for with the bill's current one and
+  shows each draft's note since (`public_bill_drafts`, R-060). Amber "Read this before you send", with "Update my letter"
+  as the main button, when staff ticked a draft since ("changes what people should say", with HIPHI's advice), HIPHI's
+  position moved and the letter used its words, a talking point used was changed or removed, or the person's own stance
+  changed; blue "The bill has changed since you wrote this" otherwise; green when the draft is the same. "Start a new
+  letter" and "Delete my saved letter" (with Undo) are always there.
+- **Staff v2:** a bill's Public tab, "What each draft changed": the tick in the Edit sheet ("This draft changes what people
+  should say", and "What to tell them"), Claude's suggestion shown with "Tick it" (Undo). Today: "Say what House draft 2
+  (HD2) changed" for a public bill with a hearing this week and a new draft without a note, and "Check Claude's note" for a
+  suggestion not yet decided (`today.js`, kind `dnote`; `?focus=drafts` lands on the notes). A testimony draft the job
+  started from HIPHI's earlier testimony says so on its card and on Review, with what changed since (`data.js`
+  `startedFromLine`, `changedSince`).
+- **Counted** (kind only, `visitlog.js`): again_open, again_sent, again_warned, again_fixed, again_new.
+- Sandbox: `?letter` plants a letter on HB 2121 from its 18 Feb House Health hearing (House draft 1); its 20 Mar hearing
+  is on House draft 2, ticked in `demo/drafts.json`. `tests/again.py` (70 checks).

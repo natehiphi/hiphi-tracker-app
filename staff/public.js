@@ -78,6 +78,9 @@ function issuesSection(b) {
 // ---- what each draft changed (R-060, migration 120): the notes the public page shows under "How it has changed" ----
 // Claude drafts them from the committee reports (backend tools/apply_draft_notes.js); a note still in Claude's words says
 // so, so someone checks it. Edit opens the note in a sheet; Save has Undo. The current draft with no note gets "Add".
+// R-148 (migration 124): staff tick a draft that changes what people should say. People who testified on an earlier draft
+// then get an amber "Read this before you send" when they send their letter again, with the line written here for them.
+// Claude may suggest the tick when it drafts the note; only staff's tick reaches the public.
 const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
 const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]} (${v})` : v; };
 const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || '') || []; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
@@ -99,30 +102,53 @@ function draftsSection(b) {
     <p class="small muted">The public page shows these under “How it has changed”, newest first, one or two plain sentences each.</p>
     ${rows.length ? `<ul class="bw-drlist" role="list">${rows.map(d => `<li class="bw-drrow"><div class="bw-drbody"><b>${esc(draftName(d.version))}</b>
       <span>${esc(d.summary)}</span>${d.written_by === 'staff' ? '' : '<span class="small muted">Drafted by Claude from the committee report: please check it.</span>'}
+      ${d.changes_letters ? `<span class="bw-drbig">${icon('triangle-alert')}<span><b>People who wrote on an earlier draft are warned</b>${d.letter_note ? `, with HIPHI’s advice: “${esc(d.letter_note)}”` : '.'}</span></span>`
+        : d.changes_suggested ? `<span class="bw-drsug">${icon('sparkles')}<span>Claude suggests warning people who wrote on an earlier draft${d.letter_note ? `: “${esc(d.letter_note)}”` : '.'}</span></span>` : ''}
       ${d.source_url ? `<a class="small bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Committee report${icon('external-link')}</a>` : ''}</div>
-      <div class="bw-dracts">${d.written_by === 'staff' ? '' : btn('Looks right', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-drok': d.version, 'aria-label': `The note on ${draftName(d.version)} looks right` } })}
+      <div class="bw-dracts">${d.changes_suggested && !d.changes_letters ? btn('Warn letter writers', { kind: 'text', sm: true, icon: 'triangle-alert', attrs: { 'data-drtick': d.version, 'aria-label': `Warn people who wrote on a draft before ${draftName(d.version)}` } }) : ''}
+      ${d.written_by === 'staff' ? '' : btn('Note is right', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-drok': d.version, 'aria-label': `The note on ${draftName(d.version)} is right` } })}
       ${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-dredit': d.version, 'aria-label': `Edit the note on ${draftName(d.version)}`, 'aria-haspopup': 'dialog' } })}</div></li>`).join('')}</ul>` : ''}
     ${missing ? `<div class="bw-acts">${btn(`Add a note on ${draftName(cur)}`, { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'data-dredit': cur, 'aria-haspopup': 'dialog' } })}</div>` : ''}
   </section>`;
 }
 function editDraft(b, version) {
   const d = (S.billDrafts[b.id] || []).find(x => x.version === version), before = d ? d.summary : '';
+  const was = { changes_letters: !!d?.changes_letters, letter_note: d?.letter_note || '' };
   openSheet({ title: `What ${draftName(version)} changed`, size: 'auto',
     body: `${d?.source_url ? `<p class="small"><a class="bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Read the committee report${icon('external-link')}</a></p>` : ''}<div class="field"><label for="bw-drtxt">In plain words</label><textarea id="bw-drtxt" rows="4" maxlength="600" aria-describedby="bw-drtxt-h">${esc(before)}</textarea>
-      <span class="help" id="bw-drtxt-h">One or two sentences a neighbour would understand, from the committee’s report: what this draft added, took out or changed.</span><div id="bw-drerr" role="alert"></div></div>`,
+      <span class="help" id="bw-drtxt-h">One or two sentences a neighbour would understand, from the committee’s report: what this draft added, took out or changed.</span><div id="bw-drerr" role="alert"></div></div>
+      <div class="field bw-drbigf"><label class="check"><input type="checkbox" id="bw-drbig"${was.changes_letters ? ' checked' : ''} aria-describedby="bw-drbig-h"><span>Warn people who wrote on an earlier draft</span></label>
+        <span class="help" id="bw-drbig-h">When a letter written for an earlier draft could now be wrong: money taken out, what it does moved to another law, the bill replaced. Sending their letter again, they see “Your letter needs a check”.${d?.changes_suggested && !was.changes_letters ? ' Claude suggests it.' : ''}</span></div>
+      <div class="field" id="bw-drlnf"${was.changes_letters ? '' : ' hidden'}><label for="bw-drln">HIPHI’s advice to them <span class="small muted">(optional)</span></label><textarea id="bw-drln" rows="2" maxlength="300" placeholder="If your letter said …, change it to …" aria-describedby="bw-drln-h">${esc(was.letter_note)}</textarea>
+        <span class="help" id="bw-drln-h">Shown with the warning. One sentence.</span></div>`,
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-drno': '1' } })}${btn('Save', { kind: 'primary', icon: 'check', attrs: { 'data-drsave': '1' } })}`,
     wire: dlg => {
       dlg.querySelector('[data-drno]').onclick = () => closeSheet();
+      // The advice is asked for only when they are warned (B-12).
+      const big = dlg.querySelector('#bw-drbig'); big.onchange = () => { dlg.querySelector('#bw-drlnf').hidden = !big.checked; if (big.checked) dlg.querySelector('#bw-drln').focus(); };
       dlg.querySelector('[data-drsave]').onclick = async () => {
         const txt = dlg.querySelector('#bw-drtxt').value.trim();
         if (!txt) { dlg.querySelector('#bw-drerr').innerHTML = '<span class="err">Write a sentence, or Cancel.</span>'; return; }
-        try { const row = await DB.saveBillDraft(b.id, version, txt); put(b, row); await closeSheet({ silent: true }); rerender('[data-dredit]');
-          toast(`Saved. The public page shows it under “How it has changed”.`, { ok: true, undo: before ? async () => { put(b, await DB.saveBillDraft(b.id, version, before)); rerender(); } : null }); }
+        const extra = { changes_letters: dlg.querySelector('#bw-drbig').checked, letter_note: dlg.querySelector('#bw-drln').value };
+        try { const row = await DB.saveBillDraft(b.id, version, txt, extra); put(b, row); await closeSheet({ silent: true }); rerender('[data-dredit]');
+          toast(`Saved. The public page shows it under “How it has changed”${extra.changes_letters ? ', and people who wrote on an earlier draft are warned' : ''}.`, { ok: true, undo: before ? async () => { put(b, await DB.saveBillDraft(b.id, version, before, was)); rerender(); } : null }); }
         catch (e) { toast(e, { err: true }); } };
     } });
 }
-const put = (b, row) => { const list = S.billDrafts[b.id] ||= []; const i = list.findIndex(x => x.version === row.version); if (i >= 0) list[i] = row; else list.push(row); };
+const put = (b, row) => { const list = S.billDrafts[b.id] ||= []; const i = list.findIndex(x => x.version === row.version); if (i >= 0) list[i] = row; else list.push(row);
+  if (S.allDrafts) S.allDrafts[b.id] = list; };   // Today and the testimony cards read the same notes (R-148)
 
+// ?focus=drafts (Today's "Say what HD2 changed", R-148): once the notes are on the page, scroll to them and put focus there.
+export function wireDraftsFocus(pnl, b) {
+  if (S.focusDrafts !== b.id) return;
+  const hd = pnl?.querySelector('#bw-dr-h'); if (!hd) return;
+  S.focusDrafts = null;
+  // Looked up again when it runs: the page may have been drawn again meanwhile (the notes for Today arrive too), and once
+  // more a moment later if that redraw left focus on the page itself.
+  const land = () => { const el = document.getElementById('bw-dr-h'); if (!el) return; el.setAttribute('tabindex', '-1'); el.scrollIntoView({ block: 'start' }); el.focus({ preventScroll: true }); };
+  requestAnimationFrame(land);
+  setTimeout(() => { const a = document.activeElement; if (!a || a === document.body || a.id === 'main') land(); }, 450);
+}
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
@@ -182,6 +208,7 @@ export function renderPublic(b) {
 }
 
 export function wirePublic(pnl, b, { focusAsk = false } = {}) {
+  wireDraftsFocus(pnl, b);
   // The share kit (R-117): the bill's share page, or the ask with the next deadline and the link.
   pnl.querySelectorAll('[data-kit]').forEach(el => el.onclick = async () => {
     const kit = shareKit(b, hearingAhead(b)), text = el.dataset.kit === 'link' ? kit.link : kit.message;
@@ -256,6 +283,12 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   });
   pnl.querySelector('[data-ispick]')?.addEventListener('click', () => openIssuePicker(b, { onClose: () => rerender('[data-ispick]') }));
   pnl.querySelectorAll('[data-dredit]').forEach(el => el.onclick = () => editDraft(b, el.dataset.dredit));
+  // Claude's suggestion, taken as it is (R-148): "Warn letter writers", with Undo.
+  pnl.querySelectorAll('[data-drtick]').forEach(el => el.onclick = async () => { const d = (S.billDrafts[b.id] || []).find(x => x.version === el.dataset.drtick); if (!d) return;
+    el.setAttribute('aria-busy', 'true');
+    try { put(b, await DB.saveBillDraft(b.id, d.version, d.summary, { changes_letters: true })); rerender('[data-dredit]');
+      toast('Done. People who wrote on an earlier draft are warned.', { ok: true, undo: async () => { put(b, await DB.saveBillDraft(b.id, d.version, d.summary, { changes_letters: false })); rerender(); } }); }
+    catch (e) { el.removeAttribute('aria-busy'); toast(e, { err: true }); } });
   // "Looks right": a checked note becomes the team's as it stands (saved unchanged, so the drafting tool leaves it alone).
   pnl.querySelectorAll('[data-drok]').forEach(el => el.onclick = async () => { const d = (S.billDrafts[b.id] || []).find(x => x.version === el.dataset.drok); if (!d) return;
     el.setAttribute('aria-busy', 'true');

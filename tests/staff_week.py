@@ -117,7 +117,8 @@ with sync_playwright() as pw:
             # snapshot is rebuilt and HB1839 gains a draft or loses that hearing, pick another no-draft position bill.
             we = next((x for x in s['cols'] if x['day'] == 'weekend'), None)
             sun = we and next((c_ for c_ in we['dl'] if 'Sun 3:00 PM' in c_['title']), None)
-            ok(bool(sun) and 'HB1839' in sun['bills'] and 'No draft yet' in sun['chips'], f'{tag}: the Sunday 22 deadline for Monday\'s PSM/EIG hearing shows ({sun})')
+            # The practice copy's House bills carry their draft since R-148 ("HB1839 HD2", as the live app shows them).
+            ok(bool(sun) and any(x.split()[0] == 'HB1839' for x in sun['bills']) and 'No draft yet' in sun['chips'], f'{tag}: the Sunday 22 deadline for Monday\'s PSM/EIG hearing shows ({sun})')
             # the weekend: a strip under the week below 1600px, a sixth column from 1600
             if we: ok((we['w'] > 0.9 * s['gridW']) == (W < 1600), f'{tag}: the weekend is {"a sixth column" if W >= 1600 else "a strip under the week"} ({we["w"]} of {s["gridW"]}px)')
             if W == 1440 and days: ok(min(x['w'] for x in days) >= 200, f'{tag}: weekdays get the width ({min(x["w"] for x in days)}px)')

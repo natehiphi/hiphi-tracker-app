@@ -3,7 +3,7 @@
 import { S, alive, SEASON_OFF, D, saveDoneAt, saveDone, doneKey } from './kernel.js';
 import { icon } from '../icons.js';
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261001a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261004a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -62,6 +62,25 @@ export function seedDemoActions() {
     .filter(h => D.bills.some(b => b.id === h.bill_id && b.hiphi_position && b.hiphi_position !== 'monitor')).slice(-3);
   hs.forEach((h, i) => { const k = doneKey(h.bill_id, h.id, i === 1 ? 'email' : 'testimony'); S.done.add(k); S.doneAt[k] = new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(); });
   if (hs.length) { saveDone(); saveDoneAt(); S.demoSeeded = true; try { localStorage.setItem('hiphi_demo_seeded', '1'); } catch { /* ignore */ } }
+}
+// ?letter (R-148): a letter "sent" on HB 2121 for its House Health hearing of 18 Feb, when the bill was House draft 1, so
+// the practice copy shows it offered again for the Senate hearing of 20 Mar (House draft 2, which demo/drafts.json marks
+// as changing what people should say). Planted once a visit; a letter sent in the practice copy since is left alone.
+export function seedDemoLetter() {
+  const b = D.bills.find(x => x.bill_number === 'HB2121'), h = b && D.hearings.find(x => x.bill_id === b.id && x.committee === 'HLT');
+  if (!b || !h) return;
+  try {
+    const me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}, had = (me.letters || {})[b.id];
+    if (had && !had.demo) return;
+    const pts = (b.hiphi_points || []).slice(0, 2);
+    me.letters = { ...(me.letters || {}), [b.id]: { v: 1, demo: true, bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year, h: h.id, code: h.committee,
+      at: h.scheduled_at, sent: new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(), draft: 'HD1', stance: 'support', ours: true, pos: b.hiphi_position || '',
+      name: me.name || 'Kalani Practice', why: 'As a parent of two teenagers, I see how easy these vapes are for kids to get.', points: pts, pointsText: pts.join(' '),
+      closing: 'Mahalo nui loa', letter: '', edited: false } };
+    localStorage.setItem('hiphi_me', JSON.stringify(me));
+    // and the testimony it stands for, marked sent on that hearing, as a real send would have
+    const k = doneKey(b.id, h.id, 'testimony'); if (!S.done.has(k)) { S.done.add(k); (S.doneAt ??= {})[k] = me.letters[b.id].sent; saveDone(); saveDoneAt(); }
+  } catch { /* private mode: no letter to show */ }
 }
 // HIPHI's picks for a coalition: strongly supported/opposed first, then bills
 // with a position and a hearing coming up, then the rest with a position. Dead

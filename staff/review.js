@@ -6,7 +6,7 @@
 // Each card also shows the bill as it stands (R-022): its position, priority and owner, where it is, and a plain warning
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
-import { S, DB, esc, fmtDT, advocate, hooks } from './data.js';
+import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf } from './ui.js';
 import { emailPreview } from './composer.js';
@@ -91,7 +91,8 @@ function draftBody(it) {
     ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : ''}
     ${due != null ? `<p class="td-rvline">${cd(due, 'due')}</p>` : ''}
     <p class="td-rvline">${icon('user-round')}<span>${who}</span></p>
-    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.`) : ''}
+    ${startedFromLine(b, d) ? `<p class="td-rvline">${icon('copy')}<span>${esc(startedFromLine(b, d))}</span></p>` : ''}
+    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${d.review_note ? `<blockquote class="td-q">${esc(d.review_note)}</blockquote>` : ''}
     ${stepBar(d.status, { second: needsSecond(d) })}
     ${d.doc_url ? btn('Open the Google Doc', { kind: 'secondary', full: true, href: d.doc_url, target: '_blank', icon: 'file-text', iconEnd: 'external-link', attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}

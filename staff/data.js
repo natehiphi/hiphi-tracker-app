@@ -860,13 +860,25 @@ export const DB = {
   // What each draft of a bill changed (120, R-060): Claude drafts from the committee reports, staff edit here. A save
   // from the app is stamped as the team's (the database's trigger), so the drafting tool never overwrites it.
   async billDrafts(billId) {
-    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
-      return (await S.demoDrafts).filter(d => d.bill_id === billId).map(d => ({ written_by: 'claude', ...d })); }
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004b', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
+      return (await S.demoDrafts).filter(d => d.bill_id === billId).map(d => ({ written_by: 'claude', changes_letters: false, changes_suggested: false, ...d })); }
     const { data, error } = await S.supa.from('bill_drafts').select('*').eq('bill_id', billId);
     if (error) throw error; return data || [];
   },
-  async saveBillDraft(billId, version, summary) {
+  // Every bill's notes at once (R-148): Today's "say what the new draft changed" and the testimony cards' "what changed
+  // since". A few hundred rows a session.
+  async allBillDrafts() {
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004b', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
+      return (await S.demoDrafts).map(d => ({ written_by: 'claude', changes_letters: false, changes_suggested: false, ...d })); }
+    const { data, error } = await S.supa.from('bill_drafts').select('bill_id,version,summary,written_by,changes_letters,changes_suggested,letter_note,source_url');
+    if (error) throw error; return data || [];
+  },
+  // extra (R-148, migration 124): { changes_letters, letter_note }, staff's tick on the draft and what to tell people who
+  // wrote before. Left out, the database keeps what it has (a "Looks right" never touches the tick).
+  async saveBillDraft(billId, version, summary, extra = {}) {
     const row = { bill_id: billId, version, summary: String(summary || '').trim().replace(/\s+/g, ' ') };
+    if ('changes_letters' in extra) row.changes_letters = !!extra.changes_letters;
+    if ('letter_note' in extra) row.letter_note = String(extra.letter_note || '').trim().replace(/\s+/g, ' ').slice(0, 300) || null;
     if (DEMO) { const list = await S.demoDrafts || []; const i = list.findIndex(d => d.bill_id === billId && d.version === version);
       const r = { ...(i >= 0 ? list[i] : {}), ...row, written_by: 'staff', edited_at: new Date().toISOString() }; if (i >= 0) list[i] = r; else list.push(r); return r; }   // keeps the report link, as the database does
     const { data, error } = await S.supa.from('bill_drafts').upsert(row, { onConflict: 'bill_id,version' }).select('*').single();
@@ -1202,7 +1214,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261001a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261004a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1288,6 +1300,13 @@ export async function demoInit() {
   // already has a seeded draft keeps it: one Doc per bill and committee, as live.
   for (const d of snap.drafts || []) if (!(S.drafts[d.bill_id] || []).some(x => x.committee === d.committee)) (S.drafts[d.bill_id] ??= []).push({ ...d });
   S.draftHearings = { ...(snap.draftHearings || {}) };
+  // As the live job does since R-148: an open draft on a bill HIPHI already testified on for another committee started
+  // from that testimony (sync/testimony.js), so the sandbox's card shows "Started from HIPHI's ... testimony".
+  for (const list of Object.values(S.drafts)) for (const d of list) {
+    if (['filed', 'cancelled'].includes(d.status) || d.from_draft_id) continue;
+    const src = list.filter(x => x !== d && x.committee !== d.committee && ['filed', 'approved'].includes(x.status)).sort((x, y) => String(y.filed_at || y.approved_at || '').localeCompare(String(x.filed_at || x.approved_at || '')))[0];
+    if (src) d.from_draft_id = src.id;
+  }
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Each issue's owner, the way tools/propose_issue_owners.js picks it live (R-088): whoever owns most of its bills, else
   // the admin. The snapshot is public, so it carries no owners, goals or points of its own.
@@ -1528,3 +1547,37 @@ export function demoTransition(d, action, note, url) {
 }
 // v2 only: the frame clears the recovery flag after a new password is saved (an imported `let` cannot be assigned).
 export const setRecovery = v => { RECOVERY = v; };
+
+// One bill's draft notes from DB.allBillDrafts, loaded once on first use (R-148); null until they arrive, and the screen
+// redraws when they do. A save on the Public tab updates the same list (public.js put).
+export function draftNotesOf(billId) {
+  if (S.allDrafts === undefined) {
+    S.allDrafts = null;
+    DB.allBillDrafts().then(rows => { const m = {}; for (const r of rows) (m[r.bill_id] ??= []).push(r); S.allDrafts = m; hooks.render?.(); })
+      .catch(() => { S.allDrafts = {}; });
+  }
+  return S.allDrafts ? S.allDrafts[billId] || [] : null;
+}
+
+// What each draft since `from` changed, in words (R-148): "House draft 2 (HD2): Took out the money. HIPHI marked it as
+// changing what people should say." '' when no note covers those drafts yet. `from` null is the bill as introduced.
+const DW = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
+const dname = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DW[m[1]]} ${m[2]} (${v})` : 'the bill as introduced'; };
+const drank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); if (!m) return 0; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
+  return (({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) + 1) * 100 + (+m[2] || 0); };
+export function changedSince(b, from, to = b.current_version) {
+  const notes = draftNotesOf(b.id) || [], lo = drank(b, from), hi = drank(b, to);
+  return notes.filter(n => drank(b, n.version) > lo && drank(b, n.version) <= hi).sort((x, y) => drank(b, x.version) - drank(b, y.version))
+    .map(n => `${dname(n.version)}: ${n.summary}${n.changes_letters ? ' HIPHI marked it as changing what people should say.' : ''}`).join(' ');
+}
+// A testimony draft the job started from HIPHI's earlier testimony on the bill (R-148, sync/testimony.js): one line for its
+// card, "Started from HIPHI's HLT testimony, written for the bill as introduced. Since then: ...". '' for one from the template.
+export function startedFromLine(b, d) {
+  if (!d.from_draft_id) return '';
+  const src = Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id);
+  const head = `Started from HIPHI’s ${src ? `${src.committee} ` : ''}testimony`;
+  if (!src) return `${head}, with this hearing’s committee, names, date and room put in.`;
+  if ((src.version || null) === (d.version || null)) return `${head}, with this hearing’s details put in. The bill hasn’t changed since.`;
+  const since = changedSince(b, src.version, d.version);
+  return `${head}, written for ${dname(src.version)}. ${since ? `Since then: ${since}` : `The bill is now ${dname(d.version)}; no note yet on what changed.`}`;
+}

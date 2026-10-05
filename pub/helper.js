@@ -28,6 +28,14 @@
 // 10/4 (R-141, Nate: "selecting talking points should show up in an editable box that they can see. It shouldn't be on a
 // different page."): the points tapped on "Get to know the bill" appear right there, in a box under them, in the words
 // that go into the letter, and the person can change them. The box (x.pointsText) is what the letter says.
+// 10/4 (R-148, Nate: "their previous testimony should be ready to submit easily. A potential alert should occur if the
+// bill draft has significantly changed"): a letter sent is kept (letters.js: on the device and with the account). When the
+// same bill, or its twin, has another hearing, the walkthrough opens on "Your letter is ready" ('again'): the letter
+// re-addressed to the new committee, chairs, date and time with the person's words kept, after a check of what changed
+// since (each new draft's note; amber, and no sending as it is without opening it, when staff ticked a draft as changing
+// what people should say, HIPHI's position moved, a point used was changed, or the person's own stance changed). Then the
+// letter and the Capitol step: two screens instead of up to nine. "Update my letter" walks the bill step again with
+// their words in place; "Start a new letter" is one tap away; "Delete my saved letter" forgets it everywhere.
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
@@ -36,6 +44,7 @@ import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
+import { readyLetter, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -106,13 +115,18 @@ const hiphiStance = b => /oppose/.test(b.hiphi_position || '') ? 'oppose' : /sup
 // The sign-off is the person's own (Nate 9/28: "the closing shouldn't be automatically generated"): whatever they wrote,
 // with a comma, and their name under it. Nothing written: just the name.
 const closingOf = c => { const t = String(c || '').replace(/\s+/g, ' ').trim(); return t && !/[,.!]$/.test(t) ? t + ',' : t; };
-function letterFor(b, h, o) {
-  const { name, why, closing = '', stance = hiphiStance(b) } = o;
+// The letter's top: what it is, to which committee, for which hearing. A letter sent again gets a new one (R-148).
+function headBlock(b, h, stance) {
   const n = spaced(b.bill_number), room = roomLabel(h.room), ours = sameAsHiphi(b, stance);
   const when = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return [headingFor(ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance], n), cmteLabel(h.committee),
+    `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n');
+}
+function letterFor(b, h, o) {
+  const { name, why, closing = '', stance = hiphiStance(b) } = o;
+  const n = spaced(b.bill_number), ours = sameAsHiphi(b, stance);
   return [
-    [headingFor(ours ? POS_WORD[b.hiphi_position] || 'COMMENTS' : STANCE_WORD[stance], n), cmteLabel(h.committee),
-      `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n'),
+    headBlock(b, h, stance),
     greeting(h),
     `${openingLine(b, n, stance)} My name is ${String(name).trim()}.`,
     // The points they picked, as the box on "Get to know the bill" has them (R-141), then their own reason. The
@@ -348,6 +362,10 @@ function open(billId, hearingId) {
   x.stance = mine === 'support' || mine === 'oppose' ? mine : d?.stance || null;
   x.askStance = !x.stance; x.acctStep = !me.capitolAcct;
   x.screen = x.askStance ? 'stand' : 'know';
+  // R-148: a letter kept from this bill's earlier hearing, or its twin's, comes first. A draft already started for this
+  // hearing wins (picked up below), and remembers that it began as a letter sent again.
+  if (!d) { const r = readyLetter(b, h, didKind(b, h, 'testimony')); if (r) againFrom(x, r, me); }
+  else if (d.again) { const r = readyLetter(b, h, false); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = true; x.acctStep = false; loadCheck(x); } }
   if (d && x.stance && x.name.trim() && !didKind(b, h, 'testimony')) {
     // Pick up where they left off. Someone who left for the Capitol site and came back is ready to confirm.
     x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
@@ -364,6 +382,58 @@ function open(billId, hearingId) {
   app.render();
 }
 app.openHelper = open;
+
+// ---------------- a letter sent again (R-148) ----------------
+// The kept letter's answers become this walkthrough's: where they stand (their stance on the bill page wins if they
+// changed it), their reason, their points, sign-off and name.
+function againFrom(x, r, me) {
+  const L = r.rec, mine = myStance(x.b.id);
+  x.again = r; x.update = false; x.check = null; x.letterReady = false; x.mentions = [];
+  x.stance = mine === 'support' || mine === 'oppose' ? mine : L.stance || x.stance;
+  x.askStance = false; x.keepPts = L.stance === x.stance;
+  x.acctStep = false;   // they sent testimony before, so they have a Capitol account
+  x.why = L.why || ''; x.points = L.points || []; x.pointsText = L.pointsText ?? pointsLine(x.points);
+  x.closing = me.closing || L.closing || ''; x.name = me.name || L.name || '';
+  x.screen = 'again';
+  app.onAct?.('again_open');
+  loadCheck(x);
+}
+// What changed since: the bill's draft notes, asked for once (letters.js). A failed read still compares the drafts.
+function loadCheck(x) {
+  draftNotes(x.b).catch(() => []).then(rows => {
+    if (!x.again) return;
+    x.check = letterCheck(x.b, x.again.rec, rows);
+    if (x.check.level === 'big' && !x.warned) { x.warned = true; app.onAct?.('again_warned'); }
+    if (S.helper === x) paint();
+  });
+}
+// The letter for this hearing. One they never changed by hand is written again from their answers, so the committee,
+// chairs, date, the bill's number and HIPHI's wording are all this hearing's. One they rewrote keeps every word of theirs:
+// only its top (what it is, the committee, the hearing) and the greeting are replaced, a twin's number is swapped, and any
+// sentence of theirs that still names the earlier hearing's day or committee is pointed out on the letter screen.
+function againLetter(x) {
+  const { b, h } = x, L = x.again.rec;
+  x.mentions = [];
+  if (!L.edited || !L.letter) { x.edited = false; return letterFor(b, h, x); }
+  let text = String(L.letter).replace(/\r\n/g, '\n');
+  if (x.again.twin && L.num) text = text.split(spaced(L.num)).join(spaced(b.bill_number));
+  const paras = text.split(/\n[ \t]*\n/);
+  if (/^(Testimony in|Comments on)/.test(paras[0] || '')) paras[0] = headBlock(b, h, x.stance); else paras.unshift(headBlock(b, h, x.stance));
+  const gi = paras.findIndex((q, i) => i > 0 && i < 4 && /^Dear /.test(q));
+  if (gi >= 0) paras[gi] = greeting(h); else paras.splice(1, 0, greeting(h));
+  if (L.at) {
+    const was = [dateLong(L.at), new Date(L.at).toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }), L.code && h.committee !== L.code ? cmteLabel(L.code, { short: true }) : ''].filter(Boolean);
+    const rest = paras.slice(2).join('\n\n');
+    x.mentions = [...new Set(was.filter(w => rest.includes(w)))];
+  }
+  x.edited = true;
+  return paras.join('\n\n');
+}
+// What the person sent, kept for the bill's next hearing (letters.js keepLetter).
+const recOf = x => { const stance = x.stance || hiphiStance(x.b);
+  return { v: 1, bill: x.b.id, num: x.b.bill_number, nick: nick(x.b) || '', yr: x.b.session_year || sessionInfo().yr, h: x.h.id, code: x.h.committee, at: x.h.scheduled_at,
+    sent: new Date().toISOString(), draft: x.b.current_version || '', stance, ours: sameAsHiphi(x.b, stance), pos: x.b.hiphi_position || '',
+    name: String(x.name || '').trim(), why: x.why || '', points: x.points || [], pointsText: x.pointsText || '', closing: x.closing || '', letter: x.letter || '', edited: !!x.edited }; };
 
 function requestClose() {
   if (!S.helper || closing) return;
@@ -426,7 +496,7 @@ function saveDraft() {
   // Back on the bill step with a letter already saved: the points they changed go with it.
   else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, at: new Date().toISOString() };
   else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, at: new Date().toISOString() };
+    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
@@ -435,11 +505,14 @@ function saveDraft() {
 // the Capitol account only the first time (R-068). "Part 2 of 5" counts these.
 // An email: the same steps up to the letter, then 'mail' (sending) instead of the Capitol account and the Capitol page.
 // The introduction has no bill, so it starts with About you.
+// A letter sent again: 'again', the letter, the Capitol (R-148); "Update my letter" puts the bill step and About you back in.
 const seqOf = x => x.mode === 'intro' ? [1, 2, 'mail'] : isMail(x) ? [x.askStance && 'stand', 'know', 1, 2, 'mail'].filter(Boolean)
-  : [x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
+  : x.again && !x.update ? ['again', 2, x.acctStep && 'acct', 3].filter(Boolean)
+  : [x.again && 'again', x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
 const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
 function goTo(screen) {
   const x = S.helper; if (!x) return;
+  if (screen === 2 && x.screen === 'again' && !x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; x.stale = false; }
   if (screen === 2 && x.screen === 1) {
     const basis = basisOf(x);
     if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; }
@@ -453,6 +526,7 @@ function goTo(screen) {
     x.autoCopied = false; x.opened = x.opened || ''; x.asked = !!x.opened;
     copyText(x.letter).then(ok => { if (S.helper === x && x.screen === 'mail') { x.autoCopied = ok; paint(); } });
   }
+  if (x.forgotten && screen !== 'know' && screen !== 'stand') x.forgotten = null;
   x.screen = screen; x.resumed = false; x.copyChip = false; x.copied3 = false; x.trouble = false;
   saveDraft();
   paint({ focus: 'hp-sh', top: true });
@@ -469,7 +543,7 @@ function inner() {
   // once for screen readers, in the screen's own heading (the dialog's name stays "Testimony on HB 1523").
   const head = done ? `<p class="hp-title">${esc(title)}</p>`
     : `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2><span class="hp-count" aria-hidden="true">Part ${step} of ${total}</span>`;
-  const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
+  const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : x.screen === 'again' ? againScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
     : x.screen === 2 ? letterScreen() : x.screen === 'mail' ? mailScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
@@ -491,8 +565,56 @@ function standScreen() {
   const w = summaryOf(b), name = nick(b);
   return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
     ${w || name ? `<div class="card hp-kn"><div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div></div>` : ''}
+    ${forgotNote(x)}
     <p class="hp-sub hp-standsub">Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
+}
+
+// Your letter is ready (R-148): what it is, where it goes now, and what changed since. The check decides the heading and
+// the footer: "Your letter is ready" and "Use my letter" when nothing big changed; "Your letter needs a check" and "Check
+// my letter" when something did (fresh-eyes review 10/4: the heading must not say "ready" over an amber box). Either way
+// the main button opens the letter, with the change beside it; going over the bill and its points again is a link in the
+// box, and "Start a new letter" the one other button.
+const HIPHI_PAST = { strongly_support: 'strongly supported', support: 'supported', support_amend: 'supported, with changes,', strongly_oppose: 'strongly opposed', oppose: 'opposed', neutral: 'had comments on' };
+// adviceOnly: beside the letter and on the bill step, only what to do (the draft's own note was on the first screen).
+function bigWords(c, b, { adviceOnly = false } = {}) {
+  return c.big.map(r => r.kind === 'tick' ? (adviceOnly && r.note ? `<li><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</li>`
+      : `<li><b>${esc(draftName(r.version))}:</b> ${esc(sentence(r.summary))}${r.note ? `<span class="hp-advice"><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</span>` : ''}</li>`)
+    : r.kind === 'position' ? `<li>HIPHI’s position changed. It ${esc(HIPHI_PAST[r.from] || 'took no side on')} the bill when you wrote, and ${esc(r.to ? (posInfo(b)?.text || 'HIPHI').replace(/^HIPHI\s*/, '') : 'takes no side on')} it now. Your letter used HIPHI’s earlier words.</li>`
+    : r.kind === 'points' ? '<li>HIPHI changed or took out a talking point you used.</li>'
+    : `<li>You now ${r.to === 'oppose' ? 'oppose' : 'support'} this bill. Your letter ${r.from === 'oppose' ? 'opposes' : r.from === 'support' ? 'supports' : 'comments on'} it.</li>`).join('');
+}
+const shortDay = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });   // "Feb 18": no second weekday beside the deadline's
+function changesBox(x) {
+  const c = x.check, { b, h } = x;
+  if (!c) return `<p class="hp-quiet hp-checking" role="status">${icon('loader-circle')}<span>Checking whether the bill has changed…</span></p>`;
+  const read = capitolLink(b, h, 'Read the bill as it is now', { kind: 'text', sm: true, cls: 'hp-inl' });
+  const again = btn('Go over the bill and talking points again', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'again-update' } });
+  const notes = list => list.length ? `<ul class="hp-drafts" role="list">${list.map(n => `<li><b>${esc(draftName(n.version))}:</b> ${esc(n.summary)}</li>`).join('')}</ul>` : '';
+  const missing = c.missing ? `<p>What changed in ${esc(draftName(c.now))} isn’t summed up here yet. Read it before you send.</p>` : '';
+  if (c.level === 'big') return `<div class="notice warn hp-again-warn" id="hp-again-warn">${icon('triangle-alert')}<div>
+      <p class="strong">What changed</p>
+      <ul class="hp-why-list" role="list">${bigWords(c, b)}</ul>
+      ${c.since.some(n => !n.changes_letters) ? `<p class="small">Also changed since you wrote:</p>${notes(c.since.filter(n => !n.changes_letters))}` : ''}
+      ${missing}<div class="hp-boxlinks">${again}${read}</div></div></div>`;
+  if (c.twin) return `<div class="notice info">${icon('info')}<div><p><b>This is a different bill with the same idea.</b> Its words may not match ${esc(spaced(x.again.rec.num))}’s, so read it before you send.</p><div class="hp-boxlinks">${again}${read}</div></div></div>`;
+  if (c.level === 'changed') return `<div class="notice info">${icon('info')}<div><p><b>The bill has changed since you wrote this.</b>${c.since.length ? ' What changed:' : ''}</p>${notes(c.since)}${missing}<div class="hp-boxlinks">${again}${read}</div></div></div>`;
+  return notice('ok', 'circle-check', 'The bill hasn’t changed since you wrote this.');
+}
+// After "Delete this saved letter": said once, with Undo, until they move on.
+const forgotNote = x => x.forgotten ? `<div class="notice ok hp-forgot" role="status">${icon('circle-check')}<div><p>Your saved letter is deleted.</p>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'again-undo' } })}</div></div>` : '';
+const againTitle = x => x.check?.level === 'big' ? 'Your letter needs a check' : 'Your letter is ready';
+function againScreen() {
+  const x = S.helper, { b, h } = x, L = x.again.rec, n = spaced(b.bill_number), due = dueInfo(h);
+  const was = L.at ? shortDay(L.at) : '', when = dateLong(h.scheduled_at), big = x.check?.level === 'big';
+  const lede = x.again.twin
+    ? `You wrote testimony on ${spaced(L.num)}, this bill’s twin in the other chamber${was ? `, on ${was}` : ''}. We’ve put in ${n}’s number, committee and date.`
+    : `We’ve addressed your ${was ? `${was} ` : ''}letter on ${n} to the hearing on ${when}.${big ? '' : ' Your words stay the same.'}`;
+  const dueLine = h.testimony_deadline ? `Testimony due ${dateLong(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}` : '';
+  return `<div class="hp-top">${screenHead(1, esc(againTitle(x)))}
+      <p class="hp-sub">${esc(lede)}</p></div>
+    ${due?.late ? lateBanner(h) : dueLine ? `<p class="hp-due ${due?.tone || ''}">${icon('clock')}<span>${esc(dueLine)}</span></p>` : ''}
+    ${changesBox(x)}`;
 }
 
 // Get to know the bill (Nate 9/28: "The casual user is not going to have enough knowledge of the bill to write something
@@ -549,16 +671,20 @@ function cutPoint(text, s) {
 }
 // What the letter says for the points: the box, but only while points are offered (someone who changed their stance to
 // one HIPHI's points argue against never sends them).
-const ownPoints = x => x.b && pointsOf(x).length ? String(x.pointsText || '').trim() : '';
+// A letter sent again keeps the person's own words for the points (x.keepPts) even if HIPHI has since changed the list,
+// unless they changed sides (then HIPHI's points would argue against them).
+const ownPoints = x => x.b && (pointsOf(x).length || x.keepPts) ? String(x.pointsText || '').trim() : '';
 function knowScreen() {
   const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = isMail(x) ? null : dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
   const act = sentence(b.hiphi_action);
   const pt = (s, i) => { const on = x.points.includes(s);
     return `<li><button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}"><span class="hp-pti" aria-hidden="true">${icon(on ? 'check' : 'plus')}</span>
       <span class="hp-ptt">${esc(s)}</span><span class="hp-pta" aria-hidden="true">${on ? 'Added' : 'Add'}</span></button></li>`; };
-  return `<div class="hp-top">${screenHead(0, 'Get to know the bill')}
-      <p class="hp-sub">A minute with what it does, then we’ll help you write.</p></div>
+  return `<div class="hp-top">${screenHead(0, x.again ? 'Update your letter' : 'Get to know the bill')}
+      <p class="hp-sub">${x.again ? 'What changed, the bill as it is now, and your points. Your letter keeps your words until you change them.' : 'A minute with what it does, then we’ll help you write.'}</p></div>
     ${due?.late ? lateBanner(h) : ''}
+    ${forgotNote(x)}
+    ${x.again && x.check?.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><ul class="hp-why-list" role="list">${bigWords(x.check, b, { adviceOnly: true })}</ul></div></div>` : ''}
     <div class="card hp-kn">
       <div><p class="hp-knh">${esc(n)}${name ? ` · ${esc(name)}` : ''}</p>
         <p class="hp-knw">${esc(w || cleanDesc(b.title) || '')}</p>
@@ -627,17 +753,26 @@ function lateBanner(h, { email = true } = {}) {
 // Screen 2: the letter, ready to copy. Lato 16px in a box that grows with the text (no inner scrolling on a phone).
 function letterScreen() {
   if (isMail(S.helper)) return mailLetterScreen();
-  const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
+  const x = S.helper, file = `${x.b.bill_number}-testimony.txt`, c = x.again && x.check;
+  // A letter sent again (R-148): what was put in for this hearing, what changed, and any words still about the old one.
+  const again = !x.again ? '' : [
+    c && c.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><p class="strong">Before you send, check your letter:</p><ul class="hp-why-list" role="list">${bigWords(c, x.b, { adviceOnly: true })}</ul></div></div>`
+      : c && c.level === 'changed' && c.since.length ? notice('info', 'info', `Check it against the bill as it is now. ${draftName(c.since[c.since.length - 1].version)}: ${c.since[c.since.length - 1].summary}`)
+      : '',
+    x.mentions?.length ? notice('info', 'calendar', `Your letter mentions “${x.mentions.join('” and “')}”. This hearing is on ${dateLong(x.h.scheduled_at)}: change it if it’s about the earlier one.`) : '',
+  ].join('');
   return `<div class="hp-top">${screenHead(2, 'Your letter')}
-      <p class="hp-sub" id="hp-lsub">We wrote it from your answers. Read it over and change anything you like.</p></div>
+      <p class="hp-sub" id="hp-lsub">${x.again && !x.update ? `Your ${x.again.rec.at ? `${esc(shortDay(x.again.rec.at))} ` : ''}letter, addressed to this hearing’s committee, chairs and date. Read it over and change anything you like.` : 'We wrote it from your answers. Read it over and change anything you like.'}</p></div>
     ${welcomeBack()}
+    ${again}
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this letter.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="14">${esc(x.letter)}</textarea>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${btn('Copy', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
-      ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>`;
+      ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>
+    ${x.again ? `<div class="hp-forget">${btn('Delete this saved letter', { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : ''}`;
 }
 
 // The email, ready to read over (R-079): who it goes to, a subject they can change, and the message. Sending is the next step.
@@ -826,7 +961,13 @@ function foot() {
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
-  if (x.screen === 'know') return row((x.askStance ? back : '') + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
+  // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.
+  if (x.screen === 'again') {
+    const fresh = btn('Start a new letter', { kind: 'text', sm: true, attrs: { 'data-hp': 'again-new' } });
+    if (!x.check) return row(`<button type="button" class="btn primary hp-main" aria-busy="true" disabled>${icon('loader-circle')}<span>Checking…</span></button>`, fresh);
+    return row(btn(x.check.level === 'big' ? 'Check my letter' : 'Use my letter', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'again-use' } }), fresh);
+  }
+  if (x.screen === 'know') return row((x.askStance || x.again ? back : '') + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
   if (x.screen === 1) return row((seqOf(x)[0] === 1 ? '' : back) + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>${isMail(x) ? 'See my email' : 'See my letter'}</span>${icon('arrow-right')}</button>`);
   // Sending an email: the send buttons are the main choice until one is used; then "Yes, I sent it" is (A-3).
   if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
@@ -948,6 +1089,9 @@ async function confirmSent() {
   x.before = earned();   // [key, label] pairs; newMilestones() compares by key
   try { x.first = !!(await markDone(x.b.id, x.h.id, 'testimony', true, { quiet: true }))?.firstTestimony; }
   catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
+  // Kept for the bill's next hearing, here and with the account (R-148). A letter sent again is counted as such too.
+  try { keepLetter(recOf(x)); } catch { /* the testimony counts either way */ }
+  if (x.again) app.onAct?.('again_sent');
   // Following is how they see what the committee decides: the bill's issue, as everywhere else (R-067), with "Don't
   // follow it" on the confirmation; a bill with no issue is followed on its own. A failure must not undo the testimony.
   const iss = issuesOf(x.b)[0];
@@ -1093,6 +1237,31 @@ function onClick(e) {
   else if (a === 'send') sentVia(t.dataset.via);
   else if (a === 'mailsent') confirmMail();
   else if (a === 'copypart') copyPart(t.dataset.part);
+  else if (a === 'again-use') { if (S.helper.check?.level === 'big') app.onAct?.('again_fixed'); goTo(2); }
+  else if (a === 'again-update') {
+    // Walk the bill step and About you again with their words in place; a hand-written letter stays theirs (the letter
+    // screen offers "Use my new details" if they change an answer).
+    const x = S.helper; x.update = true;
+    if (!x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; }
+    if (S.helper.check?.level !== 'big') app.onAct?.('again_fixed'); goTo('know');
+  }
+  else if (a === 'again-new' || a === 'again-forget') {
+    const x = S.helper;
+    // Deleted with an Undo for the rest of this walkthrough (B-5): the letter is kept in hand until then.
+    if (a === 'again-forget' && x.again) { x.forgotten = x.again; forgetLetter(x.again.rec.bill); }
+    else app.onAct?.('again_new');
+    // Where they stand stays as the letter had it (their stance on the bill page wins); it is asked only if neither says.
+    const mine = myStance(x.b.id);
+    Object.assign(x, { again: null, update: false, check: null, letterReady: false, keepPts: false, mentions: [], points: [], pointsText: '', letter: '', edited: false, basis: '', stale: false });
+    x.stance = mine === 'support' || mine === 'oppose' ? mine : x.stance || null; x.askStance = !x.stance;
+    goTo(x.askStance ? 'stand' : 'know');
+    if (a === 'again-forget') announce('Your saved letter is deleted.');
+  }
+  else if (a === 'again-undo') {
+    // Undo the delete: the letter is kept again, here and on the account, and offered as before.
+    const x = S.helper, r = x.forgotten; if (!r) return;
+    x.forgotten = null; keepLetter(r.rec); againFrom(x, r, loadMe()); x.screen = 'again'; paint({ focus: 'hp-sh', top: true }); announce('Your letter is back.');
+  }
   else if (a === 'rewrite') { const x = S.helper; x.letter = letterOf(x); x.basis = basisOf(x); x.edited = false; x.stale = false; x.copied = x.saved = false; paint({ focus: 'hp-letter' }); }
   // 'capitol' is a plain link to the Capitol site in a new tab.
 }
