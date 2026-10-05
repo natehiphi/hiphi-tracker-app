@@ -620,7 +620,7 @@ const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, privacy: wir
 const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', privacy: 'Privacy', alerts: 'Get alerts' };
 export default {
   tab: 'more',
-  title: route => (route.name === 'help' && TALK ? TALK.title(route) : TITLES[route.name]) || 'More',
+  title: route => (route.name === 'help' && TALK ? TALK.title(route) : route.name === 'signin' && byNumber() ? 'Sign in' : TITLES[route.name]) || 'More',
   render(route) {
     // A fresh arrival (from another screen) starts the page clean; a re-render of the same page keeps what was typed.
     const fresh = !document.querySelector(`#main .mr-${route.name}`);

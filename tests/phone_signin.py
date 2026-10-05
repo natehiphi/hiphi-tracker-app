@@ -109,6 +109,7 @@ with sync_playwright() as pw:
     p.click('a[href="#/signin?by=number"]'); p.wait_for_selector('#mr-pi-phone', timeout=5000); p.wait_for_timeout(300)
     t = text(p)
     ok('Sign in' in p.inner_text('h1') and 'We’ll text you a 6-digit code' in t and 'Sign in with your email' in t, 'the sign-in page: the number first, email as a link')
+    ok(p.title().startswith('Sign in'), f'the tab says Sign in ({p.title()})')
     shot(p, 'B4_signin_number')
     p.click('#mr-pi-send'); p.wait_for_timeout(300)
     ok('Add your mobile number' in text(p, '#mr-pi-err'), 'nothing typed: says what to do')
