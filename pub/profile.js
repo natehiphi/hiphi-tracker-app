@@ -13,17 +13,26 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, INTERESTS, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
 import { alertFields, alertButton, wireAlertForm, fmtPhone, codeStep } from './alerts.js';
-import { hasProfile, signedIn, myName, myTitles, myStory, quoteOk, myInterests, initials, saveProfile, loadMe } from './myprofile.js';
-import { pickerHTML, wirePicker, titleChips } from './titlepick.js';
+import { hasProfile, signedIn, myName, myTitles, myStory, myStories, quoteLevel, QUOTE, storyAsk, myInterests, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
+import { pickerHTML, wirePicker, titleChips, pendingTitle } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
-import { asWords } from './titles.js';
+import { asWords, titleLabel } from './titles.js';
+import { logAct } from './visitlog.js';
 
 const $ = s => document.querySelector(s);
 const DISTRICTS_KEY = 'hiphi_districts';
-const HELP = INTERESTS.filter(([k]) => k !== 'quote');   // "HIPHI may quote me" sits with the story now
+// "HIPHI may quote me" sits with the story; "I have a story to share" left with R-156 (Your story covers it, the review).
+const HELP = INTERESTS.filter(([k]) => k !== 'quote' && k !== 'story');
+// What each answer changes (R-156 C1; design rule C-13: every question changes what the person sees).
+const HELP_DOES = { testify: 'When a hearing on your issues is posted, going in person shows first, with how to sign up to speak.',
+  host: 'HIPHI’s team sees this and may ask you to help at an event near you.', volunteer: 'HIPHI’s team sees this and may get in touch about volunteering.' };
+const topicName = k => k ? (S.cats || []).find(c => c.key === k)?.name || k : 'Any issue';
 // P: this visit's page. edit: the section being changed ('about' | 'story' | 'help' | 'email'), with its draft; del: the
-// delete question showing; done: the section that just saved (its "Saved" line).
-const P = { edit: null, d: null, del: false, done: '', made: '' };
+// delete question showing; done: the section that just saved (its "Saved" line); undo: what the Saved line's Undo puts
+// back ({ id, label, patch }, R-156: B-5, nothing removed without a way back).
+const P = { edit: null, d: null, del: false, done: '', made: '', undo: null };
+// Said aloud after a redraw: the region is drawn empty, then filled, so a screen reader reads it (R-156).
+const announce = text => setTimeout(() => { const l = document.getElementById('pf-live'); if (l) l.textContent = text; }, 80);
 const masked = d => `(${d.slice(0, 3)}) ••• ${d.slice(6)}`;
 const place = () => { try { const d = JSON.parse(localStorage.getItem(DISTRICTS_KEY) || 'null'); return d?.label || ''; } catch { return ''; } };
 const since = () => { const at = S.user?.created_at || textSaved()?.at; return at ? new Date(at).toLocaleDateString('en-US', { timeZone: HST, month: 'long', year: 'numeric' }) : ''; };
@@ -31,7 +40,7 @@ const av = (cls = 'pf-av') => { const i = initials(); return `<span class="${cls
 // change: false, or 'Change' | 'Add' (an empty section says Add, review 10/4); href: a Change that opens another page.
 const sec = (id, title, body, { change = 'Change', href = '', extra = '' } = {}) => `<section class="card pf-sec" id="pf-${id}" aria-labelledby="pf-${id}-t">
     <div class="pf-sech"><h2 id="pf-${id}-t">${title}</h2>${change ? btn(change, { kind: 'text', sm: true, icon: change === 'Add' ? 'plus' : 'pencil', ...(href ? { href } : {}), attrs: { ...(href ? {} : { 'data-pf-edit': id }), 'aria-describedby': `pf-${id}-t` } }) : ''}</div>
-    ${body}${P.done === id ? `<p class="okmsg pf-ok" role="status">${icon('circle-check')}<span>Saved.</span></p>` : ''}${extra}</section>`;
+    ${body}${P.done === id ? `<p class="okmsg pf-ok">${icon('circle-check')}<span>${esc(P.undo?.id === id ? P.undo.label : 'Saved.')}</span>${P.undo?.id === id ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-pf-undo': id } }) : ''}</p>` : ''}${extra}</section>`;
 const empty = text => `<p class="pf-empty">${text}</p>`;
 const kv = (k, v) => `<div class="pf-kv"><p class="pf-k">${k}</p>${v}</div>`;
 
@@ -62,7 +71,7 @@ function wireInvite() {
 function aboutBody() {
   const name = myName(), titles = myTitles(), d = myDistricts(), town = place();
   return `${kv('Name on your letters', name ? `<p class="strong">${esc(name)}</p>` : empty('Not added yet.'))}
-    ${kv('I’m a…', titles.length ? `${titleChips(titles)}<p class="small muted">Your letters start “${esc(asWords(titles.slice(0, 2)))}, I support…”, with the two that fit each bill best.</p>`
+    ${kv('I’m a…', titles.length ? `${titleChips(titles)}<p class="small muted">Your letters start “${esc(asWords(titles.slice(0, 1)))}, I support…”, with the one or two that fit each bill best.</p>`
       : empty('Not added yet. Your titles start your letters, like “As a parent and teacher, I support…”.'))}
     ${kv('Where you live', d ? `${town ? `<p>${esc(town)}</p>` : ''}<p class="mr-dist">${distHTML(d.senate, d.house)}</p><p class="small muted">Your letters to your own lawmakers say you live in their district.</p>`
       : empty('Not added yet. We use it to point you to your own senator and representative.'))}`;
@@ -77,29 +86,42 @@ function aboutEdit() {
     <div id="pf-about-msg"></div>
     <div class="btnrow">${submitBtn('Save', 'check', 'pf-about-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}</div></form>`;
 }
+// Your stories (R-156 B3): one for any issue and one per issue topic. A letter on a bill starts with the story for the
+// bill's topic, else the one for any issue; a story about another topic is offered there, never filled in.
+const storyRows = () => [...(myStory() ? [['', myStory()]] : []), ...Object.entries(myStories())];
 function storyBody() {
-  const s = myStory();
-  return `${s ? `<blockquote class="pf-story">${esc(s)}</blockquote>` : empty('Not added yet. One or two sentences on why these issues matter to you. It starts the “why” of your letters, and you can change it each time.')}
-    <p class="small muted">HIPHI may quote me: <span class="strong">${quoteOk() ? 'Yes' : 'No'}</span></p>`;
+  const rows = storyRows(), q = quoteLevel(), left = (S.cats || []).filter(c => !myStories()[c.key]).length;
+  return `${rows.length ? rows.map(([k, t]) => `<div class="pf-storyrow"><p class="pf-k">${k ? `About ${esc(topicName(k))}` : 'For any issue'}</p><blockquote class="pf-story">${esc(t)}</blockquote>
+      ${btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pf-story': k || '-', 'aria-label': `Change your story ${k ? `about ${topicName(k)}` : 'for any issue'}` } })}</div>`).join('')
+      : empty('Not added yet. A sentence or two on why an issue matters to you. Your letters on that issue start with it, and you can change it each time.')}
+    ${rows.length && left ? `<p>${btn('Add a story for another issue', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pf-story': '+' } })}</p>` : ''}
+    <p class="small muted">HIPHI may quote you: <span class="strong">${q ? esc(QUOTE.find(x => x[0] === q)[1]) : 'No'}</span>${q ? '. HIPHI asks you again before any public use.' : ''}</p>`;
 }
+const radio = (name, v, title, on) => `<label class="check mr-check" for="${name}-${v || 'no'}"><input type="radio" name="${name}" id="${name}-${v || 'no'}" value="${v}"${on ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(title)}</span></span></label>`;
 function storyEdit() {
-  const d = P.d;
+  const d = P.d, st = myStories(), any = myStory();
+  const taken = k => k !== d.orig && !!(k ? st[k] : any);
   return `<form class="pf-form" id="pf-story-f" novalidate>
+    <div class="field"><label for="pf-topic">It’s about</label>
+      <select id="pf-topic" aria-describedby="pf-topic-h">${[['', 'Any issue'], ...(S.cats || []).map(c => [c.key, c.name])].map(([k, l]) => `<option value="${esc(k)}"${k === d.topic ? ' selected' : ''}>${esc(l)}${taken(k) ? ' (replaces that story)' : ''}</option>`).join('')}</select>
+      <span class="help" id="pf-topic-h">Your letters on that issue start with it. “Any issue” starts the letters that have no story of their own.</span></div>
     <div class="field"><label for="pf-storyt">Your story</label>
-      <textarea id="pf-storyt" rows="4" maxlength="600" placeholder="As a parent of two teenagers…" aria-describedby="pf-story-h" autocapitalize="sentences">${esc(d.story)}</textarea>
-      <span class="help" id="pf-story-h">One or two sentences, in your own words. A personal reason carries the most weight with lawmakers. You don’t have to share health details to be heard.</span></div>
-    ${check('pf-quote', 'HIPHI may quote me', 'HIPHI may share your story, with your first name, to show lawmakers why a bill matters.', d.quote)}
+      <textarea id="pf-storyt" rows="4" maxlength="600" placeholder="${esc(storyAsk(d.topic))}" aria-describedby="pf-story-h" autocapitalize="sentences">${esc(d.text)}</textarea>
+      <span class="help" id="pf-story-h"><span class="strong" id="pf-story-ask">${esc(storyAsk(d.topic))}</span> One or two sentences, in your own words. A personal reason carries the most weight with lawmakers. You don’t have to share health details to be heard.</span></div>
+    <fieldset class="mr-set"><legend>Can HIPHI quote your story?</legend>
+      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, d.quote === k)).join('')}
+      <p class="small muted">HIPHI asks you again before using it anywhere public.</p></fieldset>
     <div id="pf-story-msg"></div>
-    <div class="btnrow">${submitBtn('Save', 'check', 'pf-story-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}</div></form>`;
+    <div class="btnrow">${submitBtn('Save', 'check', 'pf-story-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}${d.orig !== null && d.text ? btn('Remove this story', { kind: 'text', icon: 'trash-2', attrs: { 'data-pf-storydel': '' } }) : ''}</div></form>`;
 }
 function helpBody() {
-  const ints = myInterests(), acct = !!loadMe().capitolAcct;
-  return `${ints.length ? `<div class="chips tp-show">${HELP.filter(([k]) => ints.includes(k)).map(([, l]) => `<span class="chip info">${esc(l)}</span>`).join('')}</div>` : empty('Not added yet. Tell HIPHI if you’d testify in person, host an event or volunteer.')}
+  const ints = myInterests().filter(k => HELP.some(([h]) => h === k)), acct = !!loadMe().capitolAcct;
+  return `${ints.length ? `<ul class="pf-list pf-does" role="list">${HELP.filter(([k]) => ints.includes(k)).map(([k, l]) => `<li>${icon('check')}<span><span class="strong">${esc(l)}.</span> ${esc(HELP_DOES[k] || '')}</span></li>`).join('')}</ul>` : empty('Not added yet. Tell HIPHI if you’d testify in person, host an event or volunteer.')}
     <p class="small pf-acct">${icon(acct ? 'circle-check' : 'info')}<span>${acct ? 'Your Capitol website account is ready for testimony.' : 'The first time you send testimony, the letter helper walks you through the Capitol website’s free account.'}</span></p>`;
 }
 function helpEdit() {
   return `<form class="pf-form" id="pf-help-f" novalidate><fieldset class="mr-set"><legend>How would you like to help?</legend>
-    ${HELP.map(([k, l]) => check(`pf-int-${k}`, l, '', P.d.ints.has(k), ` data-pf-int="${k}"`)).join('')}</fieldset>
+    ${HELP.map(([k, l]) => check(`pf-int-${k}`, l, esc(HELP_DOES[k] || ''), P.d.ints.has(k), ` data-pf-int="${k}"`)).join('')}</fieldset>
     <div id="pf-help-msg"></div>
     <div class="btnrow">${submitBtn('Save', 'check', 'pf-help-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}</div></form>`;
 }
@@ -145,6 +167,22 @@ function accountButtons() {
       </div>` : `<div class="mr-delrow">${btn('Delete my account', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'ask' } })}</div>`}`;
 }
 
+// Add to Home Screen on an iPhone (R-156 D3): Safari clears a website's saved data after seven days without a visit, which
+// is a whole profile for someone with only a text number; the Home Screen app is exempt (WebKit, 2020). Once, until "No
+// thanks"; never inside the Home Screen app itself. Home's own card (R-067) comes after a first action; this one is here.
+const HS_NO = 'hiphi_pf_hs_no';
+function homeScreenNote() {
+  let no = false; try { no = localStorage.getItem(HS_NO) === '1'; } catch { /* private mode */ }
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
+  const standalone = (() => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } })();
+  if (no || !ios || standalone) return '';
+  return `<section class="card pf-hs" aria-labelledby="pf-hs-t"><h2 id="pf-hs-t">${icon('smartphone')}Keep your profile on this iPhone</h2>
+    <p class="small">${signedIn() ? 'An iPhone signs you out of a website after a week away.' : 'An iPhone clears what a website saves after a week away, and your profile is saved on this phone.'} Added to your Home Screen, the tracker keeps it.</p>
+    ${P.hsHow ? `<ol class="pf-steps"><li>In Safari, tap ${icon('share')}<b>Share</b>.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open the tracker from its new icon. ${signedIn() ? 'Sign in there once with your email.' : 'Add your number there once more, or your email to keep your profile on any phone.'}</li></ol>`
+      : btn('Show me how', { kind: 'secondary', sm: true, icon: 'smartphone', attrs: { 'data-pf-hs': 'how', 'aria-expanded': 'false' } })}
+    <div class="btnrow">${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-pf-hs': 'no' } })}</div></section>`;
+}
+
 function profileView() {
   if (!hasProfile()) return inviteView();
   if (signedIn() && !S.user) return `<div class="mr pf"><header class="pagehead"><h1 class="hero">Your profile</h1></header><div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:160px"></div><div class="skel" style="height:280px"></div></div></div>`;
@@ -158,29 +196,38 @@ function profileView() {
       <p class="meta mr-break">${contact}${s ? `<span class="pf-since"> · Speaking up since ${esc(s)}</span>` : ''}</p></div></header>
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
+    <p class="sr" id="pf-live" aria-live="polite"></p>
+    ${signedIn() ? '' : homeScreenNote()}
     ${sec('about', 'About you', E === 'about' ? aboutEdit() : aboutBody(), { change: E !== 'about' && (myName() || myTitles().length || myDistricts() ? 'Change' : 'Add') })}
-    ${sec('story', 'Your story', E === 'story' ? storyEdit() : storyBody(), { change: E !== 'story' && (myStory() ? 'Change' : 'Add') })}
-    ${sec('help', 'How you’ll help', E === 'help' ? helpEdit() : helpBody(), { change: E !== 'help' && (myInterests().length ? 'Change' : 'Add') })}
+    ${sec('story', storyRows().length > 1 ? 'Your stories' : 'Your story', E === 'story' ? storyEdit() : storyBody(), { change: E !== 'story' && !storyRows().length && 'Add' })}
+    ${sec('help', 'How you’ll help', E === 'help' ? helpEdit() : helpBody(), { change: E !== 'help' && (myInterests().some(k => HELP.some(([h]) => h === k)) ? 'Change' : 'Add') })}
     ${sec('email', 'Alerts', E === 'email' ? emailEdit() : alertsBody(), signedIn() && myEmail() ? { change: E !== 'email' && 'Change' } : { href: '#/alerts' })}
     ${sec('issues', 'Your issues', issuesBody(), { change: false })}
+    ${signedIn() ? homeScreenNote() : ''}
     ${sec('data', 'Your data', dataBody(), { change: false })}
   </div>`;
 }
 
-function startEdit(id) {
-  P.done = ''; P.del = false; P.made = '';
+function startEdit(id, topic) {
+  P.done = ''; P.del = false; P.made = ''; P.undo = null;
   if (id === 'about') { const d = myDistricts();
     P.d = { name: myName(), tp: { chosen: myTitles(), q: '', more: false, student: false, active: -1 },
       addr: { q: '', sd: d?.senate || null, hd: d?.house || null, picked: false, results: [] } }; }
-  else if (id === 'story') P.d = { story: myStory(), quote: quoteOk() };
+  else if (id === 'story') {
+    // topic: '-' the story for any issue, a category key, '+' a new one (the first topic without a story), none: Add.
+    const st = myStories(), fresh = topic === '+' || topic === undefined;
+    const t = topic === '+' ? ((S.cats || []).find(c => !st[c.key])?.key || '') : topic === '-' || topic === undefined ? '' : topic;
+    P.d = { topic: t, orig: fresh ? null : t, text: fresh ? '' : (t ? st[t] : myStory()) || '', quote: quoteLevel() };
+  }
   else if (id === 'help') P.d = { ints: new Set(myInterests()) };
   else if (id === 'email') { const p = S.user?.prefs || {}; P.d = { choices: { alerts: p.hearing_alerts === true, action: p.action_alerts === true } }; }
   P.edit = id; app.render();
-  requestAnimationFrame(() => { const f = $(`#pf-${id} input, #pf-${id} textarea`); f?.focus({ preventScroll: true }); $(`#pf-${id}`)?.scrollIntoView({ block: 'start' }); });
+  requestAnimationFrame(() => { const f = $(id === 'story' ? '#pf-storyt' : `#pf-${id} input, #pf-${id} textarea`); f?.focus({ preventScroll: true }); $(`#pf-${id}`)?.scrollIntoView({ block: 'start' }); });
 }
 function endEdit(id, saved) {
-  P.edit = null; P.d = null; P.done = saved ? id : ''; app.render();
-  requestAnimationFrame(() => $(`#pf-${id} [data-pf-edit]`)?.focus({ preventScroll: true }));
+  P.edit = null; P.d = null; P.done = saved ? id : ''; if (!saved) P.undo = null; app.render();
+  requestAnimationFrame(() => ($(`#pf-${id} [data-pf-undo]`) || $(`#pf-${id} [data-pf-edit]`) || $(`#pf-${id} [data-pf-story]`) || $(`#pf-${id}-t`))?.focus({ preventScroll: true }));
+  if (saved) announce(P.undo?.id === id ? `${P.undo.label} Undo is next.` : 'Saved.');
 }
 async function trySave(id, b, work) {
   if (b.getAttribute('aria-busy')) return;
@@ -193,6 +240,19 @@ function wireProfile() {
   if (!hasProfile()) { wireInvite(); return; }
   document.querySelectorAll('[data-pf-edit]').forEach(b => b.onclick = () => startEdit(b.dataset.pfEdit));
   document.querySelectorAll('[data-pf-cancel]').forEach(b => b.onclick = () => { const id = P.edit; endEdit(id, false); });
+  document.querySelectorAll('[data-pf-story]').forEach(b => b.onclick = () => startEdit('story', b.dataset.pfStory));
+  // Escape closes the section being changed, unless a list of suggestions is open in it (that Escape closes the list).
+  document.querySelectorAll('.pf-form').forEach(f => f.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.target.getAttribute('aria-expanded') === 'true' || !P.edit) return;
+    e.preventDefault(); endEdit(P.edit, false); }));
+  document.querySelectorAll('[data-pf-undo]').forEach(b => b.onclick = async () => {
+    const u = P.undo; if (!u || b.getAttribute('aria-busy')) return; busy(b, 'Putting it back…');
+    try { await saveProfile(u.patch); } catch (e) { unbusy(b); toast(friendly(e), true); return; }
+    P.undo = null; P.done = u.id; app.render(); announce('Put back.');
+    requestAnimationFrame(() => $(`#pf-${u.id}-t`)?.focus({ preventScroll: true })); });
+  document.querySelectorAll('[data-pf-hs]').forEach(b => b.onclick = () => {
+    if (b.dataset.pfHs === 'no') { try { localStorage.setItem(HS_NO, '1'); } catch { /* private mode */ } P.hsHow = false; app.render(); requestAnimationFrame(() => $('#pf-h')?.focus({ preventScroll: true })); return; }
+    P.hsHow = true; logAct('home_how'); app.render(); requestAnimationFrame(() => $('.pf-steps')?.closest('section')?.querySelector('h2')?.focus?.()); });
   const about = $('#pf-about-f');
   if (about) {
     const d = P.d;
@@ -202,20 +262,35 @@ function wireProfile() {
     about.onsubmit = e => { e.preventDefault(); const b = $('#pf-about-save'), a = d.addr;
       if (a.q.trim() && !a.picked) { say('pf-about-msg', inlineErr('pf-about-err', 'Pick your address from the list, so we can find your districts. Or clear the box to keep what you have.')); return; }
       trySave('about', b, async () => {
-        await saveProfile({ name: d.name, titles: d.tp.chosen, ...(a.picked && a.sd ? { house: a.hd, senate: a.sd } : {}) });
+        // Words typed in the box but not added are kept (C-9; the review found them lost without a word).
+        const typed = pendingTitle(d.tp), titles = typed && !d.tp.chosen.includes(typed) ? [...d.tp.chosen, typed] : d.tp.chosen, was = myTitles();
+        await saveProfile({ name: d.name, titles, ...(a.picked && a.sd ? { house: a.hd, senate: a.sd } : {}) });
         if (a.picked && a.sd) rememberDistricts(a.sd, a.hd, a.q);
+        const gone = was.filter(t => !titles.includes(t));
+        P.undo = gone.length ? { id: 'about', label: `Saved. Took off ${gone.map(titleLabel).join(', ')}.`, patch: { titles: was } } : null;
       }); };
   }
   const story = $('#pf-story-f');
   if (story) {
-    $('#pf-storyt').oninput = e => { P.d.story = e.target.value; };
-    $('#pf-quote').onchange = e => { P.d.quote = e.target.checked; };
-    story.onsubmit = e => { e.preventDefault(); trySave('story', $('#pf-story-save'), () => saveProfile({ story: P.d.story, quote: P.d.quote })); };
+    const d = P.d;
+    $('#pf-storyt').oninput = e => { d.text = e.target.value; };
+    $('#pf-topic').onchange = e => { d.topic = e.target.value; const ask = storyAsk(d.topic); $('#pf-story-ask').textContent = ask; $('#pf-storyt').placeholder = ask; };
+    story.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) d.quote = r.value; });
+    const del = story.querySelector('[data-pf-storydel]'); if (del) del.onclick = () => { d.text = ''; story.requestSubmit(); };
+    story.onsubmit = e => { e.preventDefault(); trySave('story', $('#pf-story-save'), async () => {
+      const st = myStories(), was = { story: myStory(), stories: { ...st } }; let any = was.story;
+      if (d.orig !== null && d.orig !== d.topic) { if (d.orig) delete st[d.orig]; else any = ''; }   // moved to another topic
+      const text = d.text.trim();
+      if (d.topic) { if (text) st[d.topic] = text; else delete st[d.topic]; } else any = text;
+      await saveProfile({ story: any, stories: st, quote: d.quote });
+      const gone = (was.story && !any) || Object.keys(was.stories).some(k => !st[k]);
+      P.undo = gone ? { id: 'story', label: 'Story removed.', patch: was } : null;
+    }); };
   }
   const help = $('#pf-help-f');
   if (help) {
     help.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => { if (c.checked) P.d.ints.add(c.dataset.pfInt); else P.d.ints.delete(c.dataset.pfInt); });
-    help.onsubmit = e => { e.preventDefault(); trySave('help', $('#pf-help-save'), () => saveProfile({ interests: [...P.d.ints], quote: quoteOk() })); };
+    help.onsubmit = e => { e.preventDefault(); trySave('help', $('#pf-help-save'), () => saveProfile({ interests: [...P.d.ints] })); };
   }
   const email = $('#pf-email-f');
   if (email) {
@@ -229,8 +304,10 @@ function wireProfile() {
   if (out) out.onclick = async () => {
     if (out.getAttribute('aria-busy')) return; busy(out, 'Signing out…');
     try { const { error } = await S.supa.auth.signOut(); if (error) throw error; } catch (e) { unbusy(out); toast(e, true); return; }
+    // The profile leaves this device (R-156): the next person on a shared phone starts fresh. It stays in the account.
+    forgetProfileOnDevice();
     S.session = null; S.user = null; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; } app.go('#/more', { replace: true });
-    toast('You’re signed out. Your bills stay on this device.');
+    toast('You’re signed out. Your bills stay on this device, and your profile in your account.');
   };
   // Deleting the account (moved from Settings): asked on the page, never a browser pop-up; the device's copies go too.
   const ask = $('[data-mr-del="ask"]'); if (ask) ask.onclick = () => { P.del = true; app.render();
@@ -243,11 +320,10 @@ function wireProfile() {
     if (error) { unbusy(yes); say('mr-del-msg', inlineErr('mr-del-err', friendly(error))); return; }
     // The account is gone; its copies on this device go too (as Settings did), and the profile kept here with them.
     try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY, 'hiphi_ulist_follows'].forEach(k => localStorage.removeItem(k));
-      const me = JSON.parse(localStorage.getItem('hiphi_me') || 'null');
-      if (me) { ['email', 'letters', 'titles', 'story', 'quote', 'interests'].forEach(k => delete me[k]); localStorage.setItem('hiphi_me', JSON.stringify(me)); }
       const w = JSON.parse(localStorage.getItem('hiphi_wiz') || 'null'); if (w && w.issues?.length) { w.issues = []; localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } } catch { /* private mode */ }
     S.direct = new Set(); S.issueFollows = new Set(); S.catFollows = new Set(); S.skips = new Set(); recomputeWatch();
-    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); S.profile = {}; P.del = false; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
+    forgetProfileOnDevice();   // the name, titles, stories, drafts and districts kept here (R-156: the name and drafts stayed)
+    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); P.del = false; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
     try { await S.supa.auth.signOut(); } catch { /* the account is already deleted */ }
     S.session = null; S.user = null;
     app.go('#/', { replace: true });
@@ -260,7 +336,7 @@ export default {
   title: () => hasProfile() ? 'Your profile' : 'Make your profile',
   render() {
     // A fresh arrival starts with every section closed; a redraw of the same page keeps what is being typed.
-    if (!document.querySelector('#main .pf')) Object.assign(P, { edit: null, d: null, del: false, done: '', made: '' });
+    if (!document.querySelector('#main .pf')) Object.assign(P, { edit: null, d: null, del: false, done: '', made: '', undo: null, hsHow: false });
     return profileView();
   },
   wire() { wireProfile(); },

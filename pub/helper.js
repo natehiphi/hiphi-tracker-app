@@ -52,9 +52,9 @@ import { flower } from './art.js';
 import { introMark } from './speakup.js';
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myTitles, myStory, saveProfile } from './myprofile.js';   // R-147
-import { pickTwo, withTitles, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
-import { pickerHTML, wirePicker } from './titlepick.js';
+import { hasProfile, myName, myTitles, myStory, myStories, storyFor, otherStory, storyAsk, saveProfile } from './myprofile.js';   // R-147, R-156
+import { pickTwo, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
+import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -138,6 +138,11 @@ function headBlock(b, h, stance) {
 const aboutBill = b => { const is = issuesOf(b) || [];
   return { cats: [...new Set(is.map(i => i.category).filter(Boolean))], text: [nick(b), b.hiphi_summary, b.title, b.description, ...is.map(i => i.name)].filter(Boolean).join(' ') }; };
 const titlesOf = o => cleanTitles(o.tp ? o.tp.chosen : o.titles || []);
+// The topics a letter is about (R-156 B3): the bill's issue categories; an introduction has none (its story is the one for
+// any issue). topicOf: where a story saved from this letter goes.
+const catsOf = b => b ? aboutBill(b).cats : [];
+const topicOf = x => catsOf(x.b)[0] || '';
+const topicName = k => k ? (S.cats || []).find(c => c.key === k)?.name || k : '';
 // x.use: the person's own choice for this letter; [] means no titles in this letter at all.
 const twoFor = o => { const all = titlesOf(o); if (Array.isArray(o.use)) { if (!o.use.length) return []; const use = o.use.filter(t => all.includes(t)).slice(0, 2); if (use.length) return use; } return o.b ? pickTwo(all, aboutBill(o.b)) : all.slice(0, 2); };
 // Where they live, said only to their own lawmakers (Nate 10/4: most letters go to legislators who aren't theirs). In
@@ -155,7 +160,8 @@ function liveLine(h) {
 }
 function letterFor(b, h, o) {
   const { name, why, closing = '', stance = hiphiStance(b) } = o;
-  const n = spaced(b.bill_number), ours = sameAsHiphi(b, stance), live = liveLine(h);
+  // What goes out is theirs to choose (R-156 B2): noLive leaves out where they live, noWhy their reason.
+  const n = spaced(b.bill_number), ours = sameAsHiphi(b, stance), live = o.noLive ? '' : liveLine(h);
   return [
     headBlock(b, h, stance),
     greeting(h),
@@ -163,12 +169,12 @@ function letterFor(b, h, o) {
     // The points they picked, as the box on "Get to know the bill" has them (R-141), then their own reason. The
     // committee already has the bill's text, so the letter does not repeat what it does (Nate 9/28).
     ownPoints(o),
-    sentence(why),
+    o.noWhy && !own2For(b, stance) ? '' : sentence(why),
     [ours ? sentence(b.hiphi_action) : '', askLine(b, n, stance)].filter(Boolean).join(' '),
     [closingOf(closing), String(name).trim()].filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n');
 }
-const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), ownPoints(x), (x.closing || '').trim(), x.stance || '', twoFor(x)]);
+const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), ownPoints(x), (x.closing || '').trim(), x.stance || '', twoFor(x), !!x.noLive, !!x.noWhy]);
 
 // ---------------- the emails (R-079, R-080) ----------------
 // Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
@@ -244,12 +250,12 @@ export function introFacts() {
   return { issues: followedIssues().map(i => i.name), support, oppose, following: following.slice(0, 5), moreFollowing: Math.max(0, following.length - 5) };
 }
 function mailLetter(x) {
-  const { b, to } = x, name = String(x.name).trim(), why = sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
+  const { b, to } = x, name = String(x.name).trim(), why = x.noWhy && !(b && own2For(b, x.stance || hiphiStance(b))) ? '' : sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
   const dear = `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`, where = districtWords(to), two = twoFor(x);
   // Their own lawmakers hear where they live (R-147): always in 'legislators' and 'intro', and in an email to a chair who
   // happens to be their own senator or representative; anyone else does not.
   const d = myDistricts(), isMine = l => !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
-  const ownTo = to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
+  const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
   if (x.mode === 'intro') {
     const f = introFacts(), off = sessionInfo().phase !== 'in', line = (label, bs) => bs.length ? `${label}: ${bs.map(billWords).join('; ')}.` : '';
     return [dear,
@@ -366,10 +372,13 @@ function openMail(o = {}) {
   // o.chair: the one chair whose Email was pressed (a joint hearing has two; the button used to write to both, R-120).
   const to = (mode === 'email' ? chairsTo(code).filter(t => !o.chair || t.code === o.chair) : (o.legs || []).map(legById).filter(Boolean).map(l => legTo(l, o.roles?.[l.id]))).filter(t => t.email || t.url);
   if ((mode !== 'intro' && !b) || (o.hearing && !h) || !to.length) { toast('We couldn’t open the email helper. Try again in a moment.', { err: true }); return; }
-  const me = loadMe(), x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '',
-    why: (b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : '') || myStory(), points: o.points || [], pointsText: o.pointsText ?? pointsLine(o.points || []),
+  // Their saved story for this bill's topic (else the one for any issue) starts the "why"; a story about another topic
+  // is offered, never filled in (R-156 B3).
+  const me = loadMe(), mineWhy = (b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : ''), saved = mineWhy ? null : storyFor(catsOf(mode === 'intro' ? null : b));
+  const x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '',
+    why: mineWhy || saved?.text || '', points: o.points || [], pointsText: o.pointsText ?? pointsLine(o.points || []),
     tp: { chosen: myTitles(), q: '', more: false, student: false, active: -1 }, use: null, saveStory: false,
-    whyStory: !(b && me.whyBill === b.id && me.why) && !(mode === 'intro' && me.introWhy) && !!myStory(),
+    whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
     letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
   const d = (me.mail || {})[mailKey(x)];
@@ -383,10 +392,11 @@ function openMail(o = {}) {
   if (d && d.points && !o.points) { x.points = d.points; x.pointsText = d.pointsText ?? pointsLine(d.points); }
   if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
     // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
-    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter);
+    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter); x.noLive = !!d.noLive; x.noWhy = !!d.noWhy;
     x.letter = x.edited ? d.letter : letterOf(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
+  x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
   S.helper = x;
   openMark.set({ mode, b: b?.id || '', h: h?.id || '', o: { ...o, points: undefined, pointsText: undefined } });
   if (x.remind && x.screen === 2 && !x.resumed) x.letter = letterOf(x);
@@ -402,12 +412,14 @@ function open(billId, hearingId) {
   if (S.helper) return;
   const h = anyHearing(hearingId), b = h && anyBill(billId || h.bill_id);
   if (!b || !h) { toast('We couldn’t open the letter helper. Try again in a moment.', { err: true }); return; }
-  const me = loadMe(), d = (me.drafts || {})[h.id];
-  const x = { mode: 'testimony', b, h, screen: 1, name: me.name || '', email: me.email || '', closing: me.closing || '', points: d?.points || [],
+  const me = loadMe(), d = (me.drafts || {})[h.id], fresh = !d && me.whyBill !== b.id, saved = fresh ? storyFor(catsOf(b)) : null;
+  const x = { mode: 'testimony', b, h, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '', points: d?.points || [],
     pointsText: d?.pointsText ?? pointsLine(d?.points || []),   // drafts saved before R-141 have only the list
-    // A reason written for another bill would be out of place, so "why" comes back only for this bill.
-    why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : myStory(),   // their saved story (R-147) starts a new letter's "why"
-    whyStory: !d && me.whyBill !== b.id && !!myStory(),
+    // A reason written for another bill would be out of place, so "why" comes back only for this bill. Their saved story
+    // for this bill's topic (else the one for any issue) starts a new letter's "why" (R-147, R-156 B3); a story about
+    // another topic is offered, never filled in.
+    why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
+    whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy,
     tp: { chosen: myTitles(), q: '', more: false, student: false, active: -1 }, use: d?.use || null, saveStory: false,
     letter: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
@@ -432,6 +444,7 @@ function open(billId, hearingId) {
     x.letter = x.edited ? d.letter : letterFor(b, h, x); x.basis = x.edited ? d.basis || '' : basisOf(x);
     x.back = x.screen === 3 && !!(d.away || d.back);
   }
+  x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
   S.helper = x;
   openMark.set({ mode: 'testimony', b: b.id, h: h.id });
   // One history entry for the whole helper, so the phone's Back closes it. The entry under it keeps the scroll spot.
@@ -592,7 +605,7 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, at: new Date().toISOString() };
+      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
     else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
     saveMe({ mail });
     return;
@@ -603,7 +616,7 @@ function saveDraft() {
   // Back on the bill step with a letter already saved: the points they changed go with it.
   else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, use: x.use || null, at: new Date().toISOString() };
   else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, at: new Date().toISOString() };
+    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
@@ -841,11 +854,14 @@ function knowScreen() {
 // The step's titles (review 10/4): someone who has titles sees them as this letter's choice, the two in use ticked and
 // any other one a tap away (a tap never changes the profile); "Add a title" opens the picker, the one way that adds to
 // their profile. Someone with none gets the picker straight away.
+// R-156 (the review): someone with no titles gets one "Add a title" button, not the whole picker in the middle of a letter
+// (C-5, B-12); "Add a title" opens the picker in its add-only form, so a tap there only ever adds to the profile and a
+// tap on the chips above only ever changes this letter (one meaning each). "Done adding" goes back to the chips.
 function titlesStep(x) {
   const all = titlesOf(x), word = isMail(x) ? 'email' : 'letter';
-  if (!all.length || x.tp.adding) return pickerHTML('hp', x.tp, { hint: `Pick any, or none. Your ${word} starts with the two that fit this bill best.` });
+  if (x.tp.adding) return pickerHTML('hp', x.tp, { hint: `Tap to add to your profile. Your ${word} uses the one or two that fit this bill.`, addOnly: true });
   const two = twoFor(x);
-  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${all.length > 2 ? `Your ${word} uses two. We picked the two that fit this bill; tap to change.` : `Tap to leave one out of this ${word}.`}</span></legend>
+  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${!all.length ? `Optional. Your ${word} can start with who you are, like “As a parent…”.` : all.length > 2 ? `Your ${word} uses the one or two that fit this bill; tap to change.` : `Tap to leave one out of this ${word}.`}</span></legend>
     <div class="chips tp-chips">${all.map(t => `<button type="button" class="chip tp-c" data-hp="use" data-v="${esc(t)}" aria-pressed="${two.includes(t)}">${two.includes(t) ? icon('check') : ''}<span>${esc(titleLabel(t))}</span></button>`).join('')}
       <button type="button" class="chip tp-c tp-add" data-hp="addtitle">${icon('plus')}<span>Add a title</span></button></div></fieldset>`;
 }
@@ -864,7 +880,8 @@ function paintTitles({ step = false } = {}) {
 }
 function wireTitles() {
   const x = S.helper, host = dlg?.querySelector('#hp-tp-host'); if (!x || !host || !x.tp || !host.querySelector('[data-tp], [data-tp-add], #hp-tq')) return;
-  wirePicker(host, 'hp', x.tp, chosen => { x.use = (x.use || []).filter(t => chosen.includes(t)); if (!x.use.length) x.use = null; saveDraft(); paintTitles(); });
+  wirePicker(host, 'hp', x.tp, (chosen, o) => { x.use = (x.use || []).filter(t => chosen.includes(t)); if (!x.use.length) x.use = null; saveDraft();
+    if (o?.done) { x.tp.adding = false; x.tp.q = ''; paintTitles({ step: true }); host.querySelector('[data-hp="addtitle"]')?.focus({ preventScroll: true }); } else paintTitles(); });
 }
 
 // Screen 1: who you are. Errors show only after someone leaves a field or chooses See my letter (Guide B).
@@ -895,14 +912,22 @@ function aboutScreen() {
       <div id="hp-tp-after">${titlesAfter(x)}</div>
       ${email}
       <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `${x.mode === 'intro' ? 'Why these issues matter to you' : 'Why it matters to you'} <span class="hp-opt">(optional)</span>`}</label>
-        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : 'As a parent of two teenagers…'}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
-        <span class="help" id="hp-why-help">${x.whyStory && x.why.trim() === myStory() ? `${icon('user')} Your story, from your profile. Change it to fit this bill.` : own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.'}</span>
-        ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile as my story, ready for my next letter</span></label>` : ''}</div>
+        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : esc(storyAsk(topicOf(x)))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
+        <span class="help" id="hp-why-help">${whyHelp(x)}</span>
+        ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about ${topicName(x.offer.topic)}`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
+        ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile as my story${topicOf(x) ? ` about ${esc(topicName(topicOf(x)))}` : ''}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
+          <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''}</span>` : ''}</div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
+}
+// Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
+function whyHelp(x) {
+  const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
+  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic ? ` about ${esc(topicName(saved.topic))}` : ''}, from your profile. Change it to fit this bill.`;
+  return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.';
 }
 // Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it. Short and plain, the
 // same for testimony and emails (Nate 10/5, R-157: "much simpler. mahalo, thank you, sincerely, etc.").
@@ -910,6 +935,7 @@ const CLOSINGS = ['Mahalo', 'Thank you', 'Sincerely', 'Respectfully', 'Aloha'];
 const ERR = { name: 'Enter your name', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
 const own2 = () => { const x = S.helper; return !!x && !!x.b && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
+const own2For = (b, stance) => !sameAsHiphi(b, stance);
 const HELP = { email: 'hp-email-help' };   // fields whose help text stays described while an error shows
 const errHTML = f => `<span class="err" id="hp-${f}-err">${icon('triangle-alert')}${ERR[f]}</span>`;
 function lateBanner(h, { email = true } = {}) {
@@ -928,6 +954,7 @@ function letterScreen() {
     ${welcomeBack()}
     ${again}
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this letter.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
+    ${saysBox(x)}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="14">${esc(x.letter)}</textarea>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${btn('Copy', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
@@ -935,6 +962,23 @@ function letterScreen() {
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
       ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>
     ${forgetLink(x)}`;
+}
+// What the letter says about the person (R-156 B2), above the words: their titles, where they live, their story, each a
+// tap to leave out. Testimony is posted publicly in Hawaiʻi, so they decide what goes; and a nudge to make the first line
+// their own, since the same first line in many letters reads as form mail (CMF).
+const isMineLeg = l => { const d = myDistricts(); return !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house)); };
+function saysBox(x) {
+  if (x.remind) return '';
+  const word = isMail(x) ? 'email' : 'letter', all = titlesOf(x), parts = [];
+  const usual = x.b ? pickTwo(all, aboutBill(x.b)) : all.slice(0, 2), two = twoFor(x);
+  if (all.length) parts.push(['titles', asWords(two.length ? two : usual), two.length > 0]);
+  if (isMail(x) ? x.mode === 'email' && x.to.some(t => isMineLeg(t.leg)) : !!liveLine(x.h)) parts.push(['live', isMail(x) ? 'You live in their district' : liveLine(x.h).replace(/\.$/, ''), !x.noLive]);
+  const saved = [myStory(), ...Object.values(myStories())].includes(x.why.trim());
+  if (x.why.trim() && !own2()) parts.push(['why', saved ? 'Your story' : 'Your reason', !x.noWhy]);
+  if (!parts.length) return '';
+  return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">Your ${word} says</p>
+    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(l)}</span></button>`).join('')}</div>
+    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}Tap one to leave it out. Lawmakers notice ${word}s in people’s own words, so make the first line yours.</p></div>`;
 }
 // Delete the kept letter or email this one started from (B-5: with Undo), under the words.
 const forgetLink = x => x.again ? `<div class="hp-forget">${btn(`Delete this saved ${savedWord(x.again)}`, { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : '';
@@ -965,6 +1009,7 @@ function mailLetterScreen() {
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this email.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <div class="hp-to"><p class="hp-knh" id="hp-toh">To</p><ul class="hp-tol" role="list" aria-labelledby="hp-toh">${toList(x)}</ul></div>
     <div class="field"><label for="hp-subject">Subject</label><input id="hp-subject" name="subject" type="text" autocomplete="off" autocapitalize="sentences" value="${esc(x.subject)}"></div>
+    ${saysBox(x)}
     <div class="field hp-msgf"><label for="hp-letter">Message</label>
       <textarea id="hp-letter" class="hp-letter hp-mailbody" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="12">${esc(x.letter)}</textarea></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your message is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
@@ -1087,7 +1132,38 @@ function doneScreen() {
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
+    ${storyCard(x)}${profileLine(x)}
     ${ask}`;
+}
+// After a letter is sent (R-156 B3): someone with a profile and no story for this topic is asked for one sentence, with
+// the topic's guiding question and their letter's reason ready in the box. Once per topic ("No thanks" is kept).
+function storyCard(x) {
+  const t = topicOf(x);
+  if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about ${esc(topicName(t))}` : ''}.</span></p>`;
+  if (!x.askStory) return '';
+  return `<section class="card hp-storyask" aria-labelledby="hp-sa-t"><h3 id="hp-sa-t">Save a sentence on why this matters to you?</h3>
+    <div class="field"><label for="hp-sa">${esc(storyAsk(t))}</label>
+      <textarea id="hp-sa" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="hp-sa-h">${esc(x.storyDraft || '')}</textarea>
+      <span class="help" id="hp-sa-h">Your next ${isMail(x) ? 'email' : 'letter'}${t ? ` on ${esc(topicName(t))}` : ''} starts with it, and you can change it each time. HIPHI staff can see it.</span></div>
+    <div id="hp-sa-msg"></div>
+    <div class="btnrow">${btn('Save to my profile', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'storysave' } })}${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hp': 'storyno' } })}</div></section>`;
+}
+// The profile, named once after a letter (R-156 C2): what was kept and where it is. Decided at the send (x.tellProfile).
+function profileLine(x) {
+  if (!x.tellProfile) return '';
+  const bits = [x.name.trim() ? 'name' : '', titlesOf(x).length ? 'titles' : '', x.storySaved || x.askStory === 'saved' ? 'story' : ''].filter(Boolean);
+  if (!bits.length) return '';
+  return `<p class="hp-profline">${icon('user')}<span>Your ${andList(bits)} ${bits.length > 1 ? 'are' : 'is'} saved in your profile, ready for next time.</span>${btn('See your profile', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'toprofile' } })}</p>`;
+}
+// Decided once, when the letter is sent: the story ask and the profile line, and the kind-only counts (E1).
+function afterSend(x) {
+  const t = topicOf(x), me = loadMe();
+  x.askStory = hasProfile() && !x.remind && !x.storySaved && !storyFor(catsOf(x.mode === 'intro' ? null : x.b)) && !(me.storyNo || []).includes(t || 'any') ? 'ask' : null;
+  x.storyDraft = x.noWhy || own2() ? '' : x.why.trim().slice(0, 600);
+  x.tellProfile = hasProfile() && !me.toldProfile; if (x.tellProfile) saveMe({ toldProfile: true });
+  const two = twoFor(x), L = x.letter || '';
+  if (two.length && L.includes(aWords(two))) app.onAct?.('letter_titled');
+  if ([myStory(), ...Object.values(myStories())].filter(Boolean).some(st => L.includes(st))) app.onAct?.('letter_story');
 }
 const followWords = (x, n) => x.followedIssue ? `We now follow ${esc(x.followedIssue.name)} for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
 // Someone who gave their email on the About you step has been asked already: they see where to finish, never a second
@@ -1131,6 +1207,7 @@ function mailDoneScreen() {
       <p>${next}</p>
       ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
+    ${storyCard(x)}${profileLine(x)}
     ${emailAsk(x)}`;
 }
 
@@ -1213,12 +1290,16 @@ function toLetter() {
   const bad = [...(!x.name.trim() ? ['name'] : []), ...(hasEmail && email && !validEmail(email) ? ['email'] : []), ...(own2() && !x.why.trim() ? ['why'] : [])];
   ['name', ...(hasEmail ? ['email'] : []), 'why'].forEach(f => setErr(f, bad.includes(f)));
   if (bad.length) { dlg.querySelector('#hp-' + bad[0])?.focus(); return; }
-  saveMe({ name: x.name.trim(), closing: x.closing.trim(), ...(x.b ? { why: x.why, whyBill: x.b.id } : { introWhy: x.why }), ...(hasEmail ? { email } : {}) });
-  // The titles picked here are the person's (R-147): on this device, and on the account when signed in; the story only
-  // when they ticked "Save this to my profile". A failed account save never stops the letter.
-  { const titles = cleanTitles(x.tp?.chosen), patch = {};
+  saveMe({ closing: x.closing.trim(), ...(x.b ? { why: x.why, whyBill: x.b.id } : { introWhy: x.why }), ...(hasEmail ? { email } : {}) });
+  // The name, the titles picked here and the story are the person's (R-147): on this device, and on the account when
+  // signed in; the story only when they ticked "Save this to my profile", under this bill's topic (R-156 B3). Words typed
+  // in the title box but not added are kept (R-156). A failed account save never stops the letter.
+  { const typed = pendingTitle(x.tp); if (typed && !x.tp.chosen.includes(typed) && x.tp.chosen.length < 10) x.tp.chosen = [...x.tp.chosen, typed];
+    x.tp.q = ''; x.tp.adding = false;
+    const titles = cleanTitles(x.tp?.chosen), patch = {}, t = topicOf(x), why = x.why.trim().slice(0, 600), st = myStories();
+    if (x.name.trim() && (x.name.trim() !== x.name0 || x.name.trim() !== myName())) patch.name = x.name.trim();
     if (JSON.stringify(titles) !== JSON.stringify(myTitles())) patch.titles = titles;
-    if (x.saveStory && x.why.trim() && x.why.trim() !== myStory()) patch.story = x.why.trim();
+    if (x.saveStory && why && why !== (t ? st[t] : myStory())) { if (t) patch.stories = { ...st, [t]: why }; else patch.story = why; x.storySaved = true; }
     if (Object.keys(patch).length) saveProfile(patch).catch(e => console.warn('profile:', e?.message || e)); }
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
   goTo(2);
@@ -1289,6 +1370,7 @@ async function confirmSent() {
     else if (!iss && !S.watch.has(x.b.id)) { await toggleWatch(x.b.id); x.followedNow = S.watch.has(x.b.id); }
   } catch { /* following is a bonus */ }
   if (S.helper !== x) return;
+  afterSend(x);
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });
   x.askShown = !!S.nudge;
@@ -1359,6 +1441,7 @@ async function confirmMail() {
     } catch { /* following is a bonus */ }
   }
   if (S.helper !== x) return;
+  afterSend(x);
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });
   x.askShown = !!S.nudge;
@@ -1387,7 +1470,35 @@ function onClick(e) {
   if (a === 'done') { const b = S.helper.b; afterClose = () => { app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'copy') copyLetter();
-  else if (a === 'addtitle') { S.helper.tp.adding = true; paintTitles({ step: true }); dlg.querySelector('#hp-tp .tp-chips [data-tp]:not([aria-pressed="true"]), #hp-tq')?.focus({ preventScroll: true }); }
+  else if (a === 'addtitle') { S.helper.tp.adding = true; paintTitles({ step: true }); dlg.querySelector('#hp-tp .tp-chips [data-tp], #hp-tq')?.focus({ preventScroll: true }); }
+  else if (a === 'says') {
+    // A part of the letter left out, or put back (R-156 B2). An edited letter keeps its words and offers the new details.
+    const x = S.helper, v = t.dataset.v, was = t.getAttribute('aria-pressed') === 'true';
+    if (v === 'titles') x.use = was ? [] : null;
+    else if (v === 'live') x.noLive = was;
+    else if (v === 'why') x.noWhy = was;
+    const basis = basisOf(x);
+    if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; } else x.stale = basis !== x.basis;
+    x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-says-' + v });
+    announce(was ? 'Left out.' : 'Put back in.');
+  }
+  else if (a === 'usestory') {
+    const x = S.helper; if (!x.offer) return;
+    x.why = x.offer.text; x.whyStory = false; x.offer = null; saveDraft(); paint({ focus: 'hp-why' }); announce('Your story is in. Change it to fit this bill.');
+  }
+  else if (a === 'storysave') {
+    const x = S.helper, box = dlg.querySelector('#hp-sa'), v = (box?.value || '').trim(); x.storyDraft = box?.value || '';
+    if (!v) { dlg.querySelector('#hp-sa-msg').innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>Write a sentence, or choose No thanks.</span></p>`; box?.focus(); return; }
+    const tp = topicOf(x);
+    saveProfile(tp ? { stories: { ...myStories(), [tp]: v } } : { story: v }).then(() => {
+      if (S.helper !== x) return; x.askStory = 'saved'; paint({ focus: 'hp-done-t' }); announce('Saved in your profile.');
+    }, e => { const m = dlg?.querySelector('#hp-sa-msg'); if (m) m.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(friendly(e))}</span></p>`; });
+  }
+  else if (a === 'storyno') {
+    const x = S.helper, k = topicOf(x) || 'any'; saveMe({ storyNo: [...new Set([...(loadMe().storyNo || []), k])] });
+    x.askStory = null; paint({ focus: 'hp-done-t' });
+  }
+  else if (a === 'toprofile') { afterClose = () => app.go('#/profile'); requestClose(); }
   else if (a === 'use') {
     // This letter's two titles (R-147): a tap never changes the profile; a third replaces the first of the two, and
     // untapping both writes the letter without titles.
@@ -1473,6 +1584,9 @@ function onInput(e) {
     saveMe(f === 'why' ? (x.b ? { why: t.value, whyBill: x.b.id } : { introWhy: t.value }) : { [f]: t.value.trim() });
     if (f === 'closing') dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === t.value.trim())));
     if (x.errs[f] && t.value.trim()) setErr(f, false);
+    if (f === 'why') { const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''; }
+  } else if (t.id === 'hp-sa') {
+    x.storyDraft = t.value;
   } else if (t.id === 'hp-savestory') {
     x.saveStory = t.checked;
   } else if (t.id === 'hp-email') {

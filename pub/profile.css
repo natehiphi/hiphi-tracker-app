@@ -92,3 +92,36 @@
 .mr-me-in { margin-top: var(--s8); color: var(--n500); }
 .mr .mr-me + .mr-me-in { margin-top: var(--s8); }
 .pf .pf-made { margin: 0; }
+
+/* R-156 (the review, 10/5): stories by topic, what each "How you'll help" answer does, the iPhone Home Screen note, and
+   the picker's add-only form with its Done button. */
+.pf-storyrow { display: flex; flex-direction: column; gap: var(--s4); align-items: flex-start; }
+.pf-storyrow + .pf-storyrow { padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pf-storyrow .pf-story { align-self: stretch; }
+.pf .pf-does .ic { margin-top: 3px; flex: none; }
+.pf-hs { display: flex; flex-direction: column; gap: var(--s8); background: var(--p50); border-color: var(--p100); }
+.pf-hs h2 { display: flex; gap: var(--s8); align-items: center; font-size: var(--t18); margin: 0; }
+.pf-hs h2 .ic { width: 22px; height: 22px; color: var(--p700); flex: none; }
+.pf-hs p { margin: 0; }
+.pf-hs .btnrow { margin: 0; }
+.pf-steps { margin: 0; padding-left: 1.4em; display: grid; gap: var(--s8); }
+.pf-steps .ic { width: 18px; height: 18px; vertical-align: -3px; margin: 0 2px; color: var(--p700); }
+.pf .pf-ok .btn { margin-left: var(--s8); }
+.tp-addonly .tp-done { margin-top: var(--s12); }
+
+/* The letter (pub/helper.js): what it says about the person, each part a tap to leave out (B2); a story about another
+   topic offered (B3); the ask for a story after sending, and the profile named once (C2). */
+.hp-dlg .hp-says { margin: 0 0 var(--s12); padding: var(--s12); border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n50); }
+.hp-dlg .hp-says-t { margin: 0 0 var(--s8); font-weight: 700; font-size: var(--t14); color: var(--n700); }
+.hp-dlg .hp-says .chips { margin: 0 0 var(--s8); }
+.hp-dlg .hp-says .chip { white-space: normal; text-align: left; }
+.hp-dlg .hp-says p.small { margin: 0; }
+.hp-dlg .hp-offer { margin: var(--s4) 0 0; }
+.hp-dlg .hp-savelen:empty { display: none; }
+.hp-dlg .hp-storyask { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s12); }
+.hp-dlg .hp-storyask h3 { margin: 0; font-size: var(--t18); }
+.hp-dlg .hp-storyask .btnrow { margin: 0; }
+.hp-dlg .hp-saved { margin-top: var(--s16); }
+.hp-dlg .hp-profline { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s8); align-items: center; margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n700); }
+.hp-dlg .hp-profline > .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
+.hp-dlg .hp-profline > span { flex: 1 1 14em; }

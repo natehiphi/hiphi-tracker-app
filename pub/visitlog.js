@@ -174,8 +174,11 @@ export function logAct(kind) {
     // 'calendar' (114) were filtered out here and refused by the table until migration 124, so neither was ever counted.
     // The five 'again_' kinds (R-148, 124): a saved letter offered again, sent again, the warning shown, updated, replaced.
     // R-153 (126): a saved email offered again and sent again, and the reminder to the same chair sent.
+    // R-156 (130): titles or a story saved, a letter sent with titles or with the saved story, the ask "How you'll help"
+    // chose shown and taken, and "Add to Home Screen" steps opened from the profile.
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment', 'restore', 'calendar',
-      'again_open', 'again_sent', 'again_warned', 'again_fixed', 'again_new', 'mail_again_open', 'mail_again_sent', 'mail_reminder_sent'].includes(kind)) return Promise.resolve(false);
+      'again_open', 'again_sent', 'again_warned', 'again_fixed', 'again_new', 'mail_again_open', 'mail_again_sent', 'mail_reminder_sent',
+      'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how'].includes(kind)) return Promise.resolve(false);
     if (['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
     return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
   } catch { return Promise.resolve(false); }

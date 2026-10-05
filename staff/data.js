@@ -111,6 +111,15 @@ export async function allRows(make) {
     (_, i) => make().range(PAGE * (i + 1), PAGE * (i + 2) - 1)));
   return rest.find(r => r.error) || { ...first, data: first.data.concat(...rest.map(r => r.data)) };
 }
+// The roll-up as profile_rollup (backend 130) returns it, from rows of people_overview (the sandbox).
+function rollupOf(people) {
+  const hasStory = p => !!p.story || Object.keys(p.stories || {}).length > 0, count = new Map(), own = new Map();
+  for (const p of people) for (const t of p.titles || []) { if (/^own:/.test(t)) { const w = t.slice(4).toLowerCase(); own.set(w, (own.get(w) || 0) + 1); } else count.set(t, (count.get(t) || 0) + 1); }
+  const top = m => [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return { accounts: people.filter(p => p.user_id || p.has_account).length, with_titles: people.filter(p => (p.titles || []).length).length,
+    with_story: people.filter(hasStory).length, quote: people.filter(p => hasStory(p) && (p.interests || []).includes('quote')).length,
+    list: top(count).map(([k, n]) => ({ k, n })), own: top(own).slice(0, 50).map(([t, n]) => ({ t, n })) };
+}
 export const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
@@ -963,6 +972,12 @@ export const DB = {
     if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;
     try { const { data, error } = await allRows(o => S.supa.from('people_overview').select('*', o).order('last_active', { ascending: false, nullsFirst: false }).order('id')); if (error) throw error; S.people = data || []; S.peopleLoaded = true; }
     finally { S.peopleLoading = false; }
+  },
+  // How supporters describe themselves (R-156 E1, E2; backend 130 profile_rollup): counts and title words only, never a
+  // story's text. The sandbox counts its own copy of the people.
+  async profileRollup() {
+    if (DEMO) return rollupOf(S.people || []);
+    const { data, error } = await S.supa.rpc('profile_rollup'); if (error) throw error; return data || {};
   },
   async ensurePerson(id) { if (personById(id)) return personById(id); if (DEMO) return null; return this.refreshPerson(id); },
   async bulkTag(ids, tag, add) { if (DEMO) { for (const id of ids) { const p = personById(id); p.tags = add ? [...new Set([...p.tags, tag])] : p.tags.filter(t => t !== tag); } return ids.length; } const { data, error } = await S.supa.rpc('people_bulk_tag', { p_ids: ids, p_tag: tag, p_add: add }); if (error) throw error; for (const id of ids) { const p = personById(id); if (p) p.tags = add ? [...new Set([...p.tags, tag])] : p.tags.filter(t => t !== tag); } return data; },

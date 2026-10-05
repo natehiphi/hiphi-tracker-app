@@ -4,69 +4,91 @@
 // (pub/profile.js). The list and its words are pub/titles.js; styles are pub/profile.css (.tp).
 // st (the caller's, kept across redraws): { chosen: [keys], q: '', more: false, student: false, active: -1 }.
 // Every change redraws only the picker (#<pfx>-tp) so the page keeps its scroll, and calls onChange(chosen).
+// R-156 (the review, 10/5): Enter picks the list title that was typed ("teacher" is "teacher (kumu)", not their own
+// words); focus stays on a chip, and each change is said aloud; `addOnly` (the letter step's "Add a title") shows only
+// titles to add, so a tap there never takes a title off the profile; `pendingTitle(st)` lets a host keep words typed but
+// not added when the person saves.
 import { esc, icon } from './core.js';
-import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, isOwn, TITLES_MAX, OWN_MAX } from './titles.js';
+import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, isOwn, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
 
 const chip = (k, on, label = titleLabel(k)) => `<button type="button" class="chip tp-c" data-tp="${esc(k)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(label)}</span></button>`;
 const hasStudent = st => st.chosen.some(k => k === 'student-hs' || k === 'student-college');
 
 // The suggestions under the box: titles whose words start with what was typed, then "Add ... as your own".
 function optsOf(st) {
-  const q = st.q || '', hits = q.trim() ? findTitles(q, st.chosen) : [], own = tidyOwn(q);
-  const ownNew = own && !hits.some(t => t.label.toLowerCase() === own.toLowerCase()) && !st.chosen.some(k => titleLabel(k).toLowerCase() === own.toLowerCase());
+  const q = st.q || '', hits = q.trim() ? findTitles(q, st.chosen) : [], own = tidyOwn(q), same = listKeyFor(own);
+  const ownNew = own && !same && !st.chosen.some(k => titleLabel(k).toLowerCase() === own.toLowerCase());
   return [...hits.map(t => ({ k: t.k, label: t.label })), ...(ownNew ? [{ k: 'own', label: own }] : [])];
 }
+// The listbox is always in the page (empty and hidden when there is nothing to suggest), so the box's aria-controls
+// always names something real.
 function listHTML(pfx, st) {
-  const os = st.q && st.q.trim() ? optsOf(st) : []; if (!os.length) return '';
-  return `<div class="tp-list" id="${pfx}-tpl" role="listbox" aria-label="Titles">${os.map((o, i) => `<button type="button" class="tp-o${o.k === 'own' ? ' tp-own' : ''}" role="option" id="${pfx}-tpo${i}" data-tpo="${esc(o.k)}" aria-selected="${st.active === i}" tabindex="-1">${icon(o.k === 'own' ? 'plus' : 'user')}<span>${o.k === 'own' ? `Add “${esc(o.label)}” as your own` : esc(o.label)}</span></button>`).join('')}</div>`;
+  const os = st.q && st.q.trim() ? optsOf(st) : [];
+  return `<div class="tp-list" id="${pfx}-tpl" role="listbox" aria-label="Titles"${os.length ? '' : ' hidden'}>${os.map((o, i) => `<button type="button" class="tp-o${o.k === 'own' ? ' tp-own' : ''}" role="option" id="${pfx}-tpo${i}" data-tpo="${esc(o.k)}" aria-selected="${st.active === i}" tabindex="-1">${icon(o.k === 'own' ? 'plus' : 'user')}<span>${o.k === 'own' ? `Add “${esc(o.label)}” as your own` : esc(o.label)}</span></button>`).join('')}</div>`;
+}
+// What Enter (or a host's Save) takes from the box: the list title the words name, else the first suggestion the words
+// start, else their own words. '' when the box is empty.
+export function pendingTitle(st) {
+  const q = tidyOwn(st.q); if (!q) return '';
+  const same = listKeyFor(q); if (same) return same;
+  const hits = findTitles(q, st.chosen), lo = q.toLowerCase();
+  const pre = hits.find(t => t.label.toLowerCase().startsWith(lo) || t.say.toLowerCase().startsWith(lo));
+  return pre ? pre.k : ownKey(q);
 }
 
-// o: { legend, hint, compact }. compact (the walkthrough): someone who already has titles sees only theirs and "Add a
-// title", which opens the rest; a long list of other titles in the middle of writing a letter is noise (A-2).
+// o: { legend, hint, addOnly }.
 export function pickerHTML(pfx, st, o) {
-  const { legend = 'I’m a…', hint = 'Pick any, or none.', compact = false } = st.opts = o || st.opts || {};
+  const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false } = st.opts = o || st.opts || {};
   const full = st.chosen.length >= TITLES_MAX, q = st.q || '';
-  if (compact && st.chosen.length && !st.adding) return `<fieldset class="tp" id="${pfx}-tp"><legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>
-    <div class="chips tp-chips">${st.chosen.map(k => chip(k, true)).join('')}${full ? '' : `<button type="button" class="chip tp-c tp-add" data-tp-add aria-expanded="false">${icon('plus')}<span>Add a title</span></button>`}</div></fieldset>`;
-  // Their own titles first, in their order (pressed), then the eight not picked yet.
+  // Their own titles first, in their order (pressed), then the eight not picked yet. Adding only: just the ones to add.
+  const mine = addOnly ? '' : st.chosen.map(k => chip(k, true)).join('');
   const firsts = FIRST.filter(t => !st.chosen.includes(t.k) && !(t.pick && hasStudent(st)))
     .map(t => t.pick ? `<button type="button" class="chip tp-c" data-tp-student aria-expanded="${!!st.student}" aria-controls="${pfx}-tps"><span>${esc(t.label)}</span>${icon(st.student ? 'chevron-up' : 'chevron-down')}</button>` : chip(t.k, false)).join('');
   const student = st.student && !hasStudent(st) ? `<div class="chips tp-sub" id="${pfx}-tps" role="group" aria-label="Which kind of student">${['student-hs', 'student-college'].map(k => chip(k, false)).join('')}</div>` : '';
   const more = st.more ? `<div class="tp-more" id="${pfx}-tpm">${GROUPS.map(([g, name]) => { const ts = inGroup(g).filter(t => !st.chosen.includes(t.k)); return ts.length ? `<div class="tp-g"><p class="tp-gh">${esc(name)}</p><div class="chips">${ts.map(t => chip(t.k, false)).join('')}</div></div>` : ''; }).join('')}</div>` : '';
-  return `<fieldset class="tp" id="${pfx}-tp"><legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>
-    <div class="chips tp-chips">${st.chosen.map(k => chip(k, true)).join('')}${full ? '' : firsts}</div>${full ? '' : student}
-    ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}. Tap one to take it off.</p>` : `
+  return `<fieldset class="tp${addOnly ? ' tp-addonly' : ''}" id="${pfx}-tp"><legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>
+    <div class="chips tp-chips">${mine}${full ? '' : firsts}</div>${full ? '' : student}
+    ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}.${addOnly ? '' : ' Tap one to take it off.'}</p>` : `
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}
     <div class="field tp-type"><label for="${pfx}-tq">Or type one, in your own words</label>
       <input id="${pfx}-tq" type="text" value="${esc(q)}" maxlength="${OWN_MAX}" autocomplete="off" autocapitalize="none" spellcheck="true" placeholder="like youth soccer coach"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${pfx}-tpl">
       <div class="tp-box" id="${pfx}-tpb">${listHTML(pfx, st)}</div></div>`}
+    ${addOnly ? `<div class="btnrow tp-done"><button type="button" class="btn secondary sm" data-tp-done>${icon('check')}<span>Done adding</span></button></div>` : ''}
   </fieldset>`;
 }
 
-// root: an element that contains the picker (its children are replaced on each change).
+// root: an element that contains the picker (its children are replaced on each change). onChange(chosen, { done }).
 export function wirePicker(root, pfx, st, onChange = () => {}) {
   const host = () => root.querySelector(`#${pfx}-tp`);
-  const redraw = focusSel => {
+  // One live region beside the picker, made once, so "Added teacher" is read even though the picker is redrawn.
+  let live = root.querySelector(`#${pfx}-tplive`);
+  if (!live) { live = document.createElement('p'); live.className = 'sr'; live.id = `${pfx}-tplive`; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite'); root.appendChild(live); }
+  const say = t => { live.textContent = ''; setTimeout(() => { live.textContent = t; }, 40); };
+  const redraw = focusSels => {
     const el = host(); if (!el) return;
     el.outerHTML = pickerHTML(pfx, st);
     wirePicker(root, pfx, st, onChange);
-    if (focusSel) { const f = root.querySelector(focusSel); if (f) { f.focus({ preventScroll: true }); if (f.tagName === 'INPUT') f.setSelectionRange(f.value.length, f.value.length); } }
+    // The first of the given places that exists: the chip just tapped, else its neighbour, else the box, else the legend.
+    for (const sel of [].concat(focusSels || [])) { const f = sel && root.querySelector(sel); if (f) { f.focus({ preventScroll: true }); if (f.tagName === 'INPUT') f.setSelectionRange(f.value.length, f.value.length); return; } }
   };
-  const add = k => { if (!k || st.chosen.includes(k) || st.chosen.length >= TITLES_MAX) return; st.chosen = [...st.chosen, k]; st.student = false; onChange(st.chosen); };
+  const add = k => { if (!k || st.chosen.includes(k) || st.chosen.length >= TITLES_MAX) return false; st.chosen = [...st.chosen, k]; st.student = false; onChange(st.chosen); say(`Added ${titleLabel(k)}.`); return true; };
   const el = host(); if (!el) return;
   el.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => {
     const k = b.dataset.tp, on = st.chosen.includes(k);
-    if (on) { st.chosen = st.chosen.filter(x => x !== k); onChange(st.chosen); } else add(k);
-    redraw(`[data-tp="${CSS.escape(k)}"]`);
+    const chips = [...el.querySelectorAll('.tp-chips [data-tp], .tp-chips [data-tp-student]')], i = chips.indexOf(b);
+    const next = chips[i + 1] || chips[i - 1];
+    const nextSel = next ? (next.dataset.tp ? `#${pfx}-tp [data-tp="${CSS.escape(next.dataset.tp)}"]` : `#${pfx}-tp [data-tp-student]`) : '';
+    if (on) { st.chosen = st.chosen.filter(x => x !== k); onChange(st.chosen); say(`Removed ${titleLabel(k)}.`); } else add(k);
+    redraw([`#${pfx}-tp [data-tp="${CSS.escape(k)}"]`, nextSel, `#${pfx}-tq`, `#${pfx}-tp [data-tp-more]`]);
   });
-  const ad = el.querySelector('[data-tp-add]'); if (ad) ad.onclick = () => { st.adding = true; redraw(`#${pfx}-tp .tp-chips [data-tp]:not([aria-pressed="true"]), #${pfx}-tq`); };
   const sb = el.querySelector('[data-tp-student]'); if (sb) sb.onclick = () => { st.student = !st.student; redraw(st.student ? `#${pfx}-tps [data-tp]` : '[data-tp-student]'); };
   const mb = el.querySelector('[data-tp-more]'); if (mb) mb.onclick = () => { st.more = !st.more; redraw('[data-tp-more]'); };
+  const dn = el.querySelector('[data-tp-done]'); if (dn) dn.onclick = () => { const p = pendingTitle(st); if (p) { add(p); st.q = ''; } onChange(st.chosen, { done: true }); };
   const inp = el.querySelector(`#${pfx}-tq`); if (!inp) return;
   const box = el.querySelector(`#${pfx}-tpb`);
   const opts = () => [...el.querySelectorAll('[data-tpo]')];
-  const choose = k => { if (k === 'own') add(ownKey(st.q)); else add(k); st.q = ''; st.active = -1; redraw(`#${pfx}-tq`); };
+  const choose = k => { add(k === 'own' ? ownKey(st.q) : k); st.q = ''; st.active = -1; redraw(`#${pfx}-tq`); };
   // Typing redraws only the list, never the box, so a phone's keyboard stays put.
   const paintList = () => {
     box.innerHTML = listHTML(pfx, st);
@@ -80,7 +102,7 @@ export function wirePicker(root, pfx, st, onChange = () => {}) {
     const os = opts();
     if (e.key === 'ArrowDown' && os.length) { e.preventDefault(); st.active = Math.min(os.length - 1, st.active + 1); paintList(); }
     else if (e.key === 'ArrowUp' && os.length) { e.preventDefault(); st.active = Math.max(-1, st.active - 1); paintList(); }
-    else if (e.key === 'Enter') { e.preventDefault(); const o = os[st.active] || (os.length === 1 ? os[0] : os.find(x => x.dataset.tpo !== 'own' && x.textContent.trim().toLowerCase() === st.q.trim().toLowerCase()) || os.find(x => x.dataset.tpo === 'own')); if (o) choose(o.dataset.tpo); }
+    else if (e.key === 'Enter') { e.preventDefault(); const o = os[st.active]; if (o) choose(o.dataset.tpo); else { const p = pendingTitle(st); if (p) { add(p); st.q = ''; st.active = -1; redraw(`#${pfx}-tq`); } } }
     else if (e.key === 'Escape' && st.q) { e.preventDefault(); e.stopPropagation(); st.q = ''; st.active = -1; inp.value = ''; paintList(); }
   };
   paintList();

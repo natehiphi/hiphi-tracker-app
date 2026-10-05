@@ -25,8 +25,16 @@ const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? 
 const intLabel = k => INTERESTS.find(x => x[0] === k)?.[1] || k;
 // What the person says they are, from their public profile (R-147, backend 125), and their story; HIPHI quotes the story
 // only when they ticked "HIPHI may quote me" (the 'quote' interest). Their own words are shown as they typed them.
-const titlesHTML = p => (p.titles || []).map(t => titleLabel(t)).filter(Boolean).map((l, i) => `${isOwn(p.titles[i]) ? '“' : ''}${esc(l)}${isOwn(p.titles[i]) ? '”' : ''}`).join(' · ');
-const storyHTML = p => p.story ? `<q class="sp-story">${esc(p.story)}</q> <span class="meta">${(p.interests || []).includes('quote') ? 'They said HIPHI may quote it.' : 'Not for quoting: they did not say HIPHI may quote it.'}</span>` : '';
+// Each title keeps its own quote marks (R-156: a title that left the list used to shift the marks onto the next one).
+const titlesHTML = p => (p.titles || []).map(t => [t, titleLabel(t)]).filter(([, l]) => l).map(([t, l]) => isOwn(t) ? `“${esc(l)}”` : esc(l)).join(' · ');
+// Their stories (R-156 B3: one for any issue, one per topic) and how HIPHI may quote them (C3: first name and island, full
+// name, or full name and to reporters; HIPHI asks again before any public use).
+const QUOTE_WORDS = { first: 'HIPHI may quote it with their first name and island, after asking again.', name: 'HIPHI may quote it with their full name, after asking again.',
+  media: 'HIPHI may quote it with their full name and share it with reporters, after asking again.' };
+const quoteOf = p => { const i = p.interests || []; return !i.includes('quote') ? '' : i.includes('quote-media') ? 'media' : i.includes('quote-name') ? 'name' : 'first'; };
+const storiesOf = p => [...(p.story ? [['', p.story]] : []), ...Object.entries(p.stories || {}).filter(([, t]) => t)];
+const storyHTML = p => { const all = storiesOf(p); if (!all.length) return '';
+  return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(catByKey(k)?.name || k) : 'Any issue'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
 const dueAt = f => new Date(f.due + 'T17:00:00-10:00');   // a follow-up is due by the end of the working day, as in Today
 const P = () => S.spPerson ??= { feedAll: {}, billsAll: {}, loading: {} };
 const FROM = { today: 'Today', search: 'Search', emails: 'Emails', lists: 'Lists', list: 'List' };
@@ -89,8 +97,8 @@ function about(p) {
     <dl class="card sp-about">
       ${dd('Where', whereOf(p) ? esc(whereOf(p)) : `${none('No districts yet.')} <button type="button" class="linkbtn" data-pp="dist">Find them from an address</button>`)}
       ${dd('They are', titlesHTML(p) || none('Not said'))}
-      ${p.story ? dd('Their story', storyHTML(p)) : ''}
-      ${dd('Interests', (p.interests || []).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}
+      ${storiesOf(p).length ? dd(storiesOf(p).length > 1 ? 'Their stories' : 'Their story', storyHTML(p)) : ''}
+      ${dd('Interests', (p.interests || []).filter(k => !/^quote-/.test(k)).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}
       ${dd('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
       ${dd('Emails', p.emails_sent ? `${plural(p.emails_sent, 'email')} sent · ${p.emails_opened || 0} opened · ${p.emails_clicked || 0} clicked` : none('None sent yet'))}
       ${dd('Actions', p.actions ? `${plural(p.actions, 'action')}${p.testimonies ? `, ${plural(p.testimonies, 'testimony', 'testimonies')}` : ''}` : none('None yet'))}
@@ -178,8 +186,8 @@ function sidePanel(p) {
     <section class="card sp-sc" aria-labelledby="sp-h-about"><div class="sp-sch"><h2 id="sp-h-about">About</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'square-pen', attrs: { 'data-pp': 'edit', 'aria-haspopup': 'dialog' } })}</div>
       <dl class="sp-sdl">${kv('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
         ${kv('They are', titlesHTML(p) || none('Not said'))}
-        ${p.story ? kv('Their story', storyHTML(p)) : ''}
-        ${kv('Interests', (p.interests || []).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
+        ${storiesOf(p).length ? kv(storiesOf(p).length > 1 ? 'Their stories' : 'Their story', storyHTML(p)) : ''}
+        ${kv('Interests', (p.interests || []).filter(k => !/^quote-/.test(k)).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-consent"><h2 id="sp-h-consent">What they can be sent</h2>
       <ul class="sp-can">${can(p.action_optin, 'Action alerts: yes', 'Action alerts: no')}${can(p.hearing_optin, 'Hearing alerts: yes', 'Hearing alerts: no')}
@@ -300,7 +308,8 @@ function editSheet(p) {
       go.onclick = async () => {
         const extra = dlg.querySelector('#sp-et').value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
         const patch = { name: dlg.querySelector('#sp-en').value.trim() || null, phone: dlg.querySelector('#sp-ep').value.trim() || null,
-          interests: [...dlg.querySelectorAll('[data-eint]')].filter(el => el.checked).map(el => el.dataset.eint), tags: [...new Set([...mine, ...extra])] };
+          // Kept as they are: keys staff don't edit here (the quote level a person chose, R-156 C3).
+          interests: [...[...dlg.querySelectorAll('[data-eint]')].filter(el => el.checked).map(el => el.dataset.eint), ...(p.interests || []).filter(k => !INTERESTS.some(([i]) => i === k))], tags: [...new Set([...mine, ...extra])] };
         const opt = dlg.querySelector('#sp-eopt'); if (opt) patch.action_alerts = opt.checked;
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
         try { await DB.savePerson(p.id, patch); closeSheet({ silent: true }); hooks.render(); toast('Saved.', { ok: true }); }

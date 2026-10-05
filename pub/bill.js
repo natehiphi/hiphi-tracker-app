@@ -12,7 +12,8 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
-import { pickTwo, cleanTitles, aWords, needsSelf } from './titles.js';   // who is writing (R-147)
+import { pickTwo, aWords, needsSelf } from './titles.js';   // who is writing (R-147)
+import { myName, myTitles } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
@@ -266,8 +267,12 @@ function mailFor(b, x, chairs, mode) {
   const dear = chairs.length ? chairs.map(c => c.greet || `Chair ${c.last}`).join(' and ') : 'Chair';
   // Who is writing (R-147): their two titles that fit this bill, and where they live only when one of these lawmakers is
   // their own (Nate 10/4: most emails go to chairs who aren't theirs, so the town an older device kept is left out).
-  const own = chairs.some(c => mineLabel(c.leg || c.l, myDistricts())), two = pickTwo(cleanTitles(m.titles), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
-  const who = m.name ? `My name is ${m.name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${own ? `${two.length ? ',' : ''} and I live in your district` : ''}. ` : '';
+  // A joint hearing's email goes to two chairs: "your district" only when both are theirs, else the one chair by name
+  // (R-156, the review). One name and the titles from the profile (pub/myprofile.js).
+  const d = myDistricts(), mine = chairs.filter(c => mineLabel(c.leg || c.l, d)), name = myName();
+  const where = !mine.length ? '' : mine.length === chairs.length ? 'your district' : `${mine.map(c => c.greet || `Chair ${c.last}`).join(' and ')}’s district`;
+  const two = pickTwo(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
+  const who = name ? `My name is ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${where ? `${two.length ? ',' : ''} and I live in ${where}` : ''}. ` : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';
   const dl = x.st.deadline && !x.st.deadline.missed ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : '';
@@ -295,7 +300,8 @@ function mailFor(b, x, chairs, mode) {
     subject = `${sp}: please ${want} it`;
     body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nPlease ${want} this bill${ahead ? ` at the hearing on ${dateLong(h.scheduled_at)}` : ''}.`;
   }
-  const text = `Dear ${dear},\n\n${body}\n\nMahalo,\n${m.name || '[your name]'}${m.town ? '\n' + m.town : ''}`;
+  // The town signs off only to their own lawmakers (R-147; the review found it still went to every chair here).
+  const text = `Dear ${dear},\n\n${body}\n\nMahalo,\n${name || '[your name]'}${mine.length && m.town ? '\n' + m.town : ''}`;
   return `mailto:${chairs.map(c => c.email).filter(Boolean).join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
 }
 const mailMode = x => x.differs ? 'own' : x.kind === 'hold' ? 'hold' : x.kind === 'ask' || (x.waiting && x.pos && !/oppose/.test(x.pos.verb)) ? 'ask' : x.waiting && x.pos ? 'hold' : 'about';

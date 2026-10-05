@@ -370,3 +370,6 @@
 .st-alchange { align-items: flex-start; }   /* "Use a different number" lines up with the words above it */
 .st-alchange .btn { width: auto; padding-inline: 0; justify-content: flex-start; }
 .st-named { display: flex; gap: var(--s8); align-items: center; margin-top: var(--s12); }
+/* The first visit's last page names the profile once someone has one (R-156 C2). */
+.st-prof { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
+.st-prof > .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--p700); }

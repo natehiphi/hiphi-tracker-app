@@ -342,3 +342,15 @@
   .sp-two .sp-can li { display: flex; align-items: flex-start; gap: var(--s8); color: var(--n900); font-size: var(--t14); }
   .sp-two .sp-can .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
 }
+
+/* Profiles, folded under the tools (R-156 E1, E2): counts and title words only. */
+.sp-page .sp-roll { margin-top: var(--s12); padding: 0; }
+.sp-page .sp-roll summary { display: flex; gap: var(--s8); align-items: center; padding: var(--s12) var(--s16); min-height: 48px; cursor: pointer; font-size: var(--t14); color: var(--n700); }
+.sp-page .sp-roll summary .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
+.sp-page .sp-roll summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; border-radius: inherit; }
+.sp-page .sp-roll-b { display: grid; gap: var(--s16); padding: 0 var(--s16) var(--s16); }
+.sp-page .sp-roll h3 { margin: 0 0 var(--s8); font-size: var(--t14); }
+.sp-page .sp-roll-l { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s4); font-size: var(--t14); }
+.sp-page .sp-roll-l li { display: flex; justify-content: space-between; gap: var(--s12); border-bottom: 1px solid var(--n100); padding: var(--s4) 0; }
+.sp-page .sp-roll .meta { margin: var(--s8) 0 0; }
+@media (min-width: 900px) { .sp-page .sp-roll-b { grid-template-columns: 1fr 1fr; } }

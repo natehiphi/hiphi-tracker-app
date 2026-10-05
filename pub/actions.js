@@ -39,6 +39,15 @@ const WEIGHT = ['testimony', 'email', 'attend', 'share'];
 export function nextStep(b, h) {
   return (agrees(b) === false ? WEIGHT.filter(k => k !== 'email') : WEIGHT).find(k => !didKind(b, h, k)) || null;
 }
+// "How you'll help" chooses the next ask (R-156 C1, Nate 10/5 "Do it"): someone who said "I'd testify in person" (their
+// profile, pub/profile.js) sees going to the hearing right under the main button, open to the steps, instead of fourth in
+// "More ways to help". Counted by kind only: the ask shown (once a hearing a visit) and taken (backend 130).
+const SHOWN = new Set();
+function wantsInPerson() {
+  let ints = S.session && S.profile ? S.profile.interests : null;
+  if (!ints) try { ints = JSON.parse(localStorage.getItem('hiphi_me') || '{}').interests; } catch { /* private mode */ }
+  return Array.isArray(ints) && ints.includes('testify');
+}
 // noTopic: the card sits under its topic's heading (Home by topic, R-135), so its own topic line would say it twice.
 export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
@@ -62,6 +71,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const after = !asking && !compact && didKind(b, h, 'testimony') && !!nextStep(b, h), R = after && ranked();
   if (after) abRankMet(h.id);
   const step = R ? nextStep(b, h) : null;
+  const inPerson = !asking && !compact && !late && !didKind(b, h, 'attend') && new Date(h.scheduled_at) > Date.now() && !(R && step === 'attend') && wantsInPerson();
+  if (inPerson && !SHOWN.has(h.id)) { SHOWN.add(h.id); logAct('ask_shown'); }
+  const askBtn = inPerson ? btn('Testify in person', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'data-asked': '1', 'aria-expanded': S.goOpen.has(k) } }) + (S.goOpen.has(k) ? goPanel(b, h, k) : '') : '';
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
@@ -71,7 +83,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
     email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
-    attend: moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
+    attend: inPerson ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
   // Their own senator or representative on this committee (R-080): a row, never the main button, since testimony and the
@@ -85,8 +97,8 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
-    moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
-    S.goOpen.has(k) ? goPanel(b, h, k) : '',
+    inPerson ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
+    !inPerson && S.goOpen.has(k) ? goPanel(b, h, k) : '',
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
   const name = nick(b);
@@ -104,7 +116,8 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    <div class="btncol">${compact ? '' : primary}
+    ${inPerson ? `<p class="why">${icon('user')}<span>You said you’d testify in person. Here’s how for this hearing.</span></p>` : ''}
+    <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
     ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
@@ -224,7 +237,10 @@ export function wireActions(root = document) {
     const how = await doShare(shareFor(b, h)); if (how === 'copied') S.chips[k + 'share'] = true;
     if (how && !didKind(b, h, 'share')) await markDone(bid, hid, 'share'); app.render(); });
   $$('[data-go]').forEach(el => el.onclick = () => { const k = el.dataset.go; S.goOpen.has(k) ? S.goOpen.delete(k) : S.goOpen.add(k); app.render(); });
-  $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'); await markDone(bid, hid, 'attend', !S.done.has(doneKey(bid, hid, 'attend'))); app.render(); });
+  // "I plan to go" under the ask their profile chose (C1) is that ask taken.
+  $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'), on = !S.done.has(doneKey(bid, hid, 'attend'));
+    if (on && el.closest('.acard')?.querySelector('[data-asked]')) logAct('ask_acted');
+    await markDone(bid, hid, 'attend', on); app.render(); });
   $$('[data-ics]').forEach(el => el.onclick = () => { const k = el.dataset.ics, { b, h } = findBH(k); if (!b || !h) return;
     const url = URL.createObjectURL(icsFor(b, h)), a = document.createElement('a'); a.href = url; a.download = `${b.bill_number}-hearing.ics`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
     S.chips[k + 'ics'] = true; app.render(); });

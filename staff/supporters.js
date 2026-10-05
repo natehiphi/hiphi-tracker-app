@@ -245,6 +245,7 @@ export default {
         ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}
       </div>
       ${segChips(v)}
+      ${rollHTML()}
       <div id="sp-results">${resultsHTML(v)}</div>
       <input type="file" id="sp-file" accept=".csv,text/csv" hidden>
     </div>`;
@@ -267,6 +268,7 @@ export default {
     const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
     if (!S.peopleLoaded) return;
+    const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
     const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
     q.oninput = () => {
       v.f.q = q.value; qx.hidden = !q.value;
@@ -301,6 +303,21 @@ export default {
   },
 };
 
+// What supporters say about themselves (R-156 E1, E2), folded under the tools: how many gave titles, a story, and said
+// HIPHI may quote them; the list titles by use; and the titles people wrote themselves, so the common ones join the list
+// before each session (pub/titles.js). Counts and title words only, never a story's text.
+function rollHTML() {
+  const r = S.spRoll;
+  if (!r) { if (!S.spRollKick) { S.spRollKick = true; DB.profileRollup().then(x => { S.spRoll = x; hooks.render(); }).catch(() => { S.spRollKick = false; }); } return ''; }
+  if (!r.with_titles && !r.with_story) return '';
+  const li = (label, n) => `<li><span>${label}</span><b>${n.toLocaleString()}</b></li>`;
+  return `<details class="card sp-roll"${S.spRollOpen ? ' open' : ''}><summary>${icon('user-round')}<span>Profiles: <b>${r.with_titles.toLocaleString()}</b> say who they are · <b>${r.with_story.toLocaleString()}</b> shared a story · <b>${r.quote.toLocaleString()}</b> may be quoted</span></summary>
+    <div class="sp-roll-b">
+      ${(r.list || []).length ? `<div><h3>Titles from the list</h3><ol class="sp-roll-l">${r.list.slice(0, 12).map(x => li(esc(titleLabel(x.k) || x.k), x.n)).join('')}</ol></div>` : ''}
+      <div><h3>Titles people wrote themselves</h3>${(r.own || []).length ? `<ol class="sp-roll-l">${r.own.slice(0, 20).map(x => li(`“${esc(x.t)}”`, x.n)).join('')}</ol>` : '<p class="meta">None yet.</p>'}
+        <p class="meta">Before each session, any title 10 or more people wrote can join the list.</p></div>
+    </div></details>`;
+}
 function drawResults(root) {
   const box = root.querySelector('#sp-results'); if (!box) return;
   box.innerHTML = resultsHTML(V()); wireResults(root);

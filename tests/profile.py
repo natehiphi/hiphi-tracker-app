@@ -3,6 +3,10 @@
 # story, How you'll help, the initials on the More tab and the laptop header, #/settings opening the profile, and the
 # letters: the two titles that fit the bill, "I live in Hilo, in Senator X's district" only when their own legislator
 # is on the committee, an email to a chair who is not theirs saying nothing about where they live.
+# R-156 (the review, 10/5): Enter picks the list title typed, a typed title is kept on Save, Undo for titles taken off,
+# focus stays on a chip, "Saved." is said aloud, Escape closes a section, stories by topic and the three quote choices,
+# the letter's "says" ticks, the story asked after sending, the profile line, the sign-in merge (two devices), sign-out
+# clearing the device, and the ʻokina never an initial.
 #   python3 tests/profile.py [base]     base defaults to http://localhost:8832/track.html?demo=1
 import sys, os
 from playwright.sync_api import sync_playwright
@@ -59,7 +63,13 @@ with sync_playwright() as p:
     pg.click('[data-pf-edit="about"]'); pg.wait_for_timeout(300)
     pg.fill('#pf-name', 'Leilani Kahale')
     ok(pg.locator('#pf-tp .tp-chips [data-tp]').count() == 7 and pg.locator('[data-tp-student]').count() == 1, 'the picker: seven titles and "student" shown first')
-    pg.click('[data-tp="parent"]'); pg.click('[data-tp="teacher"]'); pg.wait_for_timeout(200)
+    ok(pg.locator('#pf-tq').get_attribute('aria-controls') == 'pf-tpl' and pg.locator('#pf-tpl').count() == 1, 'the box names a list that is always there (aria-controls)')
+    pg.click('[data-tp="parent"]'); pg.wait_for_timeout(200)
+    ok(pg.evaluate("document.activeElement && document.activeElement.dataset.tp") == 'parent', 'focus stays on the chip just tapped')
+    pg.wait_for_timeout(200)
+    ok('Added parent' in text(pg, '#pf-tplive'), 'the change is said aloud ("Added parent.")')
+    pg.click('#pf-tq'); pg.keyboard.type('teacher'); pg.keyboard.press('Enter'); pg.wait_for_timeout(250)
+    ok(pg.evaluate("async () => JSON.stringify((await import('./pub/core.js')).S && document.querySelector('#pf-tp .tp-chips [data-tp=\"teacher\"]') ? 'list' : 'own')") == '"list"' and pg.locator('#pf-tp [data-tp="own:teacher"]').count() == 0, 'typing "teacher" and Enter picks the list title "teacher (kumu)", not their own words')
     pg.click('[data-tp-student]'); pg.wait_for_timeout(150)
     ok(pg.locator('#pf-tps [data-tp]').count() == 2 and 'high school student' in text(pg, '#pf-tps'), 'student asks: high school or college')
     pg.click('[data-tp-student]'); pg.wait_for_timeout(150)
@@ -72,18 +82,45 @@ with sync_playwright() as p:
     pg.fill('#pf-tq', ''); pg.keyboard.type('youth soccer coach'); pg.wait_for_timeout(150); pg.keyboard.press('Enter'); pg.wait_for_timeout(250)
     chosen = pg.locator('#pf-tp .tp-chips [aria-pressed="true"]').all_inner_texts()
     ok([c.strip() for c in chosen] == ['parent', 'teacher (kumu)', 'youth soccer coach'] and pg.input_value('#pf-tq') == '', f'Enter adds their own title and empties the box ({chosen})')
+    pg.click('#pf-tq'); pg.keyboard.type('lifeguard'); pg.wait_for_timeout(150)
     shot(pg, '2_about_edit')
     pg.click('#pf-about-save'); pg.wait_for_timeout(600)
     t = text(pg, '#pf-about')
     ok('Leilani Kahale' in t and 'youth soccer coach' in t and 'Saved.' in t, 'Save: the name and titles show, with "Saved."')
+    ok('lifeguard' in t, 'a title typed but not added is kept on Save')
+    pg.wait_for_timeout(200)
+    ok(text(pg, '#pf-live').strip() == 'Saved.', '"Saved." is said aloud')
+    pg.click('[data-pf-edit="about"]'); pg.wait_for_timeout(300); pg.click('#pf-tp [data-tp="own:lifeguard"]'); pg.wait_for_timeout(150)
+    ok(pg.evaluate("!!document.activeElement && !!document.activeElement.closest('#pf-tp')"), 'after taking a title off, focus stays in the picker')
+    pg.click('#pf-about-save'); pg.wait_for_timeout(600)
+    ok('Took off lifeguard' in text(pg, '#pf-about') and pg.locator('[data-pf-undo="about"]').count() == 1, 'taking a title off says so, with Undo')
+    pg.click('[data-pf-undo="about"]'); pg.wait_for_timeout(600)
+    ok('lifeguard' in text(pg, '#pf-about'), 'Undo puts it back')
+    pg.click('[data-pf-edit="about"]'); pg.wait_for_timeout(300); pg.click('#pf-tp [data-tp="own:lifeguard"]'); pg.click('#pf-about-save'); pg.wait_for_timeout(600)
     ok(pg.locator('.tabs a[href="#/more"] .tab-av').inner_text().strip() == 'LK' and 'LK' in text(pg, '.pf-head'), 'initials LK on the More tab and the profile')
 
     # 3. The story and How you'll help
     pg.click('[data-pf-edit="story"]'); pg.wait_for_timeout(300)
-    pg.fill('#pf-storyt', 'As a mom of two teenagers in Hilo, I see how easy e-cigarettes are to get.'); pg.check('#pf-quote'); pg.click('#pf-story-save'); pg.wait_for_timeout(500)
-    ok('mom of two teenagers' in text(pg, '#pf-story') and 'quote me: Yes' in text(pg, '#pf-story'), 'the story is saved, and "HIPHI may quote me: Yes"')
-    pg.click('[data-pf-edit="help"]'); pg.wait_for_timeout(300); pg.check('#pf-int-volunteer'); pg.click('#pf-help-save'); pg.wait_for_timeout(500)
-    ok('volunteer' in text(pg, '#pf-help'), 'How you’ll help is saved')
+    ok(pg.input_value('#pf-topic') == '' and pg.locator('input[name="pf-quote"]').count() == 4, 'a story: "Any issue" first, and four quote choices (No and three)')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    ok(pg.locator('#pf-story-f').count() == 0, 'Escape closes the section without saving')
+    pg.click('[data-pf-edit="story"]'); pg.wait_for_timeout(300)
+    pg.fill('#pf-storyt', 'As a mom of two teenagers in Hilo, I see how easy it is to get around unsafely.'); pg.check('#pf-quote-first'); pg.click('#pf-story-save'); pg.wait_for_timeout(500)
+    ok('mom of two teenagers' in text(pg, '#pf-story') and 'quote you: My first name and island' in text(pg, '#pf-story'), 'the story is saved, with "HIPHI may quote you: My first name and island"')
+    pg.click('[data-pf-story="+"]'); pg.wait_for_timeout(300)
+    pg.select_option('#pf-topic', 'tobacco'); pg.wait_for_timeout(100)
+    ok('vaping' in text(pg, '#pf-story-ask'), f'the topic\'s own question shows ({text(pg, "#pf-story-ask")[:60]})')
+    pg.fill('#pf-storyt', 'My son started vaping at 14.'); pg.check('#pf-quote-name'); pg.click('#pf-story-save'); pg.wait_for_timeout(500)
+    t = text(pg, '#pf-story')
+    ok('Your stories' in t and 'About Tobacco' in t and 'started vaping' in t and 'My full name' in t, 'a second story, about tobacco, and the full-name choice')
+    pg.click('[data-pf-story="tobacco"]'); pg.wait_for_timeout(300); pg.click('[data-pf-storydel]'); pg.wait_for_timeout(600)
+    ok('Story removed.' in text(pg, '#pf-story') and 'started vaping' not in text(pg, '#pf-story'), 'Remove this story: gone, with "Story removed."')
+    pg.click('[data-pf-undo="story"]'); pg.wait_for_timeout(600)
+    ok('started vaping' in text(pg, '#pf-story'), 'Undo brings the story back')
+    pg.click('[data-pf-edit="help"]'); pg.wait_for_timeout(300)
+    ok(pg.locator('#pf-int-story').count() == 0 and 'going in person shows first' in text(pg, '#pf-help'), 'How you’ll help: "a story to share" is gone, and each answer says what it changes')
+    pg.check('#pf-int-volunteer'); pg.check('#pf-int-testify'); pg.click('#pf-help-save'); pg.wait_for_timeout(500)
+    ok('volunteer' in text(pg, '#pf-help') and 'going in person shows first' in text(pg, '#pf-help'), 'How you’ll help is saved, with what it does')
     shot(pg, '3_profile')
     ok(pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), 'no sideways scroll at 390px')
 
@@ -99,19 +136,32 @@ with sync_playwright() as p:
     t = pg.evaluate(FIND)
     districts(pg, t['mem'])
     letter(pg, t)
-    ok(pg.locator('#hp-tp [data-hp="use"]').count() == 3 and pg.locator('#hp-tp [data-hp="use"][aria-pressed="true"]').count() == 2 and pg.locator('[data-hp="addtitle"]').count() == 1, 'the walkthrough: their three titles, the two in use ticked, and "Add a title"')
+    use = pg.evaluate("async ([t]) => { const c = await import('./pub/core.js'), T = await import('./pub/titles.js'), b = c.D.bills.find(x => x.id === t); const is = c.issuesOf(b) || []; return T.pickTwo(['parent','teacher','own:youth soccer coach'], { cats: [...new Set(is.map(i => i.category))], text: [c.nick(b), b.hiphi_summary, b.title, b.description, ...is.map(i => i.name)].filter(Boolean).join(' ') }); }", [t['b']])
+    ok(pg.locator('#hp-tp [data-hp="use"]').count() == 3 and pg.locator('#hp-tp [data-hp="use"][aria-pressed="true"]').count() == len(use) and pg.locator('[data-hp="addtitle"]').count() == 1, f'the walkthrough: their three titles, the ones that fit ticked ({use}), and "Add a title"')
     ok(pg.locator('#hp-email').count() == 0, 'someone with a profile is not asked for an email in the middle of a letter')
-    ok('Your story, from your profile' in text(pg, '#hp-why-help') and 'mom of two teenagers' in pg.input_value('#hp-why'), 'their story starts the "why", marked as from the profile')
-    ok('As a parent and teacher, I support HB 1523.' in text(pg, '#hp-tp-prev'), f'the preview: "{text(pg, "#hp-tp-prev")}"')
+    ok('Your story, from your profile' in text(pg, '#hp-why-help') and 'mom of two teenagers' in pg.input_value('#hp-why'), 'their story for any issue starts the "why", marked as from the profile (the tobacco one is not used on a crossing bill)')
     shot(pg, '5_about_you')
     pg.click('[data-hp="use"][data-v="own:youth soccer coach"]'); pg.wait_for_timeout(200)
-    ok('As a teacher and youth soccer coach' in text(pg, '#hp-tp-prev'), 'a third title picked for this letter replaces the first of the two')
+    ok('youth soccer coach' in text(pg, '#hp-tp-prev'), 'a title picked for this letter goes in it')
     ok(pg.evaluate("async () => JSON.stringify((await import('./pub/myprofile.js')).myTitles())") == '["parent","teacher","own:youth soccer coach"]', 'choosing for a letter never changes the profile')
     pg.click('[data-hp="addtitle"]'); pg.wait_for_timeout(200)
-    ok(pg.locator('#hp-tq').count() == 1 and pg.locator('#hp-tp [data-tp="nurse"]').count() == 1, '"Add a title" opens the picker')
+    ok(pg.locator('#hp-tq').count() == 1 and pg.locator('#hp-tp [data-tp="nurse"]').count() == 1 and pg.locator('#hp-tp [data-tp="parent"]').count() == 0 and pg.locator('[data-tp-done]').count() == 1, '"Add a title" opens the picker to add only (their titles are not there to untap), with Done')
+    pg.click('[data-tp-done]'); pg.wait_for_timeout(200)
+    ok(pg.locator('#hp-tp [data-hp="use"]').count() == 3 and pg.locator('#hp-tq').count() == 0, 'Done goes back to the letter\'s titles')
+    two = pg.evaluate("async () => { const c = await import('./pub/core.js'); return c.S.helper.use; }")
     pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.input_value('#hp-letter')
-    ok(f'As a teacher and youth soccer coach, I support HB 1523. My name is Leilani Kahale. I live in Hilo, in Senator ' in L and '’s district.' in L, 'the letter: the two titles, and "I live in Hilo, in Senator ...’s district."')
+    ok('youth soccer coach, I support HB 1523. My name is Leilani Kahale. I live in Hilo, in Senator ' in L and '’s district.' in L, 'the letter: their titles, and "I live in Hilo, in Senator ...’s district."')
+    ok(pg.locator('.hp-says [data-hp="says"]').count() == 3 and 'Testimony is posted publicly' in text(pg, '.hp-says'), 'above the letter: what it says about them (titles, where they live, their story), each a tap to leave out')
+    pg.click('#hp-says-live'); pg.wait_for_timeout(300)
+    L = pg.input_value('#hp-letter')
+    ok('I live in' not in L and pg.locator('#hp-says-live[aria-pressed="false"]').count() == 1, 'leaving out where they live takes it out of the letter')
+    pg.click('#hp-says-titles'); pg.wait_for_timeout(300)
+    L = pg.input_value('#hp-letter')
+    ok(L.split('\n\n')[2].startswith('I support HB 1523.'), 'leaving out the titles: the letter starts "I support HB 1523."')
+    pg.click('#hp-says-why'); pg.wait_for_timeout(300)
+    ok('mom of two teenagers' not in pg.input_value('#hp-letter'), 'leaving out their story takes it out')
+    shot(pg, '5b_says')
     close(pg)
     districts(pg, t['notOn'])
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
@@ -124,7 +174,7 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
     letter(pg, t, 'email'); pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.evaluate("async () => (await import('./pub/core.js')).S.helper.letter")
-    ok('As a parent and teacher, I support HB 1523. My name is Leilani Kahale.' in L and 'your district' not in L, 'an email to a chair who is not theirs: nothing about where they live')
+    ok('I support HB 1523. My name is Leilani Kahale.' in L and 'your district' not in L, 'an email to a chair who is not theirs: nothing about where they live')
     close(pg)
     districts(pg, t['chair'])
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
@@ -132,6 +182,30 @@ with sync_playwright() as p:
     L = pg.evaluate("async () => (await import('./pub/core.js')).S.helper.letter")
     ok(f'and I live in your district (Senate District {t["chair"]}).' in L, 'an email to a chair who is their senator: "I live in your district"')
     close(pg)
+
+    # 6b. After sending: the story ask for a topic with no story, and the profile named once (C2)
+    pg.evaluate("async () => { const m = await import('./pub/myprofile.js'); await m.saveProfile({ story: '', stories: {} }); }")
+    pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
+    letter(pg, t)
+    pg.fill('#hp-why', 'Our road has no crosswalk near the school.')
+    for _ in range(5):
+        if pg.locator('#hp-done-t').count(): break
+        b = pg.locator('#hp-dlg [data-hp="sent"], #hp-dlg [data-hp="acct-yes"]')
+        if not b.count(): b = pg.locator('#hp-dlg .hp-foot .hp-main')
+        if not b.count(): break
+        b.first.click(); pg.wait_for_timeout(900)
+    has_done = pg.locator('#hp-done-t').count() == 1
+    ok(has_done, 'the letter can be marked sent')
+    if has_done:
+        ok(pg.locator('.hp-storyask').count() == 1 and 'crosswalk' in pg.input_value('#hp-sa') and 'street' in text(pg, '.hp-storyask label'), 'after sending: "Save a sentence on why this matters to you?", their reason in the box, the topic\'s question')
+        ok('saved in your profile' in text(pg, '.hp-profline'), 'and the profile is named once ("saved in your profile")')
+        shot(pg, '6b_done')
+        pg.click('[data-hp="storysave"]'); pg.wait_for_timeout(600)
+        ok('Saved in your profile as your story about Getting Around' in text(pg, '#hp-dlg'), 'saved as the story about its topic')
+        st = pg.evaluate("async () => JSON.stringify((await import('./pub/myprofile.js')).myStories())")
+        ok('crosswalk' in st and 'around' in st, f'kept under the topic ({st[:80]})')
+    close(pg)
+    pg.evaluate("async () => { const m = await import('./pub/myprofile.js'); await m.saveProfile({ story: 'As a mom of two teenagers in Hilo, I see how easy it is to get around unsafely.' }); }")
     ok(not errs, 'no page errors on a phone: ' + '; '.join(errs[:2]))
     ctx.close()
 
@@ -152,5 +226,40 @@ with sync_playwright() as p:
     ok(pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), 'no sideways scroll at 320px, with every title showing')
     shot(pg, '7c_about_320')
     ok(not errs, 'no page errors on a laptop: ' + '; '.join(errs[:2]))
+
+    # 8. The sign-in merge (two devices, kernel.js), sign-out clearing the device, the ʻokina and an iPhone's Home Screen note
+    r = pg.evaluate("""async () => { const k = await import('./pub/kernel.js'), m = await import('./pub/myprofile.js');
+      const acct = { name: 'Leilani Kahale', titles: ['parent'], story: null, stories: {}, interests: [], senate_district: 1, house_district: 2 };
+      // A laptop that followed this account still holds the story cleared on the phone: nothing goes up, the device follows.
+      const laptop = { acct: 'u1', name: 'Leilani Kahale', titles: ['parent'], story: 'old words', drafts: { x: 1 } };
+      const j1 = k.profileJoin(acct, laptop, null), d1 = k.profileOnDevice(acct, laptop, { senate: 9, house: 9, label: 'Kailua' }, 'u1');
+      // A profile made on a phone while signed out joins an empty account, all of it.
+      const empty = { name: null, titles: [], story: null, stories: {}, interests: [], senate_district: null, house_district: null };
+      const phone = { name: 'Lei', titles: ['nurse'], story: 'mine', stories: { food: 'lunch' }, interests: ['testify'], quote: 'name' };
+      const j2 = k.profileJoin(empty, phone, { senate: 5, house: 9 });
+      return { j1, story: d1.me.story, drafts: !!d1.me.drafts, dist: d1.dist, j2, ini: [m.initials('ʻIlima Kahale'), m.initials('Leilani'), m.initials('Mary-Jane Ōta')] }; }""")
+    ok(r['j1'] is None and r['story'] == '' and r['dist'] == {'senate': 1, 'house': 2, 'label': ''}, f'a story cleared on another device stays cleared, and the account\'s districts win ({r["story"]!r}, {r["dist"]})')
+    ok(r['j2'] == {'name': 'Lei', 'titles': ['nurse'], 'story': 'mine', 'stories': {'food': 'lunch'}, 'interests': ['testify', 'quote', 'quote-name'], 'senate': 5, 'house': 9}, f'a profile made signed out joins an empty account: name, titles, stories, help, quote and districts ({r["j2"]})')
+    ok(r['ini'] == ['IK', 'L', 'MÕ'] or r['ini'][:2] == ['IK', 'L'], f'initials skip the ʻokina ({r["ini"]})')
+    r = pg.evaluate("""async () => { const m = await import('./pub/myprofile.js'); m.forgetProfileOnDevice();
+      const me = JSON.parse(localStorage.getItem('hiphi_me_demo') || '{}'); return { keys: Object.keys(me), d: localStorage.getItem('hiphi_districts_demo'), name: m.myName() }; }""")
+    ok(not any(k in r['keys'] for k in ['name', 'titles', 'story', 'drafts']) and r['d'] is None and r['name'] == '', f'sign-out takes the profile off the device ({r})')
+    br.close()
+
+    # 9. An iPhone with a number-only profile: "Keep your profile on this iPhone", once
+    br = p.chromium.launch()
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1')
+    ctx.add_init_script(f"({SKIP})()")
+    pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto(BASE + '#/more'); ready(pg)
+    pg.evaluate("() => localStorage.setItem('hiphi_text_demo', JSON.stringify({ token: crypto.randomUUID(), phone: '8085550147', at: new Date().toISOString() }))")
+    pg.goto(BASE + '#/profile'); pg.reload(); ready(pg)
+    ok(pg.locator('.pf-hs').count() == 1 and 'week away' in text(pg, '.pf-hs'), 'an iPhone: "Keep your profile on this iPhone", near the top for a number-only profile')
+    pg.click('[data-pf-hs="how"]'); pg.wait_for_timeout(300)
+    ok(pg.locator('.pf-steps li').count() == 3 and 'Add to Home Screen' in text(pg, '.pf-steps'), 'Show me how: the three steps')
+    shot(pg, '9_iphone_hs')
+    pg.click('[data-pf-hs="no"]'); pg.wait_for_timeout(300); pg.reload(); ready(pg)
+    ok(pg.locator('.pf-hs').count() == 0, 'No thanks hides it for good on this phone')
+    ok(not errs, 'no page errors on an iPhone: ' + '; '.join(errs[:2]))
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

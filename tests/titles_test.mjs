@@ -16,10 +16,12 @@ ok(T.TITLES.every(t => t.pick || /^[a-zʻ]/.test(t.say)), 'every title reads in 
 const mine = ['bus-rider', 'parent', 'nurse', 'teacher'];
 ok(eq(T.pickTwo(mine, { cats: ['food'], text: 'Free school meals for every student' }), ['parent', 'teacher']), 'school meals: parent and teacher');
 ok(eq(T.pickTwo(mine, { cats: ['around'], text: 'Free bus rides for kids' }), ['bus-rider', 'parent']), 'free bus rides for kids: bus rider and parent');
-ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban' }), ['parent', 'nurse']), 'an e-cigarette ban: parent and nurse');
-ok(eq(T.pickTwo(['volunteer', 'organizer', 'renter'], { cats: ['climate'], text: 'Ban the pesticide Telone' }), ['volunteer', 'organizer']), 'nothing fits: their first two, in their order');
+ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban' }), ['nurse']), 'an e-cigarette ban: nurse alone (a parent only shares the topic; R-156 the review)');
+ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban for kids' }), ['parent', 'nurse']), 'an e-cigarette ban for kids: parent and nurse (both named by the bill)');
+ok(eq(T.pickTwo(['volunteer', 'organizer', 'renter'], { cats: ['climate'], text: 'Ban the pesticide Telone' }), ['volunteer']), 'nothing fits: their first title alone (R-156)');
+ok(eq(T.pickTwo(['teacher', 'nurse'], { cats: ['food'], text: 'school meals' }), ['teacher']), 'a second title that only shares the topic is left out (R-156)');
 ok(eq(T.pickTwo(['parent', 'own:youth soccer coach', 'renter'], { cats: ['tobacco'], text: 'Youth substance misuse prevention funds' }), ['parent', 'own:youth soccer coach']), 'their own words count when a word of theirs is in the bill');
-ok(eq(T.pickTwo(['teacher', 'parent'], {}), ['teacher', 'parent']), 'two titles: both, in their order');
+ok(eq(T.pickTwo(['teacher', 'parent'], {}), ['teacher']), 'nothing known about the bill: their first title');
 
 // The letter's words.
 ok(T.withTitles(['parent', 'teacher'], 'I support HB 1523.') === 'As a parent and teacher, I support HB 1523.', 'As a parent and teacher, I support...');
@@ -33,6 +35,9 @@ ok(eq(T.findTitles('coa').map(t => t.k), ['coach']), '"coa" finds coach or youth
 ok(eq(T.findTitles('stud').map(t => t.k), ['student-hs', 'student-college']), '"stud" finds both kinds of student');
 ok(T.findTitles('teach', ['teacher']).length === 0, 'a title already picked is not suggested again');
 ok(eq(T.cleanTitles(['parent', 'own:  youth   coach ', 'gone-key', 'student', 'PARENT', 'own:Youth Coach', 'own:<b>x</b>']), ['parent', 'own:youth coach', 'own:bx/b']), 'cleaning: repeats, unknown keys, the bare student choice and <> go');
+ok(eq(T.cleanTitles(['own:Teacher', 'teacher', 'own:kupuna (older adult)', 'own:Student']), ['teacher', 'kupuna', 'own:Student']), 'own words that are a list title become that title (the bare "student" stays theirs) (R-156)');
+ok(T.listKeyFor('  Teacher  ') === 'teacher' && T.listKeyFor('teacher (kumu)') === 'teacher' && T.listKeyFor('youth soccer coach') === '', 'listKeyFor: a list title by its words, else nothing');
+ok(!T.TITLES.some(t => /vap/i.test(t.say + t.label + (t.words ? t.words.source : ''))), 'no "vape" wording (e-cigarettes, R-158)');
 ok(T.cleanTitles(Array.from({ length: 14 }, (_, i) => 'own:t' + i)).length === T.TITLES_MAX, `at most ${T.TITLES_MAX} titles`);
 ok(T.ownKey('x'.repeat(60)).length === 4 + T.OWN_MAX, `own words are cut at ${T.OWN_MAX} characters`);
 

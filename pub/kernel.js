@@ -296,6 +296,34 @@ export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], c
   try { await (await import('./core.js')).loadBills(); } catch (e) { console.error(e); }   // core.js, from the kernel: a dynamic import, never a static cycle (R-122)
   return true;
 }
+// The profile at sign-in (R-156, the review): two pure steps, tested in tests/profile.py. pr: the account's profile
+// (S.profile's shape); me: this device's hiphi_me; dist: its hiphi_districts; uid: the account.
+// The device's profile, as kept in hiphi_me; another account's leftovers are cleared (pub/myprofile.js has the same list).
+export const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'titles', 'story', 'stories', 'quote', 'interests', 'drafts', 'mail', 'letters', 'capitolAcct'];
+const QUOTE_KEY = /^quote(-|$)/;
+const quoteKeys = q => !q ? [] : q === 'media' ? ['quote', 'quote-media'] : q === 'name' ? ['quote', 'quote-name'] : ['quote'];
+// What a profile made on this device while signed out (no acct mark) adds to the account: only what the account lacks.
+// null when there is nothing to add, or the device already follows an account (a story cleared there stays cleared).
+export function profileJoin(pr, me, dist, firstName = '') {
+  if (me.acct) return null;
+  const join = {}, nm = String(typeof me.name === 'string' ? me.name : firstName || '').trim();
+  const ints = (Array.isArray(me.interests) ? me.interests : []).filter(k => !QUOTE_KEY.test(k)), q = me.quote === true ? 'first' : me.quote;
+  if (!pr.name && nm) join.name = nm;
+  if (!(pr.titles || []).length && Array.isArray(me.titles) && me.titles.length) join.titles = me.titles;
+  if (!pr.story && me.story) join.story = me.story;
+  if (!Object.keys(pr.stories || {}).length && me.stories && Object.keys(me.stories).length) join.stories = me.stories;
+  if (!(pr.interests || []).length && (ints.length || q)) join.interests = [...ints, ...quoteKeys(q)];
+  if (!pr.senate_district && dist && +dist.senate && +dist.house) { join.senate = +dist.senate; join.house = +dist.house; }
+  return Object.keys(join).length ? join : null;
+}
+// This device's copy after sign-in: the account's, marked with it. dist: districts to write when the account's differ
+// from this device's (the town is dropped then: it was the old address's), else null.
+export function profileOnDevice(pr, me, dist, uid) {
+  const ints = pr.interests || [], q = !ints.includes('quote') ? '' : ints.includes('quote-media') ? 'media' : ints.includes('quote-name') ? 'name' : 'first';
+  const out = { ...me, acct: uid, name: pr.name || '', titles: pr.titles || [], story: pr.story || '', stories: pr.stories || {}, interests: ints.filter(k => !QUOTE_KEY.test(k)), quote: q };
+  const sd = +pr.senate_district, hd = +pr.house_district;
+  return { me: out, dist: sd && hd && !(dist && +dist.senate === sd && +dist.house === hd) ? { senate: sd, house: hd, label: '' } : null };
+}
 // Stop following one issue. If it came with a whole category, that category becomes its other issues, one by one:
 // "Follow all" also covered issues HIPHI takes up later, and taking one out ends that (the screen says so).
 export async function loadUser() {
@@ -340,21 +368,35 @@ export async function loadUser() {
   // Name: the account's name (now possibly just set above) comes to this device too, so a returning visit on
   // another device is greeted by name without asking again.
   { const acctName = (S.user.prefs || {}).name || ''; if (acctName && acctName !== (wiz().name || '')) wizSet({ name: acctName }); }
-  // The profile (R-147, backend 125): my_profile_v2 adds the "I'm a..." titles and the saved story; the old read is the
-  // fallback for a database without it. Titles and a story typed on this device before signing in join an account that
-  // has none (like the issues above); the account's come to this device, where the walkthrough reads them.
+  // The profile (R-147, backend 125; R-156 after the review, backend 130). The account is the truth once this device has
+  // been signed in to it (hiphi_me.acct), so a story or titles cleared on another device stay cleared here. A profile made
+  // on this device while signed out (no mark) fills what the account lacks: name, titles, stories, "How you'll help",
+  // "quote me" and districts. Another account's leftovers on this device are replaced. The account's districts win over
+  // the device's, so a letter never tells a former lawmaker "I live in your district". Kernel-only: pub/myprofile.js has
+  // the same keys and rules for the lazy screens.
   try {
     const v2 = await S.supa.rpc('my_profile_v2');
     if (v2.error) throw v2.error;
-    const p = v2.data || {};
+    if (!v2.data) throw new Error('no profile row');   // nothing to follow: the device keeps its copy (the old read below)
+    const p = v2.data, uid = S.user.id;
     S.profile = { name: p.name || null, address: null, senate_district: p.senate ?? null, house_district: p.house ?? null, island: p.island || null,
-      interests: p.interests || [], titles: p.titles || [], story: p.story || null };
-    let me = {}; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { /* private mode */ }
-    const join = {};
-    if (!S.profile.titles.length && Array.isArray(me.titles) && me.titles.length) join.titles = me.titles;
-    if (!S.profile.story && me.story) join.story = me.story;
-    if (Object.keys(join).length) { const r = await S.supa.rpc('save_my_profile_v2', { p: join }); if (!r.error) Object.assign(S.profile, join); }
-    try { localStorage.setItem('hiphi_me', JSON.stringify({ ...me, titles: S.profile.titles, story: S.profile.story || '' })); } catch { /* private mode */ }
+      interests: p.interests || [], titles: p.titles || [], story: p.story || null, stories: p.stories || {} };
+    let me = {}, dist = null;
+    try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; dist = JSON.parse(localStorage.getItem('hiphi_districts') || 'null'); } catch { /* private mode */ }
+    if (me.acct && me.acct !== uid) { for (const k of PROFILE_KEYS) delete me[k]; dist = null; try { localStorage.removeItem('hiphi_districts'); } catch { /* ignore */ } }
+    // false when this device's profile could not join the account: it is kept, and tried again next time.
+    let follow = true;
+    const join = profileJoin(S.profile, me, dist, wiz().name);
+    if (join) {
+      const r = await S.supa.rpc('save_my_profile_v2', { p: join });
+      if (!r.error) { const { senate, house, ...rest } = join; Object.assign(S.profile, rest, senate ? { senate_district: senate, house_district: house } : {}); }
+      else follow = false;
+    }
+    if (follow) {
+      const dev = profileOnDevice(S.profile, me, dist, uid);
+      try { localStorage.setItem('hiphi_me', JSON.stringify(dev.me)); if (dev.dist) localStorage.setItem('hiphi_districts', JSON.stringify(dev.dist)); } catch { /* private mode */ }
+      if ((wiz().name || '') !== dev.me.name) wizSet({ name: dev.me.name });
+    }
   } catch {
     try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
   }

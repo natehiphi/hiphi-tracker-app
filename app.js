@@ -2543,7 +2543,7 @@ function wirePersonDrawer() {
   wirePicks();
   $('#pd-distclear') && ($('#pd-distclear').onclick = () => { S.pdAddr = { q: '', results: [], picked: true, sd: null, hd: null }; $('#pd-addr').value = ''; $('#pd-dist').textContent = 'unknown'; });
   $('#pd-save') && ($('#pd-save').onclick = async () => { const a = S.pdAddr || {}; const patch = { name: $('#pd-name').value.trim() || null, phone: $('#pd-phone').value.trim() || null,
-      interests: [...document.querySelectorAll('[data-pdint]')].filter(el => el.checked).map(el => el.dataset.pdint), tags: $('#pd-tags').value.split(/[,;]/).map(x => x.trim()).filter(Boolean) };
+      interests: [...[...document.querySelectorAll('[data-pdint]')].filter(el => el.checked).map(el => el.dataset.pdint), ...(p.interests || []).filter(k => !INTERESTS.some(([i]) => i === k))], tags: $('#pd-tags').value.split(/[,;]/).map(x => x.trim()).filter(Boolean) };
     if (a.picked) { patch.senate_district = a.sd; patch.house_district = a.hd; }
     if ($('#pd-optin')) patch.action_alerts = $('#pd-optin').checked;
     try { await DB.savePerson(p.id, patch); S.personEdit = null; S.pdAddr = null; toast('Saved'); rerenderKeep(); } catch (e) { toast(e.message, true); } });

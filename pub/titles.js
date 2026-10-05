@@ -20,11 +20,11 @@ export const TITLES = [
   { k: 'parent', label: 'parent', say: 'parent', first: true, group: 'family', topics: ['food', 'tobacco', 'around', 'family', 'care'], words: /\b(school|keiki|kids?|child(ren)?|youth|teens?|bab(y|ies)|famil(y|ies)|parent|minor)/i },
   { k: 'kupuna', label: 'kupuna (older adult)', say: 'kupuna', first: true, group: 'family', topics: ['care', 'family', 'food', 'around'], words: /(kupuna|kūpuna|older adult|senior|elder|aging|medicare|caregiver|long-term care|pedestrian|crosswalk)/i },
   { k: 'student', label: 'student', say: 'student', first: true, group: 'school', pick: ['student-hs', 'student-college'], topics: [], words: null },
-  { k: 'student-hs', label: 'high school student', say: 'high school student', group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|vap|e-cig|nicotine|flavor|bus|heat)/i },
+  { k: 'student-hs', label: 'high school student', say: 'high school student', group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|e-cig|electronic smoking|nicotine|flavor|bus|heat)/i },
   { k: 'student-college', label: 'college student', say: 'college student', group: 'school', topics: ['food', 'family', 'care', 'around', 'climate'], words: /\b(student|college|universit|tuition|snap|rent|bus|transit|tax credit for training)/i },
   { k: 'teacher', label: 'teacher (kumu)', say: 'teacher', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|classroom|keiki|kids?|child(ren)?|youth|teach|heat)/i },
-  { k: 'nurse', label: 'nurse', say: 'nurse', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|nurs|vaccin|medical|hospital|clinic|vap|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
-  { k: 'doctor', label: 'doctor', say: 'doctor', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|physician|doctor|vaccin|medical|hospital|clinic|vap|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
+  { k: 'nurse', label: 'nurse', say: 'nurse', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|nurs|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
+  { k: 'doctor', label: 'doctor', say: 'doctor', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|physician|doctor|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
   { k: 'business', label: 'small business owner', say: 'small business owner', first: true, group: 'work', topics: ['family', 'tobacco', 'food'], words: /\b(business|wage|tax|retail|sales|store|leave|employ|license)/i },
   { k: 'volunteer', label: 'community volunteer', say: 'community volunteer', first: true, group: 'community', topics: [], words: /\b(volunteer|nonprofit|community)/i },
   { k: 'grandparent', label: 'grandparent', say: 'grandparent', group: 'family', topics: ['food', 'tobacco', 'around', 'family', 'care'], words: /\b(school|keiki|kids?|child(ren)?|youth|teens?|grand|famil(y|ies))/i },
@@ -32,11 +32,11 @@ export const TITLES = [
   { k: 'renter', label: 'renter', say: 'renter', group: 'family', topics: ['family'], words: /\b(rent|renter|housing|homes?|landlord|evict)/i },
   { k: 'dental', label: 'dentist or dental worker', say: 'dental professional', group: 'health', topics: ['care', 'food'], words: /(dental|dentist|hygien|oral|teeth|tooth|filling|sugary|fluorid)/i },
   { k: 'health-worker', label: 'health care worker (pharmacy, community health, other)', say: 'health care worker', group: 'health', topics: ['care', 'tobacco', 'food'], words: /(health|medical|pharm|vaccin|hospital|clinic|community health|medicaid)/i },
-  { k: 'public-health', label: 'public health worker', say: 'public health worker', group: 'health', self: true, topics: ['food', 'tobacco', 'care', 'family', 'around', 'climate'], words: /(public health|prevent|tobacco|vap|sugary|nutrition|snap|injur|pedestrian|vaccin|pesticid)/i },
+  { k: 'public-health', label: 'public health worker', say: 'public health worker', group: 'health', self: true, topics: ['food', 'tobacco', 'care', 'family', 'around', 'climate'], words: /(public health|prevent|tobacco|e-cig|electronic smoking|sugary|nutrition|snap|injur|pedestrian|vaccin|pesticid)/i },
   { k: 'social-worker', label: 'social worker or counselor', say: 'social worker or counselor', group: 'health', topics: ['family', 'care', 'tobacco'], words: /(mental|neglect|poverty|famil|child|substance|youth|counsel|homeless|prison)/i },
   { k: 'first-responder', label: 'first responder (fire, police, EMS)', say: 'first responder', group: 'health', topics: ['around', 'tobacco', 'climate'], words: /(traffic|crash|driv|dui|pedestrian|crosswalk|speed|camera|wildfire|fire|emergenc|alcohol)/i },
   { k: 'school-staff', label: 'school staff member (aide, counselor, food service)', say: 'school staff member', group: 'school', topics: ['food', 'tobacco', 'climate', 'around'], words: /\b(school|student|meals?|lunch|classroom|heat|keiki)/i },
-  { k: 'coach', label: 'coach or youth leader', say: 'coach or youth leader', group: 'school', topics: ['tobacco', 'food', 'around'], words: /\b(youth|keiki|kids?|vap|sport|activ|school|summer|teen)/i },
+  { k: 'coach', label: 'coach or youth leader', say: 'coach or youth leader', group: 'school', topics: ['tobacco', 'food', 'around'], words: /\b(youth|keiki|kids?|e-cig|sport|activ|school|summer|teen)/i },
   { k: 'farmer', label: 'farmer or food grower (mahiʻai)', say: 'farmer', group: 'work', topics: ['food', 'climate'], words: /(farm|local food|agricultur|pesticid|grow|snap match|water|invasive|food hub)/i },
   { k: 'fisher', label: 'fisher (lawaiʻa)', say: 'fisher', group: 'work', topics: ['climate', 'food'], words: /(fish|ocean|reef|water|cesspool|coast|invasive)/i },
   { k: 'food-worker', label: 'restaurant or food worker', say: 'restaurant or food worker', group: 'work', topics: ['food', 'family', 'tobacco'], words: /(restaurant|food|wage|alcohol|liquor|sugary|beverage|tip)/i },
@@ -61,9 +61,14 @@ export const titleOf = k => BY.get(k) || null;
 export const titleLabel = t => isOwn(t) ? ownWords(t) : (BY.get(t)?.label || '');
 // What a letter says: "teacher", or their own words as typed (a person who typed "UH professor" keeps the capitals).
 export const titleSay = t => isOwn(t) ? ownWords(t) : (BY.get(t)?.say || '');
+// Own words that are a list title ("teacher", "Kupuna", "teacher (kumu)") are that title, so staff's "They are" filter and
+// the bill fit find them (the review, 10/5). The bare "student" stays their words: it could be either kind.
+const SAID = new Map();
+for (const t of TITLES) if (!t.pick) for (const w of [t.say, t.label, t.label.replace(/\s*\(.*\)\s*$/, '')]) SAID.set(w.toLowerCase(), t.k);
+export const listKeyFor = words => SAID.get(String(words || '').replace(/\s+/g, ' ').trim().toLowerCase()) || '';
 // Keys only from the list (an old key that left the list is dropped, never shown as a blank chip).
 export const cleanTitles = arr => { const seen = new Set(), out = [];
-  for (const t of Array.isArray(arr) ? arr : []) { const v = isOwn(t) ? ownKey(ownWords(t)) : BY.has(t) && !BY.get(t).pick ? t : '';
+  for (const t of Array.isArray(arr) ? arr : []) { const v = isOwn(t) ? (listKeyFor(ownWords(t)) || ownKey(ownWords(t))) : BY.has(t) && !BY.get(t).pick ? t : '';
     if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); out.push(v); } }
   return out.slice(0, TITLES_MAX); };
 // "a" or "an" before the first title.
@@ -72,10 +77,12 @@ const article = w => { const first = String(w).split(/\s+/)[0];
   if (/^[A-Z]{2,}$/.test(first)) return /^[AEFHILMNORSX]/.test(first) ? 'an' : 'a';
   return /^[aeiou]/i.test(w) && !/^(uni|use|one|eu)/i.test(w) ? 'an' : 'a'; };
 
-// The two titles that fit a bill best. A title scores 3 when its words appear in what the bill is about (its everyday
-// name, summary, title and issue names), 2 when the bill's category is one of its topics; a title of their own scores 3
-// when one of its longer words appears there. Ties keep the person's own order, and the two keep that order in the
-// letter. Nothing fits: their first two. o: { cats: ['food'], text: 'Free school meals for every student ...' }.
+// The titles a letter uses (R-147; R-156 after the review's replay). A title scores 3 when its words appear in what the
+// bill is about (its everyday name, summary, title and issue names), 2 when the bill's category is one of its topics; a
+// title of their own scores 3 when one of its longer words appears there. The letter leads with the best fit, and adds a
+// second only when the bill's own words fit it too: a broad topic alone is not enough for a second (the replay on 248
+// bills found the second title off-topic on up to 142 of them). Nothing fits: their first title alone. The titles keep
+// the person's order in the letter. o: { cats: ['food'], text: 'Free school meals for every student ...' }.
 const STOP = new Set(['with', 'from', 'that', 'this', 'their', 'about', 'other', 'person', 'people', 'member', 'worker', 'leader', 'owner']);
 export function fitScore(t, { cats = [], text = '' } = {}) {
   if (isOwn(t)) return ownWords(t).toLowerCase().split(/[^a-zʻāēīōū]+/i).some(w => w.length >= 4 && !STOP.has(w) && text.toLowerCase().includes(w)) ? 3 : 0;
@@ -83,10 +90,11 @@ export function fitScore(t, { cats = [], text = '' } = {}) {
   return (d.words && d.words.test(text) ? 3 : 0) + (d.topics.some(c => cats.includes(c)) ? 2 : 0);
 }
 export function pickTwo(titles, about = {}) {
-  const list = cleanTitles(titles); if (list.length <= 2) return list;
-  const scored = list.map((t, i) => ({ t, i, s: fitScore(t, about) }));
-  const best = scored.slice().sort((a, b) => b.s - a.s || a.i - b.i).slice(0, 2);
-  return best.sort((a, b) => a.i - b.i).map(x => x.t);
+  const list = cleanTitles(titles); if (!list.length) return [];
+  const ranked = list.map((t, i) => ({ t, i, s: fitScore(t, about) })).sort((a, b) => b.s - a.s || a.i - b.i);
+  if (!ranked[0].s) return [list[0]];
+  const two = [ranked[0], ...(ranked[1] && ranked[1].s >= 3 ? [ranked[1]] : [])];
+  return two.sort((a, b) => a.i - b.i).map(x => x.t);
 }
 // Does a letter with these titles add "writing for myself"?
 export const needsSelf = two => two.some(t => BY.get(t)?.self);

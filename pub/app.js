@@ -131,9 +131,12 @@ try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 function whoAmI() {
   let me = {}, text = null; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; text = JSON.parse(localStorage.getItem('hiphi_text') || 'null'); } catch { /* private mode */ }
   if (!S.session && !(text && text.token && /^\d{10}$/.test(text.phone || ''))) return null;
-  const name = String((S.session && S.profile?.name) || me.name || (S.user?.prefs || {}).name || wiz().name || '').trim();
-  const w = name.replace(/[^\p{L}\s'-]/gu, ' ').trim().split(/\s+/).filter(Boolean);
-  return { name, first: w[0] || '', ini: w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '' };
+  // One name (R-156): the account's, else the device's even when cleared, else the first visit's (myprofile.js myName).
+  const name = String((S.session && S.profile?.name) || (typeof me.name === 'string' ? me.name : (S.user?.prefs || {}).name || wiz().name) || '').trim();
+  // The ʻokina is a letter to Unicode, never an initial: "IK" for ʻIlima Kahale (myprofile.js initials).
+  const w = name.normalize('NFC').replace(/[ʻʼ‘’'`-]/g, '').replace(/[^\p{L}\p{M}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  const one = x => (x.match(/\p{L}\p{M}*/u) || [''])[0];
+  return { name, first: String(name.split(/\s+/)[0] || ''), ini: w.length ? (one(w[0]) + (w.length > 1 ? one(w[w.length - 1]) : '')).toUpperCase() : '' };
 }
 const avatar = (me, cls = 'hav') => `<span class="${cls}" aria-hidden="true">${me.ini ? esc(me.ini) : icon('user', { size: 18 })}</span>`;
 function header(route, scr) {

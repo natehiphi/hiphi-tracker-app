@@ -494,6 +494,7 @@ function stepDone(step) {
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${lede}</p>`,
     `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
+    ${S.session || textSaved() ? `<p class="st-prof">${icon('user')}<span>Your profile is saved: your ${name ? 'name and ' : ''}issues are ready for your first letter. <a href="#/profile">See your profile</a>, any time under More.</span></p>` : ''}
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">
       <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${!follows ? 'We follow HIPHI’s issues every day. Follow one any time and it becomes yours.' : off ? `From ${esc(shortDay(sessionInfo().nextOpen))} we check your issues every day, so you don’t have to.` : 'We check your issues every day, so you don’t have to.'}</span></div></li>
