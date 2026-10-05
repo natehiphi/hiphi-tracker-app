@@ -304,7 +304,7 @@ His answers: the public and HIPHI's own drafts; the letter kept with the profile
 - Sandbox: `?letter` plants a letter on HB 2121 from its 18 Feb House Health hearing (House draft 1); its 20 Mar hearing
   is on House draft 2, ticked in `demo/drafts.json`. `tests/again.py` (70 checks).
 
-## Emails offered again, and one reminder to the same chair (R-153; 4 Oct 2026, HANDOFF 3.87)
+## Emails offered again, and one reminder to the same chair (R-153; 4 Oct 2026, HANDOFF 3.88)
 
 Nate: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?" His answers: "all of
 the above" (every email the walkthrough writes) and the same-chair reminder "Yes for now, but needs to be reconsidered".
