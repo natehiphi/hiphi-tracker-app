@@ -930,9 +930,11 @@ function suggestFor(scope, who, r) {
 }
 // "HB1", "HB1 and HB2", "HB1, HB2 and HB3", "HB1, HB2 and 4 others".
 const billList = bs => { const ns = bs.map(billNum); return ns.length > 3 ? `${ns.slice(0, 2).join(', ')} and ${ns.length - 2} others` : ns.join(', ').replace(/, ([^,]+)$/, ' and $1'); };
-// "See all in Bills" (A-14: five shown of 23 left the rest nowhere). Bills cannot be handed a list of bill numbers, so
-// the link sets the one Bills filter that holds these bills, in the same scope, and says how many that will show: At
-// risk (no hearing, and a deadline within a week), or for a deadline further off, every bill waiting for a hearing.
+// "See all in Bills" (A-14: five shown of 23 left the rest nowhere). Since R-119 the list shows every one of them, and a
+// list of more than five still gets the link, so they can be worked through in Bills. Bills cannot be handed a list of
+// bill numbers, so the link sets the one Bills filter that holds these bills, in the same scope, and says how many that
+// will show: At risk (no hearing, and a deadline within a week), or for a deadline further off, every bill waiting for
+// a hearing.
 // It reads "See all N in Bills" only when that filter shows exactly these bills.
 const POSITIONS = ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral'];
 function billsTarget(only, clock, scope, who) {
@@ -995,9 +997,8 @@ function suggestHtml(scope, who, r) {
   const why = only ? [`${only.length === 1 ? 'It has' : 'Each has'} to be heard by ${ckDay(clock.date)}.`,
     inList.length ? `${billList(inList)} ${inList.length === 1 ? 'is' : 'are'} on ${whose} list above.` : '',
     inLater.length ? `${billList(inLater)} ${inLater.length === 1 ? 'is' : 'are'} ${scope === 'team' ? 'on the list above' : 'under Coming up, above'}.` : '',
-    nothing.length ? `Nothing to suggest on ${billList(nothing)} right now.` : '',
-    all.length > list.length ? `Showing ${list.length} of ${all.length}.` : ''].filter(Boolean).join(' ') : '';
-  const tgt = only && all.length > list.length ? billsTarget(only, clock, scope, who) : null;
+    nothing.length ? `Nothing to suggest on ${billList(nothing)} right now.` : ''].filter(Boolean).join(' ') : '';
+  const tgt = only && only.length > SUGGEST_CAP ? billsTarget(only, clock, scope, who) : null;
   const note = only
     ? `<p class="td-sgnote">${icon('circle-dashed')}<span>${esc(why)}</span>${tgt ? btn(esc(tgt.label), { kind: 'text', iconEnd: 'arrow-right', attrs: { 'data-sgbills': tgt.f } }) : ''}${scope === 'mine' ? btn('Show all suggestions', { kind: 'text', attrs: { 'data-sgall': '1' } }) : ''}</p>`
     : u ? `<p class="td-sgnote"><span>${u === list.length ? (u === 1 ? 'This one races' : 'These race') : u === 1 ? 'One of these races' : `${u} of these race`} a deadline in the next seven days. Each says why it came up and by when.</span></p>` : '';

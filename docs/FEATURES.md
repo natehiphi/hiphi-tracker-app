@@ -125,7 +125,8 @@ bill rows and the Public tab ("The public's response", Copy share link, Copy a r
 share pages. Session work first (S6, R-118): in the opening weeks and in session "new bills to sort" takes Today's notice
 slot, the prep notice ends with its due date for non-admins, and the prep card folds to one line once approved or in
 session. One count for "needs a hearing" (S8, R-119): the deadline's "N bills with no hearing yet" lists every one of
-them; `gateApplies` drops a bill-specific deadline (Budget decking) from lists that hold none of its bills, in Today, the
+them, and a list of more than five keeps its link to Bills (`billsTarget`; it went missing until R-154 put it back on
+10/5); `gateApplies` drops a bill-specific deadline (Budget decking) from lists that hold none of its bills, in Today, the
 Week view and the memo. The consistency set (P8, R-120): `hearingsOf` reads the week's pool and the featured bills'
 hearings too (legislator and committee pages); a hearing deferred to a later sitting says "Deferred to Apr 7"
 (`deferredTo` in bill.js); the walkthrough saves the stance (`setStance`), heads the letter "in SUPPORT of" / "in

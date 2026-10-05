@@ -1,6 +1,7 @@
-# R-005: ranking by weight with the committee, behind ?rank=1 until Nate says yes. After a step on a hearing, the
-# strongest step still open leads (testimony, email the chair, go in person, share) and "More ways to help" follows the
-# same order; a newcomer still starts with the quick email. Without the switch nothing changes. Sandbox, phone.
+# R-005: ranking by weight with the committee, now the rank test's 'ranked' version (R-135), forced with ?rank=1. Testimony
+# leads for everyone, newcomers included (R-068, Nate 9/27 and 9/28), and until it is sent both versions are the same (R-135).
+# After testimony the strongest step still open leads (email the chair, go in person, share) and "More ways to help"
+# follows the same order. Without the switch, after testimony there is no main button. Sandbox, phone.
 import sys
 from playwright.sync_api import sync_playwright
 # The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
@@ -34,18 +35,19 @@ with sync_playwright() as p:
     pg = page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     k = setup(pg, BASE + '&seed=1&rank=1')
     check(primary(pg, k).startswith('Write my testimony'), f'ranked, experienced: testimony leads ({primary(pg, k)!r})')
-    r = rows(pg, k); check(r[:3] == ['Send a quick email · 2 min', 'Go to the hearing', 'Share with a friend · 1 min'], f'"More ways to help" in order of weight ({r})')
+    r = rows(pg, k); check(r[:3] == ['Send a quick email · 2 min', 'Share with a friend · 1 min', 'Go to the hearing'], f'before testimony, "More ways to help" is today\'s: both versions are the same until it is sent ({r})')
     did(pg, k, 'testimony')
     check(primary(pg, k).startswith('Send a quick email'), f'after testimony, the email to the chair leads ({primary(pg, k)!r})')
+    r = rows(pg, k); check(r[:3] == ['Write testimony · 5 min', 'Go to the hearing', 'Share with a friend · 1 min'], f'after testimony, "More ways to help" in order of weight ({r})')
     did(pg, k, 'email')
     check(primary(pg, k) == 'Go to the hearing', f'then going in person ({primary(pg, k)!r})')
     did(pg, k, 'attend')
     check(primary(pg, k).startswith('Share with a friend'), f'then sharing ({primary(pg, k)!r})')
     pg.screenshot(path='tests/out/rank_after.png')
     check(not errs, 'no page errors ' + '; '.join(errs))
-    # 2. ranked, a newcomer: the quick email still comes first
+    # 2. ranked, a newcomer: testimony leads for them too (R-068; the quick email first was the 9/19 ladder)
     pg = page(); k = setup(pg, BASE + '&rank=1')
-    check(primary(pg, k).startswith('Send a quick email'), f'ranked, newcomer: the quick email still leads ({primary(pg, k)!r})')
+    check(primary(pg, k).startswith('Write my testimony'), f'ranked, newcomer: testimony leads, as for everyone ({primary(pg, k)!r})')
     # 3. without the switch: unchanged (after testimony the main button goes, as today)
     pg = page(); k = setup(pg, BASE + '&seed=1')
     r = rows(pg, k); check(r[:3] == ['Send a quick email · 2 min', 'Share with a friend · 1 min', 'Go to the hearing'], f'switch off: today\'s order ({r})')

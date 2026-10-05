@@ -7,6 +7,8 @@
 # (decision 3), "Showing 5 of N" gets a "See all … in Bills" link, a suggestion shows one button and a "…" holding
 # Done / Not now / Not this bill, a P1 bill with a dated "Ask the chair" card is never also a suggestion, and the
 # section never says "Nothing urgent" or "Nothing here is on the clock" over a suggestion racing a deadline.
+# R-119 (10/1): the list the button opens is every one of the N it counted, bills already on your list included, so there
+# is no "Showing 5 of N" any more; a list of more than five still has the link to Bills.
 import os, sys, re
 from playwright.sync_api import sync_playwright
 BASE = os.environ.get('STAFF_BASE', 'http://localhost:8832/staff.html?demo=1')
@@ -132,15 +134,17 @@ with sync_playwright() as pw:
       (d.S.todos[b.id] ??= []).push({ id: 'test-clock', bill_id: b.id, title: 'Call the committee clerk', due_date: '2026-03-16', assignee_id: d.S.me.id, done: false });
       d.hooks.render(); return m.billNum(b); })()""")
     p.wait_for_timeout(500); press(p); s = p.evaluate(STATE)
-    ok(f'{first} is on your list above.' in s['note'] and s['bills'] == s['count'] - 1, f'a counted bill with a card today is named, not dropped ("{s["note"]}")')
+    # Since R-119 it is also a card in the list the button opens (every one of the N), and the note still says where it is.
+    ok(f'{first} is on your list above.' in s['note'] and s['bills'] == s['count'], f'a counted bill with a card today is named, and listed ({s["bills"]} of {s["count"]}; "{s["note"]}")')
     c.close()
-    # the deadline after it: its own button opens its own bills, five at a time, with a way to see them all in Bills
-    # (Nate: nine bills with no hearing race 3/30, so "Showing 5 of 9" and the link to Bills both show)
+    # the deadline after it: its own button opens its own bills, every one of them (R-119), with a link to Bills
+    # (Nate: nine bills with no hearing race 3/30, so all nine show and so does the link)
     c, p = ctx(b, 1440, 900); load(p)
     press(p, '[data-clockwork="then"]'); s = p.evaluate(STATE)
     ok(s['head'].startswith('No hearing yet') and 'has to be heard by Mon 3/30' in s['note'] and s['focusHead'] and s['inView'], f'the deadline after: its button opens its bills ("{s["head"]}", "{s["note"][:60]}")')
-    ok(s['bills'] == min(5, s['then']) and (s['then'] <= 5 or f'Showing 5 of {s["then"]}.' in s['note']), f'the deadline after: five shown of {s["then"]}, and the note says so ("{s["note"]}")')
-    ok(s['then'] <= 5 or (s['bills2'].startswith('See ') and s['bills2'].endswith('in Bills')), f'"Showing 5 of N" has a link to Bills ("{s["bills2"]}")')
+    ok(s['then'] > 5 and s['bills'] == s['then'] and 'Showing' not in s['note'], f'the deadline after: all {s["then"]} shown, none held back ({s["bills"]} cards; "{s["note"]}")')
+    ok(s['bills2'].startswith('See ') and s['bills2'].endswith('in Bills'), f'more than five has a link to Bills ("{s["bills2"]}")')
+    listed = p.evaluate("[...new Set([...document.querySelectorAll('.td-sugg .td-sg')].map(e => e.dataset.bill))]")
     # Not now on one of them, from its "…": it is named as having nothing to suggest right now, and Undo brings it back
     gone = s['cards'][0]
     items = menu_pick(p, '.td-sugg [data-sgmore]', 'Not now'); s = p.evaluate(STATE)
@@ -150,12 +154,14 @@ with sync_playwright() as pw:
     ok('comes back in two weeks' in toast and 'Undo' in toast, f'Not now says what it did, with Undo ("{toast}")')
     p.locator('.toastmsg .toastundo').first.click(); p.wait_for_timeout(700); s = p.evaluate(STATE)
     ok(gone in s['cards'], f'Undo puts {gone} back ({s["cards"]})')
-    # See all in Bills: the Bills list, filtered to hold them
+    # See all in Bills: the Bills list, filtered to hold them. The link says a number only when Bills shows exactly
+    # these (R-119); otherwise it is the wider filter that holds them ("every bill waiting for a hearing").
     if s['bills2']:
-        n = int(re.search(r'(\d+)', s['bills2']).group(1))
+        m = re.search(r'(\d+)', s['bills2'])
         p.locator('.td-sugg [data-sgbills]').first.click(); p.wait_for_timeout(1500)
-        rows = p.evaluate("[...new Set([...document.querySelectorAll('main [data-bill]')].map(e => e.dataset.bill))].length")
-        ok(p.evaluate('location.hash') == '#/bills' and rows == n, f'See all in Bills opens Bills with the {n} it named ({p.evaluate("location.hash")}, {rows} rows)')
+        ids = p.evaluate("[...new Set([...document.querySelectorAll('main [data-bill]')].map(e => e.dataset.bill))]")
+        ok(p.evaluate('location.hash') == '#/bills' and all(x in ids for x in listed) and (not m or len(ids) == int(m.group(1))),
+           f'"{s["bills2"]}" opens Bills holding all {len(listed)} ({p.evaluate("location.hash")}, {len(ids)} rows)')
     c.close()
     # a P1 bill with a dated "Ask the chair" card is never also a suggestion (Lauren's HB1779, due to race 3/30)
     c, p = ctx(b, 1440, 900); load(p, '&as=LR'); s = p.evaluate(STATE)
@@ -180,7 +186,8 @@ with sync_playwright() as pw:
       for (let i = 0; i < 5; i++) d.S.bills.push({ ...b, id: 990000 + i, bill_number: 'HB' + (9901 + i) });
       d.hooks.render(); })()""")
     p.wait_for_timeout(500); press(p); s = p.evaluate(STATE)
-    ok(s['count'] > 5 and s['bills'] == 5 and f'Showing 5 of {s["count"]}.' in s['note'], f'more than five: five shown, and the note says so ({s["count"]} counted, "{s["note"]}")')
+    ok(s['count'] > 5 and s['bills'] == s['count'] and 'Showing' not in s['note'], f'more than five: every one shown (R-119; {s["bills"]} of {s["count"]}, "{s["note"]}")')
+    ok(s['bills2'].startswith('See ') and s['bills2'].endswith('in Bills'), f'more than five: the link to Bills ("{s["bills2"]}")')
     c.close()
     b.close()
 
