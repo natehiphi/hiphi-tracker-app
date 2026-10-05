@@ -51,14 +51,14 @@ function header(p) {
     : `Contact, ${p.source === 'import' ? `imported${p.source_note ? ' from ' + p.source_note : ''}` : 'added by hand'} on ${fmtDate(p.created_at)}`;
   return `<header class="sp-phead">
     <div class="sp-pname"><h1>${esc(personName(p))}</h1>${iconBtn('ellipsis', `More actions for ${personName(p)}`, { 'data-pp': 'more', 'aria-haspopup': 'dialog' })}</div>
-    ${isTwo() ? '' : `<p class="sp-reach"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${p.phone ? ` · ${hasMouse() ? `<span class="sp-num">${esc(p.phone)}</span> <button type="button" class="linkbtn sp-copy" data-pp="copyphone">Copy<span class="sr"> the phone number</span></button>` : `<a href="tel:${esc(tel(p))}">${esc(p.phone)}</a>`}` : ''}</p>`}
+    ${isTwo() ? '' : `<p class="sp-reach">${p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '<span class="meta">No email: signed in with a mobile number</span>'}${p.phone ? ` · ${hasMouse() ? `<span class="sp-num">${esc(p.phone)}</span> <button type="button" class="linkbtn sp-copy" data-pp="copyphone">Copy<span class="sr"> the phone number</span></button>` : `<a href="tel:${esc(tel(p))}">${esc(p.phone)}</a>`}` : ''}</p>`}
     <p class="meta">${esc(state)}</p>
   </header>`;
 }
 function actions(p) {
   const tile = (ic, label, a) => `<${a.href ? `a href="${esc(a.href)}"` : 'button type="button"'} class="sp-act"${Object.entries(a).filter(([k]) => k !== 'href').map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}>${icon(ic)}<span>${label}</span></${a.href ? 'a' : 'button'}>`;
   return `<div class="sp-acts4" role="group" aria-label="Contact ${esc(personName(p))}">
-    ${tile('mail', 'Email', { href: `mailto:${p.email}` })}
+    ${p.email ? tile('mail', 'Email', { href: `mailto:${p.email}` }) : tile('mail', 'Email', { 'data-pp': 'noemail', 'aria-disabled': 'true' })}
     ${!p.phone ? tile('phone', 'Call', { 'data-pp': 'nophone', 'aria-disabled': 'true' }) : hasMouse() ? tile('copy', 'Copy number', { 'data-pp': 'copyphone' }) : tile('phone', 'Call', { href: `tel:${tel(p)}` })}
     ${tile('calendar-plus', 'Follow up', { 'data-pp': 'fup' })}
     ${tile('notebook-pen', 'Note', { 'data-pp': 'note' })}
@@ -225,6 +225,7 @@ export default {
     const on = (sel, fn) => page.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-pp="more"]', () => moreMenu(p));
     on('[data-pp="nophone"]', () => toast(`No phone number for ${personName(p)} yet. Add one with Edit.`));
+    on('[data-pp="noemail"]', () => toast(`${personName(p)} signed in with a mobile number and has no email. Staff never see that number.`));
     on('[data-pp="copyphone"]', () => copyText(p.phone, `Copied ${p.phone}.`));
     on('[data-pp="copyemail"]', () => copyText(p.email, `Copied ${p.email}.`));
     on('[data-fkind]', el => { (st.feedKind ??= {})[p.id] = el.dataset.fkind; st.feedAll[p.id] = false; const y = scrollY; hooks.render(); scrollTo(0, y); document.querySelector(`.sp-person [data-fkind="${el.dataset.fkind}"]`)?.focus({ preventScroll: true }); });
@@ -375,7 +376,7 @@ function mergeSheet(p) {
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9@.]/g, '');
   const digits = s => String(s || '').replace(/\D/g, '').slice(-7);
   // Likely duplicates first: the same name, the same phone, or the same email name at another address.
-  const likely = () => (S.people || []).filter(x => x.id !== p.id && ((p.name && norm(x.name) === norm(p.name)) || (p.phone && digits(x.phone) && digits(x.phone) === digits(p.phone)) || x.email.split('@')[0].toLowerCase() === p.email.split('@')[0].toLowerCase())).slice(0, 5);
+  const likely = () => (S.people || []).filter(x => x.id !== p.id && ((p.name && norm(x.name) === norm(p.name)) || (p.phone && digits(x.phone) && digits(x.phone) === digits(p.phone)) || (p.email && x.email && x.email.split('@')[0].toLowerCase() === p.email.split('@')[0].toLowerCase()))).slice(0, 5);   // no email (R-155): never a match
   const likelyHTML = () => { const l = likely(); return l.length ? `<p class="meta sp-mhead">Possible duplicates</p>${rowsFor(l)}` : ''; };
   const rowsFor = list => list.map(x => `<button type="button" class="sp-sug sp-mrow" data-mpick="${esc(x.id)}">${icon('user-round')}<span><b>${esc(personName(x))}</b><span class="meta">${esc(x.email)}${x.has_account ? ' · has an account' : ''}</span></span></button>`).join('');
   openSheet({ title: `Merge into ${esc(personName(p))}`, size: 'full',

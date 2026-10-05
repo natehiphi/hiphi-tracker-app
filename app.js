@@ -2319,7 +2319,7 @@ const INTERESTS = [['testify', 'Would testify in person'], ['story', 'Has a stor
 const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
 const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
 const personById = id => (S.people || []).find(p => p.id === id);
-const personName = p => p.name || p.email.split('@')[0];
+const personName = p => p.name || (p.email || '').split('@')[0] || 'No name yet';   // no email: signed in with a number (R-155)
 const EMPTY_PF = () => ({ q: '', tags: [], titles: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
 const pfEmpty = f => !f.q && !f.tags.length && !f.interests.length && !f.islands.length && !f.house.length && !f.senate.length && f.account === 'any' && !f.optin && !f.bills.length && !f.lists.length && !f.campaigns.length && !f.active_days && !f.acted;
 const pfClean = f => { const o = {}; for (const [k, v] of Object.entries(f)) if (Array.isArray(v) ? v.length : v && v !== 'any') o[k] = v; return o; };

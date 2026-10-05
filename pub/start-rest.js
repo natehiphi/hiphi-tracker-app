@@ -10,7 +10,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, reduced } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf } from './variant.js';
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -336,14 +336,14 @@ function stepAlerts(step) {
   const done = !S.alertEdit && (t || sent);
   const body = done
     ? `<section class="card st-sent st-alertdone" aria-labelledby="st-al-t"><span class="st-ilead">${icon(t ? 'message-square' : 'mail-check')}</span>
-        <div class="st-sentbody" id="st-al-t" tabindex="-1">${alertDoneHTML(t ? { kind: 'phone', phone: t.phone, demo: DEMO } : { kind: 'email', email: sent, demo: DEMO, later: true },
+        <div class="st-sentbody" id="st-al-t" tabindex="-1">${alertDoneHTML(t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed, demo: DEMO } : { kind: 'email', email: sent, demo: DEMO, later: true },
           { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', t ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>`
     : `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
   // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
   // has to make sense on its own (the review, 10/4).
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
-    <h1 class="hero" id="st-h">${done ? 'You’re almost set' : `Get alerts on ${what}`}</h1>
-    <p class="lede">${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.</p>`,
+    <h1 class="hero" id="st-h">${done ? (t?.confirmed ? 'You’re all set' : 'You’re almost set') : codeStep('st-a') ? 'Check your texts' : `Get alerts on ${what}`}</h1>
+    <p class="lede">${!done && codeStep('st-a') ? 'Type the 6-digit code from the text to turn on alerts.' : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`}</p>`,
     body);
 }
 // The first success: a moment that fills the screen and waits for Continue (C-7). It celebrates the issues just
@@ -353,7 +353,9 @@ function mahalo(then, r = null) {
   const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
   if (wiz().via || S.mahaloShown) { then(); return; }
   S.mahaloShown = true;
-  const told = r?.kind === 'phone' ? `Our first text to ${fmtPhone(r.phone)} asks you to reply YES. Then alerts start.`
+  // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it.
+  const told = r?.kind === 'phone' && r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`
+    : r?.kind === 'phone' ? `Our first text to ${fmtPhone(r.phone)} asks you to reply YES. Then alerts start.`
     : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
   // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
   celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
@@ -745,7 +747,7 @@ export function barStep(name, step, off) {
     case 'soon': return endHome() ? bar1('See my home page', 'house') : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
     case 'alerts': { if (!S.alertEdit && (textSaved() || mailSent())) return bar1('Next');
-      const b = alertButton(); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
+      const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
     case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
     default: return '';

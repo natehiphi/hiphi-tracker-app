@@ -340,3 +340,12 @@ main:focus { outline: none; }
 a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); font-weight: 600; }
 .al-break { overflow-wrap: anywhere; }
 .al-nowrap { white-space: nowrap; }
+/* The code step (R-155): the 6-digit code where the number was typed. Wide spacing and tabular digits so a code read off a
+   text is easy to check; sized for six digits, never the full width. A new code and a different number sit side by
+   side as quiet text buttons (44px targets), and what they did is said under them (role=status). */
+.al-codeto { margin: 0 0 var(--s4); }
+.al-code { max-width: 12rem; font-size: var(--t22); letter-spacing: .3em; font-variant-numeric: tabular-nums; }
+.al-coderow { display: flex; flex-wrap: wrap; gap: 0 var(--s16); }
+.al-coderow .btn.text { padding-inline: 0; }
+.al-status { margin: 0; color: var(--n700); min-height: 0; }
+.al-status:empty { display: none; }

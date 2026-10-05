@@ -557,7 +557,7 @@ function welcomeView(si, { cards, asks, total }) {
   const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   // Not in the email-ask test's second version, which first asks after an action (R-135, variant.js 'email').
-  const ask = S.session || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
+  const ask = (S.session && !S.nudgeText) || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
   // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to

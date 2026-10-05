@@ -1102,7 +1102,7 @@ function emailAsk(x) {
         ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
     : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
         ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
-    : S.nudge ? nudgeCard('action').replace(/(id|for|aria-labelledby|aria-describedby)="ng-/g, '$1="hp-ng-') : '';
+    : S.nudge ? nudgeCard('action', 'hp-ng') : '';
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {
@@ -1190,7 +1190,7 @@ function paintFoot() {
 function afterPaint() {
   grow(dlg.querySelector('#hp-letter')); grow(dlg.querySelector('#hp-pts'));
   wireTitles();
-  if (dlg.querySelector('.nudgecard')) wireNudge(dlg);
+  if (dlg.querySelector('.nudgecard')) wireNudge(dlg, { pfx: 'hp-ng', redraw: () => paint() });
 }
 function grow(t) { if (!t) return; t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; }
 // A point tapped in goes into the box under the list (R-141: "an editable box that they can see"). On a phone the box is

@@ -12,9 +12,10 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, INTERESTS, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, fmtPhone } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, codeStep } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, quoteOk, myInterests, initials, saveProfile, loadMe } from './myprofile.js';
 import { pickerHTML, wirePicker, titleChips } from './titlepick.js';
+import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { asWords } from './titles.js';
 
 const $ = s => document.querySelector(s);
@@ -37,19 +38,20 @@ const kv = (k, v) => `<div class="pf-kv"><p class="pf-k">${k}</p>${v}</div>`;
 // ---------------- no profile yet: the invitation ----------------
 function inviteView() {
   S.alertMode ??= 'phone';
-  const b = alertButton();
+  const b = alertButton('pf-alf');
   return `<div class="mr pf pf-invite">
-    <header class="pagehead"><span class="pf-av pf-av-lg" aria-hidden="true">${icon('user')}</span><h1 class="hero">Make your profile</h1>
-      <p class="lede">Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.</p></header>
+    <header class="pagehead"><span class="pf-av pf-av-lg" aria-hidden="true">${icon('user')}</span><h1 class="hero">${codeStep('pf-alf') ? 'Check your texts' : 'Make your profile'}</h1>
+      <p class="lede">${codeStep('pf-alf') ? 'Type the 6-digit code from the text to make your profile.' : 'Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.'}</p></header>
     <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf', { emailHref: '#/signin' })}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'pf-al-send')}</div></form>
-    <p class="small muted pf-back">Added your email before? <a href="#/signin">Sign in on this device</a></p>
+    <p class="small muted pf-back">${codesOn() ? 'Made one before? <a href="#/signin?by=number">Sign in</a>' : 'Added your email before? <a href="#/signin">Sign in on this device</a>'}</p>
   </div>`;
 }
 function wireInvite() {
   wireAlertForm($('#pf-al'), { pfx: 'pf-alf', source: 'more', onDone: r => {
     // Said on the page, under the header (the review: a toast covered the first section's Save and Cancel).
-    P.made = r.kind === 'phone' ? `Your profile is made. Our first text to ${fmtPhone(r.phone)} asks you to reply YES.` : '';
+    P.made = r.kind === 'phone' && r.confirmed ? 'Your profile is made. Text alerts are on.'
+      : r.kind === 'phone' ? `Your profile is made. Our first text to ${fmtPhone(r.phone)} asks you to reply YES.` : '';
     app.render();
     if (r.kind !== 'phone') toast('Check your inbox: open the link to finish your profile.', { yay: true });
     requestAnimationFrame(() => $('#pf-h')?.focus());
@@ -105,8 +107,10 @@ function alertsBody() {
   const t = textSaved(), p = S.user?.prefs || {};
   const texts = t ? `<p>${icon('message-square')} Texts to <span class="strong">${esc(masked(t.phone))}</span>: hearings on your issues and HIPHI’s asks, at most one a day.</p>${signedIn() ? '<p class="small"><a href="#/alerts">Change number or stop texts</a></p>' : ''}`
     : `<p>${icon('message-square')} Texts: off.${signedIn() ? ' <a href="#/alerts">Get text alerts</a>' : ''}</p>`;
-  const email = signedIn() ? `<p>${icon('mail')} Emails to <span class="strong mr-break">${esc(S.session.user.email || '')}</span>:</p>
+  // A profile made with a number (R-155) has no email until it adds one: no email choices to show or change.
+  const email = signedIn() && myEmail() ? `<p>${icon('mail')} Emails to <span class="strong mr-break">${esc(myEmail())}</span>:</p>
       <ul class="pf-list" role="list">${CHOICES.map(([, key, t2]) => `<li>${icon(p[key] === true ? 'check' : 'x')}<span>${esc(t2)}: <span class="strong">${p[key] === true ? 'on' : 'off'}</span></span></li>`).join('')}</ul>`
+    : signedIn() ? `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email too.</p>`
     : `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to keep your profile on any phone.</p>`;
   return `${texts}${email}`;
 }
@@ -123,10 +127,17 @@ function issuesBody() {
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
 function dataBody() {
-  if (!signedIn()) return `<p>Your profile is saved on this phone. <a href="#/signin">Add your email</a> to keep it on any phone or computer. HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
+  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a>' : '<a href="#/signin">Add your email</a>'} to keep it on any phone or computer. HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
+  // Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so no emails opened.
+  if (!myEmail()) return `<p>We keep your mobile number, which signs you in, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark and what you add on this page, including your titles and your story. HIPHI staff can see all of it except your number, your testimony letters and your emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
+    ${accountButtons()}`;
   // R-151's and R-153's wording (10/4: the privacy page made accurate; kept emails), with the profile's titles and story named.
   return `<p>We keep your email, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, which of our emails you open and what you add on this page, including your titles and your story. HIPHI staff can see all of it, except your testimony letters and emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
-    <div class="btnrow">${btn('Sign out', { kind: 'secondary', sm: true, icon: 'log-out', attrs: { 'data-pf-signout': '' } })}</div>
+    ${accountButtons()}`;
+}
+// Sign out and delete, for every signed-in profile (an email or a number).
+function accountButtons() {
+  return `<div class="btnrow">${btn('Sign out', { kind: 'secondary', sm: true, icon: 'log-out', attrs: { 'data-pf-signout': '' } })}</div>
     ${P.del ? `<div class="mr-confirm" role="group" aria-labelledby="mr-del-t">
         ${notice('bad', 'triangle-alert', `<p class="strong" id="mr-del-t" tabindex="-1">Delete your account for good?</p><p>This deletes your account and profile, the issues and bills you follow, where you stand on them, the actions you marked and your saved letters, here and on our side. It can’t be undone.</p>`)}
         <div id="mr-del-msg"></div>
@@ -138,7 +149,9 @@ function profileView() {
   if (!hasProfile()) return inviteView();
   if (signedIn() && !S.user) return `<div class="mr pf"><header class="pagehead"><h1 class="hero">Your profile</h1></header><div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:160px"></div><div class="skel" style="height:280px"></div></div></div>`;
   const name = myName(), t = textSaved(), s = since();
-  const contact = [signedIn() ? esc(S.session.user.email || '') : '', t ? `Texts to ${esc(masked(t.phone))}` : ''].filter(Boolean).join(' · ');
+  // How they're reached and how they sign in: an email, a number that signs them in (R-155), the text-alert number.
+  const num = signedIn() ? myNumber() : '';
+  const contact = [signedIn() ? esc(myEmail()) : '', num ? `Signed in with ${esc(masked(num))}` : '', t && t.phone !== num ? `Texts to ${esc(masked(t.phone))}` : ''].filter(Boolean).join(' · ');
   const E = P.edit;
   return `<div class="mr pf">
     <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
@@ -148,7 +161,7 @@ function profileView() {
     ${sec('about', 'About you', E === 'about' ? aboutEdit() : aboutBody(), { change: E !== 'about' && (myName() || myTitles().length || myDistricts() ? 'Change' : 'Add') })}
     ${sec('story', 'Your story', E === 'story' ? storyEdit() : storyBody(), { change: E !== 'story' && (myStory() ? 'Change' : 'Add') })}
     ${sec('help', 'How you’ll help', E === 'help' ? helpEdit() : helpBody(), { change: E !== 'help' && (myInterests().length ? 'Change' : 'Add') })}
-    ${sec('email', 'Alerts', E === 'email' ? emailEdit() : alertsBody(), signedIn() ? { change: E !== 'email' && 'Change' } : { href: '#/alerts' })}
+    ${sec('email', 'Alerts', E === 'email' ? emailEdit() : alertsBody(), signedIn() && myEmail() ? { change: E !== 'email' && 'Change' } : { href: '#/alerts' })}
     ${sec('issues', 'Your issues', issuesBody(), { change: false })}
     ${sec('data', 'Your data', dataBody(), { change: false })}
   </div>`;

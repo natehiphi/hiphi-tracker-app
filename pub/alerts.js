@@ -8,9 +8,14 @@
 // privately with the version of the words agreed (backend 121, text_signup; staff never see it) and nothing is sent
 // until texts are set up; the first text then asks for a YES reply. The words describe texts as working, as they do for
 // email (R-101). Email: the same "keep me updated" consent as before, both kinds named in one line (C-4).
+// Codes (R-155, Nate 10/5, "Code at sign-up"): once Supabase's phone sign-in is switched on (pub/phone.js), "Text me" texts
+// a 6-digit code first, and the box becomes a code field. The right code signs the person in on this device (or adds the
+// number to their account), then the number is kept under the code-time words (t2) and is already confirmed, so no
+// "reply YES" text follows. Before the switch, the box works as above.
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
-// any text goes out; carrier registration (10DLC) also reviews this screen.
-import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly } from './core.js';
+// any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
+import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText } from './core.js';
+import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode } from './phone.js';
 import { btn } from './ui.js';
 import { abEvent } from './variant.js';
 
@@ -23,6 +28,12 @@ import { abEvent } from './variant.js';
 export const TEXT_CONSENT = 't1';
 export const TEXT_PROMISE = 'We’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.';
 export const TEXT_FINE = 'Our first text asks you to reply YES. Message and data rates may apply. Reply STOP to stop, HELP for help.';
+// Once codes are on (R-155): the first text is the code, and the words agreed are version t2 (backend 128), the same
+// promise and this small print.
+export const TEXT_CONSENT_CODE = 't2';
+export const TEXT_FINE_CODE = 'We’ll text you a 6-digit code to confirm it’s your number. Message and data rates may apply. Reply STOP to stop, HELP for help.';
+const textConsent = () => codesOn() ? TEXT_CONSENT_CODE : TEXT_CONSENT;
+const textFine = () => codesOn() ? TEXT_FINE_CODE : TEXT_FINE;
 export const EMAIL_PROMISE = 'We’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one email a day.';
 const EMAIL_FINE = 'No password: we email you a link to confirm. Unsubscribe in one tap.';
 // What makes a number feel safe to type sits right under the box, where it is typed (P-5).
@@ -55,6 +66,7 @@ const sayErr = e => e?.plain ? e.message : friendly(e);
 // emailHref: the other kind as a link to a page (More's alerts page sends email to the sign-in page) instead of a swap.
 // swap: false leaves the way to the other kind out (a signed-in person's email alerts are in Settings).
 export function alertFields(pfx, { emailHref = '', compact = false, swap: withSwap = true } = {}) {
+  if (S.alertCode?.pfx === pfx) return codeFields(pfx, { emailHref, withSwap });
   const phone = S.alertMode !== 'email', v = S.alertDraft[phone ? 'phone' : 'email'];
   // A sentence, so its Privacy link is a link in running text (WCAG 2.5.8's inline exception, DESIGN A-6).
   const hint = `<p class="help al-hint" id="${pfx}-hint">${phone ? PHONE_HINT : EMAIL_HINT} <a href="#/privacy">Privacy</a></p>`;
@@ -70,10 +82,27 @@ export function alertFields(pfx, { emailHref = '', compact = false, swap: withSw
     : `<button type="button" class="btn text sm al-swap" data-alswap="phone">Text me instead</button>`;
   // The promise at reading size, then the small print on its own line (the review: one block mixed the two, A-13).
   return `${field}<p class="al-line${compact ? ' small' : ''}">${phone ? TEXT_PROMISE : EMAIL_PROMISE}</p>
-    <p class="al-fine">${phone ? TEXT_FINE : EMAIL_FINE}${DEMO ? ' In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
+    <p class="al-fine">${phone ? textFine() : EMAIL_FINE}${DEMO ? ' In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
 }
-// The host's button words for the box showing now.
-export const alertButton = () => S.alertMode === 'email' ? { label: 'Email me', icon: 'mail' } : { label: 'Text me', icon: 'message-square' };
+// The code step (R-155): where the number was, the code we just texted to it, with a new code, a different number and email
+// one tap away (a code that never comes has a way out, B-3). One field, filled in by the phone itself where it can (iPhone:
+// above the keyboard; Android: by itself). The host's heading says "Check your texts" meanwhile (codeStep).
+export const codeStep = pfx => S.alertCode?.pfx === pfx;
+function codeFields(pfx, { emailHref = '', withSwap = true } = {}) {
+  const c = S.alertCode;
+  const email = !withSwap ? '' : emailHref ? `<a class="al-swap" href="${emailHref}">Use email instead</a>` : `<button type="button" class="btn text sm al-swap" data-alswap="email">Use email instead</button>`;
+  return `<div class="field al-field al-codefield"><label for="${pfx}-code">6-digit code</label>
+      <p class="help al-codeto" id="${pfx}-codeto">We texted a code to <span class="strong al-nowrap">${esc(fmtPhone(c.phone))}</span>. It can take a minute.</p>
+      <input id="${pfx}-code" name="code" class="al-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" enterkeyhint="done" aria-describedby="${pfx}-codeto" value="${esc(c.code || '')}">
+      <span class="err" id="${pfx}-err" role="alert"></span></div>
+    ${c.add || DEMO ? `<p class="al-fine">${c.add ? 'This number is added to your profile, so it signs you in too.' : ''}${DEMO ? `${c.add ? ' ' : ''}In the sandbox no code is sent: type any 6 digits.` : ''}</p>` : ''}
+    <p class="al-swaprow al-coderow"><button type="button" class="btn text sm" data-alresend>Send a new code</button><button type="button" class="btn text sm" data-alnumber>Use a different number</button>${email}</p>
+    <p class="small al-status" id="${pfx}-status" role="status"></p>`;
+}
+// The host's button words for the box showing now (pfx: that host's box, which may be at its code step).
+// With codes on, the number's button names what it sends: a code (the review, 10/5: "Text me" read as "send me alerts").
+export const alertButton = pfx => S.alertCode && (!pfx || S.alertCode.pfx === pfx) ? { label: 'Confirm', icon: 'check' }
+  : S.alertMode === 'email' ? { label: 'Email me', icon: 'mail' } : { label: codesOn() ? 'Text me a code' : 'Text me', icon: 'message-square' };
 
 // Keep a number: the row in text_signups (token kept on this device), then this device remembers it.
 export async function saveText(input, source) {
@@ -82,7 +111,7 @@ export async function saveText(input, source) {
   const t = textSaved(), token = t?.token || crypto.randomUUID();   // the published page is https, where every browser has it
   if (!DEMO) {
     const sb = await supa();
-    const { data, error } = await sb.rpc('text_signup', { p: { token, phone: d, consent: TEXT_CONSENT, source, ...textLists() } });
+    const { data, error } = await sb.rpc('text_signup', { p: { token, phone: d, consent: textConsent(), source, ...textLists() } });
     if (error) throw error;
     if (!data?.ok) throw plainErr(data?.why === 'phone' ? PHONE_ERR : data?.why === 'busy' ? 'That number can’t be added just now. Try again later, or use email instead.' : 'That didn’t save. Try again.');
   }
@@ -110,11 +139,16 @@ async function saveEmail(input) {
 // form (the first visit's bar: <button form="...">).
 export function wireAlertForm(form, { pfx, source, onDone, onSwap }) {
   if (!form) return;
+  const redraw = onSwap || (() => app.render());
+  const btnOf = () => form.querySelector('button[type=submit]') || (form.id && document.querySelector(`button[form="${form.id}"]`));
   form.querySelectorAll('[data-alswap]').forEach(b => b.onclick = () => {
     S.alertMode = b.dataset.alswap;
-    (onSwap || (() => app.render()))();
+    if (S.alertCode?.pfx === pfx) S.alertCode = null;   // email instead, from the code step
+    redraw();
     requestAnimationFrame(() => document.getElementById(`${pfx}-${S.alertMode}`)?.focus());
   });
+  const code = form.querySelector(`#${pfx}-code`);
+  if (code) { wireCode(form, code, { pfx, source, onDone, redraw, btnOf }); return; }
   const inp = form.querySelector(`#${pfx}-phone, #${pfx}-email`), err = form.querySelector(`#${pfx}-err`);
   if (!inp) return;
   const clear = () => { if (err) err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.setAttribute('aria-describedby', `${pfx}-hint`); };
@@ -122,22 +156,79 @@ export function wireAlertForm(form, { pfx, source, onDone, onSwap }) {
   inp.oninput = () => { S.alertDraft[S.alertMode === 'email' ? 'email' : 'phone'] = inp.value; if (err?.innerHTML) clear(); };
   form.onsubmit = async e => {
     e.preventDefault();
-    const b = form.querySelector('button[type=submit]') || (form.id && document.querySelector(`button[form="${form.id}"]`));
+    const b = btnOf();
     if (b?.getAttribute('aria-busy') === 'true') return;
     const was = b ? b.innerHTML : '';
     const email = S.alertMode === 'email', v = inp.value.trim();
     if (!v) { show(email ? 'Add your email, or skip this for now.' : 'Add your mobile number, or skip this for now.'); return; }
     // Checked only now, never while typing (C-9), and before anything is sent.
     if (email ? !validEmail(v) : !phoneDigits(v)) { show(email ? EMAIL_ERR : PHONE_ERR); return; }
-    if (b) { b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>Saving…</span>`; }
+    if (b) { b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>${email ? 'Saving…' : 'Sending…'}</span>`; }
+    const codes = !email && await loadCodes();
     try {
-      const r = S.alertMode === 'email' ? await saveEmail(inp.value) : await saveText(inp.value, source);
+      // Codes on (R-155): text a code first; the box turns into the code field, and the number is kept once it is proven.
+      if (codes) {
+        const d = phoneDigits(v), r = await sendCode(d);
+        S.alertCode = { pfx, phone: d, add: r.add, code: '' }; S.alertDraft.phone = '';
+        redraw();
+        requestAnimationFrame(() => document.getElementById(`${pfx}-code`)?.focus());
+        return;
+      }
+      const r = email ? await saveEmail(inp.value) : await saveText(inp.value, source);
       onDone && onDone(r);
-    } catch (error) { if (!error?.plain) console.error(error); if (b) { b.removeAttribute('aria-busy'); b.innerHTML = was; } show(sayErr(error)); }
+    } catch (error) { if (!error?.plain && !error?.code) console.error(error); if (b) { b.removeAttribute('aria-busy'); b.innerHTML = was; } show(codes ? codeErr(error, { sending: true }) : sayErr(error)); }
+  };
+}
+// The code step's wiring (R-155). Six digits send it by themselves (typed, pasted or filled in by the phone). The right
+// code signs in (or adds the number to the account), then the number is kept with the account under the code-time words
+// and confirmed (backend 128, text_link). A code that worked is never asked for again if keeping the number then fails.
+function wireCode(form, inp, { pfx, source, onDone, redraw, btnOf }) {
+  const c = S.alertCode, err = form.querySelector(`#${pfx}-err`), status = form.querySelector(`#${pfx}-status`);
+  const clear = () => { if (err) err.innerHTML = ''; inp.removeAttribute('aria-invalid'); inp.setAttribute('aria-describedby', `${pfx}-codeto`); };
+  const show = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', `${pfx}-err ${pfx}-codeto`); if (err) err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; inp.focus(); };
+  const say = text => { if (status) status.textContent = text; };
+  let busy = false;
+  inp.oninput = () => { const v = inp.value.replace(/\D/g, '').slice(0, 6); if (v !== inp.value) inp.value = v; c.code = v; if (err?.innerHTML) clear(); if (v.length === 6) form.requestSubmit?.(); };
+  listenForCode(inp, () => { c.code = inp.value; form.requestSubmit?.(); });
+  const again = form.querySelector('[data-alresend]');
+  if (again) again.onclick = async () => {
+    if (tooSoon()) { say('Wait a minute before asking for a new code.'); return; }
+    say('Sending a new code…');
+    try { await sendCode(c.phone); say(`We sent a new code to ${fmtPhone(c.phone)}.`); } catch (e) { say(''); show(codeErr(e, { sending: true })); }
+  };
+  const other = form.querySelector('[data-alnumber]');
+  if (other) other.onclick = () => {
+    S.alertDraft.phone = fmtPhone(c.phone); S.alertCode = null; S.alertMode = 'phone'; redraw();
+    requestAnimationFrame(() => { const i = document.getElementById(`${pfx}-phone`); if (i) { i.focus(); i.select(); } });
+  };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    if (busy) return;
+    const b = btnOf(), was = b ? b.innerHTML : '', v = inp.value.replace(/\D/g, '');
+    if (v.length !== 6) { show(v ? 'Enter all 6 digits from the text.' : 'Enter the 6-digit code from the text.'); return; }
+    busy = true; inp.readOnly = true; say('');
+    if (b) { b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>Checking…</span>`; }
+    try {
+      if (!c.ok) { await verifyCode(c.phone, v, { add: c.add }); c.ok = true; }
+      await saveText(c.phone, source);
+      if (DEMO) { try { localStorage.setItem(TEXT_KEY, JSON.stringify({ ...textSaved(), confirmed: true })); } catch { /* ignore */ } }
+      else await linkText();
+      S.alertCode = null;
+      onDone && onDone({ kind: 'phone', phone: c.phone, confirmed: true, demo: DEMO });
+    } catch (error) {
+      busy = false; inp.readOnly = false;
+      if (b) { b.removeAttribute('aria-busy'); b.innerHTML = was; }
+      if (!error?.plain && !error?.code) console.error(error);
+      show(c.ok ? `You’re signed in, but your number didn’t save. Tap ${b?.textContent?.trim() || 'Confirm'} to try again.` : codeErr(error));
+    }
   };
 }
 // The line that says it worked, for a host to show where the box was.
 export function alertDoneHTML(r, { change = '' } = {}) {
+  // Confirmed by a code (R-155): done, and signed in with the number.
+  if (r.kind === 'phone' && (r.confirmed || textSaved()?.confirmed)) return `<p class="strong">Text alerts are on for <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>.</p>
+    <p class="small">${S.session ? 'You’re signed in with your number. Use it to sign in on any phone or computer, and your profile is there.' : 'Use your number to sign in on any phone or computer.'} Reply STOP to any text to end them.</p>
+    ${r.demo ? '<p class="small muted">This is the sandbox: no code was sent, nothing was saved, and you stay signed out.</p>' : ''}${change}`;
   // Almost, not done: the first text asks for a YES, and only then do alerts start (B-7: nothing looks finished before it is).
   if (r.kind === 'phone') return `<p class="strong">Our first text to <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span> asks you to reply YES.</p>
     <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>

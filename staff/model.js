@@ -217,7 +217,8 @@ export const TEMPLATE_KINDS = [['hearing_alert', 'Hearing alert (per bill)'], ['
 export const TOKENS = '{{bill}} {{title}} {{position}} {{priority}} {{owner}} {{committee}} {{hearing}} {{room}} {{deadline}} {{deadline_time}} {{hours}} {{status}} {{draft}} {{tracker}} {{pdf}} {{days}} {{date}}';
 export const INTERESTS = [['testify', 'Would testify in person'], ['story', 'Has a story to share'], ['quote', 'May be quoted'], ['host', 'Could host or help at an event'], ['volunteer', 'Wants to volunteer']];
 export const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
-export const personName = p => p.name || p.email.split('@')[0];
+// A supporter signed in with a number only has no email (backend 128, R-155): '' or null, never shown, never a name.
+export const personName = p => p.name || (p.email || '').split('@')[0] || 'No name yet';
 export const whereOf = p => [p.island, p.senate_district ? `SD ${p.senate_district}` : '', p.house_district ? `HD ${p.house_district}` : ''].filter(Boolean).join(' · ');
 export const sortPeople = (rows, by) => rows.slice().sort((a, b) => by === 'score' ? (b.score || 0) - (a.score || 0) : by === 'newest' ? String(b.created_at).localeCompare(String(a.created_at)) : by === 'name' ? personName(a).localeCompare(personName(b)) : String(b.last_active || '').localeCompare(String(a.last_active || '')));
 export function parsePeopleCSV(text) {

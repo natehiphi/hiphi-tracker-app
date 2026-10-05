@@ -370,3 +370,29 @@ https://claude.ai/artifact/FSzXqzhDcJggJtbhkoNX1d (REQUESTS R-147).
   HIPHI may quote it); Supporters' filter has "They are" (titles at least one supporter has), with the same filter in
   people_match (backend 127) so a saved segment counts the same at the send. Both staff data layers carry the filter.
 - `tests/profile.py` (31 checks, phone and laptop); `tests/alerts_ask.py` updated for More's first row.
+
+## Sign in with a mobile number and a 6-digit code (R-155; 5 Oct 2026, switched off until texts are set up)
+Nate 10/5: someone who signed up with a number could not get in on a laptop (only an email signed anyone in). His "Yes" to
+sign-in by text code, and "Code at sign-up". The switch is Supabase's own phone sign-in; the runbook is the backend's
+`docs/TEXT-SIGN-IN.md`. The practice copy turns it on with `&codes`.
+- **The switch** (`pub/phone.js loadCodes`): the page reads Supabase's `/auth/v1/settings` (`external.phone`); off on any
+  doubt. `codesOn()` decides every box, page and sentence below; off, everything is as R-146 and R-147 left it.
+- **The alerts box** (`alerts.js`, every host): "Text me a code" sends a code (`sendCode`: signed out `signInWithOtp`, signed in
+  `updateUser({ phone })`), and the box becomes the code field under "Check your texts" (`codeFields`, `codeStep`; `one-time-code`, six digits send it, Android
+  fills it in by itself through WebOTP). The bar or card button says Confirm (`alertButton(pfx)`). The right code signs in
+  without restarting the page (`verifyCode`, `S.quietAuth`, then `loadUser`), the number is kept under consent words t2
+  (`TEXT_FINE_CODE`), and the row is confirmed (`kernel.js linkText`, backend `text_link`). "Send a new code" says "Wait a
+  minute" inside a minute; "Use a different number" goes back with it typed, and "Use email instead" is there too.
+- **Sign in** (`more.js phoneInView`, `#/signin?by=number`, from the header, More and the profile): number, code, then the
+  profile. Signing in never turns texts on. A number-only account's "Add your email" adds it to the same account
+  (`updateUser({ email })`).
+- **Until it is on:** More on a laptop (900px and wider) says "Signed up with your number? Add your email on your phone,
+  then sign in here with it."
+- **Profile and privacy:** "Signed in with (808) ••• 0123"; no email choices without an email; Your data's number-only
+  wording; the privacy page's three codes-on sections (`PRIVACY_CODES`).
+- **Staff:** a number-only supporter has no email: `personName` falls back, the person page says so, and the duplicate
+  finder never matches two empty emails.
+- **Fixed on the way:** the letter helper's alerts box was never wired (its ids were renamed after drawing); `nudgeCard`
+  and `wireNudge` now take the helper's own prefix.
+- Tests: `tests/phone_signin.py` (the practice copy with codes off and on, and the live page with Supabase answered by
+  the test); backend `tools/migration_tests/test_128.js`.

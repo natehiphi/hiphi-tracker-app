@@ -29,7 +29,8 @@ import { MARK } from './art.js';
 import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
-import { alertFields, wireAlertForm, fmtPhone, saveText, stopText } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, codeStep } from './alerts.js';
+import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode } from './phone.js';   // R-155
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
 
@@ -244,7 +245,11 @@ WIDE?.addEventListener?.('change', () => { if (document.querySelector('#main .mr
 function meRow() {
   if (!hasProfile()) return `<a class="card mr-me mr-me-new" href="#/profile"><span class="pf-av" aria-hidden="true">${icon('user-plus')}</span>
     <span class="mr-me-t"><span class="mr-me-n">Make your profile</span><span class="mr-me-s">Get a text or email when your issues have a hearing, and keep your issues and letters saved. Free.</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
-    ${signedIn() ? '' : `<p class="small mr-me-in">Made one before? <a href="#/signin">Sign in with your email</a></p>`}`;
+    ${signedIn() ? '' : codesOn() ? `<p class="small mr-me-in">Made one before? <a href="#/signin?by=number">Sign in</a></p>`
+      // R-155 (Nate 10/5), until codes are on: a number keeps the profile on its phone, so a laptop says how to bring it
+      // here (only a wide screen: on a phone the sentence would contradict itself; the review, 10/5).
+      : `<p class="small mr-me-in">Made one before? <a href="#/signin">Sign in with your email</a></p>
+    ${WIDE?.matches ? '<p class="small mr-me-in mr-me-num">Signed up with your number? Add your email on your phone, then sign in here with it.</p>' : ''}`}`;
   const name = myName(), ini = initials(name), d = myDistricts(), ts = myTitles();
   const about = [ts.slice(0, 2).map(titleLabel).join(', '), d ? `Senate ${d.senate}, House ${d.house}` : ''].filter(Boolean).join(' · ');
   return `<a class="card mr-me" href="#/profile"><span class="pf-av" aria-hidden="true">${ini ? esc(ini) : icon('user')}</span>
@@ -322,10 +327,105 @@ const PRIVACY_BULLETS = [
   'Your home address is used only to find your districts and is never kept. Staff see just your districts.',
   'We never sell your information or give it to other groups. You can delete your account any time.',
 ];
+// Sign in with your number (R-155): #/signin?by=number once codes are on (the header's and More's "Sign in"). One box, then
+// the code; the right code signs in (or makes the profile), and this device's issues, stances and letters join it.
+const PI = { phone: '', at: null, code: '', done: false };
+const byNumber = () => codesOn() && !S.session && /[?&]by=number\b/.test(location.hash);
+function phoneInView() {
+  const code = !!PI.at, t = textSaved();
+  if (PI.done) return `<div class="mr mr-signin mr-phonein">
+    <header class="pagehead"><h1 class="hero" id="mr-pi-h" tabindex="-1">Code accepted</h1>
+      <p class="lede">This is the sandbox, so you stay signed out. On the real tracker you’re now signed in with ${esc(fmtPhone(PI.phone))}, and your profile is here.</p></header>
+    <div class="btnrow">${btn('Back to More', { kind: 'secondary', href: '#/more' })}</div></div>`;
+  return `<div class="mr mr-signin mr-phonein">
+    <header class="pagehead"><h1 class="hero" id="mr-pi-h" tabindex="-1">Sign in</h1>
+      <p class="lede">${code ? 'Enter the code we just texted you.' : 'With the mobile number you gave us. We’ll text you a 6-digit code. No password.'}</p></header>
+    ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no code is sent and nothing is saved. Type any 6 digits.') : ''}
+    <form class="card mr-form mr-panel" id="mr-pi" novalidate>
+      ${code ? `<div class="field al-field al-codefield"><label for="mr-pi-code">6-digit code</label>
+          <p class="help al-codeto" id="mr-pi-codeto">We texted a code to <span class="strong al-nowrap">${esc(fmtPhone(PI.phone))}</span>. It can take a minute.</p>
+          <input id="mr-pi-code" class="al-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" enterkeyhint="done" aria-describedby="mr-pi-codeto" value="${esc(PI.code)}">
+          <span class="err" id="mr-pi-err" role="alert"></span></div>
+        <p class="al-swaprow al-coderow"><button type="button" class="btn text sm" data-pi-again>Send a new code</button><button type="button" class="btn text sm" data-pi-other>Use a different number</button></p>
+        <p class="small al-status" id="mr-pi-status" role="status"></p>
+        <div class="mr-send">${submitBtn('Sign in', 'log-in', 'mr-pi-send')}</div>`
+      : `<div class="field al-field"><label for="mr-pi-phone">Mobile number</label>
+          <input id="mr-pi-phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(PI.phone ? fmtPhone(PI.phone) : t ? fmtPhone(t.phone) : '')}">
+          <span class="err" id="mr-pi-err" role="alert"></span></div>
+        <p class="al-fine">New here? The same code makes your profile. Message and data rates may apply.</p>
+        <div class="mr-send">${submitBtn('Text me a code', 'message-square', 'mr-pi-send')}</div>`}
+    </form>
+    <p class="small mr-returning">Gave us your email instead? <a href="#/signin">Sign in with your email</a></p>
+  </div>`;
+}
+function wirePhoneIn() {
+  const form = $('#mr-pi'); if (!form) return;
+  const inp = $('#mr-pi-code') || $('#mr-pi-phone'), err = $('#mr-pi-err'), b = $('#mr-pi-send');
+  const desc = PI.at ? 'mr-pi-codeto' : '';
+  const show = text => { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', `mr-pi-err ${desc}`.trim()); err.innerHTML = `${icon('circle-alert')}<span>${esc(text)}</span>`; inp.focus(); };
+  const clear = () => { err.innerHTML = ''; inp.removeAttribute('aria-invalid'); if (desc) inp.setAttribute('aria-describedby', desc); else inp.removeAttribute('aria-describedby'); };
+  const status = text => say('mr-pi-status', esc(text));
+  let going = false;
+  if (!PI.at) {
+    inp.oninput = () => { if (err.innerHTML) clear(); };
+    form.onsubmit = async e => {
+      e.preventDefault(); if (going) return;
+      const d = phoneDigits(inp.value);
+      if (!d) { show(inp.value.trim() ? 'Enter a 10-digit mobile number, like (808) 555-0123.' : 'Add your mobile number.'); return; }
+      going = true; busy(b, 'Sending…');
+      try { await sendCode(d); } catch (error) { going = false; unbusy(b); show(codeErr(error, { sending: true })); return; }
+      Object.assign(PI, { phone: d, at: Date.now(), code: '' }); app.render(); requestAnimationFrame(() => $('#mr-pi-code')?.focus());
+    };
+    return;
+  }
+  inp.oninput = () => { const v = inp.value.replace(/\D/g, '').slice(0, 6); if (v !== inp.value) inp.value = v; PI.code = v; if (err.innerHTML) clear(); if (v.length === 6) form.requestSubmit?.(); };
+  listenForCode(inp, () => { PI.code = inp.value; form.requestSubmit?.(); });
+  $('[data-pi-again]').onclick = async () => {
+    if (tooSoon()) { status('Wait a minute before asking for a new code.'); return; }
+    status('Sending a new code…');
+    try { await sendCode(PI.phone); status(`We sent a new code to ${fmtPhone(PI.phone)}.`); } catch (e) { status(''); show(codeErr(e, { sending: true })); }
+  };
+  $('[data-pi-other]').onclick = () => { PI.at = null; PI.code = ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-pi-phone'); if (i) { i.focus(); i.select(); } }); };
+  form.onsubmit = async e => {
+    e.preventDefault(); if (going) return;
+    const v = inp.value.replace(/\D/g, '');
+    if (v.length !== 6) { show(v ? 'Enter all 6 digits from the text.' : 'Enter the 6-digit code from the text.'); return; }
+    going = true; busy(b, 'Signing in…'); inp.readOnly = true;
+    let r;
+    try { r = await verifyCode(PI.phone, v, { add: false }); } catch (error) { going = false; unbusy(b); inp.readOnly = false; show(codeErr(error)); return; }
+    if (r.demo) { PI.done = true; app.render(); requestAnimationFrame(() => $('#mr-pi-h')?.focus()); return; }
+    Object.assign(PI, { phone: '', at: null, code: '' });
+    app.go('#/profile', { replace: true });
+    yay('You’re signed in.');
+  };
+}
+// The email box, on the page for a newcomer and for a profile made with a number (which adds its email to the same account).
+function emailForm(returning) {
+  return `<form class="card mr-form mr-panel" id="mr-si" novalidate>
+      <div class="field"><label for="mr-email">Your email</label>
+        <input id="mr-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com"
+          value="${esc(M.email)}"${M.err ? ' aria-invalid="true" aria-describedby="mr-email-err"' : ''}>
+        ${M.err ? errLine('mr-email-err', M.err) : ''}</div>
+      <fieldset class="mr-set"><legend>What we’ll email you</legend>
+        ${check('mr-si-keep', KEEP[0], KEEP[1], !!(M.choices.alerts && M.choices.action))}
+        <p class="small muted">Without it, your email only keeps your issues on any device.</p>
+      </fieldset>
+      <div id="mr-si-msg">${M.sendErr ? inlineErr('mr-si-err', M.sendErr) : ''}</div>
+      <div class="mr-send">${submitBtn('Email me a link', 'mail', 'mr-si-send')}</div>
+      <p class="small muted mr-returning">${returning}</p>
+    </form>`;
+}
 function signinView() {
-  if (S.session) return `<div class="mr mr-signin">
+  if (byNumber()) return phoneInView();
+  // A profile made with a number (R-155): the email joins that same account once its link is opened.
+  if (S.session && !myEmail() && !M.sent) return `<div class="mr mr-signin">
+    <header class="pagehead"><h1 class="hero">Add your email</h1>
+      <p class="lede">Get alerts by email too, and sign in with either. No password: we email you a link to confirm it.</p></header>
+    ${DEMO ? '' : emailForm('Gave this email on another phone or computer before? Sign out first, then sign in with it.')}
+  </div>`;
+  if (S.session && !M.sent) return `<div class="mr mr-signin">
     <header class="pagehead"><h1 class="hero">You’re signed in</h1>
-      <p class="lede">Your email is <span class="strong mr-break">${esc(S.session.user.email || '')}</span>. Your issues, stances and actions are saved to your account.</p></header>
+      <p class="lede">Your email is <span class="strong mr-break">${esc(myEmail())}</span>. Your issues, stances and actions are saved to your account.</p></header>
     <div class="btnrow">${btn('Go to your profile', { kind: 'primary', icon: 'user', href: '#/profile' })}${btn('Back to Home', { kind: 'text', href: '#/' })}</div>
   </div>`;
   if (M.sent) return `<div class="mr mr-signin">
@@ -345,19 +445,8 @@ function signinView() {
       <p class="lede">Get hearing alerts and keep your issues on any device. No password: we email you a link.</p>
       ${(pp => pp ? `<p class="mr-back">${icon(pp.then?.addto ? 'list-checks' : 'arrow-left')}<span>${pp.then?.addto ? 'With your email you can make lists of bills. When you open the link, you come back to the bill to finish.' : 'When you open the link, you come back to where you were.'}</span></p>` : '')(pendingPlace())}</header>
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no email is sent and nothing is saved. You can still try the page.') : ''}
-    <form class="card mr-form mr-panel" id="mr-si" novalidate>
-      <div class="field"><label for="mr-email">Your email</label>
-        <input id="mr-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com"
-          value="${esc(M.email)}"${M.err ? ' aria-invalid="true" aria-describedby="mr-email-err"' : ''}>
-        ${M.err ? errLine('mr-email-err', M.err) : ''}</div>
-      <fieldset class="mr-set"><legend>What we’ll email you</legend>
-        ${check('mr-si-keep', KEEP[0], KEEP[1], !!(M.choices.alerts && M.choices.action))}
-        <p class="small muted">Without it, your email only keeps your issues on any device.</p>
-      </fieldset>
-      <div id="mr-si-msg">${M.sendErr ? inlineErr('mr-si-err', M.sendErr) : ''}</div>
-      <div class="mr-send">${submitBtn('Email me a link', 'mail', 'mr-si-send')}</div>
-      <p class="small muted mr-returning">Already added your email? Enter it again to sign in on this device.</p>
-    </form>
+    ${emailForm('Already added your email? Enter it again to sign in on this device.')}
+    ${codesOn() ? `<p class="small mr-returning">Gave us your mobile number instead? <a href="#/signin?by=number">Sign in with your number</a></p>` : ''}
     <section class="mr-priv mr-panel" aria-labelledby="mr-priv-t">
       <h2 id="mr-priv-t">Your privacy</h2>
       <ul class="mr-bullets">${PRIVACY_BULLETS.map(t => `<li>${icon('check')}<span>${t}</span></li>`).join('')}</ul>
@@ -371,15 +460,29 @@ function signinView() {
     </section>
   </div>`;
 }
+// A profile made with a number adds its email to its own account (Supabase's email change: the link confirms it), never a
+// second account beside it. The choices wait on this device until the email is confirmed, as for a new email (loadUser).
+async function addEmail(email, choices) {
+  if (DEMO) return { demo: true };
+  try { localStorage.setItem(CONSENT_KEY, JSON.stringify(choices)); } catch { /* ignore */ }
+  const { error } = await S.supa.auth.updateUser({ email }, { emailRedirectTo: location.origin + location.pathname });
+  if (error) {
+    if (error.code === 'email_exists' || /already been registered|already registered/i.test(error.message || '')) throw Object.assign(new Error('That email already has a profile. Sign out, then sign in with that email.'), { plain: true });
+    throw error;
+  }
+  return { sent: true };
+}
+const sendFor = (email, choices) => S.session && !myEmail() ? addEmail(email, choices) : sendEmailLink(email, choices);
 function wireSignin() {
+  if (byNumber()) { wirePhoneIn(); return; }
   $('[data-mr-other]') && ($('[data-mr-other]').onclick = () => { M.sent = ''; app.render(); requestAnimationFrame(() => $('#mr-email')?.focus()); });
   const again = $('[data-mr-again]');
   if (again) again.onclick = async () => {
     busy(again, 'Sending…');
     let error = null;
-    try { await sendEmailLink(M.sent, { hearing_alerts: !!M.choices.alerts, action_alerts: !!M.choices.action }); } catch (e) { error = e; }
+    try { await sendFor(M.sent, { hearing_alerts: !!M.choices.alerts, action_alerts: !!M.choices.action }); } catch (e) { error = e; }
     unbusy(again);
-    say('mr-again-msg', error ? inlineErr('mr-again-err', friendly(error)) : `<p class="okmsg" role="status">${icon('check')}<span>We sent a new link.</span></p>`);
+    say('mr-again-msg', error ? inlineErr('mr-again-err', error.plain ? error.message : friendly(error)) : `<p class="okmsg" role="status">${icon('check')}<span>We sent a new link.</span></p>`);
   };
   const form = $('#mr-si'); if (!form) return;
   const inp = $('#mr-email');
@@ -404,9 +507,9 @@ function wireSignin() {
     const b = $('#mr-si-send'); busy(b, 'Sending…'); inp.readOnly = true;
     let r = null, error = null;
     const keep = !!$('#mr-si-keep')?.checked;
-    try { r = await sendEmailLink(email, { hearing_alerts: keep, action_alerts: keep }); } catch (err) { error = err; }
+    try { r = await sendFor(email, { hearing_alerts: keep, action_alerts: keep }); } catch (err) { error = err; }
     inp.readOnly = false;
-    if (error) { unbusy(b); M.sendErr = friendly(error); say('mr-si-msg', inlineErr('mr-si-err', M.sendErr)); return; }
+    if (error) { unbusy(b); M.sendErr = error.plain ? error.message : friendly(error); say('mr-si-msg', inlineErr('mr-si-err', M.sendErr)); return; }
     M.sent = email; M.demo = !!r?.demo;
     S.nudgeSent = email;   // the email ask on Home and in the helper now says "check your inbox" instead of asking again
     app.render(); requestAnimationFrame(() => $('#mr-sent-t')?.focus());
@@ -423,29 +526,30 @@ function alertsView() {
     <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Text alerts are on</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       <p>We’ll text <span class="strong">${esc(fmtPhone(t.phone))}</span> when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>
-      <p class="small">Our first text asks you to reply YES. Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
+      <p class="small">${t.confirmed ? '' : 'Our first text asks you to reply YES. '}Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
       <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
     </section>
-    ${S.session ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? It also keeps your issues on any device. <a href="#/signin">Add your email</a></span></p>`}
+    ${myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
   </div>`;
   S.alertMode = 'phone';   // this page is the phone box; email has its own page
+  const b = alertButton('mr-al');
   return `<div class="mr mr-alerts">
-    <header class="pagehead"><h1 class="hero">${t ? 'Change your number' : 'Get alerts on your issues'}</h1>
-      <p class="lede">${S.session ? 'Your email alerts are in your profile. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
-    <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !S.session })}
-      <div class="mr-send">${submitBtn('Text me', 'message-square', 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
+    <header class="pagehead"><h1 class="hero">${codeStep('mr-al') ? 'Check your texts' : t ? 'Change your number' : 'Get alerts on your issues'}</h1>
+      <p class="lede">${codeStep('mr-al') ? 'Type the 6-digit code from the text to turn on alerts.' : myEmail() ? 'Your email alerts are in your profile. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
+    <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !myEmail() })}
+      <div class="mr-send">${submitBtn(b.label, b.icon, 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
     </form>
   </div>`;
 }
 function wireAlerts() {
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
     A.edit = false; app.render();
-    toast(`Almost set: our first text to ${fmtPhone(r.phone)} asks you to reply YES.`, { yay: true });
+    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : `Almost set: our first text to ${fmtPhone(r.phone)} asks you to reply YES.`, { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');
   if (ch) ch.onclick = () => { const t = textSaved(); A.edit = true; S.alertDraft.phone = t ? fmtPhone(t.phone) : ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-al-phone'); if (i) { i.focus(); i.select(); } }); };
-  const cancel = $('[data-mr-alcancel]'); if (cancel) cancel.onclick = () => { A.edit = false; S.alertDraft.phone = ''; app.render(); };
+  const cancel = $('[data-mr-alcancel]'); if (cancel) cancel.onclick = () => { A.edit = false; S.alertDraft.phone = ''; if (S.alertCode?.pfx === 'mr-al') S.alertCode = null; app.render(); };
   const stop = $('[data-mr-alstop]');
   if (stop) stop.onclick = async () => {
     if (stop.getAttribute('aria-busy')) return;
@@ -481,11 +585,20 @@ const PRIVACY = [
   ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us, and if the law requires it. Every email has a one-click unsubscribe. You can delete your account from your profile, under More, at any time: your account, the issues and bills you follow, your stances, actions, lists and saved letters are erased from the tracker at once, and from our backup copies within about 45 days. We keep a record of the emails we sent you. Text alerts are separate: reply STOP or use Alerts in your profile.'],
 ];
 const PRIVACY_UPDATED = '4 October 2026';   // change it with any sentence above (R-151)
+// Once sign-in by text code is on (R-155), a number signs people in and their profile is kept with the account, so three
+// sections say so. Change the date to the day codes were switched on (backend docs/TEXT-SIGN-IN.md, step 6).
+const PRIVACY_CODES_UPDATED = '5 October 2026';
+const PRIVACY_CODES = {
+  lock: ['If you don’t add your email or number', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
+  'message-square': ['If you add your mobile number', 'We text you a 6-digit code to be sure the number is yours, and from then on the number signs you in, the way an email does. We keep your number, when you agreed to texts and the words you agreed to, and use the number only to sign you in and to send the texts you asked for. Your profile and what you follow, where you stand and the actions you mark are kept with your account, as described under “If you add your email”, and HIPHI staff can see them, but never your number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; the services that sign you in and send our texts hold it to do that. Reply STOP to any text, or use Alerts in your profile, under More, to end texts.'],
+  users: ['Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email or signed in with their number. They never show a name, and they appear only once 10 people are in them.'],
+};
 function privacyView() {
+  const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
-    <div class="card mr-facts">${PRIVACY.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2><p>${p}</p></div></section>`).join('')}</div>
-    <p class="small muted">Updated ${PRIVACY_UPDATED}.</p>
+    <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2><p>${p}</p></div></section>`).join('')}</div>
+    <p class="small muted">Updated ${codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED}.</p>
     <p class="mr-ext">${btn('HIPHI’s website privacy policy', { kind: 'text', icon: 'external-link', href: HIPHI.privacy, attrs: { target: '_blank', rel: 'noopener' } })}</p>
     <section class="mr-access mr-panel" id="mr-access" aria-labelledby="mr-access-t">
       <h2 id="mr-access-t" tabindex="-1">Accessibility</h2>
@@ -511,7 +624,7 @@ export default {
   render(route) {
     // A fresh arrival (from another screen) starts the page clean; a re-render of the same page keeps what was typed.
     const fresh = !document.querySelector(`#main .mr-${route.name}`);
-    if (fresh && route.name === 'signin') Object.assign(M, { sent: '', err: '', sendErr: '' });
+    if (fresh && route.name === 'signin') { Object.assign(M, { sent: '', err: '', sendErr: '' }); Object.assign(PI, { phone: '', at: null, code: '', done: false }); }
     if (fresh && route.name === 'alerts') A.edit = false;
     return (VIEWS[route.name] || moreView)(route);
   },

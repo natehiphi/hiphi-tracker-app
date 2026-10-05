@@ -125,6 +125,20 @@ export function syncText() {
   clearTimeout(textT);
   textT = setTimeout(() => { const t = textSaved(); if (t) supa().then(sb => sb.rpc('text_follows', { p: { token: t.token, ...textLists() } })).catch(() => {}); }, 1000);
 }
+// Signed in: this device's text row joins the account, and the device keeps the account's row (backend 128, R-155). A
+// row whose number is the one the account proved with a code is confirmed (the code did what "reply YES" did); a laptop
+// that signs in is handed the account's row, so it shows "Text alerts are on" and its follows keep that one row current.
+// A stopped row leaves this device without one. Signing in is never consent to texts: no row is made here.
+export async function linkText() {
+  if (DEMO || !S.session || !S.supa) return null;
+  const { data, error } = await S.supa.rpc('text_link', { p: { token: textSaved()?.token || null } });
+  if (error) { console.warn('text_link:', error.message); return null; }
+  try {
+    if (data && !data.stopped) localStorage.setItem(TEXT_KEY, JSON.stringify({ token: data.token, phone: data.phone, at: textSaved()?.at || new Date().toISOString(), confirmed: !!data.confirmed }));
+    else if (data?.stopped && textSaved()?.token === data.token) localStorage.removeItem(TEXT_KEY);
+  } catch { /* private mode */ }
+  return data;
+}
 // ---------------- data ----------------
 // The Supabase library, pinned: "@2" cost a redirect on every cold load and could change under us (R-067 speed).
 // track.html preloads this same address; change both together.
@@ -136,7 +150,9 @@ export async function init() {
   if (DEMO) { await (await import('./demo.js')).demoLoad(); return; }   // the sandbox's data, loaded only with ?demo=1 (R-122)
   await makeClient();
   const { data } = await S.supa.auth.getSession(); S.session = data.session;
-  S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had) app.boot(); });
+  // A sign-in by text code (pub/phone.js, R-155) happens mid-flow and loads the account itself (S.quietAuth), so the page
+  // goes on where it was; an email link or a sign-out restarts it.
+  S.supa.auth.onAuthStateChange((_e, sess) => { const had = !!S.session; S.session = sess; if (!!sess !== had && !S.quietAuth) app.boot(); });
 }
 // ---------------- sandbox data ----------------
 export const D = { bills: [], index: [], hearings: [], activity: [], outcomes: [], lists: [], listBills: [], cats: [], issues: [], issueLinks: [] };
@@ -285,8 +301,10 @@ export async function loadUser() {
   const { data, error } = await S.supa.rpc('ensure_public_user');
   if (error) { if (/staff/.test(error.message)) { toast('Staff accounts use the main app', true); await S.supa.auth.signOut({ scope: 'local' }); return; } throw error; }
   S.user = data;
-  // Choices made on the sign-in page, before the account existed.
-  let pending = null; try { pending = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch {}
+  // Choices made on the sign-in page, before the account existed. They are email choices, so an account signed in with a
+  // number only (R-155) keeps them waiting until its email is added.
+  const hasEmail = !!S.session.user?.email;
+  let pending = null; try { pending = hasEmail ? JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null') : null; } catch {}
   // A new account takes them as given. An account that already recorded its choices (a returning person adding their
   // email on a second device) only ever gains what was asked for here: every email ask sends action_alerts false by
   // default, and that default must never switch off something the person chose earlier (9/19).
@@ -304,7 +322,7 @@ export async function loadUser() {
       const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; }
     try { localStorage.removeItem(CONSENT_KEY); } catch {}
   }
-  S.consentCard = !(S.user.prefs || {}).consent_at;
+  S.consentCard = hasEmail && !(S.user.prefs || {}).consent_at;
   // Issues: this device's picks join an account that has none; otherwise the account's picks come to this device.
   { const mine = wiz().issues || [], theirs = (S.user.prefs || {}).issues || [];
     if (mine.length && !theirs.length) saveIssues(mine);
@@ -360,6 +378,7 @@ export async function loadUser() {
   // The testimony letters sent (R-148) join the account and come to this device, in the background: a dynamic import, as
   // core.js above, because letters.js needs core.js and the kernel must not carry it.
   import('./letters.js').then(m => m.syncLetters()).catch(() => { /* kept on each device until the next sign-in */ });
+  await linkText().catch(() => {});
 }
 // ---------------- curated lists ----------------
 // HIPHI staff curate lists of public bills. Following a list follows every
