@@ -386,19 +386,22 @@ R-155's sign-in by text code). Backend migration 130.
   a chip and each change is said aloud; the listbox is always in the page; `addOnly` (the letter's "Add a title") only adds,
   with "Done adding". The letter's chips change only that letter.
 - **Stories by topic** (people.stories, `myStories`, `storyFor`, `otherStory`, `STORY_ASK`): one for any issue and one per
-  category; a letter fills in the bill's topic's story, else the any-issue one; another topic's is offered ("Use your story
-  about …"), never filled in. The profile lists them, each with Change; "It's about" and the topic's own question; Remove
-  with Undo. After a letter is sent, someone with a profile and no story for the topic is asked for one sentence (their
+  category ("topic" on the page, since "Your issues" means the issues followed); a letter fills in the bill's topic's story,
+  else the any-topic one; another topic's is offered ("Use your story about …"), never filled in. The profile lists them,
+  each with Change; a Topic select and the topic's own question as the box's label; Remove with Undo. After a letter is sent, someone with a profile and no story for the topic is asked for one sentence (their
   reason in the box), once per topic.
-- **What the letter says** (`helper.js saysBox`): above the letter, titles, where they live and their story, each a tap to
-  leave out (`x.use = []`, `x.noLive`, `x.noWhy`, kept with the draft); a nudge to make the first line their own.
-- **Quote me** in three choices (interests 'quote' plus 'quote-name' or 'quote-media'; R-147's tick reads as first name and
-  island); staff see which, and staff edits keep it.
-- **How you'll help** says what each answer does; "I'd testify in person" puts "Testify in person" under the main button of
-  a hearing's card (`actions.js wantsInPerson`); "I have a story to share" left (Your story covers it).
+- **What the letter says** (`helper.js saysBox`): under the letter, "About you, in this letter": titles, where they live and
+  their story, each a tap to leave out ("· left out" with a plus to put it back; `x.use = []`, `x.noLive`, `x.noWhy`, kept
+  with the draft); the line above the letter asks them to make the first line their own.
+- **Quote me** in three choices, asked once for all the stories in its own row under Your stories (interests 'quote' plus
+  'quote-name' or 'quote-media'; R-147's tick reads as first name and island); staff see which, and staff edits keep it.
+- **How you'll help** says what each answer does; "I'd testify in person" puts "When and where to go" under the main
+  button of a hearing's card (`actions.js wantsInPerson`), the walkthrough's form step says to pick In person, and its
+  Mahalo gives the room, time and "arrive 15 minutes early"; "I have a story to share" left (Your story covers it).
 - **The profile named:** the first visit's last page (`start-rest.js`, with an account or a text number) and once after a
   letter (`helper.js profileLine`).
-- **iPhone:** "Keep your profile on this iPhone" with the Add to Home Screen steps, once (`profile.js homeScreenNote`).
+- **iPhone:** "Add the tracker to your Home Screen" with the steps, once, for someone signed in (`profile.js
+  homeScreenNote`); not for a profile kept only on the phone, since the Home Screen app has its own storage.
 - **Email code** (`phone.js EMAIL_CODES`, `verifyEmailCode`): "Or type the 6-digit code from the email" under the sign-in
   page's "Check your inbox"; off until Supabase's Magic Link email carries `{{ .Token }}` (Nate's dashboard step); `&ecode`
   in the practice copy.
@@ -408,7 +411,8 @@ R-155's sign-in by text code). Backend migration 130.
 - **Counts** (kind only, backend 130): profile_titles, profile_story, letter_titled, letter_story, ask_shown, ask_acted,
   home_how; the privacy page says so. **Staff:** Supporters' folded "Profiles" card (how many give titles, a story, may be
   quoted; the list titles by use; the titles people wrote themselves), `DB.profileRollup` (backend `profile_rollup`).
-- Tests: `tests/profile.py` (73 checks), `tests/titles_test.mjs` (28), backend `test_130.js` (25).
+- A fresh-eyes review (ui-critic) found twelve things, all fixed before publishing.
+- Tests: `tests/profile.py` (78 checks), `tests/titles_test.mjs` (28), backend `test_130.js` (25).
 
 ## Sign in with a mobile number and a 6-digit code (R-155; 5 Oct 2026, switched off until texts are set up)
 Nate 10/5: someone who signed up with a number could not get in on a laptop (only an email signed anyone in). His "Yes" to
