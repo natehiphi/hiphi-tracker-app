@@ -17,8 +17,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-// The public page's address and key live in the kernel since the split (R-122, 10/1); reading them from core.js, as
-// before, stopped this job every morning from then until R-158 (10/5).
+// The public page's address and key live in the kernel since the split (R-122, 10/2); reading them from core.js, as
+// before, failed this job on 10/3 and 10/4, until R-158 (10/5).
 const kernel = readFileSync(join(ROOT, 'pub/kernel.js'), 'utf8');
 const URL_ = /SUPABASE_URL\s*=\s*'([^']+)'/.exec(kernel)[1], KEY = /SUPABASE_KEY\s*=\s*'([^']+)'/.exec(kernel)[1];
 const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
