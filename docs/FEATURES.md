@@ -130,7 +130,7 @@ them, and a list of more than five keeps its link to Bills (`billsTarget`; it we
 Week view and the memo. The consistency set (P8, R-120): `hearingsOf` reads the week's pool and the featured bills'
 hearings too (legislator and committee pages); a hearing deferred to a later sitting says "Deferred to Apr 7"
 (`deferredTo` in bill.js); the walkthrough saves the stance (`setStance`), heads the letter "in SUPPORT of" / "in
-OPPOSITION to" / "Comments on" (`headingFor`), offers email sign-offs in email mode, writes to the one chair whose Email
+OPPOSITION to" / "Comments on" (`headingFor`), offers email sign-offs in email mode (since R-157, 10/5, one short list for both: Mahalo, Thank you, Sincerely, Respectfully, Aloha), writes to the one chair whose Email
 was pressed (`o.chair`), and "Your N issues" counts categories followed; an emailed chair is not asked again as "your
 legislator who chairs it" (speakup.js). Tests updated: `bill_tour.py`, `email_walk.py` (the floor case clears the pool
 too), `staff_week.py` (the ask on Tuesday), `staff_prep.py` (the folded card), `visitlog.py` (the two new keys).

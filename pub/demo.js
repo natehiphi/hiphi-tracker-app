@@ -76,7 +76,7 @@ export function seedDemoLetter() {
     me.letters = { ...(me.letters || {}), [b.id]: { v: 1, demo: true, bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year, h: h.id, code: h.committee,
       at: h.scheduled_at, sent: new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(), draft: 'HD1', stance: 'support', ours: true, pos: b.hiphi_position || '',
       name: me.name || 'Kalani Practice', why: 'As a parent of two teenagers, I see how easy these vapes are for kids to get.', points: pts, pointsText: pts.join(' '),
-      closing: 'Mahalo nui loa', letter: '', edited: false } };
+      closing: 'Mahalo', letter: '', edited: false } };
     localStorage.setItem('hiphi_me', JSON.stringify(me));
     // and the testimony it stands for, marked sent on that hearing, as a real send would have
     const k = doneKey(b.id, h.id, 'testimony'); if (!S.done.has(k)) { S.done.add(k); (S.doneAt ??= {})[k] = me.letters[b.id].sent; saveDone(); saveDoneAt(); }
@@ -96,7 +96,7 @@ export function seedDemoMail(remind = false) {
       me.letters = { ...(me.letters || {}), [k]: { v: 1, kind: 'email', demo: true, mode: 'email', bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year,
         key: 'email|' + code, code, h: '', at: '', sent: remind ? '2026-03-09T20:00:00.000Z' : '2026-02-25T20:00:00.000Z', draft: remind ? 'HD2' : 'HD1', stance: 'support', ours: true,
         pos: b.hiphi_position || '', name: me.name || 'Kalani Practice', why: 'Our county should be able to protect kids from tobacco where they live.', points: pts,
-        pointsText: pts.join(' '), closing: 'Mahalo nui loa', letter: '', edited: false, subject: '', parts: null } };
+        pointsText: pts.join(' '), closing: 'Mahalo', letter: '', edited: false, subject: '', parts: null } };
       localStorage.setItem('hiphi_me', JSON.stringify(me));
     }
     // and the ask it stands for, marked sent for that committee, as a real send would have
