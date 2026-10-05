@@ -427,7 +427,7 @@ export const TALKS = [
   { slug: 'what-is-hiphi', group: 'hiphi', title: 'What is HIPHI?',
     turns: [
       { q: 'What is HIPHI?', a: 'The **Hawaiʻi Public Health Institute**, a nonprofit that works for a healthier Hawaiʻi. It made this tracker, and the tracker is free.' },
-      { q: 'What does HIPHI work on?', a: 'In this tracker, six topics: food and nutrition; tobacco, e-cigarettes and alcohol; health care; family and economic security; getting around safely; and climate.' },
+      { q: 'What does HIPHI work on?', a: 'In this tracker, six topics: food and nutrition; tobacco, nicotine and alcohol; health care; family and economic security; getting around safely; and climate.' },
       { q: 'Where can I learn more?', a: `At [hiphi.org](https://www.hiphi.org/about/), or email ${EMAIL}.` },
     ],
     related: ['why-positions', 'disagree', 'contact'] },
