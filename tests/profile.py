@@ -51,7 +51,7 @@ with sync_playwright() as p:
     ok(pg.locator('.mr-me-in a[href="#/signin"]').count() == 1, 'and someone returning on a new phone can sign in from there')
     ok(pg.locator('#main a.row[href="#/settings"], #main [data-mr-signout]').count() == 0, 'More: no Settings or Sign out rows (they moved to the profile)')
     shot(pg, '1_more_invite')
-    me.click(); pg.wait_for_timeout(1200)
+    me.click(); pg.wait_for_selector('#pf-alf-phone', timeout=20000); pg.wait_for_timeout(300)   # the profile screen loads on demand
     ok('Make your profile' in text(pg) and pg.locator('#pf-alf-phone').count() == 1 and pg.locator('a.al-swap[href="#/signin"]').count() == 1, 'the invitation: the phone box first, email as a link')
     pg.fill('#pf-alf-phone', '808 555 0147'); pg.click('#pf-al-send'); pg.wait_for_timeout(1200)
     ok(pg.locator('#pf-about').count() == 1 and '(808) ••• 0147' in text(pg, '.pf-head'), 'a number makes the profile; the header shows it masked')
@@ -230,7 +230,7 @@ with sync_playwright() as p:
     a = pg.locator('.hdr .hacct')
     ok(a.count() == 1 and a.get_attribute('href') == '#/profile' and 'LK' in a.inner_text() and 'Leilani' in a.inner_text(), f'laptop header: "LK Leilani" at the top right ({a.inner_text() if a.count() else "none"})')
     shot(pg, '7_more_laptop')
-    a.click(); pg.wait_for_timeout(1000)
+    a.click(); pg.wait_for_selector('#pf-about', timeout=20000)
     ok(pg.locator('#pf-about').count() == 1, 'it opens the profile')
     shot(pg, '7b_profile_laptop')
     pg.set_viewport_size({'width': 320, 'height': 640}); pg.wait_for_timeout(400)
