@@ -82,6 +82,32 @@ export function seedDemoLetter() {
     const k = doneKey(b.id, h.id, 'testimony'); if (!S.done.has(k)) { S.done.add(k); (S.doneAt ??= {})[k] = me.letters[b.id].sent; saveDone(); saveDoneAt(); }
   } catch { /* private mode: no letter to show */ }
 }
+// ?email (R-153): an email "sent" on HB 1563 to the House Finance chair on 25 Feb, when the bill was House draft 1, so the
+// practice copy offers it again ("Send my email again") for the Senate committee it now waits in. With &remind as well,
+// the email went to that Senate committee's chairs on 9 Mar instead, and its deadline is moved to Fri 20 Mar for this bill
+// only, so the one reminder to the same chairs is offered (it is offered a week before a deadline).
+export function seedDemoMail(remind = false) {
+  const b = D.bills.find(x => x.bill_number === 'HB1563'); if (!b) return;
+  const code = remind ? 'HHS/EIG' : 'FIN';
+  try {
+    const me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}, k = 'email:' + b.id, had = (me.letters || {})[k];
+    if (!had || had.demo) {
+      const pts = (b.hiphi_points || []).slice(0, 2);
+      me.letters = { ...(me.letters || {}), [k]: { v: 1, kind: 'email', demo: true, mode: 'email', bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year,
+        key: 'email|' + code, code, h: '', at: '', sent: remind ? '2026-03-09T20:00:00.000Z' : '2026-02-25T20:00:00.000Z', draft: remind ? 'HD2' : 'HD1', stance: 'support', ours: true,
+        pos: b.hiphi_position || '', name: me.name || 'Kalani Practice', why: 'Our county should be able to protect kids from tobacco where they live.', points: pts,
+        pointsText: pts.join(' '), closing: 'Mahalo nui loa', letter: '', edited: false, subject: '', parts: null } };
+      localStorage.setItem('hiphi_me', JSON.stringify(me));
+    }
+    // and the ask it stands for, marked sent for that committee, as a real send would have
+    for (const m of [doneKey(b.id, '', 'email'), `${b.id}|${code}|ask`]) S.done.add(m);
+    saveDone();
+    if (remind && !S.deadlines.some(d => d.key === 'second_lateral_r153')) {
+      const lat = S.deadlines.find(d => d.key === 'second_lateral');
+      if (lat) S.deadlines.push({ ...lat, key: 'second_lateral_r153', deadline_date: '2026-03-20', bills: [b.bill_number], replaces: 'second_lateral' });
+    }
+  } catch { /* private mode: no email to show */ }
+}
 // HIPHI's picks for a coalition: strongly supported/opposed first, then bills
 // with a position and a hearing coming up, then the rest with a position. Dead
 // bills stay out. Capped so a first-timer sees a handful, not hundreds.

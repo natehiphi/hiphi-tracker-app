@@ -166,6 +166,7 @@ function planFor(el, b) {
   if (el.matches('[data-bl-compose]')) { const hid = el.dataset.blCompose.split('|')[1]; return hid ? { mode: 'email', bill: b.id, hearing: hid, chair: el.dataset.blChair || '' } : null; }
   if (el.matches('[data-bl-go="compose"]')) return act ? { mode: 'email', bill: b.id, hearing: act.h.id } : null;
   if (el.matches('[data-bl-main="ask"], [data-bl-main="hold"]')) return waiting ? { mode: 'email', bill: b.id, code: st.committee } : null;
+  if (el.matches('[data-bl-main="remind"]')) return waiting ? { mode: 'email', bill: b.id, code: st.committee, remind: true } : null;   // R-153
   if (el.matches('[data-bl-main="floor"]')) {
     const m = legMoments(b, { all: true }).find(x => x.kind === 'floor');
     return m ? { mode: 'legislators', bill: b.id, legs: m.legs.map(l => l.id), moment: { kind: 'floor', key: m.key, chamber: m.chamber } } : null;
@@ -177,7 +178,7 @@ function planFor(el, b) {
 }
 document.addEventListener('click', e => {
   if (!app.openMail || !/^#\/bill\//.test(location.hash) || e.button > 0 || e.metaKey || e.ctrlKey) return;
-  const el = e.target.closest?.('[data-bl-compose], [data-bl-go="compose"], [data-bl-main="ask"], [data-bl-main="hold"], [data-bl-main="floor"], [data-bl-chair][data-bl-mail]');
+  const el = e.target.closest?.('[data-bl-compose], [data-bl-go="compose"], [data-bl-main="ask"], [data-bl-main="hold"], [data-bl-main="remind"], [data-bl-main="floor"], [data-bl-chair][data-bl-mail]');
   if (!el) return;
   const b = allBills().find(x => x.bill_number === numOf()), plan = b && planFor(el, b);
   if (!plan) return;

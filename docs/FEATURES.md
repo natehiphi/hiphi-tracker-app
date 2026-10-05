@@ -303,3 +303,33 @@ His answers: the public and HIPHI's own drafts; the letter kept with the profile
 - **Counted** (kind only, `visitlog.js`): again_open, again_sent, again_warned, again_fixed, again_new.
 - Sandbox: `?letter` plants a letter on HB 2121 from its 18 Feb House Health hearing (House draft 1); its 20 Mar hearing
   is on House draft 2, ticked in `demo/drafts.json`. `tests/again.py` (70 checks).
+
+## Emails offered again, and one reminder to the same chair (R-153; 4 Oct 2026, HANDOFF 3.87)
+
+Nate: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?" His answers: "all of
+the above" (every email the walkthrough writes) and the same-chair reminder "Yes for now, but needs to be reconsidered".
+
+- **Kept:** the newest email per bill sits beside the testimony letter (`hiphi_me.letters["email:<bill id>"]`; on the account,
+  `my_letters` with kind 'email', backend migration 126). Each kept email records its step (`key`: who it went to and the
+  hearing, committee or legislator moment) and the three pieces the walkthrough wrote (`parts`: greeting, who they are, the
+  ask), so a hand-written email can be re-addressed.
+- **Offered:** any email step on the bill (asking a chair for a hearing or to hold it, "please pass it" at a hearing, the
+  person's own legislators) whose step differs from the kept email's opens on "Your email is ready" (`helper.js` 'again'
+  for email modes, `letters.js` `readyMail`), saying why it is back ("HB 1563 passed the House. We've addressed your Feb 25
+  email to the two Senate chairs who decide on its hearing.") and then only the deadline. The bill page's ask button reads
+  "Send my email to the Senate chairs" (`bill.js` `sendTo`), the card's quick email "Send my email again" (`mailLabel`). The
+  email is written again from their answers for this step, or, if they rewrote it, keeps their words with the greeting, who
+  they are and the ask swapped. R-148's check runs first ("Your email needs a check").
+- **Either from the other:** an email step with no kept email starts from their testimony letter's answers ("We've written
+  your email to … from your Feb 25 testimony"), and a testimony step with no kept letter from their email's answers.
+- **The follow-up:** a bill that waits in a committee whose chairs they already emailed, with no hearing, its deadline at
+  most 7 days off and their email at least 5 days old (never when we don't know when they wrote, P-5), offers "Follow up
+  with the chair(s) · 1 min" once (`bill.js` situation kind 'remind', mark `<bill>|remind:<code>|ask`). It opens on a short
+  email ("Your follow-up": "HB 1563 still has no hearing, and Fri, Mar 20 is the last day for one"; `reminderLetter`: when
+  they wrote, the deadline, their reason, one ask; subject "HB 1563: please hear it by Mar 20"), 2 parts. The kept email
+  stays the one it followed up. **To be reconsidered after the first weeks of session (Nate 10/4).**
+- A change with no note yet now says where HIPHI stands on the bill as it is ("We haven't summed up what House draft 2
+  changed yet. HIPHI strongly supports the bill as it is now."), for letters too, instead of asking people to read a draft.
+- **Counted** (kind only): mail_again_open, mail_again_sent, mail_reminder_sent.
+- Sandbox: `?email` plants a 25 Feb email on HB 1563 to House Finance's chair (it now waits in Senate HHS/EIG); `&remind`
+  instead plants a 9 Mar email to HHS/EIG's chairs and moves HB 1563's deadline to Fri 20 Mar. `tests/again_mail.py` (52).

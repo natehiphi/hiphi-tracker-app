@@ -13,6 +13,9 @@
 //     turns the warning amber; Claude's suggestion never reaches the public;
 //   - HIPHI's position, when the letter used HIPHI's words; a talking point in the letter staff have changed or taken
 //     out; the person's own stance, if they changed it on the bill page since.
+// R-153 (Nate 10/4: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?"; "all
+// of the above"): the emails too, every kind the walkthrough writes, kept beside the letter (one of each per bill), offered
+// again at the bill's next step with the same check; and each one can start from the other's answers.
 import { S, DEMO, supa, companionsOf, sessionInfo, myStance, nick, testimonyDraft, didKind, esc, icon, spaced } from './core.js';
 
 const ME = 'hiphi_me';
@@ -43,48 +46,71 @@ export function draftNotes(b) {
 }
 
 // ---- the letters ----
-// The letter kept for this bill, this session.
-export const letterOn = b => { const L = b && all()[b.id]; return ok(L) && (!L.yr || L.yr === yearOf(b)) ? L : null; };
-// The letter to offer for this hearing: the bill's own from another hearing, else its twin's (by the companion link, or
-// by the same nickname in the other chamber, as Home pairs twins). Never one already sent for this hearing.
+// Two kinds, one of each per bill, the newest (R-153, migration 126): 'testimony' (a letter to a committee, kept under the
+// bill's id, as since R-148) and 'email' (to a chair or to the person's own legislators, kept under "email:<bill id>").
+const kindOf = L => L?.kind === 'email' ? 'email' : 'testimony';
+const slot = (kind, billId) => kind === 'email' ? 'email:' + billId : billId;
+const thisSession = (L, b) => ok(L) && (!L.yr || L.yr === yearOf(b));
+// The letter (or email) kept for this bill, this session.
+export const letterOn = (b, kind = 'testimony') => { const L = b && all()[slot(kind, b.id)]; return thisSession(L, b) && kindOf(L) === kind ? L : null; };
+// The newest one of a kind kept for the bill's twin (by the companion link, or by the same nickname in the other chamber,
+// as Home pairs twins).
+function twinOf(b, kind) {
+  const nums = new Set(companionsOf(b)), name = nick(b), yr = yearOf(b), ch = (b.bill_number || '')[0];
+  return Object.values(all()).filter(L => ok(L) && kindOf(L) === kind && L.bill !== b.id && (!L.yr || L.yr === yr)
+    && (nums.has(L.num) || (name && L.nick === name && (L.num || '')[0] !== ch))).sort((x, y) => String(y.sent).localeCompare(String(x.sent)))[0] || null;
+}
+// What to offer for this hearing's testimony: the bill's own letter from another hearing, else its twin's; failing those,
+// an email they sent about it (from: 'email': its answers, never its words, since an email is not testimony). Never a
+// letter already sent for this hearing.
 export function readyLetter(b, h, done = false) {
   if (!b || !h || done) return null;
   const own = letterOn(b);
   if (own) return own.h === h.id ? null : { rec: own, twin: false };
-  const nums = new Set(companionsOf(b)), name = nick(b), yr = yearOf(b), ch = (b.bill_number || '')[0];
-  const twin = Object.values(all()).filter(L => ok(L) && L.bill !== b.id && (!L.yr || L.yr === yr)
-    && (nums.has(L.num) || (name && L.nick === name && (L.num || '')[0] !== ch))).sort((x, y) => String(y.sent).localeCompare(String(x.sent)))[0];
-  return twin ? { rec: twin, twin: true } : null;
+  const tw = twinOf(b, 'testimony'); if (tw) return { rec: tw, twin: true };
+  const mail = letterOn(b, 'email') || twinOf(b, 'email');
+  return mail ? { rec: mail, twin: mail.bill !== b.id, from: 'email' } : null;
 }
-// After the green box: this letter replaces the bill's last one, here and on the account.
+// What to offer for an email at this step (key: the hearing id, the committee code asked, or the legislator moment's key):
+// the bill's own email from another step, else its twin's; failing those, their testimony letter's answers
+// (from: 'testimony'). The same step again is the reminder's business (pub/bill.js), not this.
+export function readyMail(b, key, done = false) {
+  if (!b || done) return null;
+  const own = letterOn(b, 'email');
+  if (own) return own.key === key ? null : { rec: own, twin: false };
+  const tw = twinOf(b, 'email'); if (tw) return { rec: tw, twin: true };
+  const letter = letterOn(b) || twinOf(b, 'testimony');
+  return letter ? { rec: letter, twin: letter.bill !== b.id, from: 'testimony' } : null;
+}
+// After the green box, or "Yes, I sent it": this replaces the bill's last one of its kind, here and on the account.
 export function keepLetter(rec) {
   if (!ok(rec)) return;
-  writeLetters({ ...all(), [rec.bill]: rec });
+  writeLetters({ ...all(), [slot(kindOf(rec), rec.bill)]: rec });
   toAccount(rec).catch(() => { /* kept on this device; it joins the account at the next sign-in */ });
 }
-export function forgetLetter(billId) {
-  const L = { ...all() }; delete L[billId]; writeLetters(L);
-  if (!DEMO && S.session && S.user) supa().then(sb => sb.from('my_letters').delete().eq('bill_id', billId)).catch(() => {});
+export function forgetLetter(billId, kind = 'testimony') {
+  const L = { ...all() }; delete L[slot(kind, billId)]; writeLetters(L);
+  if (!DEMO && S.session && S.user) supa().then(sb => sb.from('my_letters').delete().eq('bill_id', billId).eq('kind', kind)).catch(() => {});
 }
 async function toAccount(rec) {
   if (DEMO || !S.session || !S.user) return;
-  const sb = await supa(), row = { letter: rec, sent_at: rec.sent };
-  // Update, else insert: an upsert would also rewrite bill_id, which the account may not change (migration 124).
-  const u = await sb.from('my_letters').update(row).eq('bill_id', rec.bill).select('bill_id');
+  const sb = await supa(), kind = kindOf(rec), row = { letter: rec, sent_at: rec.sent };
+  // Update, else insert: an upsert would also rewrite bill_id and kind, which the account may not change (124, 126).
+  const u = await sb.from('my_letters').update(row).eq('bill_id', rec.bill).eq('kind', kind).select('bill_id');
   if (u.error) throw u.error;
-  if (!(u.data || []).length) { const i = await sb.from('my_letters').insert({ bill_id: rec.bill, ...row }); if (i.error) throw i.error; }
+  if (!(u.data || []).length) { const i = await sb.from('my_letters').insert({ bill_id: rec.bill, kind, ...row }); if (i.error) throw i.error; }
 }
-// At sign-in (kernel.js loadUser): the account's letters come to this device and this device's join the account; for
-// a bill both have, the newer letter wins.
+// At sign-in (kernel.js loadUser): the account's letters and emails come to this device and this device's join the
+// account; for a bill and kind both have, the newer one wins.
 export async function syncLetters() {
   if (DEMO || !S.session || !S.user) return;
-  const sb = await supa(), r = await sb.from('my_letters').select('bill_id,letter,sent_at');
+  const sb = await supa(), r = await sb.from('my_letters').select('bill_id,kind,letter,sent_at');
   if (r.error) return;
-  const here = all(), there = Object.fromEntries((r.data || []).filter(x => ok(x.letter)).map(x => [x.bill_id, x.letter]));
+  const here = all(), there = Object.fromEntries((r.data || []).filter(x => ok(x.letter)).map(x => [slot(x.kind, x.bill_id), { ...x.letter, kind: x.kind }]));
   const merged = { ...here };
-  for (const [id, L] of Object.entries(there)) if (!merged[id] || String(L.sent) > String(merged[id].sent)) merged[id] = L;
+  for (const [k, L] of Object.entries(there)) if (!merged[k] || String(L.sent) > String(merged[k].sent)) merged[k] = L;
   writeLetters(merged);
-  for (const [id, L] of Object.entries(here)) if (ok(L) && (!there[id] || String(L.sent) > String(there[id].sent))) await toAccount(L).catch(() => {});
+  for (const [k, L] of Object.entries(here)) if (ok(L) && (!there[k] || String(L.sent) > String(there[k].sent))) await toAccount(L).catch(() => {});
 }
 
 // ---- what changed since the letter was written ----
@@ -107,12 +133,16 @@ export function letterCheck(b, rec, notes = []) {
 // ---- the buttons ----
 // The testimony button's words (R-148): finish a saved draft, send a kept letter again, else write one. A twin's letter
 // is offered inside the walkthrough, so its button stays "Write my testimony".
-export const testifyLabel = (b, h, late = false) => testimonyDraft(h) ? 'Finish sending your testimony'
-  : readyLetter(b, h, didKind(b, h, 'testimony'))?.twin === false ? 'Send my letter again' : late ? 'Send late testimony' : 'Write my testimony';
+export const testifyLabel = (b, h, late = false) => { if (testimonyDraft(h)) return 'Finish sending your testimony';
+  const r = readyLetter(b, h, didKind(b, h, 'testimony'));
+  return r && !r.twin && !r.from ? 'Send my letter again' : late ? 'Send late testimony' : 'Write my testimony'; };
+// An email button's words (R-153): "Send my email again" when their email on this bill from another step is ready;
+// otherwise the button's own words (an email written from their testimony is offered inside, as a twin's is).
+export const mailLabel = (b, key, words, again = 'Send my email again') => { const r = readyMail(b, key); return r && !r.twin && !r.from ? again : words; };
 // One line under a hearing's details when a letter is ready: when they wrote (the button says it is ready; A-14).
 export function againLine(b, h) {
   const r = readyLetter(b, h, didKind(b, h, 'testimony'));
-  if (!r || testimonyDraft(h)) return '';
+  if (!r || r.from || testimonyDraft(h)) return '';
   return `<p class="again">${icon('notebook-pen')}<span>${r.twin ? `Your letter on its twin, ${esc(spaced(r.rec.num))}, can be used here.`
     : `You wrote testimony on this bill${r.rec.at ? ` on ${esc(new Date(r.rec.at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'short', day: 'numeric' }))}` : ''}.`}</span></p>`;
 }

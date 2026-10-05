@@ -9,7 +9,9 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
-import { draftName, draftRank, draftNotes, testifyLabel } from './letters.js';
+import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
+// "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
+const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
@@ -234,6 +236,12 @@ export function situation(b) {
   // walkthrough writes the letter from their own stance (Nate 9/27, R-068). The quick email is under More ways to help.
   else if (act) kind = didKind(b, act.h, 'testimony') ? 'share' : 'testify';
   else if (waiting && pos && chairs.length && !asked(b, code)) kind = differs ? 'capitol' : /oppose/.test(b.hiphi_position) ? 'hold' : 'ask';
+  // R-153: they asked this committee's chair already and it still has no hearing a week before its deadline: one short
+  // reminder to the same chair (Nate 10/4: "Yes for now, but needs to be reconsidered"). Once sent, never again here.
+  // Only after their own email to this committee is at least five days old (never when we don't know when they wrote):
+  // otherwise someone who emails six days before the deadline would be offered a follow-up the next morning (P-5).
+  else if (waiting && pos && chairs.length && !differs && st.deadline && !st.deadline.missed && st.deadline.days <= 7 && !S.done.has(askMark(b, 'remind:' + code))
+    && (L => L && L.key === 'email|' + code && Date.now() - Date.parse(L.sent) >= 5 * 864e5)(letterOn(b, 'email'))) kind = 'remind';
   // After the committees (see GOV_URL above). Only where HIPHI supports or opposes it, so there is a clear ask; once the
   // person says they sent it, this stage is not offered again (askMark with the stage as its key).
   const stepKey = !live || act || !/support|oppose/.test(b.hiphi_position || '') ? ''
@@ -301,8 +309,10 @@ function mainButton(b, x) {
     case 'email': return btn('Send a quick email · 2 min', { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-bl-go': 'compose' } });
     case 'testify': return btn(testifyLabel(b, x.act?.h, x.act?.late), { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-bl-go': 'testify' } });
     case 'capitol': return btn(x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: capitolUrl(b), attrs: { 'data-bl-go': 'capitol', target: '_blank', rel: 'noopener' } });
-    case 'ask': return btn(x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
-    case 'hold': return btn('Email the chair · 2 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });
+    // "Send my email again" when their email on this bill from its last step is ready (R-153).
+    case 'ask': return btn(mailLabel(b, 'email|' + x.code, x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', sendTo(x)), { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'ask'), attrs: { 'data-bl-main': 'ask', 'data-bl-mail': '-' } });
+    case 'hold': return btn(mailLabel(b, 'email|' + x.code, 'Email the chair · 2 min', sendTo(x)), { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, 'hold'), attrs: { 'data-bl-main': 'hold', 'data-bl-mail': '-' } });
+    case 'remind': return btn(x.chairs.length > 1 ? 'Follow up with the chairs · 1 min' : 'Follow up with the chair · 1 min', { kind: 'primary', icon: 'mail', full: true, href: mailFor(b, x, x.chairs, /oppose/.test(b.hiphi_position || '') ? 'hold' : 'ask'), attrs: { 'data-bl-main': 'remind', 'data-bl-mail': '-' } });
     case 'floor': case 'conference': {
       if (!x.to.length) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
       const one = x.to.length === 1 ? x.to[0] : null, yes = /oppose/.test(b.hiphi_position || '') ? 'no' : 'yes';
@@ -665,6 +675,7 @@ function doCard(b, x) {
   const [title, text] = stepCard(b, x) || {
     ask: ['Ask for a hearing', `The committee ${many ? 'chairs decide' : 'chair decides'} if this bill gets a hearing. A short, polite email helps.`],
     hold: ['Ask the chair to hold it', 'HIPHI opposes this bill. A short, polite note asking the chair not to hear it helps.'],
+    remind: [`Follow up with the ${x.chairs.length > 1 ? 'chairs' : 'chair'}`, `You asked before, and it still has no hearing. Its deadline is ${x.st.deadline ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : 'near'}: a short follow-up can help.`],
     capitol: ['Have your say', 'You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.'],
     law: ['It became law', x.differs ? 'This bill is now a Hawaiʻi law.' : 'Mahalo to everyone who spoke up. Pass on the good news.'],
     stopped: ['What you can do now', off ? 'The Legislature is between sessions. A good next step is to get ready for the next one.' : 'This bill stopped, but others are still moving and need voices.'],

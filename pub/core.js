@@ -54,6 +54,7 @@ export async function loadActions(ids) {
   S.done = localDone(); S.doneAt = localDoneAt();
   if (DEMO) { if (new URLSearchParams(location.search).has('seed')) (await import('./demo.js')).seedDemoActions();
     if (new URLSearchParams(location.search).has('letter')) (await import('./demo.js')).seedDemoLetter();   // R-148
+    if (new URLSearchParams(location.search).has('email')) (await import('./demo.js')).seedDemoMail(new URLSearchParams(location.search).has('remind'));   // R-153
     for (const id of ids) if (!S.actionCounts[id]) { const n = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 3) % 60; S.actionCounts[id] = { testimonies: n, emails: n >> 2, attending: n >> 3 }; }
     // sandbox numbers for one hearing and one bill, so those lines have something to show
     S.voices = Object.fromEntries(D.hearings.map(h => [h.id, [...h.id].reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7) % 50]).filter(([, n]) => n >= 10));

@@ -36,6 +36,12 @@
 // what people should say, HIPHI's position moved, a point used was changed, or the person's own stance changed). Then the
 // letter and the Capitol step: two screens instead of up to nine. "Update my letter" walks the bill step again with
 // their words in place; "Start a new letter" is one tap away; "Delete my saved letter" forgets it everywhere.
+// 10/4 (R-153, Nate: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?";
+// "all of the above"): every email too (asking a chair for a hearing or to hold it, "please pass it" at a hearing, to the
+// person's own legislators). The newest email per bill is kept beside the letter; at the bill's next step it opens on
+// "Your email is ready", addressed to the new people and step, with the same check; either one can start from the
+// other's answers. And a short reminder to the same chair when the bill still has no hearing a week before its deadline
+// (x.remind; Nate: "Yes for now, but needs to be reconsidered").
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
@@ -44,7 +50,7 @@ import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
-import { readyLetter, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
+import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -179,6 +185,8 @@ function mailAsk(x, n, stance) {
 function mailSubject(x) {
   const { mode, b, h } = x, stance = x.stance || (b ? hiphiStance(b) : 'comments');
   if (mode === 'intro') return `Aloha from a constituent in ${districtWords(x.to) || 'your district'}`;
+  if (x.remind) { const dl = hearingBy(b), n = spaced(b.bill_number), st = x.stance || hiphiStance(b), d = dl.replace(/^[A-Za-z]+, /, '');
+    return st === 'oppose' ? `${n}: please let it rest` : st === 'support' ? `${n}: please hear it${d ? ` by ${d}` : ''}` : `${n}: my comments${d ? ` before ${d}` : ''}`; }
   const n = spaced(b.bill_number), m = x.moment || {};
   if (mode === 'email') return h ? (stance === 'comments' ? `${n}: comments for the hearing on ${dateLong(h.scheduled_at)}` : `${n}: please ${verbFor(stance)} it (hearing ${dateLong(h.scheduled_at)})`)
     : stance === 'oppose' ? `${n}: please do not schedule it` : stance === 'support' ? `${n}: please give it a hearing` : `${n}: comments`;
@@ -186,6 +194,18 @@ function mailSubject(x) {
     : m.kind === 'hearing' ? (stance === 'comments' ? `comments on ${n}` : `please vote to ${verbFor(stance)} ${n}`)
     : stance === 'oppose' ? `please do not schedule ${n}` : stance === 'support' ? `please help ${n} get a hearing` : `comments on ${n}`;
   return `Constituent in ${districtWords(x.to) || 'your district'}: ${want}`;
+}
+// The reminder to the same chair (R-153; Nate: "Yes for now, but needs to be reconsidered"): short, once, a week before the
+// bill's deadline when it still has no hearing. It says they wrote before and when, their reason again, and one ask.
+function reminderLetter(x) {
+  const { b } = x, n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), name = String(x.name).trim(), dl = hearingBy(b);
+  const when = x.remindOf ? ` on ${dateLong(x.remindOf)}` : '';
+  const before = stance === 'oppose' ? `I wrote to you${when} to ask you not to schedule ${n} for a hearing.`
+    : stance === 'support' ? `I wrote to you${when} to ask you to give ${n} a hearing.` : `I wrote to you${when} with my comments on ${n}.`;
+  const ask = stance === 'oppose' ? 'I respectfully ask you to let it rest this session.' : stance === 'support' ? `I respectfully ask you to schedule it${dl ? ' before then' : ''}.` : 'Please consider my comments as you decide.';
+  return [`Dear ${andList(x.to.map(t => t.greet)) || 'Chair'},`, `${openingLine(b, n, stance)} My name is ${name}.`,
+    `${before} I am writing once more because ${dl ? `its deadline is ${dl}` : 'its deadline is near'}.`, sentence(x.why), ask,
+    [closingOf(x.closing), name].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
 // A bill in the introduction: "HB 1523 (Disposable vape ban)".
 const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
@@ -218,7 +238,7 @@ function mailLetter(x) {
     [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '), close].filter(Boolean).join('\n\n');
 }
 // The letter for whichever mode is open.
-const letterOf = x => x.mode === 'testimony' ? letterFor(x.b, x.h, x) : mailLetter(x);
+const letterOf = x => x.mode === 'testimony' ? letterFor(x.b, x.h, x) : x.remind ? reminderLetter(x) : mailLetter(x);
 const isMail = x => !!x && x.mode !== 'testimony';
 
 // The three ways to open a new email that is already filled in. Links have a length limit (a mail app on Windows cuts a
@@ -323,15 +343,21 @@ function openMail(o = {}) {
   const d = (me.mail || {})[mailKey(x)];
   if (b) { const mine = myStance(b.id); x.stance = mine === 'support' || mine === 'oppose' ? mine : o.stance || d?.stance || null; x.askStance = !x.stance; }
   x.screen = mode === 'intro' ? 1 : x.askStance ? 'stand' : 'know';
+  // R-153: the reminder to the same chair; else an email kept from this bill's other step (or its twin's, or their
+  // testimony letter's answers) comes first, re-addressed. A draft for this step wins (picked up below).
+  if (o.remind && b) remindFrom(x, me, d);
+  else if (b && mode !== 'intro' && !d) { const r = readyMail(b, stepKey(x)); if (r) againFrom(x, r, me); }
+  else if (b && d?.again) { const r = readyMail(b, stepKey(x)); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = true; loadCheck(x); } }
   if (d && d.points && !o.points) { x.points = d.points; x.pointsText = d.pointsText ?? pointsLine(d.points); }
   if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
     // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
     x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter);
-    x.letter = x.edited ? d.letter : mailLetter(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
+    x.letter = x.edited ? d.letter : letterOf(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
   S.helper = x;
   openMark.set({ mode, b: b?.id || '', h: h?.id || '', o: { ...o, points: undefined, pointsText: undefined } });
+  if (x.remind && x.screen === 2 && !x.resumed) x.letter = letterOf(x);
   try {
     history.replaceState({ ...(history.state || {}), y: window.scrollY }, '');
     if (!history.state?.hp) history.pushState({ ...(history.state || {}), hp: 1 }, '');
@@ -391,13 +417,59 @@ function againFrom(x, r, me) {
   x.again = r; x.update = false; x.check = null; x.letterReady = false; x.mentions = [];
   x.stance = mine === 'support' || mine === 'oppose' ? mine : L.stance || x.stance;
   x.askStance = false; x.keepPts = L.stance === x.stance;
-  x.acctStep = false;   // they sent testimony before, so they have a Capitol account
+  if (!isMail(x) && !r.from) x.acctStep = false;   // they sent testimony before, so they have a Capitol account
   x.why = L.why || ''; x.points = L.points || []; x.pointsText = L.pointsText ?? pointsLine(x.points);
   x.closing = me.closing || L.closing || ''; x.name = me.name || L.name || '';
   x.screen = 'again';
-  app.onAct?.('again_open');
+  app.onAct?.(isMail(x) ? 'mail_again_open' : 'again_open');
   loadCheck(x);
 }
+// The step an email is for, as mailKey keys its draft: who it goes to (a chair, or their own legislators) and the hearing,
+// the committee asked or the legislator moment. An email to their own representative about the hearing they already
+// emailed the chair about is another step, so their email is offered for it.
+const stepKey = x => `${x.mode}|${x.h?.id || x.code || x.moment?.key || ''}`;
+// The reminder: their kept email's answers when it was this same ask, else what this device remembers. It opens on the
+// email itself (About you first only if the name is missing).
+function remindFrom(x, me, d) {
+  const L = letterOn(x.b, 'email'), same = L && L.key === stepKey(x), mine = myStance(x.b.id);
+  x.remind = true; x.remindOf = same ? L.sent : '';
+  x.needName = !String(me.name || (same && L.name) || '').trim();
+  x.stance = mine === 'support' || mine === 'oppose' ? mine : (same && L.stance) || x.stance || hiphiStance(x.b); x.askStance = false;
+  if (same) { x.why = L.why || x.why; x.name = me.name || L.name || ''; x.closing = me.closing || L.closing || ''; }
+  x.subject = mailSubject(x);
+  if (!d) { x.screen = x.name.trim() ? 2 : 1; x.basis = basisOf(x); }
+}
+// An email kept from another step: written again from their answers for this step, unless they rewrote it by hand. Then
+// every word of theirs stays, and the three pieces the walkthrough wrote for the old step (the greeting, the line that
+// says who they are, the ask) are swapped for this step's, as they were sent (rec.parts). A piece not found is said.
+function againMail(x) {
+  const { b } = x, L = x.again.rec;
+  x.mentions = []; x.askMissing = false;
+  if (L.kind !== 'email' || !L.edited || !L.letter || !L.parts) { x.edited = false; return mailLetter(x); }
+  let text = String(L.letter).replace(/\r\n/g, '\n');
+  if (x.again.twin && L.num) text = text.split(spaced(L.num)).join(spaced(b.bill_number));
+  const now = mailParts(x), was = L.parts;
+  for (const k of ['dear', 'opening']) if (was[k] && now[k] && text.includes(was[k])) text = text.replace(was[k], now[k]);
+  if (was.ask && now.ask && was.ask !== now.ask) { if (text.includes(was.ask)) text = text.replace(was.ask, now.ask); else x.askMissing = now.ask; }
+  if (L.at) { const old = [dateLong(L.at), new Date(L.at).toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' })];
+    x.mentions = [...new Set(old.filter(w => text.includes(w)))]; }
+  x.edited = true;
+  return text;
+}
+// The pieces of the email the walkthrough writes for this step: the greeting, who they are, and the ask (its last two
+// paragraphs before the sign-off are the ask; mailLetter always ends with the ask and the sign-off).
+function mailParts(x) {
+  const ps = mailLetter(x).split('\n\n');
+  return { dear: ps[0] || '', opening: ps[1] || '', ask: ps.length >= 3 ? ps[ps.length - 2] : '' };
+}
+// What the person sent by email, kept for the bill's next step (letters.js keepLetter). Never the reminder: the email
+// it follows up is the one worth keeping.
+const mailRecOf = x => { const stance = x.stance || hiphiStance(x.b);
+  return { v: 1, kind: 'email', mode: x.mode, bill: x.b.id, num: x.b.bill_number, nick: nick(x.b) || '', yr: x.b.session_year || sessionInfo().yr,
+    key: stepKey(x), code: x.code || x.h?.committee || x.moment?.code || '', h: x.h?.id || '', at: x.h?.scheduled_at || '',
+    sent: new Date().toISOString(), draft: x.b.current_version || '', stance, ours: sameAsHiphi(x.b, stance), pos: x.b.hiphi_position || '',
+    name: String(x.name || '').trim(), why: x.why || '', points: x.points || [], pointsText: x.pointsText || '', closing: x.closing || '',
+    letter: x.letter || '', edited: !!x.edited, subject: x.subject || '', parts: mailParts(x) }; };
 // What changed since: the bill's draft notes, asked for once (letters.js). A failed read still compares the drafts.
 function loadCheck(x) {
   draftNotes(x.b).catch(() => []).then(rows => {
@@ -412,9 +484,10 @@ function loadCheck(x) {
 // only its top (what it is, the committee, the hearing) and the greeting are replaced, a twin's number is swapped, and any
 // sentence of theirs that still names the earlier hearing's day or committee is pointed out on the letter screen.
 function againLetter(x) {
+  if (isMail(x)) return againMail(x);
   const { b, h } = x, L = x.again.rec;
   x.mentions = [];
-  if (!L.edited || !L.letter) { x.edited = false; return letterFor(b, h, x); }
+  if (L.kind === 'email' || !L.edited || !L.letter) { x.edited = false; return letterFor(b, h, x); }   // an email's answers, never its words
   let text = String(L.letter).replace(/\r\n/g, '\n');
   if (x.again.twin && L.num) text = text.split(spaced(L.num)).join(spaced(b.bill_number));
   const paras = text.split(/\n[ \t]*\n/);
@@ -485,7 +558,7 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', at: new Date().toISOString() };
+      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, at: new Date().toISOString() };
     else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
     saveMe({ mail });
     return;
@@ -506,13 +579,15 @@ function saveDraft() {
 // An email: the same steps up to the letter, then 'mail' (sending) instead of the Capitol account and the Capitol page.
 // The introduction has no bill, so it starts with About you.
 // A letter sent again: 'again', the letter, the Capitol (R-148); "Update my letter" puts the bill step and About you back in.
-const seqOf = x => x.mode === 'intro' ? [1, 2, 'mail'] : isMail(x) ? [x.askStance && 'stand', 'know', 1, 2, 'mail'].filter(Boolean)
+const seqOf = x => x.mode === 'intro' ? [1, 2, 'mail'] : x.remind ? [x.needName && 1, 2, 'mail'].filter(Boolean)
+  : isMail(x) ? (x.again && !x.update ? ['again', 2, 'mail'] : [x.again && 'again', x.askStance && 'stand', 'know', 1, 2, 'mail'].filter(Boolean))
   : x.again && !x.update ? ['again', 2, x.acctStep && 'acct', 3].filter(Boolean)
   : [x.again && 'again', x.askStance && 'stand', 'know', 1, 2, x.acctStep && 'acct', 3].filter(Boolean);
 const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
 function goTo(screen) {
   const x = S.helper; if (!x) return;
-  if (screen === 2 && x.screen === 'again' && !x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; x.stale = false; }
+  if (screen === 2 && x.screen === 'again' && !x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; x.stale = false;
+    if (isMail(x)) { x.subject = mailSubject(x); x.subjectEdited = false; } }
   if (screen === 2 && x.screen === 1) {
     const basis = basisOf(x);
     if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; }
@@ -591,7 +666,7 @@ function changesBox(x) {
   const read = capitolLink(b, h, 'Read the bill as it is now', { kind: 'text', sm: true, cls: 'hp-inl' });
   const again = btn('Go over the bill and talking points again', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'again-update' } });
   const notes = list => list.length ? `<ul class="hp-drafts" role="list">${list.map(n => `<li><b>${esc(draftName(n.version))}:</b> ${esc(n.summary)}</li>`).join('')}</ul>` : '';
-  const missing = c.missing ? `<p>What changed in ${esc(draftName(c.now))} isn’t summed up here yet. Read it before you send.</p>` : '';
+  const missing = c.missing ? `<p>We haven’t summed up what ${esc(draftName(c.now))} changed yet.${posInfo(b) ? ` ${esc(posInfo(b).text)} the bill as it is now.` : ''}</p>` : '';
   if (c.level === 'big') return `<div class="notice warn hp-again-warn" id="hp-again-warn">${icon('triangle-alert')}<div>
       <p class="strong">What changed</p>
       <ul class="hp-why-list" role="list">${bigWords(c, b)}</ul>
@@ -602,18 +677,43 @@ function changesBox(x) {
   return notice('ok', 'circle-check', 'The bill hasn’t changed since you wrote this.');
 }
 // After "Delete this saved letter": said once, with Undo, until they move on.
-const forgotNote = x => x.forgotten ? `<div class="notice ok hp-forgot" role="status">${icon('circle-check')}<div><p>Your saved letter is deleted.</p>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'again-undo' } })}</div></div>` : '';
-const againTitle = x => x.check?.level === 'big' ? 'Your letter needs a check' : 'Your letter is ready';
+const savedWord = r => r?.rec?.kind === 'email' ? 'email' : 'letter';   // what "Delete this saved …" deletes: the kept one
+const forgotNote = x => x.forgotten ? `<div class="notice ok hp-forgot" role="status">${icon('circle-check')}<div><p>Your saved ${savedWord(x.forgotten)} is deleted.</p>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'again-undo' } })}</div></div>` : '';
+const againTitle = x => `Your ${isMail(x) ? 'email' : 'letter'} ${x.check?.level === 'big' ? 'needs a check' : 'is ready'}`;
 function againScreen() {
+  if (isMail(S.helper)) return againMailScreen(S.helper);
   const x = S.helper, { b, h } = x, L = x.again.rec, n = spaced(b.bill_number), due = dueInfo(h);
   const was = L.at ? shortDay(L.at) : '', when = dateLong(h.scheduled_at), big = x.check?.level === 'big';
-  const lede = x.again.twin
-    ? `You wrote testimony on ${spaced(L.num)}, this bill’s twin in the other chamber${was ? `, on ${was}` : ''}. We’ve put in ${n}’s number, committee and date.`
-    : `We’ve addressed your ${was ? `${was} ` : ''}letter on ${n} to the hearing on ${when}.${big ? '' : ' Your words stay the same.'}`;
+  const sent = L.kind === 'email' ? 'email' : 'letter', wasL = L.sent ? shortDay(L.sent) : was;
+  const lede = r => r.from ? `We’ve written your letter to the ${cmteLabel(h.committee)} from your ${wasL ? `${wasL} ` : ''}email on ${spaced(L.num)}, for the hearing on ${when}.`
+    : r.twin ? `You wrote testimony on ${spaced(L.num)}, this bill’s twin in the other chamber${was ? `, on ${was}` : ''}. We’ve put in ${n}’s number, committee and date.`
+    : `We’ve addressed your ${was ? `${was} ` : ''}${sent} on ${n} to the hearing on ${when}.${big ? '' : ' Your words stay the same.'}`;
   const dueLine = h.testimony_deadline ? `Testimony due ${dateLong(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}` : '';
   return `<div class="hp-top">${screenHead(1, esc(againTitle(x)))}
-      <p class="hp-sub">${esc(lede)}</p></div>
+      <p class="hp-sub">${esc(lede(x.again))}</p></div>
     ${due?.late ? lateBanner(h) : dueLine ? `<p class="hp-due ${due?.tone || ''}">${icon('clock')}<span>${esc(dueLine)}</span></p>` : ''}
+    ${changesBox(x)}`;
+}
+
+// "Chair San Buenaventura and Chair Wakai" for a chair; "Rep. Marten" for their own legislator.
+const toNames = x => andList(x.to.map(t => x.mode === 'email' ? t.greet : shortName(t)));
+// An email ready again (R-153): who it goes to now and why now (whyNow: the hearing, the wait, the person's own legislator),
+// then the same check.
+function againMailScreen(x) {
+  const { b } = x, L = x.again.rec, n = spaced(b.bill_number), big = x.check?.level === 'big', names = toNames(x);
+  const was = L.sent ? shortDay(L.sent) : '', words = big ? '' : ' Your words stay the same.';
+  // Why it is back (fresh-eyes review 10/4): the bill moved on. For a bill waiting for a hearing: who decides now, and only
+  // the deadline after (the To cards on the next screen name them in full).
+  const ch = c => CHAMBER_NAME[S.committees[codesOf(c || '')[0]]?.chamber] || '', nowCh = ch(x.code), thenCh = ch(L.code);
+  const who = x.mode === 'email' && !x.h ? `the ${x.to.length > 1 ? `${x.to.length === 2 ? 'two' : x.to.length} ${nowCh} chairs who decide` : `${nowCh} chair who decides`} on its hearing`.replace(/\s+/g, ' ') : names;
+  const moved = x.mode === 'email' && !x.h && thenCh && nowCh && thenCh !== nowCh ? `${n} passed the ${thenCh}. ` : x.mode === 'email' && !x.h && L.code && L.code !== x.code ? `${n} is in its next committee. ` : '';
+  const lede = x.again.from ? `We’ve written your email to ${who} from your ${was ? `${was} ` : ''}testimony on ${spaced(L.num)}.`
+    : x.again.twin ? `You emailed about ${spaced(L.num)}, this bill’s twin in the other chamber${was ? `, on ${was}` : ''}. We’ve put in ${n}’s number and addressed it to ${who}.`
+    : `${moved}We’ve addressed your ${was ? `${was} ` : ''}email to ${who}.${words}`;
+  const dl = x.mode === 'email' && !x.h ? hearingBy(b) : '';
+  return `<div class="hp-top">${screenHead(1, esc(againTitle(x)))}
+      <p class="hp-sub">${esc(lede)}</p></div>
+    ${x.mode === 'email' && !x.h ? (dl ? `<p class="hp-due hp-why">${icon('hourglass')}<span>If it isn’t heard by ${esc(dl)}, it stops for this year.</span></p>` : '') : whyNow(x)}
     ${changesBox(x)}`;
 }
 
@@ -629,7 +729,7 @@ function whyNow(x) {
   let ic = 'clock', text;
   if (x.mode === 'email') {
     if (h) text = hearingText(h);
-    else { ic = 'hourglass'; text = `Waiting for a hearing in ${cm(x.code)}. The chair decides which bills get one.${dl ? ` If it is not heard by ${dl}, it stops for this year.` : ''}`; }
+    else { ic = 'hourglass'; text = `Waiting for a hearing in ${cm(x.code)}. The ${x.to.length > 1 ? 'chairs decide' : 'chair decides'} which bills get one.${dl ? ` If it is not heard by ${dl}, it stops for this year.` : ''}`; }
   } else {
     ic = 'user-check';
     const one = andList(who);   // "Rep. Marten, your representative," reads on into its verb
@@ -753,14 +853,8 @@ function lateBanner(h, { email = true } = {}) {
 // Screen 2: the letter, ready to copy. Lato 16px in a box that grows with the text (no inner scrolling on a phone).
 function letterScreen() {
   if (isMail(S.helper)) return mailLetterScreen();
-  const x = S.helper, file = `${x.b.bill_number}-testimony.txt`, c = x.again && x.check;
-  // A letter sent again (R-148): what was put in for this hearing, what changed, and any words still about the old one.
-  const again = !x.again ? '' : [
-    c && c.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><p class="strong">Before you send, check your letter:</p><ul class="hp-why-list" role="list">${bigWords(c, x.b, { adviceOnly: true })}</ul></div></div>`
-      : c && c.level === 'changed' && c.since.length ? notice('info', 'info', `Check it against the bill as it is now. ${draftName(c.since[c.since.length - 1].version)}: ${c.since[c.since.length - 1].summary}`)
-      : '',
-    x.mentions?.length ? notice('info', 'calendar', `Your letter mentions “${x.mentions.join('” and “')}”. This hearing is on ${dateLong(x.h.scheduled_at)}: change it if it’s about the earlier one.`) : '',
-  ].join('');
+  const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
+  const again = againNotes(x);
   return `<div class="hp-top">${screenHead(2, 'Your letter')}
       <p class="hp-sub" id="hp-lsub">${x.again && !x.update ? `Your ${x.again.rec.at ? `${esc(shortDay(x.again.rec.at))} ` : ''}letter, addressed to this hearing’s committee, chairs and date. Read it over and change anything you like.` : 'We wrote it from your answers. Read it over and change anything you like.'}</p></div>
     ${welcomeBack()}
@@ -772,7 +866,20 @@ function letterScreen() {
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
       ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>
-    ${x.again ? `<div class="hp-forget">${btn('Delete this saved letter', { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : ''}`;
+    ${forgetLink(x)}`;
+}
+// Delete the kept letter or email this one started from (B-5: with Undo), under the words.
+const forgetLink = x => x.again ? `<div class="hp-forget">${btn(`Delete this saved ${savedWord(x.again)}`, { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : '';
+// A letter or email sent again (R-148, R-153): what changed, HIPHI's advice, and any words still about the old step.
+function againNotes(x) {
+  const c = x.again && x.check, what = isMail(x) ? 'email' : 'letter';
+  return !x.again ? '' : [
+    c && c.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><p class="strong">Before you send, check your ${what}:</p><ul class="hp-why-list" role="list">${bigWords(c, x.b, { adviceOnly: true })}</ul></div></div>`
+      : c && c.level === 'changed' && c.since.length ? notice('info', 'info', `Check it against the bill as it is now. ${draftName(c.since[c.since.length - 1].version)}: ${c.since[c.since.length - 1].summary}`)
+      : '',
+    x.mentions?.length ? notice('info', 'calendar', `Your ${what} mentions “${x.mentions.join('” and “')}”. ${x.h ? `This hearing is on ${dateLong(x.h.scheduled_at)}` : 'That was the earlier step'}: change it if it’s about the earlier one.`) : '',
+    x.askMissing ? notice('info', 'info', `Check the end of your email. For this step it should ask: “${x.askMissing}”`) : '',
+  ].join('');
 }
 
 // The email, ready to read over (R-079): who it goes to, a subject they can change, and the message. Sending is the next step.
@@ -780,16 +887,21 @@ const toList = x => x.to.map(t => `<li><span class="hp-toname">${esc(t.label)}</
     ${t.email ? `<span class="hp-toaddr">${esc(t.email)}</span>` : `<span class="hp-toaddr">No email address listed. ${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">See their Capitol page</a>` : ''}</span>`}</li>`).join('');
 function mailLetterScreen() {
   const x = S.helper;
-  return `<div class="hp-top">${screenHead(2, 'Your email')}
-      <p class="hp-sub" id="hp-lsub">We wrote it from your answers. Read it over and change anything you like.</p></div>
+  const lsub = x.remind ? `${spaced(x.b.bill_number)} still has no hearing${hearingBy(x.b) ? `, and ${hearingBy(x.b)} is the last day for one` : ''}. Here’s a short follow-up${x.remindOf ? ` to your ${shortDay(x.remindOf)} email` : ''}. Change anything you like.`
+    : x.again && !x.update ? 'Read it over and change anything you like.'
+    : 'We wrote it from your answers. Read it over and change anything you like.';
+  return `<div class="hp-top">${screenHead(2, x.remind ? 'Your follow-up' : 'Your email')}
+      <p class="hp-sub" id="hp-lsub">${lsub}</p></div>
     ${welcomeBack()}
+    ${againNotes(x)}
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this email.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <div class="hp-to"><p class="hp-knh" id="hp-toh">To</p><ul class="hp-tol" role="list" aria-labelledby="hp-toh">${toList(x)}</ul></div>
     <div class="field"><label for="hp-subject">Subject</label><input id="hp-subject" name="subject" type="text" autocomplete="off" autocapitalize="sentences" value="${esc(x.subject)}"></div>
     <div class="field hp-msgf"><label for="hp-letter">Message</label>
       <textarea id="hp-letter" class="hp-letter hp-mailbody" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="12">${esc(x.letter)}</textarea></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your message is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
-    <div class="hp-under">${btn('Copy message', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}</div>`;
+    <div class="hp-under">${btn('Copy message', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}</div>
+    ${forgetLink(x)}`;
 }
 
 // Sending (R-079). One screen, no question first: the message is already on the clipboard (goTo), and each button opens
@@ -928,6 +1040,7 @@ function mailDoneScreen() {
   const x = S.helper, { b, h } = x, first = x.name.trim().split(/\s+/)[0], names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
   const n = b ? spaced(b.bill_number) : '', stance = x.stance || (b ? hiphiStance(b) : ''), m = x.moment || {};
   const lede = x.mode === 'intro' ? `You introduced yourself to ${names}. When a bill on your issues comes up, they’ll know who is writing.`
+    : x.remind ? `You followed up with ${names} about ${n} before its deadline.`
     : x.mode === 'legislators' ? `You wrote to ${names} about ${n}. Lawmakers listen closest to the people they represent.`
     : h ? `You emailed ${names} about ${n}. Chairs read what people send them before the committee votes.`
     : stance === 'oppose' ? `You asked ${names} not to schedule ${n}. The chair decides which bills get a hearing.`
@@ -963,9 +1076,10 @@ function foot() {
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
   // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.
   if (x.screen === 'again') {
-    const fresh = btn('Start a new letter', { kind: 'text', sm: true, attrs: { 'data-hp': 'again-new' } });
+    const fresh = btn(`Start a new ${isMail(x) ? 'email' : 'letter'}`, { kind: 'text', sm: true, attrs: { 'data-hp': 'again-new' } });
     if (!x.check) return row(`<button type="button" class="btn primary hp-main" aria-busy="true" disabled>${icon('loader-circle')}<span>Checking…</span></button>`, fresh);
-    return row(btn(x.check.level === 'big' ? 'Check my letter' : 'Use my letter', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'again-use' } }), fresh);
+    const w = isMail(x) ? 'email' : 'letter';
+    return row(btn(x.check.level === 'big' ? `Check my ${w}` : `Use my ${w}`, { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'again-use' } }), fresh);
   }
   if (x.screen === 'know') return row((x.askStance || x.again ? back : '') + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
   if (x.screen === 1) return row((seqOf(x)[0] === 1 ? '' : back) + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>${isMail(x) ? 'See my email' : 'See my letter'}</span>${icon('arrow-right')}</button>`);
@@ -973,7 +1087,7 @@ function foot() {
   if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
     : x.asked ? btn('Yes, I sent it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'mailsent' } }) : ''),
     x.busy ? '' : (x.asked ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'mailsent' } })) + later);
-  if (x.screen === 2) return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
+  if (x.screen === 2) return row((seqOf(x)[0] === 2 ? '' : back) + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);   // the reminder starts here (R-153)
   if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
     (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
@@ -1155,7 +1269,11 @@ async function confirmMail() {
       await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', x.mode === 'legislators' ? 'legislators' : 'email', true, { quiet: true });
       if (x.mode === 'email' && !x.h && x.code) S.done.add(askMark(x.b, x.code));
       if (x.mode === 'legislators' && x.moment?.key) S.done.add(askMark(x.b, x.moment.key));
+      if (x.remind && x.code) S.done.add(askMark(x.b, 'remind:' + x.code));   // the one reminder for this committee (R-153)
       saveDone();
+      // Kept for the bill's next step, here and with the account (R-153); never the reminder itself.
+      if (!x.remind) { try { keepLetter(mailRecOf(x)); } catch { /* the email counts either way */ } }
+      app.onAct?.(x.remind ? 'mail_reminder_sent' : x.again ? 'mail_again_sent' : '');
     }
   } catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
   if (x.b) {
@@ -1243,12 +1361,12 @@ function onClick(e) {
     // screen offers "Use my new details" if they change an answer).
     const x = S.helper; x.update = true;
     if (!x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; }
-    if (S.helper.check?.level !== 'big') app.onAct?.('again_fixed'); goTo('know');
+    if (x.check?.level !== 'big') app.onAct?.('again_fixed'); goTo('know');
   }
   else if (a === 'again-new' || a === 'again-forget') {
     const x = S.helper;
     // Deleted with an Undo for the rest of this walkthrough (B-5): the letter is kept in hand until then.
-    if (a === 'again-forget' && x.again) { x.forgotten = x.again; forgetLetter(x.again.rec.bill); }
+    if (a === 'again-forget' && x.again) { x.forgotten = x.again; forgetLetter(x.again.rec.bill, x.again.rec.kind === 'email' ? 'email' : 'testimony'); }
     else app.onAct?.('again_new');
     // Where they stand stays as the letter had it (their stance on the bill page wins); it is asked only if neither says.
     const mine = myStance(x.b.id);
