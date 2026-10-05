@@ -19,6 +19,12 @@ use the terminal, and reviews on his phone AND a laptop. He wants direct answers
 screenshots for anything visual. When he says something is bad, fix it rather than defend it. He approves
 direction; Claude builds, tests, pushes and verifies the published site.
 
+**Every check comes with a link (R-161, Nate 10/5):** "anytime there is a need for me to check something, ensure a
+link is provided for me to access where it would be checked." Whenever you ask him to check or decide something,
+give the clickable address of the exact screen in the same message (the published page or the practice copy, for
+example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/HB1523`), opened by you first; never
+"open the staff app" without the address. The REQUESTS.md item gets the same link on its `**Where to check:**` line.
+
 ## Where things stand (verified 2026-10-01)
 
 - **Staff v2 is the staff app at the main address** (`index.html` and `staff.html`); the old app stays at `classic.html`
