@@ -20,6 +20,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const core = readFileSync(join(ROOT, 'pub/core.js'), 'utf8');
 const URL_ = /SUPABASE_URL\s*=\s*'([^']+)'/.exec(core)[1], KEY = /SUPABASE_KEY\s*=\s*'([^']+)'/.exec(core)[1];
 const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
+// Renamed issues, old address -> new (pub/kernel.js FORMER_SLUGS, R-158): the page and feed under the old name stay, so
+// a link or a calendar subscription made before the rename keeps working.
+const FORMER = JSON.parse(/export const FORMER_SLUGS = (\{[^\n]*\});/.exec(readFileSync(join(ROOT, 'pub/kernel.js'), 'utf8'))[1]);
 const CHECK = process.argv.includes('--check');
 
 async function rows(path) {
@@ -83,6 +86,7 @@ for (const i of issues) {
   const n = (i.bill_ids || []).length;
   const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
   want.set(`i/${i.slug}.html`, page({ title: `${i.name} · HIPHI Bill Tracker`, desc, to: `../track.html?via=share#/issue/${i.slug}`, self: `${SITE}i/${i.slug}` }));
+  for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
 }
 // The calendar feeds (R-125, the assessment's W3): cal/<issue slug>.ics, one per issue, every hearing still ahead (and the
 // last week's) on the issue's bills as an event, with its testimony deadline as a second event that rings two hours before.
@@ -109,6 +113,7 @@ for (const i of issues) {
   const cal = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsEsc(`HIPHI · ${i.name}`)}`,
     'X-WR-TIMEZONE:Pacific/Honolulu', 'REFRESH-INTERVAL;VALUE=DURATION:PT12H', 'X-PUBLISHED-TTL:PT12H', ...ev, 'END:VCALENDAR'].join('\r\n') + '\r\n';
   want.set(`cal/${i.slug}.ics`, cal);
+  for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`cal/${was}.ics`, cal);
 }
 let added = 0, changed = 0, removed = 0;
 for (const dir of ['b', 'i', 'cal']) {

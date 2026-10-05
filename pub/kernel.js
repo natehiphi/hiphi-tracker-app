@@ -79,7 +79,7 @@ export function cleanDesc(t) {
   } while (x !== prev);
   return x;
 }
-// A bill's short everyday name ("Disposable vape ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
+// A bill's short everyday name ("Disposable e-cigarette ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
 export const nick = b => (b && (b.hiphi_nickname || b.nickname)) || '';
 // Bare bill numbers from bills.companions: not always one clean number per array element, so split and
 // normalize defensively. Excludes self-references.
@@ -196,7 +196,7 @@ export async function restoreFollows(slugs) {
   const issuesOn = [], catsOn = [];
   for (const x of slugs || []) {
     if (x.startsWith('cat:')) { if ((S.cats || []).some(c => c.key === x.slice(4))) catsOn.push(x.slice(4)); }
-    else { const i = (S.issues || []).find(y => y.slug === x); if (i) issuesOn.push(i.id); }
+    else { const i = S.issueBySlug?.get(x); if (i) issuesOn.push(i.id); }   // an old address too (FORMER_SLUGS)
   }
   if (!issuesOn.length && !catsOn.length) { toast('That link has no issues we know. Pick yours under Find.'); return false; }
   const ok = await setFollows({ issuesOn, catsOn });
@@ -252,6 +252,10 @@ export async function loadCatalog() {
   if (!DEMO && cats.length) { try { localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), cats, issues, links })); } catch { /* storage blocked */ } }
 }
 const CATALOG_KEY = 'hiphi_catalog';
+// Issue addresses that were renamed, old -> new (R-158, migration 129: HIPHI says "e-cigarettes", never "vapes"). A
+// shared link, a My issues link (#/follow/...) or a calendar feed made before the rename still opens the issue. Kept on
+// one line of JSON: tools/share_pages.mjs reads it to keep a share page and a calendar feed under each old name.
+export const FORMER_SLUGS = {"disposable-vape-ban": "disposable-e-cigarette-ban", "fda-proof-to-sell-vapes": "fda-proof-to-sell-e-cigarettes", "state-vape-maker-directory": "state-e-cigarette-maker-directory", "higher-tobacco-and-vape-taxes": "higher-tobacco-and-e-cigarette-taxes"};
 function applyCatalog(cats, issues, links) {
   // Related issues (095, R-094): each issue's neighbours, both ways. Only the suggested bill reads them.
   S.issueLinks = new Map();
@@ -259,6 +263,12 @@ function applyCatalog(cats, issues, links) {
   S.cats = cats;
   S.issues = issues.map(i => ({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
   S.issueById = new Map(S.issues.map(i => [i.id, i])); S.issueBySlug = new Map(S.issues.map(i => [i.slug, i]));
+  // A renamed issue answers to its old address and its new one, whichever the catalog in hand carries (a week-old copy may
+  // still have the old one, R-122). Only lookups by address see the extra names; S.issues is unchanged.
+  for (const [was, now] of Object.entries(FORMER_SLUGS)) {
+    if (S.issueBySlug.has(now) && !S.issueBySlug.has(was)) S.issueBySlug.set(was, S.issueBySlug.get(now));
+    else if (S.issueBySlug.has(was) && !S.issueBySlug.has(now)) S.issueBySlug.set(now, S.issueBySlug.get(was));
+  }
   S.issuesByBill = new Map();
   for (const i of S.issues) for (const id of i.bill_ids) (S.issuesByBill.get(id) || S.issuesByBill.set(id, []).get(id)).push(i);
 }

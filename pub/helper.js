@@ -899,15 +899,14 @@ function aboutScreen() {
         <span class="help" id="hp-why-help">${x.whyStory && x.why.trim() === myStory() ? `${icon('user')} Your story, from your profile. Change it to fit this bill.` : own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.'}</span>
         ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile as my story, ready for my next letter</span></label>` : ''}</div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
-        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo nui loa" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
-        <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${closingsFor(x).map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
     </form>`;
 }
-// Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it.
-const CLOSINGS = ['Mahalo for the opportunity to testify', 'Mahalo nui loa', 'With aloha'];
-const MAIL_CLOSINGS = ['Mahalo for your time', 'Mahalo nui loa', 'With aloha'];   // an email is not testimony (R-120, Bug 9)
-const closingsFor = x => isMail(x) ? MAIL_CLOSINGS : CLOSINGS;
+// Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it. Short and plain, the
+// same for testimony and emails (Nate 10/5, R-157: "much simpler. mahalo, thank you, sincerely, etc.").
+const CLOSINGS = ['Mahalo', 'Thank you', 'Sincerely', 'Respectfully', 'Aloha'];
 const ERR = { name: 'Enter your name', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
 const own2 = () => { const x = S.helper; return !!x && !!x.b && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };

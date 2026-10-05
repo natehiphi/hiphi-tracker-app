@@ -24,7 +24,7 @@ app.onAct = logAct;
 
 // An issue opened from My issues keeps My issues lit (the review found it lit Find, R-070 problem 8).
 const issueSlug = () => (/#\/(?:find\/)?issue\/([^/?]+)/.exec(location.hash) || [])[1] || '';
-const issueScreen = Object.create(find, { tab: { get() { const i = S.issues.find(x => x.slug === decodeURIComponent(issueSlug())); return i && issueFollowed(i) ? 'bills' : 'find'; } } });
+const issueScreen = Object.create(find, { tab: { get() { const i = S.issueBySlug.get(decodeURIComponent(issueSlug())); return i && issueFollowed(i) ? 'bills' : 'find'; } } });
 const SCREENS = { start, learn: start, home, bills: mybills, find, issue: issueScreen, category: find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, more, help: more, signin: more, settings: more, privacy: more };
 // "You" replaces "More": your legislators, your email and settings, help (R-070 decision 6, tried here).
@@ -66,7 +66,7 @@ try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 
 function header(route, scr) {
   const inStart = route.name === 'start';
-  const right = inStart ? '' : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: vaping, school meals" autocomplete="off" enterkeyhint="search"></form>
+  const right = inStart ? '' : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>`;
   const nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · version A · after the 2026 session · nothing is saved' : `Sandbox · version A · ${dayLabel()} · nothing is saved`}</div>` : ''}
@@ -132,7 +132,7 @@ function wireFrame() {
     hs.onsubmit = e => { e.preventDefault(); const q = inp.value.trim(); go('#/find' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     suggest(inp, { source: headerSuggest, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
       busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
-      empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
+      empty: q => `No issues or bills match “${q}”. Try one word, like e-cigarettes, or a bill number.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } }); }
 }
 const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;

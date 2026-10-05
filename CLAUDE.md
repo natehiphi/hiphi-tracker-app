@@ -73,7 +73,7 @@ session is dark (until January 2027).
 - **The testimony walkthrough starts with the bill (R-068, 9/28):** `pub/helper.js` goes stance (if not said) → "Get to
   know the bill" (`knowScreen`: plain summary, HIPHI's stance, and `hiphi_points`, the bill's talking points from
   `bills.talking_points`, migration 084, each a toggle into the letter; offered only to someone on HIPHI's side) → About
-  you (name, optional email, why, an optional sign-off with three tap-in ideas; no town) → the letter (no bill
+  you (name, optional email, why, an optional sign-off with five short tap-in ideas, the same for letters and emails: Mahalo, Thank you, Sincerely, Respectfully, Aloha, R-157; no town) → the letter (no bill
   description, no automatic closing) → Capitol account once → send. Staff edit the points in Staff v2; the first 248
   were drafted by Claude (`../backend/docs/talking_points_2026.json`, `tools/apply_talking_points.js`).
 - **The between-sessions sandbox shows the real end of 2026** (`&season=off`): the snapshot keeps each bill's final
