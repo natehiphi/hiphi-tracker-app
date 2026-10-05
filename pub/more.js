@@ -1,18 +1,18 @@
 // More (redesign 9/19; plan 5 "More" and 7 "Help, Settings, Sign in, More"): the fourth tab and the pages under it.
 //   #/more      a short page of rows (link cards in a grid on a wide screen): your legislators, every bill HIPHI tracks
 //               (#/allbills, pub/allbills.js, R-091), committees, how it works, adding
-//               your email (or Settings and Sign out), HIPHI itself, privacy and accessibility
+//               your email (since R-147 the person's profile, first), HIPHI itself, privacy and accessibility
 //   #/help      ready-made conversations (R-075: pub/talk.js, loaded on first use; #/help/<slug> opens one)
 //   #/signin    "Add your email": one email field, one "keep me updated" box (hearings on your issues and HIPHI's updates,
 //               ticked; DESIGN C-4, Nate 9/20), privacy in 3 bullets
 //   #/alerts    "Get alerts on your issues" (R-146): the phone-first box (pub/alerts.js); once a number is given, "Text
 //               alerts are on" with Change number and Stop texts. Email goes to #/signin, which keeps its own box.
-//   #/settings  the two email choices and About you, saved with ONE button; your data; deleting the account
+//   #/settings  since R-147 (10/4) the profile, pub/profile.js (#/profile): More's first row is the person
 //   #/privacy   what we keep and who sees it, then a short accessibility statement
 // ONE vocabulary for the email step (Nate, 9/19; the assessment counted six names for it): a signed-out person is
 // offered "Add my email", the page is "Add your email", the button is "Email me a link". "Sign in" is only the
 // header's word for returning people, plus one small line on that page. Giving an email to be kept updated IS the
-// consent, for hearing alerts and HIPHI's own updates alike, named plainly as one choice (C-4). Settings keeps the two
+// consent, for hearing alerts and HIPHI's own updates alike, named plainly as one choice (C-4). The profile keeps the two
 // apart, so either can be turned off later.
 // It also exports the two cards Home shows right after someone signs in (accountCardsHTML / wireAccountCards):
 // the email choices (when the person came in through an email ask and has not chosen yet) and their home address
@@ -30,6 +30,8 @@ import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
 import { alertFields, wireAlertForm, fmtPhone, saveText, stopText } from './alerts.js';
+import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
+import { titleLabel } from './titles.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
 const HIPHI = {
@@ -44,64 +46,64 @@ const A11Y_ICON = ICONS.accessibility ? 'accessibility' : 'eye';
 const $ = s => document.querySelector(s);
 const signedIn = () => !!(S.session && S.user);
 
-// The two email choices, worded once, for the card after sign in and Settings, where each can be turned off on its own.
+// The two email choices, worded once, for the card after sign in and the profile (R-147), where each can be turned off on its own.
 // Where a person GIVES their email they are one choice, "keep me updated", ticked (DESIGN C-4; Nate, 9/20).
-const CHOICES = [
+export const CHOICES = [
   ['alerts', 'hearing_alerts', 'Email me when a bill on one of my issues gets a hearing', 'About 2 days’ notice, time to send testimony.'],
   ['action', 'action_alerts', 'Email me when HIPHI has an update or a way to help', 'A few times a session.'],
 ];
 const KEEP = ['Keep me updated', 'Hearings on your issues, and HIPHI’s updates and ways to help. Unsubscribe in one tap, any time.'];
-const INTERESTS = [['testify', 'I’d testify in person'], ['story', 'I have a story to share'], ['quote', 'HIPHI may quote me'],
+export const INTERESTS = [['testify', 'I’d testify in person'], ['story', 'I have a story to share'], ['quote', 'HIPHI may quote me'],
   ['host', 'I could host or help at an event'], ['volunteer', 'I’d like to volunteer']];
-const check = (id, title, help, on, attrs = '') => `<label class="check mr-check" for="${id}"><input type="checkbox" id="${id}"${on ? ' checked' : ''}${attrs}>
+export const check = (id, title, help, on, attrs = '') => `<label class="check mr-check" for="${id}"><input type="checkbox" id="${id}"${on ? ' checked' : ''}${attrs}>
   <span class="mr-ctext"><span class="mr-ctitle">${title}</span>${help ? `<span class="mr-chelp">${help}</span>` : ''}</span></label>`;
 const errLine = (id, text) => `<span class="err" id="${id}">${icon('triangle-alert')}<span>${esc(text)}</span></span>`;
 // Loading state for a button: a spinning loader and "Sending…"; unbusy puts the button back exactly as it was.
 const was = new WeakMap();
-const busy = (el, label) => { if (!el) return; was.set(el, el.innerHTML); el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}<span>${esc(label)}</span>`; };
-const unbusy = el => { if (!el) return; el.removeAttribute('aria-busy'); if (was.has(el)) el.innerHTML = was.get(el); };
+export const busy = (el, label) => { if (!el) return; was.set(el, el.innerHTML); el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}<span>${esc(label)}</span>`; };
+export const unbusy = el => { if (!el) return; el.removeAttribute('aria-busy'); if (was.has(el)) el.innerHTML = was.get(el); };
 // ui.js btn() always writes type="button" first (a second type attribute is ignored), so a form's submit button is
 // written here with the same classes. A real submit button lets Enter on the keyboard send the form too.
-const submitBtn = (label, ic, id) => `<button type="submit" class="btn primary" id="${id}">${icon(ic)}<span>${label}</span></button>`;
+export const submitBtn = (label, ic, id) => `<button type="submit" class="btn primary" id="${id}">${icon(ic)}<span>${label}</span></button>`;
 // An inline error under a card's buttons (role=alert), or nothing.
-const say = (id, html) => { const box = document.getElementById(id); if (box) box.innerHTML = html; };
+export const say = (id, html) => { const box = document.getElementById(id); if (box) box.innerHTML = html; };
 // Focus a field with its label in view (a plain focus() tucks the label under the sticky header).
-const focusField = inp => { inp.focus({ preventScroll: true }); inp.closest('.field')?.scrollIntoView({ block: 'center' }); };
+export const focusField = inp => { inp.focus({ preventScroll: true }); inp.closest('.field')?.scrollIntoView({ block: 'center' }); };
 const extRow = (lead, title, sub, href, leadHtml) => row({ lead, leadHtml, title, sub, href, chevron: false,
   end: `${icon('external-link', { cls: 'chev' })}<span class="sr">(opens hiphi.org)</span>`, attrs: { target: '_blank', rel: 'noopener' } });
 
 // ---------------- your legislators, from the districts saved on this device or the account ----------------
-function seat(ch, d) {
+export function seat(ch, d) {
   if (!d) return null;
   // After a mid-term appointment the directory can list two people for one seat; the one with a Capitol email serves.
   const ls = (S.legislators || []).filter(l => l.chamber === ch && +l.district === +d && l.active !== false);
   return ls.find(l => l.email) || ls[0] || null;
 }
-function myDistricts() {
+export function myDistricts() {
   try { const d = JSON.parse(localStorage.getItem(DISTRICTS_KEY) || 'null'); if (d && +d.senate && +d.house) return { senate: +d.senate, house: +d.house }; } catch { /* private mode */ }
   const p = S.profile || {};
   return p.senate_district && p.house_district ? { senate: +p.senate_district, house: +p.house_district } : null;
 }
-const legName = l => l ? `${legTitle(l)} ${l.name}` : '';
+export const legName = l => l ? `${legTitle(l)} ${l.name}` : '';
 // "Your senator: Sen. Chris Lee" / "Your representative: Rep. Lisa Marten" for an address someone picked.
-function distHTML(sd, hd) {
+export function distHTML(sd, hd) {
   if (!sd && !hd) return '';
   const s = seat('S', sd), h = seat('H', hd);
   const line = (word, l, ch, d) => d ? `<span>${word}: <span class="strong">${l ? esc(legName(l)) : `${ch} District ${d}`}</span></span>` : '';
   return `${icon('map-pin')}<span class="mr-distlines">${line('Your senator', s, 'Senate', sd)}${line('Your representative', h, 'House', hd)}</span>`;
 }
 
-// ---------------- home address with suggestions (Settings and the card after sign in) ----------------
+// ---------------- home address with suggestions (the profile, R-147, and the card after sign in) ----------------
 // Suggestions come from our own table of every Hawaiʻi street address, which carries the districts (fetchAddrSuggest,
 // as in track.js). A suggestion without districts asks districts_at() for them.
-function splitAddr(label) {
+export function splitAddr(label) {
   const [street = '', ...rest] = String(label || '').replace(/\s+/g, ' ').trim().split(/,\s*/);
   let town = rest.join(', ').replace(/\s*\d{5}(-\d{4})?$/, '').trim();
   // A town in capitals ("KANEOHE") reads better as "Kaneohe"; the table's usual mixed case is kept as written.
   if (town && town === town.toUpperCase()) town = town.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return { street, town };
 }
-function addrField(pfx, st, { label = 'Home address', help } = {}) {
+export function addrField(pfx, st, { label = 'Home address', help } = {}) {
   return `<div class="field mr-addr">
     <label for="${pfx}-addr">${label}</label>
     <input id="${pfx}-addr" type="text" value="${esc(st.q)}" placeholder="e.g. 415 S Beretania St, Honolulu" autocomplete="street-address"
@@ -130,7 +132,7 @@ function paintSugs(pfx, st, onPick) {
   });
 }
 // st: { q, sd, hd, picked, results, loading, failed }. onChange runs on each keystroke and pick (the card clears its error).
-function wireAddr(pfx, st, onChange = () => {}) {
+export function wireAddr(pfx, st, onChange = () => {}) {
   const inp = document.getElementById(`${pfx}-addr`); if (!inp) return;
   const dist = document.getElementById(`${pfx}-dist`);
   const pick = async x => {
@@ -161,7 +163,7 @@ function wireAddr(pfx, st, onChange = () => {}) {
   paintSugs(pfx, st, pick);
 }
 // Saved districts also go on this device, so bill pages can say "Your senator" (only the town, never the street).
-function rememberDistricts(sd, hd, address) {
+export function rememberDistricts(sd, hd, address) {
   if (!sd || !hd) return;
   const town = splitAddr(address).town;
   try { localStorage.setItem(DISTRICTS_KEY, JSON.stringify({ senate: +sd, house: +hd, label: town, island: islandKey(sd, hd, town) })); } catch { /* private mode */ }
@@ -179,7 +181,7 @@ export function accountCardsHTML() {
     ${acctHead('bell', 'mr-cc-t', 'Your email alerts')}
     <p class="small">Mahalo for adding your email. Both are ticked for you. Nothing is sent until you save.</p>
     <div class="mr-checks">${CHOICES.map(([k, , t, h]) => check(`mr-cc-${k}`, t, h, true)).join('')}</div>
-    <p class="small muted">HIPHI staff can see the issues and bills you follow, where you stand on them and what you do here, so they can reach out about them. Change this any time in Settings.</p>
+    <p class="small muted">HIPHI staff can see the issues and bills you follow, where you stand on them and what you do here, so they can reach out about them. Change this any time in your profile.</p>
     <div id="mr-cc-msg"></div>
     <div class="btnrow">${btn('Save my choices', { kind: 'secondary', sm: true, attrs: { 'data-mr-cc': 'save' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-mr-cc': 'later' } })}</div>
   </section>`;
@@ -204,7 +206,7 @@ export function wireAccountCards() {
       busy(save, 'Saving…'); say('mr-cc-msg', '');
       const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
       if (error) { unbusy(save); say('mr-cc-msg', inlineErr('mr-cc-err', friendly(error))); return; }
-      S.user.prefs = prefs; S.consentCard = false; app.render(); yay('Saved. Change it any time in Settings.');
+      S.user.prefs = prefs; S.consentCard = false; app.render(); yay('Saved. Change it any time in your profile, under More.');
     };
   }
   const ac = $('#mr-ac');
@@ -222,11 +224,9 @@ export function wireAccountCards() {
     save.onclick = async () => {
       // The button is never disabled: tapping it without a pick says what to do instead.
       if (!AC.picked || !AC.sd) { err(AC.q.trim() ? 'Pick your address from the list, so we can find your districts.' : 'Type your street address, then pick it from the list.'); focusField(inp); return; }
-      const pr = S.profile || {};
       busy(save, 'Saving…'); err('');
-      const { error } = await S.supa.rpc('save_my_profile', { p_name: pr.name || '', p_phone: pr.phone || '', p_address: null, p_house: AC.hd, p_senate: AC.sd, p_interests: pr.interests || [] });
-      if (error) { unbusy(save); err(friendly(error)); return; }
-      S.profile = { ...pr, address: null, senate_district: AC.sd, house_district: AC.hd };
+      // Only the districts change (R-147's save, backend 125); the old save rewrote name, phone and interests too.
+      try { await saveProfile({ house: AC.hd, senate: AC.sd }); } catch (error) { unbusy(save); err(friendly(error)); return; }
       rememberDistricts(AC.sd, AC.hd, AC.q);
       Object.assign(AC, { q: '', sd: null, hd: null, picked: false, results: [] });
       S.addrCard = false; app.render(); yay('Saved. Find your senator and representative under More.');
@@ -240,19 +240,23 @@ export function wireAccountCards() {
 // rest of hiphi.org stays folded away on a phone; with room to spare it is simply shown.
 const WIDE = window.matchMedia?.('(min-width: 900px)');
 WIDE?.addEventListener?.('change', () => { if (document.querySelector('#main .mr-more')) app.render(); });
+// More's first row (R-147): initials, name, and what the profile says about them; or the invitation.
+function meRow() {
+  if (!hasProfile()) return `<a class="card mr-me mr-me-new" href="#/profile"><span class="pf-av" aria-hidden="true">${icon('user-plus')}</span>
+    <span class="mr-me-t"><span class="mr-me-n">Make your profile</span><span class="mr-me-s">Get a text or email when your issues have a hearing, and keep your issues and letters saved. Free.</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
+    ${signedIn() ? '' : `<p class="small mr-me-in">Made one before? <a href="#/signin">Sign in with your email</a></p>`}`;
+  const name = myName(), ini = initials(name), d = myDistricts(), ts = myTitles();
+  const about = [ts.slice(0, 2).map(titleLabel).join(', '), d ? `Senate ${d.senate}, House ${d.house}` : ''].filter(Boolean).join(' · ');
+  return `<a class="card mr-me" href="#/profile"><span class="pf-av" aria-hidden="true">${ini ? esc(ini) : icon('user')}</span>
+    <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : 'Your profile'}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? 'Your profile' : 'Add your name and titles'}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+}
 function moreView() {
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? `${esc(legName(s))} and ${esc(legName(h))}` : 'Find your senator and representative';
-  // Alerts (R-146): one row, phone first, for anyone; a person with a number but no email is still offered email, which
-  // also keeps their issues on any device.
-  const tx = textSaved();
-  const addEmail = row({ lead: 'mail-check', title: 'Add my email', sub: 'Get hearing alerts and keep your issues on any device. No password.', href: '#/signin' });
-  const textRow = tx ? row({ lead: 'message-square', title: 'Text alerts', sub: `On: ${esc(fmtPhone(tx.phone))}`, href: '#/alerts' })
-    : row({ lead: 'message-square', title: signedIn() ? 'Text alerts' : 'Get alerts', sub: signedIn() ? 'Get a text when it’s your moment to speak up' : 'By text or email, when it’s your moment to speak up. Free.', href: '#/alerts' });
-  const account = signedIn()
-    ? row({ lead: 'settings', title: 'Settings', sub: esc(S.session.user.email || ''), href: '#/settings' })
-      + row({ lead: 'log-out', title: 'Sign out', sub: 'Your bills stay on this device', chevron: false, attrs: { 'data-mr-signout': '' } }) + textRow
-    : tx ? textRow + addEmail : textRow;
+  // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,
+  // or, without one, the invitation to make one with a number or an email (the R-146 box, on #/profile). The profile holds
+  // what Settings, Sign out, Text alerts and Add my email used to (pub/profile.js).
+  const me = meRow();
   const hiphi = `${extRow('megaphone', 'Action Center', 'More ways to speak up for health', HIPHI.act)}
           ${extRow('newspaper', 'Newsletter', 'HIPHI news and events by email', HIPHI.news)}
           ${extRow('scroll-text', 'Legislative Recap', 'What passed for health each year', HIPHI.recap)}
@@ -260,13 +264,13 @@ function moreView() {
   const about = extRow('', 'About HIPHI', 'Hawaiʻi Public Health Institute', HIPHI.about, `<span class="lead mr-mark">${MARK}</span>`);
   return `<div class="mr mr-more">
     <header class="pagehead"><h1 class="hero">More</h1></header>
+    ${me}
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'sparkles', title: 'Your session', sub: 'What you did and what came of it. Only you see it.', href: '#/recap' })}
       ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
       ${row({ lead: 'rows-3', title: 'Every bill HIPHI tracks', sub: 'One list of HIPHI’s bills, grouped by hearing status', href: '#/allbills' })}
       ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
       ${row({ lead: 'circle-help', title: 'Help', sub: 'Plain answers on hearings, testimony, deadlines and this tracker', href: '#/help' })}
-      ${account}
     </nav>
     <h2 class="mr-grouphead" id="mr-g-hiphi">From HIPHI</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-hiphi">
@@ -292,17 +296,6 @@ function wireMore() {
   const f = $('.mr-fold'); if (f) f.ontoggle = () => { S.mrFold = f.open; };
   // My issues link (R-123): copied, with a text-it-to-myself way beside it in the toast.
   $('[data-mr-keep]')?.addEventListener('click', async () => { const link = issuesLink(); try { await navigator.clipboard.writeText(link); toast('Your issues link is copied. Paste it into a text or a note, and open it on any phone.', { yay: true }); } catch { location.href = `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`; } });
-  const out = $('[data-mr-signout]');
-  if (out) out.onclick = async () => {
-    if (out.getAttribute('aria-busy')) return;
-    const t = out.querySelector('.title'); out.setAttribute('aria-busy', 'true'); t.textContent = 'Signing out…';
-    try { const { error } = await S.supa.auth.signOut(); if (error) throw error; }
-    catch (e) { out.removeAttribute('aria-busy'); t.textContent = 'Sign out'; toast(e, true); return; }
-    // Signing out reloads the page's data (core's onAuthStateChange). What was saved on this device stays here.
-    // People's own lists live on the account (R-013): the page forgets them until the next sign-in.
-    S.session = null; S.user = null; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; } app.render();
-    toast('You’re signed out. Your bills stay on this device.');
-  };
 }
 
 // ---------------- Help ----------------
@@ -333,7 +326,7 @@ function signinView() {
   if (S.session) return `<div class="mr mr-signin">
     <header class="pagehead"><h1 class="hero">You’re signed in</h1>
       <p class="lede">Your email is <span class="strong mr-break">${esc(S.session.user.email || '')}</span>. Your issues, stances and actions are saved to your account.</p></header>
-    <div class="btnrow">${btn('Go to Settings', { kind: 'primary', icon: 'settings', href: '#/settings' })}${btn('Back to Home', { kind: 'text', href: '#/' })}</div>
+    <div class="btnrow">${btn('Go to your profile', { kind: 'primary', icon: 'user', href: '#/profile' })}${btn('Back to Home', { kind: 'text', href: '#/' })}</div>
   </div>`;
   if (M.sent) return `<div class="mr mr-signin">
     <header class="pagehead"><h1 class="hero">Add your email</h1></header>
@@ -370,7 +363,7 @@ function signinView() {
       <ul class="mr-bullets">${PRIVACY_BULLETS.map(t => `<li>${icon('check')}<span>${t}</span></li>`).join('')}</ul>
       <details class="mr-disc"><summary><span>More about privacy</span>${icon('chevron-down', { cls: 'mr-discc' })}</summary>
         <div class="mr-discb">
-          <p>We keep your email, the issues, bills and lists you follow, where you stand on the bills you follow, the actions you mark, your email choices, which of our emails you open, and anything you add in Settings: your name, phone, districts and how you’d like to help.</p>
+          <p>We keep your email, the issues, bills and lists you follow, where you stand on the bills you follow, the actions you mark, your email choices, which of our emails you open, and anything you add in your profile: your name, your titles (“I’m a…”), your story, your districts and how you’d like to help.</p>
           <p>When you open the link, the issues, bills, stances and actions saved on this device join your account.</p>
           <p>Every email has a one-click unsubscribe.</p>
           <p><a href="#/privacy">Read the full privacy page</a></p>
@@ -438,7 +431,7 @@ function alertsView() {
   S.alertMode = 'phone';   // this page is the phone box; email has its own page
   return `<div class="mr mr-alerts">
     <header class="pagehead"><h1 class="hero">${t ? 'Change your number' : 'Get alerts on your issues'}</h1>
-      <p class="lede">${S.session ? 'Your email alerts are in Settings. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
+      <p class="lede">${S.session ? 'Your email alerts are in your profile. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
     <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !S.session })}
       <div class="mr-send">${submitBtn('Text me', 'message-square', 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
     </form>
@@ -465,116 +458,8 @@ function wireAlerts() {
 }
 
 // ---------------- Settings ----------------
-// F: the form as the person is editing it. Filled from the account on arrival; kept across re-renders so nothing
-// typed is lost if the page redraws (a sign-in refresh, a toast's Undo).
-let F = null;
-function freshForm() {
-  const pr = S.profile || {}, p = S.user?.prefs || {};
-  F = { name: pr.name || '', phone: pr.phone || '', ints: new Set(pr.interests || []),
-    choices: { alerts: p.hearing_alerts === true, action: p.action_alerts === true },
-    addr: { q: '', sd: pr.senate_district || null, hd: pr.house_district || null, picked: !!pr.senate_district, results: [] },
-    del: false };
-}
-function settingsView() {
-  if (!S.session) return `<div class="mr mr-settings">
-    <header class="pagehead"><h1 class="hero">Settings</h1>
-      <p class="lede">${DEMO ? 'Settings appear here once someone has added their email. No email is sent in the sandbox, so there is nothing to set yet.' : 'Add your email to choose your alerts and add your details.'}</p></header>
-    ${btn('Add my email', { kind: 'primary', icon: 'mail-check', href: '#/signin' })}
-  </div>`;
-  if (!S.user) return `<div class="mr mr-settings"><header class="pagehead"><h1 class="hero">Settings</h1></header><div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:160px"></div><div class="skel" style="height:280px"></div></div></div>`;
-  if (!F) freshForm();
-  const p = S.user.prefs || {};
-  return `<div class="mr mr-settings">
-    <header class="pagehead"><h1 class="hero">Settings</h1><p class="meta mr-break">Your email: ${esc(S.session.user.email || '')}</p></header>
-    <form id="mr-st" novalidate>
-      <section aria-labelledby="mr-em-t">
-        <h2 id="mr-em-t">Emails from HIPHI</h2>
-        <div class="card mr-checks">${CHOICES.map(([k, , t, h]) => check(`mr-st-${k}`, t, h, F.choices[k])).join('')}
-          <p class="small muted">${p.consent_at ? `You chose these on ${esc(fmtDate(p.consent_at, { month: 'short', year: 'numeric' }))}. ` : ''}Every email has a one-click unsubscribe.</p></div>
-      </section>
-      <section aria-labelledby="mr-you-t">
-        <h2 id="mr-you-t">About you</h2>
-        <p class="small muted mr-under">Optional. It helps HIPHI connect you with your own lawmakers.</p>
-        <div class="card">
-          <div class="field"><label for="mr-name">Your name</label><input id="mr-name" type="text" value="${esc(F.name)}" maxlength="120" autocomplete="name" autocapitalize="words"></div>
-          <div class="field"><label for="mr-phone">Phone <span class="mr-opt">(optional)</span></label><input id="mr-phone" type="tel" value="${esc(F.phone)}" maxlength="40" autocomplete="tel" inputmode="tel"></div>
-          ${addrField('mr-st', F.addr, { help: 'Used once to find your districts, then forgotten. Only the districts are saved.' })}
-          <fieldset class="mr-set"><legend>How would you like to help?</legend>
-            ${INTERESTS.map(([k, l]) => check(`mr-int-${k}`, l, '', F.ints.has(k), ` data-mr-int="${k}"`)).join('')}
-          </fieldset>
-        </div>
-      </section>
-      <div class="mr-save">${submitBtn('Save', 'check', 'mr-st-save')}
-        <div id="mr-st-msg" role="status"></div></div>
-    </form>
-    <section class="mr-data mr-panel" aria-labelledby="mr-data-t">
-      <h2 id="mr-data-t">Your data</h2>
-      <p>We keep your email, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, which of our emails you open and what you add above. HIPHI staff can see all of it, except your testimony letters and emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
-      ${F.del ? `<div class="mr-confirm" role="group" aria-labelledby="mr-del-t">
-          ${notice('bad', 'triangle-alert', `<p class="strong" id="mr-del-t" tabindex="-1">Delete your account for good?</p><p>This deletes your account, the issues and bills you follow, where you stand on them, the actions you marked and your saved letters and emails, here and on our side. It can’t be undone.</p>`)}
-          <div id="mr-del-msg"></div>
-          <div class="btnrow">${btn('Yes, delete my account', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'yes' } })}${btn('Keep my account', { kind: 'text', attrs: { 'data-mr-del': 'no' } })}</div>
-        </div>`
-      : `<div class="mr-delrow">${btn('Delete my account', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'ask' } })}</div>`}
-    </section>
-  </div>`;
-}
-function wireSettings() {
-  const form = $('#mr-st'); if (!form || !F) return;
-  $('#mr-name').oninput = e => { F.name = e.target.value; };
-  $('#mr-phone').oninput = e => { F.phone = e.target.value; };
-  CHOICES.forEach(([k]) => { const c = $(`#mr-st-${k}`); c.onchange = () => { F.choices[k] = c.checked; }; });
-  form.querySelectorAll('[data-mr-int]').forEach(c => c.onchange = () => { if (c.checked) F.ints.add(c.dataset.mrInt); else F.ints.delete(c.dataset.mrInt); });
-  wireAddr('mr-st', F.addr);
-  const msg = $('#mr-st-msg');
-  form.onsubmit = async e => {
-    e.preventDefault();
-    const b = $('#mr-st-save'); if (b.getAttribute('aria-busy')) return;
-    msg.innerHTML = ''; busy(b, 'Saving…');
-    const a = F.addr, addr = a.q.trim(), pr = S.profile || {};
-    // Districts come from a picked address; an empty box keeps the districts already saved (the address itself is never
-    // stored, R-086, Nate 9/29: "Remove the address from the database"); anything typed but not picked has none.
-    const keep = !addr;
-    const sd = a.picked ? a.sd : keep ? pr.senate_district : null, hd = a.picked ? a.hd : keep ? pr.house_district : null;
-    const prefs = { ...(S.user.prefs || {}), hearing_alerts: F.choices.alerts, action_alerts: F.choices.action, consent_at: new Date().toISOString() };
-    const interests = INTERESTS.map(([k]) => k).filter(k => F.ints.has(k));
-    const [r1, r2] = await Promise.all([
-      S.supa.from('public_users').update({ prefs }).eq('id', S.user.id),
-      S.supa.rpc('save_my_profile', { p_name: F.name.trim(), p_phone: F.phone.trim(), p_address: null, p_house: hd || null, p_senate: sd || null, p_interests: interests }),
-    ]);
-    unbusy(b);
-    if (!r1.error) { S.user.prefs = prefs; S.consentCard = false; }
-    if (!r2.error) { S.profile = { ...pr, name: F.name.trim() || null, phone: F.phone.trim() || null, address: null, senate_district: sd || null, house_district: hd || null, interests };
-      if (sd && hd && a.picked) rememberDistricts(sd, hd, addr); }
-    const err = r1.error || r2.error;
-    if (err) { msg.innerHTML = inlineErr('mr-st-err', friendly(err)); return; }
-    // One confirmation, next to the button (the status region announces it); a toast here would cover Your data.
-    msg.innerHTML = `<p class="okmsg">${icon('circle-check')}<span>${addr && !sd ? 'Saved. Pick your address from the list to find your legislators.' : 'Saved. Mahalo!'}</span></p>`;
-  };
-  // The question and both answers come into view together (above the tab bar); focus goes to the question.
-  const ask = $('[data-mr-del="ask"]'); if (ask) ask.onclick = () => { F.del = true; app.render();
-    requestAnimationFrame(() => { $('#mr-del-t')?.focus({ preventScroll: true }); $('.mr-confirm')?.scrollIntoView({ block: 'center' }); }); };
-  const no = $('[data-mr-del="no"]'); if (no) no.onclick = () => { F.del = false; app.render(); requestAnimationFrame(() => $('[data-mr-del="ask"]')?.focus()); };
-  const yes = $('[data-mr-del="yes"]');
-  if (yes) yes.onclick = async () => {
-    busy(yes, 'Deleting…');
-    const { error } = await S.supa.rpc('delete_my_account');
-    if (error) { unbusy(yes); say('mr-del-msg', inlineErr('mr-del-err', friendly(error))); return; }
-    // The account is gone; the copies of it on this device go too (issues, bills, stances, actions, list follows, districts,
-    // and the email the testimony helper remembered, and the letters and emails sent, on the account since R-148 and R-153; the name
-    // and the unfinished drafts typed there never were).
-    try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY, 'hiphi_ulist_follows'].forEach(k => localStorage.removeItem(k));
-      const me = JSON.parse(localStorage.getItem('hiphi_me') || 'null'); if (me && (me.email || me.letters)) { delete me.email; delete me.letters; localStorage.setItem('hiphi_me', JSON.stringify(me)); }
-      // the picked issues were on the account too; the guided start stays finished, so the person is not sent through it again
-      const w = JSON.parse(localStorage.getItem('hiphi_wiz') || 'null'); if (w && w.issues?.length) { w.issues = []; localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } } catch { /* private mode */ }
-    S.direct = new Set(); S.issueFollows = new Set(); S.catFollows = new Set(); S.skips = new Set(); recomputeWatch();
-    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); S.profile = {}; F = null; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
-    try { await S.supa.auth.signOut(); } catch { /* the account is already deleted */ }
-    S.session = null; S.user = null;
-    app.go('#/', { replace: true });
-    toast('Your account is deleted. Mahalo for speaking up.');
-  };
-}
+// Settings became the profile (R-147, 10/4): pub/profile.js, at #/profile and Settings' old address #/settings. The email
+// choices, About you, Your data, signing out and deleting the account moved there with it.
 
 // ---------------- Privacy (and the accessibility statement) ----------------
 // Every sentence here has to be true of the code (assessment, 9/19: "HIPHI gets nothing about you" was too strong,
@@ -583,17 +468,17 @@ function wireSettings() {
 // like follows and actions. Numbers about other people are totals inside one bill or hearing, from 10 people.
 const PRIVACY = [
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
-  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, when you agreed to texts and the words you agreed to, and use them only to send you those texts. HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; once texts begin, the service that sends them for us will hold it to do that. The first text asks you to reply YES, to be sure the number is yours. Reply STOP to any text, or use More > Text alerts, to end them.'],
-  ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in Settings, such as your name and phone. When we email you, we also see whether you opened each email and which links in it you clicked. HIPHI staff can see all of this, so they can reach out about your issues and learn which asks work. What you saved on this device joins your account.'],
+  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, when you agreed to texts and the words you agreed to, and use them only to send you those texts. HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; once texts begin, the service that sends them for us will hold it to do that. The first text asks you to reply YES, to be sure the number is yours. Reply STOP to any text, or use Alerts in your profile, under More, to end them. With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.'],
+  ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in your profile, such as your name, the titles you give yourself (“I’m a…”) and your story. When we email you, we also see whether you opened each email and which links in it you clicked. HIPHI staff can see all of this, so they can reach out about your issues and learn which asks work. What you saved on this device joins your account.'],
   ['list-checks', 'Lists you make', 'A list of bills you make is private: HIPHI staff can’t see it, and it is left out of HIPHI’s backup copies. If you share it, anyone with the link can see its name, your note and its bills, but not who made it. HIPHI can turn off a shared list that is used to harm someone. Deleting your account erases your lists.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
-  ['map-pin', 'Your home address', 'We never store it. In Settings it is used once to find your districts, and only the district numbers are saved on your account; HIPHI staff see just those. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
+  ['map-pin', 'Your home address', 'We never store it. In your profile it is used once to find your districts, and only the district numbers are saved on your account; HIPHI staff see just those. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
   ['notebook-pen', 'Your testimony and emails', 'Your name and letter stay on this device until you send the letter on the Capitol website. Testimony is public there: the Capitol posts your name and letter online. Once you send it, we keep that letter, the last one on each bill, so it’s ready for the bill’s next hearing. An email to a lawmaker goes from your own email account; we never send it for you. Once you say you sent it, we keep a copy of it too, the last one on each bill, so it’s ready for the bill’s next step. Both are kept on this device, and with your account if you added your email, where only you can see them, not HIPHI staff, and they are left out of HIPHI’s backup copies. The letter helper can delete each one, and deleting your account deletes them all. A letter or email you haven’t sent stays on this device. If you type your email in the letter helper, we use it for your link and your hearing alerts. It is never added to your letter.'],
   ['chart-column', 'What we count', 'To make the tracker better, we count which screens of the first visit people reach, how long they stay and which issues they pick, whether they came from a partner’s link, a campaign or another website (its name only), and whether it was a phone or a laptop. Each first visit gets a random number that ends when you close the tab. Once a day we also count that the tracker was opened, how long since this browser last opened it (in ranges, like “2 to 7 days”), the month it was first opened, and whether it follows anything; and when you mark an action done, only which kind it was (an email, testimony, going in person, a share); in the same way, that your session page was opened or a good-news moment was shown, or that a saved letter was offered again and whether it was sent, updated or replaced, and the same for a saved email, or a follow-up sent to a committee chair. Sometimes we try two versions of a screen to learn which helps more people: this browser is given one at random and keeps it, and we count which version it saw, whether that screen’s step was done, and whether this browser came back, acted or gave an email in the next 14 days; the version is also noted with the other counts on this page. When we suggest a bill, we count that a suggestion was shown, followed, set aside or acted on, never which bill or who. This browser remembers the month and the last day itself; they are never sent more exactly than that. In these counts we never record your email, your name, your address, which stance you took, which bill, or anything else that could tell who you are. If your browser asks sites not to track you, we record none of them. (Which of our emails you open is not one of these counts: see “If you add your email”.)'],
   ['circle-alert', 'If the page breaks', 'The tracker tells us which screen broke (for example, which bill’s page) and what the error said, so we can fix it. The report is built to leave out who you are, what you typed and your address: it strips anything that looks like an email address or a long number. Nothing is sent if your browser asks sites not to track you.'],
   ['archive', 'Backups', 'Every night we save a copy of the tracker’s information, so it can be restored if something goes wrong. Each copy is encrypted before it is stored, and only a key HIPHI keeps separately can open it. Text-alert numbers, the lists you make and your saved letters and emails are left out of these copies. A copy is deleted within about 45 days. Our database service also keeps its own backups of everything for 7 days.'],
   ['building', 'Services that run the tracker', 'The tracker runs on services HIPHI uses: GitHub hosts the pages, Supabase holds the database, Postmark sends our email, Google Drive keeps the encrypted backups, and the pages load fonts from Google Fonts and code from jsDelivr. Once texts begin, a texting service will send them. Like any website, these services see your device’s internet address, and from it a rough location, and keep it in their own logs.'],
-  ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us, and if the law requires it. Every email has a one-click unsubscribe. You can delete your account from Settings at any time: your account, the issues and bills you follow, your stances, actions, lists and saved letters are erased from the tracker at once, and from our backup copies within about 45 days. We keep a record of the emails we sent you. Text alerts are separate: reply STOP or use More > Text alerts.'],
+  ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us, and if the law requires it. Every email has a one-click unsubscribe. You can delete your account from your profile, under More, at any time: your account, the issues and bills you follow, your stances, actions, lists and saved letters are erased from the tracker at once, and from our backup copies within about 45 days. We keep a record of the emails we sent you. Text alerts are separate: reply STOP or use Alerts in your profile.'],
 ];
 const PRIVACY_UPDATED = '4 October 2026';   // change it with any sentence above (R-151)
 function privacyView() {
@@ -617,9 +502,9 @@ function wirePrivacy() {
 }
 
 // ---------------- the module ----------------
-const VIEWS = { more: moreView, help: helpView, signin: signinView, settings: settingsView, privacy: privacyView, alerts: alertsView };
-const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, settings: wireSettings, privacy: wirePrivacy, alerts: wireAlerts };
-const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', settings: 'Settings', privacy: 'Privacy', alerts: 'Get alerts' };
+const VIEWS = { more: moreView, help: helpView, signin: signinView, privacy: privacyView, alerts: alertsView };
+const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, privacy: wirePrivacy, alerts: wireAlerts };
+const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', privacy: 'Privacy', alerts: 'Get alerts' };
 export default {
   tab: 'more',
   title: route => (route.name === 'help' && TALK ? TALK.title(route) : TITLES[route.name]) || 'More',
@@ -628,7 +513,6 @@ export default {
     const fresh = !document.querySelector(`#main .mr-${route.name}`);
     if (fresh && route.name === 'signin') Object.assign(M, { sent: '', err: '', sendErr: '' });
     if (fresh && route.name === 'alerts') A.edit = false;
-    if (fresh && route.name === 'settings') F = null;
     return (VIEWS[route.name] || moreView)(route);
   },
   wire(route) { (WIRES[route.name] || (() => {}))(route); },

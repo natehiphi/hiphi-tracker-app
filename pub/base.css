@@ -78,6 +78,14 @@ body.hasbar main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + 88px); }
 .tabs a[aria-current="page"] { color: var(--p700); }
 .tabs a[aria-current="page"] .pill { background: var(--p50); }
 .tabs a .ic { width: 24px; height: 24px; }
+/* The person's initials on the More tab and in a laptop's header (R-147): a filled circle, so having a profile shows. */
+.tab-av, .hav { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--p700); color: var(--n0); font: 700 var(--t13)/1 var(--font); letter-spacing: .02em; flex: none; }
+.tab-av { width: 28px; height: 28px; background: var(--n0); color: var(--p700); box-shadow: inset 0 0 0 2px var(--p700); }
+.tab-av .ic { color: var(--p700) !important; }
+.tabs a[aria-current="page"] .tab-av { background: var(--p700); color: var(--n0); box-shadow: none; }
+.tabs a[aria-current="page"] .tab-av .ic { color: var(--n0) !important; }
+.hav { width: 32px; height: 32px; }
+.tab-av .ic, .hav .ic { width: 18px; height: 18px; color: var(--n0); }
 .tabs .dot { position: absolute; margin: -14px 0 0 22px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad-text); }
 
 /* sticky bottom action bar (guided start, bill page, helper) */

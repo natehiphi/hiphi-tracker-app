@@ -1,0 +1,93 @@
+/* Your profile (R-147): pub/profile.js, More's first row (pub/more.js meRow) and the "I'm a..." picker (pub/titlepick.js),
+   which the testimony walkthrough uses too (app.js loads this with helper.css). Base tokens only; desktop rules at the end. */
+.pf-av { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: var(--p700); color: var(--n0);
+  font: 700 var(--t18)/1 var(--font); letter-spacing: .02em; flex: none; }
+.pf-av .ic { width: 24px; height: 24px; color: var(--n0); }
+.pf-av.pf-av-lg { width: 64px; height: 64px; font-size: var(--t22); }
+.pf-av.pf-av-lg .ic { width: 30px; height: 30px; }
+
+/* More's first row: the person, or the invitation */
+.mr-me { display: flex; align-items: center; gap: var(--s12); text-decoration: none; color: var(--n700); min-height: 72px; }
+.mr-me:hover { border-color: var(--p300); }
+.mr-me:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+.mr-me-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.mr-me-n { font: 700 var(--t18)/1.25 var(--font-h); color: var(--n900); overflow-wrap: anywhere; }
+.mr-me-s { font-size: var(--t14); color: var(--n500); }
+.mr-me-l { font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.mr-me .chev { color: var(--n400); flex: none; }
+.mr-me-new { background: var(--p50); border-color: var(--p100); }
+.mr-me-new .pf-av { background: var(--n0); color: var(--p700); }
+.mr-me-new .pf-av .ic { color: var(--p700); }
+
+/* The profile page */
+.pf > * + * { margin-top: var(--s16); }
+.pf .pf-head { flex-direction: row; align-items: center; gap: var(--s16); }
+.pf .pf-who { min-width: 0; }
+.pf .pf-who .hero { overflow-wrap: anywhere; }
+.pf-invite .pagehead .pf-av { margin-bottom: var(--s12); background: var(--p50); color: var(--p700); }
+.pf-invite .pagehead .pf-av .ic { color: var(--p700); }
+.pf-sec { display: flex; flex-direction: column; gap: var(--s12); }
+.pf-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.pf-sech h2 { margin: 0; }
+.pf-kv + .pf-kv { border-top: 1px solid var(--n100); padding-top: var(--s12); }
+.pf-k { font-size: var(--t13); font-weight: 700; color: var(--n500); margin: 0 0 var(--s4); }
+.pf-kv p { margin: 0; }
+.pf-kv p + p, .pf-kv .chips + p { margin-top: var(--s8); }
+.pf-empty { color: var(--n500); margin: 0; }
+.pf-story { margin: 0; padding: var(--s8) var(--s12); border-left: 3px solid var(--p200); font-style: italic; color: var(--n700); overflow-wrap: anywhere; }
+.pf-sec > p { margin: 0; }
+.pf-sec > p .ic, .pf-list .ic, .pf-acct .ic { width: 18px; height: 18px; vertical-align: -3px; color: var(--p700); }
+.pf-acct { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; }
+.pf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s8); }
+.pf-list li { display: flex; gap: var(--s8); align-items: flex-start; }
+.pf-ok { margin: 0; }
+.pf-form { display: flex; flex-direction: column; gap: var(--s16); }
+.pf-form .btnrow { margin-top: 0; }
+.pf-back { margin-top: var(--s16); }
+.tp-show { gap: var(--s8); }
+.tp-show .chip { white-space: normal; }
+.tp-show .chip .ic { width: 14px; height: 14px; }
+
+/* The "I'm a..." picker */
+.tp { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.tp-leg { padding: 0; font-weight: 700; color: var(--n900); margin-bottom: var(--s4); }
+.tp-hint { font-weight: 400; color: var(--n500); font-size: var(--t14); }
+.tp .chip.tp-c { white-space: normal; text-align: left; }
+.tp .chip.tp-c .ic { width: 16px; height: 16px; flex: none; }
+.tp-sub { padding-left: var(--s16); border-left: 2px solid var(--p100); }
+.tp-morebtn { align-self: flex-start; }
+.tp-more { display: flex; flex-direction: column; gap: var(--s12); }
+.tp-gh { font-size: var(--t13); font-weight: 700; color: var(--n500); margin: 0 0 var(--s8); }
+.tp-type { position: relative; margin: 0; }
+.tp-list { margin-top: var(--s4); border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n0); box-shadow: var(--sh2); overflow: hidden; }
+.tp-o { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; padding: var(--s8) var(--s12); border: 0; background: none; text-align: left;
+  font: inherit; font-size: var(--t16); color: var(--n700); cursor: pointer; }
+.tp-o + .tp-o { border-top: 1px solid var(--n100); }
+.tp-o .ic { width: 18px; height: 18px; color: var(--n400); flex: none; }
+.tp-o:hover, .tp-o[aria-selected="true"] { background: var(--p50); }
+.tp-own { color: var(--p700); font-weight: 700; }
+.tp-own .ic { color: var(--p700); }
+
+@media (min-width: 900px) {
+  .pf { max-width: 720px; }
+}
+
+/* The walkthrough's About you step (pub/helper.js, R-147): the picker, how the letter starts, the swap, the story box. */
+.hp-dlg .hp-tp { margin: 0; }
+.hp-dlg .hp-tp-prev { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; padding: var(--s8) var(--s12); border-radius: var(--r12); background: var(--p50); color: var(--p800); font-size: var(--t14); }
+.hp-dlg .hp-tp-prev .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }
+.hp-dlg #hp-tp-after > * + * { margin-top: var(--s8); }
+.hp-dlg .hp-use .chips { margin-top: var(--s8); }
+.hp-dlg .hp-use .chip { white-space: normal; text-align: left; }
+.hp-dlg .hp-savest { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s12); font-size: var(--t14); min-height: 44px; }
+.hp-dlg .hp-savest input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
+
+/* Where you live: "Your senator: ..." and "Your representative: ..." on their own lines, as in the address field. */
+.pf .pf-kv .mr-dist { display: flex; gap: var(--s8); align-items: flex-start; }
+.pf .pf-kv .mr-dist > .ic { width: 18px; height: 18px; flex: none; margin-top: 3px; color: var(--p700); }
+.pf .pf-kv .mr-distlines { display: flex; flex-direction: column; gap: 2px; }
+
+/* Review 10/4: the invitation's sign-in line, and "Your profile is made" said on the page. */
+.mr-me-in { margin-top: var(--s8); color: var(--n500); }
+.mr .mr-me + .mr-me-in { margin-top: var(--s8); }
+.pf .pf-made { margin: 0; }

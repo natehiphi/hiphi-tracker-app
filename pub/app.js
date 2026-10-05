@@ -24,17 +24,18 @@ const lazy = (key, load, o = {}) => {
 const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
+const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
 const bill = lazy('bill', () => import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'talk', 'helper', 'tour', 'mylists', 'wide'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'wide'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['find'], issue: ['find'], category: ['find'], list: ['find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
-  more: ['more', 'talk'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
+  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
 const cssOne = n => cssP[n] ??= new Promise(res => {
@@ -51,16 +52,17 @@ const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; r
 let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['tour'])]).then(([m]) => tourMod = m.default);
 const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
-const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper'])]).then(([m]) => { helperMod = m.default; return helperMod; });
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper', 'profile'])]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
 // A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
 // comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
 try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => render()); } catch { /* storage blocked */ }
 
-// name -> screen module. More covers help, sign in, alerts (R-146), settings and privacy; people covers legislators.
+// name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
+// (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: more, privacy: more, mylist: mylists, shared: mylists };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 
@@ -123,9 +125,24 @@ window.addEventListener('popstate', e => { render(); const y = e.state?.y || 0; 
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 
 // ---- the frame ----
+// Who is here (R-147): a profile is an email (signed in) or a text-alert number on this device (Nate 10/4: "only work with
+// an email or phone number"). The name comes from the account, the letter helper or the first visit, whichever has one.
+// Kernel-only on purpose (this file is on the first wave); pub/myprofile.js has the same rules for the lazy screens.
+function whoAmI() {
+  let me = {}, text = null; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; text = JSON.parse(localStorage.getItem('hiphi_text') || 'null'); } catch { /* private mode */ }
+  if (!S.session && !(text && text.token && /^\d{10}$/.test(text.phone || ''))) return null;
+  const name = String((S.session && S.profile?.name) || me.name || (S.user?.prefs || {}).name || wiz().name || '').trim();
+  const w = name.replace(/[^\p{L}\s'-]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  return { name, first: w[0] || '', ini: w.length ? (w[0][0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase() : '' };
+}
+const avatar = (me, cls = 'hav') => `<span class="${cls}" aria-hidden="true">${me.ini ? esc(me.ini) : icon('user', { size: 18 })}</span>`;
 function header(route, scr) {
   const inStart = route.name === 'start';
-  const account = S.session ? `<a class="hbtn hacct" href="#/settings">${icon('user')}<span>Account</span></a>` : DEMO ? '' : `<a class="hbtn hacct" href="#/signin">${icon('log-in')}<span>Sign in</span></a>`;
+  // R-147: someone with a profile (an email or a text number) sees their initials at the top right, the usual place on a
+  // laptop; everyone else keeps "Sign in" for a returning email.
+  const me = whoAmI();
+  const account = me ? `<a class="hbtn hacct" href="#/profile" aria-label="Your profile${me.name ? `, ${esc(me.name)}` : ''}">${avatar(me)}<span>${me.name ? esc(me.first) : 'Profile'}</span></a>`
+    : DEMO ? '' : `<a class="hbtn hacct" href="#/signin">${icon('log-in')}<span>Sign in</span></a>`;
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin">Sign in</a>`)
     : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: vaping, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
@@ -134,7 +151,9 @@ function header(route, scr) {
     <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(scr) {
-  return `<nav class="tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
+  // R-147: the More tab carries the person's initials once they have a profile, so having one shows from every screen.
+  const me = whoAmI();
+  return `<nav class="tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${t === 'more' && me ? avatar(me, 'tab-av') : icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
 }
 
 let lastRouteKey = '';

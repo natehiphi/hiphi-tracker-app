@@ -393,7 +393,7 @@ export const TALKS = [
     turns: [
       { q: 'How do email updates work?', a: 'Add your email and choose to be kept updated. We’ll email you when a bill on your issues gets a hearing, and when HIPHI has news or a way to help.' },
       { q: 'How often?', a: 'Hearing emails come about 2 days ahead, with time to send testimony. HIPHI’s updates come a few times a session.' },
-      { q: 'Can I stop them?', a: 'Yes. Every email has a one-click unsubscribe, and Settings lets you turn each kind off.' },
+      { q: 'Can I stop them?', a: 'Yes. Every email has a one-click unsubscribe, and your profile (under More) lets you turn each kind off.' },
       { q: 'Do I need a password?', a: 'No. We email you a link to sign in, so there’s no password to remember.' },
     ],
     related: ['tracker-account', 'data-private', 'testimony-deadline'],
@@ -452,7 +452,7 @@ export const TALKS = [
     turns: [
       { q: 'Is my data private?', a: 'If you don’t add your email, we don’t know who you are. What you follow stays in this browser, on this device.' },
       { q: 'And if I add my email?', a: 'We keep your email, what you follow, where you stand and the actions you mark. HIPHI staff can see this, so they can reach out about your issues.' },
-      { q: 'Is it ever sold?', a: 'No. We never sell your information or give it to other groups. You can delete your account at any time in Settings.' },
+      { q: 'Is it ever sold?', a: 'No. We never sell your information or give it to other groups. You can delete your account at any time from your profile, under More.' },
       { q: 'What about my home address?', a: 'If you add it, only you see it. HIPHI staff see just your districts.' },
     ],
     related: ['testimony-public', 'alerts-and-email', 'contact'],

@@ -8,6 +8,7 @@ import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
 import { icon, btn, iconBtn, chip, billRow, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { followupSheet, afterSheet } from './supporters.js';
+import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
@@ -22,6 +23,10 @@ function copyText(text, okMsg) {
 const firstName = a => (a?.full_name || '').split(' ')[0] || 'Someone';
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const intLabel = k => INTERESTS.find(x => x[0] === k)?.[1] || k;
+// What the person says they are, from their public profile (R-147, backend 125), and their story; HIPHI quotes the story
+// only when they ticked "HIPHI may quote me" (the 'quote' interest). Their own words are shown as they typed them.
+const titlesHTML = p => (p.titles || []).map(t => titleLabel(t)).filter(Boolean).map((l, i) => `${isOwn(p.titles[i]) ? '“' : ''}${esc(l)}${isOwn(p.titles[i]) ? '”' : ''}`).join(' · ');
+const storyHTML = p => p.story ? `<q class="sp-story">${esc(p.story)}</q> <span class="meta">${(p.interests || []).includes('quote') ? 'They said HIPHI may quote it.' : 'Not for quoting: they did not say HIPHI may quote it.'}</span>` : '';
 const dueAt = f => new Date(f.due + 'T17:00:00-10:00');   // a follow-up is due by the end of the working day, as in Today
 const P = () => S.spPerson ??= { feedAll: {}, billsAll: {}, loading: {} };
 const FROM = { today: 'Today', search: 'Search', emails: 'Emails', lists: 'Lists', list: 'List' };
@@ -83,6 +88,8 @@ function about(p) {
   return `<section class="sp-sec" aria-labelledby="sp-h-about"><div class="sechead"><h2 id="sp-h-about">About</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'square-pen', attrs: { 'data-pp': 'edit' } })}</div>
     <dl class="card sp-about">
       ${dd('Where', whereOf(p) ? esc(whereOf(p)) : `${none('No districts yet.')} <button type="button" class="linkbtn" data-pp="dist">Find them from an address</button>`)}
+      ${dd('They are', titlesHTML(p) || none('Not said'))}
+      ${p.story ? dd('Their story', storyHTML(p)) : ''}
       ${dd('Interests', (p.interests || []).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}
       ${dd('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
       ${dd('Emails', p.emails_sent ? `${plural(p.emails_sent, 'email')} sent · ${p.emails_opened || 0} opened · ${p.emails_clicked || 0} clicked` : none('None sent yet'))}
@@ -170,6 +177,8 @@ function sidePanel(p) {
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-about"><div class="sp-sch"><h2 id="sp-h-about">About</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'square-pen', attrs: { 'data-pp': 'edit', 'aria-haspopup': 'dialog' } })}</div>
       <dl class="sp-sdl">${kv('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
+        ${kv('They are', titlesHTML(p) || none('Not said'))}
+        ${p.story ? kv('Their story', storyHTML(p)) : ''}
         ${kv('Interests', (p.interests || []).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-consent"><h2 id="sp-h-consent">What they can be sent</h2>

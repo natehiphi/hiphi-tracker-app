@@ -333,3 +333,39 @@ the above" (every email the walkthrough writes) and the same-chair reminder "Yes
 - **Counted** (kind only): mail_again_open, mail_again_sent, mail_reminder_sent.
 - Sandbox: `?email` plants a 25 Feb email on HB 1563 to House Finance's chair (it now waits in Senate HHS/EIG); `&remind`
   instead plants a 9 Mar email to HHS/EIG's chairs and moves HB 1563's deadline to Fri 20 Mar. `tests/again_mail.py` (52).
+
+## Your profile and "I'm a..." (R-147; 4 Oct 2026, HANDOFF 3.89)
+Nate 10/4: a profile people know they have, where profiles usually sit, only with a mobile number or an email; "I'm a..."
+titles from a researched list or their own words, the two that fit each bill opening the letter; a saved story; no
+"speaking for a group"; where they live only in letters to their own lawmakers. Plan, research and mockups:
+https://claude.ai/artifact/FSzXqzhDcJggJtbhkoNX1d (REQUESTS R-147).
+- **Where it sits:** More's first row (`more.js meRow`): initials, name, two titles and districts, "Your profile"; without a
+  number or email, "Make your profile". The More tab's icon becomes the initials and a laptop's header shows initials and
+  first name at the top right (`app.js whoAmI`, kernel-only like the rest of the first wave). `#/settings` opens it.
+- **The page** (`pub/profile.js`, `profile.css`, `#/profile`): About you (name on your letters, titles, where you live),
+  Your story (and "HIPHI may quote me", the old 'quote' interest), How you'll help, Alerts (the text number masked, the
+  two email choices), Your issues, Your data (sign out, delete). One section changes at a time (B-12); "Saved." under it.
+  Without a profile the page is the invitation: the R-146 box (`alerts.js alertFields`, source 'more'). It replaced
+  Settings: the email choices, name, address, interests, Your data and deleting moved here. It no longer asks for a phone
+  for staff (people.phone, staff-visible); the only number is the text-alert one, which staff never see.
+- **Storage** (`pub/myprofile.js`): hiphi_me keeps name, titles, story, quote, interests on the device; signed in, the
+  account too (backend 125: people.titles, people.story, save_my_profile_v2 changing only the keys sent, my_profile_v2
+  read at sign-in in `kernel.js loadUser`, where the device's titles and story join an account that has none).
+- **The titles** (`pub/titles.js`, pure, also imported by Staff v2): the agreed list, eight first and five groups; each
+  has `say` (the letter's words), `topics` and `words` (how well it fits a bill), `self` ("writing for myself" for faith
+  leader, neighborhood board member, nonprofit worker, public health worker). `pickTwo` picks the two that fit a bill
+  (words 3, category 2, their order breaks ties); `withTitles` writes "As a parent and teacher, I support HB 1523.".
+  Own titles are 'own:' + their words (40 characters). `tests/titles_test.mjs` (23 checks).
+- **The picker** (`pub/titlepick.js`): tap buttons, the student choice, "More titles", and a box that suggests as you type
+  and adds their own words (only the list redraws while typing, so a phone keyboard stays up). `compact` (the walkthrough):
+  someone with titles sees only theirs and "Add a title".
+- **The letters** (`helper.js`): About you has the picker, a preview of the first line, "Use different titles for this
+  letter" (two for this letter only, kept with the draft as `use`), their story as the reason when there is none for this
+  bill (marked "Your story, from your profile. Change it to fit this bill.") and "Save this to my profile as my story".
+  Testimony adds "I live in Hilo, in Senator X's district." only when their own senator or representative sits on the
+  committee (`liveLine`, `legsOf`); an email says "and I live in your district" only to their own lawmakers, including a
+  chair who is theirs. The bill page's quick email (`bill.js mailFor`) no longer says the town to a chair who isn't theirs.
+- **Staff v2:** the person page shows "They are" (titles, their own words in quotes) and "Their story" (whether they said
+  HIPHI may quote it); Supporters' filter has "They are" (titles at least one supporter has), with the same filter in
+  people_match (backend 127) so a saved segment counts the same at the send. Both staff data layers carry the filter.
+- `tests/profile.py` (31 checks, phone and laptop); `tests/alerts_ask.py` updated for More's first row.

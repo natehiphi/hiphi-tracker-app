@@ -7,10 +7,11 @@
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
 import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen } from './ui.js';
+import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
 // on the Emails page and when the email is sent) ----
-export const EMPTY_PF = () => ({ q: '', tags: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
+export const EMPTY_PF = () => ({ q: '', tags: [], titles: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
 // data.js copied peopleMatch() from app.js but not the EMPTY_PF() it calls, so segmentPeople() throws
 // "EMPTY_PF is not defined". A name a module cannot resolve falls back to the global object, so this keeps segment
 // counts (here and in the composer's audience) working until data.js carries its own copy (requested in the report).
@@ -20,7 +21,7 @@ const pfEmpty = f => !Object.keys(pfClean(f)).length;
 const clone = f => ({ ...EMPTY_PF(), ...JSON.parse(JSON.stringify(f || {})) });
 // Order inside a group does not matter (tapping Maui off and on again is not a change to the segment).
 const norm = f => { const o = pfClean({ ...EMPTY_PF(), ...f }); for (const k in o) if (Array.isArray(o[k])) o[k] = o[k].map(String).sort(); return JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]])); };
-const nFilters = f => f.islands.length + f.senate.length + f.house.length + f.bills.length + f.lists.length + f.campaigns.length + f.tags.length + f.interests.length + (f.account !== 'any') + !!f.optin + !!f.active_days + !!f.acted;
+const nFilters = f => f.islands.length + f.senate.length + f.house.length + f.bills.length + f.lists.length + f.campaigns.length + f.tags.length + (f.titles || []).length + f.interests.length + (f.account !== 'any') + !!f.optin + !!f.active_days + !!f.acted;
 
 // ui.js closes a sheet with history.back(), which lands a moment later. Opening the next sheet (or navigating) before
 // it lands lets that Back swallow the new history entry, and the next close then leaves the page. So anything that
@@ -74,6 +75,7 @@ function activeChips(f) {
   f.lists.forEach(x => out.push(['lists', x, `Follows ${listName(x)}`]));
   f.campaigns.forEach(x => out.push(['campaigns', x, `Coalition: ${campName(x)}`]));
   f.tags.forEach(x => out.push(['tags', x, `Tag: ${x}`]));
+  (f.titles || []).forEach(x => out.push(['titles', x, `They are: ${titleLabel(x)}`]));
   f.interests.forEach(x => out.push(['interests', x, intLabel(x)]));
   if (f.account !== 'any') out.push(['account', f.account, f.account === 'yes' ? 'Has an account' : 'Contact only']);
   if (f.optin) out.push(['optin', '1', 'Action alerts on']);
@@ -453,6 +455,7 @@ function filterSheet() {
     const isl = tally('islands', (p, x) => p.island === x), lst = tally('lists', (p, x) => (p.list_ids || []).includes(x)),
       cmp = tally('campaigns', (p, x) => (p.bill_ids || []).some(id => (S.billCampaigns[id] || []).includes(x))),
       tg = tally('tags', (p, x) => (p.tags || []).includes(x)), it = tally('interests', (p, x) => (p.interests || []).includes(x)),
+      ti = tally('titles', (p, x) => (p.titles || []).includes(x)), had = TITLES.filter(t => (S.people || []).some(p => (p.titles || []).includes(t.k))),
       ac = tally('account', (p, x) => x === 'any' || (x === 'yes') === !!p.has_account),
       act = tally('active_days', (p, x) => !+x || (p.last_active && Date.now() - new Date(p.last_active) < +x * 864e5));
     return `<div class="sp-sheet sp-filter">
@@ -470,6 +473,7 @@ function filterSheet() {
       </section>
       <section aria-labelledby="sp-g3"><h3 id="sp-g3">About them</h3>
         ${tags.length ? `<fieldset><legend>Tags</legend><div class="chips">${multi('tags', tags.map(t => [t, t]), tg)}</div></fieldset>` : ''}
+        ${had.length ? `<fieldset><legend>They are</legend><div class="chips">${multi('titles', had.map(t => [t.k, t.label]), ti)}</div></fieldset>` : ''}
         <fieldset><legend>Interests</legend><div class="chips">${multi('interests', INTERESTS, it)}</div></fieldset>
         <fieldset><legend>Account</legend><div class="chips">${one('account', [['any', 'Anyone'], ['yes', 'Has an account'], ['no', 'Contact only']], ac)}</div></fieldset>
         ${switchRow('sp-f-optin', 'Opted in to action alerts', d.optin, 'Only people an action alert can reach', { 'data-fsw': 'optin', 'data-k': 'f:optin' })}

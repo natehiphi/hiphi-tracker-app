@@ -12,6 +12,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
+import { pickTwo, cleanTitles, aWords, needsSelf } from './titles.js';   // who is writing (R-147)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
@@ -263,7 +264,10 @@ export function situation(b) {
 function mailFor(b, x, chairs, mode) {
   const m = me(), p = posInfo(b), sp = spaced(b.bill_number);
   const dear = chairs.length ? chairs.map(c => c.greet || `Chair ${c.last}`).join(' and ') : 'Chair';
-  const who = m.name ? `My name is ${m.name}${m.town ? ` and I live in ${m.town}` : ''}. ` : '';
+  // Who is writing (R-147): their two titles that fit this bill, and where they live only when one of these lawmakers is
+  // their own (Nate 10/4: most emails go to chairs who aren't theirs, so the town an older device kept is left out).
+  const own = chairs.some(c => mineLabel(c.leg || c.l, myDistricts())), two = pickTwo(cleanTitles(m.titles), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
+  const who = m.name ? `My name is ${m.name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${own ? `${two.length ? ',' : ''} and I live in your district` : ''}. ` : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';
   const dl = x.st.deadline && !x.st.deadline.missed ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : '';

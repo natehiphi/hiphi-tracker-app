@@ -1432,12 +1432,13 @@ export function applySessionDeadlines(rows) {
 // race the lateral (or triple, if 3X) filing date.
 export const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
 export const personById = id => (S.people || []).find(p => p.id === id);
-export const EMPTY_PF = () => ({ q: '', tags: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
+export const EMPTY_PF = () => ({ q: '', tags: [], titles: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
 export function peopleMatch(p, f) {
   f = { ...EMPTY_PF(), ...(f || {}) };
   const q = f.q.trim().toLowerCase();
   if (q && !`${p.name || ''} ${p.email} ${p.phone || ''}`.toLowerCase().includes(q)) return false;
   if (f.tags.length && !f.tags.some(t => (p.tags || []).includes(t))) return false;
+  if ((f.titles || []).length && !f.titles.some(t => (p.titles || []).includes(t))) return false;   // R-147, backend 127
   if (f.interests.length && !f.interests.some(t => (p.interests || []).includes(t))) return false;
   if (f.islands.length && !f.islands.includes(p.island)) return false;
   if (f.house.length && !f.house.map(Number).includes(p.house_district)) return false;

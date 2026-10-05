@@ -312,7 +312,24 @@ export async function loadUser() {
   // Name: the account's name (now possibly just set above) comes to this device too, so a returning visit on
   // another device is greeted by name without asking again.
   { const acctName = (S.user.prefs || {}).name || ''; if (acctName && acctName !== (wiz().name || '')) wizSet({ name: acctName }); }
-  try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
+  // The profile (R-147, backend 125): my_profile_v2 adds the "I'm a..." titles and the saved story; the old read is the
+  // fallback for a database without it. Titles and a story typed on this device before signing in join an account that
+  // has none (like the issues above); the account's come to this device, where the walkthrough reads them.
+  try {
+    const v2 = await S.supa.rpc('my_profile_v2');
+    if (v2.error) throw v2.error;
+    const p = v2.data || {};
+    S.profile = { name: p.name || null, address: null, senate_district: p.senate ?? null, house_district: p.house ?? null, island: p.island || null,
+      interests: p.interests || [], titles: p.titles || [], story: p.story || null };
+    let me = {}; try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { /* private mode */ }
+    const join = {};
+    if (!S.profile.titles.length && Array.isArray(me.titles) && me.titles.length) join.titles = me.titles;
+    if (!S.profile.story && me.story) join.story = me.story;
+    if (Object.keys(join).length) { const r = await S.supa.rpc('save_my_profile_v2', { p: join }); if (!r.error) Object.assign(S.profile, join); }
+    try { localStorage.setItem('hiphi_me', JSON.stringify({ ...me, titles: S.profile.titles, story: S.profile.story || '' })); } catch { /* private mode */ }
+  } catch {
+    try { const pr = await S.supa.rpc('my_profile'); S.profile = pr.data?.[0] || {}; } catch { S.profile = {}; }
+  }
   // Lists followed on this device join the account (and stay in sync from here on).
   const lf = await S.supa.from('list_follows').select('list_id'); S.listFollows = new Set((lf.data || []).map(r => r.list_id));
   for (const id of localListFollows()) if (!S.listFollows.has(id)) { const r = await S.supa.rpc('follow_list', { p_list: id }); if (!r.error) S.listFollows.add(id); }

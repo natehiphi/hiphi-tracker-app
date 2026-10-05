@@ -36,6 +36,9 @@ direction; Claude builds, tests, pushes and verifies the published site.
 - **Four builds of 10/4 (R-099, R-094 step 5, R-061, R-088 part 2) and R-060** (`docs/FEATURES.md`, last section): the Home
   ending's "how" words, the suggested bills counted, the Follow button's hint, Sort new bills' suggested issue, and each
   bill draft's plain-language note (public "How it has changed", staff Public tab).
+- **Your profile (R-147, 10/4):** More's first row is the person (initials on the More tab and a laptop's header); only with a
+  number or an email; it replaced Settings (`#/settings` opens it). "I'm a..." titles (`pub/titles.js`, also used by Staff
+  v2) open each letter with the two that fit the bill; where they live goes only to their own lawmakers. `docs/FEATURES.md`.
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
@@ -387,6 +390,8 @@ python3 tests/home_now.py           # Home's first card counts the day's deadlin
 python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 61 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
+python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks
+node tests/titles_test.mjs          # the "I'm a..." list and the two-titles rules (R-147, pub/titles.js); 23 checks, no server needed
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).

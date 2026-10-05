@@ -2320,7 +2320,7 @@ const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
 const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
 const personById = id => (S.people || []).find(p => p.id === id);
 const personName = p => p.name || p.email.split('@')[0];
-const EMPTY_PF = () => ({ q: '', tags: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
+const EMPTY_PF = () => ({ q: '', tags: [], titles: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
 const pfEmpty = f => !f.q && !f.tags.length && !f.interests.length && !f.islands.length && !f.house.length && !f.senate.length && f.account === 'any' && !f.optin && !f.bills.length && !f.lists.length && !f.campaigns.length && !f.active_days && !f.acted;
 const pfClean = f => { const o = {}; for (const [k, v] of Object.entries(f)) if (Array.isArray(v) ? v.length : v && v !== 'any') o[k] = v; return o; };
 // the same rules as people_match() in the database, so a saved segment reads the same here and when the alert is sent
@@ -2329,6 +2329,7 @@ function peopleMatch(p, f) {
   const q = f.q.trim().toLowerCase();
   if (q && !`${p.name || ''} ${p.email} ${p.phone || ''}`.toLowerCase().includes(q)) return false;
   if (f.tags.length && !f.tags.some(t => (p.tags || []).includes(t))) return false;
+  if ((f.titles || []).length && !f.titles.some(t => (p.titles || []).includes(t))) return false;   // R-147, backend 127
   if (f.interests.length && !f.interests.some(t => (p.interests || []).includes(t))) return false;
   if (f.islands.length && !f.islands.includes(p.island)) return false;
   if (f.house.length && !f.house.map(Number).includes(p.house_district)) return false;

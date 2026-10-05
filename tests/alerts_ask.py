@@ -150,7 +150,8 @@ with sync_playwright() as pw:
     # ---- 6. More > Get alerts ----
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_timeout(2500)
-    ok(p.locator('a.row[href="#/alerts"]', has_text='Get alerts').count() == 1, 'More: a "Get alerts" row')
+    # R-147 (10/4): More's first row is the person; without a number or email it invites them to make a profile with the same box.
+    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Make your profile').count() == 1, 'More: "Make your profile" is the first row (R-147)')
     p.goto(BASE + '?demo=1#/alerts'); p.wait_for_timeout(1500)
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('a.al-swap[href="#/signin"]').count() == 1, 'the page: the phone box, email to the sign-in page')
@@ -168,7 +169,9 @@ with sync_playwright() as pw:
     if undo.count(): undo.first.click(); p.wait_for_timeout(800)
     ok('Text alerts are on' in text(p), 'Undo: texts are on again')
     p.goto(BASE + '?demo=1#/more'); p.wait_for_timeout(1200)
-    ok('On: (808) 555-0166' in text(p) and p.locator('a.row[href="#/signin"]').count() == 1, 'More: "Text alerts, On", and email still offered')
+    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Your profile').count() == 1, 'More: with a number, the first row is the profile (R-147)')
+    p.goto(BASE + '?demo=1#/profile'); p.wait_for_timeout(1200)
+    ok('(808) ••• 0166' in text(p) and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'the profile: texts on (the number masked), and email still offered')
     p.goto(BASE + '?demo=1#/privacy'); p.wait_for_timeout(1200)
     ok('If you add your mobile number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
     c.close()

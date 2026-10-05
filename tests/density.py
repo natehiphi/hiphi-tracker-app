@@ -44,7 +44,7 @@ PUB = [
   ('issue',       '/issue/disposable-vape-ban', 'what the issue is', '.fd-ihead .lede'),
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
   ('legislators', '/legislators',  'your island',          '.pp-isle'),
-  ('more',        '/more',         'the first choice',     '.mwrow, .mr .row'),
+  ('more',        '/more',         'the first choice',     '.mr-me, .mwrow, .mr .row'),   # since R-147 the person (or Make your profile) comes first
   # R-091: every bill HIPHI tracks, grouped by hearing status
   ('allbills',    '/allbills',     'the first bill',       '#ab-list .mb-row'),
   # R-146: a person comes here to say how to reach them about their issues (the first visit's step 3, and More's page)
