@@ -860,7 +860,7 @@ export const DB = {
   // What each draft of a bill changed (120, R-060): Claude drafts from the committee reports, staff edit here. A save
   // from the app is stamped as the team's (the database's trigger), so the drafting tool never overwrites it.
   async billDrafts(billId) {
-    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004b', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
       return (await S.demoDrafts).filter(d => d.bill_id === billId).map(d => ({ written_by: 'claude', changes_letters: false, changes_suggested: false, ...d })); }
     const { data, error } = await S.supa.from('bill_drafts').select('*').eq('bill_id', billId);
     if (error) throw error; return data || [];
@@ -868,7 +868,7 @@ export const DB = {
   // Every bill's notes at once (R-148): Today's "say what the new draft changed" and the testimony cards' "what changed
   // since". A few hundred rows a session.
   async allBillDrafts() {
-    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004b', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
       return (await S.demoDrafts).map(d => ({ written_by: 'claude', changes_letters: false, changes_suggested: false, ...d })); }
     const { data, error } = await S.supa.from('bill_drafts').select('bill_id,version,summary,written_by,changes_letters,changes_suggested,letter_note,source_url');
     if (error) throw error; return data || [];
@@ -1214,7 +1214,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261004a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261005a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];

@@ -293,7 +293,7 @@ with sync_playwright() as pw:
         check(box(p) == P[0] + ' ' + P[2], f'{tag}: until the box is changed, the points keep the order the bill lists them')
         # their own words: a clause added to one point. Its opening words are still there, so it still reads Added
         # (the critic's finding: flipping to Add made people add the same point twice).
-        own0 = P[0].rstrip('.') + ', and my niece started vaping at 14.'
+        own0 = P[0].rstrip('.') + ', and my niece started using e-cigarettes at 14.'
         p.fill('#hp-pts', box(p).replace(P[0], own0)); p.wait_for_timeout(300)
         check(pressed(p)[:3] == [True, False, True], f'{tag}: a point with words added to it still reads Added ({pressed(p)[:3]})')
         p.locator('#hp-dlg .hp-pt').nth(2).click(); p.wait_for_timeout(400)

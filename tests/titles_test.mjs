@@ -16,7 +16,7 @@ ok(T.TITLES.every(t => t.pick || /^[a-zʻ]/.test(t.say)), 'every title reads in 
 const mine = ['bus-rider', 'parent', 'nurse', 'teacher'];
 ok(eq(T.pickTwo(mine, { cats: ['food'], text: 'Free school meals for every student' }), ['parent', 'teacher']), 'school meals: parent and teacher');
 ok(eq(T.pickTwo(mine, { cats: ['around'], text: 'Free bus rides for kids' }), ['bus-rider', 'parent']), 'free bus rides for kids: bus rider and parent');
-ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable vape ban' }), ['parent', 'nurse']), 'a vape ban: parent and nurse');
+ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban' }), ['parent', 'nurse']), 'an e-cigarette ban: parent and nurse');
 ok(eq(T.pickTwo(['volunteer', 'organizer', 'renter'], { cats: ['climate'], text: 'Ban the pesticide Telone' }), ['volunteer', 'organizer']), 'nothing fits: their first two, in their order');
 ok(eq(T.pickTwo(['parent', 'own:youth soccer coach', 'renter'], { cats: ['tobacco'], text: 'Youth substance misuse prevention funds' }), ['parent', 'own:youth soccer coach']), 'their own words count when a word of theirs is in the bill');
 ok(eq(T.pickTwo(['teacher', 'parent'], {}), ['teacher', 'parent']), 'two titles: both, in their order');

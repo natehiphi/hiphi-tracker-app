@@ -17,12 +17,14 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const core = readFileSync(join(ROOT, 'pub/core.js'), 'utf8');
-const URL_ = /SUPABASE_URL\s*=\s*'([^']+)'/.exec(core)[1], KEY = /SUPABASE_KEY\s*=\s*'([^']+)'/.exec(core)[1];
+// The public page's address and key live in the kernel since the split (R-122, 10/1); reading them from core.js, as
+// before, stopped this job every morning from then until R-158 (10/5).
+const kernel = readFileSync(join(ROOT, 'pub/kernel.js'), 'utf8');
+const URL_ = /SUPABASE_URL\s*=\s*'([^']+)'/.exec(kernel)[1], KEY = /SUPABASE_KEY\s*=\s*'([^']+)'/.exec(kernel)[1];
 const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
 // Renamed issues, old address -> new (pub/kernel.js FORMER_SLUGS, R-158): the page and feed under the old name stay, so
 // a link or a calendar subscription made before the rename keeps working.
-const FORMER = JSON.parse(/export const FORMER_SLUGS = (\{[^\n]*\});/.exec(readFileSync(join(ROOT, 'pub/kernel.js'), 'utf8'))[1]);
+const FORMER = JSON.parse(/export const FORMER_SLUGS = (\{[^\n]*\});/.exec(kernel)[1]);
 const CHECK = process.argv.includes('--check');
 
 async function rows(path) {

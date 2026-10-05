@@ -3,7 +3,7 @@
 import { S, alive, SEASON_OFF, D, saveDoneAt, saveDone, doneKey } from './kernel.js';
 import { icon } from '../icons.js';
 export async function demoLoad() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261004a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261005a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   const campName = Object.fromEntries(snap.campaigns.map(c => [c.id, c]));
   const coalOf = {}; for (const r of snap.billCampaigns) { const c = campName[r.campaign_id]; if (c?.is_public) (coalOf[r.bill_id] ??= []).push(c.name); }
   const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -75,7 +75,7 @@ export function seedDemoLetter() {
     const pts = (b.hiphi_points || []).slice(0, 2);
     me.letters = { ...(me.letters || {}), [b.id]: { v: 1, demo: true, bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year, h: h.id, code: h.committee,
       at: h.scheduled_at, sent: new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString(), draft: 'HD1', stance: 'support', ours: true, pos: b.hiphi_position || '',
-      name: me.name || 'Kalani Practice', why: 'As a parent of two teenagers, I see how easy these vapes are for kids to get.', points: pts, pointsText: pts.join(' '),
+      name: me.name || 'Kalani Practice', why: 'As a parent of two teenagers, I see how easy these e-cigarettes are for kids to get.', points: pts, pointsText: pts.join(' '),
       closing: 'Mahalo', letter: '', edited: false } };
     localStorage.setItem('hiphi_me', JSON.stringify(me));
     // and the testimony it stands for, marked sent on that hearing, as a real send would have

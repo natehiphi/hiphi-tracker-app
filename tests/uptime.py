@@ -6,7 +6,7 @@ import sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'https://natehiphi.github.io/hiphi-tracker-app/').rstrip('/') + '/'
 DRAWN = "() => !!document.querySelector('main') && !document.querySelector('.boot0') && !document.querySelector('.skelpage') && !document.querySelector('.bl-skel')"
-SCREENS = [('#/', None), ('#/bill/SB2175', 'SB 2175'), ('#/find?q=vaping', None), ('#/legislators', 'Your legislators')]
+SCREENS = [('#/', None), ('#/bill/SB2175', 'SB 2175'), ('#/find?q=e-cigarettes', None), ('#/legislators', 'Your legislators')]
 fails = []
 with sync_playwright() as p:
     br = p.chromium.launch()

@@ -163,7 +163,7 @@ export function renderPublic(b) {
       ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'), 'Anyone can find it, follow it and get its hearing alerts.')}
       ${switchRow('bw-prec', 'Pre-tick for new visitors', valOf(b, 'recommended'), 'Silent: new visitors find it already ticked on their first visit. Nothing on the public page says it was recommended.')}
       <div class="field"><label for="bw-nick">Nickname</label>
-        <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable vape ban">
+        <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable e-cigarette ban">
         <span class="help" id="bw-nick-h">A short everyday name people can say. It names the bill everywhere on the public page.</span>${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>

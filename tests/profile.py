@@ -80,7 +80,7 @@ with sync_playwright() as p:
 
     # 3. The story and How you'll help
     pg.click('[data-pf-edit="story"]'); pg.wait_for_timeout(300)
-    pg.fill('#pf-storyt', 'As a mom of two teenagers in Hilo, I see how easy vapes are to get.'); pg.check('#pf-quote'); pg.click('#pf-story-save'); pg.wait_for_timeout(500)
+    pg.fill('#pf-storyt', 'As a mom of two teenagers in Hilo, I see how easy e-cigarettes are to get.'); pg.check('#pf-quote'); pg.click('#pf-story-save'); pg.wait_for_timeout(500)
     ok('mom of two teenagers' in text(pg, '#pf-story') and 'quote me: Yes' in text(pg, '#pf-story'), 'the story is saved, and "HIPHI may quote me: Yes"')
     pg.click('[data-pf-edit="help"]'); pg.wait_for_timeout(300); pg.check('#pf-int-volunteer'); pg.click('#pf-help-save'); pg.wait_for_timeout(500)
     ok('volunteer' in text(pg, '#pf-help'), 'How you’ll help is saved')

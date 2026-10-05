@@ -1,5 +1,5 @@
 // Outreach > Issues (063, R-018). What the public follows. People follow ISSUES - a policy a resident recognises, like
-// "Free school meals for every student" or "Disposable vape ban" - grouped in six categories, and every bill HIPHI
+// "Free school meals for every student" or "Disposable e-cigarette ban" - grouped in six categories, and every bill HIPHI
 // takes a position on that carries a followed issue reaches them: this session's, later ones, and next session's once
 // they are put on it here. Nate, 9/21: Claude tidies the first list from the nicknames "and staff can adjust", so this
 // is where the list is kept: rename, describe, move, recommend, merge two that are really one, archive, and put bills

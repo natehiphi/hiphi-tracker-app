@@ -4,7 +4,7 @@
 //   1. The look-alike: the earlier session's bill Sort new bills already finds (Capitol text 45% alike or more) is on an
 //      issue: that issue. In January most such bills are the 2026 bill filed again.
 //   2. The words: the bill's title and description against each issue's name (three times the weight) and description,
-//      each shared word counted by how few issues use it, so "vape" says more than "school". The best issue is named only
+//      each shared word counted by how few issues use it, so "e-cigarette" says more than "school". The best issue is named only
 //      when it shares at least three words with the bill and leads the next one by a fifth; otherwise nothing is suggested
 //      and staff pick. (One word was not enough: a National Guard bill naming "TRICARE Dental" got the issue on dental
 //      licences.)

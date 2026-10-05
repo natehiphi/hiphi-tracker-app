@@ -27,7 +27,7 @@ with sync_playwright() as p:
         rows = pg.locator('.bw-drrow'); n = rows.count()
         ok(n == 2 and 'Senate draft 2 (SD2)' in rows.first.inner_text() and 'please check it' in rows.first.inner_text(), f'{tag}: staff see the notes newest first, Claude’s marked for checking ({n})')
         rows.first.locator('[data-dredit]').click(); pg.wait_for_selector('#bw-drtxt')
-        pg.fill('#bw-drtxt', 'Added a fine for selling disposable vapes; the amount is still to be decided.'); pg.click('[data-drsave]'); pg.wait_for_timeout(900)
+        pg.fill('#bw-drtxt', 'Added a fine for selling disposable e-cigarettes; the amount is still to be decided.'); pg.click('[data-drsave]'); pg.wait_for_timeout(900)
         first = pg.locator('.bw-drrow').first.inner_text()
         ok('still to be decided' in first and 'please check it' not in first, f'{tag}: a staff edit saves and is no longer marked as Claude’s')
         ok(pg.locator('.toastmsg .toastundo').count() == 1, f'{tag}: the save offers Undo')

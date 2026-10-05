@@ -40,6 +40,8 @@ jobs:
         run: node tools/check_split.mjs
       - name: The suggested bill's rules
         run: node tests/rank_test.mjs
+      - name: HIPHI's words ("e-cigarettes", never "vapes", R-158)
+        run: node tests/words_test.mjs
       - name: Playwright
         run: |
           pip install --quiet playwright

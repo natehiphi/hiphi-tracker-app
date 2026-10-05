@@ -107,7 +107,7 @@ with sync_playwright() as pw:
           if (!document.querySelector('#pr-goal')) { document.querySelector('[data-prstep="goal"]').click(); await w(400); }
           set('#pr-goal', 'Win.'); document.querySelector('[data-prsave]').click(); await w(600);
           document.querySelector('[data-prstep="points"]').click(); await w(400); set('#pr-points', 'A.\\nB.\\nC.'); document.querySelector('[data-prsave]').click(); await w(600);
-          set('#is-bq', 'vap'); await w(400); document.querySelector('[data-add]').click(); await w(800);
+          set('#is-bq', 'tobacco'); await w(400); document.querySelector('[data-add]').click(); await w(800);
           document.querySelector('[data-pr="publish"]').click(); await w(500); document.querySelector('[data-yes]').click(); await w(800);
           out.published = !document.querySelector('.pr-draft') && !!document.querySelector('.le-pubcard');
           out.after = document.querySelectorAll('.pr-step.done').length + ' of 5 done';

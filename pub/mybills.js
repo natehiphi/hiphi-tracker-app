@@ -28,7 +28,7 @@ export function what(b, n = 170) {
   const s = about === t ? t : 'About ' + about.toLowerCase();
   return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s.charAt(0).toUpperCase() + s.slice(1);
 }
-// How a bill is named in a sentence, a toast or a label: "Disposable vape ban (HB 2121)", else "HB 2121".
+// How a bill is named in a sentence, a toast or a label: "Disposable e-cigarette ban (HB 2121)", else "HB 2121".
 export const nameOf = b => nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
 // Still in play: in committee, on the floor, in conference, or on the Governor's desk. (core's alive() also leaves
 // out the Governor's desk, but a bill waiting for a signature is not stopped, so it stays with the moving ones.)
@@ -337,7 +337,7 @@ function render() {
   const lists = (S.lists || []).filter(l => S.listFollows.has(l.id));
   if (lists.length && !off) loadFollowedLists(lists);
   // Issues, by category, each once: under its own category, or under the followed category that brought it (the DUI
-  // limit lives in Tobacco, Vaping & Alcohol but also comes with all of Getting Around Safely). In each, the issues
+  // limit lives in Tobacco, E-cigarettes & Alcohol but also comes with all of Getting Around Safely). In each, the issues
   // with bills moving (between sessions: with bills last session) come first; the rest fold away, as on a category's
   // page, unless there is nothing else to show.
   const iss = followedIssues(), homeOf = i => S.catFollows.has(i.category) ? i.category : (i.categories || []).find(k => S.catFollows.has(k)) || i.category;

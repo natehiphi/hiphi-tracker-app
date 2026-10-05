@@ -383,7 +383,7 @@ export const TALKS = [
 
   { slug: 'issues-vs-bills', group: 'tracker', title: 'What’s the difference between an issue and a bill?',
     turns: [
-      { q: 'What’s the difference between an issue and a bill?', a: 'A **bill** is one proposed law with a number, like HB 2121. An **issue** is the idea behind it, like the disposable vape ban.' },
+      { q: 'What’s the difference between an issue and a bill?', a: 'A **bill** is one proposed law with a number, like HB 2121. An **issue** is the idea behind it, like the disposable e-cigarette ban.' },
       { q: 'Why follow issues, not bills?', a: 'One idea often has several bills: a House twin, a Senate twin, next year’s version. Following the issue brings in all of them.' },
       { q: 'Can I still follow one bill?', a: 'Yes. If a bill isn’t part of an issue, you can follow it on its own.' },
     ],
@@ -427,7 +427,7 @@ export const TALKS = [
   { slug: 'what-is-hiphi', group: 'hiphi', title: 'What is HIPHI?',
     turns: [
       { q: 'What is HIPHI?', a: 'The **Hawaiʻi Public Health Institute**, a nonprofit that works for a healthier Hawaiʻi. It made this tracker, and the tracker is free.' },
-      { q: 'What does HIPHI work on?', a: 'In this tracker, six topics: food and nutrition; tobacco, vaping and alcohol; health care; family and economic security; getting around safely; and climate.' },
+      { q: 'What does HIPHI work on?', a: 'In this tracker, six topics: food and nutrition; tobacco, e-cigarettes and alcohol; health care; family and economic security; getting around safely; and climate.' },
       { q: 'Where can I learn more?', a: `At [hiphi.org](https://www.hiphi.org/about/), or email ${EMAIL}.` },
     ],
     related: ['why-positions', 'disagree', 'contact'] },

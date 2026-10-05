@@ -19,7 +19,7 @@ issue_bills = {}
 for r in snap.get('billIssues', []):
     issue_bills.setdefault(r['issue_id'], []).append(r['bill_id'])
 with_stopped = [i['id'] for i in issues if any(b in stopped_bills for b in issue_bills.get(i['id'], []))]
-vape = by_slug.get('disposable-vape-ban') or issues[0]
+vape = by_slug.get('disposable-e-cigarette-ban') or issues[0]
 cats = [c['key'] for c in snap.get('categories', [])][:2]
 leg = snap['legislators'][0]['id']
 PERSONAS = {

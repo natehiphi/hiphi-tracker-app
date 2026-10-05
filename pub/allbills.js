@@ -123,7 +123,7 @@ function groupsHTML() {
   for (const b of list) by[standOf(b)].push(b);
   const asked = !!A.q.trim() || activeN() > 0;
   if (!list.length) return empty({ title: A.q.trim() ? `No bill matches “${esc(A.q.trim())}”` : asked ? 'No bill fits these filters' : 'No bills here yet',
-    text: A.q.trim() ? 'Try a bill number, like HB 1563, or one word, like vaping.' : '', action: asked ? btn(A.q.trim() && activeN() ? 'Clear the search and filters' : A.q.trim() ? 'Clear the search' : 'Clear filters', { kind: 'secondary', attrs: { 'data-ab-clear': '' } }) : '' });
+    text: A.q.trim() ? 'Try a bill number, like HB 1563, or one word, like e-cigarettes.' : '', action: asked ? btn(A.q.trim() && activeN() ? 'Clear the search and filters' : A.q.trim() ? 'Clear the search' : 'Clear filters', { kind: 'secondary', attrs: { 'data-ab-clear': '' } }) : '' });
   const opt = k => b => ({ pos: true, watch: true, why: k === 'dead', status: k === 'law' ? lawDay(b) : '', alt: altOf(b) });
   const groups = GROUPS.filter(([k]) => by[k].length);
   return groups.map(([k, title]) => {

@@ -23,9 +23,9 @@ USED = """(() => { const m = document.querySelector('main'); if (!m) return [0, 
   m.querySelectorAll('*').forEach(e => { if (e.offsetParent === null || e.closest('.actionbar')) return; const r = e.getBoundingClientRect(); if (r.width > 40 && r.height > 8 && r.right > right && r.right <= mr.right + 2) right = r.right; });
   return [Math.round(right - mr.left), Math.round(innerWidth)]; })()"""
 ROUTES = ['/', '/review', '/bills', '/bills/new', '/bills/memo', '/bills/muted', '/bill/HB1562', '/bill/HB1562/activity', '/bill/HB1562/pathway', '/bill/HB1562/public', '/bill/HB2121',
-          '/legislators', '/search?q=vaping', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help', '/help/keys',
+          '/legislators', '/search?q=e-cigarettes', '/outreach', '/outreach/lists', '/outreach/emails', '/email/new', '/me', '/setup', '/help', '/help/keys',
           '/coalition', '/coalition/' + HEAL]
-NARROW_OK = {'/review', '/me', '/help', '/help/keys', '/setup', '/bills/memo', '/bills/muted', '/email/new', '/search?q=vaping'}   # focused tasks, forms and reading: a column is right
+NARROW_OK = {'/review', '/me', '/help', '/help/keys', '/setup', '/bills/memo', '/bills/muted', '/email/new', '/search?q=e-cigarettes'}   # focused tasks, forms and reading: a column is right
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()

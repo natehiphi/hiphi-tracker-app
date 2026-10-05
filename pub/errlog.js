@@ -3,7 +3,7 @@
 // small row goes to log_public_error, a database function anyone may call, which checks every value again, blanks
 // anything that looks like an email address, a long number or a query string, and counts the same error once per hour.
 //
-// What leaves the browser, and nothing else: the kind; the screen's address part (bill/HB2121, issue/vaping, home:
+// What leaves the browser, and nothing else: the kind; the screen's address part (bill/HB2121, issue/school-meals, home:
 // never a query string, a shared list's link or an account id); the error's first 200 characters; the file and line it
 // came from (the site's own path, no origin); phone, tablet or laptop from the window width; and whether this is the
 // sandbox. Nothing at all is sent with the privacy signal (Global Privacy Control or Do Not Track) or from a test run

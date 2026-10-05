@@ -66,7 +66,7 @@ with sync_playwright() as p:
     pg.route(re.compile(r'.*/(b|i)/.*'), lambda route: route.fulfill(status=404, content_type='text/html', body=html))
     pg.route(re.compile(r'.*/track\.html\?via=share.*'), lambda route: route.fulfill(status=200, content_type='text/html', body='<title>stub</title>'))
     origin = BASE.split('/track.html')[0]
-    for path, want in [(f'/b/2025/{num}', f'#/bill/2025/{num}'), (f'/b/{num.lower()}', f'#/bill/{num}'), (f'/b/2025/{num}.html', f'#/bill/2025/{num}'), ('/i/vaping', '#/issue/vaping')]:
+    for path, want in [(f'/b/2025/{num}', f'#/bill/2025/{num}'), (f'/b/{num.lower()}', f'#/bill/{num}'), (f'/b/2025/{num}.html', f'#/bill/2025/{num}'), ('/i/school-meals', '#/issue/school-meals')]:
         pg.goto(origin + path); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
         ok(pg.url == origin + '/track.html?via=share' + want, f'{path} forwards to track.html?via=share{want}: {pg.url}')
     ok(not errs, 'no page errors: ' + '; '.join(errs[:3]))

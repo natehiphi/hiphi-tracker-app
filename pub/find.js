@@ -2,9 +2,9 @@
 // an issue's page (#/find/issue/<slug>) and a HIPHI list's page (#/list/<slug>, also the old #list= links).
 //
 // Search covers HIPHI's plain summary as well as the official title and description, and knows the words people
-// actually type: "vaping" finds the e-cigarette bills even when the summary says "flavored vapes", "keiki" finds
+// actually type: "vaping" finds the e-cigarette bills (HIPHI writes "e-cigarettes", never "vapes", R-158), "keiki" finds
 // bills about children, "lunch" finds school meals, "soda" finds sugary drinks (walkthrough 9/18: "vaping" found one
-// dead bill and missed the three live ones). It also covers the bill's nickname ("Disposable vape ban"), which is
+// dead bill and missed the three live ones). It also covers the bill's nickname ("Disposable e-cigarette ban"), which is
 // what people will have seen everywhere else (9/19). Bills still moving come first; stopped ones wait in a fold.
 //
 // On a wide screen (1100px and up) the page stops being a phone column: the issues are a grid of tiles, HIPHI's
@@ -32,7 +32,8 @@ const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').
 
 // ---------------- search ----------------
 // Synonym groups: typing any word in a group also searches the others. Phrases ("sugary drink") are matched whole.
-// The official descriptions say "electronic smoking device" where people say "vape", so that phrase is in too.
+// The official descriptions say "electronic smoking device" and HIPHI says "e-cigarette" (R-158) where many people still
+// say "vape", so all three are in one group: someone who types "vape" finds the e-cigarette bills.
 const SYN = [
   ['vape', 'vaping', 'vapor', 'e-cig', 'ecig', 'electronic smoking', 'electronic cigarette', 'flavored'],
   ['keiki', 'kids', 'children', 'child', 'youth'],
@@ -213,7 +214,7 @@ function findPage(q) {
       <h1 class="fd-h1 hero"><label for="q">Find issues and bills</label></h1>
       <div class="searchbox fd-box${busy ? ' busy' : ''}">${icon('search')}<span class="fd-spin" aria-hidden="true">${icon('loader-circle')}</span>
         <input id="q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-          placeholder="Try vaping, school meals or HB 1563" value="${esc(q)}">
+          placeholder="Try e-cigarettes, school meals or HB 1563" value="${esc(q)}">
         <button type="button" class="iconbtn clear fd-clear" aria-label="Clear search"${q ? '' : ' hidden'}>${icon('x')}</button></div>
     </form>
     <p class="sr" role="status" id="fd-status"></p>
@@ -229,7 +230,7 @@ function resultsHTML(q) {
 }
 function resultsBody(q, res) {
   const iss = issueMatches(q), issSec = iss.length ? `<section aria-labelledby="fd-qi-h">${sechead('fd-qi-h', 'Issues', plural(iss.length, 'issue'))}${issueList(iss)}</section>` : '';
-  if (!res.length) return `${issSec}${iss.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, or a word like vaping.' })}
+  if (!res.length) return `${issSec}${iss.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, or a word like e-cigarettes.' })}
     <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse issues')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
   return `${issSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`

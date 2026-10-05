@@ -153,7 +153,7 @@ found because sessions start in the backend repo) walks the whole checklist.
   `app.js`, `staff/data.js`, `pub/core.js`, `public.js`; never replace them with placeholders.
 - **No emoji in the public page or Staff v2.** Icons are Lucide via `icons.js`; add with
   `node tools/icons.mjs name1,name2`.
-- **Bill names:** lead with `bills.nickname` (about 40 characters, e.g. "Disposable vape ban"; all 248
+- **Bill names:** lead with `bills.nickname` (about 40 characters, e.g. "Disposable e-cigarette ban"; all 248
   position bills have one, monitor-only bills have none), then the plain summary, and ALWAYS show the bill
   number. Staff edit a nickname in a bill's Public section in either staff app. As of 9/19 **every bill on the
   public page has a plain summary** — all 248 position bills and all 486 monitor bills (backend 3.1y). Monitor
