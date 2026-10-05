@@ -30,7 +30,7 @@ import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
 import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, codeStep } from './alerts.js';
-import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode } from './phone.js';   // R-155
+import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
 
@@ -436,6 +436,10 @@ function signinView() {
       ${M.demo ? `<p>This is the sandbox, so no email was sent. On the real tracker, a link goes to <span class="strong mr-break">${esc(M.sent)}</span>.</p>`
         : `<p>We sent a link to <span class="strong mr-break">${esc(M.sent)}</span>. Open it on this device to finish.</p>
       <p class="small muted">It can take a minute. If you don’t see it, check your spam folder.</p>`}
+      ${emailCodesOn() ? `<form class="mr-ecode" id="mr-ec" novalidate><div class="field"><label for="mr-ecin">Or type the 6-digit code from the email</label>
+        <input id="mr-ecin" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" aria-describedby="mr-ec-h">
+        <span class="help" id="mr-ec-h">Handy when the link opens in another browser, or a work email has used it up.</span></div>
+        <div id="mr-ec-msg"></div>${submitBtn('Sign in', 'log-in', 'mr-ec-go')}</form>` : ''}
       <div id="mr-again-msg"></div>
       <div class="btnrow">${M.demo ? '' : btn('Send it again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-mr-again': '' } })}${btn('Use a different email', { kind: 'text', sm: true, attrs: { 'data-mr-other': '' } })}</div>
     </section>
@@ -483,6 +487,15 @@ function wireSignin() {
     try { await sendFor(M.sent, { hearing_alerts: !!M.choices.alerts, action_alerts: !!M.choices.action }); } catch (e) { error = e; }
     unbusy(again);
     say('mr-again-msg', error ? inlineErr('mr-again-err', error.plain ? error.message : friendly(error)) : `<p class="okmsg" role="status">${icon('check')}<span>We sent a new link.</span></p>`);
+  };
+  // The code from the email (R-156 D2): signs in here, with no link to open.
+  const ec = $('#mr-ec');
+  if (ec) ec.onsubmit = async e => {
+    e.preventDefault(); const b = $('#mr-ec-go'), v = $('#mr-ecin').value; if (b.getAttribute('aria-busy')) return;
+    busy(b, 'Signing in…'); say('mr-ec-msg', '');
+    let r = null; try { r = await verifyEmailCode(M.sent, v); } catch (err) { unbusy(b); say('mr-ec-msg', inlineErr('mr-ec-err', err.plain ? err.message : friendly(err))); $('#mr-ecin').focus(); return; }
+    M.sent = ''; app.go(r?.demo ? '#/more' : '#/profile', { replace: true });
+    toast(r?.demo ? 'This is the sandbox, so no one was signed in.' : 'You’re signed in.', { yay: !r?.demo });
   };
   const form = $('#mr-si'); if (!form) return;
   const inp = $('#mr-email');

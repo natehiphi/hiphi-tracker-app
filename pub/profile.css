@@ -125,3 +125,6 @@
 .hp-dlg .hp-profline { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s8); align-items: center; margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n700); }
 .hp-dlg .hp-profline > .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
 .hp-dlg .hp-profline > span { flex: 1 1 14em; }
+.hp-dlg .hp-says .hp-out { border-style: dashed; color: var(--n700); }
+.hp-dlg .hp-says { margin: var(--s12) 0; }
+.pf .pf-quoterow p:not(.pf-k) { margin: 0; }

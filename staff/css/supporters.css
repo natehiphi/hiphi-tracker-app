@@ -354,3 +354,10 @@
 .sp-page .sp-roll-l li { display: flex; justify-content: space-between; gap: var(--s12); border-bottom: 1px solid var(--n100); padding: var(--s4) 0; }
 .sp-page .sp-roll .meta { margin: var(--s8) 0 0; }
 @media (min-width: 900px) { .sp-page .sp-roll-b { grid-template-columns: 1fr 1fr; } }
+.sp-page .sp-roll summary { list-style: none; }
+.sp-page .sp-roll summary::-webkit-details-marker { display: none; }
+.sp-page .sp-roll summary > span { flex: 1; }
+.sp-page .sp-roll .sp-roll-chev { color: var(--n500); transition: transform .2s var(--ease, ease); }
+.sp-page .sp-roll[open] .sp-roll-chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .sp-page .sp-roll .sp-roll-chev { transition: none; } }
+.sp-page .sp-roll + .sp-segs { margin-top: var(--s12); }

@@ -24,9 +24,10 @@ const DISTRICTS_KEY = 'hiphi_districts';
 // "HIPHI may quote me" sits with the story; "I have a story to share" left with R-156 (Your story covers it, the review).
 const HELP = INTERESTS.filter(([k]) => k !== 'quote' && k !== 'story');
 // What each answer changes (R-156 C1; design rule C-13: every question changes what the person sees).
-const HELP_DOES = { testify: 'When a hearing on your issues is posted, going in person shows first, with how to sign up to speak.',
+const HELP_DOES = { testify: 'We’ll show you how to sign up to speak when a hearing on your issues is set.',
   host: 'HIPHI’s team sees this and may ask you to help at an event near you.', volunteer: 'HIPHI’s team sees this and may get in touch about volunteering.' };
-const topicName = k => k ? (S.cats || []).find(c => c.key === k)?.name || k : 'Any issue';
+// "Topic", never "issue", for a story's subject (the review: "Your issues" on the same page means the issues followed).
+const topicName = k => k ? (S.cats || []).find(c => c.key === k)?.name || k : 'Any topic';
 // P: this visit's page. edit: the section being changed ('about' | 'story' | 'help' | 'email'), with its draft; del: the
 // delete question showing; done: the section that just saved (its "Saved" line); undo: what the Saved line's Undo puts
 // back ({ id, label, patch }, R-156: B-5, nothing removed without a way back).
@@ -91,33 +92,39 @@ function aboutEdit() {
 const storyRows = () => [...(myStory() ? [['', myStory()]] : []), ...Object.entries(myStories())];
 function storyBody() {
   const rows = storyRows(), q = quoteLevel(), left = (S.cats || []).filter(c => !myStories()[c.key]).length;
-  return `${rows.length ? rows.map(([k, t]) => `<div class="pf-storyrow"><p class="pf-k">${k ? `About ${esc(topicName(k))}` : 'For any issue'}</p><blockquote class="pf-story">${esc(t)}</blockquote>
-      ${btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pf-story': k || '-', 'aria-label': `Change your story ${k ? `about ${topicName(k)}` : 'for any issue'}` } })}</div>`).join('')
-      : empty('Not added yet. A sentence or two on why an issue matters to you. Your letters on that issue start with it, and you can change it each time.')}
-    ${rows.length && left ? `<p>${btn('Add a story for another issue', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pf-story': '+' } })}</p>` : ''}
-    <p class="small muted">HIPHI may quote you: <span class="strong">${q ? esc(QUOTE.find(x => x[0] === q)[1]) : 'No'}</span>${q ? '. HIPHI asks you again before any public use.' : ''}</p>`;
+  return `${rows.length ? rows.map(([k, t]) => `<div class="pf-storyrow"><p class="pf-k">${k ? `About ${esc(topicName(k))}` : 'For any topic'}</p><blockquote class="pf-story">${esc(t)}</blockquote>
+      ${btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pf-story': k || '-', 'aria-label': `Change your story ${k ? `about ${topicName(k)}` : 'for any topic'}` } })}</div>`).join('')
+      : empty('Not added yet. A sentence or two on why a topic matters to you. Your letters on that topic start with it, and you can change it each time.')}
+    ${rows.length && left ? `<p>${btn('Add a story for another topic', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pf-story': '+' } })}</p>` : ''}
+    ${rows.length ? `<div class="pf-storyrow pf-quoterow"><p class="pf-k">Can HIPHI quote your stories?</p><p>${q ? esc(QUOTE.find(x => x[0] === q)[1]) : 'No'}</p>
+      ${P.edit !== 'quote' ? btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pf-edit': 'quote', 'aria-label': 'Change whether HIPHI may quote your stories' } }) : ''}</div>` : ''}`;
+}
+// "Quote me" is one answer for all the stories (the review: asked inside one story's form, it changed every story's).
+function quoteEdit() {
+  return `<form class="pf-form" id="pf-quote-f" novalidate><fieldset class="mr-set"><legend>Can HIPHI quote your stories?</legend>
+      <p class="small muted" id="pf-quote-h">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
+      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, P.d.quote === k)).join('')}</fieldset>
+    <div id="pf-quote-msg"></div>
+    <div class="btnrow">${submitBtn('Save', 'check', 'pf-quote-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}</div></form>`;
 }
 const radio = (name, v, title, on) => `<label class="check mr-check" for="${name}-${v || 'no'}"><input type="radio" name="${name}" id="${name}-${v || 'no'}" value="${v}"${on ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(title)}</span></span></label>`;
 function storyEdit() {
   const d = P.d, st = myStories(), any = myStory();
   const taken = k => k !== d.orig && !!(k ? st[k] : any);
   return `<form class="pf-form" id="pf-story-f" novalidate>
-    <div class="field"><label for="pf-topic">It’s about</label>
-      <select id="pf-topic" aria-describedby="pf-topic-h">${[['', 'Any issue'], ...(S.cats || []).map(c => [c.key, c.name])].map(([k, l]) => `<option value="${esc(k)}"${k === d.topic ? ' selected' : ''}>${esc(l)}${taken(k) ? ' (replaces that story)' : ''}</option>`).join('')}</select>
-      <span class="help" id="pf-topic-h">Your letters on that issue start with it. “Any issue” starts the letters that have no story of their own.</span></div>
-    <div class="field"><label for="pf-storyt">Your story</label>
-      <textarea id="pf-storyt" rows="4" maxlength="600" placeholder="${esc(storyAsk(d.topic))}" aria-describedby="pf-story-h" autocapitalize="sentences">${esc(d.text)}</textarea>
-      <span class="help" id="pf-story-h"><span class="strong" id="pf-story-ask">${esc(storyAsk(d.topic))}</span> One or two sentences, in your own words. A personal reason carries the most weight with lawmakers. You don’t have to share health details to be heard.</span></div>
-    <fieldset class="mr-set"><legend>Can HIPHI quote your story?</legend>
-      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, d.quote === k)).join('')}
-      <p class="small muted">HIPHI asks you again before using it anywhere public.</p></fieldset>
+    <div class="field"><label for="pf-topic">Topic</label>
+      <select id="pf-topic" aria-describedby="pf-topic-h">${[['', 'Any topic'], ...(S.cats || []).map(c => [c.key, c.name])].map(([k, l]) => `<option value="${esc(k)}"${k === d.topic ? ' selected' : ''}>${esc(l)}${taken(k) ? ' (replaces that story)' : ''}</option>`).join('')}</select>
+      <span class="help" id="pf-topic-h">Your letters on this topic start with it.</span></div>
+    <div class="field"><label for="pf-storyt" id="pf-story-ask">${esc(storyAsk(d.topic))}</label>
+      <textarea id="pf-storyt" rows="4" maxlength="600" aria-describedby="pf-story-h" autocapitalize="sentences">${esc(d.text)}</textarea>
+      <span class="help" id="pf-story-h">One or two sentences, in your own words. A personal reason carries the most weight with lawmakers. You don’t have to share health details to be heard.</span></div>
     <div id="pf-story-msg"></div>
     <div class="btnrow">${submitBtn('Save', 'check', 'pf-story-save')}${btn('Cancel', { kind: 'text', attrs: { 'data-pf-cancel': '' } })}${d.orig !== null && d.text ? btn('Remove this story', { kind: 'text', icon: 'trash-2', attrs: { 'data-pf-storydel': '' } }) : ''}</div></form>`;
 }
 function helpBody() {
   const ints = myInterests().filter(k => HELP.some(([h]) => h === k)), acct = !!loadMe().capitolAcct;
   return `${ints.length ? `<ul class="pf-list pf-does" role="list">${HELP.filter(([k]) => ints.includes(k)).map(([k, l]) => `<li>${icon('check')}<span><span class="strong">${esc(l)}.</span> ${esc(HELP_DOES[k] || '')}</span></li>`).join('')}</ul>` : empty('Not added yet. Tell HIPHI if you’d testify in person, host an event or volunteer.')}
-    <p class="small pf-acct">${icon(acct ? 'circle-check' : 'info')}<span>${acct ? 'Your Capitol website account is ready for testimony.' : 'The first time you send testimony, the letter helper walks you through the Capitol website’s free account.'}</span></p>`;
+    <p class="small pf-acct">${icon(acct ? 'circle-check' : 'info')}<span>${acct ? 'Your Capitol website account is ready for testimony.' : 'The first time you send testimony, we’ll walk you through making your free Capitol website account.'}</span></p>`;
 }
 function helpEdit() {
   return `<form class="pf-form" id="pf-help-f" novalidate><fieldset class="mr-set"><legend>How would you like to help?</legend>
@@ -170,15 +177,17 @@ function accountButtons() {
 // Add to Home Screen on an iPhone (R-156 D3): Safari clears a website's saved data after seven days without a visit, which
 // is a whole profile for someone with only a text number; the Home Screen app is exempt (WebKit, 2020). Once, until "No
 // thanks"; never inside the Home Screen app itself. Home's own card (R-067) comes after a first action; this one is here.
+// Only for someone signed in (the review): the Home Screen app keeps its own storage, so a profile kept only on this phone
+// would not come with it, while an account's does once they sign in there.
 const HS_NO = 'hiphi_pf_hs_no';
 function homeScreenNote() {
   let no = false; try { no = localStorage.getItem(HS_NO) === '1'; } catch { /* private mode */ }
   const ios = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
   const standalone = (() => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } })();
-  if (no || !ios || standalone) return '';
-  return `<section class="card pf-hs" aria-labelledby="pf-hs-t"><h2 id="pf-hs-t">${icon('smartphone')}Keep your profile on this iPhone</h2>
-    <p class="small">${signedIn() ? 'An iPhone signs you out of a website after a week away.' : 'An iPhone clears what a website saves after a week away, and your profile is saved on this phone.'} Added to your Home Screen, the tracker keeps it.</p>
-    ${P.hsHow ? `<ol class="pf-steps"><li>In Safari, tap ${icon('share')}<b>Share</b>.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open the tracker from its new icon. ${signedIn() ? 'Sign in there once with your email.' : 'Add your number there once more, or your email to keep your profile on any phone.'}</li></ol>`
+  if (no || !ios || standalone || !signedIn()) return '';
+  return `<section class="card pf-hs" aria-labelledby="pf-hs-t"><h2 id="pf-hs-t">${icon('smartphone')}Add the tracker to your Home Screen</h2>
+    <p class="small">An iPhone signs you out of a website after a week away. On your Home Screen, the tracker keeps you signed in.</p>
+    ${P.hsHow ? `<ol class="pf-steps"><li>In Safari, tap ${icon('share')}<b>Share</b>.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open the tracker from its new icon and sign in there once with your ${myEmail() ? 'email' : 'number'}. Your profile comes with it.</li></ol>`
       : btn('Show me how', { kind: 'secondary', sm: true, icon: 'smartphone', attrs: { 'data-pf-hs': 'how', 'aria-expanded': 'false' } })}
     <div class="btnrow">${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-pf-hs': 'no' } })}</div></section>`;
 }
@@ -197,13 +206,12 @@ function profileView() {
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
     <p class="sr" id="pf-live" aria-live="polite"></p>
-    ${signedIn() ? '' : homeScreenNote()}
     ${sec('about', 'About you', E === 'about' ? aboutEdit() : aboutBody(), { change: E !== 'about' && (myName() || myTitles().length || myDistricts() ? 'Change' : 'Add') })}
-    ${sec('story', storyRows().length > 1 ? 'Your stories' : 'Your story', E === 'story' ? storyEdit() : storyBody(), { change: E !== 'story' && !storyRows().length && 'Add' })}
+    ${sec('story', storyRows().length > 1 ? 'Your stories' : 'Your story', E === 'story' ? storyEdit() : E === 'quote' ? storyBody() + quoteEdit() : storyBody(), { change: E !== 'story' && E !== 'quote' && !storyRows().length && 'Add' })}
     ${sec('help', 'How you’ll help', E === 'help' ? helpEdit() : helpBody(), { change: E !== 'help' && (myInterests().some(k => HELP.some(([h]) => h === k)) ? 'Change' : 'Add') })}
     ${sec('email', 'Alerts', E === 'email' ? emailEdit() : alertsBody(), signedIn() && myEmail() ? { change: E !== 'email' && 'Change' } : { href: '#/alerts' })}
     ${sec('issues', 'Your issues', issuesBody(), { change: false })}
-    ${signedIn() ? homeScreenNote() : ''}
+    ${homeScreenNote()}
     ${sec('data', 'Your data', dataBody(), { change: false })}
   </div>`;
 }
@@ -217,17 +225,21 @@ function startEdit(id, topic) {
     // topic: '-' the story for any issue, a category key, '+' a new one (the first topic without a story), none: Add.
     const st = myStories(), fresh = topic === '+' || topic === undefined;
     const t = topic === '+' ? ((S.cats || []).find(c => !st[c.key])?.key || '') : topic === '-' || topic === undefined ? '' : topic;
-    P.d = { topic: t, orig: fresh ? null : t, text: fresh ? '' : (t ? st[t] : myStory()) || '', quote: quoteLevel() };
+    P.d = { topic: t, orig: fresh ? null : t, text: fresh ? '' : (t ? st[t] : myStory()) || '' };
   }
+  else if (id === 'quote') P.d = { quote: quoteLevel() };
   else if (id === 'help') P.d = { ints: new Set(myInterests()) };
   else if (id === 'email') { const p = S.user?.prefs || {}; P.d = { choices: { alerts: p.hearing_alerts === true, action: p.action_alerts === true } }; }
   P.edit = id; app.render();
-  requestAnimationFrame(() => { const f = $(id === 'story' ? '#pf-storyt' : `#pf-${id} input, #pf-${id} textarea`); f?.focus({ preventScroll: true }); $(`#pf-${id}`)?.scrollIntoView({ block: 'start' }); });
+  requestAnimationFrame(() => { const f = $(id === 'story' ? '#pf-storyt' : id === 'quote' ? '#pf-quote-f input:checked' : `#pf-${id} input, #pf-${id} textarea`); f?.focus({ preventScroll: true }); $(`#pf-${secOf(id)}`)?.scrollIntoView({ block: id === 'quote' ? 'center' : 'start' }); });
 }
+// The quote answer is a row inside Your stories: its "Saved." and focus go to that section.
+const secOf = id => id === 'quote' ? 'story' : id;
 function endEdit(id, saved) {
-  P.edit = null; P.d = null; P.done = saved ? id : ''; if (!saved) P.undo = null; app.render();
-  requestAnimationFrame(() => ($(`#pf-${id} [data-pf-undo]`) || $(`#pf-${id} [data-pf-edit]`) || $(`#pf-${id} [data-pf-story]`) || $(`#pf-${id}-t`))?.focus({ preventScroll: true }));
-  if (saved) announce(P.undo?.id === id ? `${P.undo.label} Undo is next.` : 'Saved.');
+  const sid = secOf(id);
+  P.edit = null; P.d = null; P.done = saved ? sid : ''; if (!saved) P.undo = null; app.render();
+  requestAnimationFrame(() => ($(`#pf-${sid} [data-pf-undo]`) || (id === 'quote' && $('#pf-story [data-pf-edit="quote"]')) || $(`#pf-${sid} [data-pf-edit]`) || $(`#pf-${sid} [data-pf-story]`) || $(`#pf-${sid}-t`))?.focus({ preventScroll: true }));
+  if (saved) announce(P.undo?.id === sid ? `${P.undo.label} Undo is next.` : 'Saved.');
 }
 async function trySave(id, b, work) {
   if (b.getAttribute('aria-busy')) return;
@@ -274,18 +286,22 @@ function wireProfile() {
   if (story) {
     const d = P.d;
     $('#pf-storyt').oninput = e => { d.text = e.target.value; };
-    $('#pf-topic').onchange = e => { d.topic = e.target.value; const ask = storyAsk(d.topic); $('#pf-story-ask').textContent = ask; $('#pf-storyt').placeholder = ask; };
-    story.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) d.quote = r.value; });
+    $('#pf-topic').onchange = e => { d.topic = e.target.value; $('#pf-story-ask').textContent = storyAsk(d.topic); };
     const del = story.querySelector('[data-pf-storydel]'); if (del) del.onclick = () => { d.text = ''; story.requestSubmit(); };
     story.onsubmit = e => { e.preventDefault(); trySave('story', $('#pf-story-save'), async () => {
       const st = myStories(), was = { story: myStory(), stories: { ...st } }; let any = was.story;
       if (d.orig !== null && d.orig !== d.topic) { if (d.orig) delete st[d.orig]; else any = ''; }   // moved to another topic
       const text = d.text.trim();
       if (d.topic) { if (text) st[d.topic] = text; else delete st[d.topic]; } else any = text;
-      await saveProfile({ story: any, stories: st, quote: d.quote });
+      await saveProfile({ story: any, stories: st });
       const gone = (was.story && !any) || Object.keys(was.stories).some(k => !st[k]);
       P.undo = gone ? { id: 'story', label: 'Story removed.', patch: was } : null;
     }); };
+  }
+  const qf = $('#pf-quote-f');
+  if (qf) {
+    qf.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) P.d.quote = r.value; });
+    qf.onsubmit = e => { e.preventDefault(); trySave('quote', $('#pf-quote-save'), () => saveProfile({ quote: P.d.quote })); };
   }
   const help = $('#pf-help-f');
   if (help) {

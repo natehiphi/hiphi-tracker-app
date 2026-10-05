@@ -165,3 +165,7 @@
 .mr-alon p { margin: 0; }
 .mr-alemail { display: flex; gap: var(--s8); align-items: flex-start; }
 .mr-alemail .ic { flex: none; margin-top: 2px; }
+/* The code from the sign-in email (R-156 D2), under "Check your inbox". */
+.mr .mr-ecode { align-self: stretch; display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s8); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.mr .mr-ecode input { max-width: 12em; font-size: var(--t20); letter-spacing: .25em; font-variant-numeric: tabular-nums; }
+.mr .mr-ecode .btn { align-self: flex-start; }

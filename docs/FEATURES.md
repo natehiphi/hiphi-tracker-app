@@ -358,8 +358,8 @@ https://claude.ai/artifact/FSzXqzhDcJggJtbhkoNX1d (REQUESTS R-147).
   (words 3, category 2, their order breaks ties); `withTitles` writes "As a parent and teacher, I support HB 1523.".
   Own titles are 'own:' + their words (40 characters). `tests/titles_test.mjs` (23 checks).
 - **The picker** (`pub/titlepick.js`): tap buttons, the student choice, "More titles", and a box that suggests as you type
-  and adds their own words (only the list redraws while typing, so a phone keyboard stays up). `compact` (the walkthrough):
-  someone with titles sees only theirs and "Add a title".
+  and adds their own words (only the list redraws while typing, so a phone keyboard stays up). Since R-156 the walkthrough
+  shows only their titles and "Add a title", which opens the picker in its add-only form.
 - **The letters** (`helper.js`): About you has the picker, a preview of the first line, "Use different titles for this
   letter" (two for this letter only, kept with the draft as `use`), their story as the reason when there is none for this
   bill (marked "Your story, from your profile. Change it to fit this bill.") and "Save this to my profile as my story".
@@ -370,6 +370,45 @@ https://claude.ai/artifact/FSzXqzhDcJggJtbhkoNX1d (REQUESTS R-147).
   HIPHI may quote it); Supporters' filter has "They are" (titles at least one supporter has), with the same filter in
   people_match (backend 127) so a saved segment counts the same at the send. Both staff data layers carry the filter.
 - `tests/profile.py` (31 checks, phone and laptop); `tests/alerts_ask.py` updated for More's first row.
+
+## The profile after its review (R-156; 5 Oct 2026; the review: https://claude.ai/artifact/7C9NPtvH8DTVCTsQEgRkcV)
+Nate 10/5, "Do it": all twelve recommendations of the review of R-147, as recommended (C1 as "choose the next ask"; D1 is
+R-155's sign-in by text code). Backend migration 130.
+- **The device and the account** (`kernel.js profileJoin`, `profileOnDevice`, both pure and tested): once a device has been
+  signed in to an account (`hiphi_me.acct`) it follows the account, so a story or titles cleared elsewhere stay cleared; a
+  profile made signed out fills only what the account lacks (name, titles, stories, help, quote choice, districts); another
+  account's leftovers are cleared; the account's districts win (the old town is dropped). Sign-out and deleting the account
+  take the profile off the device (`myprofile.js forgetProfileOnDevice`, the shared `PROFILE_KEYS`). One name everywhere
+  (`myName`: the account's, else the device's even when cleared, else the first visit's; a save updates the first visit's too).
+- **Titles:** a second title only when the bill's own words name it (`titles.js pickTwo`; the replay on 248 bills found the
+  off-topic second title on up to 142); own words that are a list title become it (`listKeyFor`). The picker (`titlepick.js`):
+  Enter picks the list title typed; a title typed but not added is kept on Save and on Next (`pendingTitle`); focus stays on
+  a chip and each change is said aloud; the listbox is always in the page; `addOnly` (the letter's "Add a title") only adds,
+  with "Done adding". The letter's chips change only that letter.
+- **Stories by topic** (people.stories, `myStories`, `storyFor`, `otherStory`, `STORY_ASK`): one for any issue and one per
+  category; a letter fills in the bill's topic's story, else the any-issue one; another topic's is offered ("Use your story
+  about …"), never filled in. The profile lists them, each with Change; "It's about" and the topic's own question; Remove
+  with Undo. After a letter is sent, someone with a profile and no story for the topic is asked for one sentence (their
+  reason in the box), once per topic.
+- **What the letter says** (`helper.js saysBox`): above the letter, titles, where they live and their story, each a tap to
+  leave out (`x.use = []`, `x.noLive`, `x.noWhy`, kept with the draft); a nudge to make the first line their own.
+- **Quote me** in three choices (interests 'quote' plus 'quote-name' or 'quote-media'; R-147's tick reads as first name and
+  island); staff see which, and staff edits keep it.
+- **How you'll help** says what each answer does; "I'd testify in person" puts "Testify in person" under the main button of
+  a hearing's card (`actions.js wantsInPerson`); "I have a story to share" left (Your story covers it).
+- **The profile named:** the first visit's last page (`start-rest.js`, with an account or a text number) and once after a
+  letter (`helper.js profileLine`).
+- **iPhone:** "Keep your profile on this iPhone" with the Add to Home Screen steps, once (`profile.js homeScreenNote`).
+- **Email code** (`phone.js EMAIL_CODES`, `verifyEmailCode`): "Or type the 6-digit code from the email" under the sign-in
+  page's "Check your inbox"; off until Supabase's Magic Link email carries `{{ .Token }}` (Nate's dashboard step); `&ecode`
+  in the practice copy.
+- **Small fixes:** initials skip the ʻokina; the bill page's quick email signs off with the town only to their own lawmakers
+  and says "your district" to a joint hearing's chairs only when both are theirs; Undo when titles are taken off; "Saved."
+  said aloud; Escape closes a section; a story over 600 characters is said to be cut.
+- **Counts** (kind only, backend 130): profile_titles, profile_story, letter_titled, letter_story, ask_shown, ask_acted,
+  home_how; the privacy page says so. **Staff:** Supporters' folded "Profiles" card (how many give titles, a story, may be
+  quoted; the list titles by use; the titles people wrote themselves), `DB.profileRollup` (backend `profile_rollup`).
+- Tests: `tests/profile.py` (73 checks), `tests/titles_test.mjs` (28), backend `test_130.js` (25).
 
 ## Sign in with a mobile number and a 6-digit code (R-155; 5 Oct 2026, switched off until texts are set up)
 Nate 10/5: someone who signed up with a number could not get in on a laptop (only an email signed anyone in). His "Yes" to

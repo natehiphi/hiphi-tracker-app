@@ -244,8 +244,8 @@ export default {
         ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}
         ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}
       </div>
-      ${segChips(v)}
       ${rollHTML()}
+      ${segChips(v)}
       <div id="sp-results">${resultsHTML(v)}</div>
       <input type="file" id="sp-file" accept=".csv,text/csv" hidden>
     </div>`;
@@ -311,11 +311,12 @@ function rollHTML() {
   if (!r) { if (!S.spRollKick) { S.spRollKick = true; DB.profileRollup().then(x => { S.spRoll = x; hooks.render(); }).catch(() => { S.spRollKick = false; }); } return ''; }
   if (!r.with_titles && !r.with_story) return '';
   const li = (label, n) => `<li><span>${label}</span><b>${n.toLocaleString()}</b></li>`;
-  return `<details class="card sp-roll"${S.spRollOpen ? ' open' : ''}><summary>${icon('user-round')}<span>Profiles: <b>${r.with_titles.toLocaleString()}</b> say who they are · <b>${r.with_story.toLocaleString()}</b> shared a story · <b>${r.quote.toLocaleString()}</b> may be quoted</span></summary>
+  // Above the segment chips and named "All supporters": it counts everyone, whatever the chips pick (the review).
+  return `<details class="card sp-roll"${S.spRollOpen ? ' open' : ''}><summary>${icon('user-round')}<span>All supporters: <b>${r.with_titles.toLocaleString()}</b> gave a title · <b>${r.with_story.toLocaleString()}</b> shared a story · <b>${r.quote.toLocaleString()}</b> may be quoted</span>${icon('chevron-down', { cls: 'sp-roll-chev' })}</summary>
     <div class="sp-roll-b">
       ${(r.list || []).length ? `<div><h3>Titles from the list</h3><ol class="sp-roll-l">${r.list.slice(0, 12).map(x => li(esc(titleLabel(x.k) || x.k), x.n)).join('')}</ol></div>` : ''}
       <div><h3>Titles people wrote themselves</h3>${(r.own || []).length ? `<ol class="sp-roll-l">${r.own.slice(0, 20).map(x => li(`“${esc(x.t)}”`, x.n)).join('')}</ol>` : '<p class="meta">None yet.</p>'}
-        <p class="meta">Before each session, any title 10 or more people wrote can join the list.</p></div>
+        <p class="meta">Before each session, a title 10 or more people wrote can join the list that everyone picks from. Tell Nate which.</p></div>
     </div></details>`;
 }
 function drawResults(root) {

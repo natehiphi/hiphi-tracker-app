@@ -29,7 +29,7 @@ export const myName = () => {
 export const myTitles = () => cleanTitles(signedIn() && Array.isArray(S.profile?.titles) ? S.profile.titles : loadMe().titles);
 // The story for any issue (people.story), and the stories kept per issue topic (R-156 B3, backend 130: people.stories,
 // { tobacco: '...', around: '...' }). A letter fills in the story for its bill's topic, else the any-issue one; a story
-// about another topic is offered, never filled in (so a vaping story never opens a crosswalk letter).
+// about another topic is offered, never filled in (so an e-cigarettes story never opens a crosswalk letter).
 export const myStory = () => String((signedIn() ? S.profile?.story : '') || (signedIn() && S.profile ? '' : loadMe().story) || '').trim();
 export const myStories = () => { const s = signedIn() && S.profile ? S.profile.stories : loadMe().stories;
   return Object.fromEntries(Object.entries(s && typeof s === 'object' ? s : {}).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, v.trim()])); };
@@ -44,7 +44,7 @@ export function otherStory(cats = []) { const st = myStories(), k = Object.keys(
 export const STORY_ASK = {
   '': 'What changed for you or your family?',
   food: 'Has the cost of food, or what’s in it, changed what your family eats?',
-  tobacco: 'Have vaping, smoking or drinking touched you or someone close to you?',
+  tobacco: 'Have e-cigarettes, smoking or drinking touched you or someone close to you?',
   care: 'Has getting care, or paying for it, been hard for you or your family?',
   family: 'Have rent, wages or time off changed what your family can do?',
   around: 'Is there a street, a crossing or a bus ride that worries you?',
@@ -96,7 +96,7 @@ export async function saveProfile(patch) {
       p.interests = [...new Set([...base, ...quoteKeys('quote' in patch ? dev.quote : quoteFrom(cur))])];
     }
     const { error } = await (await supa()).rpc('save_my_profile_v2', { p });
-    if (error) throw error;
+    if (error) throw saveErr(error);
   }
   saveMe({ ...dev, ...(signedIn() && S.user?.id ? { acct: S.user.id } : {}) });
   // The first visit's name (Home's greeting) follows, so clearing a name never brings back an old one.
@@ -115,6 +115,15 @@ export async function saveProfile(patch) {
   // Counted by kind only (E1): titles or a story saved that weren't there before.
   if ('titles' in dev && dev.titles.length && JSON.stringify(dev.titles) !== JSON.stringify(was.titles)) count('profile_titles');
   if (('story' in dev && dev.story && dev.story !== was.story) || ('stories' in dev && Object.entries(dev.stories).some(([k, v]) => was.stories[k] !== v))) count('profile_story');
+}
+// The account's refusals (backend 125, 130), each as a sentence (C-9); friendly() passes a plain sentence through.
+function saveErr(e) {
+  const m = String(e?.message || '');
+  const say = /no profile to save into/.test(m) ? 'Your profile isn’t ready on our side yet. Sign out and in again, then try once more.'
+    : /bad district/.test(m) ? 'Those districts don’t look right. Pick your address from the list again.'
+    : /too long/.test(m) ? 'That’s more than 600 characters. Shorten it a little, then save.'
+    : /too many/.test(m) ? 'That’s more than a profile can keep. Take one off, then save.' : '';
+  return say ? new Error(say) : e;
 }
 // One topic's story: '' is the story for any issue.
 export const saveStory = (topic, text) => topic ? saveProfile({ stories: { ...myStories(), [topic]: text } }) : saveProfile({ story: text });

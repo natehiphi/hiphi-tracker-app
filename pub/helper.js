@@ -52,7 +52,7 @@ import { flower } from './art.js';
 import { introMark } from './speakup.js';
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myName, myTitles, myStory, myStories, storyFor, otherStory, storyAsk, saveProfile } from './myprofile.js';   // R-147, R-156
+import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, saveProfile } from './myprofile.js';   // R-147, R-156
 import { pickTwo, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 
@@ -950,12 +950,12 @@ function letterScreen() {
   const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
   const again = againNotes(x);
   return `<div class="hp-top">${screenHead(2, 'Your letter')}
-      <p class="hp-sub" id="hp-lsub">${x.again && !x.update ? `Your ${x.again.rec.at ? `${esc(shortDay(x.again.rec.at))} ` : ''}letter, addressed to this hearing’s committee, chairs and date. Read it over and change anything you like.` : 'We wrote it from your answers. Read it over and change anything you like.'}</p></div>
+      <p class="hp-sub" id="hp-lsub">${x.again && !x.update ? `Your ${x.again.rec.at ? `${esc(shortDay(x.again.rec.at))} ` : ''}letter, addressed to this hearing’s committee, chairs and date. Read it over and change anything you like.` : 'We wrote it from your answers. Read it over, and make the first line your own: lawmakers notice letters in people’s own words.'}</p></div>
     ${welcomeBack()}
     ${again}
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this letter.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
-    ${saysBox(x)}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="14">${esc(x.letter)}</textarea>
+    ${saysBox(x)}
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${btn('Copy', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
@@ -969,16 +969,18 @@ function letterScreen() {
 const isMineLeg = l => { const d = myDistricts(); return !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house)); };
 function saysBox(x) {
   if (x.remind) return '';
-  const word = isMail(x) ? 'email' : 'letter', all = titlesOf(x), parts = [];
+  const all = titlesOf(x), parts = [];
   const usual = x.b ? pickTwo(all, aboutBill(x.b)) : all.slice(0, 2), two = twoFor(x);
   if (all.length) parts.push(['titles', asWords(two.length ? two : usual), two.length > 0]);
   if (isMail(x) ? x.mode === 'email' && x.to.some(t => isMineLeg(t.leg)) : !!liveLine(x.h)) parts.push(['live', isMail(x) ? 'You live in their district' : liveLine(x.h).replace(/\.$/, ''), !x.noLive]);
   const saved = [myStory(), ...Object.values(myStories())].includes(x.why.trim());
   if (x.why.trim() && !own2()) parts.push(['why', saved ? 'Your story' : 'Your reason', !x.noWhy]);
   if (!parts.length) return '';
-  return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">Your ${word} says</p>
-    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(l)}</span></button>`).join('')}</div>
-    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}Tap one to leave it out. Lawmakers notice ${word}s in people’s own words, so make the first line yours.</p></div>`;
+  // A part left out says so, with a plus to put it back (the review: a plain outline read as still in).
+  const out = parts.some(([, , on]) => !on);
+  return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">About you, in this ${isMail(x) ? 'email' : 'letter'}</p>
+    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${esc(l)}${on ? '' : ' · left out'}</span></button>`).join('')}</div>
+    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}</p></div>`;
 }
 // Delete the kept letter or email this one started from (B-5: with Undo), under the words.
 const forgetLink = x => x.again ? `<div class="hp-forget">${btn(`Delete this saved ${savedWord(x.again)}`, { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : '';
@@ -1001,7 +1003,7 @@ function mailLetterScreen() {
   const x = S.helper;
   const lsub = x.remind ? `${spaced(x.b.bill_number)} still has no hearing${hearingBy(x.b) ? `, and ${hearingBy(x.b)} is the last day for one` : ''}. Here’s a short follow-up${x.remindOf ? ` to your ${shortDay(x.remindOf)} email` : ''}. Change anything you like.`
     : x.again && !x.update ? 'Read it over and change anything you like.'
-    : 'We wrote it from your answers. Read it over and change anything you like.';
+    : 'We wrote it from your answers. Read it over, and make the first line your own: lawmakers notice emails in people’s own words.';
   return `<div class="hp-top">${screenHead(2, x.remind ? 'Your follow-up' : 'Your email')}
       <p class="hp-sub" id="hp-lsub">${lsub}</p></div>
     ${welcomeBack()}
@@ -1009,9 +1011,9 @@ function mailLetterScreen() {
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this email.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <div class="hp-to"><p class="hp-knh" id="hp-toh">To</p><ul class="hp-tol" role="list" aria-labelledby="hp-toh">${toList(x)}</ul></div>
     <div class="field"><label for="hp-subject">Subject</label><input id="hp-subject" name="subject" type="text" autocomplete="off" autocapitalize="sentences" value="${esc(x.subject)}"></div>
-    ${saysBox(x)}
     <div class="field hp-msgf"><label for="hp-letter">Message</label>
       <textarea id="hp-letter" class="hp-letter hp-mailbody" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="12">${esc(x.letter)}</textarea></div>
+    ${saysBox(x)}
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your message is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${btn('Copy message', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}</div>
     ${forgetLink(x)}`;
@@ -1083,7 +1085,10 @@ function acctScreen() {
 // The Capitol form's first two steps are the same for everyone; the rest depends on whose words go in the box.
 const CAPITOL_LOGIN = '<p>Log in, or make a free account. They email you a link to confirm. Do that first, then come back to the bill.</p>';
 const pickHearing = h => `<p>Choose <b>Submit Testimony</b> and pick the hearing on <b class="hp-nw">${esc(dateLong(h.scheduled_at))}</b>.</p>`;
-const formChoices = word => `<p>Choose: <b>${word}</b> · <b>Individual</b> · <b>Written testimony only</b>. Want to speak? Pick <b>In person</b> or <b>Zoom</b> instead.</p>`;
+// Someone who said "I'd testify in person" (their profile, R-156 C1) is told to pick In person; everyone else Written.
+const inPerson = () => myInterests().includes('testify');
+const formChoices = word => inPerson() ? `<p>Choose: <b>${word}</b> · <b>Individual</b> · <b>In person</b>, since you said you’d testify in person. Rather not this time? Pick <b>Written testimony only</b>.</p>`
+  : `<p>Choose: <b>${word}</b> · <b>Individual</b> · <b>Written testimony only</b>. Want to speak? Pick <b>In person</b> or <b>Zoom</b> instead.</p>`;
 const stepList = steps => `<ol class="card hp-steps" role="list">${steps.map((s, i) => `<li><span class="hp-n">${i + 1}</span><div class="hp-stxt">${s}</div></li>`).join('')}</ol>`;
 const capitolNotes = saved => `<div class="hp-notes">
     <p class="note">${icon('clock')}<span>The Capitol site logs you out after 60 minutes.${saved ? ' Your letter stays saved here.' : ''}</span></p>
@@ -1130,6 +1135,7 @@ function doneScreen() {
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
+      ${inPerson() && !held ? `<p>${icon('map-pin')} To speak in person: Hawaiʻi State Capitol, ${esc(roomLabel(h.room))}, ${esc(when)}. Arrive 15 minutes early.</p>` : ''}
       ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
@@ -1165,7 +1171,7 @@ function afterSend(x) {
   if (two.length && L.includes(aWords(two))) app.onAct?.('letter_titled');
   if ([myStory(), ...Object.values(myStories())].filter(Boolean).some(st => L.includes(st))) app.onAct?.('letter_story');
 }
-const followWords = (x, n) => x.followedIssue ? `We now follow ${esc(x.followedIssue.name)} for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
+const followWords = (x, n) => x.followedIssue ? `We now follow “${esc(x.followedIssue.name)}” for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
 // Someone who gave their email on the About you step has been asked already: they see where to finish, never a second
 // ask. Everyone else who is signed out gets the one email ask (plan 2.9), with its ids renamed so they never clash
 // with a copy on the page behind. A link that could not be sent is one quiet line with a way to try again.
@@ -1177,7 +1183,7 @@ function emailAsk(x) {
         ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
     : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
         ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
-    : S.nudge ? nudgeCard('action', 'hp-ng') : '';
+    : S.nudge && x.askStory !== 'ask' ? nudgeCard('action', 'hp-ng') : '';   // one ask on the Mahalo, never two (R-156)
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {

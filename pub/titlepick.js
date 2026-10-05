@@ -9,7 +9,7 @@
 // titles to add, so a tap there never takes a title off the profile; `pendingTitle(st)` lets a host keep words typed but
 // not added when the person saves.
 import { esc, icon } from './core.js';
-import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, isOwn, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
+import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
 
 const chip = (k, on, label = titleLabel(k)) => `<button type="button" class="chip tp-c" data-tp="${esc(k)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(label)}</span></button>`;
 const hasStudent = st => st.chosen.some(k => k === 'student-hs' || k === 'student-college');
@@ -108,4 +108,5 @@ export function wirePicker(root, pfx, st, onChange = () => {}) {
   paintList();
 }
 // A person's own title is shown as typed; a key that left the list never reaches here (titles.js cleanTitles).
-export const titleChips = keys => keys.length ? `<div class="chips tp-show">${keys.map(k => `<span class="chip info">${isOwn(k) ? icon('pencil') : ''}${esc(titleLabel(k))}</span>`).join('')}</div>` : '';
+// No pencil on their own words (the review: a pencil in a chip that can't be pressed looked like an edit button).
+export const titleChips = keys => keys.length ? `<div class="chips tp-show">${keys.map(k => `<span class="chip info">${esc(titleLabel(k))}</span>`).join('')}</div>` : '';

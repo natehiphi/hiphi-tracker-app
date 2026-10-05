@@ -34,7 +34,7 @@ const QUOTE_WORDS = { first: 'HIPHI may quote it with their first name and islan
 const quoteOf = p => { const i = p.interests || []; return !i.includes('quote') ? '' : i.includes('quote-media') ? 'media' : i.includes('quote-name') ? 'name' : 'first'; };
 const storiesOf = p => [...(p.story ? [['', p.story]] : []), ...Object.entries(p.stories || {}).filter(([, t]) => t)];
 const storyHTML = p => { const all = storiesOf(p); if (!all.length) return '';
-  return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(catByKey(k)?.name || k) : 'Any issue'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
+  return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(catByKey(k)?.name || k) : 'Any topic'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
 const dueAt = f => new Date(f.due + 'T17:00:00-10:00');   // a follow-up is due by the end of the working day, as in Today
 const P = () => S.spPerson ??= { feedAll: {}, billsAll: {}, loading: {} };
 const FROM = { today: 'Today', search: 'Search', emails: 'Emails', lists: 'Lists', list: 'List' };

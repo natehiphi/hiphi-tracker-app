@@ -71,9 +71,11 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const after = !asking && !compact && didKind(b, h, 'testimony') && !!nextStep(b, h), R = after && ranked();
   if (after) abRankMet(h.id);
   const step = R ? nextStep(b, h) : null;
-  const inPerson = !asking && !compact && !late && !didKind(b, h, 'attend') && new Date(h.scheduled_at) > Date.now() && !(R && step === 'attend') && wantsInPerson();
+  const inPerson = !asking && !late && !didKind(b, h, 'attend') && new Date(h.scheduled_at) > Date.now() && !(R && step === 'attend') && wantsInPerson();
   if (inPerson && !SHOWN.has(h.id)) { SHOWN.add(h.id); logAct('ask_shown'); }
-  const askBtn = inPerson ? btn('Testify in person', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'data-asked': '1', 'aria-expanded': S.goOpen.has(k) } }) + (S.goOpen.has(k) ? goPanel(b, h, k) : '') : '';
+  // Speaking in person goes through the same Capitol testimony form (In person chosen there), so this is about getting
+  // there, never a second way to testify (the review of R-156).
+  const askBtn = inPerson ? btn('When and where to go', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'data-asked': '1', 'aria-expanded': S.goOpen.has(k) } }) + (S.goOpen.has(k) ? goPanel(b, h, k) : '') : '';
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
@@ -116,7 +118,6 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    ${inPerson ? `<p class="why">${icon('user')}<span>You said you’d testify in person. Here’s how for this hearing.</span></p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}

@@ -77,6 +77,27 @@ export async function verifyCode(d, code, { add = !!S.session } = {}) {
   return { signedIn: true };
 }
 
+// Email sign-in by code (R-156 D2, the review): the email with the sign-in link also carries a 6-digit code, for work email
+// whose scanners use the link up before the person taps it, and for an iPhone whose links open outside the Home Screen
+// app. It needs {{ .Token }} in Supabase's Magic Link email (Authentication > Emails), Nate's dashboard step: until then
+// EMAIL_CODES stays false and the page offers no code it cannot keep. The sandbox shows it with &ecode.
+export const EMAIL_CODES = false;
+export const emailCodesOn = () => DEMO ? new URLSearchParams(location.search).has('ecode') : EMAIL_CODES;
+export async function verifyEmailCode(email, code) {
+  const token = String(code || '').replace(/\D/g, '');
+  if (token.length !== 6) throw plain('Enter the 6 digits from the email.');
+  if (DEMO) return { demo: true };
+  const sb = await supa();
+  S.quietAuth = true;   // as verifyCode: the page goes on where it was
+  try {
+    const { data, error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    if (error) throw (/expired|invalid/i.test(String(error.message || '')) || error.code === 'otp_expired' ? plain('That code didn’t work, or it has expired. Check the newest email, or send a new link.') : error);
+    if (data?.session) S.session = data.session;
+    if (!S.session) throw plain('That didn’t sign you in. Try again.');
+  } finally { S.quietAuth = false; }
+  await loadUser();
+  return { signedIn: true };
+}
 // The account's own number, when it signed in with one (Supabase keeps it as 18085550123).
 export function myNumber() {
   const p = String(S.session?.user?.phone || '').replace(/\D/g, '');
