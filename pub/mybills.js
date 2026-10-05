@@ -337,7 +337,7 @@ function render() {
   const lists = (S.lists || []).filter(l => S.listFollows.has(l.id));
   if (lists.length && !off) loadFollowedLists(lists);
   // Issues, by category, each once: under its own category, or under the followed category that brought it (the DUI
-  // limit lives in Tobacco, E-cigarettes & Alcohol but also comes with all of Getting Around Safely). In each, the issues
+  // limit lives in Tobacco, Nicotine & Alcohol but also comes with all of Getting Around Safely). In each, the issues
   // with bills moving (between sessions: with bills last session) come first; the rest fold away, as on a category's
   // page, unless there is nothing else to show.
   const iss = followedIssues(), homeOf = i => S.catFollows.has(i.category) ? i.category : (i.categories || []).find(k => S.catFollows.has(k)) || i.category;

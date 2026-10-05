@@ -28,9 +28,9 @@ const TOPICS = [
       { key: 'sugary',       name: 'Sugary drinks', re: /sugary drink|soda/i },
       { key: 'grocery',      name: 'Grocery costs', re: /grocer|excise tax on|period products/i },
     ] },
-  { key: 'tobacco', name: 'Tobacco, E-cigarettes & Alcohol', icon: 'cigarette',
-    desc: 'Keeping tobacco and e-cigarettes from kids, and alcohol policy that puts health first.', subs: [
-      { key: 'tobacco-vaping', name: 'Tobacco & e-cigarettes', re: /tobacco|vape|nicotine|cigarette|smoking/i },
+  { key: 'tobacco', name: 'Tobacco, Nicotine & Alcohol', icon: 'cigarette',
+    desc: 'E-cigarettes, flavors, taxes and drunk driving.', subs: [
+      { key: 'tobacco-vaping', name: 'Tobacco & nicotine', re: /tobacco|vape|nicotine|cigarette|smoking/i },
       { key: 'alcohol',        name: 'Alcohol & impaired driving', re: /dui|liquor|alcohol|blood alcohol|substance misuse/i },
     ] },
   { key: 'care', name: 'Health Care & Rights', icon: 'heart-pulse',
