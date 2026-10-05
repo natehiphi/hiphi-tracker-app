@@ -39,8 +39,8 @@ export default {
     const box = document.createElement('template'); box.innerHTML = tracker(b, x);
     status.replaceWith(box.content);
     const trk = root.querySelector('.a-track');
-    // Said once (A-14): the tracker says "Stopped this session", so the chip above it goes; and "Part of Disposable vape
-    // ban" under a bill called Disposable vape ban keeps only its follow toggle.
+    // Said once (A-14): the tracker says "Stopped this session", so the chip above it goes; and "Part of Disposable e-cigarette
+    // ban" under a bill called Disposable e-cigarette ban keeps only its follow toggle.
     root.querySelectorAll('.bl-head .chip').forEach(c => { if (s0(b).stopped && /Stopped this session/.test(c.textContent)) c.remove(); });
     const iss = root.querySelector('.bl-issue a'); if (iss && nick(b) && iss.textContent.trim() === nick(b).trim()) iss.closest('.bl-issue').classList.add('a-same');
     if (!WIDE.matches && act && x.act) {

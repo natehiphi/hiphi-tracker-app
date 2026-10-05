@@ -594,8 +594,14 @@ Public text targets **Flesch–Kincaid grade 8 or below**; `tests/checks.py` alr
 the bill number. No jargon without its plain equivalent first — not "referral", "crossover",
 "deferred", or "measure", unless the plain words come first.
 
+**HIPHI's own terms (Nate 10/5, R-158): "e-cigarettes", never "vape", "vapes" or "vaping"**, in
+issue and bill names, summaries, talking points, hints, examples and demo data, on the public page and
+in both staff apps. The Legislature's own titles stay as written, and search still treats "vape" as a
+match (`pub/find.js` SYN), because people type it.
+
 *Reason.* Grade 8 is the GOV.UK/NHS standard for public information, and Hawaiʻi's legislative
-vocabulary is a second language even for people who vote in every election.
+vocabulary is a second language even for people who vote in every election. The e-cigarette rule is
+HIPHI's: one name for the product in everything it publishes.
 
 ### C-11 The first screen is the whole argument
 

@@ -28,7 +28,7 @@ os.makedirs(OUT, exist_ok=True)
 FOLLOWS = ["f707d3fd-f830-491c-8f46-06dcfd847cbf", "5aa2ef38-47b1-4376-a41d-39983afe15d3",
            "4cd8463b-a73c-4bc8-b6ef-55a285ecc388", "7d6caa6e-9e33-4cda-a45b-43b94e2c6dc4"]
 # ...and one followed ISSUE (R-018: people follow issues; the four bills above are ones followed on their own).
-ISSUE = "66a32660-b0a7-4a90-a71f-231963619b44"   # the disposable vape ban; re-pick by slug if the snapshot is rebuilt
+ISSUE = "66a32660-b0a7-4a90-a71f-231963619b44"   # the disposable e-cigarette ban; re-pick by slug if the snapshot is rebuilt
 SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
         "localStorage.setItem('hiphi_issue_follows_demo', %s);"
         "localStorage.setItem('hiphi_wiz', JSON.stringify({done:true, issues:['vaping']})); } catch (e) {}"
@@ -41,7 +41,7 @@ PUB = [
   ('mybills',     '/bills',        'an issue you follow',  '.fd-irow, .mb-row, .mb-main'),
   ('find',        '/find',         'a way in',             '.fd-row, .fd .row, .fd-issue'),
   ('category',    '/find/category/food', 'its first issue', '.fd-irow'),
-  ('issue',       '/issue/disposable-vape-ban', 'what the issue is', '.fd-ihead .lede'),
+  ('issue',       '/issue/disposable-e-cigarette-ban', 'what the issue is', '.fd-ihead .lede'),
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
   ('legislators', '/legislators',  'your island',          '.pp-isle'),
   ('more',        '/more',         'the first choice',     '.mr-me, .mwrow, .mr .row'),   # since R-147 the person (or Make your profile) comes first

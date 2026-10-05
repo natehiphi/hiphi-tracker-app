@@ -11,7 +11,7 @@ pos = {b['id'] for b in snap['bills'] if b.get('position') and b['position'] != 
 FOLLOW = list(dict.fromkeys(h['bill_id'] for h in snap['hearings'] if h['scheduled_at'] > '2026-03-15T00:00:00' and h['bill_id'] in pos))[:6]
 WAITING = [b['id'] for b in snap['bills'] if b['bill_number'] in ('HB1563', 'HB1732')]
 NONICK = next(b['bill_number'] for b in snap['bills'] if not b.get('nickname') and b.get('is_public') and b.get('tracked'))   # a bill HIPHI only watches has no nickname
-VAPE = next(i['id'] for i in snap.get('issues', []) if i['slug'] == 'disposable-vape-ban')   # an issue (063, R-018)
+VAPE = next(i['id'] for i in snap.get('issues', []) if i['slug'] == 'disposable-e-cigarette-ban')   # an issue (063, R-018)
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 COMMUNITY = re.compile(r'people have spoken up|HIPHI community|Together, |join the count|actions count|community total', re.I)
@@ -214,7 +214,7 @@ with sync_playwright() as pw:
     p.locator('[data-bl-tour]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the story, on the bill they opened ({p.evaluate('location.hash')})")
     fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(1500)
-    ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable vape ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
+    ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable e-cigarette ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
     p.locator('#fx-mgo').click(); p.wait_for_timeout(2000)
     ok(p.locator('.st-alertspage').count() == 1, f"then the alerts on that issue (R-146) ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
@@ -262,8 +262,8 @@ with sync_playwright() as pw:
     for name, h in (('bills', '/bills'), ('find', '/find'), ('search', '/find?q=vape'), ('bill', '/bill/HB2121'), ('bill_nonick', '/bill/' + NONICK), ('bill_late', '/bill/HB1562'), ('legislators', '/legislators'), ('more', '/more'), ('help', '/help'), ('signin', '/signin'), ('privacy', '/privacy')):
         visit(p, h, wait=2800); std(p, name, axe=name in ('bill', 'find', 'signin')); shot(p, 'p_' + name, full=True)
     visit(p, '/bill/HB2121', wait=2800); tb = text(p)
-    ok(re.search(r'where do you stand', tb, re.I) is not None, 'bill page asks where you stand'); ok('Disposable vape ban' in tb, 'bill page leads with the nickname')
-    visit(p, '/find?q=vape', wait=2800); ok('Disposable vape ban' in text(p), 'search finds a bill by its nickname')
+    ok(re.search(r'where do you stand', tb, re.I) is not None, 'bill page asks where you stand'); ok('Disposable e-cigarette ban' in tb, 'bill page leads with the nickname')
+    visit(p, '/find?q=vape', wait=2800); ok('Disposable e-cigarette ban' in text(p), 'search finds a bill by its nickname, "vape" finding the e-cigarette bills (R-158)')
     visit(p, '/bill/' + NONICK, wait=2800); h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''"); ok(len(h1) > 10, f'a bill without a nickname still has a plain headline ({NONICK}: "{h1[:50]}")')
     visit(p, '/bill/HB1563', wait=2800); ok('Let counties regulate tobacco sales' in text(p), 'an approved nickname from the snapshot leads the bill page (HB 1563)')
     # ---- "Your issues" with three categories (R-039): every category starts open, one ticked in the top group is named
@@ -285,11 +285,13 @@ with sync_playwright() as pw:
     visit(p, '/find', wait=2800); tf = text(p); ok('Food & Nutrition' in tf and 'Getting Around Safely' in tf, 'Find browses the six categories')
     visit(p, '/find/category/food', wait=2800); tc = text(p); std(p, 'category', axe=True); shot(p, 'p_category', full=True)
     ok('Follow all' in tc and p.locator('[data-fdissue]').count() >= 3, f"a category page lists its issues, each with its own Follow ({p.locator('[data-fdissue]').count()})")
-    visit(p, '/issue/disposable-vape-ban', wait=3000); ti = text(p); std(p, 'issue', axe=True); shot(p, 'p_issue', full=True)
+    visit(p, '/issue/disposable-e-cigarette-ban', wait=3000); ti = text(p); std(p, 'issue', axe=True); shot(p, 'p_issue', full=True)
     h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
-    ok('vape' in h1.lower() and 'HB 2121' in ti, f'an issue page names the issue and lists its bills ("{h1}")')
+    ok('e-cigarette' in h1.lower() and 'HB 2121' in ti, f'an issue page names the issue and lists its bills ("{h1}")')
     p.locator('[data-fdissue]').first.click(); p.wait_for_timeout(1500)
     ok(VAPE in p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]')"), 'following an issue from its page saves the issue')
+    visit(p, '/issue/disposable-vape-ban', wait=2500)   # the address before the rename (R-158, FORMER_SLUGS) still opens it
+    ok('e-cigarette' in p.evaluate("document.querySelector('main h1')?.innerText || ''").lower(), 'an issue\'s old address opens the renamed issue')
     visit(p, '/bills', wait=2800); tm = text(p); std(p, 'myissues', axe=True); shot(p, 'p_myissues', full=True)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'My issues' and h1 in tm, 'My issues lists the followed issue')
     visit(p, '/bill/HB2121', wait=2800); ok(re.search(r'Part of', text(p)) is not None and h1 in text(p), 'a bill page names the issue it belongs to')

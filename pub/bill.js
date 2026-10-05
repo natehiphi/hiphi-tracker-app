@@ -567,7 +567,7 @@ function plainHead(b) {
   if (d) { const m = /^(.{20,220}?[.!?])(\s|$)/.exec(d); return m ? m[1] : blurb(b, 170); }
   return `A bill about ${titleCase(b.title || 'a Hawaiʻi issue').replace(/^relating to\s+/i, '').replace(/[.\s]+$/, '')}`;
 }
-// The name leads when the bill has one ("Disposable vape ban"), with what it does right under it. The number stays in
+// The name leads when the bill has one ("Disposable e-cigarette ban"), with what it does right under it. The number stays in
 // the top bar. The official "Relating to…" title never shows up here, so the lede is only ever a summary.
 function head(b, x) {
   const p = posInfo(b), name = nick(b), mine = myStance(b.id);
@@ -813,7 +813,7 @@ function page(num, b) {
 }
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
-const missing = (num, year) => `<div class="empty bl-empty">${icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like vaping.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
+const missing = (num, year) => `<div class="empty bl-empty">${icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
 const failed = () => `<div class="empty bl-empty" role="alert">${icon('circle-alert', { size: 40 })}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
 
 // ---------------- actions ----------------

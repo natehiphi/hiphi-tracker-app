@@ -15,7 +15,7 @@ HLT = 'd58d4bdb-6322-47d0-8852-b36eeb8b3c4e'      # House Health, 18 Feb
 CPN = '6585adbd-60ab-4eb3-a0b7-303405b87be5'      # Senate Health and Commerce, 20 Mar
 def plant(**kw):
     L = { 'v': 1, 'bill': HB2121, 'num': 'HB2121', 'nick': '', 'yr': 2026, 'h': HLT, 'code': 'HLT', 'at': '2026-02-18T20:00:00.000Z', 'sent': '2026-02-17T20:00:00.000Z',
-          'draft': 'HD1', 'stance': 'support', 'ours': True, 'pos': 'strongly_support', 'name': 'Test Person', 'why': 'My kids see vapes at school.',
+          'draft': 'HD1', 'stance': 'support', 'ours': True, 'pos': 'strongly_support', 'name': 'Test Person', 'why': 'My kids see e-cigarettes at school.',
           'points': [], 'pointsText': '', 'closing': 'Mahalo', 'letter': '', 'edited': False }
     L.update(kw)
     me = { 'name': 'Test Person', 'capitolAcct': True, 'letters': { HB2121: L } }
@@ -62,7 +62,7 @@ with sync_playwright() as p:
         pg.click('[data-hp="again-update"]'); pg.wait_for_timeout(500)
         t = body(pg)
         ok('Update your letter' in t and 'HIPHI’s advice' in t, f'{tag}: going over it again walks the bill step with HIPHI’s advice at the top')
-        ok('Disposable vapes are easy' in pg.locator('#hp-pts').input_value(), f'{tag}: their points are in the box')
+        ok('Disposable e-cigarettes are easy' in pg.locator('#hp-pts').input_value(), f'{tag}: their points are in the box')
         pg.click('[data-hp="next"]'); pg.wait_for_timeout(400)
         ok('As a parent of two teenagers' in pg.locator('#hp-why').input_value(), f'{tag}: their reason is filled in')
         pg.locator('#hp-form button[type=submit], .hp-foot button[type=submit]').first.click(); pg.wait_for_timeout(500)
@@ -89,7 +89,7 @@ with sync_playwright() as p:
         c.close()
 
         # ---- a letter rewritten by hand keeps every word; its top and greeting are this hearing's ----
-        mine = 'Testimony in SUPPORT of HB 2121\nHouse Health Committee\nHearing: Wed, Feb 18, 2026 at 10:00 AM, Room 329\n\nDear Chair Takayama, Vice Chair Keohokapu-Lee Loy, and members of the committee,\n\nI strongly support HB 2121. My name is Test Person.\n\nI said this to you on Wed, Feb 18 and I say it again: my kids see vapes at school.\n\nMahalo,\nTest Person'
+        mine = 'Testimony in SUPPORT of HB 2121\nHouse Health Committee\nHearing: Wed, Feb 18, 2026 at 10:00 AM, Room 329\n\nDear Chair Takayama, Vice Chair Keohokapu-Lee Loy, and members of the committee,\n\nI strongly support HB 2121. My name is Test Person.\n\nI said this to you on Wed, Feb 18 and I say it again: my kids see e-cigarettes at school.\n\nMahalo,\nTest Person'
         c, pg, errs = ctx_for(plant(draft='HD2', letter=mine, edited=True), route=no_tick); open_again(pg)
         pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(500)
         letter = pg.locator('#hp-letter').input_value()
@@ -114,7 +114,7 @@ with sync_playwright() as p:
         c.close()
         # the card says when they wrote; the button says it is ready (A-14)
         c, pg, errs = ctx_for(plant(), route=no_tick)
-        pg.goto(BASE + '/track.html?demo=1#/issue/disposable-vape-ban'); pg.wait_for_timeout(3000)
+        pg.goto(BASE + '/track.html?demo=1#/issue/disposable-e-cigarette-ban'); pg.wait_for_timeout(3000)
         card = pg.locator('.acard:has(.again)').first
         ok(card.count() == 1 and 'You wrote testimony on this bill on Feb 18.' in card.inner_text() and 'Send my letter again' in card.inner_text(), f'{tag}: the card says when they wrote, and its button "Send my letter again"')
         ok(not errs, f'{tag}: no page errors (cases) ' + '; '.join(errs[:2])); c.close()

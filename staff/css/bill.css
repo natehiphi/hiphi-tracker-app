@@ -18,7 +18,7 @@
 
 /* ---- header ---- */
 .bw-head { padding-top: var(--s4); }
-/* The name: a nickname ("Disposable vape ban") or the subject is short and reads as a title; a plain summary is a
+/* The name: a nickname ("Disposable e-cigarette ban") or the subject is short and reads as a title; a plain summary is a
    sentence, so it is set a size smaller. Under a nickname the summary follows as the second line. */
 .bw-title { font: 700 var(--t18)/1.3 var(--font); color: var(--n900); max-width: 40em; overflow-wrap: anywhere; }
 .bw-title.bw-long { font-size: var(--t16); line-height: 1.4; }

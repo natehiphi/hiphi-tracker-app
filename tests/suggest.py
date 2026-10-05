@@ -43,13 +43,13 @@ with sync_playwright() as pw:
     for (w, h, touch) in [(1280, 800, False), (1440, 900, False), (1024, 768, False), (1024, 768, True)]:
         tag = f'{w}x{h}{" touch" if touch else ""}'
         c, p = ctx(b, w, h, touch); visit(p, '/more')
-        typein(p, 'vap'); s = state(p)
-        ok(s['open'] and s['expanded'] == 'true', f'{tag}: typing "vap" opens the list')
+        typein(p, 'e-cig'); s = state(p)
+        ok(s['open'] and s['expanded'] == 'true', f'{tag}: typing "e-cig" opens the list')
         ok(s['groups'][:1] == ['Issues'], f'{tag}: issues first {s["groups"]}')
         titles = [o['t'] for o in s['opts'] if not o.get('other')]; ok(len(titles) == len(set(titles)), f'{tag}: no issue or HIPHI bill listed twice (A-14) {titles}')
         ok(3 <= len(s['opts']) <= 8, f'{tag}: seven rows at most, plus See all ({len(s["opts"])})')
-        ok(s['opts'] and s['opts'][-1]['t'] == 'See all results for “vap”' and s['opts'][-1]['href'] == '#/find?q=vap', f'{tag}: the last row is See all results')
-        ok(any(re.search(r'vap', o['t'], re.I) for o in s['opts']), f'{tag}: a vaping issue or bill is offered')
+        ok(s['opts'] and s['opts'][-1]['t'] == 'See all results for “e-cig”' and s['opts'][-1]['href'] == '#/find?q=e-cig', f'{tag}: the last row is See all results')
+        ok(any(re.search(r'e-cig', o['t'], re.I) for o in s['opts']), f'{tag}: an e-cigarette issue or bill is offered')
         r = s['rect']; ok(r and r[0] >= 0 and r[1] <= s['w'] and r[3] <= s['h'], f'{tag}: the list is inside the window {r}')
         ok(s['scroll'][0] <= s['scroll'][1] + 1, f'{tag}: nothing in the list is scrolled out of sight {s["scroll"]}')
         ok(all(o['hgt'] >= 44 for o in s['opts']), f'{tag}: every row is 44px or taller {[round(o["hgt"]) for o in s["opts"]]}')
@@ -58,14 +58,14 @@ with sync_playwright() as pw:
         bills = [o for o in s['opts'] if o['href'].startswith('#/bill/')]
         ok(all(re.match(r'[A-Z]+ \d+', o['s']) and o['beside'] and o['hgt'] <= 70 for o in bills), f'{tag}: a bill row has its number beside its name, two lines at most {[(o["s"], round(o["hgt"])) for o in bills]}')
         ok(abs(s['rect'][2] - s['hdr']) <= 1, f'{tag}: the list starts on the header line ({s["rect"][2]} vs {s["hdr"]})')
-        if w == 1280 and not touch: p.screenshot(path=f'{OUT}/vap_{w}.png')
+        if w == 1280 and not touch: p.screenshot(path=f'{OUT}/ecig_{w}.png')
         # keys: Down highlights the first row, again the second, Up twice goes back to the box
         p.keyboard.press('ArrowDown'); s1 = state(p); p.keyboard.press('ArrowDown'); s2 = state(p)
         ok(s1['ad'] == s1['opts'][0]['id'] and s1['opts'][0]['sel'] == 'true', f'{tag}: Down highlights the first row')
         ok(s2['ad'] == s2['opts'][1]['id'] and s2['opts'][0]['sel'] == 'false', f'{tag}: Down again moves to the second')
         p.keyboard.press('ArrowUp'); p.keyboard.press('ArrowUp'); s3 = state(p)
         ok(not s3['ad'] and s3['open'], f'{tag}: Up from the first row goes back to the box, list still open')
-        if w == 1280 and not touch: p.keyboard.press('ArrowDown'); p.wait_for_timeout(100); p.screenshot(path=f'{OUT}/vap_{w}_down.png'); p.keyboard.press('ArrowUp')
+        if w == 1280 and not touch: p.keyboard.press('ArrowDown'); p.wait_for_timeout(100); p.screenshot(path=f'{OUT}/ecig_{w}_down.png'); p.keyboard.press('ArrowUp')
         # Enter on a highlighted row opens it
         p.keyboard.press('ArrowDown'); first = state(p)['opts'][0]['href']; p.keyboard.press('Enter'); p.wait_for_timeout(900); s = state(p)
         ok(s['hash'] == first and not s['open'] and s['value'] == '', f'{tag}: Enter opens the highlighted row ({first} -> {s["hash"]}), box emptied')
@@ -79,10 +79,10 @@ with sync_playwright() as pw:
         # two letters say too little; three open it
         visit(p, '/more'); typein(p, 'sb'); ok(not state(p)['open'], f'{tag}: two letters do not open the list')
         # Esc closes and keeps the words; Enter with nothing highlighted goes to the full results, as before
-        typein(p, 'vap'); p.keyboard.press('Escape'); s = state(p)
-        ok(not s['open'] and s['expanded'] == 'false' and s['value'] == 'vap', f'{tag}: Esc closes the list and keeps the words')
-        typein(p, 'vap'); p.keyboard.press('Enter'); p.wait_for_timeout(1200); s = state(p)
-        ok(s['hash'] == '#/find?q=vap' and not s['open'], f'{tag}: Enter with nothing highlighted shows all results ({s["hash"]})')
+        typein(p, 'e-cig'); p.keyboard.press('Escape'); s = state(p)
+        ok(not s['open'] and s['expanded'] == 'false' and s['value'] == 'e-cig', f'{tag}: Esc closes the list and keeps the words')
+        typein(p, 'e-cig'); p.keyboard.press('Enter'); p.wait_for_timeout(1200); s = state(p)
+        ok(s['hash'] == '#/find?q=e-cig' and not s['open'], f'{tag}: Enter with nothing highlighted shows all results ({s["hash"]})')
         # on Find itself the results under the page's box are the list
         typein(p, 'meals', 700); s = state(p)
         ok(not s['open'] and 'q=meals' in s['hash'], f'{tag}: no list on Find; its own results follow the header box ({s["hash"]})')
@@ -94,8 +94,8 @@ with sync_playwright() as pw:
         ok('Other bills' in s['groups'] and oth and all(o['href'].startswith('#/bill/') for o in oth), f'{tag}: "water" lists other bills too {s["groups"]}')
         if w == 1280 and not touch: p.screenshot(path=f'{OUT}/water_{w}.png')
         # a word that names a policy lists it once: the issue, not its House and Senate bills beside it
-        typein(p, 'disposable vape'); s = state(p); names = [o['t'] for o in s['opts']]
-        ok(names.count('Disposable vape ban') == 1 and not any(o['href'].startswith('#/bill/') and o['t'] == 'Disposable vape ban' for o in s['opts']), f'{tag}: a policy is one row {names}')
+        typein(p, 'disposable vape'); s = state(p); names = [o['t'] for o in s['opts']]   # "vape" still finds the e-cigarette ban (R-158)
+        ok(names.count('Disposable e-cigarette ban') == 1 and not any(o['href'].startswith('#/bill/') and o['t'] == 'Disposable e-cigarette ban' for o in s['opts']), f'{tag}: a policy is one row {names}')
         # the pointer resting on one row and the keys moving: still one highlighted row
         typein(p, 'school meals'); rows = state(p)['opts']; p.locator(f'#{rows[2]["id"]}').hover(); p.keyboard.press('ArrowDown'); p.wait_for_timeout(100)
         lit = p.evaluate("[...document.querySelectorAll('.sg [role=option]')].filter(o => getComputedStyle(o).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(o).backgroundColor !== 'rgb(255, 255, 255)').length")
@@ -108,13 +108,13 @@ with sync_playwright() as pw:
         ok(state(p)['ad'] == opt3, f'{tag}: hovering a row highlights it')
         p.mouse.click(40, s['h'] - 40); p.wait_for_timeout(400); ok(not state(p)['open'], f'{tag}: clicking elsewhere closes the list')
         # a new page does not bring back words typed on the last one
-        typein(p, 'vap'); p.evaluate("location.hash = '#/bills'"); p.wait_for_timeout(1200); s = state(p)
+        typein(p, 'e-cig'); p.evaluate("location.hash = '#/bills'"); p.wait_for_timeout(1200); s = state(p)
         ok(s['value'] == '' and not s['open'], f'{tag}: another page starts with an empty box')
         c.close()
 
     # ---- a short laptop window: only the rows that fit, so nothing hides below a list that looks finished ----
     for (w, h) in [(1280, 600), (1366, 640)]:
-        c, p = ctx(b, w, h); visit(p, '/more'); typein(p, 'vap'); s = state(p)
+        c, p = ctx(b, w, h); visit(p, '/more'); typein(p, 'e-cig'); s = state(p)
         ok(s['open'] and s['scroll'][0] <= s['scroll'][1] + 1 and s['rect'][3] <= s['h'], f'{w}x{h}: the list fits without scrolling {s["scroll"]} bottom {s["rect"][3]}')
         ok(s['opts'][-1]['t'].startswith('See all results'), f'{w}x{h}: See all results is still the last row ({len(s["opts"])} rows)')
         if w == 1280: p.screenshot(path=f'{OUT}/short_{w}x{h}.png')
@@ -173,17 +173,17 @@ with sync_playwright() as pw:
     # ---- a phone: no header box (the magnifier opens Find, whose own results appear as you type) ----
     c, p = ctx(b, 390, 844); visit(p, '/more')
     ok(not p.locator('#hq').is_visible() and p.locator('.hsearchbtn').is_visible(), 'phone: the header has the magnifier, not a box')
-    visit(p, '/find'); p.locator('#q').fill('vap'); p.wait_for_timeout(1500)
+    visit(p, '/find'); p.locator('#q').fill('e-cig'); p.wait_for_timeout(1500)
     ok(not state(p)['open'] and p.locator('#fd-results .mb-row, #fd-results .fd-irow').count() > 0, 'phone: Find lists results as you type, no header list')
     c.close()
 
     # ---- the live site: issues at once, then bills from the database (read-only public views) ----
     c, p = ctx(b, 1280, 800); visit(p, '/more', demo=False, wait=4000)
-    typein(p, 'vap', 350); s0 = state(p)
+    typein(p, 'e-cig', 350); s0 = state(p)
     p.wait_for_function("() => document.querySelectorAll('.sg [role=option][href^=\"#/bill/\"]').length > 0", timeout=8000); s = state(p)
     ok(s0['open'], f'live: the list opens at once (issues: {len([o for o in s0["opts"] if "/issue/" in o["href"] or "/category/" in o["href"]])}; note "{s0["note"]}")')
     ok(any(o['href'].startswith('#/bill/') for o in s['opts']) and not s['note'], 'live: bills arrive from the database and the "Looking" note goes')
-    p.screenshot(path=f'{OUT}/live_vap_1280.png')
+    p.screenshot(path=f'{OUT}/live_ecig_1280.png')
     typein(p, 'sb2175', 350); p.wait_for_function("() => [...document.querySelectorAll('.sg .sg-s')].some(x => x.textContent.startsWith('SB 2175'))", timeout=8000)
     ok(state(p)['opts'][0]['s'].startswith('SB 2175'), 'live: "sb2175" puts SB 2175 first')
     # a new search keeps the list in place, dimmed, until its answer lands: no emptying and refilling (B-7)

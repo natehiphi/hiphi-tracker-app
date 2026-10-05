@@ -464,7 +464,7 @@ function followView(si) {
   const folded = all.filter(x => settledOn(x.b, x.h) && wasDone(x));
   let cards = all.filter(x => !folded.includes(x));
   // Twin bills as one card (R-131, the assessment's P7): a House bill and its Senate twin both open are one card, the
-  // sooner deadline leading and the twin named on it (the review 9/28: the two "Disposable vape ban" bills got two cards
+  // sooner deadline leading and the twin named on it (the review 9/28: the two "Disposable e-cigarette ban" bills got two cards
   // with opposite asks on one Home). actionCard reads the twin from S.hmTwins.
   S.hmTwins = new Map();
   for (const x of cards) {

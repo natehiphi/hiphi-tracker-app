@@ -20,7 +20,7 @@ const issueOf = {}; for (const i of Object.values(I)) for (const id of i.bill_id
 const bill = (id, pos = 'support', extra = {}) => ({ id, bill_number: 'HB' + id, hiphi_position: pos, coalitions: [], ...extra });
 const cand = (b, days = 5, h = 'h-' + b.id) => ({ b, hearing: { id: h }, due: NOW + days * DAY });
 const person = (o = {}) => ({ now: NOW, issuesOf: b => issueOf[b.id] ? [issueOf[b.id]] : [], catsOf: b => issueOf[b.id] ? issueOf[b.id].categories : [],
-  catName: k => ({ food: 'Food & Nutrition', tobacco: 'Tobacco, Vaping & Alcohol' })[k] || k,
+  catName: k => ({ food: 'Food & Nutrition', tobacco: 'Tobacco, E-cigarettes & Alcohol' })[k] || k,
   follows: new Set(), dismissed: new Set(), skips: new Set(), against: () => false,
   followCats: new Set(), pickedCats: new Set(), likedCoalitions: new Set(), actedCats: new Set(), seen: {}, people: () => null, ...o });
 const P = person();

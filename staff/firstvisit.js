@@ -50,8 +50,8 @@ const weekOf = w => new Date(String(w).slice(0, 10) + 'T12:00:00-10:00').toLocal
 const partnerBy = slug => (S.partners || []).find(p => p.slug === slug) || null;
 const slugOf = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
 const wordOf = t => String(t || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40);
-// A link can open on one issue or one bill instead of the first screen (R-067): a flyer about the vape ban can land on
-// the vape ban. The ?via= still counts the arrival under the partner. dest: '' | 'issue:<slug>' | 'bill:<HB2121>'.
+// A link can open on one issue or one bill instead of the first screen (R-067): a flyer about the e-cigarette ban can land on
+// the e-cigarette ban. The ?via= still counts the arrival under the partner. dest: '' | 'issue:<slug>' | 'bill:<HB2121>'.
 const destHash = d => { const [k, x] = String(d || '').split(':'); return k === 'issue' && x ? `#/issue/${encodeURIComponent(x)}` : k === 'bill' && x ? `#/bill/${billYear(x)}${x}` : ''; };
 // A bill from an earlier session carries its year in the link (#/bill/2026/HB2121, R-110); the current session's keep
 // the short form. The staff app holds the tracked bills, so a number it knows from an earlier session gets its year.

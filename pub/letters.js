@@ -37,7 +37,7 @@ const rankOf = (b, v) => v ? draftRank(b, v) + 100 : 0;
 export function draftNotes(b) {
   const cache = (S.draftNotes ??= new Map());
   if (!cache.has(b.id)) cache.set(b.id, (async () => {
-    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261004b', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); return (await S.demoDrafts).filter(d => d.bill_id === b.id); }
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); return (await S.demoDrafts).filter(d => d.bill_id === b.id); }
     const r = await (await supa()).from('public_bill_drafts').select('version,summary,changes_letters,letter_note').eq('bill_id', b.id);
     if (r.error) throw r.error;
     return r.data || [];

@@ -98,7 +98,7 @@ export function parseRoute(h = location.hash) {
     // again at HB 1 every January (R-110).
     // #/bill/HB1780/testify (or /email) opens the bill with its walkthrough already open: for emails, texts and the calendar feed (R-124).
     case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email'].includes(open) ? open : undefined }; }
-    // #/follow/vaping-free-schools,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
+    // #/follow/flavored-tobacco-ban,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
     case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean) };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
@@ -144,7 +144,7 @@ function header(route, scr) {
   const account = me ? `<a class="hbtn hacct" href="#/profile" aria-label="Your profile${me.name ? `, ${esc(me.name)}` : ''}">${avatar(me)}<span>${me.name ? esc(me.first) : 'Profile'}</span></a>`
     : DEMO ? '' : `<a class="hbtn hacct" href="#/signin?by=number">${icon('log-in')}<span>Sign in</span></a>`;
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin?by=number">Sign in</a>`)
-    : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: vaping, school meals" autocomplete="off" enterkeyhint="search"></form>
+    : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
   const nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : 'Sandbox · Mon, Mar 16, 2026 · nothing is saved'}</div>` : ''}
@@ -212,7 +212,7 @@ function focusKey(el) {
   return href ? { sel: `a[href="${CSS.escape(href)}"]` } : null;
 }
 const findByKey = k => { try { return $app().querySelector(k.sel); } catch { return null; } };
-const pathOf = h => String(h || '').split('?')[0];   // "#/find?q=vape" and "#/find" are the same page
+const pathOf = h => String(h || '').split('?')[0];   // "#/find?q=meals" and "#/find" are the same page
 function wireFrame() {
   // Plain <a href="#/..."> links push history on their own; keep them in-app and reset scroll.
   $app().querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => {
@@ -238,7 +238,7 @@ function wireFrame() {
     const source = q => { if (findMod) return findMod.headerSuggest(q); find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); }).catch(e => console.error(e)); return { groups: [] }; };
     const arm = () => suggestLoad().then(({ suggest }) => suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
       busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
-      empty: q => `No issues or bills match “${q}”. Try one word, like vaping, or a bill number.`,
+      empty: q => `No issues or bills match “${q}”. Try one word, like e-cigarettes, or a bill number.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } })).catch(e => console.error(e));
     if (suggestMod) arm(); else inp.addEventListener('focus', arm, { once: true }); }
 }

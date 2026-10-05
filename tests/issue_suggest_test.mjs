@@ -23,8 +23,8 @@ const hit = links.map(l => ({ l, b: snap.bills.find(x => x.id === l.bill_id) }))
   .map(x => ({ ...x, s: suggestIssue({ title: x.b.title, description: x.b.description }, { issues, billIssues: links.filter(l => l.bill_id !== x.b.id) }) }))
   .find(x => x.s && x.s.issue.id === x.l.issue_id);
 ok(hit && hit.s.words.length === 3 && hit.s.words.every(w => `${hit.b.title} ${hit.b.description}`.toLowerCase().replace(/[ʻ’']/g, '').includes(w)), `${hit && hit.b.bill_number} gets its own issue (${hit && hit.s.issue.name}), from its own words (${hit && hit.s.words.join(', ')})`);
-// 6. several issues about as close (a made-up vape bill): nothing is suggested rather than a coin toss
-ok(suggestIssue({ title: 'Relating to vapes', description: 'Bans the sale of disposable vapes, flavored electronic smoking devices and e-liquids to protect youth.' }, { issues, billIssues: [] }) === null, 'a bill close to several vape issues alike: no suggestion, staff pick');
+// 6. several issues about as close (a made-up e-cigarette bill, in the Legislature's own words): nothing is suggested rather than a coin toss
+ok(suggestIssue({ title: 'Relating to vapes', description: 'Bans the sale of disposable vapes, flavored electronic smoking devices and e-liquids to protect youth.' }, { issues, billIssues: [] }) === null, 'a bill close to several e-cigarette issues alike: no suggestion, staff pick');
 ok(wordsOf('Relating to Hawaiʻi schools and meals').join() === 'school,meal', `stop words and stems (${wordsOf('Relating to Hawaiʻi schools and meals').join()})`);
 // 5. the replay: each 2026 bill with an issue, by its words alone, with its own link hidden
 const byId = new Map(snap.bills.map(b => [b.id, b])); let named = 0, right = 0, n = 0;

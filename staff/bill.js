@@ -38,7 +38,7 @@ export function plainTitle(b) {
 }
 // The team's plain summary (one sentence a neighbour would understand), when someone has written it.
 export const summaryOf = b => String(b?.public_summary || '').trim();
-// What a bill is called on its page: the nickname when it has one ("Disposable vape ban"), else the plain summary,
+// What a bill is called on its page: the nickname when it has one ("Disposable e-cigarette ban"), else the plain summary,
 // else the subject of the official title. 574 of 734 bills share an official title with another ("Health", "Waste
 // management"), so that title is a detail line in Overview, never the heading.
 export const billName = b => String(b?.nickname || '').trim() || summaryOf(b) || plainTitle(b);

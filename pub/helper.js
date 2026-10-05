@@ -232,7 +232,7 @@ function reminderLetter(x) {
     `${before} I am writing once more because ${dl ? `its deadline is ${dl}` : 'its deadline is near'}.`, sentence(x.why), ask,
     [closingOf(x.closing), name].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
-// A bill in the introduction: "HB 1523 (Disposable vape ban)".
+// A bill in the introduction: "HB 1523 (Disposable e-cigarette ban)".
 const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
 // What the introduction lists (R-080 C): the issues they follow, the bills they took a stand on, and, as "following",
 // up to five more live bills on those issues (a long list of numbers is noise to a legislator's office).
@@ -786,7 +786,7 @@ function heads(pts) {
   const ws = pts.map(wordsOf);
   for (let k = 5; ; k++) {
     const hs = ws.map(w => w.slice(0, k).join(' ').toLowerCase());
-    // A short point's last word loses its full stop, so "Kids don't vape alone!" still counts.
+    // A short point's last word loses its full stop, so "Kids don't smoke alone!" still counts.
     if (new Set(hs).size === hs.length || ws.every(w => w.length <= k)) return ws.map(w => w.slice(0, k).map((x, i, a) => i === a.length - 1 ? x.replace(/[.!?…,;:"”’)]+$/, '') || x : x));
   }
 }

@@ -770,7 +770,7 @@ function snapshotScenario(snap) {
 }
 let DEMO_TL = [];
 async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261004a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261005a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -3382,7 +3382,7 @@ function renderAdd() {
   // below it the queue of new bills nobody has decided on yet (the old Triage).
   return `<div class="addbill">
     <div class="dashhead"><h1>New bills</h1><span class="sub">Find any bill, or decide on new ones.</span></div>
-    <input type="search" id="addq" placeholder="Search every introduced bill: SB123, vaping, school meals…">
+    <input type="search" id="addq" placeholder="Search every introduced bill: SB123, e-cigarettes, school meals…">
     <div class="results" id="addresults"></div>
   </div>
   ${renderTriage(true)}`;
@@ -3885,7 +3885,7 @@ function drawerHTML(b) {
           <label>Email followers</label>
           <div class="typechips"><button data-alertnew="b:${b.id}" ${b.is_public && b.position !== 'monitor' ? '' : 'disabled title="Make the bill public first"'}>✉ Write an action alert</button><span class="tok" style="margin-left:8px">to the people following this bill who asked for action alerts · needs a second person’s approval</span></div>
           <label for="d-nick">Nickname <span class="tok" id="d-nick-n" style="margin-left:6px;font-weight:400">${(b.nickname || '').length} of 40</span></label>
-          <input type="text" id="d-nick" maxlength="40" autocomplete="off" placeholder="A short everyday name people can say, like: Disposable vape ban" value="${esc(b.nickname || '')}">
+          <input type="text" id="d-nick" maxlength="40" autocomplete="off" placeholder="A short everyday name people can say, like: Disposable e-cigarette ban" value="${esc(b.nickname || '')}">
           <label for="d-psum">Plain-language summary</label>
           <textarea id="d-psum" maxlength="280" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(b.public_summary || '')}</textarea>
           <label for="d-pact">Take Action ask</label>
