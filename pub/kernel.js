@@ -522,10 +522,11 @@ export const readyForSession = () => !!wiz().ready && !followsAnything() && sess
 export const yearPrefix = b => b && b.session_year && +b.session_year !== sessionInfo().yr ? `${b.session_year}/` : '';
 export const billRef = b => yearPrefix(b) + String(b.bill_number).replace(/\s/g, '');
 export const billPath = b => '#/bill/' + billRef(b);
-// The address to share a bill at (R-067, R-113): a bill HIPHI has a position on has its own share page (b/HB2121, or
-// b/2026/HB2121 for an earlier session; built daily by tools/share_pages.mjs), so a link pasted into a text or a post
-// previews with the bill's name, and the friend's arrival counts as a share (?via=share); 404.html catches a page not
-// built yet. Other bills, and the sandbox, share the tracker's own address. An issue has i/<slug> the same way.
+// The address to share a bill at (R-067, R-113, R-169): a bill HIPHI has a position on has its own share pages (b/HB2121,
+// or b/2026/HB2121 for an earlier session, and one per ask, b/HB2121-testify; tools/share_pages.mjs, hourly in session),
+// so a link pasted into a text or a post previews with the ask and the bill's name, opens the ask, and the friend's
+// arrival counts as a share (?via=share); 404.html catches a page not built yet. Other bills, and the sandbox, share the
+// tracker's own address (core.js billShareUrl). An issue has i/<slug> the same way.
 export const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');   // "HB1563" -> "HB 1563"
 // Asking a chair for a hearing is remembered per committee, so a bill asked about in its House committee is offered
 // again when it later waits in the Senate. The email itself is still the person's action under the usual key

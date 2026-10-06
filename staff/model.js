@@ -262,8 +262,10 @@ export function parseTrackerCsv(text) {
 export const unslack = t => String(t || '').replace(/<([^|>]+)\|([^>]+)>/g, '$2').replace(/<([^>]+)>/g, '$1').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
 export const billById = id => S.bills.find(b => b.id === id);
 // The bill's own share page on the public site (b/HB2121, or b/2026/HB2121 for an earlier session; R-110, R-117): pasted
-// into a text or a post it previews with the bill's name, and the friend's arrival counts as a share.
-export const sharePageUrl = b => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
+// into a text or a post it previews with the bill's name, and the friend's arrival counts as a share. With an ask
+// (R-169), the page for that ask: b/HB2121-testify previews "Speak up by Wed, Mar 18: ..." and opens the testimony
+// walkthrough. Without one, b/HB2121 carries the bill's ask of the moment (the public site's share pages job).
+export const sharePageUrl = (b, ask = '') => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}${ask ? `-${ask}` : ''}`;
 // The public's response to a bill (R-117): follows (watch_counts) and the actions people with accounts marked
 // (public_action_counts). Staff only, counts only, nothing personal. '' when nobody has.
 export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
@@ -272,8 +274,9 @@ export function publicWords(b) {
   return [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} going` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean).join(' · ');
 }
 // The share kit (R-117): the bill's share page and a ready message, the ask from the Public tab, the deadline, the link.
+// A hearing ahead links the testimony page, which opens the walkthrough (R-169); otherwise the bill's ask of the moment.
 export function shareKit(b, h) {
-  const link = sharePageUrl(b), name = b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+  const link = sharePageUrl(b, h && new Date(h.scheduled_at) > Date.now() ? 'testify' : ''), name = b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
   const ask = String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${name}.`;
   const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The ${h.committee} hearing is ${fmtDT(h.scheduled_at)}.` : '';
   return { link, message: `${ask}${when} It takes a few minutes: ${link}` };

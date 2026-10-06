@@ -89,11 +89,17 @@ session is dark (until January 2027).
   screen and invented outcomes (`core.js` forces most bills dead). Check a change to a live query against the live
   path too (`track.html` on localhost reads production; add the `globalPrivacyControl` init script so the
   first-visit counting skips you).
-- **Share pages** (`b/<HB2121>.html`, `i/<slug>.html`, R-067): one small page per HIPHI bill and issue so a shared link
-  previews with the bill's own name; it sends the person on to `track.html?via=share#/bill/...`. Built by
-  `node tools/share_pages.mjs` (public views, public key; `--check` to preview), daily by
+- **Share pages** (`b/<HB2121>.html`, `i/<slug>.html`, R-067; one per ask since R-169): a shared link's card leads with
+  the ask and the link opens it (Nate 10/5). `b/HB2121-testify` ("Speak up by Wed, Mar 18: ..."; opens the testimony
+  walkthrough), `-ask` (the chairs' email), `-floor`, `-conference`, `-governor`, `-follow` (opens the issue), and
+  `b/HB2121` for the bill's ask of the moment; the words and the choice are `tools/share_cards.mjs` (pure; tested by
+  `tests/share_cards_test.mjs` on every push). Every share passes its ask: `shareFor(b, h, { ask })`, `billShareUrl(b,
+  ask)`, `shareAsk(b, x)` in bill.js; the routes `#/bill/<n>/testify|email|ask|floor|conference|governor` open the ask
+  (`openAsk`). The pages carry no `<meta http-equiv="refresh">` and no `og:url` (Facebook's robot followed the first to
+  the general card and links to the second without `?via=`); keep it that way. Built by `node tools/share_pages.mjs`
+  (public views, public key; `--check` to preview, `--out DIR`), hourly January to June and daily otherwise by
   `.github/workflows/share-pages.yml`, which commits only when a page changed. `404.html` sends a `b/` or `i/` link
-  whose page is not built yet to the tracker. Share and Copy link on a bill page use them (`shareUrl` in `pub/bill.js`).
+  whose page is not built yet to the tracker, `b/HB2121-testify` to `#/bill/HB2121/testify`.
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
   with no issue is followed alone. The followed state is a filled blue button with a check (`.btn.secondary.on
   [aria-pressed="true"]` in `base.css`, R-061); every Follow button sets `.on` and `aria-pressed`.
@@ -385,10 +391,11 @@ python3 tests/moments_live.py       # the session page and Home on live data, si
 python3 tests/staff_daily_email.py  # Staff v2: a supporter email goes in the 4:30 pm email, Undo, Take it back, Session setup > Email (R-101); 13 checks
 python3 tests/consent.py            # the sign-in page's "Keep me updated" starts empty; a hearing-alert ask turns on only hearing alerts (R-101); 5 checks
 python3 tests/year_links.py         # year-proof bill links in the sandbox, with a 2025 copy of one bill served into the snapshot (R-110); 14 checks
-python3 tests/year_links_live.py    # the same on the published site, with the share pages (R-110); 7 checks
+python3 tests/year_links_live.py    # the same on the published site, with the share pages going where they say (R-110, R-169); 11 checks
 python3 tests/errlog.py             # the public page's error reports: what is sent, what never is, the early catcher (R-111); 17 checks
 python3 tests/uptime.py             # the published page draws four screens with no error, as the hourly GitHub job checks it (R-111)
-python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 22 checks
+python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 24 checks
+python3 tests/share_asks.py         # a shared link opens the ask it names, as a newcomer on a phone; every built share page leads with its ask, no instant redirect, no og:url (R-169); 16 checks
 python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed and the finale's keep line on a phone (R-123 to R-126); 13 checks
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog (waited for, up to 30 s, and how long it took is printed), someone with an action lands on Home, and every way in ends with the full catalog (R-136); 13 checks

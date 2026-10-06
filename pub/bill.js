@@ -20,6 +20,7 @@ import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActin
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { legMoments } from './speakup.js';   // the floor vote's email to their own legislator (R-169)
 import { openAddTo, onListsLine } from './mylists.js';
 
 const N = CHAMBER_NAME;
@@ -43,7 +44,8 @@ const capitolUrl = b => b.state_url || (m => m ? `https://capitol.hawaii.gov/ses
 // A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
 // pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
 // tomorrow. Other bills, and the sandbox, share the tracker's own address.
-// The address to share (core.js billShareUrl, R-110 and R-113): a bill from an earlier session shares b/2026/HB2121.
+// The address to share (core.js billShareUrl, R-110, R-113 and R-169): a bill from an earlier session shares
+// b/2026/HB2121; with an ask, that ask's page (b/HB2121-testify).
 const shareUrl = billShareUrl;
 const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? `+1${d}` : d; };
 
@@ -502,6 +504,49 @@ function topbar(num, b) {
   return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1">${icon('arrow-left')}<span>Back</span></button>
     <p class="bl-num">${esc(sp)}</p>${w ? '' : `<div class="bl-tools">${tools}</div>`}</div>`;
 }
+// ---------------- shared links that name an ask (R-124, R-169) ----------------
+// The ask a share of this bill carries: the friend's ask, whatever this person has already done (Nate 10/5: the card
+// leads with the ask and the link opens it). A hearing ahead is testimony, for everyone; a bill waiting for one is the
+// chair's email; then the floor vote, the final version and the Governor; a bill that is over, or has no ask right now,
+// is following its issue. tools/share_cards.mjs makes the same choice for the bill's own page (b/HB2121).
+export function shareAsk(b, x = situation(b)) {
+  if (x.law || x.ballot || x.stopped) return 'follow';
+  if (x.act) return 'testify';
+  if (x.waiting && x.pos && x.chairs.length) return 'ask';
+  if (x.stepKey === 'governor') return 'governor';
+  if (x.stepKey === 'conference') return 'conference';
+  if (/^floor/.test(x.stepKey)) return 'floor';
+  return 'follow';
+}
+// A link that names an ask opens it: testimony and the hearing's email open their walkthroughs, as the page's own buttons
+// do; asking a chair for a hearing and the floor vote open the email walkthrough (the plans speakup.js gives those
+// buttons), or "Find your legislators" first for someone whose legislators are not known yet. The final version's email
+// and the Governor's form open in another app, which a page may only do on a tap, so there the main button is put in
+// front of them. When the ask has closed by the time the link is opened, the page shows what can be done now and says
+// so. The legislators and committees load a moment after the bill, so the chairs are waited for (up to 8 seconds).
+const refReady = () => S.deadlines.length > 0 && (S.legislators || []).length > 0;
+function openAsk(b, want, tries = 0) {
+  if (!refReady() && tries < 20) return setTimeout(() => openAsk(b, want, tries + 1), 400);
+  const here = new RegExp(`^#/bill/(\\d{4}/)?${String(b.bill_number).replace(/\s/g, '')}(/|$)`, 'i');
+  if (S.helper || !here.test(location.hash)) return;   // they moved on while it waited, or a walkthrough is open
+  const x = situation(b), h = x.act?.h || null;
+  const front = sel => { const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus({ preventScroll: true }); } return !!el; };
+  if (want === 'testify' && h && !x.differs) return app.openHelper?.(b.id, h.id);
+  if (want === 'email' && h) return app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id });
+  if (want === 'ask' && ['ask', 'hold', 'remind'].includes(x.kind)) return app.openMail?.({ mode: 'email', bill: b.id, code: x.code, ...(x.kind === 'remind' ? { remind: true } : {}) });
+  if (want === 'floor' && x.kind === 'floor') {
+    const m = legMoments(b, { all: true }).find(y => y.kind === 'floor');
+    if (m) return app.openMail?.({ mode: 'legislators', bill: b.id, legs: m.legs.map(l => l.id), moment: { kind: 'floor', key: m.key, chamber: m.chamber } });
+    return app.go(`#/legislators?from=${encodeURIComponent(billRef(b))}`);
+  }
+  if ((want === 'conference' || want === 'governor') && x.kind === want && front(`[data-bl-main="${want}"], a[href^="#/legislators?from="]`)) return;
+  // Done already in this browser (the chair asked, the step's email sent): the page's next ask is in front of them.
+  if (want !== 'testify' && shareAsk(b, x) === want) return;
+  toast(want === 'testify' ? 'Testimony on this bill has closed. Here’s what you can do now.'
+    : want === 'ask' ? 'This bill isn’t waiting for a hearing any more. Here’s what you can do now.'
+    : 'That step has passed. Here’s what you can do now.');
+}
+
 // ---------------- a newcomer on a shared bill (R-023, decision 7): the easiest action first, following second ----------------
 // Someone whose first visit starts on a bill someone sent them sees what the bill is, then this card: help right now (the
 // page's own main button, "Send a quick email · 2 min" when there is a hearing), "Follow this issue" (no "instead", Nate
@@ -521,8 +566,14 @@ function newcomer(b, x) {
   const h = x.act?.h, i = issuesOf(b)[0];
   // The deadline is the thing a newcomer from a link most needs to know (R-114): said here, and in the head's chip.
   const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.` : '';
+  // Every ask a shared link can open has its words here (R-169), so the card says what the main button does.
+  const no = /oppose/.test(b.hiphi_position || ''), one = x.chairs.length > 1 ? 'the chairs' : 'the chair';
   const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
-    : x.kind === 'ask' ? 'This bill is waiting for a hearing. You can ask the chair for one, in about 2 minutes, or follow it and we’ll tell you when.'
+    : x.kind === 'ask' ? `This bill is waiting for a hearing. You can ask ${one} for one, in about 2 minutes, or follow it and we’ll tell you when.`
+    : x.kind === 'hold' ? `This bill is waiting for a hearing. You can ask ${one} not to hear it, in about 2 minutes, or follow it and we’ll tell you what happens.`
+    : x.kind === 'floor' ? `This bill goes to a vote of the full ${CHAMBER_NAME[x.st.chamber] || 'House or Senate'} soon. You can ask your ${x.st.chamber === 'S' ? 'senator' : 'representative'} to vote ${no ? 'no' : 'yes'}, in about 2 minutes, or follow it and we’ll tell you how it goes.`
+    : x.kind === 'conference' ? 'The House and Senate are working out one final version. You can email lawmakers about it, in about 2 minutes, or follow it and we’ll tell you what happens.'
+    : x.kind === 'governor' ? `This bill passed the Legislature and is on the Governor’s desk. You can ask the Governor to ${no ? 'veto' : 'sign'} it, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   // A partner's link can open on a bill now (Make a link, R-067): their welcome line leads the card, as it does on the
   // first visit's first screen.
@@ -532,13 +583,15 @@ function newcomer(b, x) {
   return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">${S.blWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.blWelcome)}</span></p>` : ''}
     <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
     <p class="small muted">A free tool from the Hawaiʻi Public Health Institute, a nonprofit. Emails open in your own mail app; nothing is sent for you.</p>
-    <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${x.act || x.kind === 'ask' ? '' : notNow()}</div>
+    <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${asking(x) ? '' : notNow()}</div>
   </section>`;
 }
 // "Just looking" (was "Not now") sits beside the main button (the phone bar; the side panel on a laptop). It used to
 // start the whole first visit, 13 taps, for someone who only wanted to read the bill (R-067). Now it closes the card
 // and stays on the bill; one quiet line offers the tour, which is what "Not now" used to start.
 const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
+// The page's main button is an ask (not following or sharing): "Just looking" sits beside it in the bar instead.
+const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
 // On to the rest of the first visit, on this bill.
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
@@ -851,7 +904,7 @@ async function flipFollow(b, { quiet = false } = {}) {
 // One share everywhere (R-113): the words, the deadline and the bill's own share page come from shareFor (actions.js).
 async function shareBill(b, x) {
   const h = x.act?.h || null;
-  const how = await doShare(shareFor(b, h, { law: !!x.law, differs: !!x.differs }));
+  const how = await doShare(shareFor(b, h, { law: !!x.law, differs: !!x.differs, ask: shareAsk(b, x), chamber: x.st?.chamber }));
   if (!how) { if (!navigator.share) toast('Sharing is not available here. Use Copy link instead.'); return; }
   const copied = how === 'copied';
   if (!didKind(b, h, 'share')) await markDone(b.id, h?.id || '', 'share', true, { quiet: copied });
@@ -859,7 +912,7 @@ async function shareBill(b, x) {
   app.render();
 }
 async function copyLink(b) {
-  try { await navigator.clipboard.writeText(shareUrl(b)); yay('Link copied'); }
+  try { await navigator.clipboard.writeText(shareUrl(b, shareAsk(b))); yay('Link copied'); }
   catch { toast('We could not copy the link. Try Share instead.'); }
 }
 // The overflow menu is a small popover. It opens and closes without a re-render so focus stays put; Escape and a
@@ -909,15 +962,15 @@ export default {
     const b = drawn(normNum(route.num), +route.year || 0); if (!b) return '';
     const x = situation(b), main = mainButton(b, x);
     // A newcomer on a shared bill can turn the action down right beside it (R-023).
-    return main && firstVisit() && !S.blLooking.has(b.id) && (x.act || x.kind === 'ask') ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
+    return main && firstVisit() && !S.blLooking.has(b.id) && asking(x) ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
   },
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
     const num = normNum(route.num), year = +route.year || 0, key = keyOf(num, year), b = lookup(num, year);
-    // #/bill/HB1780/testify or /email (R-124): the walkthrough opens once the page is drawn, once per address.
+    // #/bill/HB1780/testify, /email (R-124), /ask, /floor, /conference or /governor (R-169): the ask opens once the page
+    // is drawn, once per address.
     if (b && route.open && drawn(num, year) && !(S.blOpened ??= new Set()).has(key + route.open)) {
-      S.blOpened.add(key + route.open); const x = situation(b), h = x.act?.h || null;
-      setTimeout(() => { if (route.open === 'testify' && h && !x.differs) app.openHelper?.(b.id, h.id); else if (route.open === 'email' && h) app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id }); }, 50);
+      S.blOpened.add(key + route.open); setTimeout(() => openAsk(b, route.open), 50);
     }
     root.querySelector('[data-bl-back]')?.addEventListener('click', goBack);
     root.querySelector('[data-bl-retry]')?.addEventListener('click', () => retry(key));
