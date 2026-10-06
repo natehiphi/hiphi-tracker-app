@@ -47,7 +47,7 @@ with sync_playwright() as p:
         return pg.evaluate("async () => { const k = await import(new URL('pub/kernel.js', location.href).href); return [k.S.catalogLive, k.S.issues.filter(i => i.bill_ids.length).length, k.S.issues.length]; }")
     def pick3(pg):
         pg.wait_for_selector('[data-stissue]', timeout=30000)
-        for el in pg.query_selector_all('[data-stissue]')[:3]: el.click()
+        for i in range(3): pg.locator('[data-stissue]').nth(i).click()   # found again at each tap: on a slow line the screen redraws in between (10/5)
         pg.click('[data-stnext]')
         try: pg.wait_for_selector('.st-pcard', timeout=15000)
         except Exception: pass   # none came: the next check says so
