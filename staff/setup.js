@@ -474,19 +474,25 @@ const PAGES = {
       const o = root.querySelector('[data-tmoffopen]'); if (o) o.onclick = () => { s.offOpen = !s.offOpen; hooks.render(); document.querySelector('[data-tmoffopen]')?.focus(); }; },
   },
   email: {
-    status: () => (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders, digests and public hearing emails are held and never sent. Slack still works.'] : ['circle-check', 'Email is on.'],
+    // A failed read counts as paused and every save here is refused until a reload reads it (Z1-5, data.js).
+    status: () => S.emailCfgErr ? ['circle-alert', `${esc(S.emailCfgErr)} Until then the app treats email as paused.`]
+      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders and hearing emails to the public are held and never sent; approved supporter emails wait and go out once it is back on. Slack still works.'] : ['circle-check', 'Email is on.'],
     note() { const c = S.emailCfg || {}; return c.changed_at ? `${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.` : ''; },
     body() { const c = S.emailCfg || {};
-      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Held email is not sent later. This switch saves as soon as you flip it.')}
+      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Alerts and reminders held while it is off are never sent; approved supporter emails wait for it. This switch saves as soon as you flip it.')}
         <p class="small muted st-note" id="st-email-note">${this.note()}</p>
         ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}
         ${txt('st-email-from', 'Public email comes from', c.from_email || '', { type: 'email', ph: 'alerts@hiphi.org', help: 'Shown as “HIPHI Bill Tracker”. It must be an address Postmark is set up to send from (a hiphi.org sender).' })}
         ${txt('st-email-reply', 'Replies go to', c.reply_to || '', { type: 'email', ph: 'info@hiphi.org', help: 'A mailbox a person reads. Replies to a supporter email sent by someone on the team go to its writer instead.' })}</div>`; },
-    // The switch saves itself. Pausing is the safe direction, so it just happens; turning email back ON starts mail
-    // to the public again, so it asks first (a stray tap must never do that).
-    auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings(c),
+    // The switch saves itself: only itself and who flipped it, merged into what is stored (data.js saveEmailSettings).
+    // Pausing is the safe direction, so it just happens; turning email back ON starts mail to the public again, so it asks
+    // first (a stray tap must never do that), and says which held supporter emails go out with the next 4:30 pm email
+    // (while email is paused the 4:30 pm job leaves them approved, Z1-3). With the settings unread it asks nothing: the
+    // save is refused.
+    auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings({ enabled: c.enabled, changed_at: c.changed_at, changed_by: c.changed_by }),
       apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
-      confirm: v => v ? { title: 'Turn email on?', text: 'Alerts, reminders, digests and hearing emails to the public start going out again. Email held while it was paused is not sent.', ok: 'Turn email on' } : null,
+      confirm: v => { if (!v || S.emailCfgErr) return null; const n = (S.alerts || []).filter(a => a.status === 'approved' && a.scheduled_for).length;
+        return { title: 'Turn email on?', text: `Alerts, reminders and hearing emails to the public start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
       msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' } },
     after(root) { const n = root.querySelector('#st-email-note'); if (n) n.innerHTML = this.note(); },
     saveLabel: 'Save',
@@ -496,7 +502,9 @@ const PAGES = {
       const okMail = v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), from = val(root, 'st-email-from'), reply = val(root, 'st-email-reply');
       if (!okMail(from)) { fieldErr(root, 'st-email-from', 'Enter an email address like alerts@hiphi.org, or leave it blank.'); return null; }
       if (!okMail(reply)) { fieldErr(root, 'st-email-reply', 'Enter an email address like info@hiphi.org, or leave it blank.'); return null; }
-      await DB.saveEmailSettings({ ...(S.emailCfg || {}), postal: val(root, 'st-email-postal'), from_email: from, from_name: 'HIPHI Bill Tracker', reply_to: reply });
+      // The sender fields only, never "enabled" (Z1-5): the save merges them into what is stored, and refuses when the
+      // settings could not be read.
+      await DB.saveEmailSettings({ postal: val(root, 'st-email-postal'), from_email: from, from_name: 'HIPHI Bill Tracker', reply_to: reply });
       return 'Saved.'; },
   },
   alerts: {

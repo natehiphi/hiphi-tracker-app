@@ -8,6 +8,12 @@ export { billStop, hearingStream, pathwayStops };
 export const hooks = { onAuth: () => {}, onRecovery: () => {}, afterLoad: () => {}, toast: () => {}, render: () => {} };
 export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+// What every email-settings save says when the settings could not be read (Z1-5).
+export const EMAIL_UNREAD = 'Couldn’t read the email settings. Reload, then save.';
+// The email settings from their read (Z1-5): a read that failed is not "no row yet". The database counts a missing row as
+// email on (email_enabled(), backend 020), so no row reads as on; a failed read counts as paused, and saveEmailSettings
+// refuses every email save until a reload reads it, so a Save can never write a guess over the real switch.
+export const emailCfgOf = r => !r || r.error ? { err: EMAIL_UNREAD, cfg: { enabled: false } } : { err: '', cfg: r.data?.value || { enabled: false } }; // no row counts as paused, as the database's email_enabled() does since 145 (R-180)
 // Issue and list icons (9/19): the public page shows Lucide icons, not emoji, so staff pick from a short list of
 // names. Old emoji values still display (mapped) until they are re-saved.
 export const DEMO = new URLSearchParams(location.search).has('demo');
@@ -218,14 +224,17 @@ export const DB = {
       S.supa.from('people_followups').select('*, person:people(id,name,email,phone)').is('done_at', null).order('due', { nullsFirst: false }),
       allRows(o => S.supa.from('bill_mutes').select('advocate_id,bill_id', o).is('unmuted_at', null).order('advocate_id').order('bill_id')),
       S.supa.from('public_action_counts').select('*'),   // the public's response, counts only (R-117)
-      S.supa.rpc('watch_counts'),
+      // The public's follower number, the stored count the public page shows (follow_set: bill, issue and category
+      // follows; backend 115, refreshed every five minutes). watch_counts() counted direct bill follows only, so staff's
+      // number sat far below the public one (Z1-7).
+      allRows(o => S.supa.from('follower_counts').select('bill_id,n', o).order('bill_id')),
     ]);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
     S.chatSeen = Object.fromEntries((reads?.data || []).map(r => [r.bill_id, r.seen_at]));
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
-    S.emailCfg = ecfg?.data?.value || { enabled: true };
+    ({ err: S.emailCfgErr, cfg: S.emailCfg } = emailCfgOf(ecfg));
     S.syncCfg = sycfg?.data?.value || {};
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
@@ -239,7 +248,7 @@ export const DB = {
     S.outcomes = Object.fromEntries((outc?.data || []).map(o => [o.hearing_id, o]));
     // The public's response per bill (R-117): follows, and the actions people with accounts marked. Counts only.
     S.pubCounts = {};
-    (wc?.data || []).forEach(r => { (S.pubCounts[r.bill_id] ??= {}).followers = Number(r.watchers) || 0; });
+    (wc?.data || []).forEach(r => { (S.pubCounts[r.bill_id] ??= {}).followers = Number(r.n) || 0; });
     (pac?.data || []).forEach(r => { Object.assign(S.pubCounts[r.bill_id] ??= {}, { emails: Number(r.emails) || 0, testimonies: Number(r.testimonies) || 0, attending: Number(r.attending) || 0, shares: Number(r.shares) || 0, people: Number(r.people) || 0 }); });
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
@@ -1179,11 +1188,18 @@ export const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('app_settings').upsert({ key: 'sync', value: cfg, updated_at: new Date().toISOString() }); if (error) throw error;
   },
-  async saveEmailSettings(cfg) {
-    S.emailCfg = cfg;
-    if (DEMO) return;
+  // Email settings are one stored object, and its "enabled" keeps email to the public paused until Nate says so. A save
+  // merges only the fields it is given into what is stored now, read fresh, so a form never writes back a stale or
+  // guessed "enabled" (Z1-5); when the settings cannot be read, nothing is saved.
+  async saveEmailSettings(patch) {
+    if (S.emailCfgErr) throw new Error(EMAIL_UNREAD);
+    if (DEMO) { S.emailCfg = { ...(S.emailCfg || {}), ...patch }; return; }
+    const { data, error: rerr } = await S.supa.from('app_settings').select('value').eq('key', 'email').maybeSingle();
+    if (rerr) throw new Error(EMAIL_UNREAD);
+    const cfg = { ...(data?.value || {}), ...patch };
     const { error } = await S.supa.from('app_settings').upsert({ key: 'email', value: cfg, updated_at: new Date().toISOString() });
     if (error) throw error;
+    S.emailCfg = cfg;
   },
   async saveCalendarSettings(cfg) {
     S.calCfg = cfg;

@@ -5,6 +5,12 @@
 // ============================================================
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+// What every email-settings save says when the settings could not be read (Z1-5).
+const EMAIL_UNREAD = 'Couldn’t read the email settings. Reload, then save.';
+// The email settings from their read (Z1-5): a read that failed is not "no row yet". The database counts a missing row as
+// email on (email_enabled(), backend 020), so no row reads as on; a failed read counts as paused, and saveEmailSettings
+// refuses every email save until a reload reads it, so a Save can never write a guess over the real switch.
+const emailCfgOf = r => !r || r.error ? { err: EMAIL_UNREAD, cfg: { enabled: false } } : { err: '', cfg: r.data?.value || { enabled: false } }; // no row counts as paused, as the database's email_enabled() does since 145 (R-180)
 import { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops } from './stops.js';
 import { ICONS, icon as lucide } from './icons.js';
 // Issue and list icons (9/19): the public page shows Lucide icons, not emoji, so staff pick from a short list of
@@ -217,7 +223,7 @@ const DB = {
     S.chatSeen = Object.fromEntries((reads?.data || []).map(r => [r.bill_id, r.seen_at]));
     S.slackCfg = scfg?.data?.value || null;
     S.calCfg = ccfg?.data?.value || null;
-    S.emailCfg = ecfg?.data?.value || { enabled: true };
+    ({ err: S.emailCfgErr, cfg: S.emailCfg } = emailCfgOf(ecfg));
     S.syncCfg = sycfg?.data?.value || {};
     applySessionDeadlines(dls?.data || []);
     S.sessionCal = scal?.data || [];
@@ -720,11 +726,18 @@ const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('app_settings').upsert({ key: 'sync', value: cfg, updated_at: new Date().toISOString() }); if (error) throw error;
   },
-  async saveEmailSettings(cfg) {
-    S.emailCfg = cfg;
-    if (DEMO) return;
+  // Email settings are one stored object, and its "enabled" keeps email to the public paused until Nate says so. A save
+  // merges only the fields it is given into what is stored now, read fresh, so a form never writes back a stale or
+  // guessed "enabled" (Z1-5); when the settings cannot be read, nothing is saved.
+  async saveEmailSettings(patch) {
+    if (S.emailCfgErr) throw new Error(EMAIL_UNREAD);
+    if (DEMO) { S.emailCfg = { ...(S.emailCfg || {}), ...patch }; return; }
+    const { data, error: rerr } = await S.supa.from('app_settings').select('value').eq('key', 'email').maybeSingle();
+    if (rerr) throw new Error(EMAIL_UNREAD);
+    const cfg = { ...(data?.value || {}), ...patch };
     const { error } = await S.supa.from('app_settings').upsert({ key: 'email', value: cfg, updated_at: new Date().toISOString() });
     if (error) throw error;
+    S.emailCfg = cfg;
   },
   async saveCalendarSettings(cfg) {
     S.calCfg = cfg;
@@ -2068,6 +2081,7 @@ function renderSettings() {
   const admin = !me.is_admin ? '' : `
     <section id="st-email">
       <h2>Email <span class="tag a">admin</span></h2>
+      ${S.emailCfgErr ? `<p class="tok hot">${esc(S.emailCfgErr)} Until then email counts as paused here.</p>` : ''}
       <p class="tok">${(S.emailCfg || {}).enabled === false ? '⏸ <b>All outgoing email is paused.</b> Alerts, reminders, digests and public hearing emails are held and never sent; Slack still works.' : '✅ Email is on.'}</p>
       ${chk('st-email-on', (S.emailCfg || {}).enabled !== false, 'Send email', 'switch off to hold every outgoing email; held messages are not sent later')}
       <label class="row"><span style="min-width:140px">Postal address</span><input id="st-email-postal" value="${esc((S.emailCfg || {}).postal || '')}" placeholder="707 Richards Street, Suite 300, Honolulu, HI 96813" autocomplete="off"></label>
@@ -2274,7 +2288,10 @@ function wireSettings() {
     $('#st-save-email') && ($('#st-save-email').onclick = async () => {
       const on = $('#st-email-on').checked;
       const postal = ($('#st-email-postal')?.value || '').trim();
-      try { await DB.saveEmailSettings({ ...(S.emailCfg || {}), enabled: on, postal, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
+      // Only what this form changes (Z1-5): the postal address, and the switch with its who-and-when only when it moved.
+      // The rest of the stored settings (Staff v2's sender and reply addresses) stays as it is.
+      const moved = on !== ((S.emailCfg || {}).enabled !== false);
+      try { await DB.saveEmailSettings({ postal, ...(moved ? { enabled: on, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null } : {}) }); toast(on ? 'Email is on' : 'Email paused — nothing will be sent'); rerenderKeep(); }
       catch (e) { toast(e.message, true); }
     });
     $('#st-save-cal').onclick = async () => {

@@ -106,7 +106,7 @@ function emailBody(it) {
     ${it.b ? billLine(it.b, { named: true, pos: it.b.position !== 'monitor' }) + billState(it.b, { email: true }) : ''}
     <p class="td-rvline">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${esc(alertTarget(a))}</span></p>
     <p class="td-rvline">${icon('user-round')}<span>Sent by ${esc(first(a.author_id))} ${esc(ago(a.submitted_at || a.created_at))}</span></p>
-    ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; nothing sends until it is turned back on.') : ''}
+    ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; an approved email is held until email is turned on.') : ''}
     <div class="td-rvmail">${emailPreview(a)}</div>
   </section>`;
 }

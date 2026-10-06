@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves } from './model.js';
+import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk } from './model.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -27,7 +27,11 @@ const orJoin = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(',
 export const alertById = id => (S.alerts || []).find(a => String(a.id) === String(id));
 const segById = id => (S.segments || []).find(x => String(x.id) === String(id));
 export const paused = () => S.emailCfg?.enabled === false;
-export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can write and approve; nothing sends.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
+// While email is paused an approved email is held, not on its way (Z1-3): the 4:30 pm job leaves it approved, and it goes
+// out in the first 4:30 pm email after email is turned on. Wherever an approved email's status shows, it says so.
+export const HELD = 'Approved · held while email is paused';
+export const heldNow = a => a.status === 'approved' && paused();
+export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
 export const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} min ago` : m < 24 * 60 ? `${Math.round(m / 60)}h ago` : fmtDT(iso); };
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
@@ -45,7 +49,8 @@ const canDelete = a => !!a.id && ['draft', 'returned'].includes(a.status) && (a.
 const approvers = authorId => S.advocates.filter(x => approves(x) && x.id !== authorId);
 export const approverNames = authorId => orJoin(approvers(authorId).map(x => first(x.id)));
 export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['Waiting for approval', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
-export const statusChip = a => { if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`, 'info', 'clock');
+export const statusChip = a => { if (heldNow(a)) return chip(HELD, 'warn le-held', 'hand');   // long: it may wrap (lists.css)
+  if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`, 'info', 'clock');
   const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
 const canWait = a => a.status === 'approved' && !!a.scheduled_for;
 
@@ -127,7 +132,7 @@ function draftText(u) {
   if (u.b) {
     const b = u.b, num = spaced(billNum(b)), s = blurb(b, 160), sum = /[.!?…]$/.test(s) ? s : s + '.';
     const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
-    const pub = (b.public_action || '').trim();
+    const pub = liveAsk(b);   // an ask past its date is no ask (Z1-3)
     const ask = pub || (h?.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? `Send written testimony by ${fmtDT(h.testimony_deadline)}.` : h ? `Send written testimony before the hearing on ${fmtDT(h.scheduled_at)}.` : ASK_PH);
     return { subject: h ? `${num}: hearing ${fmtDT(h.scheduled_at)}. Please testify.` : `${num}: can you help?`, ask,
       msg: para(['Aloha,', `You follow ${num}: ${sum}`,
@@ -316,7 +321,7 @@ function submitStep(c) {
       <li><span class="le-fn">2</span><span>${others.length ? esc(names) : 'Someone else who approves'} reads it, then approves it or sends it back to you with a note.</span></li>
       <li><span class="le-fn">3</span><span>Once it is approved, you come back here and press Send. Only then does it go out.</span></li>
     </ol>
-    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but nothing goes out until an admin turns email back on.') : ''}
+    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but an approved email is held: it goes out only once an admin turns email on, in the next 4:30 pm email.') : ''}
     ${others.length ? '' : notice('info', 'info', 'Nobody else on the team approves emails yet, so it cannot be approved. Every email needs someone other than its writer. An admin can make a teammate an approver under Session setup, Team.')}`;
 }
 
@@ -328,9 +333,11 @@ function statusView(a) {
     : own ? `Waiting for ${esc(appr)} to approve it.${approves(me) ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
   else if (a.status === 'approved') line = `${a.approved_by ? `${a.approved_by === me.id ? 'You' : esc(first(a.approved_by))} approved it. ` : ''}${own ? 'Send it when you are ready.' : me.is_admin ? `It is ${esc(who)}’s to send; an admin can send it too.` : `Waiting for ${esc(who)} to send it.`}`;
   else if (a.status === 'sent') line = `Sent ${esc(fmtDT(a.sent_at))} to ${people(a.recipients || 0)}.`;
-  if (canWait(a)) line = `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
+  if (canWait(a)) line = heldNow(a) ? `It goes to ${people(a.recipients || 0)} in the first 4:30 pm email after an admin turns email on, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`
+    : `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
+  else if (heldNow(a)) line += ' While email is paused, Send holds it until an admin turns email on.';
   else if (a.status === 'returned') line = `Sent back to ${esc(who)}. Only ${esc(who)} can change it.`;
-  else line = `${esc(who)} is still writing it. Only ${esc(who)} can change it.`;
+  else if (!['submitted', 'approved', 'sent'].includes(a.status)) line = `${esc(who)} is still writing it. Only ${esc(who)} can change it.`;
   const stats = a.status === 'sent' ? `<p class="le-stats">${[`${a.opens || 0} opened`, `${a.clicks || 0} clicked`, `${a.bounces || 0} bounced`].map(s => `<span>${s}</span>`).join('')}</p>` : '';
   const more = canDelete(a) ? iconBtn('ellipsis', 'More for this email', { 'data-le': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore') : '';
   const two = isSide(), acts = two ? statusActions(a) : '';
@@ -338,7 +345,7 @@ function statusView(a) {
     <div class="le-chead"><div><p class="le-eyebrow">${icon('mail')}Email to supporters</p><h1>${esc(a.subject || '(no subject)')}</h1></div>${more}</div>
     ${pausedNotice()}`;
   const state = `<section class="card le-state" aria-label="Where it stands">
-      <p class="le-stline">${icon((STATUS[a.status] || STATUS.draft)[1])}<span><b>${esc((STATUS[a.status] || STATUS.draft)[0])}.</b> ${line}</span></p>
+      <p class="le-stline">${icon(heldNow(a) ? 'hand' : (STATUS[a.status] || STATUS.draft)[1])}<span><b>${esc(heldNow(a) ? HELD : (STATUS[a.status] || STATUS.draft)[0])}.</b> ${line}</span></p>
       ${a.review_note && a.status === 'returned' ? `<blockquote class="le-quote">${esc(a.review_note)}</blockquote>` : ''}
       ${stats}
       ${canTest(a) ? btn('Send me a test', { kind: 'text', icon: 'mail-check', attrs: { 'data-le': 'test' } }) : ''}
@@ -347,7 +354,7 @@ function statusView(a) {
   if (two) return `<div class="le-cmp le-status le-two">${head}
     <div class="sv-cols le-panes">
       <div class="le-form">${state}
-        ${canApprove(a) ? `<p class="le-rule">${icon('user-check')}<span>Approving sends nothing. ${esc(who)} presses Send afterwards${paused() ? ', and email is paused, so nothing goes out until an admin turns it back on' : ''}.</span></p>` : ''}
+        ${canApprove(a) ? `<p class="le-rule">${icon('user-check')}<span>Approving sends nothing. ${esc(who)} presses Send afterwards${paused() ? ', and while email is paused an approved email is held until an admin turns email on' : ''}.</span></p>` : ''}
         ${acts ? `<div class="le-formbar">${acts}</div>` : ''}
       </div>
       <aside class="sv-aside le-prevpane" aria-label="The email">${emailPreview(a)}</aside>
@@ -576,12 +583,12 @@ function returnSheet(a) {
 async function sendNow(el, a) {
   const n = audCount(a), au = advocate(a.author_id), day = dailyWord();
   const ok = await confirmSheet({ title: n != null ? `Send at 4:30 pm to ${people(n)}?` : 'Send at 4:30 pm?', ok: 'Send at 4:30 pm',
-    text: `${esc(a.subject)}<br><span class="small muted">It goes out ${day} at 4:30 pm, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.${paused() ? ' Email is paused, so nothing leaves until an admin turns it back on.' : ''}</span>` });
+    text: `${esc(a.subject)}<br><span class="small muted">${paused() ? 'Email is paused, so it is held: it goes out in the first 4:30 pm email after an admin turns email on' : `It goes out ${day} at 4:30 pm`}, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.</span>` });
   if (!ok) return;
   await afterClose();
   busy(el, true);
   try { const r = await DB.alertStep(a.id, 'send'); hooks.render();
-    toast(`In ${day}’s 4:30 pm email to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); }
+    toast(paused() ? `Held while email is paused. It goes to ${people(r?.recipients ?? n ?? 0)} in the first 4:30 pm email after email is turned on.` : `In ${day}’s 4:30 pm email to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); }
   catch (e) { busy(el, false); toast(e, { err: true }); }
 }
 async function unsendNow(el, a) {
@@ -625,7 +632,7 @@ function wire(route, root) {
       if (!canApprove(src)) return;
       const n = audCount(src), who = first(src.author_id);
       const yes = await confirmSheet({ title: n != null ? `Approve this email to ${people(n)}?` : 'Approve this email to supporters?', ok: 'Approve',
-        text: `“${esc(src.subject || '(no subject)')}”. Approving sends nothing: ${esc(who)} can send it once you approve.${paused() ? ' Email is paused, so nothing goes out until an admin turns it back on.' : ''}` });
+        text: `“${esc(src.subject || '(no subject)')}”. Approving sends nothing: ${esc(who)} can send it once you approve.${paused() ? ' Email is paused, so an approved email is held until an admin turns email on.' : ''}` });
       if (!yes) return;
       el = document.querySelector('[data-le="approve"]') || el; busy(el, true);
       try {

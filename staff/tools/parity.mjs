@@ -22,7 +22,7 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'rpc team_set_approver {p_id,p_on}',   // the Team page's Approver switch (098, R-103)
   'rpc turn_off_user_list {p_link,p_reason}', 'rpc turned_off_user_lists', 'rpc turn_on_user_list {p_list}',   // Session setup > People's lists (103, R-013)
   'table public_errors_recent',   // Session setup: the public page's error reports (110, R-111)
-  'table public_action_counts', 'rpc watch_counts',   // the public's response on hearings, the Week and the Public tab (R-117)
+  'table public_action_counts', 'table follower_counts',   // the public's response on hearings, the Week and the Public tab (R-117); the stored follower count since Z1-7
   'table ab_tests', 'rpc ab_results',   // Session setup > Tests: the public page's A/B tests (116, R-135)
   'rpc suggest_summary {weeks}',   // First visit > Suggested bills (118, R-094)
   'table bill_drafts',   // a bill's Public tab: what each draft changed (120, R-060)

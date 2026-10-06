@@ -273,7 +273,7 @@ export const billById = id => S.bills.find(b => b.id === id);
 // walkthrough. Without one, b/HB2121 carries the bill's ask of the moment (the public site's share pages job).
 // The practice copy (in session) links the practice copy's own pages (b/demo/, R-169), which preview its in-session cards.
 export const sharePageUrl = (b, ask = '') => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${DEMO && !SESSION_OVER ? 'demo/' : b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}${ask ? `-${ask}` : ''}`;
-// The public's response to a bill (R-117): follows (watch_counts) and the actions people with accounts marked
+// The public's response to a bill (R-117): follows (follower_counts, the public page's own number, Z1-7) and the actions people with accounts marked
 // (public_action_counts). Staff only, counts only, nothing personal. '' when nobody has.
 export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
 export function publicWords(b) {
@@ -284,7 +284,7 @@ export function publicWords(b) {
 // A hearing ahead links the testimony page, which opens the walkthrough (R-169); otherwise the bill's ask of the moment.
 export function shareKit(b, h) {
   const link = sharePageUrl(b, h && new Date(h.scheduled_at) > Date.now() ? 'testify' : ''), name = b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
-  const ask = String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${name}.`;
+  const ask = liveAsk(b).replace(/([^.!?])$/, '$1.') || `Please speak up on ${name}.`;
   const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The ${h.committee} hearing is ${fmtDT(h.scheduled_at)}.` : '';
   return { link, message: `${ask}${when} It takes a few minutes: ${link}` };
 }
@@ -471,6 +471,10 @@ export async function loadTriage() {
 export const triageSeen = () => { if (S.triageFirstVisit) return false; try { return !!localStorage.getItem('hiphi_triage_seen'); } catch { return true; } };
 export const titleCaseHI = t => String(t || '').replace(/^RELATING TO /i, 'Relating to ').replace(/\b([A-Z]{2,})\b/g, w => w.charAt(0) + w.slice(1).toLowerCase()).replace(/\bHawaii\b/g, 'Hawaiʻi');
 export const hiToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+// The ask the public page is showing: public_bills shows public_action through its public_action_until (and never
+// without one), counted here in Hawaiʻi days. An ask past its date is no ask (Z1-3 part 4): Today asks for the next one,
+// and "This week's asks", the share kit and a new supporter email leave its old words out.
+export const liveAsk = b => { const t = String(b?.public_action || '').trim(); return t && b.public_action_until && b.public_action_until >= hiToday() ? t : ''; };
 export function pubStateCls(b) {
   if (!b.tracked || !b.is_public) return 'pubstate off';
   if (!b.public_summary) return 'pubstate warn';
@@ -510,14 +514,22 @@ export function draftWho(d) {
     default: return '';
   }
 }
-export function draftActions(d) {
+// The hearing a draft is for: its own row, else its committee's next sitting (the same choice as today.js hearingFor).
+// The stand-in rule reads its testimony deadline.
+export const draftHearing = d => (d.hearing_id && ((S.hearings || []).find(h => h.id === d.hearing_id) || S.draftHearings?.[d.hearing_id]))
+  || (S.hearings || []).filter(h => h.bill_id === d.bill_id && h.committee === d.committee && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
+// Approve and Request changes go to the same people as on the Review screen (canFirstApprove, canSecondApprove). The
+// bill page is where the Slack review message sends them, and it offered Approve to admins only, so Kris (an approver)
+// and a reviewer standing in near the deadline found nothing to press there (X10-1, R-103).
+export function draftActions(d, h = draftHearing(d)) {
   const me = S.me || {};
   const mine = d.submitted_by && d.submitted_by === me.id;
   switch (d.status) {
     case 'draft': return [['submit', 'Submit for review', 'pri']];
-    case 'review': return me.is_admin ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+    case 'review': return canFirstApprove(me, d, h) ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
       : mine ? [['withdraw', 'Withdraw']] : [];
-    case 'second_review': return me.is_reviewer ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+    case 'second_review': return canSecondApprove(me, d) ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
       : mine ? [['withdraw', 'Withdraw']] : [];
     case 'approved': return [['filed', 'Mark filed', 'pri']];
     case 'filed': return [['unfile', 'Unmark filed']];
