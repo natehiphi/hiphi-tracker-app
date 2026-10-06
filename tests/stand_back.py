@@ -1,4 +1,4 @@
-# R-166 (Nate 10/5): "Where do you stand?" in the testimony and email walkthroughs, after an answer. Choosing one moves on;
+# R-167 (Nate 10/5): "Where do you stand?" in the testimony and email walkthroughs, after an answer. Choosing one moves on;
 # Back to it showed the answer chosen with only Close under it, so the way on was to tap the chosen answer again. Now a
 # chosen answer brings Next, which keeps it; with nothing chosen there is still no Next (the three answers are the buttons).
 # Sandbox (HB 1523, no stance on the bill), phone and laptop.
