@@ -1,0 +1,66 @@
+/* The first visit's five plans: the screens they share (R-164, pub/onb.js). Plan-specific screens have their own sheets
+   (onb-p2.css, onb-p3.css, onb-p4.css). Tokens and type sizes from base.css only (A-4, A-8); orange only for celebration. */
+
+/* ---- one: the bill that needs voices (Plan 1) ---- */
+.ob-bill { display: grid; gap: var(--s12); padding: var(--s16); }
+.ob-num { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.ob-billh { font-size: var(--t22); }
+.ob-what { color: var(--n700); }
+.ob-when, .ob-why, .ob-did, .ob-noaddr { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); line-height: 1.5; }
+.ob-when .ic, .ob-why .ic, .ob-did .ic, .ob-noaddr .ic { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.ob-when { color: var(--n900); }
+.ob-when .ic { color: var(--p700); }
+.ob-why { padding: var(--s12); border-radius: var(--r12); background: var(--p50); color: var(--n900); }
+.ob-why .ic { color: var(--p700); }
+.ob-did { color: var(--ok-text); font-weight: 700; }
+.ob-noaddr { color: var(--n700); }
+.ob-noaddr .ic { color: var(--p700); }
+
+/* ---- picks: what's moving on your topics ---- */
+.ob-picks .ob-one { -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.ob-more { display: flex; gap: var(--s8); align-items: center; margin-top: var(--s12); font-size: var(--t14); }
+.ob-more .ic { width: 16px; height: 16px; flex: none; }
+
+/* ---- hello ---- */
+.ob-legnote { margin-top: var(--s8); }
+
+/* ---- join: the alerts sign-up ---- */
+.ob-points { list-style: none; margin: var(--s12) 0 0; padding: 0; display: grid; gap: var(--s8); }
+.ob-points li { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); line-height: 1.5; color: var(--n900); }
+.ob-points .ic { width: 18px; height: 18px; margin-top: 2px; flex: none; color: var(--p700); }
+.ob-sample { margin: 0 0 var(--s16); }
+.ob-samplecap { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: var(--t13); color: var(--n500); }
+.ob-samplecap .ic { width: 14px; height: 14px; flex: none; }
+/* An example message, drawn as a message (not a control: no border that reads as a field, A-12). */
+.ob-bubble { position: relative; max-width: 34em; padding: var(--s12) var(--s16); border-radius: 18px 18px 18px 4px; background: var(--n100);
+  color: var(--n900); font-size: var(--t14); line-height: 1.5; }
+.ob-joinart .art { max-height: 96px; }
+
+/* ---- wrap: a note from the HIPHI team ---- */
+.ob-note { display: flex; gap: var(--s12); align-items: flex-start; margin-top: var(--s24); padding: var(--s16); }
+.ob-noteic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
+.ob-noteic .ic { width: 20px; height: 20px; }
+.ob-note p { font-size: var(--t14); line-height: 1.5; }
+.ob-note b { color: var(--n900); }
+
+/* ---- join, as the research shaped it (R-164) ---- */
+.ob-receipt { display: flex; gap: var(--s8); align-items: center; margin-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
+.ob-receipt .ic { width: 18px; height: 18px; flex: none; }
+.ob-often { display: flex; gap: var(--s8); align-items: flex-start; margin: 0 0 var(--s12); font-size: var(--t14); line-height: 1.5; color: var(--n700); }
+.ob-often .ic { width: 18px; height: 18px; margin-top: 2px; flex: none; color: var(--p700); }
+.ob-mail { display: grid; gap: 4px; border-radius: var(--r12); }
+.ob-mail b { color: var(--n900); }
+/* "We watch, you speak": three steps, a hearing to your note, each ticking in after the last (A-10: short, optional). */
+.ob-steps { list-style: none; margin: 0 0 var(--s16); padding: 0; display: grid; gap: var(--s8); counter-reset: obs; }
+.ob-steps li { display: flex; gap: var(--s12); align-items: center; font-weight: 700; color: var(--n900); animation: st-rise .35s var(--ease) calc(.15s + var(--k) * .18s) both; }
+.ob-stepic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
+.ob-stepic .ic { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .ob-steps li { animation: none; } }
+/* After a yes. */
+.ob-set { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16); }
+.ob-set > div { display: grid; gap: 6px; }
+.ob-setic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--pill); background: var(--ok-wash); color: var(--ok-text); flex: none; }
+.ob-setic .ic { width: 22px; height: 22px; }
+/* "Not now" the size of the main button (C-3), at every width (start.css gives Skip a quarter of the bar). */
+.st-btns.ob-joinbtns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (min-width: 900px) { .st-btns.ob-joinbtns .btn { min-width: 200px; } }

@@ -1,0 +1,16 @@
+/* Plan 3's island step (R-164, pub/onb-p3.js). Base tokens only; the map is today's islands drawing. */
+.ob3-art .art-islands { width: 100%; max-width: 168px; height: auto; margin: 0 auto; }
+/* On a wide screen the map has the left column to itself, and grows (A-1: the question stays in the first screenful). */
+@media (min-width: 56.25em) { .ob3-art .art-islands { max-width: 320px; } }
+.ob3-isles { border: 0; margin: 0; padding: 0; min-width: 0; }
+.ob3-q { padding: 0; margin-bottom: var(--s12); font-family: var(--font-h); font-weight: 700; font-size: var(--t18); color: var(--n900); }
+.ob3-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); }
+/* Each island a real toggle, 48px tall (A-6), its tick drawn like the topic tiles' (A-12). */
+.ob3-isle { display: flex; align-items: center; gap: var(--s8); min-height: 48px; padding: var(--s8) var(--s12); border: 1px solid var(--n200);
+  border-radius: var(--r12); background: var(--n0); color: var(--n900); font-weight: 700; text-align: left; box-shadow: var(--sh1); }
+.ob3-isle:hover { border-color: var(--p400); }
+.ob3-isle.on { border-color: var(--p700); background: var(--p50); box-shadow: inset 0 0 0 1px var(--p700); }
+.ob3-dot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--pill); border: 2px solid var(--n300); flex: none; color: transparent; }
+.ob3-dot .ic { width: 14px; height: 14px; }
+.ob3-isle.on .ob3-dot { background: var(--p700); border-color: var(--p700); color: var(--n0); }
+@media (min-width: 37.5em) { .ob3-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

@@ -32,12 +32,18 @@ const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Fol
   // bill: until 9/29 this step was the "Reading a bill" lesson; now the drawn story (R-062).
   stand: 'Where do you stand?', bill: 'A bill’s story', session: 'The session, January to May', hearing: 'What a hearing is',
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)',
-  alerts: 'Get alerts (text or email)' };
+  alerts: 'Get alerts (text or email)',
+  // The five plans under test (R-164, backend 136): their own screens, after today's. A plan visit also passes through
+  // 'topics' and sometimes 'you'; the Versions table below compares the plans whole.
+  one: 'Plan 1: one bill that needs voices', hello: 'Plans 1, 3: say aloha', join: 'Plans: the alerts sign-up', wrap: 'Plans: the ending',
+  story: 'Plan 2: a bill’s journey', road: 'Plan 2: your issues on the road', island: 'Plan 3: which island?', way: 'Plan 4: how you like to help',
+  first: 'Plan 4: your first step', picks: 'Plans 3, 4, 5: what’s moving' };
+const PLAN_STEPS = ['island', 'way', 'story', 'picks', 'road', 'one', 'hello', 'join', 'first', 'wrap'];
 const FLOWS = {
   // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).
   // 'alerts' (R-146, 10/4): the alerts ask right after the issues; it was part of "Coming up on your issues" before.
-  in: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
-  off: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
+  in: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
+  off: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
   link: ['arrive', 'act', 'followask', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
 };
 const PERIODS = [['4', '4 weeks'], ['12', '12 weeks'], ['52', 'A year']];
@@ -73,7 +79,7 @@ function sampleRows(weeks) {
     const wk = new Date(mon.getTime() - w * 7 * 864e5).toISOString().slice(0, 10);
     for (const [k, [src, base]] of srcs.entries()) {
       const n = Math.max(1, Math.round(base * (1 + ((w * 7 + k * 3) % 5) / 6)));
-      const off = src === 'newsletter' && w % 2 === 1, path = off ? 'off' : 'in', flow = FLOWS[path];
+      const off = src === 'newsletter' && w % 2 === 1, path = off ? 'off' : 'in', flow = FLOWS[path].filter(x => !PLAN_STEPS.includes(x));   // the sample has no plan visits
       const reached = Object.fromEntries(flow.map(s => [s, Math.max(0, Math.round(n * reach[s]))]));
       const skips = { you: Math.round(n * .12), alerts: Math.round(n * .3) };
       rows.push({ week: wk, source: src, path, visits: n, reached, finished: reached.done, gave_email: Math.round(n * .28),
@@ -155,7 +161,8 @@ function tilesHTML(t, shared) {
 }
 // One list of screens. `of(s)` is how many visits could reach screen s: the percentage and the bar are of those.
 function screensHTML(id, title, meta, t, list, of) {
-  const rows = list.filter(s => of(s) > 0 && ((s !== 'home' && s !== 'voice') || t.reached[s]));   // the short version's page only once visits reach it
+  // The short version's page, and the plans' screens (R-164), only once visits reach them.
+  const rows = list.filter(s => of(s) > 0 && ((s !== 'home' && s !== 'voice' && !PLAN_STEPS.includes(s)) || t.reached[s]));
   if (!rows.length) return '';
   const row = s => {
     const n = t.reached[s] || 0, d = of(s), w = Math.min(100, Math.round(100 * n / d)), sk = t.skips[s] || 0, tm = t.tn[s] ? t.tw[s] / t.tn[s] : null;

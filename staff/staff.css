@@ -450,3 +450,6 @@ body.sidenarrow .sv-sync span { display: none; }
 /* The note's buttons sit with their own note, not between two (fresh-eyes review 10/4, A-8). */
 .bw-drlist { gap: 20px; }
 .bw-dracts { margin-top: 4px; }
+/* A switch per version, for a test with more than two (R-164, backend 136). */
+.ab-arms { border: 0; margin: var(--s8) 0 0; padding: 0; min-width: 0; }
+.ab-arms legend { padding: 0; margin-bottom: var(--s4); color: var(--n500); }
