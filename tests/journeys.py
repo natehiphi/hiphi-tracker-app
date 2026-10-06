@@ -87,11 +87,14 @@ JOURNEYS = [
  # Counted from the moment the alerts are offered (B-2): right after the issues are followed (R-146, Nate 10/4; it was
  # under "Coming up on your issues" until then). The walk there is a newcomer's (a category, its ticked issues) and is
  # not counted. A mobile number is the box shown first; the "Mahalo!" that follows is the proof it was taken.
- dict(name='public: sign up for alerts', app=PUBLIC, budget=2, start='#/start/1', pick_cat=True,
+ # The code (R-155 "Code at sign-up"; the practice copy shows it by default since R-176): the code typed is the third
+ # step, and six digits send themselves (phones offer the code above the keyboard). Before codes are on it is 2.
+ dict(name='public: sign up for alerts', app=PUBLIC, budget=3, start='#/start/1', pick_cat=True,
       walk_to="(()=>{const i=document.getElementById('st-a-phone'); return !!i && i.offsetParent!==null;})()", steps=[
    dict(what='type the number', fill=('#st-a-phone', '(808) 555-0123'),
         reach="(()=>document.getElementById('st-a-phone')?.value==='(808) 555-0123')()"),
-   dict(what='send it', do=click_text('.st-bar #st-send', 'Text me'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /first text/.test(m.innerText);})()"),
+   dict(what='ask for the code', do=click_text('.st-bar #st-send', 'Text me a code'), reach="(()=>{const i=document.getElementById('st-a-code'); return !!i && i.offsetParent!==null;})()"),
+   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /Text alerts are on/.test(m.innerText);})()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

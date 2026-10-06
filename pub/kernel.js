@@ -111,7 +111,7 @@ export const SKIPS_KEY = DEMO ? 'hiphi_skips_demo' : 'hiphi_skips';
 export const CONSENT_KEY = 'hiphi_consent_pending';
 // Text alerts (R-146, Nate 10/4: a phone number option, more prominent than email). The number given on this device and
 // the random token its row in text_signups is kept under (backend 121): { token, phone: ten digits, at }. No texting
-// service exists yet, so the number is only kept; the first text, once texts are set up, asks for a YES reply. The
+// service exists yet, so the number is only kept; the first text, once texts are set up, confirms the number (R-176). The
 // sandbox's copy is its own (every hiphi_ name is hiphi_*_demo there) and never reaches the database.
 export const TEXT_KEY = 'hiphi_text';
 export const textSaved = () => { try { const t = JSON.parse(localStorage.getItem(TEXT_KEY) || 'null'); return t && t.token && /^\d{10}$/.test(t.phone || '') ? t : null; } catch { return null; } };

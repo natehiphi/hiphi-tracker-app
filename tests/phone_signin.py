@@ -1,7 +1,9 @@
 # Sign in with a mobile number and a 6-digit code (R-155, Nate 10/5: "Yes"; "Code at sign-up").
 # python3 tests/phone_signin.py [base_url]   (defaults to http://localhost:8832/track.html)
-# Part A, the practice copy as it is today (codes off): More on a laptop says how a number-only person brings their
-#   profile here ("Add your email on your phone"); the header's Sign in opens the email page; the box keeps "reply YES".
+# Part A, the page as it is until texts are set up (codes off, &codes=0 in the practice copy): More on a laptop says how a
+#   number-only person brings their profile here ("Add your email on your phone"); the header's Sign in opens the email
+#   page; the box says the number will be confirmed by text, never "reply YES" (R-176). The practice copy without &codes=0
+#   shows codes on (R-176, Nate 10/5: "Code everywhere").
 # Part B, the practice copy with codes on (&codes): the first visit's box texts a code, the box becomes the code field
 #   (Confirm; a short code, a new code too soon, a different number), six digits send it, and the "Mahalo!" says alerts
 #   are on and the person is signed in; Back says "You're all set". More's "Sign in" -> "Sign in" by number -> code ->
@@ -43,22 +45,28 @@ def to_alerts(p, extra=''):
 with sync_playwright() as pw:
     b = pw.chromium.launch()
 
-    # ================= A. codes off (today) =================
+    # ================= A. codes off (the live page until texts are set up) =================
+    c, p = ctx(b)
+    p.goto(BASE + '?demo=1&restart#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
+    ok(p.locator('#mr-al-send', has_text='Text me a code').count() == 1 and '6-digit code' in text(p) and 'YES' not in text(p), 'the practice copy shows codes on without &codes (R-176)')
+    c.close()
     c, p = ctx(b, 1440, 900)
-    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
+    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
     t = text(p)
     ok('Made one before? Sign in with your email' in t, 'codes off: More still offers sign-in with an email')
     ok('Signed up with your number? Add your email on your phone, then sign in here with it.' in t, 'codes off: the line for a number-only person on a laptop')
     shot(p, 'A1_more_laptop')
-    p.goto(BASE + '?demo=1#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
+    p.goto(BASE + '?demo=1&codes=0#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
     ok(p.locator('#mr-email').count() == 1 and p.locator('#mr-pi-phone').count() == 0, 'codes off: "Sign in" opens the email page')
-    p.goto(BASE + '?demo=1#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
-    ok('Our first text asks you to reply YES' in text(p) and '6-digit code' not in text(p), 'codes off: the box keeps the YES words')
-    p.goto(BASE + '?demo=1#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
-    ok('The first text asks you to reply YES' in text(p) and 'Updated 4 October 2026' in text(p), 'codes off: the privacy page is unchanged')
+    p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
+    ok('We’ll text you to confirm it’s your number' in text(p) and 'YES' not in text(p) and '6-digit code' not in text(p), 'codes off: the box says the number will be confirmed by text, never "reply YES" (R-176)')
+    p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
+    ok('We’ll text you first to confirm it’s your number' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "confirm it’s your number", no YES')
+    p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
+    ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and 'Updated 5 October 2026' in text(p), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
     c.close()
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
+    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
     ok('Made one before? Sign in with your email' in text(p) and 'Signed up with your number?' not in text(p), 'codes off, on a phone: no laptop line (it would contradict itself there)')
     c.close()
 

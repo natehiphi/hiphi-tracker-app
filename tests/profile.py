@@ -7,10 +7,11 @@
 # focus stays on a chip, "Saved." is said aloud, Escape closes a section, stories by topic and the three quote choices,
 # the letter's "says" ticks, the story asked after sending, the profile line, the sign-in merge (two devices), sign-out
 # clearing the device, and the ʻokina never an initial.
-#   python3 tests/profile.py [base]     base defaults to http://localhost:8832/track.html?demo=1
+#   python3 tests/profile.py [base]     base defaults to http://localhost:8832/track.html?demo=1&codes=0
+#   (the box before codes are on, R-176: the practice copy shows codes on by default; tests/phone_signin.py has the code)
 import sys, os
 from playwright.sync_api import sync_playwright
-BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1'
+BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1&codes=0'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)

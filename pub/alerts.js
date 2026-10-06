@@ -6,12 +6,14 @@
 //
 // Texts: no texting service exists yet (decision 4, 9/30: "We plan to do texts. Will set up later."). A number is kept
 // privately with the version of the words agreed (backend 121, text_signup; staff never see it) and nothing is sent
-// until texts are set up; the first text then asks for a YES reply. The words describe texts as working, as they do for
+// until texts are set up; the first text then confirms the number. The words describe texts as working, as they do for
 // email (R-101). Email: the same "keep me updated" consent as before, both kinds named in one line (C-4).
 // Codes (R-155, Nate 10/5, "Code at sign-up"): once Supabase's phone sign-in is switched on (pub/phone.js), "Text me" texts
 // a 6-digit code first, and the box becomes a code field. The right code signs the person in on this device (or adds the
 // number to their account), then the number is kept under the code-time words (t2) and is already confirmed, so no
-// "reply YES" text follows. Before the switch, the box works as above.
+// confirming text follows. Before the switch, the box works as above.
+// Nate 10/5 (R-176), seeing "reply YES" on a first visit when his decision was the code: "Code everywhere". The page never
+// asks for a YES any more. Before the switch it says the number will be confirmed by text (t3), as the code will do.
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
 // any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
 import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText } from './core.js';
@@ -19,15 +21,16 @@ import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCo
 import { btn } from './ui.js';
 import { abEvent } from './variant.js';
 
-// The version of the text consent words, and the words themselves: text_consent_words 't1' is exactly TEXT_PROMISE, a
-// space, then TEXT_FINE (backend 121, its words set to these by 123 before anyone had agreed to them). A new wording gets
-// a new version there and here together, so what is recorded as agreed is always what was on the screen.
+// The version of the text consent words, and the words themselves: text_consent_words 't3' is exactly TEXT_PROMISE, a
+// space, then TEXT_FINE (backend 141, R-176; 't1', backend 121 and 123, said "Our first text asks you to reply YES" and
+// no one agreed to it). A new wording gets a new version there and here together, so what is recorded as agreed is
+// always what was on the screen.
 // The promise names both kinds of alert as real events (C-4; the fresh-eyes review, 10/4: "your moment to speak up" and
-// "HIPHI's alerts" named nothing a newcomer could picture), and the small print says the first text asks for a YES, so
-// that text is expected when it comes, however long after the sign-up.
-export const TEXT_CONSENT = 't1';
+// "HIPHI's alerts" named nothing a newcomer could picture), and the small print says the first text confirms the number,
+// so that text is expected when it comes, however long after the sign-up.
+export const TEXT_CONSENT = 't3';
 export const TEXT_PROMISE = 'We’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.';
-export const TEXT_FINE = 'Our first text asks you to reply YES. Message and data rates may apply. Reply STOP to stop, HELP for help.';
+export const TEXT_FINE = 'We’ll text you to confirm it’s your number. Message and data rates may apply. Reply STOP to stop, HELP for help.';
 // Once codes are on (R-155): the first text is the code, and the words agreed are version t2 (backend 128), the same
 // promise and this small print.
 export const TEXT_CONSENT_CODE = 't2';
@@ -229,8 +232,9 @@ export function alertDoneHTML(r, { change = '' } = {}) {
   if (r.kind === 'phone' && (r.confirmed || textSaved()?.confirmed)) return `<p class="strong">Text alerts are on for <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>.</p>
     <p class="small">${S.session ? 'You’re signed in with your number. Use it to sign in on any phone or computer, and your profile is there.' : 'Use your number to sign in on any phone or computer.'} Reply STOP to any text to end them.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox: no code was sent, nothing was saved, and you stay signed out.</p>' : ''}${change}`;
-  // Almost, not done: the first text asks for a YES, and only then do alerts start (B-7: nothing looks finished before it is).
-  if (r.kind === 'phone') return `<p class="strong">Our first text to <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span> asks you to reply YES.</p>
+  // Almost, not done: the first text confirms the number, and only then do alerts start (B-7: nothing looks finished
+  // before it is).
+  if (r.kind === 'phone') return `<p class="strong">We’ll text <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span> to confirm it’s your number.</p>
     <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
   // r.later: inside the first visit, where leaving for the inbox would cut it short (R-098), so: finish here first.

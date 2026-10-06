@@ -64,7 +64,7 @@ export function joinDone(r, follows = []) {
   const what = whatOf(follows) || 'your issues';
   if (r?.kind === 'phone') return {
     h: 'You’re set',
-    lede: r.confirmed ? `We’ll text you when a bill on ${what} gets a hearing.` : `We’ll text you when a bill on ${what} gets a hearing. Our first text says who we are and asks you to reply YES.`,
+    lede: r.confirmed ? `We’ll text you when a bill on ${what} gets a hearing.` : `We’ll text you when a bill on ${what} gets a hearing. Our first text says who we are and confirms it’s your number.`,
     tip: 'Save our number as HIPHI, so you know it’s us.',
   };
   if (r?.kind === 'email') return { h: 'One tap to go', lede: `We sent a link to ${r.email}. Tap it to turn on alerts about ${what}.`, tip: 'Can’t find it in a minute? Check your spam or promotions folder.' };

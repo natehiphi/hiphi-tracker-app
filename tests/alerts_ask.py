@@ -10,6 +10,8 @@
 # visit, on the next load: the phone box, "You're set" after, nothing on the load after. More: "Get alerts" -> the page ->
 # "Text alerts are on" -> Change number -> Stop texts (Undo) -> the box again. The privacy page names numbers. Nothing
 # reaches the database (the sandbox). No console errors.
+# Every page here is the box before codes are on (&codes=0: the live page until texts are set up), whose small print says
+# the number will be confirmed by text, never "reply YES" (R-176). The code step is tests/phone_signin.py's.
 import os, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
@@ -31,7 +33,7 @@ def moment(p):
 
 # From a restart to the alerts screen (topic Food, HIPHI's ticked issues followed).
 def to_alerts(p, extra=''):
-    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&codes=0&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
@@ -53,7 +55,7 @@ with sync_playwright() as pw:
     ok(moment(p) == '', 'no "Mahalo!" before the alerts screen')
     ok('Get alerts on your' in p.inner_text('#st-h') and 'issues' in p.inner_text('#st-h'), f'the heading counts the issues: {p.inner_text("#st-h")}')
     ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-a-email').count() == 0, 'the mobile number box comes first, alone')
-    ok(all(w in t for w in ['gets a hearing', 'HIPHI asks people to speak up', 'At most one text a day', 'reply YES', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']), 'the consent words: what arrives, how often, the YES, rates, STOP, HELP')
+    ok(all(w in t for w in ['gets a hearing', 'HIPHI asks people to speak up', 'At most one text a day', 'We’ll text you to confirm it’s your number', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']) and 'YES' not in t, 'the consent words: what arrives, how often, the confirming text (no YES, R-176), rates, STOP, HELP')
     ok('At a hearing, lawmakers hear from the public' in t, 'the lede says what a hearing is (the story comes after this screen)')
     ok(p.evaluate("(() => { const i = document.getElementById('st-a-phone'), h = document.getElementById('st-a-hint'); return !!h && h.getBoundingClientRect().top > i.getBoundingClientRect().bottom && h.getBoundingClientRect().top - i.getBoundingClientRect().bottom < 40 && i.getAttribute('aria-describedby') === 'st-a-hint'; })()"), 'the privacy line sits right under the box, and the box points to it')
     ok('Use email instead' in t, 'email is a link under the box')
@@ -69,7 +71,7 @@ with sync_playwright() as pw:
     ok('10-digit' in text(p, '#st-a-err') and p.get_attribute('#st-a-phone', 'aria-invalid') == 'true', 'a short number: the 10-digit message, marked invalid')
     p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(1800)   # settled, for the screenshot
     m = moment(p)
-    ok('Mahalo!' in m and 'following' in m and 'Our first text to (808) 555-0123 asks you to reply YES' in m, f'the "Mahalo!" celebrates both, and says a YES text is coming: {m[:140]!r}')
+    ok('Mahalo!' in m and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m, f'the "Mahalo!" celebrates both, and says a text will confirm the number: {m[:140]!r}')
     ok('Next: how a bill becomes law' in m, 'its button names what comes next (C-6), not "Continue"')
     shot(p, '1b_mahalo')
     saved = p.evaluate("localStorage.getItem('hiphi_text')")
@@ -78,7 +80,7 @@ with sync_playwright() as pw:
     ok(p.url.endswith('#/start/4'), 'Continue goes on to the story')
     p.click('[data-stback]'); p.wait_for_timeout(1200)
     t = text(p)
-    ok(p.url.endswith('#/start/3') and 'Our first text to (808) 555-0123 asks you to reply YES.' in t and 'Use a different number' in t and 'You’re almost set' in p.inner_text('#st-h'), 'Back: "almost set" (the YES is still to come), with a way to change it')
+    ok(p.url.endswith('#/start/3') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in t and 'Use a different number' in t and 'You’re almost set' in p.inner_text('#st-h'), 'Back: "almost set" (the confirming text is still to come), with a way to change it')
     ok(p.locator('.st-bar button', has_text='Next').count() == 1, 'Back: the bar says Next')
     shot(p, '1c_back_set')
     p.click('[data-stnext]'); p.wait_for_timeout(900)
@@ -126,7 +128,7 @@ with sync_playwright() as pw:
     ok('Use email instead' in text(p, '.nudgecard') and 'never see your number' in text(p, '.nudgecard'), 'Home: email is a link under it, and the privacy line is there too')
     p.locator('.nudgecard').scroll_into_view_if_needed(); shot(p, '3_home_card')
     p.fill('#ng-phone', '(808) 555-0144'); p.locator('.nudgecard button', has_text='Text me').click(); p.wait_for_timeout(800)
-    ok('Our first text to (808) 555-0144 asks you to reply YES' in text(p, '.nudgecard'), 'Home: "almost set" in the card')
+    ok('We’ll text (808) 555-0144 to confirm it’s your number' in text(p, '.nudgecard'), 'Home: "almost set" in the card')
     p.reload(); p.wait_for_timeout(2500)
     ok(p.locator('.nudgecard form').count() == 0, 'Home, the load after: no ask (a number was given)')
     c.close()
@@ -139,7 +141,7 @@ with sync_playwright() as pw:
 
     # ---- 5. a visit from a shared bill ----
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart&fv=full&end=today#/bill/HB2121'); p.wait_for_selector('[data-bl-newfollow]', timeout=15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&codes=0&restart&fv=full&end=today#/bill/HB2121'); p.wait_for_selector('[data-bl-newfollow]', timeout=15000); p.wait_for_timeout(800)
     p.locator('[data-bl-newfollow]').first.click(); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(400)
     p.click('#fx-mgo'); p.wait_for_timeout(2000)
     ok(p.locator('.st-alertspage').count() == 1, f'from a shared bill: the alerts screen comes right after "Follow this issue?" ({p.url[-10:]})')
@@ -149,10 +151,10 @@ with sync_playwright() as pw:
 
     # ---- 6. More > Get alerts ----
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart#/more'); p.wait_for_timeout(2500)
+    p.goto(BASE + '?demo=1&codes=0&restart#/more'); p.wait_for_timeout(2500)
     # R-147 (10/4): More's first row is the person; without a number or email it invites them to make a profile with the same box.
     ok(p.locator('a.mr-me[href="#/profile"]', has_text='Make your profile').count() == 1, 'More: "Make your profile" is the first row (R-147)')
-    p.goto(BASE + '?demo=1#/alerts'); p.wait_for_timeout(1500)
+    p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_timeout(1500)
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('a.al-swap[href="#/signin"]').count() == 1, 'the page: the phone box, email to the sign-in page')
     shot(p, '6_more_alerts')
@@ -168,11 +170,11 @@ with sync_playwright() as pw:
     undo = p.locator('button', has_text='Undo')
     if undo.count(): undo.first.click(); p.wait_for_timeout(800)
     ok('Text alerts are on' in text(p), 'Undo: texts are on again')
-    p.goto(BASE + '?demo=1#/more'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1&codes=0#/more'); p.wait_for_timeout(1200)
     ok(p.locator('a.mr-me[href="#/profile"]', has_text='Your profile').count() == 1, 'More: with a number, the first row is the profile (R-147)')
-    p.goto(BASE + '?demo=1#/profile'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1&codes=0#/profile'); p.wait_for_timeout(1200)
     ok('(808) ••• 0166' in text(p) and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'the profile: texts on (the number masked), and email still offered')
-    p.goto(BASE + '?demo=1#/privacy'); p.wait_for_timeout(1200)
+    p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_timeout(1200)
     ok('If you add your mobile number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
     c.close()
 
