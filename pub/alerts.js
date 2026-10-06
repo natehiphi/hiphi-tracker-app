@@ -71,8 +71,10 @@ const sayErr = e => e?.plain ? e.message : friendly(e);
 export function alertFields(pfx, { emailHref = '', compact = false, swap: withSwap = true } = {}) {
   if (S.alertCode?.pfx === pfx) return codeFields(pfx, { emailHref, withSwap });
   const phone = S.alertMode !== 'email', v = S.alertDraft[phone ? 'phone' : 'email'];
-  // A sentence, so its Privacy link is a link in running text (WCAG 2.5.8's inline exception, DESIGN A-6).
-  const hint = `<p class="help al-hint" id="${pfx}-hint">${phone ? PHONE_HINT : EMAIL_HINT} <a href="#/privacy">Privacy</a></p>`;
+  // A sentence, so its Privacy link is a link in running text (WCAG 2.5.8's inline exception, DESIGN A-6). For texts, the
+  // terms page sits beside it: carriers ask for links to privacy AND terms at the sign-up (R-180, D1-2). It stays out of
+  // the small print below, whose words must match the stored consent version exactly.
+  const hint = `<p class="help al-hint" id="${pfx}-hint">${phone ? PHONE_HINT : EMAIL_HINT} <a href="#/privacy">Privacy</a>${phone ? ' · <a href="text-terms.html">Text terms</a>' : ''}</p>`;
   const field = phone
     ? `<div class="field al-field"><label for="${pfx}-phone">Mobile number</label>
         <input id="${pfx}-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(v)}" aria-describedby="${pfx}-hint">
