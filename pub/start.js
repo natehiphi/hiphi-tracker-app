@@ -33,7 +33,7 @@
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
+import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved, setFollows } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { CAPITOL, VOICES, islands } from './art.js';
@@ -42,7 +42,8 @@ import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { wireShareLine, wireKeepLine } from './keep.js';
-import { endHome, armOf, lockFirstVisit, abEvent } from './variant.js';
+import { endHome, armOf, lockFirstVisit, abEvent, plan } from './variant.js';
+import { planFlow, PLAN_STEPS, PLAN_CHAPTERS, PLAN_CHAPTER_OF, PLAN_TITLES, PLAN_SURE, PLAN_TOPICS } from './plans.js';
 export let LZ = null, lzP = null;
 // The rest of the first visit (start-rest.js: every step after the topics, the lessons' pages, the address and email
 // steps) and the bill-level code (core.js) load after the topics screen is up (R-122, the split): a newcomer's first
@@ -60,6 +61,13 @@ export const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()
 
 
 export const isOff = () => sessionInfo().phase !== 'in';
+// The plan this first visit follows ('' for today's): one of the five first-visit plans under test (R-164; pub/plans.js).
+// Someone who arrived on a shared bill keeps today's link path: the plans are for people who come in the front door.
+export const planOn = () => wiz().via ? '' : plan();
+// The plans' own screens (pub/onb.js and its style), loaded as soon as a plan's first visit is drawn.
+let ONB = null, onbP = null;
+const onbLoad = () => onbP ??= Promise.all([import('./onb.js'), app.ensureCss ? app.ensureCss(['onb', 'onb-p2', 'onb-p3', 'onb-p4']) : null]).then(([m]) => (ONB = m)).catch(e => { onbP = null; throw e; });
+const onbAsk = () => { if (!ONB) onbLoad().then(() => app.render()).catch(e => console.error(e)); return !!ONB; };
 // The first visit as named screens (the same in and out of session since "Where do you stand?" left it, R-053). From a
 // shared bill (wiz().via is its number), the first part happened on the bill page.
 // 'bill' is the one lesson, "A bill's story" (R-062, Nate 9/29: "Let's use concept 1 as a primer for how session works
@@ -81,11 +89,12 @@ const SHORT = () => armOf('fv') === 'short';
 const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 // The version that ends on Home (?end=home, R-098) has no "You're all set" screen: the last step goes straight to Home,
 // where the celebration plays (pub/home.js).
-const flowOf = off => { const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done') : f; };
+const flowOf = off => { const p = planOn(); if (p) return planFlow(p, off);
+  const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
-const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
+export const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
 export const total = off => flowOf(off).length;
-const pathKey = () => wiz().via ? 'link' : isOff() ? 'off' : 'in';
+export const pathKey = () => wiz().via ? 'link' : isOff() ? 'off' : 'in';
 export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 export const andList = a => a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
 // "Wednesday, January 20" for a Hawaiʻi calendar day
@@ -97,14 +106,15 @@ export const hasPos = b => b && b.hiphi_position && b.hiphi_position !== 'monito
 function myIsland() {
   let sd = +((S.profile || {}).senate_district) || 0;
   if (!sd) { try { sd = +JSON.parse(localStorage.getItem('hiphi_districts') || 'null')?.senate || 0; } catch { sd = 0; } }
-  return sd >= 9 ? 'oahu' : sd === 8 ? 'kauai' : sd >= 5 && sd <= 6 ? 'maui' : sd >= 1 && sd <= 4 ? 'hawaii' : '';
+  // Plan 3's first answer (R-164, pub/onb-p3.js): the island picked lights up on the next screen (C-13).
+  return sd >= 9 ? 'oahu' : sd === 8 ? 'kauai' : sd >= 5 && sd <= 6 ? 'maui' : sd >= 1 && sd <= 4 ? 'hawaii' : (wiz().island || '');
 }
 
 // ---------- the private visit counts (R-023 decision 8): one row per screen reached and how it was left ----------
 let viewKey = '', viewAt = 0;
 export const track = (step, event, extra = {}) => { try {
   // Reaching the end (the finale, or Home in the version that ends there) is the first-visit tests' measure (R-135).
-  if (step === 'done' && (event === 'view' || event === 'done')) abEvent('finished');
+  if ((step === 'done' || step === 'wrap') && (event === 'view' || event === 'done')) abEvent('finished');
   logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
 
 // Closing the tab (or leaving the site) mid-visit is counted as leaving that screen, with the seconds spent on it.
@@ -146,8 +156,9 @@ export function finish() {
     track('done', 'view', { counts: { issues: followedIssues().length, address: !!S.stAddr.pick, email: !!(S.session || mailSent()), phone: !!textSaved() } });
     S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent() || textSaved()), sent: mailSent() };
   }
-  track('done', 'done');
-  wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}) });
+  track(planOn() ? 'wrap' : 'done', 'done');
+  // A plan's later visits bring its next small things on Home (R-164, pub/onb-later.js), so the plan is remembered.
+  wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}), ...(planOn() ? { plan: planOn() } : {}) });
   welcome();
   app.go('#/', { replace: true });
 }
@@ -163,16 +174,18 @@ const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".
-const chapterNames = () => [CHAPTERS[0], SHORT() ? 'Why your voice matters' : CHAPTERS[1], endHome() ? 'Your home page' : CHAPTERS[2]];
+const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : [CHAPTERS[0], SHORT() ? 'Why your voice matters' : CHAPTERS[1], endHome() ? 'Your home page' : CHAPTERS[2]];
+// A plan names its own parts (pub/plans.js).
+const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : CHAPTER_OF[name]) ?? -1;
 let lastChapter = -1;
 function chaptersRow(name) {
-  const k = CHAPTER_OF[name] ?? -1; if (k < 0) return '';
+  const k = chapterOf(name); if (k < 0) return '';
   return `<nav class="st-chapters" aria-label="Your first visit"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
     <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${c}</span>${i < k ? '<span class="sr"> (done)</span>' : ''}</li>`).join('')}</ol></nav>`;
 }
 // Finishing a part ticks it with a small burst: one of the stage celebrations (C-7).
 function tickChapter(name, back) {
-  const k = CHAPTER_OF[name] ?? -1;
+  const k = chapterOf(name);
   if (!back && lastChapter >= 0 && k > lastChapter) later(() => burst(document.querySelectorAll('.st-chapters li')[k - 1]?.querySelector('.st-cm'), 10, 34), 350);
   if (k >= 0) lastChapter = k;
 }
@@ -294,7 +307,7 @@ function tiles(off, yr) {
 // Someone who came from a partner's link or flyer (?via=slug) is welcomed in that partner's words, once, above the
 // heading (the line staff wrote in Staff v2; nothing when there is none).
 S.stWelcome ??= undefined;
-function partnerLine() {
+export function partnerLine() {
   const via = visitVia(); if (!via) return '';
   if (S.stWelcome === undefined) { S.stWelcome = null; partnerWelcome(via).then(t => { if (t) { S.stWelcome = t; app.render(); } }).catch(() => {}); }
   return S.stWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.stWelcome)}</span></p>` : '';
@@ -303,6 +316,17 @@ function stepTopics(step) {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
   const w = off && C ? C.winsIn(yr) : null;   // between sessions, the proof it works (R-067); said once core.js is in
+  // A plan (R-164) says what its own next steps are, and keeps its own time promise (pub/plans.js).
+  const p = planOn();
+  if (p) {
+    const T = PLAN_TOPICS[p], fill = t => esc(t).replace('{next}', String(next)).replace('{open}', esc(shortDay(si.nextOpen || '')));
+    const h = off && T.hOff ? T.hOff : T.h, lede = off && T.ledeOff ? T.ledeOff : T.lede;
+    // The time promise is said once, on the plan's first screen (Plan 4's helper found it twice when topics came second).
+    const sure = step === 1 ? PLAN_SURE[p] : '';
+    return shell('st1 st-topics', `${topRow('topics', step)}${step === 1 ? partnerLine() : ''}${artFor('topics')}
+      <h1 class="hero" id="st-h">${fill(h)}</h1><p class="lede">${fill(lede)}</p>${sure ? sureWide('clock', sure) : ''}`,
+      `${sure ? sayRow('clock', sure) : '<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>'}${tiles(off, yr)}`);
+  }
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
     <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} ${endHome() ? 'Pick what you care about. When your voice can count, you’ll see what to do, and we’ll help you do it.' : 'Pick what you care about, and we’ll tell you when your voice can count.'}`
@@ -398,7 +422,7 @@ function wire(route) {
     // of HIPHI's bills (R-019: Skip must never lead back to where it started).
     // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
     // screen again; now it is simply the screen after the issues: the story, or the short version's one page.)
-    if (name === 'topics' && !pickedIssues().length) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
+    if (name === 'topics' && !pickedIssues().length && !planOn()) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
@@ -429,11 +453,17 @@ function wire(route) {
     if (nb) nb.onclick = () => {
       if (!pickedIssues().length) { flash('Pick at least one, or select Skip.'); return; }
       track(name, 'next', { counts: { cats: pickedIssues().length } });
-      goStep(step, stepOf('issues', off));
+      // Plan 1 has no issues screen: the topics ticked are followed whole, as its first screen says (B-12: the person
+      // ticked them; R-164's review found "Not now" on its bill otherwise left nothing followed under "we keep watch").
+      if (planOn() === 'p1') { const keys = pickedIssues().map(c => c.topicKey).filter(Boolean); if (keys.length) { setFollows({ catsOn: keys }).catch(e => console.error(e)); wizSet({ followedCats: keys }); welcome(); } }
+      goStep(step, planOn() ? step + 1 : stepOf('issues', off));
     };
   }
 
-  if (name !== 'topics' && REST) REST.wireStep(name, { step, off, back, fresh, next, $, $$ });
+  // A plan's own screens are wired by onb.js (R-164); today's later steps, and the address step every plan may use, by
+  // start-rest.js.
+  if (planOn() && PLAN_STEPS.includes(name)) { if (ONB) ONB.wireStep(name, { step, off, back, fresh, next, $, $$ }); else onbAsk(); }
+  else if (name !== 'topics' && REST) REST.wireStep(name, { step, off, back, fresh, next, $, $$ });
 
 }
 
@@ -445,13 +475,14 @@ export default {
   tab: 'home',
   tabs: false,
   // The first visit's A/B versions are fixed as it starts (variant.js lockFirstVisit, R-135), before anything asks which.
-  title: route => route.name === 'learn' ? LESSON_TITLES[learnName(route)] : (lockFirstVisit(), TITLE[nameAt(route.step || 1, isOff())] || 'Get started'),
+  title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff()); return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);
     lockFirstVisit();
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)));   // wire() sends them on
     const name = nameAt(step, off);
+    if (planOn() && PLAN_STEPS.includes(name)) return onbAsk() ? ONB.renderStep(name, step) : skel(step);
     if (name === 'topics' || !STEPS.includes(name)) return stepTopics(step);
     return restAsk() ? REST.renderStep(name, step) : skel(step);   // the rest of the first visit, once it is in
   },
@@ -464,6 +495,7 @@ export default {
     if (redirectFor(step, off)) return '';
     const name = nameAt(step, off);
     if (name === 'topics') return bar2('Next', { iconEnd: 'arrow-right' });
+    if (planOn() && PLAN_STEPS.includes(name)) return ONB ? ONB.barStep(name, step, off) : '';
     return REST ? REST.barStep(name, step, off) : '';
   },
 };

@@ -513,3 +513,41 @@ person".
   planned to go" in the person's record.
 - Tests: `tests/going.py` (100 checks, phone and laptop: the sign-up, the list, focus, the calendar file, a reload, Home
   with testimony open and sent, "I can't go", a changed room, a cancelled hearing moved, the hearing's own day, the walkthrough's last page for both kinds of person, Help); backend `tools/migration_tests/test_134.js`.
+
+## The first visit, six ways: five plans under test (R-164; 5 Oct 2026, HANDOFF 3.98)
+
+Nate's ask (10/5): five onboarding plans from a blank page (the doc "Onboarding: five plans",
+https://claude.ai/artifact/9Fa9anaztdBJBS1uSXVbMP), then "I like plan 1 ... build mockups for the other plans too ... These
+will be offered as different options that we can test", with a switch per version and the alerts sign-up kept in every
+first visit. All five are working versions in the same frame as today's first visit.
+
+- **The test** is `onb` in `pub/variant.js`: six versions (today's, p1 to p5), each with its own switch (`ab_tests.arms_on`,
+  backend 136) in Staff v2 > Session setup > Tests. A new browser keeps a number from the toss (`hiphi_ab.u.onb`) and gets
+  one of the versions switched on when its first visit starts, evenly; the lock keeps it. While a browser is on a plan,
+  the tests inside today's first visit (`end`, `fv`, `email`) are never met or counted, and every first-visit count
+  carries the plan's word as its version (`variantInfo`). A newcomer from a shared bill keeps today's link path
+  (`planOn()` is '' with `wiz().via`). Force one with `?ab=onb.p3` (a tester's link, counted apart).
+- **The plans' shapes** are `pub/plans.js` (first wave, kernel-only): each plan's steps in session and between
+  sessions, its three named parts, titles, time promise and the topics screen's words. `start.js` uses them in `flowOf`,
+  the chapters, the titles and `stepTopics`; `finish()` keeps `wiz().plan`.
+- **The plans' screens** are `pub/onb.js` (loaded when a plan's first visit is drawn, with `onb.css`): `picks` (three
+  issues ticked for you, each with an untick: Plans 3-5), `one` (Plan 1's bill with a real chance this week, and the email
+  walkthrough over it; the walkthrough's Done hands back through `app.onbActed`, set here and called from `helper.js`),
+  `hello` (the one-time introduction to your two legislators, `openMail({ mode: 'intro' })`), `join` (the sign-up) and
+  `wrap` (the ending). Plan-specific screens: `onb-p2.js` (the story and the road), `onb-p3.js` (the island),
+  `onb-p4.js` (the ways to help and the first step), each with its own stylesheet. Plan 3's address step is today's
+  (`you`); its island lights up there (`start.js myIsland` falls back to `wiz().island`).
+- **The sign-up** (`join`, words in `pub/onb-join.js`) follows the research of 10/5 (kept with R-164): asked right after
+  the person has done something, a concrete reason (hearings are set about two days ahead), an example of the text
+  they would get (labelled "Example", never a real bill or day), how often in honest numbers (2026: someone following three
+  typical issues had hearings in 7 of 16 weeks, at most 2 days a week), "Not now" as large as the main button, and a
+  warm "You're set" after a yes. Two versions under their own test, `join` (backend 138): `shown` (the example) and
+  `watch` (three steps: a hearing is set, we tell you, you send a note). The box, its consent words and the small print
+  are `pub/alerts.js`'s, unchanged (C-4).
+- **Later visits** (`pub/onb-later.js`, drawn at the top of Home by `home.js`): one card per visit with the plan's next
+  small thing (find your legislators, the three moments to help, bring a friend), in each plan's order, each put away
+  for good by "Not now" or by doing it (`hiphi_later`).
+- **Checked by** `python3 tests/plans.py` (every plan walked to Home on a phone, a laptop and between sessions, the
+  sign-up's equal buttons and words, "You're set", the later-visit card) and `python3 tests/abtests.py` (the spread over
+  switched-on versions, the plans never counted in today's tests, tester links, the test off). Design exceptions for
+  Plan 1 (an action in the first visit) and Plan 3 (the address before the bills): `docs/DESIGN-AUDIT.md` section 4.

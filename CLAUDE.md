@@ -45,6 +45,12 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
 - **Your profile (R-147, 10/4):** More's first row is the person (initials on the More tab and a laptop's header); only with a
   number or an email; it replaced Settings (`#/settings` opens it). "I'm a..." titles (`pub/titles.js`, also used by Staff
   v2) open each letter with the two that fit the bill; where they live goes only to their own lawmakers. `docs/FEATURES.md`.
+- **The first visit, six ways (R-164, 10/5):** five plans from the doc "Onboarding: five plans" are working first visits
+  tested against today's: test `onb` in `pub/variant.js` (six versions, a switch per version in Staff v2 > Tests, backend
+  136), shapes in `pub/plans.js`, screens in `pub/onb.js` (shared: picks, one, hello, join, wrap) and `pub/onb-p2.js`,
+  `onb-p3.js`, `onb-p4.js`; the sign-up's words and its own test `join` (backend 138) in `pub/onb-join.js`; later visits'
+  one card on Home in `pub/onb-later.js`. While a browser is on a plan, `end`, `fv` and `email` are never met. Force one
+  with `?ab=onb.p1` (to `p5`); `python3 tests/plans.py` walks them all. `docs/FEATURES.md` has the details.
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
 - The design standard is `docs/DESIGN.md`; the audit `docs/DESIGN-AUDIT.md`.
@@ -223,7 +229,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   them (the magnifier's is `.hdr .hsearch > .ic`).
 - Nate's product rules (9/19):
   1. A first visit is follow a few issues + maybe say where you stand (R-018, 9/21: people follow issues, and
-     bills reach them through the issue). No action is pushed. Later visits prompt
+     bills reach them through the issue). No action is pushed (today's version; the test plans 1 and 3 offer one, with
+     an equal "Not now", as Nate asked in R-150 and R-164: an exception in DESIGN-AUDIT section 4). Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
   2. The alerts ask is a step in the flow (right after the issues since R-146, 10/4; one box in `pub/alerts.js`: a
@@ -393,7 +400,8 @@ python3 tests/links_keep.py         # the walkthrough link, the My issues link r
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog (waited for, up to 30 s, and how long it took is printed), someone with an action lands on Home, and every way in ends with the full catalog (R-136); 13 checks
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
-python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 61 checks
+python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; the first visit's six versions (R-164); 69 checks
+python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the later-visit card; 86 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
 python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks

@@ -101,13 +101,14 @@ with sync_playwright() as p:
     ctx, pg, sent, leak = rig(ROWS)
     # 200 fresh browsers: every test gets its own toss, about half and half
     split = pg.evaluate("""async () => { const n = {}; for (let i = 0; i < 200; i++) { localStorage.clear(); const v = await import('/pub/variant.js?b=' + i);
-        for (const [k, t] of Object.entries(v.TESTS)) { const a = JSON.parse(localStorage.getItem('hiphi_ab')).arms[k]; n[k] = (n[k] || 0) + (a === t.arms[1] ? 1 : 0); } } return n; }""")
+        for (const [k, t] of Object.entries(v.TESTS)) { if (t.multi) continue; const a = JSON.parse(localStorage.getItem('hiphi_ab')).arms[k]; n[k] = (n[k] || 0) + (a === t.arms[1] ? 1 : 0); } } return n; }""")
     ok(all(60 <= v <= 140 for v in split.values()), f'200 browsers: the second version of each test about half the time {split}')
     pg.evaluate("localStorage.clear()"); pg.reload()
     # the page's own copies: visitlog.js hands variant.js its sender, as on the real page
     pg.evaluate("async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); await V.abReady; }")
     st = pg.evaluate("() => JSON.parse(localStorage.getItem('hiphi_ab'))")
-    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home'} and not st['forced'], f'a new browser has a version of all six, none forced ({st["arms"]})')
+    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home', 'join'} and not st['forced'], f'a new browser has a version of every two-version test, none forced ({st["arms"]})')
+    ok(0 <= (st.get('u') or {}).get('onb', -1) < 1, f'the six-version first-visit test keeps a number from the toss, not a version (R-164) ({st.get("u")})')
     eff = pg.evaluate("() => Object.fromEntries(Object.keys(V.TESTS).map(k => [k, V.armOf(k)]))")
     ok(eff['email'] == 'finale', f'the email test is off: everyone gets A whatever the toss ({st["arms"]["email"]} tossed, finale shown)')
     ok(all(eff[k] == st['arms'][k] for k in ('end', 'fv', 'rank', 'share', 'home')), 'the tests that are on show the tossed version')
@@ -151,6 +152,38 @@ with sync_playwright() as p:
     pg.evaluate("async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); }"); pg.wait_for_timeout(1900)
     pg.evaluate("() => { V.abEvent('acted'); V.abEvent('acted'); }"); pg.wait_for_timeout(1900)
     ok([(e['t'], e['a'], e['k']) for e in sent] == [('share', 'deadline', 'goal'), ('share', 'deadline', 'goal2')], f'a friend by a deadline-first link: arrived, then acted, once each {[(e["t"], e["a"], e["k"]) for e in sent]}')
+    ctx.close()
+    # ================= 3. the first visit's six versions (R-164, backend 136) =================
+    ONB = {'key': 'onb', 'arms': ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], 'is_on': True, 'fallback': 'today', 'arms_on': ['today', 'p1', 'p2']}
+    JOIN = {'key': 'join', 'arms': ['shown', 'watch'], 'is_on': True, 'fallback': 'shown'}
+    ctx, pg, sent, leak = rig(ROWS + [ONB, JOIN])
+    spread = pg.evaluate("""async () => { await import('/pub/visitlog.js'); const v = await import('/pub/variant.js'); await v.abReady; const n = {};
+      for (let i = 0; i < 300; i++) { const s = JSON.parse(localStorage.getItem('hiphi_ab')); s.u = { onb: Math.random() }; delete s.lock; localStorage.setItem('hiphi_ab', JSON.stringify(s));
+        const a = v.armOf('onb'); n[a] = (n[a] || 0) + 1; } return n; }""")
+    ok(set(spread) == {'today', 'p1', 'p2'} and all(60 <= c <= 140 for c in spread.values()), f'300 new visitors are spread evenly over the three versions switched on, and none get one switched off {spread}')
+    pg.evaluate("localStorage.clear()"); pg.reload()
+    got = pg.evaluate("""async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); await V.abReady;
+      const s = JSON.parse(localStorage.getItem('hiphi_ab')); s.u = { onb: 0.5 }; localStorage.setItem('hiphi_ab', JSON.stringify(s));
+      V.lockFirstVisit(); return [V.armOf('onb'), V.plan(), V.armOf('end'), V.armOf('fv'), V.variantInfo()]; }""")
+    pg.wait_for_timeout(1900)
+    ok(got[0] == 'p1' and got[1] == 'p1' and got[2] == 'today' and got[3] == 'full' and got[4]['variant'] == 'p1', f'a visitor on Plan 1 gets today\'s versions of the tests inside today\'s first visit, and counts as p1 {got}')
+    seen = sorted((e['t'], e['a']) for e in sent if e['k'] == 'seen')
+    ok(seen == [('onb', 'p1')], f'starting a plan meets only the first-visit test, never end or fv {seen}')
+    ok(pg.evaluate("() => { V.abEvent('finished'); return true; }") and not [e for e in sent if e['t'] in ('end', 'fv') and e['k'] != 'seen'], 'a plan visitor finishing is never counted for end or fv')
+    pg.evaluate("() => V.abSeen('join')"); pg.wait_for_timeout(1900)
+    ok([e for e in sent if e['t'] == 'join' and e['k'] == 'seen'], 'the sign-up test is met when its screen is shown')
+    ctx.close()
+    # a tester's link forces a version even when it is switched off, and counts it apart
+    ctx, pg, sent, leak = rig(ROWS + [ONB])
+    pg.goto(BASE + '/tests/?ab=onb.p4')
+    got = pg.evaluate("async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); await V.abReady; V.lockFirstVisit(); return [V.armOf('onb'), V.isForced('onb')]; }")
+    pg.wait_for_timeout(1900)
+    ok(got == ['p4', True] and [e for e in sent if e['t'] == 'onb' and e['a'] == 'p4' and e['f'] is True], f'?ab=onb.p4 gives Plan 4 though it is switched off, counted as a tester {got}')
+    ctx.close()
+    # with the test off, everyone gets today's first visit
+    ctx, pg, sent, leak = rig(ROWS + [dict(ONB, is_on=False)])
+    got = pg.evaluate("async () => { await import('/pub/visitlog.js'); const V = await import('/pub/variant.js'); await V.abReady; V.lockFirstVisit(); return [V.armOf('onb'), V.plan()]; }")
+    ok(got == ['today', ''], f'the first-visit test off: today\'s first visit, no plan {got}')
     ctx.close()
     # the privacy signal: nothing is sent at all
     ctx, pg, sent, leak = rig(ROWS, gpc=True)
