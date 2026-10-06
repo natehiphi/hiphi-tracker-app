@@ -145,7 +145,12 @@ export async function linkText() {
 export const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
 // One client, however many ask first (init() and supa() used to make their own, and two auth clients fight over storage).
 let clientP = null;
-const makeClient = () => clientP ??= import(SUPABASE_JS).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)));
+// The library names its parts only once it has arrived, and they name theirs: three round trips in a row. track.html
+// preloads them all for a returning browser; a first visit leaves them out so its first screen goes first, and asks for
+// them here, together, when the library is wanted (10/5: on a slow line the full catalog came 5 s after the topics).
+const preloadLib = () => { for (const href of window.__hiphiLib || []) { if (document.querySelector(`link[rel="modulepreload"][href="${href}"]`)) continue;
+  const l = document.createElement('link'); l.rel = 'modulepreload'; l.href = href; l.crossOrigin = 'anonymous'; document.head.appendChild(l); } };
+const makeClient = () => clientP ??= (preloadLib(), import(SUPABASE_JS)).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)));
 export async function init() {
   if (DEMO) { await (await import('./demo.js')).demoLoad(); return; }   // the sandbox's data, loaded only with ?demo=1 (R-122)
   await makeClient();

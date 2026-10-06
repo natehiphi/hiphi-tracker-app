@@ -61,11 +61,14 @@
   var core = ['pub/core.js', 'stops.js', 'pub/rank.js'];
   var paths = onBill ? core.concat(['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js']) : first ? ['pub/start.js', 'pub/rank.js'] : core.concat(['pub/home.js', 'pub/actions.js', 'pub/speakup.js']);
   if (/[?&]demo=1/.test(location.search)) paths = paths.concat(core, ['pub/demo.js']);
-  if (!first || onBill || /[?&]demo=1/.test(location.search)) paths = paths.concat(['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm',
+  // The library and its parts. A first visit asks for them all at once after its first screen (pub/kernel.js makeClient,
+  // from this list), so they come in one round trip, not three (10/5: on a slow line the full catalog waited 5 s for them).
+  var lib = window.__hiphiLib = ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/postgrest-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/auth-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/realtime-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/storage-js@2.117.2/+esm',
     'https://cdn.jsdelivr.net/npm/@supabase/functions-js@2.117.2/+esm', 'https://cdn.jsdelivr.net/npm/@supabase/phoenix@0.4.5/+esm',
-    'https://cdn.jsdelivr.net/npm/tslib@2.8.1/+esm', 'https://cdn.jsdelivr.net/npm/iceberg-js@0.8.1/+esm']);
+    'https://cdn.jsdelivr.net/npm/tslib@2.8.1/+esm', 'https://cdn.jsdelivr.net/npm/iceberg-js@0.8.1/+esm'];
+  if (!first || onBill || /[?&]demo=1/.test(location.search)) paths = paths.concat(lib);
   for (var i = 0; i < paths.length; i++) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = paths[i]; if (paths[i].indexOf('https:') === 0) l.crossOrigin = 'anonymous'; document.head.appendChild(l); }
   // The first screen's stylesheet starts downloading now; pub/app.js puts it in the page in its place (before wide.css,
   // the order of CSS_ORDER) once the module is in, from the cache this preload fills.

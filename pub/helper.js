@@ -1234,7 +1234,10 @@ function foot() {
   const x = S.helper, row = (html, more = '') => `<div class="hp-footin">${html}</div>${more ? `<div class="hp-footmore">${more}</div>` : ''}`;
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
-  if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
+  // The three answers are the buttons, and tapping one moves on. Someone who already answered and came Back sees their
+  // answer chosen, so Next keeps it (Nate 10/5, R-167: with only Close here, the way on was to tap the chosen answer again).
+  if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
+    + (x.stance ? btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }) : ''));
   // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.
   if (x.screen === 'again') {
     const fresh = btn(`Start a new ${isMail(x) ? 'email' : 'letter'}`, { kind: 'text', sm: true, attrs: { 'data-hp': 'again-new' } });

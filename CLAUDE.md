@@ -391,7 +391,7 @@ python3 tests/uptime.py             # the published page draws four screens with
 python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 22 checks
 python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed and the finale's keep line on a phone (R-123 to R-126); 13 checks
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
-python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog, and someone with an action lands on Home; 5 checks
+python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog (waited for, up to 30 s, and how long it took is printed), someone with an action lands on Home, and every way in ends with the full catalog (R-136); 13 checks
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
 python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; 61 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
