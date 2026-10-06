@@ -179,8 +179,18 @@ card) and no `og:url` (Facebook and LinkedIn link to it, dropping `?via=`); thei
 retry. Found and fixed with it: the calendar feeds (R-125) never held an event (the job did not read the issue's id);
 speakup.js read no year in the address, so on `#/bill/2026/HB1518` "Ask the chairs" opened a bare email instead of the
 walkthrough; a page opened from a shared link (`?via=`, not a reload) no longer reopens a walkthrough left open in the tab
-(R-113, helper.js `freshLink`). Tests: `tests/share_cards_test.mjs` (20 checks, every push), `tests/share_asks.py` (16),
+(R-113, helper.js `freshLink`). Tests: `tests/share_cards_test.mjs` (23 checks, every push), `tests/share_asks.py` (19),
 `tests/share_links.py`, `tests/year_links_live.py` (the published pages).
+Then Nate (10/5): "The link works but the share card is not specific about the action. It should be." In a text the
+picture is most of the card, and every card had the same one; and the practice copy shared the tracker's own address, whose
+card is the general one. So: **a picture per ask** (`pub/og/testify.png`, `ask`, `hold`, `floor-yes`/`-no`,
+`conference-yes`/`-no`, `governor-sign`/`-veto`, `follow`, `law`; drawn from one template by `tools/og_images.py`, the
+brand's mark, Capitol and fonts), the ask in large words ("Testimony needed / Tell lawmakers what you think"), picked per
+card by `imageFor` in share_cards.mjs; `pub/og.png` redrawn the same way ("issues", `?v=` on track.html). And **the
+practice copy's own share pages**, `b/demo/` and `i/demo/`, built from `demo/snapshot.json` at its day (Mon 16 Mar 2026)
+by the same job, `noindex`, opening `track.html?demo=1`: the practice copy (in session; not `?season=off`) and Staff v2's
+practice copy share them (`billShareUrl`, `issueShareUrl`, `sharePageUrl`), so a share made there shows the in-session
+card now; `404.html` sends a `b/demo/` link to the practice copy.
 
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen
@@ -559,8 +569,12 @@ first visit. All five are working versions in the same frame as today's first vi
   sessions, its three named parts, titles, time promise and the topics screen's words. `start.js` uses them in `flowOf`,
   the chapters, the titles and `stepTopics`; `finish()` keeps `wiz().plan`.
 - **The plans' screens** are `pub/onb.js` (loaded when a plan's first visit is drawn, with `onb.css`): `picks` (three
-  issues ticked for you, each with an untick: Plans 3-5), `one` (Plan 1's bill with a real chance this week, and the email
-  walkthrough over it; the walkthrough's Done hands back through `app.onbActed`, set here and called from `helper.js`),
+  issues ticked for you, each with an untick: Plans 3-5), Plan 1's gradual build-up (Nate 10/5: "too aggressive ...
+  find a bill they want first, then learn, then decide"): `find` (up to four bills on the picked topics, one per issue,
+  soonest chance first; nothing is asked until one is picked), `learn` (what it does, Plan 2's small road and the bill's
+  own plain status, when people can help) and `decide` (three equal cards: write it now, a reminder before the
+  deadline, or just keep watch; the walkthrough's Done hands back through `app.onbActed`, set here and called from
+  `helper.js`; a reminder makes the sign-up say "We'll remind you before Monday"),
   `hello` (the one-time introduction to your two legislators, `openMail({ mode: 'intro' })`), `join` (the sign-up) and
   `wrap` (the ending). Plan-specific screens: `onb-p2.js` (the story and the road), `onb-p3.js` (the island),
   `onb-p4.js` (the ways to help and the first step), each with its own stylesheet. Plan 3's address step is today's
@@ -579,3 +593,8 @@ first visit. All five are working versions in the same frame as today's first vi
   sign-up's equal buttons and words, "You're set", the later-visit card) and `python3 tests/abtests.py` (the spread over
   switched-on versions, the plans never counted in today's tests, tester links, the test off). Design exceptions for
   Plan 1 (an action in the first visit) and Plan 3 (the address before the bills): `docs/DESIGN-AUDIT.md` section 4.
+- **The hello letter** (R-172, Nate 10/5: "too stiff. It serves no serious benefit"): `helper.js` mode `intro` and the
+  legislators page's draft (`people.js`) are a short note from a constituent: the one issue they care about most (the
+  issue of a bill they took a stand on, else the first they follow), their reason, at most one bill, one question that
+  invites a reply ("Where do you stand on it?"), and one line for their other issues. No lists of bill numbers. Subject:
+  "A question from your constituent in ...". Plans 2 and 3 are on hold as built (Nate 10/5), with his notes in R-164.

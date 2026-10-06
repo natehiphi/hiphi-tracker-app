@@ -35,7 +35,7 @@ with sync_playwright() as p:
     # The words every share uses (shareFor), on this bill's soonest open hearing; the sheet itself is the device's.
     t = pg.evaluate("async n => { const c = await import('./pub/core.js'), a = await import('./pub/actions.js'); const b = c.S.bills.find(x => x.bill_number === n) || Object.values(c.S.extra).find(x => x.bill_number === n); const h = c.hearingsOf(b).filter(x => x.testimony_deadline && new Date(x.testimony_deadline) > Date.now()).sort((x, y) => x.scheduled_at < y.scheduled_at ? -1 : 1)[0]; const t = a.shareFor(b, h); return { text: t.text, url: t.url, copy: t.copy }; }", NUM)
     ok('Testimony is due' in t['text'] and re.search(r'due \w{3}, \w{3} \d{1,2} at \d{1,2}:\d{2} [AP]M', t['text']) is not None, f"the share text says when testimony is due: {t['text'][:140]}")
-    ok(t['copy'].count('http') == 1 and f'#/bill/{NUM}' in t['url'] and 'http' not in t['text'], 'the link is passed once: as the url for a share sheet, at the end of the copied text')
+    ok(t['copy'].count('http') == 1 and f'b/demo/{NUM}' in t['url'] and 'http' not in t['text'], 'the link is passed once: as the url for a share sheet, at the end of the copied text (the practice copy\'s own share page, R-169)')
     ok(NICK in t['text'], 'the bill is named by its everyday name')
     # ---- 2. Share this issue ----
     islug = next((i['slug'] for i in snap['issues'] if any(r['bill_id'] == bill['id'] and r['issue_id'] == i['id'] for r in snap.get('billIssues', []))), None)
@@ -44,7 +44,7 @@ with sync_playwright() as p:
     ok(sb.count() == 1 and 'Share this issue' in sb.inner_text(), 'the issue page offers Share this issue')
     pg.evaluate("() => navigator.clipboard.writeText('')"); sb.click(); pg.wait_for_timeout(600); t = clip(pg)
     iname = pg.locator('.fd-ihead h1').inner_text()
-    ok(iname in t and t.count('http') == 1 and f'#/issue/{islug}' in t, f'the issue share text names the issue with its link once: {t[:120]}')
+    ok(iname in t and t.count('http') == 1 and f'i/demo/{islug}' in t, f'the issue share text names the issue with its link once: {t[:120]}')
     ok('Link copied' in pg.locator('[data-shareissue]').first.inner_text(), 'the button says Link copied')
     # ---- 3. the finale's line, for someone who follows an issue ----
     pg.evaluate("async s => { const c = await import('./pub/core.js'); const i = c.S.issues.find(x => x.slug === s); await c.setFollows({ issuesOn: [i.id] }); }", islug)

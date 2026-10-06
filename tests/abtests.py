@@ -62,7 +62,8 @@ with sync_playwright() as p:
         t = pg.evaluate("""async id => { const c = await import('./pub/core.js'), a = await import('./pub/actions.js');
           const b = c.D.bills.find(x => x.id === id), h = c.D.hearings.find(x => x.bill_id === id && new Date(x.scheduled_at) > Date.now()); return a.shareFor(b, h); }""", by('HB1780')['id'])
         ok(t['text'].startswith('Have you seen this?' if arm == 'summary' else 'Testimony on Free school bus passes (HB 1780) closes'), f'share.{arm}: {t["text"][:70]}…')
-        ok(f'via=share-{arm}' in t['url'] and t['url'].index('via=') < t['url'].index('#'), f'share.{arm}: the link carries via=share-{arm} before the #: {t["url"][-60:]}')
+        # A share page (b/demo/HB1780-testify?via=..., R-169) has no # part; the tracker's own address keeps via before the #.
+        ok(f'via=share-{arm}' in t['url'] and ('#' not in t['url'] or t['url'].index('via=') < t['url'].index('#')), f'share.{arm}: the link carries via=share-{arm} before the #: {t["url"][-60:]}')
         ok(t.get('ab') == by('HB1780')['id'], f'share.{arm}: the share is marked for counting')
         law = pg.evaluate("""async id => { const c = await import('./pub/core.js'), a = await import('./pub/actions.js'); const b = c.D.bills.find(x => x.id === id); return a.shareFor(b, null, { law: true }); }""", by('HB1780')['id'])
         ok('via=' not in law['url'] and not law.get('ab'), f'share.{arm}: a good-news share is not part of the test')

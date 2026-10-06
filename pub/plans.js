@@ -11,9 +11,11 @@
 // Steps the plans share with today's: 'topics' (the six tiles; words per plan below) and 'you' (the street address). The
 // rest are new, and the private counts accept them (backend 136): one, hello, join, wrap, story, road, island, way,
 // first, picks.
-//   p1  Start with one bill   topics -> one (a bill that needs voices this week, and the two-minute email to its
-//                             chair) -> join -> wrap. Between sessions: topics -> you (find your two legislators)
-//                             -> hello (say hello to them) -> join -> wrap.
+//   p1  Start with one bill   topics -> find (pick a bill you care about) -> learn (what it does, where it is, when
+//                             people can help) -> decide (write the email now, a reminder, or just keep watch) -> join
+//                             -> wrap. Nate 10/5: "too aggressive ... without a gradual build up"; "find a bill they want
+//                             first, then learn, then decide". Between sessions: topics -> you (find your two
+//                             legislators) -> hello (say hello to them) -> join -> wrap.
 //   p2  A bill's journey      story (a real bill's road, six scenes, a practice note) -> topics -> road (their issues'
 //                             bills on the same road, follow with a tap) -> join -> wrap.
 //   p3  Meet your people      island -> you (find your two legislators) -> topics -> picks -> join -> hello -> wrap
@@ -23,7 +25,7 @@
 //   p5  A light start         topics -> picks (three issues followed for you, each with an untick) -> join -> wrap; the
 //                             rest comes one card per later visit on Home (onb.js laterCard).
 export const PLAN_FLOWS = {
-  p1: { in: ['topics', 'one', 'join', 'wrap'], off: ['topics', 'you', 'hello', 'join', 'wrap'] },
+  p1: { in: ['topics', 'find', 'learn', 'decide', 'join', 'wrap'], off: ['topics', 'you', 'hello', 'join', 'wrap'] },
   p2: { in: ['story', 'topics', 'road', 'join', 'wrap'] },
   p3: { in: ['island', 'you', 'topics', 'picks', 'join', 'hello', 'wrap'] },
   p4: { in: ['way', 'topics', 'picks', 'join', 'first', 'wrap'] },
@@ -31,26 +33,26 @@ export const PLAN_FLOWS = {
 };
 export const planFlow = (p, off) => (off && PLAN_FLOWS[p]?.off) || PLAN_FLOWS[p]?.in || [];
 // The steps onb.js draws (the others are today's: 'topics' in start.js, 'you' in start-rest.js).
-export const PLAN_STEPS = ['one', 'hello', 'join', 'wrap', 'story', 'road', 'island', 'way', 'first', 'picks'];
+export const PLAN_STEPS = ['one', 'find', 'learn', 'decide', 'hello', 'join', 'wrap', 'story', 'road', 'island', 'way', 'first', 'picks'];
 
 // The three named parts at the top of each plan (a signpost, not controls, as today's). The ending ('wrap') is past the
 // last part, so all three show as done there.
 export const PLAN_CHAPTERS = {
-  p1: ['Your issue', 'Your voice', 'Stay in the loop'],
+  p1: ['Your issues', 'How you can help', 'Stay in the loop'],
   p2: ['A bill’s journey', 'Your issues', 'Stay in the loop'],
   p3: ['Who speaks for you', 'Your issues', 'Say aloha'],
   p4: ['Your way', 'Your issues', 'Your first step'],
   p5: ['Your issues', 'Stay in the loop'],
 };
 export const PLAN_CHAPTER_OF = {
-  p1: { topics: 0, one: 1, you: 1, hello: 1, join: 2, wrap: 3 },
+  p1: { topics: 0, find: 0, learn: 1, decide: 1, you: 1, hello: 1, join: 2, wrap: 3 },
   p2: { story: 0, topics: 1, road: 1, join: 2, wrap: 3 },
   p3: { island: 0, you: 0, topics: 1, picks: 1, join: 1, hello: 2, wrap: 3 },
   p4: { way: 0, topics: 1, picks: 1, join: 1, first: 2, wrap: 3 },
   p5: { topics: 0, picks: 0, join: 1, wrap: 2 },
 };
 export const PLAN_TITLES = {
-  one: 'One bill that needs voices', hello: 'Say aloha to your legislators', join: 'Stay in the loop', wrap: 'You’re all set',
+  one: 'One bill that needs voices', find: 'Find a bill', learn: 'How this bill can move', decide: 'Your choice', hello: 'Say aloha to your legislators', join: 'Stay in the loop', wrap: 'You’re all set',
   story: 'A bill’s journey', road: 'Your issues on the road', island: 'Where do you live?', way: 'How do you like to help?',
   first: 'Your first step', picks: 'What’s moving on your issues',
 };
@@ -61,7 +63,7 @@ export const PLAN_SURE = { p1: 'About 3 minutes. Free.', p2: 'About 3 minutes. F
 // The topics screen's words in each plan (start.js stepTopics): the heading and the line under it, in session and between
 // sessions. {open} is the day the session opens.
 export const PLAN_TOPICS = {
-  p1: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll keep watch on it. Then we’ll show you one bill that needs voices this week.',
+  p1: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll keep watch on it. Then pick a bill to learn about.',
     hOff: 'Get ready for the {next} session', ledeOff: 'The Legislature opens {open}. Pick what you care about, and we’ll keep watch on it. Then say hello to the two people who vote for you there.' },
   // Said so it reads right whether or not the person watched the story (Plan 2's helper: after "Skip to the bills",
   // "That road" pointed at nothing).

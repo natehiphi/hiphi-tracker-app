@@ -11,7 +11,7 @@
 // Design rules this follows: C-1 (something useful before the ask), C-3 (the ask right after a success, skippable as an
 // equal choice), C-4 (the consent words are pub/alerts.js's, unchanged and versioned), C-7 (a burst for each small win,
 // one moment for the first follow or action, the peak at the end), C-13 (every answer changes what comes next), P-5.
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, sessionInfo, wiz, wizSet, HST, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, followedIssues, followsAnything, setFollows, issuesOf, issueFollowed, textSaved, cmteLabel, chairContacts } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, nick, spaced, sessionInfo, wiz, wizSet, HST, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, followedIssues, followsAnything, setFollows, issuesOf, issueFollowed, textSaved, cmteLabel, chairContacts, plainStatus } from './core.js';
 import { shell, topRow, artFor, bar1, bar2, sayRow, sureWide, skel, loadErr, isOff, planOn, goStep, finish, track, pickedIssues, issueInfo, ranker, byScore, mailSent, welcome, flash, clearFlash, plural, andList, shortDay, shown, poolBills, busy, stepOf } from './start.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, flower } from './art.js';
@@ -98,53 +98,135 @@ function wirePicks({ step, next, $, $$ }) {
   };
 }
 
-// ================= one: one bill that needs voices this week (Plan 1) =================
-// The soonest real chance on their topics: a bill HIPHI has a position on with a hearing whose testimony is still open,
-// else any hearing, else (a quiet week) HIPHI's most important bill on them, with a hearing ask instead. The email is
-// the walkthrough every bill page uses (helper.js, mode 'email'), opened over this step; its Done comes back here
-// through app.onbActed and goes on to the sign-up.
-export function oneBill() {
+// ================= find, learn, decide: Plan 1's gradual build-up (R-164) =================
+// Nate 10/5, after trying the first build: "Plan 1 is too aggressive. Immediately writing testimony without a gradual
+// build up is too much", and the shape: "find a bill they want first, then learn, then decide". So nothing is asked of the
+// person until they have chosen a bill themselves and seen how it can move:
+//   find    a few bills on their topics with a chance to move soon; they pick the one they want to learn about
+//   learn   that bill: what it does, where it is on its road (Plan 2's small road), and when people can help
+//   decide  three equal ways on: write the email now (the walkthrough every bill page uses), a reminder before the
+//           deadline (the sign-up then offers it), or no thanks. None is the "right" answer (P-5).
+// The email walkthrough's Done comes back through app.onbActed and goes on to the sign-up.
+const FIND_N = 4;
+// The bills to choose from: HIPHI has a position on each; soonest real chance first (open testimony, then any hearing,
+// then the most important), at most four, one per issue so the list is a real choice and not one issue's twins.
+export function findBills() {
   const m = planIssues(); if (m.err || m.loading) return m;
-  const R = m.R, now = Date.now();
-  const mine = m.rows.flatMap(x => x.live.length ? x.live : x.bills);
-  const pick = list => { const ok = list.filter(b => b && b.hiphi_position && b.hiphi_position !== 'monitor' && !/oppose/.test(b.hiphi_position));
-    return ok.slice().sort(R.cmp)[0] || null; };
-  let b = pick(mine.filter(b => R.info(b).tier === 0)) || pick(mine.filter(b => R.info(b).tier === 1)) || pick(poolBills().filter(b => R.info(b).tier === 0));
-  const h = b ? R.soon.get(b.id) || null : null;
-  if (!b) b = pick(mine) || null;
-  return { ...m, b, h: h && new Date(h.scheduled_at) > now ? h : null };
+  const R = m.R, seen = new Set(), out = [];
+  const pos = b => b && b.hiphi_position && b.hiphi_position !== 'monitor';
+  for (const x of m.rows) {
+    const b = (x.live.length ? x.live : x.bills).filter(pos).slice().sort(R.cmp)[0];
+    if (b && !seen.has(b.id)) { seen.add(b.id); out.push(b); }
+  }
+  const list = out.sort(R.cmp).slice(0, FIND_N);
+  return { ...m, list };
 }
+const chosen = () => { const id = S.obBill || wiz().obBill; return id ? anyBill(id) : null; };
+const hearingOf = (b, R) => { const h = b ? (R || ranker()).soon.get(b.id) || null : null; return h && new Date(h.scheduled_at) > Date.now() ? h : null; };
+const dueOf = h => h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? h.testimony_deadline : null;
 const dayWord = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' });
+const shortWhen = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' });
 const timeWord = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' });
-function stepOne(step) {
-  const m = oneBill();
+// The bill's own plain status sentence (the bill page's words), never Plan 2's road names ("On the other side").
+const statusWords = b => { try { return plainStatus(b).text; } catch { return ''; } };
+const chairOf = (b, h) => { const c = chairContacts(h ? h.committee : (b.committee || '').split('/')[0])[0]; return c ? `${c.title} ${c.leg?.name || c.name}` : ''; };
+
+function findCard(b, R, on) {
+  const h = hearingOf(b, R), name = nick(b) || spaced(b.bill_number);
+  const when = h ? chip(`Hearing ${shortWhen(h.scheduled_at)}`, 'info', 'calendar') : chip('Needs a hearing', '', 'hourglass');
+  return `<li class="st-pcard ob-pcard${on ? ' on' : ''}"><button type="button" class="st-pick" data-obfind="${esc(b.id)}" aria-pressed="${on}">
+    <span class="st-tick" aria-hidden="true">${icon('check')}</span>
+    <span class="st-pbody"><span class="st-ptop">${when}</span><span class="st-phead">${esc(name)}</span>
+      <span class="st-pwhat ob-one">${esc(blurb(b, 140))}</span>
+      <span class="st-pmeta"><span>${esc(spaced(b.bill_number))}</span>${posChip(b)}</span></span></button></li>`;
+}
+function stepFind(step) {
+  const m = findBills();
   if (m.loading) return skel(step);
   if (m.err) return loadErr(step);
-  if (!m.b) return stepHello(step);   // nothing on the calendar at all: the hello stands in
-  const b = m.b, h = m.h, name = nick(b) || spaced(b.bill_number), acted = S.obActed;
-  const cm = h ? cmteLabel(h.committee) : '';
-  const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? h.testimony_deadline : null;
-  // Who the email goes to, by name (the review: the screen did not say who receives it).
-  const chair = chairContacts(h ? h.committee : (b.committee || '').split('/')[0])[0], to = chair ? `${chair.title} ${chair.leg?.name || chair.name}` : '';
-  const when = h ? `<p class="ob-when">${icon('calendar')}<span><b>${esc(cm || 'A committee')}</b> hears it ${esc(dayWord(h.scheduled_at))}.${due ? ` Send yours before ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}, when the committee stops taking notes.` : ''}</span></p>` : '';
-  // Never "most people never send one": saying few people act makes fewer act (the sign-up research, 10/5); and no claim
-  // the app cannot back (the review: "the chair reads them first").
-  const why = h ? `At a hearing, a committee listens to the public before it votes.${to ? ` Your email goes to ${to}, who chairs it.` : ' Your email goes to the committee’s chair.'}`
-    : `It needs a hearing before it can move.${to ? ` A short email asking ${to}, the chair, for one helps.` : ' A short email asking the chair for one helps.'}`;
-  return shell('st1 ob-one', `${topRow('one', step)}${artFor('one')}
-    <h1 class="hero" id="st-h">${acted ? 'You added your voice' : 'This one needs voices this week'}</h1>
-    <p class="lede">${acted ? `Mahalo for writing about ${esc(name)}. Next: how we’ll tell you what happens.` : `Here’s a bill on ${esc(topicWords())} with a real chance to help right now.`}</p>`,
-    `<article class="card ob-bill" aria-labelledby="ob-bill-h">
-      <p class="ob-num">${esc(spaced(b.bill_number))}${posChip(b)}</p>
-      <h2 class="ob-billh" id="ob-bill-h">${esc(name)}</h2>
-      <p class="ob-what">${esc(blurb(b, 170))}</p>${when}
-      <p class="ob-why">${icon('info')}<span>${esc(why)}</span></p>
-      ${acted ? `<p class="ob-did">${icon('circle-check')}<span>You emailed the chair.</span></p>` : ''}
-    </article>`);
+  if (!m.list.length) return stepHello(step);   // nothing on the calendar at all: the hello stands in
+  const sel = chosen()?.id;
+  return shell('st2 ob-picks ob-find', `${topRow('find', step)}${artFor('find')}
+    <h1 class="hero" id="st-h">Find a bill you care about</h1>
+    <p class="lede">These bills on ${esc(topicWords())} could move soon. Pick the one you’d most like to learn about. Nothing to do yet.</p>${sureWide('eye', 'Just looking. You decide later.')}`,
+    `${sayRow('eye', 'Just looking. You decide later.')}<ul class="st-picks" role="list" aria-label="Bills to learn about">${m.list.map(b => findCard(b, m.R, b.id === sel)).join('')}</ul>`);
 }
-// The walkthrough's Done hands back here (helper.js) when it was opened from a plan's step: follow the bill's issue (with
-// "Don't follow it" in the moment, as the shared-bill path does), then the sign-up.
+function wireFind({ step, $, $$ }) {
+  $$('[data-obfind]').forEach(el => el.onclick = () => {
+    const id = el.dataset.obfind;
+    S.obBill = id; wizSet({ obBill: id });
+    $$('[data-obfind]').forEach(b => { const on = b === el; b.setAttribute('aria-pressed', String(on)); b.closest('.st-pcard')?.classList.toggle('on', on); });
+    const t = el.querySelector('.st-tick'); if (t && !reduced()) { t.classList.remove('st-draw'); void t.offsetWidth; t.classList.add('st-draw'); }
+    clearFlash();
+  });
+  const nb = $('[data-stnext]');
+  if (nb) nb.onclick = () => { if (!chosen()) { flash('Pick one, or select Skip.'); return; } track('find', 'next'); goStep(step, step + 1); };
+  // Skip: no bill to learn about, so straight on to the sign-up, past learn and decide.
+  const sk = $('[data-stskip]');
+  if (sk) sk.onclick = () => { track('find', 'skip'); const j = stepOf('join', isOff()); goStep(step, j || step + 1); };
+}
+
+function stepLearn(step) {
+  const b = chosen(); if (!b) return stepFind(step);
+  const R = ranker(), h = hearingOf(b, R), due = dueOf(h), name = nick(b) || spaced(b.bill_number), to = chairOf(b, h);
+  const pl = P2.placeOf ? P2.placeOf(b, isOff(), sessionInfo().recapYear) : null;
+  const help = h
+    ? `${esc(cmteLabel(h.committee) || 'A committee')} hears it ${esc(dayWord(h.scheduled_at))}. Before then, anyone can send the chair a short note saying what they think.${due ? ` Notes are taken until ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}.` : ''}`
+    : `It needs a hearing before it can move. Anyone can send the chair${to ? `, ${esc(to)},` : ''} a short note asking for one.`;
+  return shell('st1 ob-learn', `${topRow('learn', step)}
+    <p class="ob-num">${esc(spaced(b.bill_number))}${posChip(b)}</p>
+    <h1 class="hero" id="st-h">${esc(name)}</h1>
+    <p class="lede">${esc(blurb(b, 220))}</p>`,
+    `<section class="card ob-lsec" aria-labelledby="ob-l1"><h2 class="ob-lh" id="ob-l1">${icon('route')}<span>Where it is now</span></h2>
+      ${pl ? `<div class="ob2-mini">${P2.miniRoad(pl)}</div>` : ''}<p class="ob-lp">${esc(statusWords(b))}</p></section>
+    <section class="card ob-lsec" aria-labelledby="ob-l2"><h2 class="ob-lh" id="ob-l2">${icon('message-square')}<span>How people can help</span></h2>
+      <p class="ob-lp">${help}</p>
+      <p class="ob-lp small muted">Lawmakers listen closest to people the bill would affect. A note in your own words, even one sentence, counts.</p></section>`);
+}
+function wireLearn({ step, $ }) {
+  const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { track('learn', 'next'); goStep(step, step + 1); };
+}
+
 S.obActed ??= null;
+S.obRemind ??= null;
+function stepDecide(step) {
+  const b = chosen(); if (!b) return stepFind(step);
+  const R = ranker(), h = hearingOf(b, R), due = dueOf(h), name = nick(b) || spaced(b.bill_number), to = chairOf(b, h);
+  const acted = S.obActed;
+  if (acted) return shell('st1 ob-decide', `${topRow('decide', step)}${artFor('decide')}
+    <h1 class="hero" id="st-h">You added your voice</h1><p class="lede">Mahalo for writing about ${esc(name)}. Next: how we’ll tell you what happens.</p>`,
+    `<p class="ob-did">${icon('circle-check')}<span>You emailed ${esc(to || 'the chair')}.</span></p>`);
+  const what = h ? `A short email to ${esc(to || 'the committee’s chair')}${due ? `, before ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}` : ''}. We write it with you from your answers, and you send it from your own email.`
+    : `A short email asking ${esc(to || 'the committee’s chair')} to give it a hearing. We write it with you, and you send it from your own email.`;
+  return shell('st1 ob-decide', `${topRow('decide', step)}${artFor('decide')}
+    <h1 class="hero" id="st-h">Want to add your voice?</h1>
+    <p class="lede">${what}</p>`,
+    `<ul class="ob-ways" role="list">
+      <li><button type="button" class="card ob-way" data-obwrite="1"><span class="ob-wayic" aria-hidden="true">${icon('mail')}</span><span><b>Write it now</b><span>About 2 minutes, with help at each step</span></span>${icon('chevron-right')}</button></li>
+      ${due ? `<li><button type="button" class="card ob-way" data-obremind="1"><span class="ob-wayic" aria-hidden="true">${icon('calendar-clock')}</span><span><b>Remind me before ${esc(shortWhen(due))}</b><span>We’ll tell you the day before notes are due</span></span>${icon('chevron-right')}</button></li>` : ''}
+      <li><button type="button" class="card ob-way" data-obnot="1"><span class="ob-wayic" aria-hidden="true">${icon('eye')}</span><span><b>Not now, just keep watch</b><span>You follow it, and it stays on your home page</span></span>${icon('chevron-right')}</button></li>
+    </ul>`);
+}
+function wireDecide({ step, $ }) {
+  const b = chosen(); if (!b) return;
+  const h = hearingOf(b);
+  const w = $('[data-obwrite]');
+  if (w) w.onclick = () => { track('decide', 'next'); S.obRemind = null; S.obOpen = { kind: 'email', step }; app.openMail?.({ mode: 'email', bill: b.id, hearing: h?.id, code: h ? undefined : (b.committee || '').split('/')[0] }); };
+  const r = $('[data-obremind]');
+  if (r) r.onclick = () => { track('decide', 'next'); S.obRemind = { bill: b.id, due: dueOf(h) }; wizSet({ obRemind: S.obRemind }); followBill(b); burst(r.querySelector('.ob-wayic'), 10, 34); later(() => goStep(step, step + 1), 380); };
+  const n = $('[data-obnot]');
+  if (n) n.onclick = () => { track('decide', 'skip'); S.obRemind = null; followBill(b); goStep(step, step + 1); };
+  const go = $('[data-obon]'); if (go) go.onclick = () => goStep(step, step + 1);
+}
+// "Just keep watch" and a reminder both follow the bill's issue, so it stays on Home and its alerts come (C-4: they chose it).
+function followBill(b) {
+  const i = issuesOf(b).find(shown) || issuesOf(b)[0];
+  if (i && !issueFollowed(i)) setFollows({ issuesOn: [i.id] }).then(() => { wizSet({ followedIssues: [...new Set([...(wiz().followedIssues || []), i.id])] }); welcome(); }).catch(e => console.error(e));
+}
+// The three ways are the choices themselves (equal cards, A-3, P-5); the bar only goes back or, once acted, on.
+const barDecide = () => S.obActed ? bar1('Next', 'arrow-right', { 'data-obon': '1' }) : '';
+
+// The walkthrough's Done hands back here (helper.js) when it was opened from a plan's step, then the sign-up.
 app.onbActed = x => {
   const o = S.obOpen; if (!o || !planOn() || wiz().done || wiz().skipped) return false;
   S.obOpen = null;
@@ -156,21 +238,6 @@ app.onbActed = x => {
   later(() => goStep(o.step, o.step + 1), 200);
   return true;
 };
-function wireOne({ step, $ }) {
-  const m = oneBill(); if (m.loading || m.err) return; if (!m.b) { wireHello({ step, $ }); return; }
-  const w = $('[data-obwrite]');
-  if (w) w.onclick = () => { track('one', 'next'); S.obOpen = { kind: 'email', step }; app.openMail?.({ mode: 'email', bill: m.b.id, hearing: m.h?.id, code: m.h ? undefined : (m.b.committee || '').split('/')[0] }); };
-  const n = $('[data-obnot]');
-  if (n) n.onclick = () => { track('one', 'skip'); goStep(step, step + 1); };
-  const go = $('[data-obon]');
-  if (go) go.onclick = () => goStep(step, step + 1);
-}
-function barOne() {
-  const m = oneBill(); if (m.loading || m.err) return ''; if (!m.b) return barHello();
-  if (S.obActed) return bar1('Next', 'arrow-right', { 'data-obon': '1' });
-  // "Not now" as large as the main button: this is the screen that offers an action in a first visit (C-3, P-5).
-  return `<div class="st-bar"><div class="st-btns ob-joinbtns">${btn('Not now', { kind: 'secondary', attrs: { 'data-obnot': '1' } })}${btn('Write my email · 2 min', { kind: 'primary', icon: 'mail', attrs: { 'data-obwrite': '1' } })}</div></div>`;
-}
 
 // ================= hello: say aloha to your two legislators (Plan 1 between sessions, Plan 3) =================
 // The one-time introduction (helper.js mode 'intro'), already written, naming what they care about. Without an address
@@ -184,7 +251,7 @@ function stepHello(step) {
   return shell('st1 ob-hello', `${topRow('hello', step)}${artFor('hello')}
     <h1 class="hero" id="st-h">${done ? 'Aloha sent' : legs.length ? 'Say aloha to your legislators' : 'Say aloha at the Capitol'}</h1>
     <p class="lede">${done ? 'They know you now, and what you care about. That counts when your issues come up.'
-      : `A short hello ${off && open ? `before the session opens on ${esc(shortDay(open))} ` : ''}lets them know a neighbor cares about ${topics.length ? esc(andList(topics)) : 'health in Hawaiʻi'}. We wrote it with you; you send it from your own email.`}</p>`,
+      : `A short note ${off && open ? `before the session opens on ${esc(shortDay(open))} ` : ''}tells them a neighbor cares about ${topics.length ? esc(andList(topics)) : 'health in Hawaiʻi'}, and asks where they stand. Offices keep track of what their own voters care about. We write it with you; you send it from your own email.`}</p>`,
     legs.length ? `<ul class="st-legs ob-legs" role="list">${legs.map(l => `<li class="st-leg">${legPhoto(l, 'st-legpic')}<span class="st-tbody"><b>${esc(legTitle(l))} ${esc(l.name)}</b><span>Your ${l.chamber === 'S' ? 'senator' : 'representative'} · District ${esc(String(l.district))}</span></span></li>`).join('')}</ul>
       ${done ? `<p class="ob-did">${icon('circle-check')}<span>You said hello to ${esc(andList(names))}.</span></p>` : '<p class="small muted ob-legnote">Lawmakers listen closest to the people they represent.</p>'}`
       : `<p class="ob-noaddr">${icon('map-pin')}<span>Find your two legislators first, and we’ll write the hello with you.</span></p>`);
@@ -214,11 +281,18 @@ function barHello() {
 // "Not now" is a full button the size of the main one (C-3: an equal choice). After a yes, the same screen says what
 // happens now, warmly, before moving on.
 const acted = () => S.obActed || wiz().obActed || null;
+// Plan 1's "Remind me before ..." (decide): the sign-up keeps that promise, in its words.
+function remindOf() {
+  const r = S.obRemind || wiz().obRemind; if (!r || !r.due) return null;
+  const b = anyBill(r.bill); if (!b) return null;
+  const nm = nick(b) || spaced(b.bill_number);
+  return { name: `“${nm}”`, day: new Date(r.due).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) };
+}
 S.obJoined ??= null;
 function stepJoin(step) {
   const t = textSaved(), sent = mailSent(), given = !S.alertEdit && (t || sent || S.session);
   const arm = armOf('join'), follows = followedIssues(), si = sessionInfo();
-  const W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen });
+  const rm = remindOf(), W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen, remind: rm });
   if (given) {
     const r = S.obJoined || (t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed } : sent ? { kind: 'email', email: sent } : { kind: 'account' });
     const D = joinDone(r, follows);
@@ -229,9 +303,9 @@ function stepJoin(step) {
         ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
         ${r.kind !== 'account' ? `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` : ''}</div></section>`);
   }
-  const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic });
+  const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic, remind: rm });
   // How often rides with the example (the review: said once, and the box nearer the top on a phone, A-1, A-14).
-  const example = arm === 'watch'
+  const example = arm === 'watch' && !rm
     ? `<ol class="ob-steps" role="list" aria-label="How it works">${W.steps.map(([ic, s], k) => `<li style="--k:${k}"><span class="ob-stepic" aria-hidden="true">${icon(ic)}</span><span>${esc(s)}</span></li>`).join('')}</ol>
        <p class="ob-often">${icon('calendar-check')}<span>${esc(OFTEN)}.</span></p>`
     : `<figure class="ob-sample"><figcaption class="ob-samplecap">${icon(email ? 'mail' : 'message-square')}<span>${email ? 'Example email' : 'Example text'} · ${esc(OFTEN.charAt(0).toLowerCase() + OFTEN.slice(1))}</span></figcaption>
@@ -285,6 +359,7 @@ function didRows() {
   const b = a?.bill ? anyBill(a.bill) : null;
   return [
     a && a.kind === 'email' ? ['send', `You spoke up on ${b ? nick(b) || spaced(b.bill_number) : 'a bill'}`, 'You emailed the committee’s chair', 'ok'] : null,
+    !a && (S.obRemind || wiz().obRemind) && remindOf() ? ['calendar-clock', `A reminder before ${remindOf().day}`, S.session || textSaved() || mailSent() ? `About ${remindOf().name}` : 'It shows on your home page; turn on alerts to get it by text or email', 'ok'] : null,
     a && a.kind === 'intro' ? ['hand-heart', 'You said aloha to your legislators', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and ') || 'They know you now', 'ok'] : null,
     f.length ? ['star', `You follow ${plural(f.length, 'issue')}`, andList(f.slice(0, 3).map(i => i.name)) + (f.length > 3 ? ', and more' : ''), 'ok'] : null,
     legs.length && !(a && a.kind === 'intro') ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and '), 'ok'] : null,
@@ -297,7 +372,7 @@ function didRows() {
 // What happens next, said only as far as it is true (the review, 10/5): "we keep watch" only when something is followed,
 // "we tell you" only when alerts are on; otherwise where to look instead.
 const NEXT3 = {
-  p1: ['We keep watch on that bill and your issues.', 'When it’s your moment again, we tell you, with one simple way to help.'],
+  p1: ['We keep watch on your bill and your issues.', 'When it’s your moment, we tell you, with one simple way to help.'],
   p2: ['We keep watch as your bills travel that road.', 'At each moment you practised, we tell you.'],
   p3: ['We keep watch on what your legislators decide.', 'When your issues come up, we tell you.'],
   p4: ['We keep watch on your issues.', 'When your way of helping counts, we tell you.'],
@@ -335,7 +410,9 @@ function wireWrap({ $ }) {
 // ---------- the dispatch start.js calls ----------
 const MINE = {
   picks: [stepPicks, wirePicks, () => bar2(`Follow ${plural(S.obPicks?.on?.size || PICK_N, 'issue')}`, { icon: 'star' })],
-  one: [stepOne, wireOne, barOne],
+  find: [stepFind, wireFind, () => bar2('Learn about it', { iconEnd: 'arrow-right' })],
+  learn: [stepLearn, wireLearn, () => bar1('Next: your choice', 'arrow-right')],
+  decide: [stepDecide, wireDecide, barDecide],
   hello: [stepHello, wireHello, barHello],
   join: [stepJoin, wireJoin, barJoin],
   wrap: [stepWrap, wireWrap, () => bar1('Go to my home page', 'house', { 'data-stdone': '1' })],

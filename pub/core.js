@@ -954,13 +954,16 @@ const siteRoot = () => `${location.origin}${location.pathname.replace(/[^/]*$/, 
 // has a stance on has a page per ask (b/HB2121-testify, tools/share_pages.mjs); any other bill, and the sandbox, share
 // the tracker's own address, opening the same thing (#/bill/HB2121/testify; following opens the bill's issue).
 export const SHARE_ASKS = ['testify', 'ask', 'floor', 'conference', 'governor', 'follow'];
+// The practice copy (in session) has share pages of its own, b/demo/ and i/demo/, built from its data at its day in March,
+// so a share made there previews the real card for the ask (Nate 10/5: "the share card is not specific about the action").
+const DEMO_PAGES = DEMO && !SEASON_OFF;
 export const billShareUrl = (b, ask = '') => {
   const a = SHARE_ASKS.includes(ask) ? ask : '';
-  if (b.hiphi_position && !DEMO) return `${siteRoot()}b/${billRef(b)}${a ? `-${a}` : ''}`;
+  if (b.hiphi_position && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? 'demo/' : ''}${billRef(b)}${a ? `-${a}` : ''}`;
   const i = a === 'follow' ? issuesOf(b)[0] : null;
   return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : billPath(b) + (a && a !== 'follow' ? `/${a}` : '')}`;
 };
-export const issueShareUrl = i => !DEMO ? `${siteRoot()}i/${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
+export const issueShareUrl = i => !DEMO || DEMO_PAGES ? `${siteRoot()}i/${DEMO ? 'demo/' : ''}${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
 // "Wed, Mar 18 at 9:30 AM": a deadline in a text to a friend (R-113).
 export const dueWords = iso => `${fmtDate(iso, { weekday: 'short', month: 'short', day: 'numeric' })} at ${timeWord(iso)}`;
 // Of several bills with one number (one per session), the one a link means: the named year, else the current
