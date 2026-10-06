@@ -384,6 +384,40 @@ with sync_playwright() as pw:
         hits = p.evaluate(COVERS); ok(not hits, f'the first visit’s story at 1440x900, stage {k}: no words on the drawing {hits}')
     c.close()
 
+    # ---- 3c. the session lesson's label under the bill stays inside its drawing (R-179) ----
+    # The label read the bill page's words, which name each committee in full since R-081: in March HB 2121's "Senate
+    # Health and Human Services with Commerce and Consumer Protection, 1st of 2 Senate committees" was one 677px line in
+    # a drawing 288 to 540px wide, cut off at both ends at every size (149 of the 248 position bills' words were too wide
+    # for a 320px phone). The picture names the chamber only ("In the 1st of 2 Senate committees"), and a label that ever
+    # has to wraps inside the drawing. HB 2121 is opened by its id (this follower's own example is HB 1523, whose "Senate
+    # Transportation, 1st of 2 Senate committees" ran off only at 320px); SB 464 stopped in two committees heard together,
+    # the longest stopped words.
+    LABEL = """(() => { const j = document.getElementById('lx-journey'), lb = document.getElementById('lx-jbill'); if (!j || !lb) return 'no drawing';
+      const a = j.getBoundingClientRect(), r = lb.getBoundingClientRect(), t = lb.innerText.replace(/\\s+/g, ' ').trim();
+      if (r.left < a.left - .5 || r.right > a.right + .5 || r.top < a.top - .5 || r.bottom > a.bottom + .5)
+        return `"${t}" runs outside, ${Math.round(r.left - a.left)} to ${Math.round(r.right - a.left)}px of ${Math.round(a.width)}`;
+      const hid = [...j.querySelectorAll('.lx-jl, .lx-jtag')].filter(e => +getComputedStyle(e).opacity > .5)
+        .filter(e => { const q = e.getBoundingClientRect(); return q.left < r.right && r.left < q.right && q.top < r.bottom && r.top < q.bottom; }).map(e => e.innerText.trim());
+      return hid.length ? `"${t}" covers ${hid.join(', ')}` : ''; })()"""
+    LANDED = "document.getElementById('lx-jbill')?.classList.contains('lx-st-on')"   # the bill has arrived and its label says where
+    HB2121, SB464 = (next(x['id'] for x in snap['bills'] if x['bill_number'] == n) for n in ('HB2121', 'SB464'))
+    for W, H in ((320, 640), (390, 844), (1024, 768), (1280, 800), (1440, 900)):
+        c, p = ctx(b, W, H); follower(p)
+        for route, who in (('/learn/session/' + HB2121, 'HB 2121'), ('/learn/session/' + SB464, 'SB 464'), ('/learn/session', 'its own example')):
+            if who != 'HB 2121' and W not in (320, 1440): continue
+            visit(p, route, wait=1500); bad, said = [], []
+            for k in (1, 2, 3, 4):
+                if k > 1: p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(200)
+                p.wait_for_function(LANDED, timeout=6000); p.wait_for_timeout(400)
+                said.append(p.evaluate("document.getElementById('lx-jbill').innerText.replace(/\\s+/g, ' ').trim()"))
+                bad += [f'month {k}: {m}' for m in [p.evaluate(LABEL)] if m]
+                if W == 390 and who == 'HB 2121' and k == 3: shot(p, 'p_learn_session3')
+                if W == 1440 and who == 'SB 464' and k == 4: p.wait_for_timeout(2500); shot(p, 'd_learn_session_sb464')   # the other bills settled
+            ok(not bad, f'#/learn/session ({who}) at {W}x{H}: the label under the bill stays inside the drawing and covers no word, every month {bad or said}')
+            if who == 'HB 2121': ok(said[2] == 'HB 2121 In the 1st of 2 Senate committees', f'#/learn/session at {W}x{H}: in March the label names the chamber, not the committee ({said[2]!r})')
+            if who == 'SB 464': ok(said[1:] == ['SB 464 Stopped in Senate committees'] * 3, f'#/learn/session (SB 464) at {W}x{H}: a stopped bill says where, by chamber ({said})')
+        c.close()
+
     # ---- 4. small and zoomed ----
     for w, h in ((320, 640), (195, 422)):
         c, p = ctx(b, w, h); follower(p)
