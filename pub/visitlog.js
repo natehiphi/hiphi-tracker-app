@@ -176,9 +176,10 @@ export function logAct(kind) {
     // R-153 (126): a saved email offered again and sent again, and the reminder to the same chair sent.
     // R-156 (130): titles or a story saved, a letter sent with titles or with the saved story, the ask "How you'll help"
     // chose shown and taken, and "Add to Home Screen" steps opened from the profile.
+    // R-142 (134): 'directions', the map's directions to the Capitol opened by someone who plans to go to a hearing.
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment', 'restore', 'calendar',
       'again_open', 'again_sent', 'again_warned', 'again_fixed', 'again_new', 'mail_again_open', 'mail_again_sent', 'mail_reminder_sent',
-      'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how'].includes(kind)) return Promise.resolve(false);
+      'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how', 'directions'].includes(kind)) return Promise.resolve(false);
     if (['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
     return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
   } catch { return Promise.resolve(false); }

@@ -165,15 +165,26 @@ export const TALKS = [
       { q: 'Which is easier?', a: 'Zoom saves the trip, which matters on a neighbor island. In person, lawmakers see you in the room.' },
       { q: 'What do I need for Zoom?', a: `A phone or computer with a microphone, and a quiet spot. If you get stuck, the Public Access Room helps for free: ${PAR}.` },
     ],
-    related: ['speak-at-hearing', 'watch-a-hearing', 'testimony-deadline'] },
+    related: ['speak-at-hearing', 'getting-to-the-capitol', 'testimony-deadline'] },
 
   { slug: 'watch-a-hearing', group: 'hearings', title: 'Can I watch a hearing?',
     turns: [
       { q: 'Can I watch a hearing?', a: 'Yes. Many hearings stream live on YouTube, and you can watch the recording later. When there’s a link, the bill’s page shows **Watch live**.' },
-      { q: 'Can I go in person?', a: 'Yes. Hearings are open to the public, at the State Capitol in Honolulu. The bill’s page shows the room and the time.' },
+      { q: 'Can I go in person?', a: 'Yes. Hearings are open to the public, at the State Capitol in Honolulu. The bill’s page shows the room and the time, and [how to get there](#/help/getting-to-the-capitol).' },
       { q: 'What if it runs late?', a: 'Hearings often do, so times can slip. Arrive early, or keep the stream open until your bill comes up.' },
     ],
     related: ['what-is-a-hearing', 'after-a-hearing', 'in-person-or-zoom'] },
+
+  // R-142 (10/4): the facts are the ones the hearing card's directions use (pub/actions.js, GO), with their sources there.
+  { slug: 'getting-to-the-capitol', group: 'hearings', title: 'How do I get to a hearing at the Capitol?',
+    turns: [
+      { q: 'How do I get to a hearing at the Capitol?', a: ['Hearings are at the Hawaiʻi State Capitol, 415 S Beretania St in Honolulu. Many buses stop on Beretania Street, in front of the building.', 'Driving? There’s paid parking under the Capitol (enter from Miller Street) and in the state lots nearby.'] },
+      { q: 'What do I bring?', a: 'A photo ID. Security checks it and your bag on the way in, so bring as little as you can. Plan to arrive about 20 minutes early.' },
+      { q: 'How do I find the room?', a: 'The first number is the floor: Room 229 is on the 2nd floor, Room 325 on the 3rd. Room 016 is on the chamber level, one floor below the open-air center.' },
+      { q: 'Can the tracker remind me how?', a: 'Yes. On a hearing, tap **Go to the hearing**, then **I plan to go**. You get these steps for that room, a map, and a calendar reminder.' },
+      { q: 'Who can help on the day?', a: `The Public Access Room, Room 401, helps for free: ${PAR}.` },
+    ],
+    related: ['in-person-or-zoom', 'speak-at-hearing', 'watch-a-hearing'] },
 
   { slug: 'after-a-hearing', group: 'hearings', title: 'What happens after a hearing?',
     turns: [

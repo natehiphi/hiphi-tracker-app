@@ -9,14 +9,23 @@ def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 QUIET = "Object.defineProperty(navigator, 'globalPrivacyControl', { value: true });"
 def ready(pg):
     pg.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage') && !document.querySelector('.boot0')", timeout=60000); pg.wait_for_timeout(1500)
+# The full catalog comes after the topics (the library first, then the full rows), and only it is kept: wait for the
+# kept copy rather than read at a fixed moment. 10/5: on a slow line it came 5 s after the topics, so checks 1 and 7
+# failed at 1.5 s on every commit since they were written; with the network answering fast they passed. Says how long.
+def kept(pg):
+    t = pg.evaluate('performance.now()')
+    try: pg.wait_for_function("() => !!localStorage.getItem('hiphi_catalog')", timeout=30000)
+    except Exception: return 'not within 30 s of the topics'
+    return f"{(pg.evaluate('performance.now()') - t) / 1000 + 1.5:.1f} s after the topics"
 with sync_playwright() as p:
     br = p.chromium.launch()
     # 1. a newcomer: the topics screen, and a copy of the catalog kept for next time
     ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(QUIET); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(BASE + 'track.html#/'); ready(pg)
     ok(pg.evaluate('location.hash').startswith('#/start/'), f'a newcomer gets the first visit ({pg.evaluate("location.hash")})')
+    took = kept(pg)
     cached = pg.evaluate("() => { try { const c = JSON.parse(localStorage.getItem('hiphi_catalog') || 'null'); return c && c.cats.length && c.issues.length; } catch { return 0; } }")
-    ok(bool(cached), 'the catalog is kept for next time')
+    ok(bool(cached), f'the catalog is kept for next time ({took})')
     # 2. the same browser again: the first screen is drawn from the kept copy before the network answers
     pg.goto(BASE + 'track.html#/'); pg.wait_for_function("() => !!document.querySelector('.st1, .st-topics')", timeout=30000)
     ok(True, 'a second visit draws the topics screen again')
@@ -38,7 +47,7 @@ with sync_playwright() as p:
         return pg.evaluate("async () => { const k = await import(new URL('pub/kernel.js', location.href).href); return [k.S.catalogLive, k.S.issues.filter(i => i.bill_ids.length).length, k.S.issues.length]; }")
     def pick3(pg):
         pg.wait_for_selector('[data-stissue]', timeout=30000)
-        for el in pg.query_selector_all('[data-stissue]')[:3]: el.click()
+        for i in range(3): pg.locator('[data-stissue]').nth(i).click()   # found again at each tap: on a slow line the screen redraws in between (10/5)
         pg.click('[data-stnext]')
         try: pg.wait_for_selector('.st-pcard', timeout=15000)
         except Exception: pass   # none came: the next check says so
@@ -69,9 +78,9 @@ with sync_playwright() as p:
     # 7. the plain address (the early first screen) never shows a 0 either, and still ends with the full catalog
     ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(QUIET); ctx.add_init_script(WATCH)
     pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto(BASE + 'track.html#/'); ready(pg)
+    pg.goto(BASE + 'track.html#/'); ready(pg); took = kept(pg)
     live, withb, n = full(pg)
-    ok(live == 'full' and withb == n and not pg.evaluate('window.__zeros'), f'a newcomer at the plain address: full catalog, no 0 on a topic ({live}, {withb}/{n}, {pg.evaluate("window.__zeros")[:3]})')
+    ok(live == 'full' and withb == n and not pg.evaluate('window.__zeros'), f'a newcomer at the plain address: full catalog, no 0 on a topic ({live}, {withb}/{n}, {pg.evaluate("window.__zeros")[:3]}; {took})')
     ctx.close()
     ok(not errs, 'no page errors: ' + '; '.join(errs[:3]))
     br.close()

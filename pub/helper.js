@@ -47,7 +47,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, c
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
   hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
-import { nudgeCard, wireNudge, shareFor, doShare } from './actions.js';
+import { nudgeCard, wireNudge, shareFor, doShare, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
@@ -1137,11 +1137,21 @@ function doneScreen() {
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
-      ${inPerson() && !held ? `<p>${icon('map-pin')} To speak in person: Hawaiʻi State Capitol, ${esc(roomLabel(h.room))}, ${esc(when)}. Arrive 15 minutes early.</p>` : ''}
+      ${held ? '' : goingLine(x)}
       ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
     ${ask}`;
+}
+// Going in person (R-142, Nate 10/4: directions for people who sign up for a hearing in person). Someone who said they'd
+// testify in person is shown where and when; anyone else is asked once in a line. "I plan to go" is the card's own
+// sign-up, and the directions then open here: the card's list (goDirections), with its calendar file.
+function goingLine(x) {
+  const { b, h } = x;
+  if (didKind(b, h, 'attend')) return `<p class="okmsg hp-going">${icon('circle-check')}<span>You plan to go. Mahalo!</span></p>${goDirections(b, h, { hp: true })}`;
+  const go = btn('I plan to go', { kind: 'secondary', sm: true, icon: 'map-pin', attrs: { 'data-hp': 'going' } });
+  return inPerson() ? `<p>${icon('map-pin')} To speak in person: Hawaiʻi State Capitol, ${esc(roomFloor(h))}. Tap <b>I plan to go</b>, and you get directions.</p><div class="btnrow">${go}</div>`
+    : `<div class="hp-goask"><p>Going to the hearing in person?</p>${go}</div>`;
 }
 // After a letter is sent (R-156 B3): someone with a profile and no story for this topic is asked for one sentence, with
 // the topic's guiding question and their letter's reason ready in the box. Once per topic ("No thanks" is kept).
@@ -1226,7 +1236,10 @@ function foot() {
   const x = S.helper, row = (html, more = '') => `<div class="hp-footin">${html}</div>${more ? `<div class="hp-footmore">${more}</div>` : ''}`;
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
-  if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } }));   // the three answers are the buttons
+  // The three answers are the buttons, and tapping one moves on. Someone who already answered and came Back sees their
+  // answer chosen, so Next keeps it (Nate 10/5, R-167: with only Close here, the way on was to tap the chosen answer again).
+  if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
+    + (x.stance ? btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }) : ''));
   // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.
   if (x.screen === 'again') {
     const fresh = btn(`Start a new ${isMail(x) ? 'email' : 'letter'}`, { kind: 'text', sm: true, attrs: { 'data-hp': 'again-new' } });
@@ -1473,10 +1486,13 @@ async function copyPart(part) {
 }
 
 function onClick(e) {
+  if (e.target.closest('[data-godir]')) app.onAct?.('directions');   // the map's directions opened from the last page (R-142)
   const t = e.target.closest('[data-hp]'); if (!t || !S.helper) return;
   const a = t.dataset.hp;
   if (a === 'done') { const b = S.helper.b; afterClose = () => { app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
+  else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }
+  else if (a === 'goics') { const x = S.helper; downloadIcs(x.b, x.h); paint(); }
   else if (a === 'copy') copyLetter();
   else if (a === 'addtitle') { S.helper.tp.adding = true; paintTitles({ step: true }); dlg.querySelector('#hp-tp .tp-chips [data-tp], #hp-tq')?.focus({ preventScroll: true }); }
   else if (a === 'says') {

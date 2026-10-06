@@ -464,3 +464,45 @@ sign-in by text code, and "Code at sign-up". The switch is Supabase's own phone 
   and `wireNudge` now take the helper's own prefix.
 - Tests: `tests/phone_signin.py` (the practice copy with codes off and on, and the live page with Supabase answered by
   the test); backend `tools/migration_tests/test_128.js`.
+
+## Directions for someone going to a hearing in person (R-142; 5 Oct 2026, HANDOFF 3.97)
+
+Nate 10/4: "People should be provided directions to in-person hearings if they sign up for them." The sign-up is the
+hearing card's "I plan to go" (`didKind(b, h, 'attend')`, as before); everything else is in `pub/actions.js`, "going in
+person".
+- **Before the sign-up** `goPanel`: the address, the room with its floor (`roomFloor`: Room 229, 2nd floor; the 0s are
+  the chamber level), the time, "Anyone can sit in and listen", and what saying "I plan to go" brings (C-6).
+- **After it** `planBlock`: "Go to the hearing" leaves More ways to help (the done line has the plan and its Undo), and a
+  "How to get there" button sits under the card's buttons (so "Write my testimony" stays near the top, A-13), open right
+  after the tap with focus on it, with "I can't go" beside it when the done line's Undo would take back a later step.
+  The plan lasts until the end of the hearing's day in Hawaiʻi (`goingOn` in core.js: hearings run late), then "You
+  went". **Going no longer settles a hearing while testimony is open** (`settledOn`: the 9/26 Share rule, R-005, now for
+  going too), so the card stays on Home with its deadline's warning and Home never says "all caught up" with testimony
+  due; once testimony is sent or closed, the card folds and Home's plan card carries the plan. `goDirections` is the
+  one list everywhere: arrive by (20 minutes before), getting there (bus on Beretania, parking under the building from
+  Miller Street and the state lots), getting in (photo ID, bag check), finding the room (`findRoom`, from the room
+  number's first digit), how to speak (or "If you chose In person..." once testimony is sent, or "Listening" once it is
+  closed), the Public Access Room, then Directions (Google Maps directions, counted as `directions`, backend 134) and
+  Add to my calendar ("Saved. Open the file to add it to your calendar." after). The facts and their sources are in one
+  object, `GO`, at the top of that block; the help number never breaks across lines.
+- **Changes:** `hiphi_going` keeps each planned hearing's room and time in this browser (`noteGoing`); a later change of
+  room or time is said on the card and on Home (`goChange`).
+- **Home** (`goingPlans`, `goingCard`, from `returnView` and `exploreView` in `pub/home.js`): hearings planned within a week and not already
+  drawn as a card. Today's and tomorrow's lead the main column; later ones sit in the side column. A cancelled one says
+  so, with "I'll go to the new one" when the same committee set it again (`data-goswitch`).
+- **The calendar file** (`icsFor`): for someone going, the hearing's place has its floor, its notes carry the directions,
+  and it reminds them an hour and a half before.
+- **The walkthrough's last page** (`goingLine` in `pub/helper.js`): "Going to the hearing in person?" with "I plan to go",
+  or, for someone whose profile says they'd testify in person, the room, floor and time first; after the tap the same
+  list, with its own "How to get there" title (no button above it there).
+- **Help:** "How do I get to a hearing at the Capitol?" (`getting-to-the-capitol`), linked from "Can I watch a hearing?"
+  and "Should I go in person or use Zoom?".
+- Not covered: a hearing on a bill the person does not follow is only on Home when it is loaded that visit (as the
+  "Finish your testimony" card); the evening-before email with the directions comes with the rest of the public email
+  (R-101).
+- Reviewed by the ui-critic agent before publishing; its fixes are in (the deadline kept, the plan through the hearing day,
+  "I can't go", no toast over the done line, the words, the number on one line). Kept on purpose: the walkthrough's last
+  page shows the list open after its own "I plan to go" (the tap asked for it), and Home's session panel keeps "You
+  planned to go" in the person's record.
+- Tests: `tests/going.py` (100 checks, phone and laptop: the sign-up, the list, focus, the calendar file, a reload, Home
+  with testimony open and sent, "I can't go", a changed room, a cancelled hearing moved, the hearing's own day, the walkthrough's last page for both kinds of person, Help); backend `tools/migration_tests/test_134.js`.
