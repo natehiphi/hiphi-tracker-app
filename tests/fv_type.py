@@ -40,7 +40,7 @@ with sync_playwright() as p:
         pg.goto(f'{BASE}/track.html?demo=1&restart&ab=onb.{v}')
         pg.wait_for_function("() => /#\\/start\\/1/.test(location.hash) && document.querySelector('.st-issue, [data-ob2], .st h1')", timeout=60000)
         pg.wait_for_timeout(1000)
-        tiny, small, long, seen, last = [], [], [], 0, None
+        tiny, small, long, seen, last, idle = [], [], [], 0, None, 0
         for _ in range(40):
             if not re.search(r'#/start/', pg.url): break
             pg.wait_for_timeout(600)
@@ -60,8 +60,10 @@ with sync_playwright() as p:
                         '[data-stnext]', '.actionbar [data-obon]', '[data-stskip]', '[data-stdone]'):
                 loc = pg.locator(sel)
                 if loc.count() and loc.first.is_visible():
-                    loc.first.click(); break
-            else: break
+                    loc.first.click(); idle = 0; break
+            else:
+                idle += 1   # a screen still loading its bills (slower on the published site): wait, then give up
+                if idle > 10: break
         ok(seen >= 4, f'{v}: walked {seen} screens to the end')
         ok(not tiny, f'{v}: nothing under 14px {tiny[:3]}')
         ok(not small, f'{v}: 14px only for labels, counts and the fine print {small[:3]}')
