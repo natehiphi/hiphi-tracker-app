@@ -7,7 +7,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, 
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
-import { burst, celebrate, later, reduced } from './fx.js';
+import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf } from './variant.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep } from './alerts.js';
@@ -461,6 +461,8 @@ const quietAsk = () => `<p class="small muted st-quietask">${icon('bell')}<span>
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
 // Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
 // comes up (the bookend to the first screen's drawing). Then what happens next. Nothing here asks for anything.
+// The words come first and the celebration plays around them (X11-2, R-180): every line is in by 0.8 s and nothing moves
+// after 2 s (the timings are in start.css and fx.js petals()).
 function recapRows() {
   const f = followedIssues(), off = isOff(), stances = S.stances || {}, n = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
   const stood = new Set(followedBills().filter(b => ['support', 'oppose'].includes(stances[b.id])).map(b => viaIssue(b)?.id || b.id)).size;
@@ -488,10 +490,9 @@ function stepDone(step) {
   const told = !!(S.session || mailSent() || textSaved());
   const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
     : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
-  const petals = Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
   return shell('st-done', `${topRow('done', step)}
-    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals}</div>
+    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals()}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div></div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${lede}</p>`,

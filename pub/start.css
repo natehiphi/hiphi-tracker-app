@@ -72,7 +72,8 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-issue .st-tick { position: absolute; top: 10px; right: 10px; }
 .st-iname { font-weight: 700; color: var(--n900); line-height: 1.25; padding-right: 26px; }
 .st-idesc { font-size: var(--t14); line-height: 1.35; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--p700); }
+/* "9 issues moving" is a fact about the tile, not something to tap: dark text, never the link blue (A-5, A-12; X9-1, R-180). */
+.st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--n700); }
 @media (max-width: 22.4375em) { .st-issue { padding: 12px 10px 10px; } .st-tiles .st-idesc { display: none; } }
 @media (max-width: 16.1875em) { .st-tiles { grid-template-columns: minmax(0, 1fr); } }   /* zoomed in far: one tile per row */
 
@@ -210,20 +211,23 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-break { overflow-wrap: anywhere; }
 
 /* ---- Stay connected, 3: you're all set, the peak (Nate 9/21: end on a high) ----
-   Petals fall once and stop, flowers bloom under the Capitol as the sun comes up, and what they did ticks in. */
+   Petals fall once and stop, flowers bloom under the Capitol as the sun comes up, and what they did ticks in.
+   The words come first (X11-2, R-180; A-10's ~2 s for a celebration): the recap rows tick in from 0.2 s, 80 ms apart;
+   "What happens next" is in by 0.8 s; the sun (1.2 s) and the blooms (0.4-1.2 s) play inside the petals' fall (1.2-1.8 s
+   each, fx.js petals()); nothing moves after 2 s. Until 10/5 it all took 3.1 s and the recap card stood empty at 0.6 s. */
 .st-done .st-intro { align-items: center; text-align: center; }
 .st-done .st-chapters, .st-done .st-steps { align-self: stretch; text-align: left; }
 @media (max-width: 22.4375em) { .st-done .st-chapters { display: none; } }   /* three bare ticks say nothing on the finale */
 .st-fx { position: relative; width: 100%; max-width: 300px; margin: 0 auto; }
 .st-finart svg { display: block; width: 100%; height: auto; }
-.st-finart .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.6s var(--ease) both; }
+.st-finart .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.2s var(--ease) both; }
 .st-petals { position: absolute; inset: -20px -10px auto; height: 190px; overflow: hidden; pointer-events: none; }
 .st-petals i { position: absolute; top: -12px; left: var(--x); width: 10px; height: 10px; border-radius: 60% 0 60% 0; background: var(--c); opacity: 0;
   animation: st-petalfall var(--t) var(--ease) var(--d) 1 both; }
 .st-blooms { display: flex; justify-content: center; gap: 10px; margin: -6px 0 4px; }
-.st-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(900ms + var(--k) * 110ms); }
+.st-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(400ms + var(--k) * 80ms); }
 .st-did { list-style: none; margin: 0; padding: 4px 16px; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
-.st-did li { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--n100); animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 160ms + 700ms); }
+.st-did li { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--n100); animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 80ms + 200ms); }
 .st-did li:last-child { border-bottom: 0; }
 .st-rc { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
 .st-rc .ic { width: 16px; height: 16px; }
@@ -234,7 +238,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-did li > div > span { font-size: var(--t14); color: var(--n700); }
 .st-nexth { margin-top: var(--s16); font-size: var(--t22); }
 .st-next3 { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.st-next3 li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; padding: 10px 0; animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 160ms + 1500ms); }
+.st-next3 li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; padding: 10px 0; animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 60ms + 300ms); }
 .st-nic { width: 44px; height: 44px; border-radius: 50%; background: var(--p50); color: var(--p700); display: grid; place-items: center; }
 .st-next3 b { display: block; color: var(--n900); }
 .st-next3 li > div > span { display: block; }

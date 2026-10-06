@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
+<title>Motion · HIPHI review</title>
+<!-- The motion page (X11-4, R-180): every named moment of the public tracker and Staff v2, side by side, each playing in
+     its own copy of the practice tracker, at full speed or slowed to a quarter, with Reduce Motion on or off. Nate judges
+     motion here and names moments by the names under each one (pub/fx.js, DESIGN.md A-10 and C-7). Private: nothing
+     links here, search engines are asked to stay away, and nothing on it is saved, counted or sent.
+     Nothing moving is copied into this page: each frame is the real page, and the moment is set off the way the app sets
+     it off (its own button, or the same call with the same words). -->
+<script>
+/* Frame mode (motion.html?frame=1&page=track.html&q=...&h=...): one moment's own copy of the practice tracker.
+   Before any of the app's code runs, this page gives the frame its own storage (in memory, so a frame never touches the
+   practice copy kept in this browser, nor another frame), a clock that can run slow, a Reduce Motion it can switch, and
+   the privacy signal (nothing is counted or reported from here); then it draws the real page in its place. */
+(function () {
+  var q = new URLSearchParams(location.search);
+  if (!q.has('frame')) return;
+  window.__moFrame = true;
+  // ---- storage: a fresh, private copy per frame, seeded with what the moment needs ----
+  function Mem(seed) { var m = new Map(Object.entries(seed || {})); return {
+    getItem: function (k) { k = String(k); return m.has(k) ? m.get(k) : null; }, setItem: function (k, v) { m.set(String(k), String(v)); },
+    removeItem: function (k) { m.delete(String(k)); }, clear: function () { m.clear(); }, key: function (i) { var a = Array.from(m.keys()); return i < a.length ? a[i] : null; },
+    get length() { return m.size; } }; }
+  var seed = {}; try { seed = JSON.parse(q.get('seed') || '{}'); } catch (e) { /* none */ }
+  var local = Mem(seed), session = Mem({});
+  try {
+    Object.defineProperty(window, 'localStorage', { configurable: true, get: function () { return local; } });
+    Object.defineProperty(window, 'sessionStorage', { configurable: true, get: function () { return session; } });
+  } catch (e) {   // a browser that will not swap them: the same, one level down
+    var realS = window.sessionStorage, P = Storage.prototype;
+    ['getItem', 'setItem', 'removeItem', 'clear', 'key'].forEach(function (f) { P[f] = function () { var m = this === realS ? session : local; return m[f].apply(m, arguments); }; });
+  }
+  // ---- the privacy signal: the page's counts (visitlog.js) and error reports (errlog.js) send nothing from a frame ----
+  try { Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, get: function () { return true; } }); } catch (e) { /* older browsers */ }
+  window.doNotTrack = '1';
+  // Nothing may be written anywhere from a frame: any request that is not a plain read is refused before it leaves.
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function (u, o) { var m = String((o && o.method) || (u && u.method) || 'GET').toUpperCase();
+    return m === 'GET' || m === 'HEAD' ? realFetch(u, o) : Promise.reject(new TypeError('Failed to fetch (motion page: nothing is sent)')); };
+  try { navigator.sendBeacon = function () { return true; }; } catch (e) { /* read-only */ }
+  window.open = function () { return null; };   // the walkthrough opens the Capitol's page; here it opens nothing
+  // ---- history: every frame shares this window's Back, so a frame keeps one entry, replaced as its page moves on ----
+  // Otherwise the board's own Back would walk through the frames' screens, and one frame's Back could move another.
+  var rep = history.replaceState.bind(history);
+  history.pushState = function (s, t, u) { return rep(s, t, u); };
+  history.back = history.forward = history.go = function () {};
+  // ---- the clock: the page's own timers, animation frames and performance.now run at `rate` ----
+  var R = { st: window.setTimeout.bind(window), si: window.setInterval.bind(window), raf: window.requestAnimationFrame.bind(window), now: performance.now.bind(performance) };
+  var rate = 1, aReal = R.now(), aVirt = aReal, ran = false, streak = 0;
+  var vnow = function () { return aVirt + (R.now() - aReal) * rate; };
+  performance.now = vnow;
+  window.setTimeout = function (fn, ms) { var a = Array.prototype.slice.call(arguments, 2); return R.st.apply(window, [fn, (+ms || 0) / rate].concat(a)); };
+  window.setInterval = function (fn, ms) { var a = Array.prototype.slice.call(arguments, 2); return R.si.apply(window, [fn, (+ms || 0) / rate].concat(a)); };
+  // Frames the page draws itself, several in a row, mark it as moving (the story's road is drawn frame by frame, not by
+  // CSS); a single callback (a focus after a redraw) does not.
+  window.requestAnimationFrame = function (cb) { return R.raf(function () { ran = true; cb(vnow()); }); };
+  // Every animation the page plays (CSS, transitions, the Web Animations it starts, View Transitions) runs at the same rate.
+  var pace = function () { try { document.getAnimations().forEach(function (a) { if (a.playbackRate !== rate) a.playbackRate = rate; }); } catch (e) { /* none yet */ } };
+  (function keep() { if (rate !== 1) pace(); streak = ran ? streak + 1 : 0; ran = false; R.raf(keep); })();
+  // ---- Reduce Motion, switched from the board: the page's own reduce rules (CSS and matchMedia) apply or not ----
+  var reduce = q.get('reduce') === '1' ? true : q.get('reduce') === '0' ? false : null;   // null: as this device says
+  var mm = window.matchMedia.bind(window), ORIG = new WeakMap();
+  window.matchMedia = function (s) {
+    if (reduce === null || !/prefers-reduced-motion/.test(s)) return mm(s);
+    var on = /reduce/.test(s) ? reduce : !reduce, noop = function () {};
+    return { matches: on, media: s, onchange: null, addListener: noop, removeListener: noop, addEventListener: noop, removeEventListener: noop, dispatchEvent: function () { return false; } };
+  };
+  function css() {
+    var walk = function (rules) { for (var i = 0; i < rules.length; i++) { var r = rules[i];
+      if (r.media && r.cssRules && typeof r.media.mediaText === 'string') {
+        var t = ORIG.has(r) ? ORIG.get(r) : r.media.mediaText;
+        if (/prefers-reduced-motion/.test(t)) { if (!ORIG.has(r)) ORIG.set(r, t);
+          var want = reduce === null ? t : t.replace(/\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/g, reduce ? '(min-width: 0px)' : '(max-width: 0px)')
+            .replace(/\(\s*prefers-reduced-motion\s*:\s*no-preference\s*\)/g, reduce ? '(max-width: 0px)' : '(min-width: 0px)');
+          if (r.media.mediaText !== want) r.media.mediaText = want; }
+      }
+      if (r.cssRules) walk(r.cssRules); } };
+    for (var i = 0; i < document.styleSheets.length; i++) { try { walk(document.styleSheets[i].cssRules); } catch (e) { /* not readable */ } }
+  }
+  // ---- what the board uses ----
+  window.__mo = {
+    vnow: vnow,
+    rate: function (r) { aVirt = vnow(); aReal = R.now(); rate = r; pace(); },
+    reduce: function (on) { reduce = on; css(); },
+    css: css,
+    drawing: function () { return streak >= 3; },   // the page is drawing frames of its own
+    imp: function (p) { return import(p); },
+    run: q.get('run') || '',   // which load of this frame this is (the board waits for its own, not the one before)
+  };
+  // ---- the real page, drawn in this frame's place ----
+  var page = q.get('page') || 'track.html', qs = q.get('q') || 'demo=1', hash = q.get('h') || '';
+  realFetch(page).then(function (r) { return r.text(); }).then(function (html) {
+    history.replaceState(null, '', page + '?' + qs + hash);
+    document.open(); document.write(html); document.close();
+    // Stylesheets the page adds later (each screen's own) get the same Reduce Motion as the rest.
+    var watch = function () { document.querySelectorAll('link[rel=stylesheet]:not([data-mo])').forEach(function (l) { l.dataset.mo = '1'; l.addEventListener('load', css); }); css(); };
+    new MutationObserver(watch).observe(document.head, { childList: true });
+    watch();
+  });
+})();
+</script>
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pub/base.css">
+<style>
+/* The board: calm, on the house tokens (pub/base.css), one column of frames on a phone, up to four across on a laptop. */
+body { background: var(--n50); }
+.mo { max-width: 1320px; margin: 0 auto; padding: var(--s24) var(--gutter) var(--s48); }
+.mo-head { display: flex; flex-direction: column; gap: var(--s8); max-width: 720px; }
+.mo-eyebrow { margin: 0; font-size: var(--t13); font-weight: 700; color: var(--n500); letter-spacing: .02em; }
+.mo-head .lede { margin: 0; }
+.mo-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16);
+  margin: var(--s16) calc(var(--gutter) * -1) var(--s16); padding: var(--s12) var(--gutter); background: var(--n50); border-bottom: 1px solid var(--n200); }
+.mo-seg { display: inline-flex; padding: 3px; border-radius: var(--pill); background: var(--n0); box-shadow: inset 0 0 0 1px var(--n300); }
+.mo-seg button { min-height: 38px; padding: 0 16px; border: 0; border-radius: var(--pill); background: none; font: 700 var(--t14)/1 var(--font); color: var(--n700); cursor: pointer; }
+.mo-seg button[aria-pressed="true"] { background: var(--p700); color: var(--n0); }
+.mo-switch { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 700; font-size: var(--t14); color: var(--n900); cursor: pointer; }
+.mo-switch input { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: var(--pill); background: var(--n300); cursor: pointer; transition: background .15s; flex: none; }
+.mo-switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--n0); box-shadow: var(--sh1); transition: transform .15s var(--ease); }
+.mo-switch input:checked { background: var(--p700); }
+.mo-switch input:checked::after { transform: translateX(18px); }
+.mo-switch input:focus-visible { outline: 3px solid var(--p300); outline-offset: 2px; }
+.mo-hint { margin: 0; font-size: var(--t14); color: var(--n500); }
+.mo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: var(--s24) var(--s16); align-items: start; }
+.mo-tile { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; }
+.mo-where { margin: 0; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.mo-tile h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.25; }
+.mo-code { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: var(--r8); background: var(--n100); color: var(--n700); font: 700 var(--t13)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mo-what { margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); min-height: 3lh; }
+.mo-stage { position: relative; width: 100%; aspect-ratio: 390 / 760; overflow: hidden; border-radius: var(--r16); background: var(--n0); box-shadow: 0 0 0 1px var(--n200), var(--sh2); }
+.mo-stage iframe { position: absolute; top: 0; left: 0; width: 390px; height: 760px; border: 0; transform: scale(var(--s, 1)); transform-origin: 0 0; pointer-events: none; background: var(--n50); }
+.mo-wait { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--s24); text-align: center; background: rgba(244, 247, 249, .92); color: var(--n700); font-size: var(--t14); font-weight: 700; }
+.mo-wait[hidden] { display: none; }
+.mo-wait .btn { margin-top: var(--s8); }
+.mo-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.mo-time { margin: 0; display: flex; flex-direction: column; font-size: var(--t13); color: var(--n500); line-height: 1.4; min-width: 0; }
+.mo-time b { color: var(--n900); font-size: var(--t14); }
+.mo-link { font-size: var(--t13); font-weight: 700; color: var(--p700); }
+.mo-foot .btn { flex: none; }
+.mo-end { margin: var(--s48) 0 0; max-width: 720px; font-size: var(--t14); color: var(--n500); line-height: 1.5; }
+@media (min-width: 900px) { .mo { padding-top: var(--s32); } .mo-head h1 { font-size: 2.25rem; } }
+/* A phone sees one frame at a time, so Play all goes and the speed and Reduce Motion share one short row that stays in reach. */
+@media (max-width: 37.5em) { #mo-all { display: none; } .mo-bar { gap: var(--s8) var(--s12); } .mo-seg button { padding: 0 12px; } }
+@media (prefers-reduced-motion: reduce) { .mo-switch input, .mo-switch input::after { transition: none; } }
+</style>
+</head>
+<body>
+<main class="mo" id="mo">
+  <header class="mo-head">
+    <p class="mo-eyebrow">Practice copy · a private page for reviewing motion</p>
+    <h1>Motion</h1>
+    <p class="lede">Every moment that moves, side by side, each playing in its own copy of the practice tracker. Watch at full speed, slow it to a quarter, or turn on Reduce Motion to see what people with that setting get. Name a moment by the name under it.</p>
+    <p class="mo-hint" id="mo-hint">Each moment plays once when it comes into view. Changing the speed or Reduce Motion plays them again.</p>
+  </header>
+  <div class="mo-bar" role="group" aria-label="How the moments play">
+    <button type="button" class="btn primary sm" id="mo-all">Play all</button>
+    <div class="mo-seg" role="group" aria-label="Speed">
+      <button type="button" data-rate="1" aria-pressed="true">Full speed</button>
+      <button type="button" data-rate="0.25" aria-pressed="false">Slow, ¼</button>
+    </div>
+    <label class="mo-switch"><input type="checkbox" role="switch" id="mo-reduce"> Reduce Motion</label>
+  </div>
+  <div class="mo-grid" id="mo-grid"></div>
+  <p class="mo-end">Each frame is the practice tracker on a phone (390 by 760), frozen on Mon 16 March 2026. Nothing here is saved, counted or sent: every frame keeps its own storage and asks the page not to track. The times are measured from the tap to the last thing that moves, in real-time seconds even when slowed. The rules these follow are DESIGN.md A-10 (motion) and C-7 (celebration).</p>
+</main>
+<script type="module">
+if (!window.__moFrame) {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // What each frame starts with: past the bill page's and Home's tips (pub/tour.js), and for most, past the first visit.
+  const SEEN = { hiphi_tour_bill: '{"how":"done"}', hiphi_tour_home: '{"how":"done"}' };
+  const DONE = { ...SEEN, hiphi_wiz: '{"step":1,"done":true}' };
+  const FV = 'demo=1&fv=full&end=today';
+
+  // ---- walking a frame the way a person would (the steps tests/home_end.py walks) ----
+  const walkToSoon = async F => {
+    const tile = [...F.d.querySelectorAll('.st-tile')].find(t => /Food/.test(t.textContent)) || F.$('.st-tile');
+    tile.click(); await sleep(200);
+    F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
+    F.click('[data-stnext]'); await F.wait('.st-alertspage'); await F.quiet();
+    F.click('[data-stskip]'); await F.wait('#fx-moment:not([hidden]) #fx-mgo'); await F.quiet();
+    F.click('#fx-mgo'); await F.wait('.lx-count'); await F.quiet();
+    for (let k = 2; k <= 3; k++) { F.click('[data-stnext]'); await F.wait(() => (F.$('.lx-count')?.textContent || '').startsWith(String(k))); await F.quiet(); }
+    F.click('[data-stnext]'); await F.wait('[data-staddr]'); await F.quiet();
+    F.click('[data-stskip]'); await F.wait('.st-soonpage'); await F.quiet();
+  };
+
+  // ---- the moments, in the order a person meets them ----
+  // what: what moves and where. about: what it is built to take. link: the same moment in the practice copy.
+  const MOMENTS = [
+    { id: 'slide', where: 'First visit', name: 'Screen slide', code: 'fx.swap()', about: 'a 0.26 s slide, then the issue cards rise in',
+      what: 'Each first-visit screen slides the way the person is going. Here: a topic picked, then Next.',
+      link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
+      ready: F => F.$('.st-tile'),
+      prep: async F => { F.click('.st-tile'); await sleep(300); },
+      // Back to the topics without a slide (the app's own address change), then Next: one slide forward each time.
+      play: async F => {
+        if (!F.$('.st-tile')) { (await F.mod('./pub/kernel.js')).app.go('#/start/1'); await F.wait('.st-tile[aria-pressed="true"]'); await F.quiet(); }
+        F.mark(); F.click('[data-stnext]');
+      } },
+    { id: 'mahalo', where: 'First visit, after the first follow', name: '“Mahalo!”', code: 'fx.celebrate()', about: 'about 1.6 s, then it waits for Continue',
+      what: 'Fills the screen once the first issues are followed, and waits for Continue. A law passed and the session’s end use it too.',
+      link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
+      ready: F => F.$('.st-tile'),
+      prep: async F => { F.click('.st-tile'); await sleep(200); F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
+        F.click('[data-stnext]'); await F.wait('.st-alertspage'); await F.quiet(); },
+      // The alerts screen's own way out (start-rest.js leaveAlerts), so the words are the app's.
+      play: async F => {
+        const R = await F.mod('./pub/start-rest.js'), K = await F.mod('./pub/kernel.js'), m = F.d.getElementById('fx-moment');
+        if (m) { m.hidden = true; void m.offsetWidth; }
+        K.S.mahaloShown = false; F.mark(); R.leaveAlerts(3);
+      } },
+    { id: 'road', where: 'First visit, “A bill’s story”', name: 'The bill’s road', code: 'lessons.js (frame by frame)', about: 'up to about 1.2 s',
+      what: 'On Next, the person’s own bill travels its real road; each stop ticks as it passes, then “is here”.',
+      link: 'track.html?demo=1#/learn/story/HB2121', page: 'track.html', q: 'demo=1', h: '#/learn/story/HB2121', seed: DONE,
+      ready: F => F.$('[data-stlearnnext]') && F.$('.lx-count'),
+      play: async F => {
+        if (!(F.$('.lx-count')?.textContent || '').startsWith('1')) { F.click('[data-stlearnback]'); await F.wait(() => (F.$('.lx-count')?.textContent || '').startsWith('1')); await F.quiet(); }
+        F.mark(); F.click('[data-stlearnnext]');
+      } },
+    { id: 'burst', where: 'First visit, “Who speaks for you”', name: 'Small burst', code: 'fx.burst()', about: 'about 0.9 s, 0.3 s after the names pop in',
+      what: 'A small burst on the thing just done. Here: an address found, as the legislators pop in. Also a right answer, a part finished, a result seen.',
+      link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/5', seed: SEEN,
+      ready: async F => F.$('[data-staddr]') && ((await F.mod('./pub/kernel.js')).S.legislators || []).length > 0,
+      // What the address step does once an address is found (start-rest.js): draw the two legislators, then the burst.
+      play: async F => {
+        const K = await F.mod('./pub/kernel.js'), fx = await F.mod('./pub/fx.js'), L = K.S.legislators || [];
+        const two = [L.find(l => l.chamber === 'H' && +l.district === 25) || L.find(l => l.chamber === 'H'), L.find(l => l.chamber === 'S' && +l.district === 13) || L.find(l => l.chamber === 'S')].filter(Boolean);
+        K.S.stAddr = { q: '', pick: { ids: two.map(l => l.id), label: 'A practice address, Honolulu' }, finding: false, err: '' };
+        F.mark(); K.app.render(); fx.later(() => fx.burst(F.d.getElementById('st-legs'), 14, 70), 300);
+      } },
+    { id: 'finale', where: 'First visit, the last screen', name: '“You’re all set!”', code: 'fx.petals()', about: 'words in by 0.8 s, still by 2 s',
+      what: 'The peak at the end: what they did ticks in first, then the sun, the blooms and the falling petals.',
+      link: 'track.html?demo=1&restart&fv=full&end=today', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
+      ready: F => F.$('.st-tile'), prep: walkToSoon,
+      // Back to "Coming up" without a slide (the app's own address change), then Next, as the first time.
+      play: async F => {
+        if (F.$('.st-done')) { (await F.mod('./pub/kernel.js')).app.go('#/start/6'); await F.wait('.st-soonpage'); await F.quiet(); }
+        F.mark(); F.click('[data-stnext]');
+      } },
+    { id: 'home', where: 'First visit, the version that ends on Home', name: 'The ending on Home', code: 'fx.petals()', about: 'ticks in by 0.6 s, still by 2 s',
+      what: 'The same celebration, on the page they will come back to: blooms, the ticks of what they did, the petals.',
+      link: 'track.html?demo=1&restart&fv=full&end=home', page: 'track.html', q: 'demo=1&fv=full&end=home', h: '#/start/1', seed: SEEN,
+      ready: F => F.$('.st-tile'), prep: walkToSoon,
+      // After the first time, Home plays its ending again the way a fresh arrival does (pub/home.js finFx).
+      play: async F => {
+        const K = await F.mod('./pub/kernel.js');
+        if (F.$('.hm-fin2')) { K.S.hmFinDrawn = false; F.mark(); K.app.render(); return; }
+        F.mark(); F.click('[data-stnext]');
+      } },
+    { id: 'toast', where: 'Everywhere', name: 'Toast', code: 'toast() in kernel.js', about: 'rises in 0.2 s, its tick draws in 0.3 s',
+      what: 'A short message above the tab bar once something worked. It goes after 4 seconds, or 10 with Undo.',
+      link: 'track.html?demo=1#/bill/HB2121', page: 'track.html', q: 'demo=1', h: '#/bill/HB2121', seed: DONE,
+      ready: F => F.$('[data-bl-go="testify"]'),
+      play: async F => {
+        const K = await F.mod('./pub/kernel.js'), box = F.d.getElementById('toast'); if (box) box.innerHTML = '';
+        F.mark(); K.toast('Following Disposable e-cigarette ban. Its bills come to you, this one included.', { yay: true, undo: async () => {} });
+      } },
+    { id: 'flowers', where: 'Testimony walkthrough, the first one sent', name: 'First testimony’s flowers', code: 'burst() in helper.js', about: 'about 0.9 s',
+      what: 'Sixteen flowers burst from behind “You sent testimony” the first time. Not in fx.js yet, and pink as well as orange (X11-3).',
+      link: 'track.html?demo=1#/bill/HB2121', page: 'track.html', q: 'demo=1', h: '#/bill/HB2121', seed: DONE, fresh: true,
+      ready: F => F.$('[data-bl-go="testify"]'),
+      // Straight to the walkthrough's last question, as when someone comes back from the Capitol's page, then its
+      // "Yes, I saw the green box": a first testimony, so the flowers. Replay starts the frame afresh (it is first once).
+      prep: async F => {
+        F.click('[data-bl-go="testify"]'); await F.wait('#hp-dlg[open]'); await F.quiet();
+        const K = await F.mod('./pub/kernel.js'), x = K.S.helper;
+        Object.assign(x, { screen: 3, away: true, back: false, stance: x.stance || 'support', letter: x.letter || 'Aloha, I support this bill. Mahalo.' });
+        F.d.dispatchEvent(new F.w.Event('visibilitychange')); await F.wait('[data-hp="confirm"]'); await F.quiet();
+      },
+      play: async F => { F.mark(); F.click('[data-hp="confirm"]'); } },
+    { id: 'review', where: 'Staff v2, Review', name: 'The next draft', code: 'td-in in staff.css', about: 'a 0.22 s slide; the count 0.5 s; Approve wakes at 1 s',
+      what: 'In Review, the next draft slides in so the change of item can’t be missed, and its count ticks. Here: back to the first draft.',
+      link: 'staff.html?demo=1#/review', page: 'staff.html', q: 'demo=1', h: '#/review', seed: {},
+      ready: F => F.$('.td-rvcard, [data-again]'),
+      // To the end of the queue first, quietly (Review's own Skip; the frame's "Skip to content" is data-skip too, with no
+      // value), then "Review the ones you skipped": the first draft slides back in. The practice copy's second item is an
+      // email to supporters, whose slide a redraw cuts off (staff/review.js asks for its audience, then draws again).
+      play: async F => {
+        const SKIP = '[data-skip="1"]';
+        for (let k = 0; k < 8 && F.$(SKIP); k++) { F.click(SKIP); await F.quiet(); }
+        await F.wait('[data-again]'); await F.quiet();
+        F.mark(); F.click('[data-again]');
+      } },
+  ];
+
+  // ---- the board's state ----
+  const ST = { rate: 1, reduce: !!matchMedia('(prefers-reduced-motion: reduce)').matches };
+  const NARROW = matchMedia('(max-width: 700px)').matches, LIMIT = NARROW ? 4 : 12;   // frames kept alive at once on a phone
+  const grid = $('#mo-grid');
+  grid.innerHTML = MOMENTS.map(m => `<article class="mo-tile" id="m-${m.id}" aria-labelledby="m-${m.id}-h">
+      <p class="mo-where">${esc(m.where)}</p>
+      <div><h2 id="m-${m.id}-h">${esc(m.name)}</h2><code class="mo-code">${esc(m.code)}</code></div>
+      <p class="mo-what">${esc(m.what)}</p>
+      <div class="mo-stage"><iframe tabindex="-1" aria-hidden="true" title="${esc(m.name)}, playing in the practice tracker"></iframe><div class="mo-wait">Waiting to load</div></div>
+      <div class="mo-foot"><p class="mo-time"><span>Built for ${esc(m.about)}</span><b class="mo-meas" aria-live="polite"></b><a class="mo-link" href="${esc(m.link)}" target="_blank" rel="noopener">See it in the practice copy</a></p>
+        <button type="button" class="btn secondary sm" data-replay="${m.id}" disabled>Replay</button></div>
+    </article>`).join('');
+  const T = new Map(MOMENTS.map(m => [m.id, { m, el: document.getElementById('m-' + m.id), state: 'idle', seen: 0, played: false, busy: null }]));
+
+  // Each phone-sized frame is scaled to its tile.
+  const ro = new ResizeObserver(es => es.forEach(e => e.target.style.setProperty('--s', String(e.contentRect.width / 390))));
+  document.querySelectorAll('.mo-stage').forEach(s => ro.observe(s));
+
+  // ---- one frame: what the driver can do in it ----
+  function frameOf(t) {
+    const fr = t.el.querySelector('iframe');
+    const F = {
+      get w() { return fr.contentWindow; }, get d() { return fr.contentDocument; },
+      $: s => { try { return fr.contentDocument.querySelector(s); } catch { return null; } },
+      click: s => { const e = typeof s === 'string' ? F.$(s) : s; if (!e) throw new Error(`nothing to press: ${s}`); e.click(); },
+      wait: async (what, ms = 15000) => { const end = Date.now() + ms;
+        while (Date.now() < end) { try { if (typeof what === 'function' ? await what() : F.$(what)) return; } catch { /* not yet */ } await sleep(60); }
+        throw new Error(`never appeared: ${what}`); },
+      mods: new Map(),
+      mod: p => { if (!F.mods.has(p)) F.mods.set(p, fr.contentWindow.__mo.imp(p)); return F.mods.get(p); },
+      // moving: any animation still to finish, or the page drawing frames of its own
+      moving: () => { try { return fr.contentWindow.__mo.drawing() || fr.contentDocument.getAnimations().some(a => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)); } catch { return false; } },
+      quiet: async (ms = 300) => { let still = 0; const end = Date.now() + 12000; while (still < ms && Date.now() < end) { await sleep(50); still = F.moving() ? 0 : still + 50; } },
+      mark: () => { F.t0 = fr.contentWindow.__mo.vnow(); },
+    };
+    return F;
+  }
+  const wait = (t, text) => { const w = t.el.querySelector('.mo-wait'); w.hidden = !text; w.innerHTML = text || ''; };
+  const say = (t, text) => { t.el.querySelector('.mo-meas').textContent = text; };
+  const replayBtn = t => t.el.querySelector('[data-replay]');
+
+  // ---- loading a frame, getting it to its moment, playing it ----
+  async function boot(t) {
+    const m = t.m, fr = t.el.querySelector('iframe');
+    t.state = 'loading'; t.F = null; wait(t, 'Getting ready…'); replayBtn(t).disabled = true;
+    const run = t.run = (t.run || 0) + 1;
+    const url = `motion.html?frame=1&run=${run}&page=${encodeURIComponent(m.page)}&q=${encodeURIComponent(m.q)}&h=${encodeURIComponent(m.h)}&reduce=${ST.reduce ? 1 : 0}&seed=${encodeURIComponent(JSON.stringify(m.seed || {}))}`;
+    // A frame's first load replaces its blank page; a later one replaces the frame's page, so neither adds to Back.
+    if (run === 1) fr.src = url; else fr.contentWindow.location.replace(url);
+    const F = frameOf(t);
+    try {
+      await F.wait(() => fr.contentWindow?.__mo?.run === String(run) && fr.contentWindow.location.pathname.endsWith(m.page) && m.ready(F), 30000);
+      if (run !== t.run) return;
+      await F.quiet(400);
+      if (m.prep) await m.prep(F);
+      if (run !== t.run) return;
+      t.F = F; t.state = 'ready'; wait(t, ''); replayBtn(t).disabled = false;
+    } catch (e) {
+      if (run !== t.run) return;
+      console.error(m.id, e); t.state = 'error';
+      wait(t, `This moment did not load.<br><button type="button" class="btn secondary sm" data-retry="${m.id}">Try again</button>`);
+    }
+  }
+  async function play(t) {
+    if (t.busy) return t.busy;
+    t.busy = (async () => {
+      if (t.m.fresh && t.played) await boot(t);   // a moment that only happens once starts its frame afresh
+      if (t.state !== 'ready') return;
+      const F = t.F; replayBtn(t).disabled = true; say(t, ST.rate === 1 ? 'Playing…' : 'Playing, slowed to ¼…');
+      try {
+        F.w.__mo.reduce(ST.reduce); F.w.__mo.rate(ST.rate);
+        F.t0 = null; await t.m.play(F); const t0 = F.t0 ?? F.w.__mo.vnow();
+        // From the tap to the last thing that moves, on the page's own (slowed) clock, so the time is real-speed.
+        let last = t0, still = 0; const end = Date.now() + 30000;
+        await sleep(30);
+        while (Date.now() < end) {
+          if (F.moving()) { last = F.w.__mo.vnow(); still = 0; } else still += 50;
+          if (still * ST.rate >= 700) break;   // longer than any pause the app waits before a burst (later(), 500 ms)
+          await sleep(50);
+        }
+        const s = Math.max(0, (last - t0) / 1000);
+        say(t, s < .1 ? 'This play: nothing moved' : `This play: ${s.toFixed(2)} s${ST.rate === 1 ? '' : `, shown at ¼ (${(s / ST.rate).toFixed(1)} s)`}`);
+        F.w.__mo.rate(1); t.played = true;
+      } catch (e) { console.error(t.m.id, e); say(t, 'This play did not run. Replay to try again.'); t.state = t.m.fresh ? 'ready' : t.state; t.played = true; }
+      replayBtn(t).disabled = false;
+    })();
+    try { await t.busy; } finally { t.busy = null; }
+  }
+  async function bootAndPlay(t) { if (t.state === 'idle' || t.state === 'asleep') await boot(t); if (t.state === 'ready' && !t.played) await play(t); }
+
+  // ---- frames load as they come into view; on a phone only a few stay alive at once ----
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { const t = [...T.values()].find(x => x.el.contains(e.target)); if (!t) return; t.visible = e.isIntersecting; if (e.isIntersecting) { t.seen = Date.now(); bootAndPlay(t); } });
+    const alive = [...T.values()].filter(t => t.state !== 'idle' && t.state !== 'asleep');
+    if (alive.length > LIMIT) alive.filter(t => !t.visible).sort((a, b) => a.seen - b.seen).slice(0, alive.length - LIMIT).forEach(t => {
+      t.run = (t.run || 0) + 1; t.state = 'asleep'; t.played = false; t.F = null; t.el.querySelector('iframe').contentWindow.location.replace('about:blank'); wait(t, 'Resting while out of view'); replayBtn(t).disabled = true; });
+  }, { rootMargin: '200px 0px' });
+  document.querySelectorAll('.mo-stage').forEach(s => io.observe(s));
+
+  // ---- the controls ----
+  grid.addEventListener('click', e => {
+    const r = e.target.closest('[data-replay]'); if (r) { play(T.get(r.dataset.replay)); return; }
+    const a = e.target.closest('[data-retry]'); if (a) { const t = T.get(a.dataset.retry); t.played = false; bootAndPlay(t); }
+  });
+  const playAll = () => T.forEach(t => { if (t.state === 'ready') play(t); });
+  $('#mo-all').onclick = playAll;
+  document.querySelectorAll('.mo-seg [data-rate]').forEach(b => b.onclick = () => {
+    ST.rate = +b.dataset.rate;
+    document.querySelectorAll('.mo-seg [data-rate]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    playAll();
+  });
+  const rd = $('#mo-reduce'); rd.checked = ST.reduce;
+  rd.onchange = () => { ST.reduce = rd.checked; T.forEach(t => { try { t.F?.w.__mo.reduce(ST.reduce); } catch { /* reloading */ } }); playAll(); };
+}
+</script>
+</body>
+</html>

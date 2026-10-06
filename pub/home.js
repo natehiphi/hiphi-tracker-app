@@ -17,7 +17,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf } from './core.js';
-import { burst, celebrate } from './fx.js';
+import { burst, celebrate, petals } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, goingPlans, goingCard } from './actions.js';
 import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
@@ -658,8 +658,9 @@ function finFx() {
   logVisit('home', 'view', { path: wiz().via ? 'link' : si.phase !== 'in' ? 'off' : 'in' });
   burst(document.getElementById('hm-finh'), 16, 90);
   const fx = document.createElement('div'); fx.className = 'hm-petalfx'; fx.setAttribute('aria-hidden', 'true');
-  fx.innerHTML = `<div class="st-petals">${Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('')}</div>`;
-  document.body.appendChild(fx); setTimeout(() => fx.remove(), 3600);
+  // The finale's own petals (fx.js), down within 2 s (X11-2, R-180); the layer goes once the last has fallen.
+  fx.innerHTML = `<div class="st-petals">${petals()}</div>`;
+  document.body.appendChild(fx); setTimeout(() => fx.remove(), 2200);
 }
 
 // ---------------- in session, following nothing: explore (plan 3, "Skip path") ----------------
