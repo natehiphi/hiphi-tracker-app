@@ -51,13 +51,13 @@ with sync_playwright() as p:
         ok(d.startswith('Email about'), f'on #/bill/{YEAR}/{A} the main button opens the walkthrough: {d[:60]!r}')
     # ---- 4. the share from this page carries the ask ----
     t = pg.evaluate("async n => { const c = await import('./pub/core.js'), bl = await import('./pub/bill.js'), a = await import('./pub/actions.js'); const b = Object.values(c.S.extra).concat(c.S.bills).find(x => x.bill_number === n); const k = bl.shareAsk(b); const s = a.shareFor(b, null, { ask: k }); return { k, url: s.url, text: s.text }; }", A)
-    ok(t['k'] == 'ask' and t['url'].endswith(f'#/bill/{A}/ask') and 'needs a hearing' in t['text'], f"a waiting bill's share: {t['k']} {t['url'][-30:]} {t['text'][:110]}")
+    ok(t['k'] == 'ask' and t['url'].endswith(f'b/demo/{A}-ask') and 'needs a hearing' in t['text'], f"a waiting bill's share: {t['k']} {t['url'][-30:]} {t['text'][:110]}")
     ctx.close()
     ctx, pg = phone(); pg.goto(PUB + f'#/bill/{T}'); ready(pg)
     t = pg.evaluate("async n => { const c = await import('./pub/core.js'), bl = await import('./pub/bill.js'), a = await import('./pub/actions.js'); const b = Object.values(c.S.extra).concat(c.S.bills).find(x => x.bill_number === n); const x = bl.situation(b); return { k: bl.shareAsk(b, x), url: a.shareFor(b, x.act?.h, { ask: bl.shareAsk(b, x) }).url }; }", T)
-    ok(t['k'] == 'testify' and re.search(rf'#/bill/{T}/testify$', t['url']), f"a bill with a hearing shares its testimony link: {t}")
+    ok(t['k'] == 'testify' and t['url'].endswith(f'b/demo/{T}-testify'), f"a bill with a hearing shares its testimony page: {t}")
     t = pg.evaluate("async n => { const c = await import('./pub/core.js'), bl = await import('./pub/bill.js'), a = await import('./pub/actions.js'); const b = await c.ensureBill(n); return { k: bl.shareAsk(b), url: a.shareFor(b, null, { ask: bl.shareAsk(b) }).url, text: a.shareFor(b, null, { ask: bl.shareAsk(b) }).text }; }", DEAD)
-    ok(t['k'] == 'follow' and '#/issue/' in t['url'] and 'speak up' not in t['text'].lower() and 'come back' in t['text'], f"a stopped bill shares its issue to follow: {t['url'][-40:]} {t['text'][-90:]}")
+    ok(t['k'] == 'follow' and t['url'].endswith(f'b/demo/{DEAD}-follow') and 'speak up' not in t['text'].lower() and 'come back' in t['text'], f"a stopped bill shares its follow page: {t['url'][-40:]} {t['text'][-90:]}")
     ctx.close()
     # ---- 5. a closed ask says so and shows the bill ----
     ctx, pg = phone(); pg.goto(PUB + f'&via=share#/bill/{DEAD}/testify'); ready(pg); pg.wait_for_timeout(2500)
@@ -78,22 +78,32 @@ with sync_playwright() as p:
     pg.goto(PUB + f'&via=share#/bill/{A}'); ready(pg); pg.wait_for_timeout(2500)
     ok(not pg.evaluate(DLG), 'a shared link opened in that tab shows its own bill, not the old walkthrough')
     ctx.close()
+    # ---- 7b. the practice copy's share page itself: its card leads with the ask and its link opens it there ----
+    ctx, pg = phone(); pg.goto(BASE + f'b/demo/{T}-testify.html'); pg.wait_for_url(re.compile(r'track\.html'), timeout=20000); ready(pg); pg.wait_for_timeout(2000)
+    ok('demo=1' in pg.url and pg.url.endswith(f'#/bill/{YEAR}/{T}/testify') and pg.evaluate(DLG).startswith('Testimony on'), f"the practice copy's testimony page opens its walkthrough: {pg.url[-50:]}")
+    ctx.close()
     # ---- 8. staff: the share kit and this week's asks link the testimony page ----
     ctx, pg = phone(); pg.goto(BASE + 'staff.html?demo=1#/'); pg.wait_for_timeout(3500)
     t = pg.evaluate("async () => { const m = await import('./staff/model.js'); const b = { bill_number: 'HB 1573', session_year: " + str(YEAR) + ", nickname: 'X', public_action: 'Please support it.' }; const h = { committee: 'HLT', scheduled_at: new Date(Date.now() + 3 * 864e5).toISOString(), testimony_deadline: new Date(Date.now() + 864e5).toISOString() }; return { kit: m.shareKit(b, h).link, plain: m.shareKit(b, null).link }; }")
-    ok(t['kit'].endswith('b/HB1573-testify') and t['plain'].endswith('b/HB1573'), f"staff's share kit: a hearing ahead links the testimony page: {t}")
+    ok(t['kit'].endswith('b/demo/HB1573-testify') and t['plain'].endswith('b/demo/HB1573'), f"staff's share kit: a hearing ahead links the testimony page (the practice copy's own): {t}")
     ctx.close()
     ok(not errs, 'no page errors: ' + '; '.join(errs[:3]))
     br.close()
 # ---- 9. the built pages: each leads with its ask; no instant redirect, no og:url ----
 pages = glob.glob(os.path.join(ROOT, 'b', '*.html')) + glob.glob(os.path.join(ROOT, 'b', '*', '*.html')) + glob.glob(os.path.join(ROOT, 'i', '*.html'))
-bad_meta, bad_title = [], []
+bad_meta, bad_title, bad_pic = [], [], []
+PIC = {'Speak up': ('testify',), 'Ask for a hearing': ('ask',), 'Ask the chair to hold': ('hold',), 'Ask your': ('floor-yes', 'floor-no'),
+       'Ask lawmakers': ('conference-yes', 'conference-no'), 'Ask the Governor': ('governor-sign', 'governor-veto'), 'Follow ': ('follow', 'law')}
 for f in pages:
     h = open(f, encoding='utf-8').read(); t = re.search(r'og:title" content="([^"]*)"', h).group(1)
-    if 'http-equiv' in h or 'og:url' in h: bad_meta.append(f)
+    if 'http-equiv' in h or 'og:url' in h or ('/demo/' in f and 'noindex' not in h): bad_meta.append(f)
+    pic = (re.search(r'pub/og/([a-z-]+)\.png', h) or [None, ''])[1]
+    if not any(t.startswith(k) and pic in v for k, v in PIC.items()) or not os.path.exists(os.path.join(ROOT, 'pub', 'og', f'{pic}.png')): bad_pic.append(f'{os.path.basename(f)}: {t[:40]} / {pic}')
     name = os.path.basename(f)
     want = r'^Speak up' if '-testify' in name else r'^Ask ' if re.search(r'-(ask|floor|conference|governor)\.html$', name) else r'^Follow ' if '-follow' in name or '/i/' in f else r'^(Speak up|Ask |Follow )'
     if not re.search(want, t): bad_title.append(f'{name}: {t}')
 ok(len(pages) > 1000 and not bad_meta, f'{len(pages)} share pages, none with an instant redirect or og:url ({len(bad_meta)} do)')
 ok(not bad_title, f'every share page title leads with its ask ({len(bad_title)} do not: {bad_title[:3]})')
+ok(not bad_pic, f"every share page's picture says its ask, and the picture exists ({len(bad_pic)} do not: {bad_pic[:3]})")
+ok(len(glob.glob(os.path.join(ROOT, 'b', 'demo', '*.html'))) > 500 and len(glob.glob(os.path.join(ROOT, 'i', 'demo', '*.html'))) > 50, 'the practice copy has its own share pages (b/demo/, i/demo/)')
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

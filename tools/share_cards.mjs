@@ -65,7 +65,19 @@ export function asksFor(b, state) {
   return out;
 }
 
-// The card for one ask: { title, desc, hash }. Every title starts with the ask and ends with the bill's name and
+// The card's picture (pub/og/<name>.png, drawn by tools/og_images.py): the ask in large words, since in a text the picture
+// is most of the card and the title a small line under it (Nate 10/5: "the share card is not specific about the action").
+export function imageFor(ask, state) {
+  const no = state.side === 'oppose';
+  if (ask === 'testify') return 'testify';
+  if (ask === 'ask') return no ? 'hold' : 'ask';
+  if (ask === 'floor') return no ? 'floor-no' : 'floor-yes';
+  if (ask === 'conference') return no ? 'conference-no' : 'conference-yes';
+  if (ask === 'governor') return no ? 'governor-veto' : 'governor-sign';
+  return state.st.phase === 'law' ? 'law' : 'follow';
+}
+
+// The card for one ask: { title, desc, hash, image }. Every title starts with the ask and ends with the bill's name and
 // number (DESIGN.md C-10: the nickname, and always the number); the words under it say why now and how long it takes.
 // ctx: { committees ({ code: { name, chamber } }), issue ({ slug, name } | null) }
 export function cardFor(b, ask, state, ctx = {}) {
@@ -75,7 +87,7 @@ export function cardFor(b, ask, state, ctx = {}) {
   const about = b.hiphi_nickname ? '' : `${sentence(cut(b.hiphi_summary || b.description || '', 120))} `;
   const pos = POS[b.hiphi_position] || '', st = state.st, side = state.side, now = state.now ?? Date.now();
   const by = st.deadline && !st.deadline.missed && st.deadline.date ? ` by ${dayWords(st.deadline.date)}` : '';
-  const done = (title, desc, open) => ({ title, desc: `${desc} ${pos}`.replace(/\s+/g, ' ').trim(), hash: `#/bill/${ref}${open ? `/${open}` : ''}` });
+  const done = (title, desc, open) => ({ title, desc: `${desc} ${pos}`.replace(/\s+/g, ' ').trim(), hash: `#/bill/${ref}${open ? `/${open}` : ''}`, image: imageFor(ask, state) });
   if (ask === 'testify') {
     const h = state.open, due = h && h.testimony_deadline && new Date(h.testimony_deadline).getTime() > now ? h.testimony_deadline : null;
     return done(h ? `Speak up by ${dayWords(due || h.scheduled_at)}: ${named}` : `Speak up: ${named}`,
@@ -105,5 +117,5 @@ export function cardFor(b, ask, state, ctx = {}) {
     : `${named}: ${sentence(cut(b.hiphi_summary || b.description || '', 140))}`;
   return { title: i ? `Follow the issue: ${i.name}` : `Follow ${named}`,
     desc: `${news} ${i ? 'Follow the issue' : 'Follow it'} and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim(),
-    hash: i ? `#/issue/${i.slug}` : `#/bill/${ref}` };
+    hash: i ? `#/issue/${i.slug}` : `#/bill/${ref}`, image: imageFor('follow', state) };
 }

@@ -47,7 +47,8 @@ const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; };
 
 // No og:url and no <meta http-equiv="refresh"> (R-169): see the top. Someone whose browser runs no script gets the link.
-function page({ title, desc, to }) {
+// image: the ask's picture (pub/og/<image>.png, tools/og_images.py). noindex: the practice copy's pages stay out of search.
+function page({ title, desc, to, image = '', noindex = false }) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -57,7 +58,7 @@ function page({ title, desc, to }) {
 <meta property="og:site_name" content="Hawaiʻi Public Health Institute">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
-<meta property="og:image" content="${SITE}pub/og.png">
+${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta property="og:image" content="${SITE}pub/${image ? `og/${image}` : 'og'}.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -87,7 +88,6 @@ const committees = Object.fromEntries((await rows('public_committees?select=code
 // The issue's id too: the bills name their issues by it (the calendar feeds below matched on it and, without it, never
 // held an event, 10/5).
 const issues = await rows('public_issues?select=id,slug,name,description,bill_ids');
-const issueById = new Map(issues.filter(i => /^[a-z0-9-]+$/.test(i.slug)).map(i => [i.id, i]));
 // A deadline by its key for this bill's session, or the budget bills' own row that replaces it (pub/core.js deadlineOf).
 const deadlineFor = b => key => {
   const mine = deadlines.filter(d => +d.session_year === +b.session_year);
@@ -97,31 +97,60 @@ const deadlineFor = b => key => {
 const hearingsBy = new Map();
 for (const h of allHearings) { if (!hearingsBy.has(h.bill_id)) hearingsBy.set(h.bill_id, []); hearingsBy.get(h.bill_id).push(h); }
 const want = new Map();   // file -> html
-const goTo = (depth, hash) => `${'../'.repeat(depth)}track.html?via=share${hash}`;
-for (const b of bills) {   // oldest session first, so the latest wins b/<number> when a number repeats
-  const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0;
-  const state = billState(b, { hearings: hearingsBy.get(b.id) || [], outcomes, deadlineFor: deadlineFor(b) });
-  const ctx = { committees, issue: (b.hiphi_issues || []).map(id => issueById.get(id)).find(Boolean) || null };
-  const card = ask => cardFor(b, ask, state, ctx);
-  // b/HB1573: the bill's ask of the moment (links made before R-169, staff copies, the 404 page's guesses).
-  const now = card(state.ask);
-  want.set(`b/${n}.html`, page({ ...now, to: goTo(1, now.hash) }));
-  if (y) want.set(`b/${y}/${n}.html`, page({ ...now, to: goTo(2, now.hash) }));
-  // One page per ask. A live ask is always this session's bill, so it lives at the short address only; following is
-  // shared for bills from earlier sessions too, so it is at both.
-  for (const ask of asksFor(b, state)) {
-    const c = card(ask);
-    want.set(`b/${n}-${ask}.html`, page({ ...c, to: goTo(1, c.hash) }));
-    if (y && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, to: goTo(2, c.hash) }));
+// The bills' and issues' pages for one set of data. The live site's go in b/ and i/; the practice copy's in b/demo/ and
+// i/demo/ (below), opening the practice copy (?demo=1) and read at its own day, so a share made there shows a real card.
+function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, now, dir = '', query = 'via=share', noindex = false }) {
+  const issueById = new Map(issues.filter(i => /^[a-z0-9-]+$/.test(i.slug)).map(i => [i.id, i]));
+  const sub = dir ? `${dir}/` : '', up = dir ? 1 : 0;
+  const goTo = (depth, hash) => `${'../'.repeat(depth + up)}track.html?${query}${hash}`;
+  for (const b of bills) {   // oldest session first, so the latest wins b/<number> when a number repeats
+    const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0;
+    const state = billState(b, { hearings: hearingsBy.get(b.id) || [], outcomes, deadlineFor: deadlineFor(b), now });
+    const ctx = { committees, issue: (b.hiphi_issues || []).map(id => issueById.get(id)).find(Boolean) || null };
+    const card = ask => cardFor(b, ask, state, ctx);
+    // b/HB1573: the bill's ask of the moment (links made before R-169, staff copies, the 404 page's guesses).
+    const cur = card(state.ask);
+    want.set(`b/${sub}${n}.html`, page({ ...cur, to: goTo(1, cur.hash), noindex }));
+    if (y && !dir) want.set(`b/${y}/${n}.html`, page({ ...cur, to: goTo(2, cur.hash) }));
+    // One page per ask. A live ask is always this session's bill, so it lives at the short address only; following is
+    // shared for bills from earlier sessions too, so it is at both.
+    for (const ask of asksFor(b, state)) {
+      const c = card(ask);
+      want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, to: goTo(1, c.hash), noindex }));
+      if (y && !dir && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, to: goTo(2, c.hash) }));
+    }
+  }
+  for (const i of issues) {
+    if (!/^[a-z0-9-]+$/.test(i.slug)) continue;
+    const n = (i.bill_ids || []).length;
+    const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
+    // The ask first (R-169): following is what an issue's link asks, and its page's main button.
+    want.set(`i/${sub}${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `${'../'.repeat(1 + up)}track.html?${query}#/issue/${i.slug}`, image: 'follow', noindex }));
+    if (!dir) for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
   }
 }
-for (const i of issues) {
-  if (!/^[a-z0-9-]+$/.test(i.slug)) continue;
-  const n = (i.bill_ids || []).length;
-  const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
-  // The ask first (R-169): following is what an issue's link asks, and its page's main button.
-  want.set(`i/${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `../track.html?via=share#/issue/${i.slug}` }));
-  for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
+sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues });
+
+// The practice copy's pages (R-169, 10/5): built from demo/snapshot.json the way pub/demo.js shapes it, at the practice
+// copy's day (Mon 16 Mar 2026, in session), so its shares preview the in-session cards ("Speak up by Wed, Mar 18: ...")
+// long before January. The between-sessions practice copy (?season=off) keeps sharing the tracker's own address.
+{
+  const snap = JSON.parse(readFileSync(join(ROOT, 'demo', 'snapshot.json'), 'utf8'));
+  const demoBills = snap.bills.filter(b => b.position).map(b => ({ ...b, hiphi_position: b.position, hiphi_summary: b.public_summary,
+    hiphi_nickname: b.is_public ? b.nickname || null : null, hiphi_issues: null }));
+  const byId = new Map(demoBills.map(b => [b.id, b])), billIds = {};
+  for (const r of snap.billIssues || []) { const b = byId.get(r.bill_id); if (!b || b.hiphi_position === 'monitor') continue;
+    (b.hiphi_issues ??= []).push(r.issue_id); (billIds[r.issue_id] ??= []).push(b.id); }
+  const demoHearings = new Map();
+  for (const h of snap.hearings || []) { if (!demoHearings.has(h.bill_id)) demoHearings.set(h.bill_id, []); demoHearings.get(h.bill_id).push(h); }
+  const dl = snap.deadlines || [];
+  sharePages({ bills: demoBills.sort((x, y) => (+x.session_year || 0) - (+y.session_year || 0)), hearingsBy: demoHearings,
+    outcomes: Object.fromEntries((snap.outcomes || []).map(o => [o.hearing_id, o])),
+    deadlineFor: b => key => { const d = dl.find(x => x.replaces === key && (x.bills || []).includes(b.bill_number)) || dl.filter(x => x.key === key && !(x.bills || []).length).slice(-1)[0];
+      return d ? { label: d.label, date: d.deadline_date } : null; },
+    committees: Object.fromEntries((snap.committees || []).map(c => [c.code, c])),
+    issues: (snap.issues || []).map(i => ({ ...i, bill_ids: billIds[i.id] || [] })),
+    now: Date.parse(snap.asof), dir: 'demo', query: 'demo=1&via=share', noindex: true });
 }
 // The calendar feeds (R-125, the assessment's W3): cal/<issue slug>.ics, one per issue, every hearing still ahead (and the
 // last week's) on the issue's bills as an event, with its testimony deadline as a second event that rings two hours before.
@@ -154,7 +183,7 @@ for (const i of issues) {
 let added = 0, changed = 0, removed = 0;
 for (const dir of ['b', 'i', 'cal']) {
   const d = join(OUT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
-  const years = existsSync(d) ? readdirSync(d).filter(f => /^\d{4}$/.test(f)) : [];   // b/2026/, one folder per session
+  const years = existsSync(d) ? readdirSync(d).filter(f => /^(\d{4}|demo)$/.test(f)) : [];   // b/2026/, one folder per session; b/demo/
   for (const sub of ['', ...years]) {
     const dd = sub ? join(d, sub) : d;
     for (const f of readdirSync(dd)) if (/\.(html|ics)$/.test(f) && !want.has(`${dir}/${sub ? `${sub}/` : ''}${f}`)) { removed++; if (!CHECK) unlinkSync(join(dd, f)); }

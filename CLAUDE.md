@@ -105,7 +105,11 @@ session is dark (until January 2027).
   the general card and links to the second without `?via=`); keep it that way. Built by `node tools/share_pages.mjs`
   (public views, public key; `--check` to preview, `--out DIR`), hourly January to June and daily otherwise by
   `.github/workflows/share-pages.yml`, which commits only when a page changed. `404.html` sends a `b/` or `i/` link
-  whose page is not built yet to the tracker, `b/HB2121-testify` to `#/bill/HB2121/testify`.
+  whose page is not built yet to the tracker, `b/HB2121-testify` to `#/bill/HB2121/testify`. Each card has its ask's
+  picture (`pub/og/<ask>.png`, drawn by `python3 tools/og_images.py`; look at them before committing a redraw), since in
+  a text the picture is most of the card. The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
+  `demo/snapshot.json` at its March day, which its shares and Staff v2's practice copy use; they rebuild with the job,
+  so a snapshot rebuild needs nothing more.
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
   with no issue is followed alone. The followed state is a filled blue button with a check (`.btn.secondary.on
   [aria-pressed="true"]` in `base.css`, R-061); every Follow button sets `.on` and `aria-pressed`.
@@ -402,7 +406,7 @@ python3 tests/year_links_live.py    # the same on the published site, with the s
 python3 tests/errlog.py             # the public page's error reports: what is sent, what never is, the early catcher (R-111); 17 checks
 python3 tests/uptime.py             # the published page draws four screens with no error, as the hourly GitHub job checks it (R-111)
 python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 24 checks
-python3 tests/share_asks.py         # a shared link opens the ask it names, as a newcomer on a phone; every built share page leads with its ask, no instant redirect, no og:url (R-169); 16 checks
+python3 tests/share_asks.py         # a shared link opens the ask it names, as a newcomer on a phone; every built share page leads with its ask, no instant redirect, no og:url, the ask's picture; the practice copy's own pages (R-169); 19 checks
 python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed and the finale's keep line on a phone (R-123 to R-126); 13 checks
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog (waited for, up to 30 s, and how long it took is printed), someone with an action lands on Home, and every way in ends with the full catalog (R-136); 13 checks

@@ -178,8 +178,18 @@ card) and no `og:url` (Facebook and LinkedIn link to it, dropping `?via=`); thei
 retry. Found and fixed with it: the calendar feeds (R-125) never held an event (the job did not read the issue's id);
 speakup.js read no year in the address, so on `#/bill/2026/HB1518` "Ask the chairs" opened a bare email instead of the
 walkthrough; a page opened from a shared link (`?via=`, not a reload) no longer reopens a walkthrough left open in the tab
-(R-113, helper.js `freshLink`). Tests: `tests/share_cards_test.mjs` (20 checks, every push), `tests/share_asks.py` (16),
+(R-113, helper.js `freshLink`). Tests: `tests/share_cards_test.mjs` (23 checks, every push), `tests/share_asks.py` (19),
 `tests/share_links.py`, `tests/year_links_live.py` (the published pages).
+Then Nate (10/5): "The link works but the share card is not specific about the action. It should be." In a text the
+picture is most of the card, and every card had the same one; and the practice copy shared the tracker's own address, whose
+card is the general one. So: **a picture per ask** (`pub/og/testify.png`, `ask`, `hold`, `floor-yes`/`-no`,
+`conference-yes`/`-no`, `governor-sign`/`-veto`, `follow`, `law`; drawn from one template by `tools/og_images.py`, the
+brand's mark, Capitol and fonts), the ask in large words ("Testimony needed / Tell lawmakers what you think"), picked per
+card by `imageFor` in share_cards.mjs; `pub/og.png` redrawn the same way ("issues", `?v=` on track.html). And **the
+practice copy's own share pages**, `b/demo/` and `i/demo/`, built from `demo/snapshot.json` at its day (Mon 16 Mar 2026)
+by the same job, `noindex`, opening `track.html?demo=1`: the practice copy (in session; not `?season=off`) and Staff v2's
+practice copy share them (`billShareUrl`, `issueShareUrl`, `sharePageUrl`), so a share made there shows the in-session
+card now; `404.html` sends a `b/demo/` link to the practice copy.
 
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen

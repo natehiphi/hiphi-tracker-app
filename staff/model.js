@@ -271,7 +271,8 @@ export const billById = id => S.bills.find(b => b.id === id);
 // into a text or a post it previews with the bill's name, and the friend's arrival counts as a share. With an ask
 // (R-169), the page for that ask: b/HB2121-testify previews "Speak up by Wed, Mar 18: ..." and opens the testimony
 // walkthrough. Without one, b/HB2121 carries the bill's ask of the moment (the public site's share pages job).
-export const sharePageUrl = (b, ask = '') => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}${ask ? `-${ask}` : ''}`;
+// The practice copy (in session) links the practice copy's own pages (b/demo/, R-169), which preview its in-session cards.
+export const sharePageUrl = (b, ask = '') => `${PUBLIC_APP().replace(/track\.html$/, '')}b/${DEMO && !SESSION_OVER ? 'demo/' : b.session_year && +b.session_year !== SESSION_YEAR ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}${ask ? `-${ask}` : ''}`;
 // The public's response to a bill (R-117): follows (watch_counts) and the actions people with accounts marked
 // (public_action_counts). Staff only, counts only, nothing personal. '' when nobody has.
 export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
