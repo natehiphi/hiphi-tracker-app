@@ -19,7 +19,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   results, RESULT_MILESTONES, isResolution, sideOf } from './core.js';
 import { burst, celebrate } from './fx.js';
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
-import { actionCard, wireActions, nudgeCard, wireNudge } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, goingPlans, goingCard } from './actions.js';
 import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
 import { CAPITOL, islands, flower } from './art.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
@@ -507,6 +507,9 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
   const sugInMain = !cards.length && !asks.length;   // (the strip, above, also decided which moments are a card's reason line)
+  // Hearings they plan to go to (R-142): today's or tomorrow's at the top, where the day's plan belongs; later ones in the
+  // side column. A card already drawn on this page carries its own "How to get there", so it is not said twice (A-14).
+  const plans = goingPlans(new Set(cards.map(x => x.h.id))), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
   // The home test (R-135): met where its versions differ, two or more things to do.
   if (cards.length >= 2) abSeen('home');
   const byIssue = armOf('home') === 'by-issue';
@@ -516,13 +519,13 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${draftsCard()}${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${draftsCard()}${goSoon}${since}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${byIssue ? issueBlock(cards, asks, { nudgeHtml }) : todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
     </div><div class="side hm-side">
-      ${newIssuesCard()}
+      ${goLater}${newIssuesCard()}
       ${sessionPanel(si, { skip: inSince })}
       ${whatsNew(new Set([...inCards, ...inSince]))}
       ${homeScreenCard()}
@@ -670,18 +673,20 @@ function exploreView() {
   const cards = openActions(f.bills, f.hearings).filter(x => !x.late && !skip.has(x.b.id) && !seen.has(x.b.id) && seen.add(x.b.id)).slice(0, calm ? 5 : 3);
   const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
   const cats = S.cats, lists = (S.lists || []).filter(l => l.is_published !== false);
+  // A hearing they plan to go to, from one of these cards on an earlier visit (R-142): the same plan card as a follower's Home.
+  const plans = goingPlans(new Set(calm ? [] : cards.map(x => x.h.id))), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
   const lede = !cards.length ? 'No hearings are set on HIPHI’s bills yet this week. New ones usually post by Friday. Meanwhile, look around by issue.'
     : calm ? 'These bills have hearings soon. Follow one to keep an eye on it. When it needs a voice, we’ll show a simple way to help.'
     : 'These bills have hearings soon. Add your voice in a few minutes, or follow one’s issue to hear what happens.';
   return `<div class="hm hm-explore">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head"><h1 class="hero">This week at the Capitol</h1><p class="lede">${lede}</p></header>
+      ${goSoon}<header class="hm-head"><h1 class="hero">This week at the Capitol</h1><p class="lede">${lede}</p></header>
       ${!cards.length ? nudgeHtml : calm ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2><div class="rows hm-picks">${cards.map(pickRow).join('')}</div>${nudgeHtml}</section>`
         : `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2>
         ${cards.slice(0, 1).map(x => sugCard(x.b, x.h)).join('')}${nudgeHtml}${cards.slice(1).map(x => sugCard(x.b, x.h)).join('')}</section>`}
     </div><div class="side hm-side">
-      ${cats.length ? `<section class="hm-sec" aria-labelledby="hm-iss"><h2 id="hm-iss">Browse issues</h2>
+      ${goLater}${cats.length ? `<section class="hm-sec" aria-labelledby="hm-iss"><h2 id="hm-iss">Browse issues</h2>
         <div class="rows hm-issues">${cats.map(c => row({ lead: c.icon, title: esc(c.name), sub: esc(c.description || ''), href: `#/find/category/${encodeURIComponent(c.key)}` })).join('')}</div></section>` : ''}
       ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-lists"><h2 id="hm-lists">Lists from HIPHI</h2>
         <div class="rows">${lists.map(l => row({ lead: issueIcon(l.icon, 'list'), title: esc(l.title), sub: esc(l.description || ''), end: countOk(l.followers) ? `<span class="hm-day">${n(l.followers)} following</span>` : '', href: `#/list/${encodeURIComponent(l.slug)}` })).join('')}</div></section>` : ''}

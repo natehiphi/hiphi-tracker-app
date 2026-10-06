@@ -180,7 +180,7 @@ with sync_playwright() as p:
     a = pg.locator('[data-asked]')
     ok(a.count() == 1 and 'When and where to go' in a.inner_text(), 'the hearing card: "When and where to go" for someone who would testify in person')
     a.click(); pg.wait_for_timeout(300)
-    ok('Arrive 15 minutes early' in text(pg, '.gopanel'), 'it opens the room, the time and "arrive 15 minutes early"')
+    ok('Room 229, 2nd floor' in text(pg, '.gopanel') and 'Tap I plan to go, and you get directions' in text(pg, '.gopanel'), 'it opens the room and its floor, the time, and what "I plan to go" brings (R-142)')
 
     # 6. An email to the chair: where they live only when the chair is their own senator
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)

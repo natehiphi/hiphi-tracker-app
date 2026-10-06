@@ -2,7 +2,7 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel } from './letters.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
@@ -16,7 +16,7 @@ S.moreOpen ??= new Set(); S.compose ??= null; S.sentq ??= {}; S.goOpen ??= new S
 
 // Done lines, one per kind, in the words a person would use.
 function doneLabel(b, h, k) {
-  const held = new Date(h.scheduled_at) < Date.now();
+  const held = k === 'attend' ? !goingOn(h) : new Date(h.scheduled_at) < Date.now();
   return { testimony: 'Testimony sent', email: 'Emailed the chair', share: 'Shared', attend: held ? 'You went' : 'You plan to go' }[k];
 }
 
@@ -52,7 +52,7 @@ function wantsInPerson() {
 export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
-  if (due && done) due.tone = '';   // acted: the deadline is no longer a warning
+  if (due && settledOn(b, h)) due.tone = '';   // settled: the deadline is no longer a warning (going or sharing alone keeps it, R-142)
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
   const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
@@ -73,6 +73,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const step = R ? nextStep(b, h) : null;
   const inPerson = !asking && !late && !didKind(b, h, 'attend') && new Date(h.scheduled_at) > Date.now() && !(R && step === 'attend') && wantsInPerson();
   if (inPerson && !SHOWN.has(h.id)) { SHOWN.add(h.id); logAct('ask_shown'); }
+  // Said "I plan to go" and the hearing is still ahead (R-142): the card carries "How to get there" under its done line,
+  // and "Go to the hearing" leaves More ways to help, since that sign-up is done (Undo is beside the done line).
+  const planned = didKind(b, h, 'attend') && goingOn(h);
   // Speaking in person goes through the same Capitol testimony form (In person chosen there), so this is about getting
   // there, never a second way to testify (the review of R-156).
   const askBtn = inPerson ? btn('When and where to go', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'data-asked': '1', 'aria-expanded': S.goOpen.has(k) } }) + (S.goOpen.has(k) ? goPanel(b, h, k) : '') : '';
@@ -85,7 +88,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony · 5 min', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. First time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
     email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
-    attend: inPerson ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
+    attend: inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
   // Their own senator or representative on this committee (R-080): a row, never the main button, since testimony and the
@@ -99,8 +102,8 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
-    inPerson ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
-    !inPerson && S.goOpen.has(k) ? goPanel(b, h, k) : '',
+    inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
+    !inPerson && !planned && S.goOpen.has(k) ? goPanel(b, h, k) : '',
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
   const name = nick(b);
@@ -117,23 +120,153 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${twin ? `<p class="twin">${icon('copy')}<span>Its twin in the ${esc(CHAMBER_NAME[twin.h.committee && codesOf(twin.h.committee)[0] && S.committees[codesOf(twin.h.committee)[0]]?.chamber] || 'other chamber')}, <a href="${billPath(twin.b)}">${esc(spaced(twin.b.bill_number))}</a>: ${esc([twin.h.testimony_deadline ? (dueInfo(twin.h)?.text || '').replace(/\.$/, '') : '', hearingText(twin.h).replace(/ · Room.*$/, '').replace(/^Hearing/, 'hearing')].filter(Boolean).join(' · '))}.</span></p>` : ''}
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
+
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
+    ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
     ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
 const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
 
-function goPanel(b, h, k) {
-  const going = didKind(b, h, 'attend'), held = new Date(h.scheduled_at) < Date.now();
-  const map = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Hawaii State Capitol, 415 S Beretania St, Honolulu, HI 96813');
-  return `<div class="gopanel">
-    <p>Hawaiʻi State Capitol, 415 S Beretania St, ${esc(roomLabel(h.room))}. ${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))}. Arrive 15 minutes early. Anyone can sit in. To speak, choose <b>In person</b> on the Capitol testimony form.</p>
-    <div class="btnrow"><button type="button" class="chip" data-attend="${esc(k)}" aria-pressed="${going}">${icon(going ? 'check' : 'map-pin')}${going ? (held ? 'You went' : 'You plan to go') : 'I plan to go'}</button>
-      <a class="btn text sm" href="${map}" target="_blank" rel="noopener">${icon('map')}Map</a></div></div>`;
+// ---- going in person (R-142, Nate 10/4: "People should be provided directions to in-person hearings if they sign up for
+// them") ----
+// The sign-up is "I plan to go". Before it, the panel says where and when and what the sign-up brings; after it, the card
+// carries "How to get there" (planBlock), Home carries the plan until the hearing starts (goingCard), the walkthrough's
+// last page offers it to someone speaking in person (pub/helper.js), and the calendar file carries the directions.
+// The facts, checked 10/4: the Public Access Room's "At the Capitol" page (parking under the building from Miller Street,
+// the state lots), the Capitol's Maps and Directories page (which rooms are on which floor: the 0s on the chamber level
+// below the open-air center, the 200s the Senate's floor, the 300s the House's, the 400s with the Public Access Room in
+// Room 401), a 2026 hearing notice (photo ID required; the building open 7 am to 5 pm on weekdays) and the
+// Star-Advertiser on the security check (2024, 2025). Change a fact here and every place that shows it follows.
+const CAPITOL = 'Hawaiʻi State Capitol, 415 S Beretania St, Honolulu, HI 96813';
+const DIRECTIONS = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent('Hawaii State Capitol, 415 S Beretania St, Honolulu, HI 96813');
+const MAP = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Hawaii State Capitol, 415 S Beretania St, Honolulu, HI 96813');
+const PAR_TEL = 'tel:+18085870478', PAR_SHOW = '(808) 587-0478';
+const GO = {
+  bus: 'Many buses stop on Beretania Street, in front of the Capitol.',
+  car: 'Driving? There’s paid parking under the Capitol (enter from Miller Street) and in the state lots nearby.',
+  id: 'Bring a photo ID. Security checks it and your bag, so bring as little as you can.',
+  help: 'The Public Access Room, Room 401, helps for free',
+};
+const ORD = { 2: '2nd', 3: '3rd', 4: '4th', 5: '5th' };
+// "Room 229, 2nd floor": the room and where it is in the building, from its number's first digit.
+const floorDigit = h => (/(\d)\d\d\b/.exec(h?.room || '') || [])[1] ?? null;
+export function roomFloor(h) {
+  const r = roomLabel(h.room), f = floorDigit(h);
+  return !/^Room /.test(r) || f === null ? r : f === '0' ? `${r}, chamber level` : f === '1' ? `${r}, main floor` : ORD[f] ? `${r}, ${ORD[f]} floor` : r;
 }
+function findRoom(h) {
+  const r = roomLabel(h.room), f = floorDigit(h);
+  if (!/^Room /.test(r) || f === null) return 'The room isn’t posted yet. It shows here as soon as it is.';
+  if (f === '0') return `${r} is on the chamber level, one floor below the open-air center. Take an elevator down.`;
+  if (f === '1') return `${r} is on the main floor, around the open-air center.`;
+  return ORD[f] ? `${r} is on the ${ORD[f]} floor. Take an elevator up.` : `Look for ${r}.`;
+}
+const arriveBy = h => timeWord(new Date(new Date(h.scheduled_at).getTime() - 20 * 6e4).toISOString());
+
+// What the hearing said when they signed up, so a later change of room or time is pointed out (this browser only).
+const GOING_KEY = 'hiphi_going';
+const goingSaved = () => { try { return JSON.parse(localStorage.getItem(GOING_KEY) || '{}') || {}; } catch { return {}; } };
+export function noteGoing(h, on) {
+  if (!h) return;
+  try { const m = goingSaved(); if (on) m[h.id] = { room: h.room || '', at: h.scheduled_at }; else delete m[h.id]; localStorage.setItem(GOING_KEY, JSON.stringify(m)); } catch { /* private mode */ }
+}
+function goChange(h) {
+  const was = goingSaved()[h.id]; if (!was) return '';
+  const bits = [];
+  if (was.at && +new Date(was.at) !== +new Date(h.scheduled_at)) bits.push(`The time changed: it’s now ${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}.`);
+  if (h.room && (was.room || '') !== h.room) bits.push(`The room changed: it’s now ${roomFloor(h)}.`);
+  return bits.join(' ');
+}
+
+// Before the sign-up (and after the hearing): where and when, and what saying "I plan to go" brings (C-6).
+function goPanel(b, h, k) {
+  const going = didKind(b, h, 'attend'), held = !goingOn(h);
+  return `<div class="gopanel">
+    <p>Hawaiʻi State Capitol, 415 S Beretania St, ${esc(roomFloor(h))}. ${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))}. Anyone can sit in and listen, with no sign-up.${held ? '' : ' Tap <b>I plan to go</b>, and you get directions, parking and how to find the room.'}</p>
+    <div class="btnrow"><button type="button" class="chip" data-attend="${esc(k)}" aria-pressed="${going}">${icon(going ? 'check' : 'map-pin')}${going ? (held ? 'You went' : 'You plan to go') : 'I plan to go'}</button>
+      <a class="btn text sm" href="${MAP}" target="_blank" rel="noopener">${icon('map')}Map</a></div></div>`;
+}
+// The card after the sign-up: what changed since, and "How to get there" opening the directions in place.
+// cant: "I can't go" beside it, when the done line's Undo would take back a later step instead (testimony, say).
+function planBlock(b, h, k, cant) {
+  const open = S.goOpen.has(k), ch = goChange(h);
+  return `${ch ? `<p class="note gochange">${icon('triangle-alert')}<span>${esc(ch)}</span></p>` : ''}
+    <div class="goline">${btn('How to get there', { kind: 'secondary', sm: true, icon: 'map-pin', iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { id: 'go-' + h.id, 'data-go': k, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'gd-' + h.id } })}
+      ${cant ? btn('I can’t go', { kind: 'text', sm: true, attrs: { 'data-undo': `${k}|attend` } }) : ''}</div>
+    ${open ? goDirections(b, h) : ''}`;
+}
+// The directions themselves: one list, the same on the card, Home and the walkthrough's last page. hp: drawn inside the
+// walkthrough, whose buttons are wired by data-hp (pub/helper.js).
+export function goDirections(b, h, { hp = false } = {}) {
+  const k = key(b, h), late = !!dueInfo(h)?.late, sent = didKind(b, h, 'testimony'), ics = S.chips[k + 'ics'];
+  // To speak in person: chosen on the Capitol's testimony form, then the list at the room (the Public Access Room: "sign up
+  // to speak when you first get to the meeting room").
+  const speak = late ? '<b>Listening.</b> Testimony is closed for this hearing, but anyone can sit in and listen.'
+    : sent ? '<b>To speak.</b> If you chose <b>In person</b> on the Capitol form, put your name on the list to speak when you get to the room. Speakers often get a minute or two.'
+    : '<b>To speak.</b> Choose <b>In person</b> when you send testimony on the Capitol form. When you get to the room, put your name on the list to speak. Speakers often get a minute or two.';
+  const li = (ic, html) => `<li>${icon(ic)}<span>${html}</span></li>`;
+  return `<section class="godir" id="gd-${esc(h.id)}" ${hp ? `aria-labelledby="gdt-${esc(h.id)}"` : 'aria-label="How to get there"'}>
+    ${hp ? `<p class="godir-t" id="gdt-${esc(h.id)}" tabindex="-1">How to get there</p>` : ''}
+    <ul class="godir-list" role="list">
+      ${li('clock', `<b>Arrive by ${esc(arriveBy(h))}.</b> The security check at the door can take a few minutes.`)}
+      ${li('route', `<b>Getting there.</b> ${esc(GO.bus)} ${esc(GO.car)}`)}
+      ${li('shield-check', `<b>Getting in.</b> ${esc(GO.id)}`)}
+      ${li('building', `<b>Finding the room.</b> ${esc(findRoom(h))}`)}
+      ${li('mic', speak)}
+      ${li('phone', `<b>Questions on the day?</b> ${esc(GO.help)}: <a href="${PAR_TEL}">${PAR_SHOW}</a>.`)}
+    </ul>
+    <div class="btnrow">${btn('Directions', { kind: 'secondary', sm: true, icon: 'map', iconEnd: 'external-link', href: DIRECTIONS, attrs: { target: '_blank', rel: 'noopener', 'data-godir': '1' } })}
+      ${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: hp ? { 'data-hp': 'goics' } : { 'data-ics': k } })}</div>
+    ${ics ? `<p class="okmsg" role="status">${icon('circle-check')}<span>Saved. Open the file to add it to your calendar.</span></p>` : ''}
+    <p class="small muted">Hearings sometimes move or run late. Check here before you leave.</p>
+  </section>`;
+}
+// Home (R-142): every hearing they plan to go to that is still ahead, within a week, and not already drawn as a card on the
+// page (drawn: those hearings' ids). A cancelled one stays, saying so, with the hearing set in its place if there is one.
+export function goingPlans(drawn = new Set()) {
+  const now = Date.now(), seen = new Set(), out = [];
+  for (const a of myActions()) {
+    if (a.kind !== 'attend' || !a.hearing_id || seen.has(a.hearing_id) || drawn.has(a.hearing_id)) continue;
+    seen.add(a.hearing_id);
+    // Found where Home's other cards look (draftsCard): the bills they follow, and any opened this visit.
+    const h = anyHearing(a.hearing_id), b = anyBill(a.bill_id);
+    if (!h || !b) continue;
+    const t = new Date(h.scheduled_at).getTime();
+    if (!goingOn(h) || t > now + 8 * 864e5) continue;
+    const next = h.status === 'cancelled' ? S.hearings.filter(x => x.bill_id === b.id && x.id !== h.id && x.status === 'scheduled' && x.committee === h.committee && new Date(x.scheduled_at) > now)
+      .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] || null : null;
+    out.push({ b, h, next, soon: t - now < 2 * 864e5 && /^(today|tomorrow)/.test(dayWord(h.scheduled_at)) });
+  }
+  return out.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+}
+const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
+export function goingCard(plans) {
+  if (!plans.length) return '';
+  const item = ({ b, h, next }) => {
+    const k = 'hm:' + key(b, h), open = S.goOpen.has(k), ch = goChange(h), name = nick(b) || blurb(b, 80);
+    const head = `<p class="goitem-t"><a href="${billPath(b)}">${esc(name)}</a></p>`;
+    if (h.status === 'cancelled') return `<div class="goitem">${head}
+      <p class="note gochange">${icon('triangle-alert')}<span>The hearing on ${esc(dateLong(h.scheduled_at))} was cancelled.${next ? ` It’s now ${esc(dateLong(next.scheduled_at))} at ${esc(timeWord(next.scheduled_at))}, ${esc(roomFloor(next))}.` : ' If it’s set again, it shows on the bill’s page.'}</span></p>
+      <div class="btnrow">${next ? btn('I’ll go to the new one', { kind: 'secondary', sm: true, icon: 'map-pin', attrs: { 'data-goswitch': `${b.id}|${h.id}|${next.id}` } }) : ''}
+        ${btn('Take it off my plans', { kind: 'text', sm: true, attrs: { 'data-undo': `${b.id}|${h.id}|attend` } })}</div></div>`;
+    return `<div class="goitem">
+      <p class="goitem-when">${esc(cap1(dayWord(h.scheduled_at)))} at ${esc(timeWord(h.scheduled_at))}</p>${head}
+      <p class="meta">${esc(spaced(b.bill_number))} · ${esc(roomFloor(h))}, State Capitol</p>
+      ${ch ? `<p class="note gochange">${icon('triangle-alert')}<span>${esc(ch)}</span></p>` : ''}
+      <div class="goline">${btn('How to get there', { kind: 'secondary', sm: true, icon: 'map-pin', iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { 'data-go': k, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'gd-' + h.id } })}
+        ${btn('I can’t go', { kind: 'text', sm: true, attrs: { 'data-undo': `${key(b, h)}|attend` } })}</div>
+      ${open ? goDirections(b, h) : ''}</div>`;
+  };
+  return `<section class="card gocard" aria-labelledby="gocard-t">
+    <h2 class="gocard-t" id="gocard-t">${icon('map-pin')}<span>${plans.length === 1 ? 'You plan to go' : `You plan to go to ${plans.length} hearings`}</span></h2>
+    ${plans.map(item).join('')}</section>`;
+}
+// The calendar file's words for someone going: the same facts as the list, as plain text.
+const goText = (b, h) => [`You plan to go. Arrive by ${arriveBy(h)} with a photo ID.`, findRoom(h), `${GO.bus} ${GO.car}`, `Questions on the day? ${GO.help}: ${PAR_SHOW}.`].join(' ');
 
 // ---- email the chair ----
 // The inline composer that lived here (a draft in the card, "Open in my mail app", "Yes, I sent it") became the email
@@ -143,13 +276,22 @@ function icsFor(b, h) {
   const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
   const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
+  // Someone who plans to go (R-142) gets the directions in the hearing's event, its floor in the place, and a reminder to
+  // leave an hour and a half before; everyone else, the hearing as it was.
+  const going = didKind(b, h, 'attend');
   const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
-    `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2('Hawaiʻi State Capitol, 415 S Beretania St, Honolulu, HI 96813, ' + roomLabel(h.room))}`, `URL:${url}`,
-    ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, 'TRIGGER:-PT2H', 'END:VALARM'] : []), 'END:VEVENT'];
+    `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2(CAPITOL + ', ' + (going ? roomFloor(h) : roomLabel(h.room)))}`, `URL:${url}`,
+    ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, `TRIGGER:${alarm}`, 'END:VALARM'] : []), 'END:VEVENT'];
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN',
-    ...(h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, true) : []),
-    ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`, `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, false), 'END:VCALENDAR'];
+    ...(h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, '-PT2H') : []),
+    ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`,
+      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : ''), 'END:VCALENDAR'];
   return new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+}
+// The calendar file, saved; the walkthrough's directions use it too (R-142).
+export function downloadIcs(b, h) {
+  const url = URL.createObjectURL(icsFor(b, h)), a = document.createElement('a'); a.href = url; a.download = `${b.bill_number}-hearing.ics`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  S.chips[key(b, h) + 'ics'] = true;
 }
 // Written like a friend talking, not a notice (Nate 9/29: "too professional and not encouraging"). acted: sent by someone who
 // has just spoken up, so it starts from what they did.
@@ -192,7 +334,7 @@ export async function shareIssue(i) {
 }
    // the old shape, for anything still asking
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
-  const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b, h }; };
+  const h = [...S.hearings, ...((S.featured || {}).hearings || []), ...((S.pool || {}).hearings || []), ...Object.values(S.xh || {}).flat()].find(x => x.id === hid); return { b: b || anyBill(bid), h: h || anyHearing(hid) }; };
 // Follow or unfollow with feedback, and Undo on unfollow. Following a bill with one companion (its
 // twin filed in the other chamber) offers to follow that too, right here rather than silently -
 // "never auto-follow silently" (HANDOFF 3.5 plan, wave 5c). Only ever offered, never done for them.
@@ -241,11 +383,20 @@ export function wireActions(root = document) {
   // "I plan to go" under the ask their profile chose (C1) is that ask taken.
   $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'), on = !S.done.has(doneKey(bid, hid, 'attend'));
     if (on && el.closest('.acard')?.querySelector('[data-asked]')) logAct('ask_acted');
-    await markDone(bid, hid, 'attend', on); app.render(); });
-  $$('[data-ics]').forEach(el => el.onclick = () => { const k = el.dataset.ics, { b, h } = findBH(k); if (!b || !h) return;
-    const url = URL.createObjectURL(icsFor(b, h)), a = document.createElement('a'); a.href = url; a.download = `${b.bill_number}-hearing.ics`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
-    S.chips[k + 'ics'] = true; app.render(); });
-  $$('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|'); await markDone(bid, hid, kind, false); app.render(); });
+    // Signed up (R-142): the directions open where they tapped, and the room and time are kept to point out a change later.
+    noteGoing(findBH(el.dataset.attend).h, on); if (on) S.goOpen.add(`${bid}|${hid}`);
+    await markDone(bid, hid, 'attend', on, { quiet: true }); app.render();
+    if (on) requestAnimationFrame(() => document.getElementById('go-' + hid)?.focus()); });
+  $$('[data-godir]').forEach(el => el.addEventListener('click', () => logAct('directions')));   // the map's directions opened (backend 134)
+  // A cancelled hearing they planned to go to, set again on another day (Home's plan card): the plan moves to the new one.
+  $$('[data-goswitch]').forEach(el => el.onclick = async () => { const [bid, was, now] = el.dataset.goswitch.split('|');
+    noteGoing(findBH(`${bid}|${was}`).h, false); await markDone(bid, was, 'attend', false, { quiet: true });
+    noteGoing(findBH(`${bid}|${now}`).h, true); await markDone(bid, now, 'attend', true, { quiet: true });
+    toast('Your plan moved to the new hearing.'); app.render(); });
+  $$('[data-ics]').forEach(el => el.onclick = () => { const k = el.dataset.ics, { b, h } = findBH(k); if (!b || !h) return; downloadIcs(b, h); app.render(); });
+  $$('[data-undo]').forEach(el => el.onclick = async () => { const [bid, hid, kind] = el.dataset.undo.split('|');
+    if (kind === 'attend') noteGoing(findBH(`${bid}|${hid}`).h, false);
+    await markDone(bid, hid, kind, false); app.render(); });
   $$('[data-follow]').forEach(el => el.onclick = async e => { e.stopPropagation(); const id = el.dataset.follow, b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === id);
     await followToggle(id, b ? spaced(b.bill_number) : ''); });
   $$('[data-notforme]').forEach(el => el.onclick = () => { suggestEvent(el.dataset.notforme, 'dismissed'); dismiss(el.dataset.notforme); toast('Okay, we won’t suggest that one again'); app.render(); });

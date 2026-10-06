@@ -901,12 +901,18 @@ export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id,
 export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
 // A testimony letter saved in the walkthrough for this hearing and not sent yet (helper.js, hiphi_me.drafts; R-068).
 export const testimonyDraft = h => { try { return !!h && !!JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts?.[h.id]; } catch { return false; } };
-// Settled: the person has taken a real step for this hearing - testimony, an email to the chair, or going in person.
+// Settled: the person has taken a real step for this hearing - testimony, or an email to the chair.
 // A two-second Share alone settles it only once testimony can no longer be sent (late, or HIPHI's letter is not theirs
 // to send). It used to count as done, which folded the card into "Done this week" with testimony still open (R-005,
-// Nate 9/26). actedOn still says "they did something" (the card's Mahalo line); settledOn decides what folds away.
-export const settledOn = (b, h) => ['testimony', 'email', 'attend'].some(k => didKind(b, h, k))
+// Nate 9/26). Going in person follows the same rule since R-142 (10/5): "I plan to go" put the card away and Home said
+// "You're all caught up" with testimony due that day, and testimony is how they get to speak there; it settles once
+// testimony is closed. actedOn still says "they did something" (the card's Mahalo line); settledOn decides what folds.
+export const settledOn = (b, h) => ['testimony', 'email'].some(k => didKind(b, h, k))
+  || (didKind(b, h, 'attend') && !!dueInfo(h)?.late)
   || (didKind(b, h, 'share') && (!!dueInfo(h)?.late || agrees(b) === false || !posInfo(b)));
+// Still going: a hearing they plan to go to keeps its directions until the end of its day in Hawaiʻi, since hearings run
+// late and someone in the lobby at 3:05 still needs the room (R-142, the review); after that it is "You went".
+export const goingOn = h => !!h && hstDay(Date.now()) <= hstDay(h.scheduled_at);
 // A bill by number ("HB1563"), loaded with its hearings and outcomes even when nobody follows it (shared links, search).
 // year: the session a link named (#/bill/2026/HB2121). Without one, the current session's bill of that number, else the
 // newest (R-110): a number on hand only as an earlier session's bill may have a newer one in the database, so ask.

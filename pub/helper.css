@@ -71,6 +71,10 @@
 .hp-dlg .hp-miles { justify-content: center; }
 .hp-dlg .hp-miles .flower { flex: none; }
 .hp-dlg .hp-next { display: flex; flex-direction: column; gap: var(--s8); }
+/* Going in person (R-142): the one-line ask, then the card's directions (pub/actions.css .godir). */
+.hp-dlg .hp-goask { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); }
+.hp-dlg .hp-goask p { margin: 0; }
+.hp-dlg .hp-next .godir { margin-top: var(--s4); }
 .hp-dlg .hp-watch { align-self: flex-start; margin-left: -12px; }
 .hp-dlg .hp-watch .ic-external-link { width: 16px; height: 16px; }
 /* "check your inbox": shown instead of the email ask when the person gave their email on screen 1 */
