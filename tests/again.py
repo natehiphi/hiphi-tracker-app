@@ -30,7 +30,7 @@ def past_stand(pg):
     # R-167: a letter sent again begins with "Where do you stand?", the answer chosen and where it came from; Next goes on
     sub = pg.locator('#hp-dlg .hp-standsub').inner_text() if pg.locator('#hp-dlg .hp-standsub').count() else ''
     chosen = pg.locator('#hp-dlg [data-hp="stance"][data-v="support"]').get_attribute('aria-pressed') if pg.locator('#hp-dlg [data-hp="stance"]').count() else ''
-    ok('Where do you stand' in body(pg) and chosen == 'true' and ('Your letter of Feb 17 said you support it.' in sub or 'You marked Support on the bill page.' in sub),
+    ok('Where do you stand' in body(pg) and chosen == 'true' and ('Your letter of Feb 18 said you support it.' in sub or 'You marked Support on the bill page.' in sub),
        f'{tag}: it begins with "Where do you stand?", "I support it" chosen and where that came from ({sub[:48]!r})')
     pg.click('#hp-dlg .hp-foot [data-hp="next"]'); pg.wait_for_timeout(700)
 def body(pg): return pg.locator('#hp-dlg .hp-body').inner_text()

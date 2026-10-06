@@ -695,7 +695,9 @@ const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', `Welco
 // bill page: that answer comes chosen, says where it came from, and Next keeps it. HIPHI's position is said once, quietly.
 const SAID = { support: 'said you support it', oppose: 'said you oppose it', comments: 'had comments on it' };
 const stanceFrom = x => x.fromBill && x.stance === x.fromBill ? `You marked ${x.fromBill === 'oppose' ? 'Oppose' : 'Support'} on the bill page. `
-  : x.fromRec && x.stance && x.stance === x.fromRec.stance ? `Your ${x.fromRec.kind === 'email' ? 'email' : 'letter'}${x.fromRec.sent ? ` of ${shortDay(x.fromRec.sent)}` : ''} ${SAID[x.stance]}. ` : '';
+  : x.fromRec && x.stance && x.stance === x.fromRec.stance ? `Your ${x.fromRec.kind === 'email' ? 'email' : 'letter'}${recDay(x.fromRec) ? ` of ${recDay(x.fromRec)}` : ''} ${SAID[x.stance]}. ` : '';
+// A letter goes by its hearing's day, an email by the day it was sent, as the bill page and "Your letter is ready" say them.
+const recDay = L => (L.kind === 'email' ? L.sent : L.at || L.sent) ? shortDay(L.kind === 'email' ? L.sent : L.at || L.sent) : '';
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
   const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
