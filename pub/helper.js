@@ -217,7 +217,8 @@ function mailAsk(x, n, stance) {
 }
 function mailSubject(x) {
   const { mode, b, h } = x, stance = x.stance || (b ? hiphiStance(b) : 'comments');
-  if (mode === 'intro') return `Aloha from a constituent in ${districtWords(x.to) || 'your district'}`;
+  // R-172: a question, so the office has a reason to open it and to answer.
+  if (mode === 'intro') return `A question from your constituent in ${districtWords(x.to) || 'your district'}`;
   if (x.remind) { const dl = hearingBy(b), n = spaced(b.bill_number), st = x.stance || hiphiStance(b), d = dl.replace(/^[A-Za-z]+, /, '');
     return st === 'oppose' ? `${n}: please let it rest` : st === 'support' ? `${n}: please hear it${d ? ` by ${d}` : ''}` : `${n}: my comments${d ? ` before ${d}` : ''}`; }
   const n = spaced(b.bill_number), m = x.moment || {};
@@ -258,15 +259,23 @@ function mailLetter(x) {
   // happens to be their own senator or representative; anyone else does not.
   const d = myDistricts(), isMine = l => !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
   const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
+  // R-172 (Nate 10/5: "too stiff. It serves no serious benefit. Rethink that language"): a short, warm note from a
+  // constituent with one purpose an office acts on. It names the one issue the person cares about most (the issue of a bill
+  // they took a stand on, else the first they follow), their reason in their own words, at most one bill, and one plain
+  // question that invites a reply. Lists of bill numbers read as a form letter and were dropped; the other issues they
+  // follow get one short line.
   if (x.mode === 'intro') {
-    const f = introFacts(), off = sessionInfo().phase !== 'in', line = (label, bs) => bs.length ? `${label}: ${bs.map(billWords).join('; ')}.` : '';
-    return [dear,
-      `My name is ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''},` : ''} and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}. I am writing to introduce myself and share the health issues I care about.`,
-      f.issues.length ? `The issues I follow: ${andList(f.issues)}.` : '',
-      [line('Bills I support', f.support), line('Bills I oppose', f.oppose),
-        f.following.length ? `Bills I am following: ${f.following.map(billWords).join('; ')}${f.moreFollowing ? `, and ${f.moreFollowing} more` : ''}.` : ''].filter(Boolean).join('\n'),
+    const f = introFacts(), off = sessionInfo().phase !== 'in';
+    const stood = f.support[0] || f.oppose[0] || null, issueOfStood = stood ? issuesOf(stood).find(i => f.issues.includes(i.name)) || issuesOf(stood)[0] : null;
+    const top = issueOfStood ? issueOfStood.name : f.issues[0] || '';
+    const others = f.issues.filter(n => n !== top).slice(0, 2);
+    const billLine = stood ? (f.support.includes(stood) ? `${billWords(stood)} would help, and I support it.` : `I oppose ${billWords(stood)}.`) : '';
+    return [dear.replace(/^Dear /, 'Aloha '),
+      `I’m ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''},` : ','} and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}.`,
+      top ? `The health issue that matters most to me: ${top}. ${billLine}`.trim() : 'I care about the health of our community, and I follow the health bills that come before you.',
       why,
-      `I hope you will keep these in mind ${off ? 'in the next session' : 'this session'}. I would be glad to hear where you stand.`,
+      top ? `Where do you stand on it? I’d be grateful to hear back${off ? ' before the session opens in January' : ''}.` : `What health issues are you working on${off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`,
+      others.length ? `I also follow ${andList(others)}.` : '',
       close].filter(Boolean).join('\n\n');
   }
   const n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), ours = sameAsHiphi(b, stance);

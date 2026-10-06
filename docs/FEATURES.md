@@ -568,8 +568,12 @@ first visit. All five are working versions in the same frame as today's first vi
   sessions, its three named parts, titles, time promise and the topics screen's words. `start.js` uses them in `flowOf`,
   the chapters, the titles and `stepTopics`; `finish()` keeps `wiz().plan`.
 - **The plans' screens** are `pub/onb.js` (loaded when a plan's first visit is drawn, with `onb.css`): `picks` (three
-  issues ticked for you, each with an untick: Plans 3-5), `one` (Plan 1's bill with a real chance this week, and the email
-  walkthrough over it; the walkthrough's Done hands back through `app.onbActed`, set here and called from `helper.js`),
+  issues ticked for you, each with an untick: Plans 3-5), Plan 1's gradual build-up (Nate 10/5: "too aggressive ...
+  find a bill they want first, then learn, then decide"): `find` (up to four bills on the picked topics, one per issue,
+  soonest chance first; nothing is asked until one is picked), `learn` (what it does, Plan 2's small road and the bill's
+  own plain status, when people can help) and `decide` (three equal cards: write it now, a reminder before the
+  deadline, or just keep watch; the walkthrough's Done hands back through `app.onbActed`, set here and called from
+  `helper.js`; a reminder makes the sign-up say "We'll remind you before Monday"),
   `hello` (the one-time introduction to your two legislators, `openMail({ mode: 'intro' })`), `join` (the sign-up) and
   `wrap` (the ending). Plan-specific screens: `onb-p2.js` (the story and the road), `onb-p3.js` (the island),
   `onb-p4.js` (the ways to help and the first step), each with its own stylesheet. Plan 3's address step is today's
@@ -588,3 +592,8 @@ first visit. All five are working versions in the same frame as today's first vi
   sign-up's equal buttons and words, "You're set", the later-visit card) and `python3 tests/abtests.py` (the spread over
   switched-on versions, the plans never counted in today's tests, tester links, the test off). Design exceptions for
   Plan 1 (an action in the first visit) and Plan 3 (the address before the bills): `docs/DESIGN-AUDIT.md` section 4.
+- **The hello letter** (R-172, Nate 10/5: "too stiff. It serves no serious benefit"): `helper.js` mode `intro` and the
+  legislators page's draft (`people.js`) are a short note from a constituent: the one issue they care about most (the
+  issue of a bill they took a stand on, else the first they follow), their reason, at most one bill, one question that
+  invites a reply ("Where do you stand on it?"), and one line for their other issues. No lists of bill numbers. Subject:
+  "A question from your constituent in ...". Plans 2 and 3 are on hold as built (Nate 10/5), with his notes in R-164.

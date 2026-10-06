@@ -64,3 +64,22 @@
 /* "Not now" the size of the main button (C-3), at every width (start.css gives Skip a quarter of the bar). */
 .st-btns.ob-joinbtns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 @media (min-width: 900px) { .st-btns.ob-joinbtns .btn { min-width: 200px; } }
+
+/* ---- Plan 1's gradual build-up: find, learn, decide (R-164, Nate 10/5) ---- */
+.ob-learn .ob-num { margin-bottom: var(--s8); }
+.ob-lsec { display: grid; gap: var(--s8); padding: var(--s16); margin-bottom: var(--s12); }
+.ob-lh { display: flex; gap: var(--s8); align-items: center; font-size: var(--t16); }
+.ob-lh .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
+.ob-lp { font-size: var(--t14); line-height: 1.5; color: var(--n900); }
+.ob-lp.muted { color: var(--n500); }
+/* The three ways on: equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
+.ob-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
+.ob-way { display: flex; width: 100%; gap: var(--s12); align-items: center; padding: var(--s16); text-align: left; min-height: 64px;
+  border: 1px solid var(--n200); color: var(--n900); }
+.ob-way:hover { border-color: var(--p400); }
+.ob-way > span:nth-child(2) { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ob-way b { font-size: var(--t16); }
+.ob-way > span:nth-child(2) > span { font-size: var(--t14); color: var(--n500); }
+.ob-way > .ic { width: 18px; height: 18px; color: var(--n400); flex: none; }
+.ob-wayic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
+.ob-wayic .ic { width: 20px; height: 20px; }

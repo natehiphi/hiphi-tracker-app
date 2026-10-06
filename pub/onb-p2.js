@@ -286,7 +286,7 @@ const AT = ['Just starting', 'At the hearing', 'At the first vote', 'On the othe
 const STOPPED = ['Stopped at the start', 'Stopped at the hearing', 'Stopped at the first vote', 'Stopped on the other side', 'Stopped at the final votes', 'Stopped at the Governor'];
 // Where a bill is, as a stop on the road and in words: a bold "where on the road", then the page's own plain words for its
 // status (plainStatus, or whyStoppedShort for one that stopped), so the card never contradicts the bill's own page.
-function placeOf(b, off, yr) {
+export function placeOf(b, off, yr) {
   const law = b.stage === 'enacted', stopped = !law && (b.stage === 'dead' || b.stage === 'vetoed' || HELD_RE.test(b.last_action || ''));
   const k = law ? 5 : stopped ? (b.stage === 'vetoed' ? 5 : STOP_OF[b.died_at_stage] ?? STOP_OF[b.stage] ?? 1) : STOP_OF[b.stage] ?? 1;
   let head, more = '';
@@ -299,7 +299,7 @@ function placeOf(b, off, yr) {
 }
 // The small road on a card: the same six stops in a line, the bill's stop lit, the ones behind it filled. Grey for a bill
 // that stopped, a tick in the last stop for a law. The words beside it say the same (A-5: never colour alone).
-function miniRoad({ k, law, stopped }) {
+export function miniRoad({ k, law, stopped }) {
   const xs = [10, 54, 98, 142, 186, 230], ink = stopped ? 'var(--n500)' : 'var(--p700)';
   const dots = xs.map((x, i) => {
     if (law && i === 5) return `<g transform="translate(${x} 12)">${check(9)}</g>`;

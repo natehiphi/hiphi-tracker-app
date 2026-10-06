@@ -13,10 +13,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'tests', 'out'); os.makedirs(OUT, exist_ok=True)
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
-TITLE = {'What do you care about?': 'topics', 'One bill that needs voices': 'one', 'Say aloha to your legislators': 'hello', 'Stay in the loop': 'join',
+TITLE = {'What do you care about?': 'topics', 'One bill that needs voices': 'one', 'Find a bill': 'find', 'How this bill can move': 'learn', 'Your choice': 'decide', 'Say aloha to your legislators': 'hello', 'Stay in the loop': 'join',
          'You’re all set': 'wrap', 'A bill’s journey': 'story', 'Your issues on the road': 'road', 'Where do you live?': 'island',
          'How do you like to help?': 'way', 'Your first step': 'first', 'What’s moving on your issues': 'picks', 'Who speaks for you': 'you'}
-WANT = {'p1': ['topics', 'one', 'join', 'wrap'], 'p2': ['story', 'topics', 'road', 'join', 'wrap'], 'p3': ['island', 'you', 'topics', 'picks', 'join', 'hello', 'wrap'],
+WANT = {'p1': ['topics', 'find', 'learn', 'decide', 'join', 'wrap'], 'p2': ['story', 'topics', 'road', 'join', 'wrap'], 'p3': ['island', 'you', 'topics', 'picks', 'join', 'hello', 'wrap'],
         'p4': ['way', 'topics', 'picks', 'join', 'first', 'wrap'], 'p5': ['topics', 'picks', 'join', 'wrap']}
 WANT_OFF = dict(WANT, p1=['topics', 'you', 'hello', 'join', 'wrap'])
 
@@ -57,6 +57,14 @@ with sync_playwright() as p:
                 elif skip.count(): skip.click()
                 else: pg.click('[data-obon]')
             elif s == 'picks': pg.click('[data-stnext]')
+            elif s == 'find':
+                # Plan 1's gradual build-up (R-164): nothing is asked until a bill is chosen; Next without one says so.
+                pg.click('[data-stnext]'); pg.wait_for_timeout(300)
+                ST.setdefault(plan, {})['find_flash'] = 'Pick one' in pg.locator('#st-alert').inner_text()
+                pg.locator('[data-obfind]').first.click(); pg.click('[data-stnext]')
+            elif s == 'decide':
+                ST.setdefault(plan, {})['decide_ways'] = pg.locator('.ob-way').count()
+                pg.click('[data-obnot]')
             elif s == 'wrap':
                 ST[plan]['wrap'] = pg.locator('.st-did li').count() >= 1
                 if mobile and not off: pg.screenshot(path=os.path.join(OUT, f'plans_{plan}_wrap.png'))
@@ -84,6 +92,9 @@ with sync_playwright() as p:
                 ok(st.get('join_sizes'), f'{plan}: "Not now" is as large as the sign-up button (C-3)')
                 ok(st.get('join_words'), f'{plan}: the sign-up shows the example or the three steps, and how often')
                 ok(st.get('wrap'), f'{plan}: the ending lists what was done')
+                if plan == 'p1':
+                    ok(st.get('find_flash'), 'p1: "Learn about it" without a bill picked asks for one, never jumps ahead')
+                    ok(st.get('decide_ways') == 3, f'p1: the choice offers three equal ways (write now, a reminder, just keep watch) ({st.get("decide_ways")})')
                 if plan == 'p5': ok(st.get('set'), 'p5: a number given goes straight to the Mahalo moment, which says to save our number (one ending, not three)')
                 # a later visit: Home brings the plan's next small thing, once, and "Not now" puts it away for good
                 pg.evaluate("() => sessionStorage.clear()"); pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}#/"); pg.wait_for_timeout(3500)
