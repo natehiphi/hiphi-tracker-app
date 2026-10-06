@@ -31,6 +31,7 @@ if (SHIFT) {
     return new Response(JSON.stringify(snap), { headers: { 'Content-Type': 'application/json' } });
   };
   // Today's page writes "Mon, Mar 16, 2026" in its sandbox band; say the day it is really showing.
-  const fixBand = () => document.querySelectorAll('.band').forEach(b => { if (b.textContent.includes('Mon, Mar 16, 2026')) b.textContent = b.textContent.replace('Mon, Mar 16, 2026', dayLabel()); });
+  // Only the date's own text (track.html's band has a "Next day" link after it, R-187).
+  const fixBand = () => document.querySelectorAll('.band').forEach(b => { const el = b.querySelector('[data-band-day]') || b; if (el.textContent.includes('Mon, Mar 16, 2026')) el.textContent = el.textContent.replace('Mon, Mar 16, 2026', dayLabel()); });
   new MutationObserver(fixBand).observe(document.documentElement, { childList: true, subtree: true });
 }

@@ -82,6 +82,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | alerts, 10/5 after R-174 (one step larger) | 325 (5px over budget, under the limit: the larger sentence) | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | More > Get alerts (10/4, R-146) | **264** | 10 | **4** | 6 | 4 | 5 |
+| public | 390 | home, version A (10/6, R-187, the live test `layout`; Kai on the practice copy's Monday) | **166** | 13 | **6** | 7 | 6 | 11 (over the aim of 7: the dark Now card's own colours, the 9/28 design Nate checked) |
+| public | 390 | bill, version A (10/6, R-187) | **237** | 11 | **8** | 3 | 6 | 6 |
 | staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
 | staff2 | 390 | bills (10/5, R-175) | 386 | 26 | **11** | 5 | 4 | 5 |
 | staff2 | 390 | bill (10/5, R-175: no Priority chip) | **178** | 15 | **7** | 7 | 4 | 7 |
@@ -105,6 +107,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
 | public | 1440 | alerts, the first visit's step 3 (10/4, R-146) | **184** | 7 | **6** | 1 | 5 | 6 |
 | public | 1440 | More > Get alerts (10/4, R-146) | **282** | 10 | **4** | 6 | 4 | 5 |
+| public | 1440 | home, version A (10/6, R-187) | **190** | 13 | **6** | 7 | 6 | 11 |
+| public | 1440 | bill, version A (10/6, R-187) | **220** | 19 | **11** | 7 | 6 | 6 |
 | staff2 | 1440 | today (9/21, R-022) | **290** | 44 | **11** | 12 | 5 | 9 |
 | staff2 | 1440 | week (9/21, R-022) | 348 | 39 | **15** | 12 | 5 | 8 |
 | staff2 | 1440 | bills (10/5, R-175: no Priority column) | 364 | 70 | **15** | 13 | 5 | 5 |

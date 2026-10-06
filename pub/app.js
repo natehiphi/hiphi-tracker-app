@@ -2,11 +2,11 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows } from './kernel.js';
+import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
-import { abSettled } from './variant.js';
+import { abSettled, armOf, abSeen } from './variant.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
@@ -21,17 +21,21 @@ const lazy = (key, load, o = {}) => {
     render() { ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); }); return `<div class="skelpage">${skeleton(4)}</div>`; } };
   return ph;
 };
-const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => import('./home.js'), { tab: 'home', title: 'Home' });
+// The layout test (R-187, pub/variant.js 'layout'): a browser on version A gets its Home and its bill page (pub/a/), which
+// draw today's screens wherever version A has nothing of its own; every other screen is the same in both. The version is
+// read as the module loads and kept for the page load (variant.js pins it), so the two never mix on one page.
+const layoutA = () => armOf('layout') === 'a';
+const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => layoutA() ? import('./a/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
-const bill = lazy('bill', () => import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
+const bill = lazy('bill', () => layoutA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'wide'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'wide', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -39,6 +43,10 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2',
 const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
+// Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
+// every screen but the first visit, which both versions share and other tests compare (R-187).
+const cssFor = name => layoutA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+const FIRST_VISIT = ['start', 'learn'];
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
 const cssOne = n => cssP[n] ??= new Promise(res => {
@@ -50,7 +58,7 @@ const cssOne = n => cssP[n] ??= new Promise(res => {
 const ensureCss = names => Promise.all((names || []).map(cssOne));
 const cssReady = names => (names || []).every(n => cssDone.has(n) || !!cssLink(n)?.sheet);
 // The screen a route needs, module and stylesheet, loaded before its first draw (no skeleton for the first screen).
-const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(SCREEN_CSS[route.name])]); };
+const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(cssFor(route.name))]); };
 // The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
 let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['tour'])]).then(([m]) => tourMod = m.default);
 app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
@@ -69,6 +77,11 @@ const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, 
   committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
+// Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
+const TABS_A = [...TABS.slice(0, 3), ['more', '#/more', 'circle-user', 'You']];
+const tabsNow = () => layoutA() ? TABS_A : TABS;
+// Version A keeps My issues lit on an issue the person follows (R-070 problem 8: it lit Find).
+const tabOf = (route, scr) => layoutA() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
 
 // ---- routes ----
 // New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563 (#/bill/2026/HB1563 for an earlier session's bill), #/legislators,
@@ -154,14 +167,25 @@ function header(route, scr) {
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin?by=number">Sign in</a>`)
     : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
-  const nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
-  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : 'Sandbox · Mon, Mar 16, 2026 · nothing is saved'}</div>` : ''}
+  const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
+  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · nothing is saved${nextDay()}</p>`}</div>` : ''}
     <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
-function tabbar(scr) {
+function tabbar(route, scr) {
   // R-147: the More tab carries the person's initials once they have a profile, so having one shows from every screen.
-  const me = whoAmI();
-  return `<nav class="tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${t === 'more' && me ? avatar(me, 'tab-av') : icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
+  const me = whoAmI(), tab = tabOf(route, scr);
+  return `<nav class="tabs" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}><span class="pill">${t === 'more' && me ? avatar(me, 'tab-av') : icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
+}
+// The practice copy's next day (R-187): Monday 16 March to Tuesday to Wednesday, with that day's real committee decisions
+// (pub/testbed.js). A tester who has just finished the first visit sees Home in its welcome shape for the rest of that
+// visit; "Next day" is the visit after, the Home the layout and Home's-top tests compare (the tester sheet says to press
+// it). &later (track.html) ends the first visit's welcome; everything they followed stays.
+const DAYS_ON = ['mon', 'tue', 'wed'];
+function nextDay() {
+  const q = new URLSearchParams(location.search), i = DAYS_ON.indexOf(q.get('day') || 'mon');
+  if (i < 0 || i >= DAYS_ON.length - 1 || firstVisit()) return '';
+  q.set('day', DAYS_ON[i + 1]); q.set('later', '1'); q.delete('restart');
+  return ` · <a href="${esc(location.pathname + '?' + q.toString())}#/" data-nextday>Next day</a>`;
 }
 
 let lastRouteKey = '';
@@ -176,12 +200,13 @@ export function render() {
   const scr = SCREENS[route.name] || SCREENS.home;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
+  document.body.classList.toggle('va', layoutA() && !FIRST_VISIT.includes(route.name));
   document.body.classList.toggle('notabs', !tabs);
   document.body.classList.toggle('withtabs', tabs);
   document.body.classList.toggle('hasbar', !!bar);
   document.body.dataset.screen = route.name;
   // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands.
-  const need = SCREEN_CSS[route.name], styled = cssReady(need);
+  const need = cssFor(route.name), styled = cssReady(need);
   if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
   const draw = styled ? scr : { render: () => `<div class="skelpage">${skeleton(4)}</div>`, wire() {} };
   let main;
@@ -190,12 +215,16 @@ export function render() {
   // The sticky action bar is part of the page's main content (it holds the page's main button), so it sits inside <main>.
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
     <main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main>
-    ${tabs ? tabbar(scr) : ''}
+    ${tabs ? tabbar(route, scr) : ''}
     ${helperMod ? helperMod.render() : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'HIPHI Bill Tracker';
   try { draw.wire && draw.wire(route); } catch (e) { console.error(e); }
   helperMod?.wire();
   wireFrame();
+  // The layout test (R-187) is met where its two versions differ on screen: a bill page, or Home in session with something
+  // followed once the first visit is behind them (version A's own Home, or today's everyday one; both keep today's
+  // welcome shape right after the first visit, and today's Home between sessions or for someone following nothing).
+  if (styled && ((route.name === 'bill' && $app().querySelector('#main .bl-head')) || (route.name === 'home' && $app().querySelector('#main .ah, #main .hm-follow:not(.hm-welcome)')))) abSeen('layout');
   if (keep && !document.querySelector('dialog[open]')) { const el = findByKey(keep); if (el && el !== document.activeElement) el.focus({ preventScroll: true }); }
   // Screen changes move focus to the page for screen readers (not on re-renders of the same screen).
   const key = location.hash;
@@ -313,7 +342,7 @@ async function boot() {
     }
     render();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide')).catch(() => {}), 2500);   // the other screens' styles, after the first screen
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a')).catch(() => {}), 2500);   // the other screens' styles, after the first screen
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);

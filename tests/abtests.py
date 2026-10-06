@@ -108,7 +108,7 @@ with sync_playwright() as p:
     # the page's own copies: visitlog.js hands variant.js its sender, as on the real page
     pg.evaluate("async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); await V.abReady; }")
     st = pg.evaluate("() => JSON.parse(localStorage.getItem('hiphi_ab'))")
-    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home', 'join', 'save'} and not st['forced'], f'a new browser has a version of every two-version test, none forced ({st["arms"]})')
+    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home', 'join', 'save', 'layout'} and not st['forced'], f'a new browser has a version of every two-version test, none forced ({st["arms"]})')
     ok(0 <= (st.get('u') or {}).get('onb', -1) < 1, f'the six-version first-visit test keeps a number from the toss, not a version (R-164) ({st.get("u")})')
     eff = pg.evaluate("() => Object.fromEntries(Object.keys(V.TESTS).map(k => [k, V.armOf(k)]))")
     ok(eff['email'] == 'finale', f'the email test is off: everyone gets A whatever the toss ({st["arms"]["email"]} tossed, finale shown)')

@@ -5,6 +5,7 @@
 // the button on the first screen, then "Where do you stand?".
 // On a phone with a hearing ahead, the testimony button sits in the "what's next" card instead of the bottom bar, so
 // the tab bar can stay (R-070 problem 8: the bill page had no tabs). Other bills keep today's bottom bar.
+// Since R-187 it is the live A/B test 'layout' (pub/variant.js): track.html draws it for a browser on version A.
 import { S, esc, nick, plainStatus, hearingsOf } from '../core.js';
 import bill, { situation } from '../bill.js';
 import { btn } from '../ui.js';

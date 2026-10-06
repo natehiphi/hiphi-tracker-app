@@ -13,7 +13,10 @@
 <!-- The tester setup page (R-071): the person running a test picks who is visiting, which day of the real week of
      16 March 2026 it is, and when they were last here, then opens today's tracker or version A in that same moment.
      Everything is the sandbox: this page writes only the sandbox's own storage (hiphi_*_demo) in this browser. Each
-     Open button sets the scenario again, so both versions start from the same place (a visit changes "last visit"). -->
+     Open button sets the scenario again, so both versions start from the same place (a visit changes "last visit").
+     Since R-187 (10/6) version A is the live A/B test 'layout' on track.html itself: the buttons open track.html with
+     ?ab=layout.today or ?ab=layout.a. Session setup > Tests opens this page with ?ab=layout.a (or .today) to show one
+     version: then only that version's button shows. -->
 <style>
 body { background: var(--n50); }
 .cw { max-width: 640px; margin: 0 auto; padding: 24px var(--gutter) 64px; display: flex; flex-direction: column; gap: var(--s24); }
@@ -63,8 +66,8 @@ legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bott
   </fieldset>
 
   <div class="go">
-    <button type="button" class="btn secondary" data-open="track.html">Open today’s version</button>
-    <button type="button" class="btn primary" data-open="track-a.html">Open version A</button>
+    <button type="button" class="btn secondary" data-open="track.html" data-layout="today">Open today’s version</button>
+    <button type="button" class="btn primary" data-open="track.html" data-layout="a">Open version A</button>
   </div>
   <p class="note" id="err" tabindex="-1" role="alert" hidden style="color:var(--bad-text);font-weight:700">This browser is blocking storage, so the scene can’t be set. Try a normal window, not a private one.</p>
   <p class="note">Always open from here, so both versions start from the same moment. Swap the order between testers: half see today’s version first, half see version A first.</p>
@@ -112,11 +115,15 @@ function setScene() {
   } catch (e) { const m = document.getElementById('err'); m.hidden = false; m.focus(); return false; }
   return day;
 }
+// Session setup > Tests opens this page with ?ab=home.by-issue to show one version of a test (R-135): it goes on. A
+// layout it names (R-187) leaves only that version's button.
+const abIn = (new URLSearchParams(location.search).get('ab') || '').split(',').filter(x => /^[a-z0-9-]{1,20}\.[a-z0-9-]{1,20}$/.test(x));
+const fixed = (abIn.find(x => x.startsWith('layout.')) || '').slice(7);
+if (fixed) document.querySelectorAll('[data-layout]').forEach(b => { if (b.dataset.layout !== fixed) b.remove(); else { b.textContent = 'Open it'; b.className = 'btn primary'; } });
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
   const day = setScene(); if (!day) return;
-  // Session setup > Tests opens this page with ?ab=home.by-issue to show one version of a test (R-135): it goes on.
-  const ab = new URLSearchParams(location.search).get('ab') || '', abq = /^[a-z0-9.,-]{1,80}$/.test(ab) ? '&ab=' + ab : '';
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}${abq}#/`;
+  const ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + b.dataset.layout].join(',');
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&ab=${ab}#/`;
 }));
 </script>
 </body>

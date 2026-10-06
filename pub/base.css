@@ -66,6 +66,11 @@ img, svg { display: block; }
 
 /* ---- page frame ---- */
 .band { background: var(--n700); color: #fff; font-size: var(--t13); font-weight: 700; text-align: center; padding: 6px var(--gutter); line-height: 1.25; }
+/* The practice copy's "Next day" (R-187): white and underlined at the end of the band's line, a link in running text
+   (A-6's inline exception), with a target of 24px at least all the same (WCAG 2.5.8). */
+.band p { margin: 0; }
+.band a { color: #fff; text-decoration: underline; text-underline-offset: 2px; display: inline-block; padding: 5px 6px; margin: -5px -6px; white-space: nowrap; }
+.band a:hover { text-decoration-thickness: 2px; }
 .hdr { position: sticky; top: 0; z-index: 40; min-height: var(--header); background: var(--n0); border-bottom: 1px solid var(--n200);
   display: flex; align-items: center; gap: var(--s8); padding: 0 var(--s8) 0 var(--gutter); }
 .hdr .hdrin { display: flex; align-items: center; gap: var(--s8); width: 100%; min-width: 0; }

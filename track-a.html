@@ -2,83 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Version A of the public tracker, for comparing with track.html in front of testers (R-071). Sandbox only: without
-     ?demo=1 it goes to the sandbox, so nothing here reaches the live database or its counts. -->
-<script>if (!new URLSearchParams(location.search).has('demo')) { const q = new URLSearchParams(location.search); q.set('demo', '1'); location.replace(location.pathname + '?' + q + location.hash); }</script>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="only light"><!-- "only": phones that darken websites show the page as designed until dark mode is built (X9-1, DESIGN A-21) -->
-<meta name="theme-color" content="#FFFFFF">
-<title>HIPHI Bill Tracker · version A (sandbox)</title>
 <meta name="robots" content="noindex">
-<meta name="description" content="Follow the Hawaiʻi health issues you care about and speak up in a few minutes. From the Hawaiʻi Public Health Institute.">
-<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
-<link rel="icon" href="pub/icon-64.png" sizes="64x64" type="image/png">
-<link rel="apple-touch-icon" href="pub/icon-180.png">
-<link rel="manifest" href="pub/manifest.webmanifest">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Hawaiʻi Public Health Institute">
-<meta property="og:title" content="HIPHI Bill Tracker: speak up for a healthier Hawaiʻi">
-<meta property="og:description" content="Follow the health issues you care about at the Hawaiʻi Legislature, and we’ll tell you when your voice can count. Speaking up takes a few minutes.">
-<meta property="og:image" content="https://natehiphi.github.io/hiphi-tracker-app/pub/og.png?v=20261005b">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
-<!-- The database and the library it is read with: connect before any script asks (R-067 speed). The library address
-     is pinned in pub/core.js (SUPABASE_JS); change both together. -->
-<link rel="preconnect" href="https://eivzjbnygscguqqiiuvh.supabase.co" crossorigin>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm" crossorigin>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="pub/base.css">
-<link rel="stylesheet" href="pub/fx.css">
-<link rel="stylesheet" href="pub/actions.css">
-<link rel="stylesheet" href="pub/start.css">
-<link rel="stylesheet" href="pub/lessons.css">
-<link rel="stylesheet" href="pub/home.css">
-<link rel="stylesheet" href="pub/mybills.css">
-<link rel="stylesheet" href="pub/find.css">
-<link rel="stylesheet" href="pub/bill.css">
-<link rel="stylesheet" href="pub/people.css">
-<link rel="stylesheet" href="pub/committees.css">
-<link rel="stylesheet" href="pub/allbills.css">
-<link rel="stylesheet" href="pub/more.css">
-<link rel="stylesheet" href="pub/helper.css">
-<link rel="stylesheet" href="pub/wide.css">
-<link rel="stylesheet" href="pub/a/a.css">
-<link rel="modulepreload" href="pub/a/app.js">
-<link rel="modulepreload" href="pub/core.js">
-<link rel="modulepreload" href="pub/lessons.js">
-<link rel="modulepreload" href="pub/fx.js">
-<link rel="modulepreload" href="pub/ui.js">
-<link rel="modulepreload" href="pub/actions.js">
-<link rel="modulepreload" href="pub/art.js">
-<link rel="modulepreload" href="icons.js">
-<link rel="modulepreload" href="stops.js">
-<link rel="modulepreload" href="pub/start.js">
-<link rel="modulepreload" href="pub/home.js">
-<link rel="modulepreload" href="pub/mybills.js">
-<link rel="modulepreload" href="pub/find.js">
-<link rel="modulepreload" href="pub/bill.js">
-<link rel="modulepreload" href="pub/people.js">
-<link rel="modulepreload" href="pub/committees.js">
-<link rel="modulepreload" href="pub/allbills.js">
-<link rel="modulepreload" href="pub/more.js">
-<link rel="modulepreload" href="pub/helper.js">
-<style>
-/* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
-.boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
-.boot0 i { display: block; height: 64px; border-radius: 12px; background: #EAEFF2; }
-.boot0 i:first-child { height: 96px; }
-.boot0top { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #DBE3E7; display: flex; flex-direction: column; justify-content: center; padding: 0 16px; font: 700 18px/1.1 system-ui, sans-serif; color: #142B35; }
-.boot0top small { font: 400 13px/1.3 system-ui, sans-serif; color: #5F6F76; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HIPHI Bill Tracker</title>
+<!-- Version A used to be its own page (R-071). Since R-187 (Nate 10/6) it is the live A/B test 'layout' on track.html, so
+     this address opens the practice copy there on version A, keeping the rest of the link (the day, other versions, the
+     page after the #). -->
+<script>
+var q = new URLSearchParams(location.search);
+q.set('demo', '1');
+q.set('ab', (q.get('ab') || '').split(',').filter(function (x) { return x && x.indexOf('layout.') !== 0; }).concat('layout.a').join(','));
+location.replace('track.html?' + q.toString() + location.hash);
+</script>
 </head>
-<body>
-<div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
-<div id="toast" role="status" aria-live="polite"></div>
-<script type="module" src="pub/testbed.js"></script>
-<script type="module" src="pub/a/app.js"></script>
-</body>
+<body><p><a href="track.html?demo=1&amp;ab=layout.a">Open the tracker</a></p></body>
 </html>

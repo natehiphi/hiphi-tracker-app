@@ -21,6 +21,11 @@
 //          a letter | the "Get alerts" ask as it was before 6 Oct. The other way round from the rest: the FIRST version is
 //          the new one, which everyone gets while the test is off (Nate 10/6: "Replace, leave the current method as an
 //          alternative backup that could be tested later"). Met wherever the two differ on screen (alerts.js saveArm).
+//   layout Home, the bill page and the tabs (R-187, backend 149; Nate 10/6: "put it on the A/B testing now"): today's |
+//          version A (R-070 Layout A, R-071): Now · Since · This week day by day · Where your issues stand; the bill page
+//          opens on where the bill is; tabs Home · My issues · Find · You (pub/a/). Met the first time the two differ on
+//          screen: a bill page, or Home in session with something followed after the first visit (app.js). While a browser
+//          is on version A, the Home's-top test is not met or counted: version A replaces the Home it compares.
 //
 // How a browser gets a version:
 //   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
@@ -51,8 +56,9 @@ export const TESTS = {
   onb: { arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], first: 'keep', goal: ['acted', 14], goal2: ['back', 14], multi: true },
   join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
   save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
+  layout: { arms: ['today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true, onb: false, join: false, save: false };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true };
 // The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
 const INSIDE_TODAY = ['end', 'fv', 'email'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
@@ -92,8 +98,17 @@ export const abSettled = (ms = 300) => settled || cached() ? Promise.resolve() :
 // ---- which version ----
 export function isForced(key) { try { return !!st().forced?.[key] && TESTS[key]?.arms.includes(st().arms?.[key]); } catch { return false; } }
 const firstOpen = () => { const w = wiz(); return !(w.done || w.skipped); };
+// A test that swaps whole screens (page: true, the layout test) keeps one version for the rest of the page load from the
+// first time it is asked with switches it can trust (the ones kept from the last visit, or the database's answer), so a
+// switch flipped meanwhile, or an answer that differs from last visit's, never swaps Home or the bill page under a finger:
+// it takes effect at the next page load.
+const pinned = {};
 export function armOf(key) {
   const t = TESTS[key]; if (!t) return null;
+  if (t.page) { if (pinned[key]) return pinned[key]; const a = arm0(key, t); if (settled || cached()) pinned[key] = a; return a; }
+  return arm0(key, t);
+}
+function arm0(key, t) {
   try {
     const s = st(), a = s.arms?.[key];
     if (s.forced?.[key] && t.arms.includes(a)) return a;
@@ -112,7 +127,7 @@ export function armOf(key) {
 }
 // Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
 // today's first visit while the browser is on a plan (R-164).
-const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') === 'a') ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
 // The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
 function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
 export const plan = onPlan;

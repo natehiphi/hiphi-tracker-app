@@ -51,6 +51,11 @@ PUB = [
   ('alerts',      '/start/3',      'the number box',       '#st-a-phone'),
   ('getalerts',   '/alerts',       'the number box',       '#mr-al-phone'),
 ]
+# R-187: version A (the live test 'layout'), on the same returning visitor: Home and a bill page, the two screens it changes.
+PUB_A = [
+  ('home-a',      '/',             'what needs you',       '.a-now, .a-calm, .a-news.lead, .ah .a-sec'),
+  ('bill-a',      '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
+]
 SV = [
   ('today',       '/',             'the first thing due',  '.td-card, .td-root .row'),
   # the Week view exists from 1100px; a phone opening the same address gets the list, so its first card counts there
@@ -149,6 +154,7 @@ def main():
         b = pw.chromium.launch()
         for W, H, tag in ((390, 844, 'phone'), (1440, 900, 'desktop')):
             out += run(b, f'{HOST}/track.html?demo=1', PUB, 'public', W, H, tag, True)
+            out += run(b, f'{HOST}/track.html?demo=1&ab=layout.a', PUB_A, 'publicA', W, H, tag, True)
             out += run(b, f'{HOST}/staff.html?demo=1', SV, 'staff2', W, H, tag, False)
         b.close()
     if '--json' in sys.argv:

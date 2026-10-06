@@ -775,3 +775,48 @@ ask but keep it as a backup to test later.
   so no keyboard covers "Not now"; a laptop starts in the box. The category receipt reads "You're following all of ...".
 - `tests/profile_ask.py` (36 checks, an iPhone SE, a phone and a laptop) walks each path and the backup; the six older
   files that looked for "Get alerts on your" or the card's own button now look for the new heading and the bar's.
+
+## Version A as a live A/B test, and the practice copy's "Next day" (R-187; 6 Oct 2026)
+
+Nate 10/6: "I thought we were A/B testing the two different homepage versions. Today and another version with a calendar
+app like card format. I'm not seeing it in the A/B testing options." Version A (R-070's Layout A, R-071) had stayed a
+tester-only page (`track-a.html`, a 9/28 copy of the frame) under the 10/3 plan's "testers first". His answer: "Put version
+A on the tester sheet and put it on the A/B testing now."
+- **The test:** `layout` in `pub/variant.js` (`today` | `a`), backend 149 (on from 6 Oct, counting from then; decided by
+  came back within 14 days, then acted within 14 days). It is `page: true`: the version is kept for the whole page load
+  from the first time it is read with switches the page can trust (the ones kept from the last visit, or the database's
+  answer), so a switch flipped meanwhile takes effect at the next load and Home never changes under a finger.
+- **How it is drawn:** in `track.html` itself, not a page of its own, so version A has everything built since 9/28 (the
+  error reports, the counts, the profile, the share routes, the lazy loading). `pub/app.js`: `layoutA()`; the `home` and
+  `bill` stand-ins load `pub/a/home.js` and `pub/a/bill.js` on version A (each draws today's screen wherever it has
+  nothing of its own); `TABS_A` ("You" in More's place); `tabOf` keeps My issues lit on an issue the person follows;
+  `cssFor` adds `pub/a/a.css` (after `wide.css`, never fetched for today's) and `body.va` on every screen but the first
+  visit, which both versions share and other tests compare. `pub/a/app.js` is gone; `track-a.html` sends its links to
+  `track.html?demo=1&ab=layout.a` with the rest of the address; `compare.html`'s buttons open `track.html` with
+  `ab=layout.today` or `layout.a` (Tests' "See it" opens it with one of them: then only that version's button shows).
+- **Version A's Home** (`pub/a/home.js`) as designed, plus today's Home's other cards (`home.js` `extras` and `wireExtras`):
+  the account cards and "Finish your testimony" at the top, a plan to go today or tomorrow above the Now card, and at the
+  end a plan to go later, a new issue, keeping it on a phone, Meet HIPHI and a plan's next small thing (`.a-extras`); their
+  styles in `home.css` read `:is(.hm, .ah)`. Your session (`#/recap`) stays today's page, as do the first visit and the
+  rest of that visit, between sessions and following nothing.
+- **Met** (`app.js` render): the first time the two differ on screen, a bill page or Home in session with something followed
+  after the first visit (version A's `.ah`, or today's `.hm-follow:not(.hm-welcome)`). While a browser is on version A,
+  Home's-top test (`home`) is never met or counted (`variant.js counted`); backend 149 also switched it off, its numbers
+  kept, its card on Tests saying why.
+- **"Next day" in the practice copy's band** (`app.js nextDay`, Monday to Tuesday to Wednesday, `pub/testbed.js` days;
+  never during the first visit): right after the first visit Home keeps its welcome shape for the rest of that visit
+  (`hiphi_welcome`), so neither version's everyday Home could be seen by a room of testers; `&later` (`track.html`'s early
+  script) ends the welcome, and the day moves on with that day's real committee decisions. The tester sheet's tasks for
+  Home's top and version A say to press it (`ROOM_TASK`); it is an inline link in the band's line of text (A-6), 26px tall.
+- **The tester sheet** offers version A under "Change another screen" ("Home and the bill page: the week view",
+  `ROOM_WHERE`); on it, Home's top reads "Replaced by the week view" (`ROOM_A_REPLACES`, `offWhy`), and picking it takes
+  Home's top off with a word and Undo. On the staff screens the design is "the week view (version A)", never "Version A"
+  alone: Tests letters every test's versions A and B, and this one is B (the fresh-eyes review). A paused test with numbers
+  says it is paused instead of "Keep it running" (`abVerdict`).
+- **The fresh-eyes review's other fix:** on version A's Home, "Finish your testimony" leaves out a letter whose hearing the
+  Now card already offers ("Finish sending your testimony"), so one job has one button (`draftsCard(skip)`; A-14, A-3).
+  Today's Home still shows both when a saved letter's hearing has a card (left as it was).
+- Tests: `tests/layout.py` (100 checks: both versions on a phone and a laptop, the bill page and its tour, the saved letter once, Your session, Home's top not
+  met, the old address and the compare page, Next day, the toss, the switch, the version kept for the page load, Tests and
+  the tester sheet); `abtests.py` and `room.py` count ten tests; `tests/density.py` measures version A's Home and bill page
+  as `publicA`.

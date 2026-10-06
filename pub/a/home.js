@@ -10,15 +10,22 @@
 //   4. Where your issues stand: up to six issues as rows with a progress bar; more than six as one bar with counts,
 //      with the full list in My issues. Bills that need a hearing are one folded line here, not cards.
 // The email ask sits after the week (R-070 decision 3, tried here), never between two hearings.
-// Everything else (the first visit, between sessions, following nothing) is today's Home, unchanged.
+// Everything else (the first visit and the rest of that visit, between sessions, following nothing, Your session) is
+// today's Home, unchanged.
+// Since R-187 (Nate 10/6: "put it on the A/B testing now") this is the live test 'layout' (pub/variant.js), drawn by
+// track.html for a browser on version A; it no longer has a page of its own (track-a.html sends its links here). Today's
+// Home's other cards come along (home.js extras): the account cards, a saved letter, a plan to go, a new issue, keeping
+// the tracker on a phone, Meet HIPHI and a first-visit plan's next small thing, so the test compares the arrangement and
+// nothing goes missing.
 import { S, app, esc, icon, toast, blurb, nick, headline, spaced, billPath, alive, openActions, dueInfo, dayWord, timeWord, dateLong, cmteLabel,
   roomLabel, hstDay, hiT, HST, followedIssues, issueBills, issuesOf, posInfo, outcomeOf, didKind, myActions, testimonyDraft, sessionInfo,
   followsAnything, waitingBills, chairContacts, askedChair, agrees, plainStatus, stopOf, codesOf, CHAMBER_NAME, wiz, anyHearing, anyBill,
   settledOn, OUTCOME_PLAIN } from '../core.js';
 import { testifyLabel } from '../letters.js';
 import { btn, chip } from '../ui.js';
-import { nudgeCard, wireNudge, wireActions } from '../actions.js';
-import today from '../home.js';
+import { nudgeCard, wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
+import { laterCard } from '../onb-later.js';
+import today, { extras, wireExtras } from '../home.js';
 
 S.aSkip ??= new Set();   // Now items passed over with "Not now", for this visit
 S.aDays ??= new Set();   // folded days the person opened, kept through redraws
@@ -300,26 +307,33 @@ function view() {
   else { const news = sinceCard(si, { lead: true }); calm = !news; first = news || calmCard(si); }
   const hasWeek = weekSittings().length;
   const ask = S.nudge && S.nudge !== 'action' ? `<div class="a-nudge">${nudgeCard(S.nudge)}</div>` : '';
+  // A plan to go today or tomorrow is the day's plan, so it leads, as on today's Home (R-142); later ones go to the end.
+  const plans = goingPlans(), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
+  const tail = [goLater, extras.newIssues(), extras.phone(), extras.meet(), laterCard()].filter(Boolean).join('');
   return `<div class="ah">
+    ${extras.account()}
     <header class="a-top"><p class="a-date">${esc(date)}</p><h1>Aloha${name ? `, ${esc(name)}` : ''}</h1></header>
+    ${extras.draft(new Set(due.map(x => x.h.id)))}${goSoon}
     ${first}
     ${calm && !hasWeek ? '' : weekBlock()}
     ${ask}
     ${standBlock({ asksShown: !items.length && !due.length && asks.length > 0 })}
+    ${tail ? `<div class="a-extras">${tail}</div>` : ''}
   </div>`;
 }
 export default {
   tab: 'home',
-  title: () => 'Home',
+  title: route => today.title(route),
   render(route) {
-    // The first visit's own Home, between sessions and following nothing stay today's Home (the test is about this one).
-    delegated = sessionInfo().phase !== 'in' || !followsAnything() || welcomed();
+    // The first visit's own Home, between sessions, following nothing and Your session (#/recap) stay today's Home (the
+    // test is about this one).
+    delegated = route?.name === 'recap' || sessionInfo().phase !== 'in' || !followsAnything() || welcomed();
     return delegated ? today.render(route) : view();
   },
   wire(route) {
     if (delegated) { today.wire && today.wire(route); return; }
     const root = document.querySelector('.ah'); if (!root) return;
-    wireActions(root); wireNudge(root);
+    wireActions(root); wireNudge(root); wireExtras(root);
     // "Show the next one" says what it did, with Undo (B-5, A-16).
     root.querySelectorAll('[data-a-skip]').forEach(el => el.onclick = () => { const k = el.dataset.aSkip; S.aSkip.add(k); app.render();
       toast(`${el.dataset.aName} moved out of the way. It’s still due, in the week below.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });

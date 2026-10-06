@@ -121,6 +121,13 @@ try {
     q.delete('restart');
     history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
   }
+  /* ?demo=1&later: the practice copy's "Next day" (R-187, pub/app.js nextDay): the visit after the first one, so the first
+     visit's welcome (hiphi_welcome, kept for the rest of a visit) ends and Home takes its everyday shape. */
+  if (q.has('demo') && q.has('later')) {
+    sessionStorage.removeItem('hiphi_welcome_demo');
+    q.delete('later');
+    history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+  }
 } catch (e) { /* storage blocked: nothing to clear */ }
 </script>
 <script>

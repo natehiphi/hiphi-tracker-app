@@ -342,9 +342,10 @@ function sinceStrip(inCards = new Set(), fullCards = new Set()) {
 // ---------------- an unfinished testimony (R-068) ----------------
 // "I'll finish later" used to leave no trace: the letter was saved, but nothing said so. Home names it first, while its
 // hearing is still ahead, and one tap reopens the walkthrough where they left it.
-function draftsCard() {
+// skip: hearings another card on the page already offers to finish (version A's Now card, R-187: A-14, A-3).
+function draftsCard(skip = new Set()) {
   let drafts = {}; try { drafts = JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}; } catch { /* private mode */ }
-  const rows = Object.keys(drafts).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony'));
+  const rows = Object.keys(drafts).filter(id => !skip.has(id)).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony'));
   if (!rows.length) return '';
   return `<section class="card hm-draft" aria-labelledby="hm-draft-h"><h2 id="hm-draft-h">${icon('notebook-pen')}<span>Finish your testimony</span></h2>
     ${rows.slice(0, 2).map(({ b, h }) => `<p class="small">${esc(nick(b) || spaced(b.bill_number))} · hearing ${esc(dayWord(h.scheduled_at))}. Your letter is saved.</p>
@@ -960,6 +961,24 @@ function newIssuesCard() {
     ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-newdone': '1' } })}</section>`;
 }
 
+// ---------------- for version A's Home (the layout test, R-187) ----------------
+// The test compares how Home is arranged, not what it offers: version A (pub/a/home.js) draws these cards from today's
+// Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
+// letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
+// and a first-visit plan's next small thing (onb-later.js), on either Home.
+export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard() };
+export function wireExtras(root) {
+  wireLater(root, () => app.render());
+  try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
+  root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
+  root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
+  root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
+    const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
+    if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
+  });
+  root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
+}
+
 // wide.css keeps the side column in view under the header. When the column is taller than the window, a sticky top
 // would leave its lower part (What's new, the suggestion) out of reach until the main column ends, so it sticks by
 // its bottom edge instead.
@@ -1000,8 +1019,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root); wireLater(root, () => app.render());
-    try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
+    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root); wireExtras(root);
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {
       const box = document.getElementById(el.getAttribute('aria-controls')); if (!box) return;
@@ -1038,13 +1056,6 @@ export default {
       setTimeout(() => { celebrate({ title: `The Legislature’s ${rm.yr} session is over`, sub: rm.said, go: 'See your session', alt: { label: 'Not now', act: () => {} } },
         () => { if (go) app.go('#/recap'); });
         document.getElementById('fx-mgo')?.addEventListener('click', () => { go = true; }, { capture: true }); }, 400); }
-    root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
-    root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
-    root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
-      const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
-      if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
-    });
-    root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
     fitSide();
     const side = root.querySelector('.cols > .hm-side');
     if (side && window.ResizeObserver) { sideWatch?.disconnect(); sideWatch = new ResizeObserver(fitSide); sideWatch.observe(side); }
