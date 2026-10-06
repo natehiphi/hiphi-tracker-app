@@ -71,7 +71,7 @@ with sync_playwright() as p:
                 if arm == 'a':
                     ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.a-now').inner_text(), 'A: a saved letter shows once, as the Now card’s “Finish sending your testimony”')
                 else:
-                    ok(pg.locator('#main .hm-draft').count() == 1, 'today: “Finish your testimony” as before (left as it was)')
+                    ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('#main .hm-now .acard').first.inner_text(), 'today: a saved letter shows once, as the first card’s “Finish sending your testimony” (R-189)')
                 pg.evaluate("() => { const m = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); delete m.drafts; localStorage.setItem('hiphi_me', JSON.stringify(m)); }")
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
             if arm == 'a' and mobile:

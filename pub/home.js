@@ -342,7 +342,8 @@ function sinceStrip(inCards = new Set(), fullCards = new Set()) {
 // ---------------- an unfinished testimony (R-068) ----------------
 // "I'll finish later" used to leave no trace: the letter was saved, but nothing said so. Home names it first, while its
 // hearing is still ahead, and one tap reopens the walkthrough where they left it.
-// skip: hearings another card on the page already offers to finish (version A's Now card, R-187: A-14, A-3).
+// skip: hearings another card on the page already offers to finish (version A's Now card, R-187; today's two full cards
+// and a followed suggestion, R-189: A-14, A-3).
 function draftsCard(skip = new Set()) {
   let drafts = {}; try { drafts = JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}; } catch { /* private mode */ }
   const rows = Object.keys(drafts).filter(id => !skip.has(id)).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony'));
@@ -568,10 +569,15 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">${sugInMain ? 'A bill that still needs voices' : 'Another bill that needs voices'}</h2>
       ${sugCard(sug.b, sug.h)}
       ${btn('More bills that need voices', { kind: 'text', iconEnd: 'chevron-right', href: '#/find', cls: 'hm-link' })}</section>` : '';
+  // A saved letter whose hearing is drawn below as a full card is left to that card: its main button already says "Finish
+  // sending your testimony" (R-189, A-14, A-3). Full cards are the first two either way Home's top is drawn, and the
+  // suggestion once followed (before that it leads with Follow). A letter for a bill further down, as one line or folded,
+  // keeps its own card, so it is never left unmentioned.
+  const drawn = new Set([...cards.slice(0, 2), ...(sug && S.watch.has(sug.b.id) ? [sug] : [])].map(x => x.h?.id));
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${draftsCard()}${goSoon}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${draftsCard(drawn)}${goSoon}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${byIssue ? issueBlock(cards, asks, { nudgeHtml }) : todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}

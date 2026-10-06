@@ -143,7 +143,8 @@ session is dark (until January 2027).
   Download), the Capitol account once per browser (`hiphi_me.capitolAcct`), then one tap copies the letter and opens the
   Capitol page, and on return "Yes, I saw it" / "Something went wrong". The letter follows the person's stance
   (`sameAsHiphi`); HIPHI's wording and ask only when they agree. A saved draft shows as "Finish sending your
-  testimony" (`testimonyDraft` in core.js) and a card on Home; it counts as having been here. Sending follows the
+  testimony" (`testimonyDraft` in core.js), and as a "Finish your testimony" card on Home only when no full card there
+  offers its hearing already (R-189, A-14; `tests/draft_once.py`); it counts as having been here. Sending follows the
   bill's issue with "Stop following <issue>"; a newcomer from a link ends at Home, which leads with what they did
   (`app.newcomerNext`, X10-2).
 - **The first visit's short version** (R-067 #11): the A/B test `fv` since R-135 (coin toss; `?fv=short` and `?fv=full`

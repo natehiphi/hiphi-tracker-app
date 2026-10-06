@@ -815,7 +815,12 @@ A on the tester sheet and put it on the A/B testing now."
   says it is paused instead of "Keep it running" (`abVerdict`).
 - **The fresh-eyes review's other fix:** on version A's Home, "Finish your testimony" leaves out a letter whose hearing the
   Now card already offers ("Finish sending your testimony"), so one job has one button (`draftsCard(skip)`; A-14, A-3).
-  Today's Home still shows both when a saved letter's hearing has a card (left as it was).
+  **Since R-189 (10/6) today's Home does the same,** and on version A the skip is the Now card's own hearing only:
+  `returnView` passes the hearings of its two full cards (either way Home's top is drawn) and of the suggestion once it is
+  followed (before that it leads with Follow); version A passes the Now card's one hearing (it passed every hearing due this
+  week, so a letter for the second one, a row under "Also due", was mentioned nowhere). A letter whose hearing has no full
+  card, one line further down, folded, or not on Home, keeps its "Finish your testimony" card. `tests/draft_once.py`
+  (46 checks: both cases on today's Home, by topic and version A, phone and laptop).
 - Tests: `tests/layout.py` (100 checks: both versions on a phone and a laptop, the bill page and its tour, the saved letter once, Your session, Home's top not
   met, the old address and the compare page, Next day, the toss, the switch, the version kept for the page load, Tests and
   the tester sheet); `abtests.py` and `room.py` count ten tests; `tests/density.py` measures version A's Home and bill page
