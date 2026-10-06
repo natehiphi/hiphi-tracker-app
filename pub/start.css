@@ -276,11 +276,14 @@
    Two columns inside the wide frame. Left: the three parts, Back, the drawing, the heading and the sentence, which stay
    in view while the choices scroll. Right: the choices, with the primary and Skip right under them instead of a bar
    fixed across the bottom of the window. app.js renders the bar as the last child of <main>, so <main> is the grid and
-   .st gives its two children to it (display: contents). */
+   .st gives its two children to it (display: contents).
+   A lesson opened on its own (#/learn/..., screen 'learn') is built from the same parts and gets the same two columns
+   (R-173): without the grid, .st-intro's sticky left the heading and the story's drawing pinned in one column while the
+   lesson scrolled up over them (the story's words were drawn on top of its picture on every laptop). */
 @media (min-width: 900px) {
-  body[data-screen="start"] main { max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--s48); align-items: start; padding-top: 40px; }
-  body[data-screen="start"].hasbar main { padding-bottom: var(--s48); }
-  body[data-screen="start"] main > .empty { grid-column: 1 / -1; }
+  body:is([data-screen="start"], [data-screen="learn"]) main { max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--s48); align-items: start; padding-top: 40px; }
+  body:is([data-screen="start"], [data-screen="learn"]).hasbar main { padding-bottom: var(--s48); }
+  body:is([data-screen="start"], [data-screen="learn"]) main > .empty { grid-column: 1 / -1; }
   .st-err { align-items: flex-start; text-align: left; padding: var(--s24) 0 0; }
   .st { display: contents; }
   .st-intro { grid-column: 1; grid-row: 1 / span 3; position: sticky; top: calc(var(--header) + var(--s32)); gap: var(--s16); }
@@ -305,13 +308,13 @@
   /* the bar, no longer a bar: the primary first and Skip after it, sized to their labels, right under the choices */
   /* Under a long list the bar stays in view at the bottom of the window (the review, 9/21: "Follow 7 issues" was below
      the fold at 1280x800); under short content it simply sits there. */
-  body[data-screen="start"] .actionbar { position: sticky; bottom: 0; grid-column: 2; grid-row: 3; z-index: 5; border: 0; box-shadow: none; padding: var(--s24) 0 var(--s16);
+  body:is([data-screen="start"], [data-screen="learn"]) .actionbar { position: sticky; bottom: 0; grid-column: 2; grid-row: 3; z-index: 5; border: 0; box-shadow: none; padding: var(--s24) 0 var(--s16);
     background: linear-gradient(to top, var(--n50) 72%, rgba(244, 247, 249, 0)); }
   /* "Follow this issue?" has nothing on the right: its buttons go under its words. */
   body.st-onecol[data-screen="start"] .st-intro { grid-row: 1; }
   body.st-onecol[data-screen="start"] .actionbar { grid-column: 1; grid-row: 2; position: static; background: none; }
-  body[data-screen="start"] .actionbar .inner { max-width: none; margin: 0; }
-  body[data-screen="start"] .actionbar .btn { flex: 0 0 auto; }
+  body:is([data-screen="start"], [data-screen="learn"]) .actionbar .inner { max-width: none; margin: 0; }
+  body:is([data-screen="start"], [data-screen="learn"]) .actionbar .btn { flex: 0 0 auto; }
   .st-btns { display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: var(--s8); }
   .st-btns .btn { width: auto; padding: 0 var(--s16); }
   .st-btns .btn.primary { min-width: 200px; padding: 0 var(--s32); }
@@ -319,7 +322,7 @@
   .st-one .btn { min-width: 220px; }
 }
 @media (min-width: 1100px) {
-  body[data-screen="start"] main { column-gap: 64px; }
+  body:is([data-screen="start"], [data-screen="learn"]) main { column-gap: 64px; }
   .st-intro .lede { font-size: var(--t18); line-height: 1.55; }
   .st-art svg { height: 140px; }
 }

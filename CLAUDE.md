@@ -135,7 +135,9 @@ session is dark (until January 2027).
 - **The first visit's short version** (R-067 #11): the A/B test `fv` since R-135 (coin toss; `?fv=short` and `?fv=full`
   still force one) replaces the lesson with one page, "Your voice counts here" (`stepVoice`, counted as step 'voice',
   backend 080). The lessons also open on their own at
-  `#/learn/<bill|session|hearing>[/<bill id>]`, linked from bill pages, Help and the short page. "Coming up" offers
+  `#/learn/<bill|session|hearing>[/<bill id>]`, linked from bill pages, Help and the short page. On a laptop that page
+  (screen 'learn') shares the first visit's two-column grid in `start.css` (R-173): without it, the sticky intro let the
+  lesson scroll over its heading and the story's words over its drawing; `public_journey.py` section 3b checks it. "Coming up" offers
   testimony when it is due within 48 hours (one action, #12).
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
   text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
@@ -376,7 +378,7 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
 
 Serve first: `python3 -m http.server 8832` in this folder.
 ```bash
-python3 tests/public_journey.py     # public: 408 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season
+python3 tests/public_journey.py     # public: 466 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)

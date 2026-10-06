@@ -48,7 +48,8 @@ lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three
 the drawing changing in place: the bill, its road to where it really is, then "Why speaking up can help" with a choice of
 four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
-`#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help)
+`#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
+laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)
 -> (its last button, "Next: your legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
 issues" (with the optional first name once a way to reach them was given) -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
