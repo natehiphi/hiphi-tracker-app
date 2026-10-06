@@ -47,7 +47,7 @@ function wireInvite() {
   wireAlertForm($('#pf-al'), { pfx: 'pf-alf', source: 'more', onDone: r => {
     // Said on the page, under the header (the review: a toast covered the first section's Save and Cancel).
     P.made = r.kind === 'phone' && r.confirmed ? 'Your profile is made. Text alerts are on.'
-      : r.kind === 'phone' ? `Your profile is made. Our first text to ${masked(phoneDigits(r.phone))} asks you to reply YES.` : '';
+      : r.kind === 'phone' ? `Your profile is made. We’ll text ${masked(phoneDigits(r.phone))} to confirm it’s your number.` : '';
     app.render();
     if (r.kind !== 'phone') toast('Check your inbox: open the link to finish your profile.', { yay: true });
     requestAnimationFrame(() => $('#pf-h')?.focus());

@@ -1,7 +1,7 @@
 # The alerts ask inside the letter helper, after a first email is sent (found 10/5 while building R-155: the helper drew
 # its own copy of Home's card with renamed ids, so Text me there was never wired and the form fell through to the browser).
 # python3 tests/helper_alerts.py [base url]   (sandbox, a phone)
-#   codes off: the box is there with its own ids, Text me keeps the number and says the YES text is coming, in the dialog,
+#   codes off (&codes=0): the box is there with its own ids, Text me keeps the number and says a text will confirm it, in the dialog,
 #              and the page does not navigate; Use email instead swaps inside the dialog
 #   codes on (&codes): Text me -> the code field in the dialog -> six digits -> "Text alerts are on"
 import json, os, sys, urllib.parse
@@ -43,13 +43,13 @@ def to_mahalo(br, extra):
 
 with sync_playwright() as pw:
     br = pw.chromium.launch()
-    c, p = to_mahalo(br, '')
+    c, p = to_mahalo(br, '&codes=0')
     check('Mahalo' in dlg(p), 'the helper’s Mahalo screen')
     check(p.locator('#hp-dlg .nudgecard #hp-ng-phone').count() == 1 and p.locator('#hp-dlg #ng-phone').count() == 0, 'its alerts box has its own ids (hp-ng-)')
     url = p.url
     p.fill('#hp-ng-phone', '(808) 555-0199'); p.locator('#hp-dlg .nudgecard button', has_text='Text me').click(); p.wait_for_timeout(1000)
     check(p.url == url, 'Text me does not send the page anywhere')
-    check('Our first text to (808) 555-0199 asks you to reply YES' in dlg(p), 'Text me keeps the number and says so, in the dialog')
+    check('We’ll text (808) 555-0199 to confirm it’s your number' in dlg(p) and 'YES' not in dlg(p), 'Text me keeps the number and says so, in the dialog (no YES, R-176)')
     check('8085550199' in (p.evaluate("localStorage.getItem('hiphi_text')") or ''), 'the number is kept (the sandbox copy)')
     check(not p.errs, f'no page errors {p.errs}')
     c.close()

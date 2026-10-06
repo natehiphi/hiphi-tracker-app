@@ -539,7 +539,7 @@ function alertsView() {
     <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Text alerts are on</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       <p>We’ll text <span class="strong">${esc(fmtPhone(t.phone))}</span> when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>
-      <p class="small">${t.confirmed ? '' : 'Our first text asks you to reply YES. '}Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
+      <p class="small">${t.confirmed ? '' : 'We’ll text you first to confirm it’s your number. '}Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
       <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
     </section>
     ${myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
@@ -557,7 +557,7 @@ function alertsView() {
 function wireAlerts() {
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
     A.edit = false; app.render();
-    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : `Almost set: our first text to ${fmtPhone(r.phone)} asks you to reply YES.`, { yay: true });
+    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : `Almost set: we’ll text ${fmtPhone(r.phone)} to confirm it’s your number.`, { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');
@@ -585,7 +585,7 @@ function wireAlerts() {
 // like follows and actions. Numbers about other people are totals inside one bill or hearing, from 10 people.
 const PRIVACY = [
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
-  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, when you agreed to texts and the words you agreed to, and use them only to send you those texts. HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; once texts begin, the service that sends them for us will hold it to do that. The first text asks you to reply YES, to be sure the number is yours. Reply STOP to any text, or use Alerts in your profile, under More, to end them. With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.'],
+  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, when you agreed to texts and the words you agreed to, and use them only to send you those texts. HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; once texts begin, the service that sends them for us will hold it to do that. Our first text confirms the number is yours. Reply STOP to any text, or use Alerts in your profile, under More, to end them. With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.'],
   ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in your profile, such as your name, the titles you give yourself (“I’m a…”), your stories (a general one, and one for any issue you choose), whether HIPHI may quote them, and how you’d like to help, in your own words too (HIPHI asks you again before any public use). When we email you, we also see whether you opened each email and which links in it you clicked. HIPHI staff can see all of this, so they can reach out about your issues and learn which asks work. What you saved on this device joins your account; signing out takes your profile off this device.'],
   ['list-checks', 'Lists you make', 'A list of bills you make is private: HIPHI staff can’t see it, and it is left out of HIPHI’s backup copies. If you share it, anyone with the link can see its name, your note and its bills, but not who made it. HIPHI can turn off a shared list that is used to harm someone. Deleting your account erases your lists.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
@@ -597,7 +597,7 @@ const PRIVACY = [
   ['building', 'Services that run the tracker', 'The tracker runs on services HIPHI uses: GitHub hosts the pages, Supabase holds the database, Postmark sends our email, Google Drive keeps the encrypted backups, and the pages load fonts from Google Fonts and code from jsDelivr. Once texts begin, a texting service will send them. Like any website, these services see your device’s internet address, and from it a rough location, and keep it in their own logs.'],
   ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us, and if the law requires it. Every email has a one-click unsubscribe. You can delete your account from your profile, under More, at any time: your account, the issues and bills you follow, your stances, actions, lists and saved letters are erased from the tracker at once, and from our backup copies within about 45 days. We keep a record of the emails we sent you. Text alerts are separate: reply STOP or use Alerts in your profile.'],
 ];
-const PRIVACY_UPDATED = '4 October 2026';   // change it with any sentence above (R-151)
+const PRIVACY_UPDATED = '5 October 2026';   // change it with any sentence above (R-151)
 // Once sign-in by text code is on (R-155), a number signs people in and their profile is kept with the account, so three
 // sections say so. Change the date to the day codes were switched on (backend docs/TEXT-SIGN-IN.md, step 6).
 const PRIVACY_CODES_UPDATED = '5 October 2026';

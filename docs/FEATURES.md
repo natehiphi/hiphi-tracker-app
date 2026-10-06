@@ -493,7 +493,8 @@ R-155's sign-in by text code). Backend migration 130.
 ## Sign in with a mobile number and a 6-digit code (R-155; 5 Oct 2026, switched off until texts are set up)
 Nate 10/5: someone who signed up with a number could not get in on a laptop (only an email signed anyone in). His "Yes" to
 sign-in by text code, and "Code at sign-up". The switch is Supabase's own phone sign-in; the runbook is the backend's
-`docs/TEXT-SIGN-IN.md`. The practice copy turns it on with `&codes`.
+`docs/TEXT-SIGN-IN.md`. The practice copy shows it on by default since R-176; `&codes=0` shows the page as it is until
+texts are set up.
 - **The switch** (`pub/phone.js loadCodes`): the page reads Supabase's `/auth/v1/settings` (`external.phone`); off on any
   doubt. `codesOn()` decides every box, page and sentence below; off, everything is as R-146 and R-147 left it.
 - **The alerts box** (`alerts.js`, every host): "Text me a code" sends a code (`sendCode`: signed out `signInWithOtp`, signed in
@@ -506,7 +507,7 @@ sign-in by text code, and "Code at sign-up". The switch is Supabase's own phone 
   profile. Signing in never turns texts on. A number-only account's "Add your email" adds it to the same account
   (`updateUser({ email })`).
 - **Until it is on:** More on a laptop (900px and wider) says "Signed up with your number? Add your email on your phone,
-  then sign in here with it."
+  then sign in here with it." The box keeps the number under consent words t3 (R-176, below), which ask for no YES.
 - **Profile and privacy:** "Signed in with (808) ••• 0123"; no email choices without an email; Your data's number-only
   wording; the privacy page's three codes-on sections (`PRIVACY_CODES`).
 - **Staff:** a number-only supporter has no email: `personName` falls back, the person page says so, and the duplicate
@@ -515,6 +516,21 @@ sign-in by text code, and "Code at sign-up". The switch is Supabase's own phone 
   and `wireNudge` now take the helper's own prefix.
 - Tests: `tests/phone_signin.py` (the practice copy with codes off and on, and the live page with Supabase answered by
   the test); backend `tools/migration_tests/test_128.js`.
+
+## No "reply YES" anywhere: the code everywhere (R-176; 5 Oct 2026)
+Nate 10/5, walking a first visit: "during onboarding we are asking for a code to be relayed back to us after they sign up
+with their phone number. The page says to 'reply yes'". The YES words were the page before codes are on (R-146's t1). His
+choice, "Code everywhere":
+- **The practice copy shows codes on by default** (`phone.js loadCodes`: `codes=0` turns them off), so every check link
+  shows the code step R-155 decided. The live page still asks Supabase.
+- **Before codes are on** the box keeps the number under consent words **t3** (backend 141): "We’ll text you to confirm
+  it’s your number." (`TEXT_FINE`), in place of "Our first text asks you to reply YES". The "almost set" lines say the same
+  (`alertDoneHTML`, the "Mahalo!", More > Get alerts and its toast, the profile's "Your profile is made", the plans' join
+  step in `onb-join.js`), and so does the privacy page (dated 5 October).
+- **The step budget** for signing up for alerts is 3 with the code (DESIGN B-2): type the number, Text me a code, the code.
+- Tests: `tests/phone_signin.py` (the default practice copy has codes; `&codes=0` has no YES), `tests/alerts_ask.py` and
+  `tests/helper_alerts.py` (the box before codes, its new words), `tests/journeys.py` (the code journey),
+  `tests/plans.py` (the plans' join step takes the code), `tests/profile.py` (`&codes=0`); backend `test_141.js`.
 
 ## Directions for someone going to a hearing in person (R-142; 5 Oct 2026, HANDOFF 3.97)
 

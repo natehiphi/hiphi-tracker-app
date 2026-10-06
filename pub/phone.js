@@ -6,7 +6,8 @@
 //
 // The switch is Supabase's own phone sign-in (Authentication > Sign In / Providers > Phone), turned on once the texting
 // service is set up (backend docs/TEXT-SIGN-IN.md): the page asks Supabase whether it is on and offers codes only then. Until
-// then every box works as before (R-146: the number is kept, nothing is sent). The sandbox turns it on with &codes.
+// then every box works as before (R-146: the number is kept, nothing is sent). The sandbox shows codes on, as the public will
+// see them once texts are set up (R-176, Nate 10/5: "Code everywhere"); &codes=0 shows the page as it is until then.
 //
 // One number per person: signed out, a code signs in (or makes the account); signed in, a code adds the number to the
 // account (Supabase's phone change), so an email account that adds a number is found by either. Signing in is never
@@ -19,7 +20,7 @@ import { S, DEMO, app, SUPABASE_URL, SUPABASE_KEY, supa, loadUser, friendly } fr
 let asked = null;
 export function loadCodes() {
   if (asked) return asked;
-  if (DEMO) { S.codes = new URLSearchParams(location.search).has('codes'); return (asked = Promise.resolve(S.codes)); }
+  if (DEMO) { S.codes = new URLSearchParams(location.search).get('codes') !== '0'; return (asked = Promise.resolve(S.codes)); }
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 5000);
   asked = fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY }, signal: ctl.signal })
     .then(r => r.ok ? r.json() : null).then(j => !!j?.external?.phone).catch(() => false)

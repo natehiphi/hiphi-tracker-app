@@ -357,7 +357,7 @@ function mahalo(then, r = null) {
   S.mahaloShown = true;
   // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it.
   const told = r?.kind === 'phone' && r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`
-    : r?.kind === 'phone' ? `Our first text to ${fmtPhone(r.phone)} asks you to reply YES. Then alerts start.`
+    : r?.kind === 'phone' ? `We’ll text ${fmtPhone(r.phone)} to confirm it’s your number. Then alerts start.`
     : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
   // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
   celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
