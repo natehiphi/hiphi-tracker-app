@@ -102,13 +102,17 @@ with sync_playwright() as p:
         # ---- a new letter, or the saved one deleted ----
         c, pg, errs = ctx_for(plant(), route=no_tick); open_again(pg)
         pg.click('[data-hp="again-new"]'); pg.wait_for_timeout(500)
-        ok('Get to know the bill' in body(pg) and pg.locator('#hp-pts').count() == 0, f'{tag}: "Start a new letter" starts at the bill with nothing picked')
+        # A new letter asks where they stand (R-167, 10/5), the kept letter's answer chosen; Next goes on to the bill
+        ok('Where do you stand' in body(pg) and pg.locator('#hp-dlg [data-hp="stance"][data-v="support"]').get_attribute('aria-pressed') == 'true',
+           f'{tag}: "Start a new letter" asks where they stand, the kept letter\'s "I support it" chosen')
+        pg.click('#hp-dlg .hp-foot [data-hp="next"]'); pg.wait_for_timeout(500)
+        ok('Get to know the bill' in body(pg) and pg.locator('#hp-pts').count() == 0, f'{tag}: and Next goes on to the bill with nothing picked')
         ok(HB2121 in stored(pg), f'{tag}: and keeps the saved letter')
         c.close()
         c, pg, errs = ctx_for(plant(), route=no_tick); open_again(pg)
         ok(pg.locator('[data-hp="again-forget"]').count() == 0, f'{tag}: delete is not on the first screen')
         pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(400); pg.click('[data-hp="again-forget"]'); pg.wait_for_timeout(500)
-        ok(HB2121 not in stored(pg) and 'Get to know the bill' in body(pg) and 'Your saved letter is deleted' in body(pg), f'{tag}: "Delete my saved letter" deletes it and starts a new one, saying so')
+        ok(HB2121 not in stored(pg) and 'Where do you stand' in body(pg) and 'Your saved letter is deleted' in body(pg), f'{tag}: "Delete my saved letter" deletes it and starts a new one, saying so')
         pg.click('[data-hp="again-undo"]'); pg.wait_for_timeout(600)
         ok(HB2121 in stored(pg) and 'Your letter is ready' in body(pg), f'{tag}: Undo brings the letter back (B-5)')
         c.close()

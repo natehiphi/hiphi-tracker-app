@@ -382,7 +382,9 @@ function openMail(o = {}) {
     letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
   const d = (me.mail || {})[mailKey(x)];
-  if (b) { const mine = myStance(b.id); x.stance = mine === 'support' || mine === 'oppose' ? mine : o.stance || d?.stance || null; x.askStance = !x.stance; }
+  // Asked every time a new email begins (R-167), their answer on the bill page already chosen; not when testimony hands
+  // over to the email (o.stance), where they answered a moment ago.
+  if (b) { const mine = myStance(b.id); x.stance = mine === 'support' || mine === 'oppose' ? mine : o.stance || d?.stance || null; x.fromBill = x.stance === mine ? mine : null; x.askStance = !o.stance || !x.stance; }
   x.screen = mode === 'intro' ? 1 : x.askStance ? 'stand' : 'know';
   // R-153: the reminder to the same chair; else an email kept from this bill's other step (or its twin's, or their
   // testimony letter's answers) comes first, re-addressed. A draft for this step wins (picked up below).
@@ -428,12 +430,13 @@ function open(billId, hearingId) {
   // The letter's position follows the person. HIPHI's script is for people who agree with HIPHI or have not said;
   // someone who sees the bill differently gets the Capitol's own steps and writes it their way (a saved draft of
   // HIPHI's letter is left alone, in case they change their mind).
-  // R-068 (9/27): everyone gets the walkthrough, whatever they think of the bill. The letter follows their own stance;
-  // someone who has not said Support or Oppose is asked first. A first-timer gets one step for the Capitol account.
+  // R-068 (9/27): everyone gets the walkthrough, whatever they think of the bill. The letter follows their own stance.
+  // R-167 (Nate 10/5): every new letter asks where they stand, even of someone who marked Support or Oppose on the bill
+  // page; that answer comes already chosen. A first-timer gets one step for the Capitol account.
   const mine = myStance(b.id);
-  x.stance = mine === 'support' || mine === 'oppose' ? mine : d?.stance || null;
-  x.askStance = !x.stance; x.acctStep = !me.capitolAcct;
-  x.screen = x.askStance ? 'stand' : 'know';
+  x.stance = mine === 'support' || mine === 'oppose' ? mine : d?.stance || null; x.fromBill = x.stance === mine ? mine : null;
+  x.askStance = true; x.acctStep = !me.capitolAcct;
+  x.screen = 'stand';
   // R-148: a letter kept from this bill's earlier hearing, or its twin's, comes first. A draft already started for this
   // hearing wins (picked up below), and remembers that it began as a letter sent again.
   if (!d) { const r = readyLetter(b, h, didKind(b, h, 'testimony')); if (r) againFrom(x, r, me); }
@@ -621,7 +624,7 @@ function saveDraft() {
 }
 
 // ---------------- rendering ----------------
-// The steps this person walks, in order: "Where do you stand?" only when they had not said, then the bill itself (9/28),
+// The steps this person walks, in order: "Where do you stand?" (every new letter since R-167), then the bill itself (9/28),
 // the Capitol account only the first time (R-068). "Part 2 of 5" counts these.
 // An email: the same steps up to the letter, then 'mail' (sending) instead of the Capitol account and the Capitol page.
 // The introduction has no bill, so it starts with About you.
@@ -678,8 +681,9 @@ function inner() {
 const screenHead = (step, title) => `<h3 class="hp-h" id="hp-sh" tabindex="-1"><span class="sr">Part ${stepNo(S.helper)} of ${seqOf(S.helper).length}: </span>${title}</h3>`;
 const welcomeBack = () => S.helper.resumed ? notice('ok', 'circle-check', `Welcome back. Your ${isMail(S.helper) ? 'email' : 'letter'} is saved right where you left it.`) : '';
 
-// Where do you stand? Asked only of someone who had not said Support or Oppose on the bill page (R-068: the letter used
-// to say "I strongly support" for a "Not sure yet"). The answer is theirs; HIPHI's position is said once, quietly.
+// Where do you stand? The letter says what the person thinks (R-068: it used to say "I strongly support" for a "Not sure
+// yet"). Asked at the start of every new letter (R-167, Nate 10/5), even of someone who marked Support or Oppose on the
+// bill page: that answer comes chosen, says where it came from, and Next keeps it. HIPHI's position is said once, quietly.
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
   const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
@@ -688,7 +692,7 @@ function standScreen() {
   return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
     ${w || name ? `<div class="card hp-kn"><div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div></div>` : ''}
     ${forgotNote(x)}
-    <p class="hp-sub hp-standsub">Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
+    <p class="hp-sub hp-standsub">${x.fromBill && x.stance === x.fromBill ? `You marked ${x.fromBill === 'oppose' ? 'Oppose' : 'Support'} on the bill page. ` : ''}Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
@@ -1584,11 +1588,12 @@ function onClick(e) {
     // Deleted with an Undo for the rest of this walkthrough (B-5): the letter is kept in hand until then.
     if (a === 'again-forget' && x.again) { x.forgotten = x.again; forgetLetter(x.again.rec.bill, x.again.rec.kind === 'email' ? 'email' : 'testimony'); }
     else app.onAct?.('again_new');
-    // Where they stand stays as the letter had it (their stance on the bill page wins); it is asked only if neither says.
+    // A new letter asks where they stand (R-167), the answer already chosen: their stance on the bill page, else the
+    // kept letter's.
     const mine = myStance(x.b.id);
     Object.assign(x, { again: null, update: false, check: null, letterReady: false, keepPts: false, mentions: [], points: [], pointsText: '', letter: '', edited: false, basis: '', stale: false });
-    x.stance = mine === 'support' || mine === 'oppose' ? mine : x.stance || null; x.askStance = !x.stance;
-    goTo(x.askStance ? 'stand' : 'know');
+    x.stance = mine === 'support' || mine === 'oppose' ? mine : x.stance || null; x.fromBill = x.stance === mine ? mine : null; x.askStance = true;
+    goTo('stand');
     if (a === 'again-forget') announce('Your saved letter is deleted.');
   }
   else if (a === 'again-undo') {
