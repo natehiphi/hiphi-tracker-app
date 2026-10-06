@@ -76,6 +76,7 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | issue (9/21) | **204** | 12 | **3** | 6 | 5 | 6 |
 | public | 390 | find | **258** | 13 | **2** | 6 | 5 | 2 |
 | public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
+| public | 390 | bill, 10/5 after R-178 ("Read more about the bill" under the summary, closed) | **237** | 11 | **9** | 2 | 6 | 6 |
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
 | public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
@@ -98,6 +99,7 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | issue (9/21) | **260** | 12 | **3** | 6 | 5 | 6 |
 | public | 1440 | find | **310** | 15 | **2** | 6 | 5 | 2 |
 | public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
+| public | 1440 | bill, 10/5 after R-178 (was 220/17/11 measured the same day) | **220** | 18 | **12** | 6 | 6 | 6 |
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
 | public | 1440 | alerts, the first visit's step 3 (10/4, R-146) | **184** | 7 | **6** | 1 | 5 | 6 |
