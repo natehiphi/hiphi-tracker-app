@@ -448,12 +448,18 @@ person".
 - **Before the sign-up** `goPanel`: the address, the room with its floor (`roomFloor`: Room 229, 2nd floor; the 0s are
   the chamber level), the time, "Anyone can sit in and listen", and what saying "I plan to go" brings (C-6).
 - **After it** `planBlock`: "Go to the hearing" leaves More ways to help (the done line has the plan and its Undo), and a
-  "How to get there" button sits under the done line, open right after the tap with focus on it. `goDirections` is the
+  "How to get there" button sits under the card's buttons (so "Write my testimony" stays near the top, A-13), open right
+  after the tap with focus on it, with "I can't go" beside it when the done line's Undo would take back a later step.
+  The plan lasts until the end of the hearing's day in Hawaiʻi (`goingOn` in core.js: hearings run late), then "You
+  went". **Going no longer settles a hearing while testimony is open** (`settledOn`: the 9/26 Share rule, R-005, now for
+  going too), so the card stays on Home with its deadline's warning and Home never says "all caught up" with testimony
+  due; once testimony is sent or closed, the card folds and Home's plan card carries the plan. `goDirections` is the
   one list everywhere: arrive by (20 minutes before), getting there (bus on Beretania, parking under the building from
   Miller Street and the state lots), getting in (photo ID, bag check), finding the room (`findRoom`, from the room
   number's first digit), how to speak (or "If you chose In person..." once testimony is sent, or "Listening" once it is
   closed), the Public Access Room, then Directions (Google Maps directions, counted as `directions`, backend 134) and
-  Add to my calendar. The facts and their sources are in one object, `GO`, at the top of that block.
+  Add to my calendar ("Saved. Open the file to add it to your calendar." after). The facts and their sources are in one
+  object, `GO`, at the top of that block; the help number never breaks across lines.
 - **Changes:** `hiphi_going` keeps each planned hearing's room and time in this browser (`noteGoing`); a later change of
   room or time is said on the card and on Home (`goChange`).
 - **Home** (`goingPlans`, `goingCard`, from `returnView` and `exploreView` in `pub/home.js`): hearings planned within a week and not already
@@ -469,5 +475,9 @@ person".
 - Not covered: a hearing on a bill the person does not follow is only on Home when it is loaded that visit (as the
   "Finish your testimony" card); the evening-before email with the directions comes with the rest of the public email
   (R-101).
-- Tests: `tests/going.py` (88 checks, phone and laptop: the sign-up, the list, focus, the calendar file, a reload, Home, a
-  changed room, a cancelled hearing moved, Undo, the walkthrough's last page for both kinds of person, Help); backend `tools/migration_tests/test_134.js`.
+- Reviewed by the ui-critic agent before publishing; its fixes are in (the deadline kept, the plan through the hearing day,
+  "I can't go", no toast over the done line, the words, the number on one line). Kept on purpose: the walkthrough's last
+  page shows the list open after its own "I plan to go" (the tap asked for it), and Home's session panel keeps "You
+  planned to go" in the person's record.
+- Tests: `tests/going.py` (100 checks, phone and laptop: the sign-up, the list, focus, the calendar file, a reload, Home
+  with testimony open and sent, "I can't go", a changed room, a cancelled hearing moved, the hearing's own day, the walkthrough's last page for both kinds of person, Help); backend `tools/migration_tests/test_134.js`.

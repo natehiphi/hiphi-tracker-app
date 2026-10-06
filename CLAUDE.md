@@ -398,7 +398,7 @@ python3 tests/drafts.py             # what each draft changed (R-060): the publi
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
 python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks
 node tests/titles_test.mjs          # the "I'm a..." list and the two-titles rules (R-147, pub/titles.js); 23 checks, no server needed
-python3 tests/going.py              # going to a hearing in person (R-142): "I plan to go", How to get there, Home's plan, the calendar file, the walkthrough's last page, a cancelled hearing, Help; 88 checks
+python3 tests/going.py              # going to a hearing in person (R-142): "I plan to go", How to get there, Home's plan, the calendar file, the walkthrough's last page, a cancelled hearing, Help; 100 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).
