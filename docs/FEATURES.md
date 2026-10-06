@@ -636,3 +636,30 @@ first visit. All five are working versions in the same frame as today's first vi
   issue of a bill they took a stand on, else the first they follow), their reason, at most one bill, one question that
   invites a reply ("Where do you stand on it?"), and one line for their other issues. No lists of bill numbers. Subject:
   "A question from your constituent in ...". Plans 2 and 3 are on hold as built (Nate 10/5), with his notes in R-164.
+
+## What the first ten assessments found, wave 1 (R-180; 5 Oct 2026, backend HANDOFF 3.119)
+
+- **Approving on the bill page** (staff, `staff/bill.js`): Approve and Request changes by the same rule as Review
+  (`canFirstApprove` / `canSecondApprove` in `staff/model.js`), with the stand-in note, so the approver can act where they
+  read the draft.
+- **Email can only be on on purpose** (`emailCfgOf` in `staff/data.js` and `app.js`): a failed read of the email settings
+  counts as paused, like a missing row (the database's `email_enabled()` agrees since migration 145); the sender form
+  never writes `enabled`, and Save re-reads and merges. Approved supporter emails say "Approved · held while email is
+  paused" until email is on.
+- **An ask that has run out** (`liveAsk`, by the Hawaiʻi date): leaves This week's asks and the share kit, and Today asks
+  for the next one.
+- **The staff sign-in** spans the page, centred, named "HIPHI Bill Tracker · for the HIPHI team", with a link to the public
+  tracker.
+- **Words kept whole and true** (public): "e-cigarettes" never breaks after "e-" on screen (`keepWordsWhole` in
+  `pub/ui.js`; copying and search see the plain words); the bill page's stance note says who sees the answer (signed in:
+  you and HIPHI staff; otherwise this device). `tests/words_test.mjs` grades every summary, talking point, issue line and
+  outlook (Flesch-Kincaid, against a baseline; more over grade 8 fails) and fails on "Hawaii" without the ʻokina or
+  "dead/died" in public words (DESIGN C-10).
+- **Only light** (`<meta name="color-scheme" content="only light">` on every page) until the tracker has a dark mode, so a
+  phone's forced dark mode does not repaint it.
+- **The finale** (all three endings): the words arrive first and every motion ends within 2 seconds; one `petals()` in
+  `pub/fx.js`. **`motion.html`** (private, not linked, noindex) plays nine named moments side by side in frames of the
+  practice copy, with Replay, Slow 1/4 and Reduce Motion: the place to judge motion (DESIGN A-10).
+- **Text alerts terms** (`text-terms.html`): what you get, how often, cost, how to stop, help, your number and delivery, the
+  page carriers ask for before texts can be registered; linked beside Privacy in the alerts box when it asks for a number.
+  Drafts for the lawyer (backend `docs/TEXT-MESSAGES.md`).
