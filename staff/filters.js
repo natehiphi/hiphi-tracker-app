@@ -85,7 +85,7 @@ function applyFilters(f) {
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.scope = okScope(f.scope) ? f.scope : 'me';
-  S.pris = new Set(ok(f.pris, [1, 2, 3]));
+  // A saved Priority filter is dropped: priority follows the position since R-175, and no saved view had one (10/5).
   S.poss = new Set(ok(f.poss, ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor', 'none']));
   S.stands = new Set(ok(f.stands, ['a', 'b', 'c', 'done', 'dead']));
   S.camps = new Set(ok(f.camps, S.campaigns.map(c => c.id)));
@@ -303,7 +303,6 @@ export function activeFilters() {
   const v = bl(), out = [];
   for (const o of v.owners) out.push([`owners:${o}`, ownerWord(o)]);
   for (const p of S.poss) out.push([`poss:${p}`, posWord(p)]);
-  for (const p of [...S.pris].sort()) out.push([`pris:${p}`, `P${p}`]);
   for (const s of S.stands) out.push([`stands:${s}`, STAND_WORD[s] || s]);
   if (S.stageF) out.push([`stageF:${S.stageF}`, `Stage: ${STAGES.find(([k]) => k === S.stageF)?.[1] || S.stageF}`]);
   for (const k of ['hearF', 'riskF', 'tripleF']) if (S[k]) out.push([k, FLAG_WORD[k]]);
@@ -330,7 +329,6 @@ function sheetBody() {
   // The team's seven positions, strongest first, then "No position yet" only while some bill here really has none.
   const posKeys = [...f.poss.opts.map(([k]) => k), ...(S.poss.has('none') || base.some(b => !b.position) ? ['none'] : [])];
   const poss = posKeys.map(k => opt(`poss:${k}`, posWord(k), cnt(base, 'poss', (x, b) => posIs(b, k)), { ic: POS_ICON[k === 'none' ? '' : k] })).join('');
-  const pris = [1, 2, 3].map(p => opt(`pris:${p}`, `P${p}`, cnt(base, 'pris', x => x.pri === p))).join('');
   const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => opt(`stands:${k}`, STAND_WORD[k], cnt(base, 'stands', (x, b) => standIs(x, b, k)), k === 'a' ? { title: 'At risk or waiting: no hearing yet' } : {})).join('');
   const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => n || S.stageF === k).map(([k, l, n]) => opt(`stageF:${k}`, l, n, { title: STAGE_GLOSS[k] || '' })).join('');
   const hear = opt('hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), { title: 'A hearing in the next 7 days' }) + opt('riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), { title: 'No hearing, and the deadline is a week away or less' });
@@ -350,7 +348,6 @@ function sheetBody() {
   return `<div class="bl-fs">
     ${group('Owner', owners, 'own')}
     ${group('Position', poss, 'pos')}
-    ${group('Priority', pris, 'pri')}
     ${group('Where it stands', stands, 'st')}
     ${fold('stage', 'Exact stage', stOn || '', `<div class="chips">${stages}</div>`)}
     ${group('Hearing', hear, 'hear')}

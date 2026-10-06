@@ -125,7 +125,7 @@ function billRow(x, c) {
   const { h, b } = x, own = advocate((S.assignments[b.id] || [])[0]);
   // The number first, as everywhere in Outreach and on Today: a two-line clamp on a narrow phone may cut the name, never the number.
   const name = `<b class="hr-num">${esc(billNum(b))}</b> ${b.nickname ? `<b>${esc(b.nickname)}</b>` : `<span class="hr-t">${esc(blurb(b, 110))}</span>`}`;
-  const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : first(own)) : 'No owner'}</span></span>`;
+  const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span><span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : first(own)) : 'No owner'}</span></span>`;
   const pub = publicWords(b);   // the public's response (R-117)
   let end = '';
   if (c.cancelled) end = '';   // the notice above says it once for the whole sitting (A-14)

@@ -120,6 +120,11 @@ function rollupOf(people) {
     with_story: people.filter(hasStory).length, quote: people.filter(p => hasStory(p) && (p.interests || []).includes('quote')).length,
     list: top(count).map(([k, n]) => ({ k, n })), own: top(own).slice(0, 50).map(([t, n]) => ({ t, n })) };
 }
+// Priority follows the position (R-175, Nate 10/5): strongly support is P1, every other position P2, no position none.
+// It is not its own choice any more; the database sets it the same way (migration 143), and this keeps the screen in
+// step with it, Undo included, without a reload.
+export const priorityOf = pos => !pos ? null : pos === 'strongly_support' ? 1 : 2;
+const withPriority = p => 'position' in p ? { ...p, priority: priorityOf(p.position) } : p;
 export const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
@@ -294,6 +299,7 @@ export const DB = {
     if (error) throw error;
   },
   async updateBill(billId, patch) {
+    patch = withPriority(patch);
     // Optimistic: patch local state first so the UI feels instant, but keep
     // a snapshot of just the touched keys so a rejected write can be undone.
     // Without this a failed save leaves the screen showing a value the
@@ -340,6 +346,7 @@ export const DB = {
     }
   },
   async bulkUpdate(ids, patch) {
+    patch = withPriority(patch);
     const before = new Map();
     ids.forEach(id => { const b = S.bills.find(x => x.id === id); if (!b) return;
       const snap = {}; for (const k of Object.keys(patch)) snap[k] = b[k];
@@ -1229,7 +1236,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261005d', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261005e', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
