@@ -116,13 +116,14 @@ export async function syncLetters() {
 // ---- what changed since the letter was written ----
 // { level: 'same' | 'changed' | 'big', since: [notes of each draft after the letter's, up to now], missing: the current
 //   draft has no note yet, big: [{ kind: 'tick' | 'position' | 'points' | 'stance', ... }], twin }
-export function letterCheck(b, rec, notes = []) {
+// stance: the answer given on "Where do you stand?" in this walkthrough (R-167), else their stance on the bill page.
+export function letterCheck(b, rec, notes = [], stance = null) {
   const twin = rec.bill !== b.id, now = b.current_version || '', then = twin ? '' : rec.draft || '';
   const since = twin ? [] : notes.filter(n => rankOf(b, n.version) > rankOf(b, then) && rankOf(b, n.version) <= rankOf(b, now))
     .sort((x, y) => rankOf(b, x.version) - rankOf(b, y.version));
   const big = since.filter(n => n.changes_letters).map(n => ({ kind: 'tick', version: n.version, summary: n.summary, note: n.letter_note || '' }));
-  const mine = myStance(b.id);
-  if ((mine === 'support' || mine === 'oppose') && rec.stance && mine !== rec.stance) big.push({ kind: 'stance', from: rec.stance, to: mine });
+  const mine = stance || myStance(b.id);
+  if (['support', 'oppose', 'comments'].includes(mine) && rec.stance && mine !== rec.stance) big.push({ kind: 'stance', from: rec.stance, to: mine });
   if (rec.ours && (b.hiphi_position || '') !== (rec.pos || '')) big.push({ kind: 'position', from: rec.pos, to: b.hiphi_position || '' });
   const pts = new Set((b.hiphi_points || []).filter(Boolean));
   if (!twin && (rec.points || []).some(p => !pts.has(p))) big.push({ kind: 'points' });

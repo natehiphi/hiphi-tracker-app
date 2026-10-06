@@ -58,9 +58,11 @@ and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`l
 staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
 is still taken, marked late).
 **Emails are walkthroughs too (R-079, R-080, 9/29):** `pub/helper.js` has modes `testimony` | `email` | `legislators` | `intro`
-(open with `app.openHelper` for testimony, `app.openMail(o)` for the rest). Every new letter or email opens on "Where do
-you stand?" (R-167, 10/5), the answer from the bill page already chosen and said ("You marked Support on the bill page."),
-Next keeping it; not a letter sent again, a reminder, or testimony handing over to an email (`tests/stand_back.py`).
+(open with `app.openHelper` for testimony, `app.openMail(o)` for the rest). Every letter or email about a bill opens on
+"Where do you stand?" (R-167, 10/5), a letter sent again and the reminder too, the earlier answer chosen and said ("You
+marked Support on the bill page.", "Your letter of Feb 17 said you support it."), Next keeping it; another answer before
+a letter sent again is checked against it (amber) and the letter is written for it (`restance`). Late testimony stays
+testimony: no "Email the chair instead" (`tests/stand_back.py`, `again.py`, `again_mail.py`, `email_walk.py`).
 Email: stance → know the bill → about you →
 the email (To, subject, message) → send → "Did you send it?" → Mahalo. The send step never asks: the message is copied,
 and "Open in my mail app" (mailto), "Open in Gmail" and "Open in Outlook.com" each open a filled-in email (phone: mail app

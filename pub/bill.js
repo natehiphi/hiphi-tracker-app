@@ -699,7 +699,7 @@ function whoDecides(b, x) {
   const c1 = plural ? 'chairs' : 'chair', from = `?from=${encodeURIComponent(billRef(b))}`;
   const hold = (x.kind === 'hold' || (x.waiting && x.pos && /oppose/.test(x.pos.verb))) && !x.differs;
   const intro = x.act ? (didKind(b, x.act.h, 'testimony') ? `Mahalo for your testimony. A short email to the ${c1} adds even more weight.`
-      : x.act.late ? `The deadline for written testimony has passed. A short email to the ${c1} is the quickest way to be heard now.`
+      : x.act.late ? 'The deadline for written testimony has passed. You can still send it; it will be marked late.'   // late testimony stays testimony (R-167)
       : x.kind === 'email' ? `The hearing is set. A short email to the ${c1} is a quick way to be heard. Testimony carries the most weight.`
       : 'The hearing is set. The best thing you can do now is send testimony.')
     : x.st.hearingState === 'held' ? `The committee heard it. The ${c1} will share what happens next.`
