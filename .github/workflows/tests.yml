@@ -12,6 +12,8 @@ on:
       - 'b/**'
       - 'i/**'
       - 'cal/**'
+      - 'pub/og/**'
+      - 'tools/og_wanted.json'
   workflow_dispatch:
 concurrency:
   group: tests-${{ github.ref }}

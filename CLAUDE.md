@@ -106,8 +106,11 @@ session is dark (until January 2027).
   (public views, public key; `--check` to preview, `--out DIR`), hourly January to June and daily otherwise by
   `.github/workflows/share-pages.yml`, which commits only when a page changed. `404.html` sends a `b/` or `i/` link
   whose page is not built yet to the tracker, `b/HB2121-testify` to `#/bill/HB2121/testify`. Each card has its ask's
-  picture (`pub/og/<ask>.png`, drawn by `python3 tools/og_images.py`; look at them before committing a redraw), since in
-  a text the picture is most of the card. The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
+  picture, and a bill with an issue that ask's picture for its issue (topic icon, colour, name): `pub/og/<ask>.jpg` and
+  `pub/og/<ask>/<issue>.jpg`, drawn by `python3 tools/og_images.py` (`--redraw` after a change to the look; look at them
+  before committing), only the ones `tools/og_wanted.json` lists as in use; the job draws new ones itself. In a text the
+  picture is most of the card. Testimony "takes a few minutes" everywhere (Nate 10/5); the walkthrough records how long
+  it took (`logTime`, backend 143). The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
   `demo/snapshot.json` at its March day, which its shares and Staff v2's practice copy use; they rebuild with the job,
   so a snapshot rebuild needs nothing more.
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
@@ -191,7 +194,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills` (My issues), `#/find`, `#/find/category/<key>`,
   `#/issue/<slug>`, `#/find/issue/<slug>` (the old coalition-group page), `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/allbills` (every bill HIPHI tracks, by hearing status, from a row on More, with a search and three filters: topic, HIPHI's position, where it stands; R-091), `#/help`, `#/signin`,
   `#/settings`, `#/privacy`; legacy `#bill=` links redirect). `pub/core.js` data + plain-language layer.
-  `pub/ui.js`, `pub/actions.js` shared parts. One module + CSS per screen: `start`, `home`, `mybills`, `find`,
+  `pub/ui.js`, `pub/actions.js` shared parts; `pub/billtext.js` "Read more about the bill" (the Legislature's summary,
+  HIPHI's reasons, the latest draft's whole text on the Capitol website), on the bill page and the letter's first step (R-178). One module + CSS per screen: `start`, `home`, `mybills`, `find`,
   `bill`, `people`, `more`, `helper`, `committees`, `allbills` (its rows are My issues' `billRow` with `pos` and `watch`,
   so it is a table from 1100px; it loads one session's tracked bills from `public_all_bills` and their hearings). `pub/art.js` drawings (`islands('oahu' | 'mauicounty' | …)`).
 - Design system `pub/base.css`: HIPHI blue ramp `--p50..--p900` (`--p700 #00698E`), orange for celebration
@@ -376,6 +380,10 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
   `is_public`, `public_summary`, `public_action`, `public_action_until`, `nickname`. The database grants UPDATE
   column by column; a new column needs a migration first (see backend 057) or saves fail with
   "permission denied". That is the design working.
+- **Priority is not a staff choice (R-175, Nate 10/5).** It follows the position: strongly support is P1, every other
+  position P2, no position none. The database sets it (backend migration 144, a trigger on `bills`); `DB.updateBill` and
+  `DB.bulkUpdate` add it to any patch with a position (`priorityOf` in `staff/data.js` and `app.js`) so the screen is
+  right at once. Never add a priority picker back; the position pickers say "Makes it P1" (`POS_SUB` in `staff/ui.js`).
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 
@@ -383,7 +391,7 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
 
 Serve first: `python3 -m http.server 8832` in this folder.
 ```bash
-python3 tests/public_journey.py     # public: 466 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season
+python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season, the session lesson's label inside its drawing (R-179)
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)

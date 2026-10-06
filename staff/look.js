@@ -80,7 +80,6 @@ function body(b, { list, index }) {
         <div class="lk-card"><h3>Team</h3>
           <dl class="lk-kv">
             <dt>Position</dt><dd>${esc(pos)}</dd>
-            <dt>Priority</dt><dd>${b.priority ? 'P' + b.priority : '—'}</dd>
             <dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : own.full_name)}` : 'Nobody yet'}</dd>
           </dl>
         </div>

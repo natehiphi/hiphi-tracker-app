@@ -2,7 +2,7 @@
 // moment an option was picked, with no Undo, and warned about hidden selections in a bar that scrolled away. Here a
 // change is picked, then applied with one button that names the count, the warning sits right above that button, and
 // the toast's Undo puts each bill's own previous value back. The writes are the current app's calls: DB.bulkUpdate for
-// position and priority, DB.setOwner per bill (in parallel), DB.addToCampaign, DB.addListBills, and DB.follow (the
+// position (priority follows it, R-175), DB.setOwner per bill (in parallel), DB.addToCampaign, DB.addListBills, and DB.follow (the
 // bill page's own Follow) per bill.
 // R-022, decision 9 made changing owners or positions for many bills at once an admin's job. R-106 (Nate, 9/30: "Add 1,
 // 2 and 3 to the new staff app") gives it back to everyone, as the old app had it: the database always allowed any staff
@@ -10,7 +10,7 @@
 // at once too - Kris follows a coalition's 28 live bills in one go instead of four clicks each.
 import { S, DB, esc, advocate, isOwner, hooks } from './data.js';
 import { billNum, FACTS } from './model.js';
-import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, POS_ICON, POS_WORD } from './ui.js';
+import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, POS_ICON, POS_WORD, POS_SUB } from './ui.js';
 import { bl, shownBills, wideNow, settled } from './filters.js';
 
 export const selIds = () => { const v = bl(); for (const id of v.sel) if (!S.bills.some(b => b.id === id)) v.sel.delete(id); return [...v.sel]; };
@@ -64,14 +64,15 @@ export function bulkBar() {
   if (wide) {
     const fp = followPlan(ids);
     const b = (label, act, ic, why) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act, 'aria-disabled': why ? 'true' : null, title: why || null } });
-    // Your own list first, then what changes the bills for everyone (position, priority, owner: R-106). Follow and Unfollow
+    // Your own list first, then what changes the bills for everyone (position and owner: R-106; priority follows the
+    // position, R-175). Follow and Unfollow
     // show when they would change something (as a mail app offers "Mark as read" or "Mark as unread" for what is
     // selected), so the bar stays one row at 1280; with nothing to change, Follow stays and says why.
     const follows = `${fp.on.length || !fp.off.length ? b('Follow', 'follow', 'bell', !fp.on.length && FOLLOW_WHY.on) : ''}${fp.off.length ? b('Unfollow', 'unfollow', 'bell-off') : ''}`;
     return `<div class="bl-bar bl-barw" role="toolbar" aria-label="Change the selected bills">
       ${iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
       ${follows}<span class="bl-barsep" aria-hidden="true"></span>
-      ${b('Set position', 'pos', 'thumbs-up')}${b('Set priority', 'pri', 'flag')}${b('Set owner', 'own', 'user-round')}${b('Add to…', 'add', 'plus')}</div>`;
+      ${b('Set position', 'pos', 'thumbs-up')}${b('Set owner', 'own', 'user-round')}${b('Add to…', 'add', 'plus')}</div>`;
   }
   return `<div class="bl-bar" role="toolbar" aria-label="Change the selected bills">
     ${iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' })}${count}
@@ -93,15 +94,15 @@ export function wireBulkBar(root) {
   });
 }
 
-// ---- Change… (phones): follow or unfollow, then position, priority or owner, then a value, then "Apply to N bills" ----
+// ---- Change… (phones): follow or unfollow, then position or owner, then a value, then "Apply to N bills" ----
 export function openSet() {
   const ids = selIds(), n = ids.length; if (!n) return;
   const fp = followPlan(ids);
   menuSheet({ title: `Change ${billsN(n)}`, items: [
     { label: 'Follow', icon: 'bell', sub: 'See them in your bills and get their updates', disabled: !fp.on.length, reason: FOLLOW_WHY.on, run: async () => { await settled(); follow(true); } },
     { label: 'Unfollow', icon: 'bell-off', sub: 'Stop seeing them in your bills', disabled: !fp.off.length, reason: FOLLOW_WHY.off, run: async () => { await settled(); follow(false); } },
+    // No Priority here: it follows the position (R-175, Nate 10/5).
     { label: 'Position', icon: 'thumbs-up', sub: 'Support, oppose, comments or monitor', run: async () => { await settled(); openValue('pos'); } },
-    { label: 'Priority', icon: 'flag', sub: 'P1, P2 or P3', run: async () => { await settled(); openValue('pri'); } },
     { label: 'Owner', icon: 'user-round', sub: 'Who looks after them', run: async () => { await settled(); openValue('own'); } },
   ] });
 }
@@ -119,8 +120,7 @@ async function follow(on) {
   } });
 }
 const FIELD = {
-  pos: { word: 'position', opts: () => ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor'].map(k => [k, POS_WORD[k], POS_ICON[k]]), cur: b => b.position || '' },
-  pri: { word: 'priority', opts: () => [['1', 'P1', 'flag', 'Top priority'], ['2', 'P2', 'flag'], ['3', 'P3', 'flag']], cur: b => String(b.priority || '') },
+  pos: { word: 'position', opts: () => ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor'].map(k => [k, POS_WORD[k], POS_ICON[k], POS_SUB[k]]), cur: b => b.position || '' },
   own: { word: 'owner', opts: () => [...S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name)).map(a => [a.id, a.id === S.me?.id ? `You (${a.full_name})` : a.full_name, 'user-round']), ['none', 'No owner', 'circle-dashed']], cur: b => (S.assignments[b.id] || [])[0] || 'none' },
 };
 // Selections survive filter changes, so a change can reach bills that are no longer on screen. Say so right above the
@@ -158,11 +158,10 @@ async function apply(field, v) {
       } });
       return;
     }
-    const key = field === 'pos' ? 'position' : 'priority', val = field === 'pos' ? v : Number(v);
-    const prev = new Map(bills.map(b => [b.id, b[key] ?? null]));
-    await DB.bulkUpdate(ids, { [key]: val });
+    const key = 'position', prev = new Map(bills.map(b => [b.id, b[key] ?? null]));
+    await DB.bulkUpdate(ids, { [key]: v });
     hooks.render();
-    toast(`${field === 'pos' ? `Position set to ${POS_WORD[v]}` : `Priority set to P${v}`} on ${billsN(ids.length)}.`, { undo: async () => {
+    toast(`Position set to ${POS_WORD[v]} on ${billsN(ids.length)}.`, { undo: async () => {
       // one write per distinct old value, so every bill gets back exactly what it had
       const by = new Map(); for (const [id, old] of prev) (by.get(old) || by.set(old, []).get(old)).push(id);
       await Promise.all([...by].map(([old, group]) => DB.bulkUpdate(group, { [key]: old })));

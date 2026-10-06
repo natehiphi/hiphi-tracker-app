@@ -22,9 +22,25 @@ jobs:
         with:
           node-version: 22
       - run: node tools/share_pages.mjs
+      # A card's issue picture not drawn yet (a new issue, or an issue shared with a new ask): draw it, then build the
+      # pages again so they use it (R-169; tools/og_images.py). Only then does the job install a browser.
+      - name: Any issue picture to draw?
+        id: pics
+        run: |
+          if node -e "process.exit(require('./tools/og_wanted.json').some(w => !w.have) ? 0 : 1)"; then echo "draw=yes" >> "$GITHUB_OUTPUT"; else echo "draw=no" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.pics.outputs.draw == 'yes'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: steps.pics.outputs.draw == 'yes'
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+          python tools/og_images.py --wanted-only
+          node tools/share_pages.mjs
       - name: Commit when a page changed
         run: |
-          git add b i cal
+          git add b i cal pub/og tools/og_wanted.json
           if git diff --cached --quiet; then echo "No change."; exit 0; fi
           git config user.name "share-pages bot"
           git config user.email "actions@users.noreply.github.com"

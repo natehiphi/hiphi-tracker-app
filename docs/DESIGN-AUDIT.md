@@ -76,14 +76,15 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | issue (9/21) | **204** | 12 | **3** | 6 | 5 | 6 |
 | public | 390 | find | **258** | 13 | **2** | 6 | 5 | 2 |
 | public | 390 | bill | **236** | 10 | **8** | 2 | 6 | 6 |
+| public | 390 | bill, 10/5 after R-178 ("Read more about the bill" under the summary, closed) | **237** | 11 | **9** | 2 | 6 | 6 |
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
 | public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | alerts, 10/5 after R-174 (one step larger) | 325 (5px over budget, under the limit: the larger sentence) | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | More > Get alerts (10/4, R-146) | **264** | 10 | **4** | 6 | 4 | 5 |
 | staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
-| staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |
-| staff2 | 390 | bill | **178** | 19 | **11** | 7 | 4 | 7 |
+| staff2 | 390 | bills (10/5, R-175) | 386 | 26 | **11** | 5 | 4 | 5 |
+| staff2 | 390 | bill (10/5, R-175: no Priority chip) | **178** | 15 | **7** | 7 | 4 | 7 |
 | staff2 | 390 | testimony tab (9/21) | **154** | 21 | **10** | 8 | 4 | 6 |
 | staff2 | 390 | legislators | **244** | 19 | **6** | 6 | 3 | 4 |
 | staff2 | 390 | outreach | **257** | 26 | **12** | 6 | 3 | 4 |
@@ -98,14 +99,15 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | issue (9/21) | **260** | 12 | **3** | 6 | 5 | 6 |
 | public | 1440 | find | **310** | 15 | **2** | 6 | 5 | 2 |
 | public | 1440 | bill | **220** | 17 | **10** | 6 | 6 | 6 |
+| public | 1440 | bill, 10/5 after R-178 (was 220/17/11 measured the same day) | **220** | 18 | **12** | 6 | 6 | 6 |
 | public | 1440 | legislators | 390 | 11 | **5** | 6 | 4 | 3 |
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
 | public | 1440 | alerts, the first visit's step 3 (10/4, R-146) | **184** | 7 | **6** | 1 | 5 | 6 |
 | public | 1440 | More > Get alerts (10/4, R-146) | **282** | 10 | **4** | 6 | 4 | 5 |
 | staff2 | 1440 | today (9/21, R-022) | **290** | 44 | **11** | 12 | 5 | 9 |
 | staff2 | 1440 | week (9/21, R-022) | 348 | 39 | **15** | 12 | 5 | 8 |
-| staff2 | 1440 | bills | 364 | 90 | **15** | 13 | 5 | 5 |
-| staff2 | 1440 | bill (9/21, R-022) | **269** | 37 | 24 | 13 | 5 | 7 |
+| staff2 | 1440 | bills (10/5, R-175: no Priority column) | 364 | 70 | **15** | 13 | 5 | 5 |
+| staff2 | 1440 | bill (10/5, R-175: no Priority picker) | **269** | 33 | 20 | 13 | 5 | 7 |
 | staff2 | 1440 | testimony tab (9/21) | 466 | 33 | 17 | 13 | 5 | 6 |
 | staff2 | 1440 | legislators | **294** | 35 | **7** | 11 | 4 | 4 |
 | staff2 | 1440 | outreach | **295** | 55 | **8** | 16 | 4 | 6 |

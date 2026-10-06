@@ -50,11 +50,13 @@ import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
+import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
 import { pickTitle, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
+import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -409,6 +411,7 @@ function openMail(o = {}) {
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
+  x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now();   // when they started (R-169), as for testimony
   S.helper = x;
   openMark.set({ mode, b: b?.id || '', h: h?.id || '', o });
   try {
@@ -457,6 +460,9 @@ function open(billId, hearingId) {
     x.back = x.screen === 3 && !!(d.away || d.back);
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
+  // When they started, for how long testimony really takes (R-169): kept with the draft for three hours, so a phone that
+  // reloads the page while they are on the Capitol site keeps it; their first testimony here or not (the Capitol account).
+  x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now(); x.firstTime = !me.capitolAcct;
   S.helper = x;
   openMark.set({ mode: 'testimony', b: b.id, h: h.id });
   // One history entry for the whole helper, so the phone's Back closes it. The entry under it keeps the scroll spot.
@@ -626,7 +632,7 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
+      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
     else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
     saveMe({ mail });
     return;
@@ -637,7 +643,7 @@ function saveDraft() {
   // Back on the bill step with a letter already saved: the points they changed go with it.
   else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, use: x.use || null, at: new Date().toISOString() };
   else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
+    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
@@ -710,10 +716,15 @@ const recDay = L => (L.kind === 'email' ? L.sent : L.at || L.sent) ? shortDay(L.
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
   const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
-  // What the bill does, right where they decide (Nate 9/29): nobody should have to pick a side on a number.
+  // What the bill does, right where they decide (Nate 9/29): nobody should have to pick a side on a number. One sentence
+  // is not enough for everyone (R-178, Nate 10/5), so "Read more about the bill" opens the Legislature's summary and the
+  // whole bill on the Capitol website (pub/billtext.js); it stays open when an answer is picked. HIPHI's reasons only
+  // where no "Get to know the bill" step follows, since that step lists them as points to add (A-14).
   const w = summaryOf(b), name = nick(b);
   return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
-    ${w || name ? `<div class="card hp-kn"><div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div></div>` : ''}
+    <div class="card hp-kn">${w || name ? `<div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div>` : ''}
+      <details class="hp-about" data-hp-about data-ab-more="${esc(b.id)}"${x.aboutOpen ? ' open' : ''}><summary>${icon('book-open')}<span>Read more about the bill</span>${icon('chevron-down', { cls: 'hp-chev' })}</summary>
+        ${readMore(b, { shown: w, h: 'h4', pfx: 'hp-ab', quiet: true, reasons: !seqOf(x).includes('know') })}</details></div>
     ${forgotNote(x)}
     <p class="hp-sub hp-standsub">${stanceFrom(x)}Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
@@ -737,7 +748,7 @@ const shortDay = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HS
 function changesBox(x) {
   const c = x.check, { b, h } = x;
   if (!c) return `<p class="hp-quiet hp-checking" role="status">${icon('loader-circle')}<span>Checking whether the bill has changed…</span></p>`;
-  const read = capitolLink(b, h, 'Read the bill as it is now', { kind: 'text', sm: true, cls: 'hp-inl' });
+  const read = readBill(b, 'Read the bill as it is now');
   const again = btn('Go over the bill and talking points again', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'again-update' } });
   const notes = list => list.length ? `<ul class="hp-drafts" role="list">${list.map(n => `<li><b>${esc(draftName(n.version))}:</b> ${esc(n.summary)}</li>`).join('')}</ul>` : '';
   const missing = c.missing ? `<p>We haven’t summed up what ${esc(draftName(c.now))} changed yet.${posInfo(b) ? ` ${esc(posInfo(b).text)} the bill as it is now.` : ''}</p>` : '';
@@ -862,7 +873,7 @@ function knowScreen() {
     <div class="card hp-kn">
       <div><p class="hp-knh">${esc(n)}${name ? ` · ${esc(name)}` : ''}</p>
         <p class="hp-knw">${esc(w || cleanDesc(b.title) || '')}</p>
-        ${capitolLink(b, h, 'Read the bill on the Capitol website', { kind: 'text', sm: true, cls: 'hp-inl' })}</div>
+        ${readBill(b, 'Read the whole bill')}</div>
       ${p ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(p.text)} it.${act ? ' ' + esc(act) : ''}</p></div>` : ''}
       ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
       ${isMail(x) ? whyNow(x) : ''}
@@ -1123,6 +1134,8 @@ const capitolNotes = saved => `<div class="hp-notes">
     <p class="note">${icon('phone')}<span>Stuck? The Public Access Room helps for free: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a></span></p>
   </div>`;
 const capitolLink = (b, h, label, o = {}) => btn(label, { iconEnd: 'external-link', href: capitolUrl(b, h), ...o, attrs: { target: '_blank', rel: 'noopener', 'data-hp': 'capitol' } });
+// The bill's own words as they are now, its latest draft's text on the Capitol website (R-178), not its status page.
+const readBill = (b, label) => btn(label, { kind: 'text', sm: true, cls: 'hp-inl', iconEnd: 'external-link', href: billTextUrl(b), attrs: { target: '_blank', rel: 'noopener', 'data-ab-go': 'text' } });
 function sendScreen() {
   const x = S.helper, { b, h } = x;
   // "Open the Capitol page" is the footer's main button, so the checklist does not repeat it (assessment, 9/19).
@@ -1406,6 +1419,7 @@ async function confirmSent() {
   x.before = earned();   // [key, label] pairs; newMilestones() compares by key
   try { x.first = !!(await markDone(x.b.id, x.h.id, 'testimony', true, { quiet: true }))?.firstTestimony; }
   catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
+  if (!x.again && x.t0) logTime('testimony', (Date.now() - x.t0) / 1000, x.firstTime);   // R-169: a letter sent again starts written
   // Kept for the bill's next hearing, here and with the account (R-148). A letter sent again is counted as such too.
   try { keepLetter(recOf(x)); } catch { /* the testimony counts either way */ }
   if (x.again) app.onAct?.('again_sent');
@@ -1465,6 +1479,7 @@ async function confirmMail() {
     else {
       // A chair email stays 'email'; one to your own legislators is 'legislators' (Nate 9/29: "Count the emails separately").
       await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', x.mode === 'legislators' ? 'legislators' : 'email', true, { quiet: true });
+      if (x.mode === 'email' && !x.again && !x.remind && x.t0) logTime('email', (Date.now() - x.t0) / 1000);   // a chair's email (R-169)
       if (x.mode === 'email' && !x.h && x.code) S.done.add(askMark(x.b, x.code));
       if (x.mode === 'legislators' && x.moment?.key) S.done.add(askMark(x.b, x.moment.key));
       if (x.remind && x.code) S.done.add(askMark(x.b, 'remind:' + x.code));   // the one reminder for this committee (R-153)
@@ -1680,6 +1695,7 @@ function listen(d) {
   d.addEventListener('submit', e => { if (e.target.id === 'hp-form') { e.preventDefault(); toLetter(); } });
   d.addEventListener('focusin', e => { if (S.helper && e.target.id) S.helper.focusId = e.target.id; });
   d.addEventListener('scroll', e => { if (S.helper && e.target.classList?.contains('hp-body')) S.helper.scrollTop = e.target.scrollTop; }, true);
+  d.addEventListener('toggle', e => { if (S.helper && e.target.matches?.('details[data-hp-about]')) S.helper.aboutOpen = e.target.open; }, true);   // kept through redraws (R-178)
 }
 // After a reload with the helper open, open it again once its hearing is known (the bill page may still be loading).
 // Not when this page was just opened from a link someone shared (?via=, not a reload): a walkthrough left open earlier in

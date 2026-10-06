@@ -122,12 +122,13 @@
 .lx-journey[data-beat="1"] .lx-jnew { opacity: 1; }
 .lx-journey:is([data-beat="2"], [data-beat="3"], [data-beat="4"]) .lx-jstop { opacity: 1; transition-delay: .6s; }
 .lx-journey[data-beat="3"] .lx-jcross { opacity: 1; transition-delay: .2s; }
-/* one label under the bill: its number, then its status in the bill page's own words */
-.lx-jbill { position: absolute; transform: translate(-50%, 0); display: grid; justify-items: center; padding: 1px 10px; background: var(--n0); border: 1px solid var(--p300);
-  border-radius: 12px; font: 700 var(--t13)/19px var(--font); color: var(--p900); white-space: nowrap; pointer-events: none; box-shadow: var(--sh1);
-  transition: opacity .2s, border-color .2s; }
+/* one label under the bill: its number, then its status in the bill page's own words (a committee by its chamber only).
+   Never wider than the drawing: words that would not fit on one line wrap inside it rather than run off its edges (R-179). */
+.lx-jbill { position: absolute; transform: translate(-50%, 0); display: grid; justify-items: center; width: max-content; max-width: calc(100% - 8px); padding: 1px 10px;
+  background: var(--n0); border: 1px solid var(--p300); border-radius: 12px; font: 700 var(--t13)/19px var(--font); color: var(--p900); white-space: nowrap;
+  pointer-events: none; box-shadow: var(--sh1); transition: opacity .2s, border-color .2s; }
 .lx-jbill b { font-weight: 700; color: var(--n900); }
-.lx-jbill .lx-jst { display: none; font-weight: 700; color: var(--n700); }
+.lx-jbill .lx-jst { display: none; font-weight: 700; color: var(--n700); white-space: normal; text-align: center; text-wrap: balance; }
 .lx-jbill.lx-st-on .lx-jst { display: block; }
 .lx-jbill.lx-play .lx-jst { animation: lx-rise .3s var(--ease) both; }
 .lx-jbill.lx-ok { border-color: var(--ok-text); }

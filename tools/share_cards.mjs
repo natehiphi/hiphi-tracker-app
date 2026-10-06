@@ -91,7 +91,7 @@ export function cardFor(b, ask, state, ctx = {}) {
   if (ask === 'testify') {
     const h = state.open, due = h && h.testimony_deadline && new Date(h.testimony_deadline).getTime() > now ? h.testimony_deadline : null;
     return done(h ? `Speak up by ${dayWords(due || h.scheduled_at)}: ${named}` : `Speak up: ${named}`,
-      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} About 10 minutes; we help you write it.`, 'testify');
+      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes a few minutes; we help you write it.`, 'testify');
   }
   if (ask === 'ask') {
     const where = st.phase === 'committee' && st.committee ? ` in ${committeeWords(st.committee, ctx.committees)}` : '';

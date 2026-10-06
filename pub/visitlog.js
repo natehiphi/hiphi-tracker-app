@@ -16,6 +16,7 @@
 //   partnerWelcome(slug)          the partner's welcome line (public_partners), or null; asked once per slug
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
 //   logAct(kind)                  an action marked done, its kind only (078)
+//   logTime(act, seconds, first)  how long a letter took, from opening the walkthrough to sending it (143)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
 import { variantInfo, setAbSink, abEvent } from './variant.js';
 
@@ -182,11 +183,27 @@ export function logAct(kind) {
     // R-156 (130): titles or a story saved, a letter sent with titles or with the saved story, the ask "How you'll help"
     // chose shown and taken, and "Add to Home Screen" steps opened from the profile.
     // R-142 (134): 'directions', the map's directions to the Capitol opened by someone who plans to go to a hearing.
+    // R-178 (142): reading the bill: 'bill_more' (Read more about the bill), 'bill_text' (the whole bill at the Capitol) and
+    // 'bill_capitol' (the bill's Capitol page), from pub/billtext.js.
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment', 'restore', 'calendar',
       'again_open', 'again_sent', 'again_warned', 'again_fixed', 'again_new', 'mail_again_open', 'mail_again_sent', 'mail_reminder_sent',
-      'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how', 'directions'].includes(kind)) return Promise.resolve(false);
+      'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how', 'directions',
+      'bill_more', 'bill_text', 'bill_capitol'].includes(kind)) return Promise.resolve(false);
     if (['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
     return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
+  } catch { return Promise.resolve(false); }
+}
+
+// How long speaking up takes (R-169, backend migration 143; Nate 10/5: "Yes let's record the time."): the screens say
+// testimony takes "a few minutes" and a chair's email "about 2 minutes", and this checks them. Only the kind, the seconds
+// from opening the walkthrough to saying it was sent, whether it was the first testimony on this device, the device kind
+// and the A/B version: no id, no bill, no time of day. Nothing under the privacy signal, from a test run or the sandbox.
+export function logTime(act, seconds, firstTime) {
+  try {
+    if (DEMO || quiet() || !['testimony', 'email'].includes(act) || !(seconds >= 0)) return Promise.resolve(false);
+    const p = { act, seconds: Math.min(Math.round(seconds), 3600), device: device(), variant: variantInfo().variant };
+    if (act === 'testimony' && typeof firstTime === 'boolean') p.first_time = firstTime;
+    return supa().then(sb => sb.rpc('log_act_time', { p })).then(r => !r.error, () => false);
   } catch { return Promise.resolve(false); }
 }
 

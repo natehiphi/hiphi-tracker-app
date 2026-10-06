@@ -197,6 +197,20 @@ practice copy's own share pages**, `b/demo/` and `i/demo/`, built from `demo/sna
 by the same job, `noindex`, opening `track.html?demo=1`: the practice copy (in session; not `?season=off`) and Staff v2's
 practice copy share them (`billShareUrl`, `issueShareUrl`, `sharePageUrl`), so a share made there shows the in-session
 card now; `404.html` sends a `b/demo/` link to the practice copy.
+Then Nate's picks (10/5) from a debate of the words and three picture directions: **testimony takes "a few minutes"** on
+every screen (the bill page's newcomer card, More ways to help, the cards, onboarding plan 4 and the new onboarding's sample
+alerts; emails stay "about 2 minutes"), and **the time is recorded**: `logTime` in visitlog.js sends the seconds from
+opening the walkthrough to sending (testimony, not one sent again; a chair's email), first testimony on the device or not,
+device and version, to `log_act_time` (backend migration 143, `act_times`; staff read `act_times_weekly`), the start kept
+with the draft for three hours so a reload on the Capitol site keeps it. **Pictures per ask and per issue**: each ask its
+own wash, label icon and drawing (testimony orange with neighbours speaking up, "Testimony due soon / Speak up before the
+vote"; a hearing blue with a calendar, "Needs a hearing / Help this bill get a hearing"; the floor vote violet, the final
+version teal, the Governor green with the Capitol, following grey with a bell, a law gold with flowers), and for a bill
+with an issue the same ask with the topic's icon and colour and the issue's name in place of the drawing
+(`pub/og/<ask>/<issue>.jpg`, drawn only when a page needs one: `tools/og_wanted.json` lists them, the job draws the missing
+ones and builds again). JPEG at quality 86 (about 60 KB; the PNGs were 185 KB). Tobacco's topic icon is the crossed-out
+cigarette. "Testimony" stays once, with plain words around it; the title under the picture keeps the ask first; "HIPHI"
+stays.
 
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen
@@ -219,7 +233,9 @@ has not picked its committees yet stays one "Senate committees" step. Committees
 not "Senate Water"; `cmteBrief`): "Now: Senate Water, Land, Culture and the Arts, 1st of 2 Senate committees" or "Stopped
 in House Health and Human Services" (the committee from `stoppedAt` in `stops.js`); two or more heard together are joined
 with "with" when a name has its own "and" (more than two such: "with 3 other committees"); a retired code stays as its code.
-The lessons and the tour read those words, so change them there. "See all steps" links each committee's page; More
+The lessons and the tour read those words, so change them there. The session lesson's drawing is too small for a full
+name, so its label under the bill says the same place by chamber only (`pic` beside `rest`, read through `railBrief()`: "In
+the 1st of 2 Senate committees", "Stopped in House committees"; R-179); new words go into both. "See all steps" links each committee's page; More
 details no longer repeats the list. From nine dots they shrink; on wide screens (from seven dots) the names alternate
 above and below the line, in a subgrid whose top row grows to the longest name. `tests/pathway.py` checks the dots, the
 names, the links and that no two names overlap.

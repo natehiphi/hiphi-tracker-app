@@ -47,8 +47,9 @@ const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; };
 
 // No og:url and no <meta http-equiv="refresh"> (R-169): see the top. Someone whose browser runs no script gets the link.
-// image: the ask's picture (pub/og/<image>.png, tools/og_images.py). noindex: the practice copy's pages stay out of search.
-function page({ title, desc, to, image = '', noindex = false }) {
+// image: the picture's path under pub/ ('og/testify/<issue>.jpg', 'og/testify.jpg', 'og.png'; tools/og_images.py).
+// noindex: the practice copy's pages stay out of search.
+function page({ title, desc, to, image = 'og.png', noindex = false }) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -58,7 +59,7 @@ function page({ title, desc, to, image = '', noindex = false }) {
 <meta property="og:site_name" content="Hawaiʻi Public Health Institute">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
-${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta property="og:image" content="${SITE}pub/${image ? `og/${image}` : 'og'}.png">
+${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta property="og:image" content="${SITE}pub/${image}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -87,7 +88,7 @@ const deadlines = await rows('public_deadlines?select=session_year,key,label,dea
 const committees = Object.fromEntries((await rows('public_committees?select=code,name,chamber')).map(c => [c.code, c]));
 // The issue's id too: the bills name their issues by it (the calendar feeds below matched on it and, without it, never
 // held an event, 10/5).
-const issues = await rows('public_issues?select=id,slug,name,description,bill_ids');
+const issues = await rows('public_issues?select=id,slug,name,description,category,bill_ids');   // category: the issue picture's topic
 // A deadline by its key for this bill's session, or the budget bills' own row that replaces it (pub/core.js deadlineOf).
 const deadlineFor = b => key => {
   const mine = deadlines.filter(d => +d.session_year === +b.session_year);
@@ -97,6 +98,17 @@ const deadlineFor = b => key => {
 const hearingsBy = new Map();
 for (const h of allHearings) { if (!hearingsBy.has(h.bill_id)) hearingsBy.set(h.bill_id, []); hearingsBy.get(h.bill_id).push(h); }
 const want = new Map();   // file -> html
+// The card's picture (R-169, Nate's pick 10/5): the ask's look for this issue, pub/og/<ask>/<issue>.jpg, once drawn; until
+// then the ask's own. tools/og_wanted.json lists every issue picture in use, each marked drawn or not, for
+// tools/og_images.py (the job draws the missing ones, then builds the pages again; --redraw redraws them all). A bill
+// with no issue has the ask's own.
+const wanted = new Map();
+const pic = (img, issue) => {
+  if (!issue || !/^[a-z0-9-]+$/.test(issue.slug || '')) return `og/${img}.jpg`;
+  const have = existsSync(join(ROOT, 'pub', 'og', img, `${issue.slug}.jpg`));
+  wanted.set(`${img}/${issue.slug}`, { img, slug: issue.slug, name: issue.name, category: issue.category || (issue.categories || [])[0] || '', have });
+  return have ? `og/${img}/${issue.slug}.jpg` : `og/${img}.jpg`;
+};
 // The bills' and issues' pages for one set of data. The live site's go in b/ and i/; the practice copy's in b/demo/ and
 // i/demo/ (below), opening the practice copy (?demo=1) and read at its own day, so a share made there shows a real card.
 function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, now, dir = '', query = 'via=share', noindex = false }) {
@@ -109,15 +121,15 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
     const ctx = { committees, issue: (b.hiphi_issues || []).map(id => issueById.get(id)).find(Boolean) || null };
     const card = ask => cardFor(b, ask, state, ctx);
     // b/HB1573: the bill's ask of the moment (links made before R-169, staff copies, the 404 page's guesses).
-    const cur = card(state.ask);
-    want.set(`b/${sub}${n}.html`, page({ ...cur, to: goTo(1, cur.hash), noindex }));
-    if (y && !dir) want.set(`b/${y}/${n}.html`, page({ ...cur, to: goTo(2, cur.hash) }));
+    const cur = card(state.ask), curPic = pic(cur.image, ctx.issue);
+    want.set(`b/${sub}${n}.html`, page({ ...cur, image: curPic, to: goTo(1, cur.hash), noindex }));
+    if (y && !dir) want.set(`b/${y}/${n}.html`, page({ ...cur, image: curPic, to: goTo(2, cur.hash) }));
     // One page per ask. A live ask is always this session's bill, so it lives at the short address only; following is
     // shared for bills from earlier sessions too, so it is at both.
     for (const ask of asksFor(b, state)) {
-      const c = card(ask);
-      want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, to: goTo(1, c.hash), noindex }));
-      if (y && !dir && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, to: goTo(2, c.hash) }));
+      const c = card(ask), cPic = pic(c.image, ctx.issue);
+      want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(1, c.hash), noindex }));
+      if (y && !dir && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(2, c.hash) }));
     }
   }
   for (const i of issues) {
@@ -125,7 +137,7 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
     const n = (i.bill_ids || []).length;
     const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
     // The ask first (R-169): following is what an issue's link asks, and its page's main button.
-    want.set(`i/${sub}${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `${'../'.repeat(1 + up)}track.html?${query}#/issue/${i.slug}`, image: 'follow', noindex }));
+    want.set(`i/${sub}${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `${'../'.repeat(1 + up)}track.html?${query}#/issue/${i.slug}`, image: pic('follow', i), noindex }));
     if (!dir) for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
   }
 }
@@ -194,4 +206,8 @@ for (const [f, html] of want) {
   if (old === html) continue; old === null ? added++ : changed++;
   if (!CHECK) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, html); }
 }
+// Every issue picture in use, for tools/og_images.py.
+const wantedList = [...wanted.values()].sort((a, b) => `${a.img}/${a.slug}`.localeCompare(`${b.img}/${b.slug}`));
+if (!CHECK) writeFileSync(join(ROOT, 'tools', 'og_wanted.json'), JSON.stringify(wantedList, null, 1) + '\n');
+console.log(`${wantedList.length} issue pictures in use, ${wantedList.filter(w => !w.have).length} to draw`);
 console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed${CHECK ? ' (check only, nothing written)' : ''}`);

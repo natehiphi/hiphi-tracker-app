@@ -38,7 +38,7 @@ with sync_playwright() as p:
     r = rows(pg, k); check(r[:3] == ['Send a quick email · 2 min', 'Share with a friend · 1 min', 'Go to the hearing'], f'before testimony, "More ways to help" is today\'s: both versions are the same until it is sent ({r})')
     did(pg, k, 'testimony')
     check(primary(pg, k).startswith('Send a quick email'), f'after testimony, the email to the chair leads ({primary(pg, k)!r})')
-    r = rows(pg, k); check(r[:3] == ['Write testimony · 5 min', 'Go to the hearing', 'Share with a friend · 1 min'], f'after testimony, "More ways to help" in order of weight ({r})')
+    r = rows(pg, k); check(r[:3] == ['Write testimony', 'Go to the hearing', 'Share with a friend · 1 min'], f'after testimony, "More ways to help" in order of weight ({r})')
     did(pg, k, 'email')
     check(primary(pg, k) == 'Go to the hearing', f'then going in person ({primary(pg, k)!r})')
     did(pg, k, 'attend')

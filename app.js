@@ -142,6 +142,11 @@ async function allRows(make) {
     (_, i) => make().range(PAGE * (i + 1), PAGE * (i + 2) - 1)));
   return rest.find(r => r.error) || { ...first, data: first.data.concat(...rest.map(r => r.data)) };
 }
+// Priority follows the position (R-175, Nate 10/5): strongly support is P1, every other position P2, no position none.
+// It is not its own choice any more; the database sets it the same way (migration 143), and this keeps the screen in
+// step with it, Undo included, without a reload.
+const priorityOf = pos => !pos ? null : pos === 'strongly_support' ? 1 : 2;
+const withPriority = p => 'position' in p ? { ...p, priority: priorityOf(p.position) } : p;
 const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
@@ -313,6 +318,7 @@ const DB = {
     if (error) throw error;
   },
   async updateBill(billId, patch) {
+    patch = withPriority(patch);
     // Optimistic: patch local state first so the UI feels instant, but keep
     // a snapshot of just the touched keys so a rejected write can be undone.
     // Without this a failed save leaves the screen showing a value the
@@ -358,6 +364,7 @@ const DB = {
     }
   },
   async bulkUpdate(ids, patch) {
+    patch = withPriority(patch);
     const before = new Map();
     ids.forEach(id => { const b = S.bills.find(x => x.id === id); if (!b) return;
       const snap = {}; for (const k of Object.keys(patch)) snap[k] = b[k];
@@ -783,7 +790,7 @@ function snapshotScenario(snap) {
 }
 let DEMO_TL = [];
 async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261005e', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261005f', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
@@ -1715,9 +1722,8 @@ function cell(b, c) {
     case 'position': if (!S.tableEdit) return `<td class="plain">${b.position ? `<span class="chipx ${POS_CLS[b.position] || 'c-gray'}">${esc(POSITIONS.find(p => p[0] === b.position)?.[1] || b.position)}</span>` : '<span class="muted">—</span>'}</td>`;
       return `<td><select data-pos="${b.id}">
       ${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></td>`;
-    case 'pri': if (!S.tableEdit) return `<td class="plain">${b.priority ? `P${b.priority}` : '<span class="muted">—</span>'}</td>`;
-      return `<td><select data-pri="${b.id}"><option value="">—</option>
-      ${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></td>`;
+    // Read only, in edit mode too: the priority follows the position (R-175, Nate 10/5).
+    case 'pri': return `<td class="plain" title="Follows the position">${b.priority ? `P${b.priority}` : '<span class="muted">—</span>'}</td>`;
     case 'last': return `<td class="lastc" style="font-size:12px;max-width:220px"><span class="lat"${` title="${esc(b.last_action || '')}"`}>${esc(b.last_action||'—')}</span>
       <div class="bsub">${fmtDate(b.last_action_date,{year:'2-digit'})}</div></td>`;
     case 'pulse': return `<td>${pulseCell(b)}</td>`;
@@ -1751,8 +1757,6 @@ function bulkBar() {
     <b>${n} selected</b>
     <select id="bk-pos"><option value="">Set position…</option>
       ${POSITIONS.slice(1).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select>
-    <select id="bk-pri"><option value="">Set priority…</option>
-      ${[1,2,3].map(p => `<option value="${p}">P${p}</option>`).join('')}</select>
     <select id="bk-own"><option value="">Assign owner…</option>
       ${S.advocates.map(a => `<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}
       <option value="__none">Unassign</option></select>
@@ -2160,7 +2164,7 @@ function renderSettings() {
     </section>
     <section id="st-import">
       <h2>Import the tracked list <span class="tag a">admin</span></h2>
-      <p class="tok">Upload the <b>All Tracked Bills</b> CSV export from the team spreadsheet (columns: Bill Number, Coalition, Coalition Position). The bills in the file become the tracked list and anything else is untracked; Strongly Support / Strongly Oppose become P1, everything else P2; the owner follows the coalition. You see a summary before anything changes.</p>
+      <p class="tok">Upload the <b>All Tracked Bills</b> CSV export from the team spreadsheet (columns: Bill Number, Coalition, Coalition Position). The bills in the file become the tracked list and anything else is untracked; Strongly Support becomes P1, everything else P2; the owner follows the coalition. You see a summary before anything changes.</p>
       <input type="file" id="st-csv" accept=".csv,text/csv"><div id="st-import-preview"></div>
     </section>
     <section id="st-conn">
@@ -3890,7 +3894,7 @@ function drawerHTML(b) {
         <div id="tlmount" class="tlmount">Loading…</div>`)}
       ${pane('team', `<div class="teamgrid">
           <div><label>Position</label><select id="d-pos">${POSITIONS.map(([v,l])=>`<option value="${v}" ${(b.position||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
-          <div><label>Priority</label><select id="d-pri"><option value="">—</option>${[1,2,3].map(p=>`<option ${b.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
+          <div><label>Priority</label><div title="Strongly support is P1, every other position P2">${b.priority ? `P${b.priority}` : '—'} <span class="muted">· follows the position</span></div></div>
           <div><label>Owner</label><select id="d-own"><option value="">—</option>${S.advocates.map(a=>`<option value="${a.id}" ${(S.assignments[b.id]||[])[0]===a.id?'selected':''}>${esc(a.full_name)}</option>`).join('')}</select></div>
           ${''}
         </div>
@@ -4157,8 +4161,6 @@ function wire() {
   const bulkGo = async (fn, msg) => { try { await fn(); toast(msg); render(); } catch (e) { toast(e.message, true); } };
   $('#bk-pos') && ($('#bk-pos').onchange = e => { const v = e.target.value; if (v)
     bulkGo(() => DB.bulkUpdate([...S.selected], { position: v }), `Position set on ${S.selected.size} bills`); });
-  $('#bk-pri') && ($('#bk-pri').onchange = e => { const v = e.target.value; if (v)
-    bulkGo(() => DB.bulkUpdate([...S.selected], { priority: +v }), `Priority set on ${S.selected.size} bills`); });
   $('#bk-own') && ($('#bk-own').onchange = e => { const v = e.target.value; if (v)
     bulkGo(async () => { for (const id of S.selected) await DB.setOwner(id, v === '__none' ? null : v); },
       v === '__none' ? `Unassigned ${S.selected.size} bills` : `Owner set on ${S.selected.size} bills`); });
@@ -4177,7 +4179,6 @@ function wire() {
     el.onchange = e => fn(el, e).then(() => toast('Saved')).catch(err => toast(err.message, true));
   });
   upd('[data-pos]', el => DB.updateBill(el.dataset.pos, { position: el.value || null }));
-  upd('[data-pri]', el => DB.updateBill(el.dataset.pri, { priority: el.value ? +el.value : null }));
   upd('[data-own]', el => DB.setOwner(el.dataset.own, el.value || null));
   document.querySelectorAll('[data-logt]').forEach(el => el.onclick = e => {
     e.stopPropagation(); S.logType = 'testimony'; openDrawer(el.dataset.logt);
@@ -4264,7 +4265,6 @@ function wireDrawer() {
     .then(() => { S.drawerOpen.teamSaved = Date.now(); toast(msg || 'Saved'); render(); })
     .catch(e => toast(e.message, true));
   $('#d-pos').onchange = e => save({ position: e.target.value || null });
-  $('#d-pri').onchange = e => save({ priority: e.target.value ? +e.target.value : null });
   $('#d-so').onchange = e => save({ stage_override: e.target.value || null });
   $('#d-own').onchange = e => DB.setOwner(b.id, e.target.value || null)
     .then(() => { S.drawerOpen.teamSaved = Date.now(); toast('Owner updated'); render(); }).catch(er => toast(er.message, true));

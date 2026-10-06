@@ -22,6 +22,7 @@ import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { legMoments } from './speakup.js';   // the floor vote's email to their own legislator (R-169)
 import { openAddTo, onListsLine } from './mylists.js';
+import { aboutBill, capitolUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -39,8 +40,6 @@ function myDistricts() {
 }
 const mineLabel = (l, d) => !l || !d ? '' : l.chamber === 'S' && +l.district === +d.senate ? 'Your senator'
   : l.chamber === 'H' && +l.district === +d.house ? 'Your representative' : '';
-// The Capitol's page for the bill; built from the number when the row has no link.
-const capitolUrl = b => b.state_url || (m => m ? `https://capitol.hawaii.gov/session/measure_indiv.aspx?billtype=${m[1]}&billnumber=${m[2]}&year=${b.session_year || sessionInfo().yr}` : 'https://capitol.hawaii.gov')(/^([A-Z]+)(\d+)$/.exec(b.bill_number));
 // A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
 // pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
 // tomorrow. Other bills, and the sandbox, share the tracker's own address.
@@ -446,24 +445,34 @@ function railInfo(b, x) {
     else steps.push({ name: conAm ? 'Constitution' : 'Law', desc: conAm ? 'If the voters say yes, it becomes part of the Hawaiʻi constitution.' : 'It becomes a Hawaiʻi law.' });
   });
   if (x.law) idx = steps.length - 1;
-  // The words under the dots: "Now: House Health, 1st of 3 House committees".
-  const s = steps[idx], C = N[s.ch] || N[ci <= 2 ? o : t];
-  let lead = 'Now: ', rest;
+  // The words under the dots: "Now: House Health, 1st of 3 House committees". `pic` is the same place for a small
+  // picture, the committee by its chamber and number only ("In the 1st of 2 Senate committees"), as these words were before
+  // each committee was named (R-081): a full name ran off both edges of the session lesson's drawing (R-179).
+  const s = steps[idx], C = N[s.ch] || N[ci <= 2 ? o : t], ord = s.kind === 'cmte' ? ORD[s.j] || `${s.j + 1}th` : '';
+  let lead = 'Now: ', rest, pic;
   if (x.law) { lead = res ? 'Adopted' : 'Became law'; rest = ''; }
   else if (x.stopped) {
     lead = '';
     rest = res ? 'Not adopted this session' : b.stage === 'vetoed' ? 'Vetoed by the Governor'
       : s.kind === 'cmte' ? `Stopped in ${s.name}` : s.kind === 'wait' ? `Stopped in ${C} committees`
       : ci === 4 && /conference|second_crossover/.test(d) ? 'Stopped before the final vote' : `Stopped before the ${C} vote`;
+    if (rest === `Stopped in ${s.name}`) pic = `Stopped in ${C} committees`;
   }
   else if (x.ballot) rest = 'The voters decide in November';
   else if (st.phase === 'conference') rest = res ? `Waiting for the ${C} vote` : 'Working out one version';
   else if (!res && ci === 5) rest = 'On the Governor’s desk';
   else if (st.phase === 'floor') rest = `Waiting for the ${C} vote`;
-  else if (s.kind === 'cmte') rest = s.of > 1 ? `${s.name}, ${ORD[s.j] || s.j + 1 + 'th'} of ${s.of} ${C} committees` : `${s.name}, its only ${C} committee`;
-  else rest = `Waiting for the ${C} to choose its committees`;
-  return { names: steps.map(s => s.name), desc: steps.map(s => s.desc), html: steps.map(s => s.html || esc(s.name)), idx, lead, rest };
+  else if (s.kind === 'cmte') {
+    rest = s.of > 1 ? `${s.name}, ${ord} of ${s.of} ${C} committees` : `${s.name}, its only ${C} committee`;
+    pic = s.of > 1 ? `In the ${ord} of ${s.of} ${C} committees` : `In its only ${C} committee`;
+  }
+  else { rest = `Waiting for the ${C} to choose its committees`; pic = `${C} committees not chosen yet`; }
+  return { names: steps.map(s => s.name), desc: steps.map(s => s.desc), html: steps.map(s => s.html || esc(s.name)), idx, lead, rest, pic: pic || rest };
 }
+// The rail's words for where the bill is, short enough for a small picture (the session lesson's label, R-179): "In the
+// 1st of 2 Senate committees" where the rail says "Now: Senate Health and Human Services with Commerce and Consumer
+// Protection, 1st of 2 Senate committees". Everything that names no committee is word for word the same.
+export function railBrief(b, x) { const r = railInfo(b, x); return `${r.lead === 'Now: ' ? '' : r.lead}${r.pic}`.trim(); }
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 // A stopped bill: under "Stopped in Senate committees", exactly why (Nate 9/29: "These notes need to be in the steps
@@ -499,7 +508,7 @@ function topbar(num, b) {
           <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
           <button type="button" class="bl-mi" data-bl-copy="1">${icon('link')}<span>Copy link</span></button>
           <button type="button" class="bl-mi" data-bl-share="1">${icon('share-2')}<span>Share</span></button>
-          <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
+          <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1" data-ab-go="capitol">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
         </div></div>` : '';
   return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1">${icon('arrow-left')}<span>Back</span></button>
     <p class="bl-num">${esc(sp)}</p>${w ? '' : `<div class="bl-tools">${tools}</div>`}</div>`;
@@ -568,7 +577,7 @@ function newcomer(b, x) {
   const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.` : '';
   // Every ask a shared link can open has its words here (R-169), so the card says what the main button does.
   const no = /oppose/.test(b.hiphi_position || ''), one = x.chairs.length > 1 ? 'the chairs' : 'the chair';
-  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
+  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, in a few minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'ask' ? `This bill is waiting for a hearing. You can ask ${one} for one, in about 2 minutes, or follow it and we’ll tell you when.`
     : x.kind === 'hold' ? `This bill is waiting for a hearing. You can ask ${one} not to hear it, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'floor' ? `This bill goes to a vote of the full ${CHAMBER_NAME[x.st.chamber] || 'House or Senate'} soon. You can ask your ${x.st.chamber === 'S' ? 'senator' : 'representative'} to vote ${no ? 'no' : 'yes'}, in about 2 minutes, or follow it and we’ll tell you how it goes.`
@@ -642,8 +651,14 @@ function head(b, x) {
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}${onListsLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}${onListsLine(b)}
+    ${aboutFold(b, name ? lede : plainHead(b))}</div>`;
 }
+// One sentence is not enough to decide on (R-178, Nate 10/5): right under it, "Read more about the bill" opens the
+// Legislature's own summary, HIPHI's reasons and the whole bill on the Capitol website (pub/billtext.js). Folded, so the
+// page reads as before for anyone who doesn't want it; it stays open through redraws like the page's other folds.
+const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} data-ab-more="${esc(b.id)}"><summary>${icon('book-open')}<span>Read more about the bill</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
+    ${aboutBill(b, { shown, pfx: 'bl-ab' })}</details>`;
 // The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
 function issueLine(b) {
@@ -826,28 +841,20 @@ function sponsorText(b) {
   if (names.length > 6) return `${names.slice(0, 6).join(', ')} and ${names.length - 6} more`;
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '';
 }
-// "SD1": each time a chamber changes a bill it gets a new draft number (HD = House, SD = Senate, CD = conference).
-function versionText(v) {
-  const m = /^([HSC])D(\d+)$/i.exec(v || ''); if (!m) return v;
-  const who = { H: 'The House has', S: 'The Senate has', C: 'House and Senate negotiators have' }[m[1].toUpperCase()], n = +m[2];
-  return `${v.toUpperCase()}: ${who} changed the bill ${n === 1 ? 'once' : n === 2 ? 'twice' : n + ' times'}. Each change gets a new draft number.`;
-}
 function details(b, x) {
   const comp = companionsOf(b);
   const spons = sponsorText(b);
   const rows = [
     b.title ? ['Official title', esc(titleCase(b.title))] : null,
-    // Always here in full: the headline above may be a name, a summary, or only the first sentence of this.
-    b.description ? ['Official summary', esc(b.description)] : null,
+    // The official summary in full is under "Read more about the bill", by the bill's name (R-178).
     // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
     spons ? ['Introduced by', esc(spons)] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
     comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(yearPrefix(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
-    b.current_version ? ['Version', esc(versionText(b.current_version))] : null,
+    // The draft ("House draft 3") is named once, under "Read more about the bill" (R-178, A-14).
   ].filter(Boolean);
   return `<details class="bl-more" ${fold(b, 'more')}><summary><span>More details</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
-    <dl>${rows.map(([k, v]) => `<div class="bl-kv"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
-    <p class="bl-cap">${btn('Capitol bill page', { kind: 'text', sm: true, icon: 'landmark', iconEnd: 'external-link', href: capitolUrl(b), attrs: { target: '_blank', rel: 'noopener' } })}</p></details>`;
+    <dl>${rows.map(([k, v]) => `<div class="bl-kv"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></details>`;
 }
 // A hearing whose decision was reported only after the same committee's later sitting was deferred to that sitting (076
 // gives the earlier row the later decision, so both read "Passed"): the earlier one says "Deferred to Apr 7" (R-120).

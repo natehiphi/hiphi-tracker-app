@@ -51,7 +51,8 @@ const actionable = it => it.type === 'email' ? it.a.status === 'submitted' && ap
 function billLine(b, { named = false, pos = true } = {}) {
   const own = ownerOf(b), p = b.position || '';
   const bits = [named ? `<b>${esc(billNum(b))}</b>${b.nickname ? ` ${esc(b.nickname)}` : ''}` : '',
-    pos ? `${posIcons(p)} ${esc(POS_WORD[p] || p || 'No position')}` : '', b.priority ? `P${b.priority}` : '',
+    // P1 only where the position is not shown: it follows the position (R-175), so beside it, it says it twice (A-14).
+    pos ? `${posIcons(p)} ${esc(POS_WORD[p] || p || 'No position')}` : b.priority === 1 ? 'P1' : '',
     own ? esc(own.id === S.me?.id ? 'You own it' : `${first(own.id)} owns it`) : 'No owner'].filter(Boolean);
   return `<p class="td-rvline td-rvfacts">${bits.map(x => `<span>${x}</span>`).join('<span class="td-rvdot" aria-hidden="true">·</span>')}</p>`;
 }

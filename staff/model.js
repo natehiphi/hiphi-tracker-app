@@ -17,7 +17,7 @@ export function factsOf(b) {
   FACTS.set(b.id, f); return f;
 }
 export const facets = () => [
-  { key: 'pris', label: 'Priority', opts: [[1, 'P1'], [2, 'P2'], [3, 'P3']], has: (f, v) => f.pri === v },
+  // No Priority facet since R-175 (Nate 10/5): priority follows the position, so P1 is "Strongly support" below.
   // every position the team can take, strongest first (Nate, 9/18: Strongly support and Strongly oppose were missing)
   { key: 'poss', label: 'Our position', opts: [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']], has: (f, v) => f.posx === v },
   { key: 'stands', label: 'Where it stands', opts: [['a', 'Needs a hearing'], ['b', 'Hearing scheduled'], ['c', 'Through committee'], ['done', 'Governor or law'], ['dead', 'Did not advance']], has: (f, v) => f.stand === v },

@@ -384,8 +384,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-cell .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
   .bl-table .bl-cell:hover { background: var(--n100); color: var(--n900); }
   .bl-table tr.sel .bl-cell:hover { background: var(--n0); }
-  .bl-table .bl-pri, .bl-table .bl-own { min-width: 36px; justify-content: center; }
-  .bl-table .bl-pri .sv-p1 { flex: none; }
+  .bl-table .bl-own { min-width: 36px; justify-content: center; }
   .bl-table .bl-noown { display: inline-flex; color: var(--n500); }
   .bl-table .bl-noown .ic { width: 24px; height: 24px; }
   .bl-table thead th.bl-h-look, .bl-table td.bl-lk { padding: 0; text-align: center; }
@@ -512,5 +511,4 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-selwrap > .ic, .bl-table .bl-selwrap > span:not(.sr) { flex: none; color: var(--n500); }
   .bl-table .bl-selwrap .ic { width: 18px; height: 18px; }
   .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
-  .bl-table .bl-sel-pri[data-v="1"] { font-weight: 700; border-color: var(--n900); }
 }

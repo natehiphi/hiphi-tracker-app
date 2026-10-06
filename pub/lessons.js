@@ -38,6 +38,8 @@
 //   stopped       true when it stopped (dead, vetoed); isLaw true when it became law
 //   stat          the bill page's own words for where it is ('In Senate committees', 'Became law', 'Stopped in House
 //                 committees'), read from railHTML so the lessons can never disagree with the bill page
+//   pic           the same place in words short enough for the session lesson's drawing, the committee named by its
+//                 chamber and number only ('In the 1st of 2 Senate committees', railBrief in bill.js, R-179)
 //   law, signed   'Act 189' and 'July 7' when the Capitol's last action says so, else ''; nosig: law without signature
 //   year          its session year
 //   hear          the hearing the lesson uses: in session, the next scheduled one; between sessions, the first past one
@@ -54,7 +56,7 @@
 import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, codesOf, cmteLabel, roomLabel, legPhoto,
   legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool } from './core.js';
 import { posChip } from './ui.js';
-import { situation, railHTML } from './bill.js';
+import { situation, railHTML, railBrief } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
 import { endHome } from './variant.js';
 
@@ -158,7 +160,7 @@ export function exampleFrom(b, { off = false, via = '' } = {}) {
   const path = [...new Set((b.referrals || []).flatMap(r => codesOf(r)))];
   const E = { b, x, id: b.id, num: spaced(b.bill_number).replace(' ', NBSP), name: name || plainSum(b, 70), hasNick: !!name,
     sum: name ? blurb(b, 200) : '', pos: posInfo(b)?.text || '', start, other, now: 0, stopped: !!x.stopped, isLaw: !!x.law,
-    stat: railWords(rail), ...act, year: +(b.session_year || (sessionInfo().phase === 'in' ? sessionInfo().yr : sessionInfo().recapYear)),
+    stat: railWords(rail), pic: railBrief(b, x), ...act, year: +(b.session_year || (sessionInfo().phase === 'in' ? sessionInfo().yr : sessionInfo().recapYear)),
     hear, chairs: chairsOf(hear.codes), path, mine: S.watch.has(b.id), off: !!off, via: via || '', rail,
     pastHearings: hs.filter(q => new Date(q.scheduled_at) <= now).length };
   E.now = nowOf(b, x, E.stat, other);
@@ -479,15 +481,17 @@ function placeBill(p) {
   if (dx) lb.style.marginLeft = `${dx}px`;
 }
 // What the label says in month k: the month's step while the bill is taking it; after that, what is ahead of it (or,
-// for a bill that stopped, where it stopped).
+// for a bill that stopped, where it stopped). The real bill's place is in the picture's words (E.pic): the bill page's
+// "Senate Health and Human Services with Commerce and Consumer Protection, 1st of 2 Senate committees" ran off both
+// edges of the drawing at every size (R-179).
 function mineLabel(E, k) {
-  if (k > E.now) return E.stopped ? [E.stat || 'Stopped this session', 'stop']
+  if (k > E.now) return E.stopped ? [E.pic || 'Stopped this session', 'stop']
     : [k === 2 ? 'Next: committee votes' : k === 3 ? 'Later: the other side' : 'Later: final votes', 'next'];
   if (k === 1) return ['Introduced', ''];
   if (k === 2) return ['Passed its committees', 'ok'];
-  if (k === 3) return [k === E.now && !E.stopped && E.stat ? E.stat : `In ${E.other} committees`, 'here'];
+  if (k === 3) return [k === E.now && !E.stopped && E.pic ? E.pic : `In ${E.other} committees`, 'here'];
   if (E.isLaw) return [E.signed ? 'Signed into law' : 'Became law', 'ok'];   // "signed" only when the Capitol says so
-  if (E.stopped) return [E.stat || 'Vetoed by the Governor', 'stop'];
+  if (E.stopped) return [E.pic || 'Vetoed by the Governor', 'stop'];
   return ['On the Governor’s desk', 'here'];
 }
 function sessionSet(k, { instant = false, initial = false } = {}) {
