@@ -165,7 +165,7 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '2', 'Back on stage 3 goes back to stage 2')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     ok(p.evaluate(STAGE) == '3' and p.locator('[data-lx-ch][aria-pressed=true]').count() == 0, 'coming forward again, nothing is chosen yet')
-    ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: your legislators', 'on stage 3 the button names the next screen (R-140)')
+    ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: Your Legislators', 'on stage 3 the button names the next screen (R-140), in title case (R-186)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     # No full-screen moment here: one mid-way read as the end of the first visit (R-140); the part's tick bursts instead.
     ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'finishing the story goes straight on, with no full-screen moment (R-140)')

@@ -735,7 +735,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
 
 // The teaching part always hands on to "Who speaks for you", and its last button says so (R-140, C-6).
 // "Next:" keeps it the button that moves on: under "What would you do?", "Find my legislators" read as a fifth answer.
-const GO_YOU = 'Next: your legislators';
+const GO_YOU = 'Next: Your Legislators';   // the next part's name in title case (Nate 10/6, R-186)
 // The action bar of the steps after the topics (start-rest.js).
 export function barStep(name, step, off) {
   switch (name) {

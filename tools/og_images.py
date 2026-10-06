@@ -4,8 +4,8 @@
 # Nate's picks, 10/5: each ask looks different, so asking for a hearing and sending testimony are told apart at a glance
 # (its own wash of colour, icon and drawing); and each issue gets its own picture of every ask it is shared with, its
 # topic's icon and colour and its name, so shares on different issues never look alike ("Similar images and text might
-# make people think they've seen the link before"). The words: "Speak up before the vote" (testimony, which "takes a few
-# minutes"), "Help this bill get a hearing", and "Testimony" said once with plain words around it.
+# make people think they've seen the link before"). The words: "Speak Up Before the Vote" (testimony, which "takes a few
+# minutes"), "Help This Bill Get a Hearing", and "Testimony" said once with plain words around it.
 #
 #   pub/og/<ask>.jpg           the ask on its own (a bill with no issue, and the fallback while an issue's is drawn)
 #   pub/og/<ask>/<issue>.jpg   the ask for one issue: drawn only when a share page needs it (tools/og_wanted.json, which
@@ -38,30 +38,30 @@ def flowers():
 # The asks' looks: (small label, the ask in large words, the line under it, wash, label ink, label edge, art colour,
 # label icon, the drawing when there is no issue). Inks are dark enough to read on white (A-5).
 ASKS = {
-    'testify':        ('Testimony due soon', 'Speak up before the vote', 'Tell lawmakers what you think. It takes a few minutes, and we help you write it.',
+    'testify':        ('Testimony Due Soon', 'Speak Up Before the Vote', 'Tell lawmakers what you think. It takes a few minutes, and we help you write it.',
                        '#FFF4EE', '#984B0B', '#FCD09D', '#F68B2C', 'notebook-pen', lambda: VOICES),
-    'ask':            ('Needs a hearing', 'Help this bill get a hearing', 'Without one, it stops for the year. A short email to the chair takes about 2 minutes.',
+    'ask':            ('Needs a Hearing', 'Help This Bill Get a Hearing', 'Without one, it stops for the year. A short email to the chair takes about 2 minutes.',
                        '#EDF9FF', '#00698E', '#95DCFE', '#129DCB', 'calendar-clock', lambda: icon('calendar-clock', 240, '#129DCB', 1.4)),
-    'hold':           ('Waiting for a hearing', 'Ask the chair not to hear it', 'A short email to the chair takes about 2 minutes, and we help you write it.',
+    'hold':           ('Waiting for a Hearing', 'Ask the Chair Not to Hear It', 'A short email to the chair takes about 2 minutes, and we help you write it.',
                        '#EDF9FF', '#00698E', '#95DCFE', '#129DCB', 'calendar-clock', lambda: icon('calendar-clock', 240, '#129DCB', 1.4)),
-    'floor-yes':      ('A vote is coming', 'Ask your legislator to vote yes', 'A short email to your own legislator takes about 2 minutes.',
+    'floor-yes':      ('A Vote Is Coming', 'Ask Your Legislator to Vote Yes', 'A short email to your own legislator takes about 2 minutes.',
                        '#F5F1FF', '#5B21B6', '#C4B5FD', '#7C3AED', 'vote', lambda: icon('vote', 240, '#7C3AED', 1.4)),
-    'floor-no':       ('A vote is coming', 'Ask your legislator to vote no', 'A short email to your own legislator takes about 2 minutes.',
+    'floor-no':       ('A Vote Is Coming', 'Ask Your Legislator to Vote No', 'A short email to your own legislator takes about 2 minutes.',
                        '#F5F1FF', '#5B21B6', '#C4B5FD', '#7C3AED', 'vote', lambda: icon('vote', 240, '#7C3AED', 1.4)),
-    'conference-yes': ('The final version', 'Ask lawmakers to pass it', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
+    'conference-yes': ('The Final Version', 'Ask Lawmakers to Pass It', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
                        '#EDFCF8', '#0F766E', '#99E6D8', '#14B8A6', 'handshake', lambda: icon('handshake', 240, '#14B8A6', 1.4)),
-    'conference-no':  ('The final version', 'Ask lawmakers not to pass it', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
+    'conference-no':  ('The Final Version', 'Ask Lawmakers Not to Pass It', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
                        '#EDFCF8', '#0F766E', '#99E6D8', '#14B8A6', 'handshake', lambda: icon('handshake', 240, '#14B8A6', 1.4)),
-    'governor-sign':  ('On the Governor’s desk', 'Ask the Governor to sign it', 'It passed the Legislature. A short message takes about 2 minutes.',
+    'governor-sign':  ('On the Governor’s Desk', 'Ask the Governor to Sign It', 'It passed the Legislature. A short message takes about 2 minutes.',
                        '#E6FAE9', '#056639', '#9FDDB0', '#16A34A', 'landmark', lambda: CAPITOL),
-    'governor-veto':  ('On the Governor’s desk', 'Ask the Governor to veto it', 'It passed the Legislature. A short message takes about 2 minutes.',
+    'governor-veto':  ('On the Governor’s Desk', 'Ask the Governor to Veto It', 'It passed the Legislature. A short message takes about 2 minutes.',
                        '#E6FAE9', '#056639', '#9FDDB0', '#16A34A', 'landmark', lambda: CAPITOL),
-    'follow':         ('Stay in the loop', 'Follow the issue', 'We’ll tell you when there’s a hearing or a way to help.',
+    'follow':         ('Stay in the Loop', 'Follow the Issue', 'We’ll tell you when there’s a hearing or a way to help.',
                        '#F4F7F9', '#344852', '#C2CCD1', '#5F6F76', 'bell', lambda: icon('bell', 220, '#7D8C93', 1.4)),
-    'law':            ('Good news', 'It became law. Follow what’s next.', 'Follow the issue and we’ll tell you when your voice can count.',
+    'law':            ('Good News', 'It Became Law. Follow What’s Next.', 'Follow the issue and we’ll tell you when your voice can count.',
                        '#FFF8E1', '#7A4F00', '#F4D58D', '#F4B223', 'party-popper', flowers),
 }
-TRACKER = ('Hawaiʻi health bills', 'Speak up for a healthier Hawaiʻi', 'Follow the issues you care about. Speak up in a few minutes.',
+TRACKER = ('Hawaiʻi Health Bills', 'Speak Up for a Healthier Hawaiʻi', 'Follow the issues you care about. Speak up in a few minutes.',
            '#EDF9FF', '#984B0B', '#FCD09D', '#F68B2C', 'megaphone', lambda: CAPITOL)
 # The six topics: icon and colour (dark enough to read on white, checked below). Tobacco's is the crossed-out cigarette:
 # a lit one on a public-health card reads the wrong way.
@@ -74,8 +74,20 @@ def lum(h):
 for k, (_, col) in CATS.items():
     assert (1.05) / (lum(col) + 0.05) >= 4.5, f'{k} colour {col} is too light to read on white'
 
+# Every heading on the picture is in title case (Nate 10/6, R-186): the label, the ask and the issue's name. The line
+# under the ask is a sentence and stays one. Issue names are written in sentence case for the app, so the picture
+# capitalizes them here: each word and each part of a hyphenated one ("E-Cigarettes"), but not a, an, the, and, or, nor,
+# but, for, so, yet or a preposition of three letters or fewer (AP style), unless it is first or last. A word that
+# already has a capital (FDA, SNAP, Hawaiʻi, Maui) is left as written.
+SMALL = set('a an the and or nor but for so yet as at by in of off on per to via vs'.split())
+def title(t):
+    ws = t.split(' ')
+    def cap(w):
+        if any(c.isupper() for c in w): return w
+        return re.sub(r'[^\W\d_]', lambda m: m.group(0).upper(), w, count=1)
+    return ' '.join(w if (0 < i < len(ws) - 1 and w.lower() in SMALL) else '-'.join(cap(x) for x in w.split('-')) for i, w in enumerate(ws))
 # An issue's name, escaped, with a hyphenated word kept on one line ("e-cigarette" broke after "e-").
-whole = lambda t: re.sub(r'(\w+(?:-\w+)+)', r'<span style="white-space:nowrap">\1</span>', H.escape(t))
+whole = lambda t: re.sub(r'(\w+(?:-\w+)+)', r'<span style="white-space:nowrap">\1</span>', H.escape(title(t)))
 
 def html(look, issue=None):
     label, big, sub, wash, ink, edge, accent, chip_icon, drawing = look

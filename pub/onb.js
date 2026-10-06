@@ -326,7 +326,7 @@ function leaveJoin(step, r = null) {
   const n = followedIssues().length, D = r && r.kind !== 'given' ? joinDone(r, followedIssues(), alertStatus()) : null;
   if (!n && !D) { go(); return; }
   celebrate({ title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
-    small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: you’re all set' }, go);
+    small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: You’re All Set' }, go);
 }
 function wireJoin({ step, fresh, $ }) {
   if (fresh) abSeen('join');
@@ -411,7 +411,7 @@ function wireWrap({ $ }) {
 const MINE = {
   picks: [stepPicks, wirePicks, () => bar2(`Follow ${plural(S.obPicks?.on?.size || PICK_N, 'issue')}`, { icon: 'star' })],
   find: [stepFind, wireFind, () => bar2('Learn about it', { iconEnd: 'arrow-right' })],
-  learn: [stepLearn, wireLearn, () => bar1('Next: your choice', 'arrow-right')],
+  learn: [stepLearn, wireLearn, () => bar1('Next: Your Choice', 'arrow-right')],
   decide: [stepDecide, wireDecide, barDecide],
   hello: [stepHello, wireHello, barHello],
   join: [stepJoin, wireJoin, barJoin],

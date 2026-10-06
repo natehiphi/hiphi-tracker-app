@@ -32,11 +32,11 @@ function wireIsland({ step, $, $$ }) {
     const art = $('.ob3-art'); if (art) art.innerHTML = islands(on ? k : '');
     $$('[data-ob3isle]').forEach(b => { const me = b === el && on; b.classList.toggle('on', me); b.setAttribute('aria-pressed', String(me)); });
     if (on) burst(el.querySelector('.ob3-dot'), 8, 26);
-    const lb = $('[data-stnext] span'); if (lb) lb.textContent = on ? 'Next: find your two' : 'Next';
+    const lb = $('[data-stnext] span'); if (lb) lb.textContent = on ? 'Next: Find Your Two' : 'Next';
   });
   const nb = $('[data-stnext]');
   if (nb) nb.onclick = () => { track('island', 'next'); goStep(step, step + 1); };
 }
 export function renderStep(name, step) { return stepIsland(step); }
 export function wireStep(name, ctx) { wireIsland(ctx); }
-export function barStep() { return bar2(wiz().island ? 'Next: find your two' : 'Next', { iconEnd: 'arrow-right' }); }
+export function barStep() { return bar2(wiz().island ? 'Next: Find Your Two' : 'Next', { iconEnd: 'arrow-right' }); }
