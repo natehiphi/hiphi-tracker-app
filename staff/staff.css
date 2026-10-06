@@ -465,3 +465,38 @@ body.sidenarrow .sv-sync span { display: none; }
 /* A switch per version, for a test with more than two (R-164, backend 136). */
 .ab-arms { border: 0; margin: var(--s8) 0 0; padding: 0; min-width: 0; }
 .ab-arms legend { padding: 0; margin-bottom: var(--s4); color: var(--n500); }
+/* Session setup > Tests > Tester sheet (R-185): a room of testers, a card per group side by side (three across on a
+   laptop, one under another on a phone), each with its versions, its QR code and its link. */
+.ab-introacts { display: flex; flex-wrap: wrap; gap: var(--s4); flex: none; }
+@media (max-width: 599px) { .ab-introacts { margin-left: -12px; } .ab-introacts .btn { margin-left: 0 !important; } }
+.rm-where { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-bottom: var(--s16); }
+.rm-where p { flex: 0 0 100%; margin: 0; max-width: 65ch; }
+.rm-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s16); align-items: stretch; margin: 0; padding: 0; list-style: none; }
+.rm-addli { display: flex; }
+.rm-addli .rm-add { flex: 1; }
+.rm-groups > .rm-group { display: flex; flex-direction: column; gap: var(--s12); margin: 0; min-width: 0; }
+.rm-ghead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.rm-ghead h2 { margin: 0; font-size: 18px; line-height: 1.3; }
+.rm-group .field { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); margin: 0; }
+.rm-group .sv-pick { max-width: 100%; text-align: left; }
+.rm-group .sv-pick span { white-space: normal; }
+.rm-same { display: flex; gap: 6px; align-items: flex-start; margin: 0; color: var(--n700); }
+.rm-same .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--p700); }
+.rm-addscr { margin-left: -12px; }
+.rm-qr { display: flex; flex-direction: column; align-items: center; gap: var(--s8); margin-top: auto; padding-top: var(--s12); border-top: 1px solid var(--n200); }
+.rm-qrbox { display: flex; align-items: center; justify-content: center; width: 168px; height: 168px; background: #fff; border: 1px solid var(--n200); border-radius: var(--r8); text-align: center; }
+.rm-qrbox svg { display: block; width: 152px; height: 152px; }
+.rm-qrerr { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s12); color: var(--bad-text); }
+.rm-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s8); }
+.rm-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s8); min-height: 120px; padding: var(--s16);
+  border: 2px dashed var(--n300); border-radius: var(--r16); background: transparent; color: var(--p700); font: inherit; font-weight: 700; cursor: pointer; }
+.rm-add:hover { background: var(--p50); border-color: var(--p700); }
+.rm-add:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+.rm-add .ic { width: 24px; height: 24px; }
+.rm-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin-top: var(--s16); }
+.rm-foot p { margin: 0; max-width: 65ch; }
+/* The pickers fill their card, with a form field's corner, so cards side by side line up (fresh-eyes review, A-8). A
+   screen at today's version, shown because another group changed it, is quieter than a change. */
+.rm-group .sv-pick { width: 100%; justify-content: space-between; border-radius: var(--r12); min-height: 44px; height: auto; padding-top: 6px; padding-bottom: 6px; }
+.rm-group .sv-pick > span { flex: 1 1 auto; min-width: 0; text-align: left; }
+.rm-istoday .sv-pick { color: var(--n700); font-weight: 400; }

@@ -700,6 +700,42 @@ first visit. All five are working versions in the same frame as today's first vi
   words, the code step, email in place), and the ending is drawn again standing still (`S.stCalm`) with the new status.
   `tests/d1_status.py` checks both (72 checks at 390x844 and 1366x900; on the code before it fails 35).
 
+## The tester sheet: a room of testers, each group on the versions Nate picks (R-185; 6 Oct 2026)
+
+Nate 10/6, for a room of 15 testers: "Is it possible for me to easily pick which path they will experience rather than
+have them go through a random A/B testing path?", then "make the tester sheet with QR codes. This should be made into the
+app so I can do this on my own later and easily compare the different options."
+- **Where:** Staff v2 > Session setup > Tests > Tester sheet (`#/setup/room`, admins), reached by the "Tester sheet"
+  button beside "Check again" on Tests. It is a page of Tests (`PAGES.room.parent`): the list of parts keeps Tests marked
+  and the way back says Tests. Code: `staff/setup.js` (search "Tester sheet (R-185)"), styles `.rm-*` at the end of
+  `staff/staff.css`, the QR code in `staff/qr.js` (shared with Make a link since this build).
+- **What it does:** "Where they test" (the practice copy, the default, or the live site); a card per group, side by side
+  (`ul.rm-groups`, three across on a laptop), each with its first visit (today's or Plans 1-5, each plan with one line,
+  `ROOM_PLAN_SUB`), then every screen any group changed, in the same order on every card (`roomShown`; at today's version
+  it reads "(today's)" in plain weight, and "Replaced by the plan" where a plan never meets it), so the cards compare line
+  by line; "Change another screen" (a screen, then its version; picking today's version everywhere takes the row off),
+  its QR code, Open, Copy link and a "…" menu (Download the QR code, Copy this group, Remove this group with Undo); "Add a
+  group" as the grid's last tile, up to six; Start over with Undo. "Print the sheet" (the save bar, sticky on a laptop)
+  prints Nate's page (the groups screen by screen, each group's link, a blank "What we saw" row to fill in, and what every
+  group is asked to do), then one page per group with the code at 110 mm and no link, which never says which version it
+  is. **What every group does** (`ROOM_TASK`, the fresh-eyes review): a screen outside the first visit is only met by
+  doing something (press Share on a bill, send testimony, Home with two issues), so when any group changes one, every
+  group's page says the same "Then: ..." line (the practice copy names Free school bus passes, HB 1780). A first visit
+  that is a plan drops the choices it never meets (`end`, `fv`, `email`), and today's first visit drops the plans' sign-up
+  test (`join`), as `pub/variant.js` does (`INSIDE_TODAY`); a toast names what was taken off, with Undo.
+- **The links:** the practice copy's is `track.html?demo=1&restart&ab=onb.<v>[,<test>.<v>...]`, naming the first visit
+  and the screens changed: a test the link does not name shows today's version in the sandbox, and `&restart` starts each
+  scan fresh. The live site's names every test (`?ab=` with all of them), so no coin toss is left; `variant.js` marks
+  them forced, counted apart from the public (Tests' "Not counted: ... from testers' links").
+- **Kept:** `advocates.prefs.room` through `DB.patchPrefs` (no migration), cleaned against the tests as they are when
+  read, so a version removed after its test is decided drops out. The default sheet is one group per first-visit version
+  switched on (today's and Plan 1).
+- Tests: `tests/room.py` (108 checks at five sizes: the default groups, the codes drawn, arrival, side by side, add,
+  pickers and the plan rules with the toast and Undo, the rows on every card, Copy link, the printed sheet's comparison,
+  links, "What we saw", tasks and its pages without a link or a version, the live links, remove and start over with Undo,
+  kept after leaving; then each link opened as a tester forces what its card says). `tests/density.py`
+  has the page as `room`.
+
 ## "Save your profile": the ask right after a follow or a letter (R-184; 6 Oct 2026)
 
 Nate (10/6): "if people get a link to take action or to follow a bill ... Are they then immediately prompted to sign-up?

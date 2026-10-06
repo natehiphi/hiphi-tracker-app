@@ -73,6 +73,8 @@ SV = [
   ('makelink',    '/outreach/issues?view=links', 'who the link is for', '.fv-prow, .fv-none'),
   # R-135: Session setup > Tests; a person comes to decide each A/B test of the public page
   ('tests',       '/setup/tests',  'the first test',       '.ab-card'),
+  # R-185: Session setup > Tests > Tester sheet; a person comes to give each group of testers its versions and QR code
+  ('room',        '/setup/room',   'the first group',      '.rm-group'),
 ]
 
 TOP_JS = """(sel) => { for (const e of document.querySelectorAll(sel)) {
