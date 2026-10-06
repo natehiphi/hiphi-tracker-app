@@ -10,7 +10,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf } from './variant.js';
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -357,7 +357,9 @@ function mahalo(then, r = null) {
   S.mahaloShown = true;
   // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it.
   const told = r?.kind === 'phone' && r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`
-    : r?.kind === 'phone' ? `We’ll text ${fmtPhone(r.phone)} to confirm it’s your number. Then alerts start.`
+    // Not confirmed yet: "Almost set", the words every screen uses for it (alerts.js alertStatus, D1-4). It said "Then alerts
+    // start.", which read as done.
+    : r?.kind === 'phone' ? almostLine(fmtPhone(r.phone))
     : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
   // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
   celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
@@ -469,34 +471,33 @@ function recapRows() {
   const acted = wiz().via && wiz().viaActed;
   const legs = S.stAddr.pick ? S.stAddr.pick.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean)
     .sort((a, b) => (a.chamber === 'H' ? 0 : 1) - (b.chamber === 'H' ? 0 : 1)) : [];
-  const sent = mailSent();
   return [
     f.length || n ? ['star', f.length ? `You follow ${plural(f.length, 'issue')}` : `You follow ${plural(n, 'bill')}`, off ? 'Their new bills come to you as they start' : `${plural(n, 'bill')} we’ll watch for you`, 'ok'] : null,
     acted ? ['send', `You spoke up on ${wiz().viaName || spaced(wiz().via)}`, 'You told the committee what you think', 'ok'] : null,
     stood ? ['thumbs-up', `You took a stand on ${plural(stood, 'issue')}`, 'Never shown publicly', 'ok'] : null,
     S.stLearned ? ['landmark', 'You know how a bill becomes law', 'And when your voice counts most', 'ok'] : null,
     legs.length ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${lastName(l)}`).join(' and '), 'ok'] : null,
-    S.session ? ['bell', 'Reminders are on', 'At your account’s email', 'ok']
-      : textSaved() ? ['message-square', 'Text alerts are on', `We’ll text ${fmtPhone(textSaved().phone)}`, 'ok']
-      : sent ? ['mail', 'Reminders: one tap to go', `Tap the link we sent to ${sent}`, 'wait'] : ['bell', 'Alerts are off', 'Turn them on any time in More', 'off'],
+    // The alerts row comes last, drawn by alerts.js alertRowHTML: one status rule for every screen (D1-4), and its own
+    // "Turn on alerts" when they are off (X10-4).
   ].filter(Boolean);
 }
 function stepDone(step) {
   const name = (S.stMail.name || wiz().name || '').trim(), off = isOff();
-  const rows = recapRows();
+  const rows = recapRows(), al = alertStatus();
   // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
-  // "we tell you" with no way to be told (R-067). The words follow what really happened.
-  const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok'), follows = followsAnything();
-  const told = !!(S.session || mailSent() || textSaved());
+  // "we tell you" with no way to be told (R-067). The words follow what really happened: "we tell you" only once alerts
+  // are on or almost set by the one rule (D1-4), never for a signed-in account with both email choices off.
+  const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok') || al.key === 'on', follows = followsAnything();
+  const told = al.key === 'on' || al.key === 'almost';
   const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
     : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
-  return shell('st-done', `${topRow('done', step)}
+  return shell(`st-done${S.stCalm ? ' st-calm' : ''}`, `${topRow('done', step)}
     <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals()}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div></div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${lede}</p>`,
-    `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
+    `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}${alertRowHTML(rows.length)}</ul>
     ${S.session || textSaved() ? `<p class="st-prof">${icon('user')}<span>Your profile is saved, ready for your first letter. <a href="#/profile">See your profile</a> any time in More.</span></p>` : ''}
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">
@@ -713,6 +714,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'done') {
     wizSet({ finale: true });
     if (fresh) later(() => burst(document.getElementById('st-h'), 16, 90), 500);
+    wireAlertRow(document, { source: 'first_visit' });   // "Turn on alerts" on the alerts row (X10-4)
     const nb = $('[data-stdone]'); if (nb) nb.onclick = () => finish();
   }
 

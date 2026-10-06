@@ -227,15 +227,25 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-blooms { display: flex; justify-content: center; gap: 10px; margin: -6px 0 4px; }
 .st-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(400ms + var(--k) * 80ms); }
 .st-did { list-style: none; margin: 0; padding: 4px 16px; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
-.st-did li { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--n100); animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 80ms + 200ms); }
+.st-did li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--n100); animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 80ms + 200ms); }
 .st-did li:last-child { border-bottom: 0; }
-.st-rc { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+/* Each tick sits beside its row's title (top-aligned since R-180: the alerts row grew a button, and a centred tick beside a
+   three-line row sat by its middle line while the bell sat by its title, A-8). */
+.st-rc { flex: none; width: 28px; height: 28px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; }
 .st-rc .ic { width: 16px; height: 16px; }
 .st-rc-ok { background: var(--ok-wash); color: var(--ok-text); }
 .st-rc-wait { background: var(--p50); color: var(--p700); }
 .st-rc-off { background: var(--n100); color: var(--n500); }
 .st-did b { display: block; color: var(--n900); }
 .st-did li > div > span { font-size: var(--t14); color: var(--n700); }
+/* The alerts row (pub/alerts.js alertRowHTML; D1-4 and X10-4, R-180): its "Turn on alerts" sits on its own line under the
+   words, the button's width, so the ending keeps one primary (A-3) and the words never squeeze beside it on a phone. */
+.st-alrow .st-alon { display: flex; width: fit-content; margin-top: var(--s8); }
+.st-alrow:focus { outline: none; }
+.st-alrow:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+/* Drawn again after the alerts sheet closes (S.stCalm): the ending is already on screen, so nothing plays twice. */
+.st-calm :is(.st-did li, .st-next3 li, .st-blooms span, .st-finart .st-sun) { animation: none; }
+.st-calm .st-petals { display: none; }
 .st-nexth { margin-top: var(--s16); font-size: var(--t22); }
 .st-next3 { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .st-next3 li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; padding: 10px 0; animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 60ms + 300ms); }

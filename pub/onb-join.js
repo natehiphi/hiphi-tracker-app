@@ -59,14 +59,15 @@ export function sampleText({ follows = [], email = false, topic = '', remind = n
     : { body: `HIPHI: A hearing on ${what} is set for Thu at 2 pm. Send a note in a few minutes (a link to the bill). Reply STOP to end.` };
 }
 
-// After a yes: what happens now, warmly, and the one thing that helps (know the number when it texts).
-export function joinDone(r, follows = []) {
-  const what = whatOf(follows) || 'your issues';
-  if (r?.kind === 'phone') return {
-    h: 'You’re set',
-    lede: r.confirmed ? `We’ll text you when a bill on ${what} gets a hearing.` : `We’ll text you when a bill on ${what} gets a hearing. Our first text says who we are and confirms it’s your number.`,
-    tip: 'Save our number as HIPHI, so you know it’s us.',
-  };
-  if (r?.kind === 'email') return { h: 'One tap to go', lede: `We sent a link to ${r.email}. Tap it to turn on alerts about ${what}.`, tip: 'Can’t find it in a minute? Check your spam or promotions folder.' };
-  return { h: 'You’re set', lede: `Alerts about ${what} go to your account’s email.`, tip: '' };
+// After a yes: what happens now, warmly, and the one thing that helps (know the number when it texts). st: the alerts
+// status by the one rule every screen uses (alerts.js alertStatus, D1-4), so a number not yet confirmed, or an account
+// with both email choices off, is never "You're set": the heading is the rule's own words ("Almost set", "Alerts are off").
+export function joinDone(r, follows = [], st = null) {
+  const what = whatOf(follows) || 'your issues', tip = 'Save our number as HIPHI, so you know it’s us.';
+  if (r?.kind === 'phone') return r.confirmed || st?.text === 'on'
+    ? { h: 'You’re set', lede: `We’ll text you when a bill on ${what} gets a hearing.`, tip }
+    : { h: 'Almost set', lede: `We’ll text ${st?.phone || 'you'} to confirm it’s your number. Then we’ll text you when a bill on ${what} gets a hearing.`, tip };
+  if (r?.kind === 'email') return { h: 'Almost set', lede: `We sent a link to ${r.email}. Tap it to turn on alerts about ${what}.`, tip: 'Can’t find it in a minute? Check your spam or promotions folder.' };
+  if (st && st.key !== 'on') return { h: st.title, lede: 'Turn them on in your profile, under More.', tip: '' };
+  return { h: 'You’re set', lede: `Alerts about ${what} go to ${st?.email === 'on' && st.mail ? st.mail : 'your account’s email'}.`, tip: '' };
 }

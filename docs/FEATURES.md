@@ -663,3 +663,18 @@ first visit. All five are working versions in the same frame as today's first vi
 - **Text alerts terms** (`text-terms.html`): what you get, how often, cost, how to stop, help, your number and delivery, the
   page carriers ask for before texts can be registered; linked beside Privacy in the alerts box when it asks for a number.
   Drafts for the lawyer (backend `docs/TEXT-MESSAGES.md`).
+- **One status rule for alerts** (D1-4; `pub/alerts.js alertStatus()`): "on" only for a number confirmed by its code, or a
+  signed-in account with an email and an email choice ticked. A number kept but not yet confirmed (codes off), a code texted
+  and not typed, or an email link not yet opened is **"Alerts almost set"** (a sentence: "Almost set. ..."), in the alerts
+  step's own words ("We'll text (808) 555-0123 to confirm it's your number.", "Tap the link we sent to ... to turn on
+  alerts."; a code waiting: "We texted a code to ..."); anything else is "Alerts are off". Signed in with an email and both
+  choices off, More > Get alerts and the sheet say "Your email alerts are off" with the way to turn them on (`emailLede`).
+  Every screen that reports alerts uses it: the first
+  visit's "Mahalo!" and its ending, the version that ends on Home (its ticks), the plans' sign-up ("Almost set", never
+  "You're set" before the number is confirmed) and ending, More > Get alerts and its toast, the profile's Alerts, and the
+  "we tell you" lines of the endings and Plan 4. Texts are still described as working (R-146).
+- **"Turn on alerts" on the endings** (X10-4; `alertRowHTML`, `wireAlertRow`, `openAlertsSheet` in `pub/alerts.js`): the
+  ending's alerts row (today's and the plans') carries its own button when alerts are off ("Enter the code" when a code
+  waits); it opens the same alerts box in a sheet (from the bottom on a phone, 520px in the middle on a laptop; the consent
+  words, the code step, email in place), and the ending is drawn again standing still (`S.stCalm`) with the new status.
+  `tests/d1_status.py` checks both (72 checks at 390x844 and 1366x900; on the code before it fails 35).

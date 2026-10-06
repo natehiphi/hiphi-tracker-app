@@ -5,8 +5,9 @@
 //   #/help      ready-made conversations (R-075: pub/talk.js, loaded on first use; #/help/<slug> opens one)
 //   #/signin    "Add your email": one email field, one "keep me updated" box (hearings on your issues and HIPHI's updates,
 //               ticked; DESIGN C-4, Nate 9/20), privacy in 3 bullets
-//   #/alerts    "Get alerts on your issues" (R-146): the phone-first box (pub/alerts.js); once a number is given, "Text
-//               alerts are on" with Change number and Stop texts. Email goes to #/signin, which keeps its own box.
+//   #/alerts    "Get alerts on your issues" (R-146): the phone-first box (pub/alerts.js); once a number is given, "Almost
+//               set" until it is confirmed, then "Text alerts are on" (D1-4), with Change number and Stop texts. Email
+//               goes to #/signin, which keeps its own box.
 //   #/settings  since R-147 (10/4) the profile, pub/profile.js (#/profile): More's first row is the person
 //   #/privacy   what we keep and who sees it, then a short accessibility statement
 // ONE vocabulary for the email step (Nate, 9/19; the assessment counted six names for it): a signed-out person is
@@ -29,7 +30,7 @@ import { MARK } from './art.js';
 import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
-import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, codeStep } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, codeStep, confirmWords, almostLine, emailLede } from './alerts.js';
 import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
@@ -535,11 +536,16 @@ function wireSignin() {
 const A = { edit: false };
 function alertsView() {
   const t = textSaved();
+  // "On" only once the number is confirmed (D1-4, the one rule in alerts.js alertStatus): a number not yet confirmed is
+  // "Almost set", with the same words as the alerts step and every other screen. It said "Text alerts are on" over its
+  // own "Almost set" toast.
+  const ph = t ? `<span class="strong al-nowrap">${esc(fmtPhone(t.phone))}</span>` : '';
   if (t && !A.edit) return `<div class="mr mr-alerts">
-    <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Text alerts are on</h1></header>
+    <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">${t.confirmed ? 'Text alerts are on' : 'Alerts almost set'}</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
-      <p>We’ll text <span class="strong">${esc(fmtPhone(t.phone))}</span> when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>
-      <p class="small">${t.confirmed ? '' : 'We’ll text you first to confirm it’s your number. '}Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
+      ${t.confirmed ? `<p>We’ll text ${ph} when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`
+        : `<p class="strong">${confirmWords(ph)}</p><p>Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`}
+      <p class="small">Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
       <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
     </section>
     ${myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
@@ -548,7 +554,7 @@ function alertsView() {
   const b = alertButton('mr-al');
   return `<div class="mr mr-alerts">
     <header class="pagehead"><h1 class="hero">${codeStep('mr-al') ? 'Check your texts' : t ? 'Change your number' : 'Get alerts on your issues'}</h1>
-      <p class="lede">${codeStep('mr-al') ? 'Type the 6-digit code from the text to turn on alerts.' : myEmail() ? 'Your email alerts are in your profile. Add your mobile number to get texts too.' : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
+      <p class="lede">${codeStep('mr-al') ? 'Type the 6-digit code from the text to turn on alerts.' : myEmail() ? emailLede() : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
     <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !myEmail() })}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
     </form>
@@ -557,7 +563,7 @@ function alertsView() {
 function wireAlerts() {
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
     A.edit = false; app.render();
-    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : `Almost set: we’ll text ${fmtPhone(r.phone)} to confirm it’s your number.`, { yay: true });
+    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : almostLine(fmtPhone(r.phone)), { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');

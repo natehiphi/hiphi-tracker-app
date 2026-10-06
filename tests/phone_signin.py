@@ -61,7 +61,8 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
     ok('We’ll text you to confirm it’s your number' in text(p) and 'YES' not in text(p) and '6-digit code' not in text(p), 'codes off: the box says the number will be confirmed by text, never "reply YES" (R-176)')
     p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
-    ok('We’ll text you first to confirm it’s your number' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "confirm it’s your number", no YES')
+    # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
+    ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
     p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
     ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and 'Updated 5 October 2026' in text(p), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
     c.close()

@@ -9,14 +9,15 @@
 //          bringer sends one friend a note. "Not now" always moves on (P-5). Each done step gets a small burst (C-7).
 // The ending ('wrap', onb.js) says "You help by ..." from S.obWay: what the person does, never a label for who they are
 // (the doc's risk: the names must never read like a test result).
-import { S, DEMO, app, esc, icon, nick, spaced, sessionInfo, wiz, wizSet, HST, anyBill, issueBills, followedIssues, calendarUrl, issueShareUrl, cmteLabel, textSaved } from './core.js';
-import { shell, topRow, bar1, bar2, sayRow, sureWide, isOff, planOn, goStep, track, pickedIssues, ranker, mailSent, plural, andList, shortDay, partnerLine } from './start.js';
+import { S, DEMO, app, esc, icon, nick, spaced, sessionInfo, wiz, wizSet, HST, anyBill, issueBills, followedIssues, calendarUrl, issueShareUrl, cmteLabel } from './core.js';
+import { shell, topRow, bar1, bar2, sayRow, sureWide, isOff, planOn, goStep, track, pickedIssues, ranker, plural, andList, shortDay, partnerLine } from './start.js';
 import { btn } from './ui.js';
 import { CAPITOL, VOICES } from './art.js';
 import { burst, later, reduced } from './fx.js';
 import { logAct } from './visitlog.js';
 import { myInterests, saveProfile, storyFor, storyAsk, saveStory, signedIn } from './myprofile.js';
 import { PLAN_SURE } from './plans.js';
+import { alertStatus } from './alerts.js';
 
 export const STEPS = ['way', 'first'];
 
@@ -94,7 +95,8 @@ function wireWay({ step, $, $$ }) {
 // What was done here in this page's life, by way, so Back and a redraw show it done (B-4); the writer's typing is kept the
 // same way, so Back never loses it (C-9).
 S.ob4 ??= { done: {}, draft: null };
-const told = () => !!(S.session || mailSent() || textSaved());
+// "We'll tell you" only once alerts are on or almost set by the one rule (alerts.js alertStatus, D1-4).
+const told = () => ['on', 'almost'].includes(alertStatus().key);
 const dayLong = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' });
 const timeOf = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' });
 const catName = k => (S.cats || []).find(c => c.key === k)?.name || '';
