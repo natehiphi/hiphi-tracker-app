@@ -949,7 +949,17 @@ export async function ensureBill(num, year) {
 // and has done nothing. Someone who sent the quick email from a link, then said "Don't follow it", came back to the
 // start as if new (R-067): an action they marked counts as having been here.
 const siteRoot = () => `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
-export const billShareUrl = b => b.hiphi_position && !DEMO ? `${siteRoot()}b/${billRef(b)}` : `${location.origin}${location.pathname}${DEMO ? location.search : ''}${billPath(b)}`;
+// The address to share a bill at, for one ask (R-169: the friend's card leads with the ask and the link opens it):
+// 'testify' | 'ask' | 'floor' | 'conference' | 'governor' | 'follow', or '' for the bill's ask of the moment. A bill HIPHI
+// has a stance on has a page per ask (b/HB2121-testify, tools/share_pages.mjs); any other bill, and the sandbox, share
+// the tracker's own address, opening the same thing (#/bill/HB2121/testify; following opens the bill's issue).
+export const SHARE_ASKS = ['testify', 'ask', 'floor', 'conference', 'governor', 'follow'];
+export const billShareUrl = (b, ask = '') => {
+  const a = SHARE_ASKS.includes(ask) ? ask : '';
+  if (b.hiphi_position && !DEMO) return `${siteRoot()}b/${billRef(b)}${a ? `-${a}` : ''}`;
+  const i = a === 'follow' ? issuesOf(b)[0] : null;
+  return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : billPath(b) + (a && a !== 'follow' ? `/${a}` : '')}`;
+};
 export const issueShareUrl = i => !DEMO ? `${siteRoot()}i/${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
 // "Wed, Mar 18 at 9:30 AM": a deadline in a text to a friend (R-113).
 export const dueWords = iso => `${fmtDate(iso, { weekday: 'short', month: 'short', day: 'numeric' })} at ${timeWord(iso)}`;

@@ -151,8 +151,35 @@ share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in p
 a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
 on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
 Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting the "voice" step offers
-"Go to my home page" beside "Show me how it works (2 min)". Tests: `tests/share_links.py` (22 checks, with Staff v2's
+"Go to my home page" beside "Show me how it works (2 min)". Tests: `tests/share_links.py` (24 checks, with Staff v2's
 hearing back link and the Help words from R-112).
+
+**A shared link leads with its ask and opens it (R-169, 10/5).** Nate: "Card wording should lead with the action that is
+being asked of them. The link needs to link them to taking action, not just the bill page." A bill HIPHI has a stance on
+has one share page per ask (`tools/share_pages.mjs`, the words and the choice in `tools/share_cards.mjs`): `b/HB1573-testify`
+("Speak up by Wed, Mar 18: <name> (HB 1573)", the committee, the hearing day, about 10 minutes, HIPHI's stance; opens the
+testimony walkthrough), `-ask` ("Ask for a hearing: <name>", or "Ask the chair to hold" where HIPHI opposes, with the
+committee and its deadline; opens the email walkthrough to the chairs), `-floor` ("Ask your senator to vote yes"), `-conference`
+("Ask lawmakers to pass it"), `-governor` ("Ask the Governor to sign" or "veto"), and `-follow` ("Follow the issue: <issue>",
+with the bill's news: became law, stopped, "ideas like this often come back"; opens the issue page). `b/HB1573` carries the
+bill's ask of the moment. Every share passes its ask: `shareFor(b, h, { ask, chamber })` with `shareAsk(b, x)` from the bill
+page (bill.js: a hearing ahead is testimony; a bill waiting for one, the chair; then the floor, the final version, the
+Governor; anything over, following), `billShareUrl(b, ask)` in core.js, the walkthrough's "Tell a friend" (the ask just
+taken), and Staff v2's share kit and "This week's asks" (`sharePageUrl(b, 'testify')`). The routes `#/bill/<n>/ask`,
+`/floor`, `/conference` and `/governor` join `/testify` and `/email` (app.js); `openAsk` in bill.js opens them once the
+legislators have loaded: the walkthroughs for testimony, the hearing's email, the chair's email and the floor vote ("Find
+your legislators" first when theirs are unknown); the final version's email and the Governor's form open in another app,
+which needs a tap, so their main button is put in front. An ask that has closed says so in a toast ("Testimony on this bill
+has closed. Here's what you can do now.") over the bill's ask of the moment. The "New here?" card has words for every ask.
+The message's words follow the ask too, except where the share test runs (a deadline or a hearing ahead, R-135), which keeps
+its two messages. The pages carry no `<meta http-equiv="refresh">` (Facebook's robot followed it to the tracker's general
+card) and no `og:url` (Facebook and LinkedIn link to it, dropping `?via=`); their script sends people on. `404.html` turns
+`b/HB2121-testify` into `#/bill/HB2121/testify`. The job runs hourly from January to June (daily otherwise), pushing with a
+retry. Found and fixed with it: the calendar feeds (R-125) never held an event (the job did not read the issue's id);
+speakup.js read no year in the address, so on `#/bill/2026/HB1518` "Ask the chairs" opened a bare email instead of the
+walkthrough; a page opened from a shared link (`?via=`, not a reload) no longer reopens a walkthrough left open in the tab
+(R-113, helper.js `freshLink`). Tests: `tests/share_cards_test.mjs` (20 checks, every push), `tests/share_asks.py` (16),
+`tests/share_links.py`, `tests/year_links_live.py` (the published pages).
 
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen

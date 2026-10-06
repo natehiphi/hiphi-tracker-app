@@ -1430,7 +1430,8 @@ function burst() {
   setTimeout(() => box.remove(), 1100);
 }
 async function tellFriend() {
-  const x = S.helper, t = shareFor(x.b, x.h, { acted: true });
+  // The friend's ask is the one they just took (R-169): testimony, or asking the chair, or their own legislator's vote.
+  const x = S.helper, t = shareFor(x.b, x.h, { acted: true, ask: x.h ? 'testify' : x.mode === 'email' ? 'ask' : x.moment?.kind === 'floor' ? 'floor' : '', chamber: x.moment?.chamber || '' });
   const r = await doShare(t);   // the bill's own share page, the deadline in the words, the link once (R-113)
   let how = r === 'shared' ? 'Shared. Mahalo!' : r === 'copied' ? 'Link copied' : '';
   if (!how && !navigator.share && await copyText(t.copy)) how = 'Link copied';   // older browsers: the hidden-field copy
@@ -1672,7 +1673,12 @@ function listen(d) {
   d.addEventListener('scroll', e => { if (S.helper && e.target.classList?.contains('hp-body')) S.helper.scrollTop = e.target.scrollTop; }, true);
 }
 // After a reload with the helper open, open it again once its hearing is known (the bill page may still be loading).
+// Not when this page was just opened from a link someone shared (?via=, not a reload): a walkthrough left open earlier in
+// the same tab came back over the bill the link named (R-113, Nate 10/4: "This opened the bill walkthrough page, not just
+// straight to the bill."). A link that names an ask opens that one itself (bill.js openAsk, R-169).
+const freshLink = () => { try { return /[?&]via=/.test(location.search) && performance.getEntriesByType('navigation')[0]?.type === 'navigate'; } catch { return false; } };
 function tryReopen() {
+  if (reopen === null && freshLink()) { reopen = false; openMark.set(null); }
   if (reopen === null) { const o = openMark.get(); reopen = o ? { ...o, until: Date.now() + 10000 } : false; }
   if (!reopen) return;
   if (Date.now() > reopen.until) { reopen = false; openMark.set(null); return; }

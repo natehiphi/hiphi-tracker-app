@@ -6,15 +6,21 @@
 // a preview robot the title, description and picture. Bill numbers start again every session (R-110): b/HB2121 is the
 // latest session's bill of that number, b/2026/HB2121 that session's, and every page sends people to the exact bill it
 // describes (#/bill/2026/HB2121), so a link shared in 2026 still opens the 2026 bill in 2027.
+// Since R-169 (10/5) a bill has one page per ask, its card leading with the ask and its link opening it (b/HB1573-testify
+// opens the testimony walkthrough): the words and the choice of pages are tools/share_cards.mjs. The pages carry no
+// instant redirect (<meta http-equiv="refresh">) and no og:url: Facebook's link robot follows the one to the tracker's
+// general card, and links to the other without the partner's or the test's ?via= tag. Their script sends people on.
 //
-//   node tools/share_pages.mjs            writes b/ and i/ from the live public views (read-only, the public key)
-//   node tools/share_pages.mjs --check    says what would change, writes nothing
+//   node tools/share_pages.mjs              writes b/, i/ and cal/ from the live public views (read-only, the public key)
+//   node tools/share_pages.mjs --check      says what would change, writes nothing
+//   node tools/share_pages.mjs --out DIR    writes into DIR instead (the tests)
 //
-// Run daily by .github/workflows/share-pages.yml, which commits the pages when they changed. Only public views are read
-// (public_all_bills, public_issues), with the publishable key the public page already carries.
+// Run by .github/workflows/share-pages.yml (hourly January to June, daily otherwise), which commits the pages when they
+// changed. Only public views are read, with the publishable key the public page already carries.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { billState, asksFor, cardFor, committeeWords } from './share_cards.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The public page's address and key live in the kernel since the split (R-122, 10/2); reading them from core.js, as
@@ -26,6 +32,7 @@ const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
 // a link or a calendar subscription made before the rename keeps working.
 const FORMER = JSON.parse(/export const FORMER_SLUGS = (\{[^\n]*\});/.exec(kernel)[1]);
 const CHECK = process.argv.includes('--check');
+const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : ROOT;
 
 async function rows(path) {
   const out = [];
@@ -38,10 +45,9 @@ async function rows(path) {
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; };
-const POS = { strongly_support: 'HIPHI strongly supports it.', support: 'HIPHI supports it.', support_amend: 'HIPHI supports it with changes.',
-  strongly_oppose: 'HIPHI strongly opposes it.', oppose: 'HIPHI opposes it.', neutral: 'HIPHI is following it.', monitor: 'HIPHI is watching it.' };
 
-function page({ title, desc, to, self }) {
+// No og:url and no <meta http-equiv="refresh"> (R-169): see the top. Someone whose browser runs no script gets the link.
+function page({ title, desc, to }) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -51,12 +57,10 @@ function page({ title, desc, to, self }) {
 <meta property="og:site_name" content="Hawaiʻi Public Health Institute">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${esc(self)}">
 <meta property="og:image" content="${SITE}pub/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta http-equiv="refresh" content="0; url=${esc(to)}">
 <script>
 /* A partner's word or a campaign's utm_ words on this link go on to the tracker in place of ?via=share, so the arrival
    is counted under them (R-113, W1). */
@@ -67,27 +71,56 @@ function page({ title, desc, to, self }) {
     t = u.href; } catch (e) { /* the plain address */ }
   location.replace(t); })();
 </script>
-</head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="${esc(to)}">${esc(title)}</a></p></body></html>
+</head><body style="font-family:system-ui,sans-serif;padding:24px"><p><a href="${esc(to)}">${esc(title)}</a></p><p><a href="${esc(to)}">Open HIPHI’s Bill Tracker</a></p></body></html>
 `;
 }
 
-const bills = (await rows('public_all_bills?select=id,bill_number,session_year,hiphi_nickname,hiphi_summary,description,hiphi_position,hiphi_issues&hiphi_position=not.is.null&order=session_year.asc'));
-const hearings = await rows('public_all_hearings?select=bill_id,bill_number,committee,scheduled_at,room,status,testimony_deadline&status=eq.scheduled&order=scheduled_at.asc');
-const issues = await rows('public_issues?select=slug,name,description,bill_ids');
+// What the cards need besides the bill (R-169): its hearings of the last 30 days (public_all_hearings keeps those) and
+// their outcomes, the session's deadlines and the committees' names, so a card can say "the House Health committee" and
+// "by Fri, Feb 20", the way the bill page does (stops.js billStop reads them the same way).
+const bills = (await rows('public_all_bills?select=id,bill_number,session_year,chamber,stage,committee,referrals,origin_stops,last_action,died_deadline,hiphi_nickname,hiphi_summary,description,hiphi_position,hiphi_issues&hiphi_position=not.is.null&order=session_year.asc'));
+const allHearings = await rows('public_all_hearings?select=id,bill_id,bill_number,committee,scheduled_at,room,status,testimony_deadline&order=scheduled_at.asc');
+const hearings = allHearings.filter(h => h.status === 'scheduled');
+const outcomes = Object.fromEntries((await rows('public_hearing_outcomes?select=hearing_id,outcome')).map(o => [o.hearing_id, o]));
+const deadlines = await rows('public_deadlines?select=session_year,key,label,deadline_date,bills,replaces&order=sort_order.asc');
+const committees = Object.fromEntries((await rows('public_committees?select=code,name,chamber')).map(c => [c.code, c]));
+// The issue's id too: the bills name their issues by it (the calendar feeds below matched on it and, without it, never
+// held an event, 10/5).
+const issues = await rows('public_issues?select=id,slug,name,description,bill_ids');
+const issueById = new Map(issues.filter(i => /^[a-z0-9-]+$/.test(i.slug)).map(i => [i.id, i]));
+// A deadline by its key for this bill's session, or the budget bills' own row that replaces it (pub/core.js deadlineOf).
+const deadlineFor = b => key => {
+  const mine = deadlines.filter(d => +d.session_year === +b.session_year);
+  const d = mine.find(x => x.replaces === key && (x.bills || []).includes(b.bill_number)) || mine.filter(x => x.key === key && !(x.bills || []).length).slice(-1)[0];
+  return d ? { label: d.label, date: d.deadline_date } : null;
+};
+const hearingsBy = new Map();
+for (const h of allHearings) { if (!hearingsBy.has(h.bill_id)) hearingsBy.set(h.bill_id, []); hearingsBy.get(h.bill_id).push(h); }
 const want = new Map();   // file -> html
+const goTo = (depth, hash) => `${'../'.repeat(depth)}track.html?via=share${hash}`;
 for (const b of bills) {   // oldest session first, so the latest wins b/<number> when a number repeats
-  const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0, name = b.hiphi_nickname;
-  const title = `${name ? `${name} (${spaced(n)})` : spaced(n)} · HIPHI Bill Tracker`;
-  const desc = `${cut(b.hiphi_summary || b.description || '', 180)} ${POS[b.hiphi_position] || ''} Follow it and speak up in a few minutes.`.replace(/\s+/g, ' ').trim();
-  const hash = `#/bill/${y ? `${y}/` : ''}${n}`;   // the exact bill, by its session (R-110)
-  want.set(`b/${n}.html`, page({ title, desc, to: `../track.html?via=share${hash}`, self: `${SITE}b/${n}` }));
-  if (y) want.set(`b/${y}/${n}.html`, page({ title, desc, to: `../../track.html?via=share${hash}`, self: `${SITE}b/${y}/${n}` }));
+  const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0;
+  const state = billState(b, { hearings: hearingsBy.get(b.id) || [], outcomes, deadlineFor: deadlineFor(b) });
+  const ctx = { committees, issue: (b.hiphi_issues || []).map(id => issueById.get(id)).find(Boolean) || null };
+  const card = ask => cardFor(b, ask, state, ctx);
+  // b/HB1573: the bill's ask of the moment (links made before R-169, staff copies, the 404 page's guesses).
+  const now = card(state.ask);
+  want.set(`b/${n}.html`, page({ ...now, to: goTo(1, now.hash) }));
+  if (y) want.set(`b/${y}/${n}.html`, page({ ...now, to: goTo(2, now.hash) }));
+  // One page per ask. A live ask is always this session's bill, so it lives at the short address only; following is
+  // shared for bills from earlier sessions too, so it is at both.
+  for (const ask of asksFor(b, state)) {
+    const c = card(ask);
+    want.set(`b/${n}-${ask}.html`, page({ ...c, to: goTo(1, c.hash) }));
+    if (y && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, to: goTo(2, c.hash) }));
+  }
 }
 for (const i of issues) {
   if (!/^[a-z0-9-]+$/.test(i.slug)) continue;
   const n = (i.bill_ids || []).length;
   const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
-  want.set(`i/${i.slug}.html`, page({ title: `${i.name} · HIPHI Bill Tracker`, desc, to: `../track.html?via=share#/issue/${i.slug}`, self: `${SITE}i/${i.slug}` }));
+  // The ask first (R-169): following is what an issue's link asks, and its page's main button.
+  want.set(`i/${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `../track.html?via=share#/issue/${i.slug}` }));
   for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
 }
 // The calendar feeds (R-125, the assessment's W3): cal/<issue slug>.ics, one per issue, every hearing still ahead (and the
@@ -110,7 +143,8 @@ for (const i of issues) {
     const ref = `${b.session_year ? `${b.session_year}/` : ''}${n}`, url = `${SITE}track.html?via=calendar#/bill/${ref}/testify`;
     const open = h.testimony_deadline && new Date(h.testimony_deadline).getTime() > Date.now();
     if (open) ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}-due`, h.testimony_deadline, 15, `Testimony due: ${name}`, `Send testimony in a few minutes: ${url}`, url, true));
-    ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}`, h.scheduled_at, 60, `Hearing: ${name}`, `${h.committee} hearing${h.room ? `, ${h.room}` : ''}. Anyone can attend. ${url}`, url, false));
+    const cm = committeeWords(h.committee, committees).replace(/^the /, '').replace(/ committees?$/, '');
+    ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}`, h.scheduled_at, 60, `Hearing: ${name}`, `${cm} hearing${h.room ? `, ${h.room}` : ''}. Anyone can attend. ${url}`, url, false));
   }
   const cal = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsEsc(`HIPHI · ${i.name}`)}`,
     'X-WR-TIMEZONE:Pacific/Honolulu', 'REFRESH-INTERVAL;VALUE=DURATION:PT12H', 'X-PUBLISHED-TTL:PT12H', ...ev, 'END:VCALENDAR'].join('\r\n') + '\r\n';
@@ -119,7 +153,7 @@ for (const i of issues) {
 }
 let added = 0, changed = 0, removed = 0;
 for (const dir of ['b', 'i', 'cal']) {
-  const d = join(ROOT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
+  const d = join(OUT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
   const years = existsSync(d) ? readdirSync(d).filter(f => /^\d{4}$/.test(f)) : [];   // b/2026/, one folder per session
   for (const sub of ['', ...years]) {
     const dd = sub ? join(d, sub) : d;
@@ -127,7 +161,7 @@ for (const dir of ['b', 'i', 'cal']) {
   }
 }
 for (const [f, html] of want) {
-  const p = join(ROOT, f), old = existsSync(p) ? readFileSync(p, 'utf8') : null;
+  const p = join(OUT, f), old = existsSync(p) ? readFileSync(p, 'utf8') : null;
   if (old === html) continue; old === null ? added++ : changed++;
   if (!CHECK) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, html); }
 }

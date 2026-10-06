@@ -1207,11 +1207,11 @@ const askName = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
 const askLine = b => String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;
 export function weekAsksText(items, kind) {
   const via = kind === 'social' ? 'social' : 'newsletter';
-  if (kind === 'social') return items.map(x => { const link = `${sharePageUrl(x.b)}?via=${via}`, due = `Testimony due ${fmtDT(x.due)}.`;
+  if (kind === 'social') return items.map(x => { const link = `${sharePageUrl(x.b, 'testify')}?via=${via}`, due = `Testimony due ${fmtDT(x.due)}.`;
     let ask = askLine(x.b); const room = 280 - (askName(x.b).length + due.length + link.length + 6); if (ask.length > room) ask = ask.slice(0, Math.max(room - 1, 20)).replace(/\s+\S*$/, '') + '…';
     return `${askName(x.b)}: ${ask} ${due} ${link}`; }).join('\n\n');
   const head = `This week at the Legislature: ${items.length === 1 ? 'one bill on HIPHI’s issues needs' : `${items.length} bills on HIPHI’s issues need`} your voice. Each takes a few minutes.`;
-  return head + '\n\n' + items.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askLine(x.b)} Testimony is due ${fmtDT(x.due)}.\n${sharePageUrl(x.b)}?via=${via}`).join('\n\n');
+  return head + '\n\n' + items.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askLine(x.b)} Testimony is due ${fmtDT(x.due)}.\n${sharePageUrl(x.b, 'testify')}?via=${via}`).join('\n\n');
 }
 function weekAsksHTML(all) {
   const items = weekAsks(all); S.tdAsks = items;
