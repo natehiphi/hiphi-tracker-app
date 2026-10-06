@@ -15,7 +15,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, sessionInfo, wiz, wizSet,
 import { shell, topRow, artFor, bar1, bar2, sayRow, sureWide, skel, loadErr, isOff, planOn, goStep, finish, track, pickedIssues, issueInfo, ranker, byScore, mailSent, welcome, flash, clearFlash, plural, andList, shortDay, shown, poolBills, busy, stepOf } from './start.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, flower } from './art.js';
-import { burst, celebrate, later, reduced } from './fx.js';
+import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep } from './alerts.js';
 import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
@@ -386,13 +386,13 @@ function nextLines(p) {
 function stepWrap(step) {
   const p = planOn(), rows = didRows(), off = isOff(), open = sessionInfo().nextOpen;
   const name = (S.stMail?.name || wiz().name || '').trim();
-  const petals = Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${1.6 + (i % 5) * .22}s;--d:${(i % 6) * .12}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
   const did = rows.some(r => r[3] === 'ok'), spoke = !!(S.obActed || wiz().obActed);
   const next = nextLines(p), ics = ['eye', 'calendar-clock', 'circle-check'];
   // The peak only for something really done (C-7): petals over "Alerts are off" alone read as a prize for nothing.
+  // The finale's timings (start.css, fx.js petals(); X11-2, R-180): the words first, nothing moving after 2 s.
   return shell('st-done ob-wrap', `${topRow('wrap', step)}
-    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div>${did ? `<div class="st-petals">${petals}</div>
+    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div>${did ? `<div class="st-petals">${petals()}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div>` : ''}</div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.' : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.'}</p>`,

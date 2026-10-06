@@ -9,6 +9,8 @@
 //   travel(...)    moves one SVG group along a curve (the bill's trip through the Capitol, a letter to the committee).
 //   swap(fn, dir)  a screen change that slides the way the person is going (a View Transition where the browser has
 //                  one; otherwise the change simply happens).
+//   petals()       the finale's falling petals, the peak at the end of the first visit (C-7).
+// Every moment plays side by side, at full speed or slowed, on the private motion page (motion.html, X11-4).
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
 import { icon } from './kernel.js';
 
@@ -28,6 +30,13 @@ export function burst(el, n = 12, dist = 52) {
   }).join('');
   document.body.appendChild(b); setTimeout(() => b.remove(), 1100);
 }
+
+// ---- the finale's petals: they fall once over the drawing (the first visit's last screen, a plan's ending, and the
+// version that ends on Home), inside a .st-petals box (start.css). One definition, so the three endings keep one timing.
+// Each falls for 1.2-1.8 s and starts at most 0.15 s late, so the last is down within 2 s of the screen (A-10; X11-2,
+// R-180: they fell for up to 3.1 s while the recap waited on them). Not drawn under Reduce Motion (start.css, home.css).
+export const petals = (n = 18) => Array.from({ length: n }, (_, i) =>
+  `<i style="--x:${(i * 53) % 100}%;--r:${(i * 47) % 360}deg;--t:${(1.2 + (i % 5) * .15).toFixed(2)}s;--d:${((i % 6) * .03).toFixed(2)}s;--c:${i % 3 ? 'var(--o400)' : i % 2 ? '#F9D56E' : 'var(--p300)'}"></i>`).join('');
 
 // ---- one SVG group moved along a quadratic curve: [from, control, to] in the SVG's own units ----
 // A newer trip for the same element cancels the older one, so tapping Next quickly never leaves two running.

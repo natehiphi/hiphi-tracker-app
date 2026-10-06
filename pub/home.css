@@ -260,7 +260,8 @@
 /* ---- the version of the first visit that ends on Home (R-098, ?end=home; pub/home.js homeFirst, finFx) ----
    The finale's celebration, on the page they will come back to: blooms pop, the ticks rise in, the sun comes up over the
    Capitol between sessions, petals fall once (outside #app, .hm-petalfx). Only on the first draw (.hm-anim), so a redraw
-   as data lands does not replay it. Then "What you can do right now", open. */
+   as data lands does not replay it. Then "What you can do right now", open. The same timings as the finale (start.css,
+   X11-2, R-180): the ticks from 0.2 s, 80 ms apart, the blooms and the sun inside the petals' fall, nothing after 2 s. */
 .hm .hm-finhead { gap: var(--s8); }
 .hm .hm-blooms { display: flex; gap: 8px; align-items: flex-end; margin-bottom: var(--s4); }
 .hm .hm-blooms .flower { margin: 0; }
@@ -269,9 +270,9 @@
 .hm .hm-didic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--p50); color: var(--p700); flex: none; }
 .hm .hm-didic.ok { background: var(--ok-wash); color: var(--ok-text); }
 .hm .hm-didic .ic { width: 14px; height: 14px; }
-.hm.hm-anim .hm-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(300ms + var(--k) * 110ms); }
-.hm.hm-anim .hm-did li { animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 160ms + 600ms); }
-.hm.hm-anim .hm-art .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.6s var(--ease) both; }
+.hm.hm-anim .hm-blooms span { animation: fx-pop .5s var(--spring) both; animation-delay: calc(400ms + var(--k) * 80ms); }
+.hm.hm-anim .hm-did li { animation: st-rise .3s var(--ease) both; animation-delay: calc(var(--k) * 80ms + 200ms); }
+.hm.hm-anim .hm-art .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.2s var(--ease) both; }
 .hm .hm-rightnow { display: flex; flex-direction: column; gap: var(--s12); }
 .hm .hm-rnh { font-size: var(--t22); }
 .hm .hm-rnnone { margin: 0; padding: var(--s16); border-radius: var(--r16); background: var(--n50); color: var(--n700); }
