@@ -29,6 +29,9 @@ export const POS_ICON = { strongly_support: 'thumbs-up', support: 'thumbs-up', s
 export const posIcons = pos => { const ic = POS_ICON[pos] || 'circle-dashed';
   return /^strongly_/.test(pos || '') ? icon(ic) + icon(ic) : icon(ic); };
 export const POS_WORD = { strongly_support: 'Strong support', support: 'Support', support_amend: 'Support with changes', strongly_oppose: 'Strongly oppose', oppose: 'Oppose', neutral: 'Comments', monitor: 'Monitor', '': 'No position' };
+// What a position does beyond its name, under it in every position picker. The priority follows the position
+// (R-175, Nate 10/5), so the one place it can be seen being set is here.
+export const POS_SUB = { strongly_support: 'Makes it P1, the team’s top tier', monitor: 'Watch it; no testimony drafts' };
 export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] || 'circle-dashed');
 
 // ---- people ----

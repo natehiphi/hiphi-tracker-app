@@ -376,6 +376,10 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
   `is_public`, `public_summary`, `public_action`, `public_action_until`, `nickname`. The database grants UPDATE
   column by column; a new column needs a migration first (see backend 057) or saves fail with
   "permission denied". That is the design working.
+- **Priority is not a staff choice (R-175, Nate 10/5).** It follows the position: strongly support is P1, every other
+  position P2, no position none. The database sets it (backend migration 144, a trigger on `bills`); `DB.updateBill` and
+  `DB.bulkUpdate` add it to any patch with a position (`priorityOf` in `staff/data.js` and `app.js`) so the screen is
+  right at once. Never add a priority picker back; the position pickers say "Makes it P1" (`POS_SUB` in `staff/ui.js`).
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 

@@ -73,7 +73,7 @@ const TOPICS = [
       ['Following', 'Puts a bill in your Mine view and on your Today list, and gets you its chat messages. It never gives you a task. Anyone can follow anything.'],
       ['Muting', 'Takes a bill off your lists until its next hearing is posted. A bill with a hearing ahead cannot be muted.'],
       // Says what the select-many bar does (R-022, decision 9): the two used to disagree.
-      ['Changing owners and positions', 'Anyone can change a bill’s owner, position or priority: on its page, in a cell of the Bills table, or down the whole table with its Edit switch (a laptop). For many at once, tick them in Bills, then Set position, Set priority or Set owner. Every change can be undone from the message that follows it. Follow and Unfollow work on many at once the same way.'],
+      ['Changing owners and positions', 'Anyone can change a bill’s owner or position: on its page, in a cell of the Bills table, or down the whole table with its Edit switch (a laptop). For many at once, tick them in Bills, then Set position or Set owner. Every change can be undone from the message that follows it. Follow and Unfollow work on many at once the same way. The priority follows the position: Strong support makes a bill P1, the team’s top tier, and every other position P2.'],
       ['Coalitions I support', 'For helping with a coalition’s bills without owning them. Choose them in My settings. Today then shows each one’s week (never in the count), Bills shows their bills under <b>My coalitions</b>, and the weekly memo starts on the one coalition you support.']] },
   { id: 'auto', title: 'What happens on its own', icon: 'rotate-ccw', sub: () => emailOff() ? 'Email is paused right now' : 'Email is on',
     items: () => { const burst = (S.syncCfg || {}).burst_until, hourly = burst && burst >= new Date().toISOString().slice(0, 10);
@@ -86,7 +86,7 @@ const TOPICS = [
   // The January panel on Today, and Session setup, point here (#/help/session). What changes, and what an admin checks.
   { id: 'session', title: 'Getting ready for a new session', icon: 'calendar-check', sub: () => 'What changes on opening day, and what admins check',
     items: () => [['When the calendar is in', 'Claude loads the new session’s calendar each December. From then every deadline and count follows the new session, and Today is your list again instead of how the last session ended.'],
-      ['New bills', 'They arrive as they are introduced. <b>Sort new bills</b> asks for one decision on each: track it, with its coalition, owner, position and priority, or pass.'],
+      ['New bills', 'They arrive as they are introduced. <b>Sort new bills</b> asks for one decision on each: track it, with its coalition, owner, position and issue, or pass.'],
       ['Session setup (admins)', '<a href="#/setup">Ready for session?</a> lists what the tracker still needs, each with a way to fix it: opening day, sine die and recess days; hourly syncing for the opening weeks; the session’s bills, under Import; and an owner, a Slack channel and keywords for every coalition.']] },
   { id: 'public', title: 'The public page and lists', icon: 'globe', sub: () => 'What visitors see, and how to share it',
     items: () => [['What shows', 'Only bills set to show on the public page, with the plain summary and the ask from the bill\'s Public tab. Visitors follow issues (or a bill, or a list) and get a five-minute way to testify.'],

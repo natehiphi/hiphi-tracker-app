@@ -1,6 +1,6 @@
 // HIPHI Staff v2 · M2 Bill workspace (plan 3.3). The bill is a full page with its own address
 // (#/bill/HB1562[/overview|activity|pathway|public]), not a modal: Back works and a link can be shared.
-// Phones: the heading (nickname or plain summary, where the bill stands, position / priority / owner chips), the
+// Phones: the heading (nickname or plain summary, where the bill stands, position / owner chips), the
 // "Next up" card with the ONE button that does the testimony step, then the four tabs, which pin under the header.
 // Desktop (900px and wider, build 4): two columns. The main column leads with the bill's facts — the heading, the
 // stage ribbon, where it stands, then Details — and ends with the empty form (To do, Team note), because an empty
@@ -14,7 +14,7 @@ import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteNam
   billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
   listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
-import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
+import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { renderPathway, wirePathway } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
@@ -245,16 +245,15 @@ export function statusSentence(b, { hearing = true } = {}) {
   return `${passed}${where}. Needs a hearing before ${esc(dlText(dl))}${dl ? ` (${dl.days} day${dl.days === 1 ? '' : 's'}), when it must ${esc(gateNeed(dl.label))}` : ''}. ${isJoint(st.committee) ? 'The chairs decide.' : 'The chair decides.'}`;
 }
 
-// ---- picker chips: position, priority, owner. Each saves on tap and says "Saved", with Undo. ----
+// ---- picker chips: position and owner. Each saves on tap and says "Saved", with Undo. Priority is not picked: it
+// follows the position (R-175, Nate 10/5; strongly support is P1, the rest P2), so the position picker says so. ----
 const POS_ORDER = ['strongly_support', 'support', 'support_amend', 'neutral', 'oppose', 'strongly_oppose', 'monitor', ''];
-const PRI_SUB = { 1: 'Top tier: leads every list and alert', 2: 'Active, behind the P1 bills', 3: 'The lowest tier we still take a position on' };
 // Initials on the owner chip (ui.avatar says "You" at this size, and the chip's label already does).
 const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" style="--av:24px" aria-hidden="true">${esc(a.initials || firstName(a)[0] || '?')}</span>`;
 const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
   return [['Position', pick('pos', POS_WORD[pos] || pos, posIcons(pos), `Position: ${POS_WORD[pos] || pos}. Change`)],
-    ['Priority', pick('pri', b.priority ? 'P' + b.priority : 'No priority', '', `Priority: ${b.priority ? 'P' + b.priority : 'none'}. Change`)],
     ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)]];
 };
 // Who follows the bill (R-022 wave 3), you first. data.js keeps your own follow in S.follows, the team's in S.followersBy.
@@ -285,13 +284,8 @@ async function saveWithUndo(b, patch, focusSel) {
 }
 function pickPosition(b) {
   pickerSheet({ title: `Position on ${b.bill_number}`, value: b.position || '',
-    options: POS_ORDER.map(v => [v, POS_WORD[v], POS_ICON[v] || 'circle-dashed', v === 'monitor' ? 'Watch it; no testimony drafts' : '']),
+    options: POS_ORDER.map(v => [v, POS_WORD[v], POS_ICON[v] || 'circle-dashed', POS_SUB[v] || '']),
     onPick: v => saveWithUndo(b, { position: v || null }, '[data-bwpick="pos"]') });
-}
-function pickPriority(b) {
-  pickerSheet({ title: `Priority of ${b.bill_number}`, value: b.priority ? String(b.priority) : '',
-    options: [['1', 'P1', 'flag', PRI_SUB[1]], ['2', 'P2', 'flag', PRI_SUB[2]], ['3', 'P3', 'flag', PRI_SUB[3]], ['', 'No priority', 'circle-dashed']],
-    onPick: v => saveWithUndo(b, { priority: v ? +v : null }, '[data-bwpick="pri"]') });
 }
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
@@ -678,7 +672,7 @@ function teamSection(b, desk) {
   // Each coalition opens its own page (R-022 wave 3: this week's hearings, at-risk bills, the partner memo).
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean);
   const f = desk ? '' : followText(b);
-  // On desktop "Team" is the side panel's card (position, priority, owner, who follows), so this section is named for
+  // On desktop "Team" is the side panel's card (position, owner, who follows), so this section is named for
   // what it holds. The stage is not here any more: the ribbon at the top says it, once (A-14).
   return `<section class="bw-sec" aria-labelledby="bw-team-h"><h2 id="bw-team-h">${desk ? 'Coalitions' : 'Team'}</h2>
     <div class="rows">
@@ -1010,7 +1004,6 @@ export default {
     page.querySelectorAll('[data-stage]').forEach(el => el.onclick = () => pickStage(b));
     // header chips
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
-    page.querySelector('[data-bwpick="pri"]').onclick = () => pickPriority(b);
     page.querySelector('[data-bwpick="own"]').onclick = () => pickOwner(b);
     // Next up
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
