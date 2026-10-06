@@ -19,7 +19,7 @@ let r = run(heard, [{ id: 'h1', bill_id: 'b1', committee: 'HHS', status: 'schedu
 let c = r.card(r.st.ask);
 ok(r.st.ask === 'testify', `a bill with a hearing ahead asks for testimony (${r.st.ask})`);
 ok(c.title === 'Speak up by Wed, Mar 18: FDA proof required to sell e-cigarettes (HB 1573)', `the title leads with the ask and the deadline: ${c.title}`);
-ok(/Tell the Senate Health and Human Services committee what you think before its hearing on Fri, Mar 20\. Testimony is due Wed, Mar 18 at 9:30 AM\. About 10 minutes; we help you write it\. HIPHI supports it\.$/.test(c.desc), `the words say who, when and how long: ${c.desc}`);
+ok(/Tell the Senate Health and Human Services committee what you think before its hearing on Fri, Mar 20\. Testimony is due Wed, Mar 18 at 9:30 AM\. It takes a few minutes; we help you write it\. HIPHI supports it\.$/.test(c.desc), `the words say who, when and how long: ${c.desc}`);
 ok(c.hash === '#/bill/2026/HB1573/testify', `the link opens the testimony walkthrough on the exact bill: ${c.hash}`);
 ok(r.asks.includes('testify') && r.asks.includes('ask') && r.asks.includes('follow'), `a live bill in committee gets testify, ask and follow pages: ${r.asks}`);
 

@@ -568,7 +568,7 @@ function newcomer(b, x) {
   const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${dueWords(h.testimony_deadline)}.` : '';
   // Every ask a shared link can open has its words here (R-169), so the card says what the main button does.
   const no = /oppose/.test(b.hiphi_position || ''), one = x.chairs.length > 1 ? 'the chairs' : 'the chair';
-  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, about 10 minutes the first time, or follow it and we’ll tell you what happens.`
+  const text = h ? `This bill has a hearing ${whenWord(h.scheduled_at)}.${due} You can tell the committee what you think, in a few minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'ask' ? `This bill is waiting for a hearing. You can ask ${one} for one, in about 2 minutes, or follow it and we’ll tell you when.`
     : x.kind === 'hold' ? `This bill is waiting for a hearing. You can ask ${one} not to hear it, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'floor' ? `This bill goes to a vote of the full ${CHAMBER_NAME[x.st.chamber] || 'House or Senate'} soon. You can ask your ${x.st.chamber === 'S' ? 'senator' : 'representative'} to vote ${no ? 'no' : 'yes'}, in about 2 minutes, or follow it and we’ll tell you how it goes.`

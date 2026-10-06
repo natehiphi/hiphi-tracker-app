@@ -50,6 +50,7 @@ import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
 import { introMark } from './speakup.js';
+import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
@@ -409,6 +410,7 @@ function openMail(o = {}) {
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
+  x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now();   // when they started (R-169), as for testimony
   S.helper = x;
   openMark.set({ mode, b: b?.id || '', h: h?.id || '', o });
   try {
@@ -457,6 +459,9 @@ function open(billId, hearingId) {
     x.back = x.screen === 3 && !!(d.away || d.back);
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
+  // When they started, for how long testimony really takes (R-169): kept with the draft for three hours, so a phone that
+  // reloads the page while they are on the Capitol site keeps it; their first testimony here or not (the Capitol account).
+  x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now(); x.firstTime = !me.capitolAcct;
   S.helper = x;
   openMark.set({ mode: 'testimony', b: b.id, h: h.id });
   // One history entry for the whole helper, so the phone's Back closes it. The entry under it keeps the scroll spot.
@@ -626,7 +631,7 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
+      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
     else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
     saveMe({ mail });
     return;
@@ -637,7 +642,7 @@ function saveDraft() {
   // Back on the bill step with a letter already saved: the points they changed go with it.
   else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, use: x.use || null, at: new Date().toISOString() };
   else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, at: new Date().toISOString() };
+    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
@@ -1406,6 +1411,7 @@ async function confirmSent() {
   x.before = earned();   // [key, label] pairs; newMilestones() compares by key
   try { x.first = !!(await markDone(x.b.id, x.h.id, 'testimony', true, { quiet: true }))?.firstTestimony; }
   catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
+  if (!x.again && x.t0) logTime('testimony', (Date.now() - x.t0) / 1000, x.firstTime);   // R-169: a letter sent again starts written
   // Kept for the bill's next hearing, here and with the account (R-148). A letter sent again is counted as such too.
   try { keepLetter(recOf(x)); } catch { /* the testimony counts either way */ }
   if (x.again) app.onAct?.('again_sent');
@@ -1465,6 +1471,7 @@ async function confirmMail() {
     else {
       // A chair email stays 'email'; one to your own legislators is 'legislators' (Nate 9/29: "Count the emails separately").
       await markDone(x.b.id, x.mode === 'email' && x.h ? x.h.id : '', x.mode === 'legislators' ? 'legislators' : 'email', true, { quiet: true });
+      if (x.mode === 'email' && !x.again && !x.remind && x.t0) logTime('email', (Date.now() - x.t0) / 1000);   // a chair's email (R-169)
       if (x.mode === 'email' && !x.h && x.code) S.done.add(askMark(x.b, x.code));
       if (x.mode === 'legislators' && x.moment?.key) S.done.add(askMark(x.b, x.moment.key));
       if (x.remind && x.code) S.done.add(askMark(x.b, 'remind:' + x.code));   // the one reminder for this committee (R-153)

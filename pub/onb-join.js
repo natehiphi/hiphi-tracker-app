@@ -35,8 +35,8 @@ export function joinWords({ arm = 'shown', acted = null, follows = [], off = fal
     receipt,
     // A question, not a statement, so it never reads as if alerts were already on (the review, 10/5).
     h: what && what !== 'your issues' && what.length <= 42 ? `Want us to watch ${what} for you?` : 'Want us to keep watch for you?',
-    lede: `When a bill on ${what || 'your issues'} gets a hearing, we tell you the time and a two-minute way to weigh in.${when}`,
-    steps: [['calendar', 'A hearing is set'], ['message-square', 'We tell you'], ['send', acted ? 'You send a note, like today' : 'You send a note in 2 minutes']],
+    lede: `When a bill on ${what || 'your issues'} gets a hearing, we tell you the time and a quick way to weigh in.${when}`,
+    steps: [['calendar', 'A hearing is set'], ['message-square', 'We tell you'], ['send', acted ? 'You send a note, like today' : 'You send a note in a few minutes']],
   };
   return {
     receipt,
@@ -51,12 +51,12 @@ export function joinWords({ arm = 'shown', acted = null, follows = [], off = fal
 // An example of an alert, made from what this person follows, so the promise is concrete. Never a real bill number or a
 // real day, so it cannot pass for a real alert; the screen labels it "Example" too.
 export function sampleText({ follows = [], email = false, topic = '', remind = null }) {
-  if (remind) return email ? { subject: `Notes on ${remind.name} are due ${remind.day}`, body: 'Yours takes about 2 minutes, and we walk you through it.' }
-    : { body: `HIPHI: Notes on ${remind.name} are due ${remind.day}. Yours takes about 2 minutes (a link to it). Reply STOP to end.` };
+  if (remind) return email ? { subject: `Notes on ${remind.name} are due ${remind.day}`, body: 'Yours takes a few minutes, and we walk you through it.' }
+    : { body: `HIPHI: Notes on ${remind.name} are due ${remind.day}. Yours takes a few minutes (a link to it). Reply STOP to end.` };
   const what = follows[0]?.name ? `“${follows[0].name}”` : topic || 'a bill you follow';
   return email
-    ? { subject: `A hearing on ${what} is set`, body: `It’s on Thursday at 2 pm. A short note from you helps, and it takes about 2 minutes. We’ll walk you through it.` }
-    : { body: `HIPHI: A hearing on ${what} is set for Thu at 2 pm. Send a note in 2 minutes (a link to the bill). Reply STOP to end.` };
+    ? { subject: `A hearing on ${what} is set`, body: `It’s on Thursday at 2 pm. A short note from you helps, and it takes a few minutes. We’ll walk you through it.` }
+    : { body: `HIPHI: A hearing on ${what} is set for Thu at 2 pm. Send a note in a few minutes (a link to the bill). Reply STOP to end.` };
 }
 
 // After a yes: what happens now, warmly, and the one thing that helps (know the number when it texts).

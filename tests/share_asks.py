@@ -87,23 +87,39 @@ with sync_playwright() as p:
     t = pg.evaluate("async () => { const m = await import('./staff/model.js'); const b = { bill_number: 'HB 1573', session_year: " + str(YEAR) + ", nickname: 'X', public_action: 'Please support it.' }; const h = { committee: 'HLT', scheduled_at: new Date(Date.now() + 3 * 864e5).toISOString(), testimony_deadline: new Date(Date.now() + 864e5).toISOString() }; return { kit: m.shareKit(b, h).link, plain: m.shareKit(b, null).link }; }")
     ok(t['kit'].endswith('b/demo/HB1573-testify') and t['plain'].endswith('b/demo/HB1573'), f"staff's share kit: a hearing ahead links the testimony page (the practice copy's own): {t}")
     ctx.close()
+    # ---- 8b. how long a letter took (R-169, backend 143): the call carries the kind, seconds, first time, device and
+    # version, nothing else; intercepted here, so nothing reaches the database ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page(); sent = []
+    pg.add_init_script('window.__hiphiCountTests = true')
+    pg.route('**/rest/v1/rpc/log_act_time', lambda r: (sent.append(r.request.post_data_json), r.fulfill(status=204, body='')))
+    pg.goto(BASE + 'track.html#/'); pg.wait_for_timeout(2500)
+    pg.evaluate("async () => { const v = await import('./pub/visitlog.js'); await v.logTime('testimony', 200.4, true); await v.logTime('email', 75, true); await v.logTime('share', 5); }")
+    pg.wait_for_timeout(800)
+    ok(len(sent) == 2 and sent[0]['p']['act'] == 'testimony' and sent[0]['p']['seconds'] == 200 and sent[0]['p']['first_time'] is True
+       and {'act', 'device', 'first_time', 'seconds'} <= set(sent[0]['p']) <= {'act', 'device', 'first_time', 'seconds', 'variant'} and 'first_time' not in sent[1]['p'],
+       f'the time a letter took is sent with nothing else, and only for testimony and email: {sent}')
+    ctx.close()
     ok(not errs, 'no page errors: ' + '; '.join(errs[:3]))
     br.close()
 # ---- 9. the built pages: each leads with its ask; no instant redirect, no og:url ----
 pages = glob.glob(os.path.join(ROOT, 'b', '*.html')) + glob.glob(os.path.join(ROOT, 'b', '*', '*.html')) + glob.glob(os.path.join(ROOT, 'i', '*.html'))
-bad_meta, bad_title, bad_pic = [], [], []
+bad_meta, bad_title, bad_pic, per_issue = [], [], [], 0
 PIC = {'Speak up': ('testify',), 'Ask for a hearing': ('ask',), 'Ask the chair to hold': ('hold',), 'Ask your': ('floor-yes', 'floor-no'),
        'Ask lawmakers': ('conference-yes', 'conference-no'), 'Ask the Governor': ('governor-sign', 'governor-veto'), 'Follow ': ('follow', 'law')}
 for f in pages:
     h = open(f, encoding='utf-8').read(); t = re.search(r'og:title" content="([^"]*)"', h).group(1)
     if 'http-equiv' in h or 'og:url' in h or ('/demo/' in f and 'noindex' not in h): bad_meta.append(f)
-    pic = (re.search(r'pub/og/([a-z-]+)\.png', h) or [None, ''])[1]
-    if not any(t.startswith(k) and pic in v for k, v in PIC.items()) or not os.path.exists(os.path.join(ROOT, 'pub', 'og', f'{pic}.png')): bad_pic.append(f'{os.path.basename(f)}: {t[:40]} / {pic}')
+    m = re.search(r'pub/(og/([a-z-]+)(?:/([a-z0-9-]+))?\.jpg)', h); path, pic, iss = (m.group(1), m.group(2), m.group(3)) if m else ('', '', None)
+    per_issue += 1 if iss else 0
+    if not any(t.startswith(k) and pic in v for k, v in PIC.items()) or not os.path.exists(os.path.join(ROOT, 'pub', path)): bad_pic.append(f'{os.path.basename(f)}: {t[:40]} / {path}')
     name = os.path.basename(f)
     want = r'^Speak up' if '-testify' in name else r'^Ask ' if re.search(r'-(ask|floor|conference|governor)\.html$', name) else r'^Follow ' if '-follow' in name or '/i/' in f else r'^(Speak up|Ask |Follow )'
     if not re.search(want, t): bad_title.append(f'{name}: {t}')
 ok(len(pages) > 1000 and not bad_meta, f'{len(pages)} share pages, none with an instant redirect or og:url ({len(bad_meta)} do)')
 ok(not bad_title, f'every share page title leads with its ask ({len(bad_title)} do not: {bad_title[:3]})')
 ok(not bad_pic, f"every share page's picture says its ask, and the picture exists ({len(bad_pic)} do not: {bad_pic[:3]})")
+ok(per_issue > len(pages) // 3, f"pages for bills with an issue carry that issue's own picture ({per_issue} of {len(pages)})")
+wanted = json.load(open(os.path.join(ROOT, 'tools', 'og_wanted.json')))
+ok(wanted and all(w['have'] and os.path.exists(os.path.join(ROOT, 'pub', 'og', w['img'], w['slug'] + '.jpg')) for w in wanted), f"every issue picture in use is drawn ({len(wanted)})")
 ok(len(glob.glob(os.path.join(ROOT, 'b', 'demo', '*.html'))) > 500 and len(glob.glob(os.path.join(ROOT, 'i', 'demo', '*.html'))) > 50, 'the practice copy has its own share pages (b/demo/, i/demo/)')
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

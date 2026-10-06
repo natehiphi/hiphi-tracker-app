@@ -26,7 +26,7 @@ export const STEPS = ['way', 'first'];
 // phrase: the ending's "You help by ..." line; also: how the first step names a way it did not lead with.
 const WAYS = [
   { k: 'posted', ic: 'bell', name: 'Keep me posted', what: 'Hear when bills on your issues move.', time: 'A quick read', phrase: 'keeping up with your issues' },
-  { k: 'write', ic: 'notebook-pen', name: 'I’ll send a note when it counts', what: 'A short note to lawmakers when a bill needs voices. We help you write it.', time: 'About 5 minutes', phrase: 'writing a note when it counts', also: 'sending a note' },
+  { k: 'write', ic: 'notebook-pen', name: 'I’ll send a note when it counts', what: 'A short note to lawmakers when a bill needs voices. We help you write it.', time: 'A few minutes', phrase: 'writing a note when it counts', also: 'sending a note' },
   { k: 'speak', ic: 'mic', name: 'I’d speak at a hearing', what: 'A minute or two in front of a committee, at the Capitol or on Zoom.', time: 'An hour or so, with the wait', phrase: 'speaking at hearings', also: 'speaking at a hearing' },
   { k: 'friends', ic: 'users', name: 'I’ll bring friends', what: 'Pass a bill or an issue on to people who care.', time: 'About a minute', phrase: 'bringing friends along', also: 'bringing friends' },
 ];

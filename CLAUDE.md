@@ -106,8 +106,11 @@ session is dark (until January 2027).
   (public views, public key; `--check` to preview, `--out DIR`), hourly January to June and daily otherwise by
   `.github/workflows/share-pages.yml`, which commits only when a page changed. `404.html` sends a `b/` or `i/` link
   whose page is not built yet to the tracker, `b/HB2121-testify` to `#/bill/HB2121/testify`. Each card has its ask's
-  picture (`pub/og/<ask>.png`, drawn by `python3 tools/og_images.py`; look at them before committing a redraw), since in
-  a text the picture is most of the card. The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
+  picture, and a bill with an issue that ask's picture for its issue (topic icon, colour, name): `pub/og/<ask>.jpg` and
+  `pub/og/<ask>/<issue>.jpg`, drawn by `python3 tools/og_images.py` (`--redraw` after a change to the look; look at them
+  before committing), only the ones `tools/og_wanted.json` lists as in use; the job draws new ones itself. In a text the
+  picture is most of the card. Testimony "takes a few minutes" everywhere (Nate 10/5); the walkthrough records how long
+  it took (`logTime`, backend 143). The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
   `demo/snapshot.json` at its March day, which its shares and Staff v2's practice copy use; they rebuild with the job,
   so a snapshot rebuild needs nothing more.
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill

@@ -1,0 +1,1549 @@
+[
+ {
+  "img": "ask",
+  "slug": "ban-telone",
+  "name": "Ban the pesticide Telone by 2030",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "child-and-dependent-care-credit",
+  "name": "Bigger child and dependent care credit",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "clearer-water-shortage-rules",
+  "name": "Clearer rules for water shortages",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "drivers-stop-for-people-in-crosswalks",
+  "name": "Drivers stop for people in crosswalks",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "dui-limit-05",
+  "name": "Lower the DUI limit to .05",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "family-caregiver-tax-credit",
+  "name": "Tax credit for family caregivers",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "farm-to-families",
+  "name": "Farm to Families food program",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "fight-invasive-species",
+  "name": "Funding to fight invasive species",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "flavored-tobacco-ban",
+  "name": "Flavored tobacco sales ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "free-bus-rides-for-kids",
+  "name": "Free bus rides for kids",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "free-school-meals-for-every-student",
+  "name": "Free school meals for every student",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "free-school-meals-for-more-families",
+  "name": "Free school meals for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "graduated-tax-on-property-sales",
+  "name": "Graduated tax on property sales",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "higher-liquor-taxes",
+  "name": "Higher liquor taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "higher-taxes-on-top-earners",
+  "name": "Higher taxes on top earners",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "homes-for-local-residents",
+  "name": "Pilot to keep homes for local residents",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "hygienists-temporary-fillings",
+  "name": "Hygienists can place temporary fillings",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "income-tax-changes",
+  "name": "Income tax changes and tax credit caps",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "let-counties-regulate-tobacco",
+  "name": "Let counties regulate tobacco sales",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "lower-school-meal-prices",
+  "name": "Lower school meal prices",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "make-snap-easier",
+  "name": "Make SNAP easier to get and keep",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "maui-wildfire-health-study",
+  "name": "Funding for Maui wildfire health study",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "no-surveillance-pricing",
+  "name": "No prices based on your personal data",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "paid-family-and-medical-leave",
+  "name": "Paid family and medical leave",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "pesticide-buffer-zones",
+  "name": "Pesticide-free buffer zones",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "pesticide-use-reporting",
+  "name": "Better public reporting of pesticide use",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "poverty-is-not-neglect",
+  "name": "Poverty alone is not child neglect",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "protect-students-from-heat",
+  "name": "Protect students from extreme heat",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "renters-tax-credit",
+  "name": "Bigger tax credit for low-income renters",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "replace-cesspools",
+  "name": "Replace cesspools with cleaner systems",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "replace-shutdown-food-aid",
+  "name": "Replace food aid lost in the shutdown",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "safer-pedestrian-signals",
+  "name": "Safer pedestrian signals at crossings",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "snap-before-prison-release",
+  "name": "SNAP sign-up before prison release",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "snap-nutrition-education",
+  "name": "SNAP nutrition education",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "summer-streets",
+  "name": "Summer Streets car-free road pilot",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "tax-capital-gains-fairly",
+  "name": "Tax capital gains fairly",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "tax-real-estate-investment-trusts",
+  "name": "Tax real estate investment trusts",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "tougher-drunk-driving-consequences",
+  "name": "Tougher consequences for drunk driving",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "wildfire-prevention",
+  "name": "Wildfire hazard map and brush clearing",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "youth-mental-health-app",
+  "name": "Youth mental health app pilot",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "conference-no",
+  "slug": "higher-liquor-taxes",
+  "name": "Higher liquor taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "farm-to-families",
+  "name": "Farm to Families food program",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "pedestrian-safety-pilot",
+  "name": "Pedestrian safety pilot program",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "plan-for-a-changing-climate",
+  "name": "Plan for a changing climate",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "red-light-and-speed-cameras",
+  "name": "More red-light and school speed cameras",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "ban-neonicotinoids",
+  "name": "Ban on neonicotinoid pesticides",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "ban-telone",
+  "name": "Ban the pesticide Telone by 2030",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "canadian-dental-licenses",
+  "name": "Licenses for Canadian dental grads",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "cancer-warnings-on-alcohol-ads",
+  "name": "Cancer warnings on alcohol ads",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "cap-rent-increases",
+  "name": "3% yearly cap on rent increases",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "cash-support-for-families-with-babies",
+  "name": "Cash support for families with babies",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "child-and-dependent-care-credit",
+  "name": "Bigger child and dependent care credit",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "cigars-shipped-by-mail",
+  "name": "Cigars shipped by mail",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "clearer-water-shortage-rules",
+  "name": "Clearer rules for water shortages",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "drivers-stop-for-people-in-crosswalks",
+  "name": "Drivers stop for people in crosswalks",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "dui-limit-05",
+  "name": "Lower the DUI limit to .05",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "end-non-medical-vaccine-exemptions",
+  "name": "End non-medical vaccine exemptions",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "fairer-jaywalking-rules",
+  "name": "Fairer jaywalking rules",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "family-caregiver-tax-credit",
+  "name": "Tax credit for family caregivers",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "farm-to-families",
+  "name": "Farm to Families food program",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "fee-on-sugary-drinks",
+  "name": "A fee on sugary drinks",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "fight-invasive-species",
+  "name": "Funding to fight invasive species",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "flavored-tobacco-ban",
+  "name": "Flavored tobacco sales ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "free-bus-rides-for-kids",
+  "name": "Free bus rides for kids",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "free-public-transit",
+  "name": "Free public transit statewide",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "free-school-meals-for-every-student",
+  "name": "Free school meals for every student",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "free-school-meals-for-more-families",
+  "name": "Free school meals for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "fund-safe-routes-to-school",
+  "name": "Fund Safe Routes to School",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "graduated-tax-on-property-sales",
+  "name": "Graduated tax on property sales",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "higher-liquor-taxes",
+  "name": "Higher liquor taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "higher-taxes-on-top-earners",
+  "name": "Higher taxes on top earners",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "higher-tobacco-and-e-cigarette-taxes",
+  "name": "Higher tobacco and e-cigarette taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "homes-for-local-residents",
+  "name": "Pilot to keep homes for local residents",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "hygienists-temporary-fillings",
+  "name": "Hygienists can place temporary fillings",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "income-tax-changes",
+  "name": "Income tax changes and tax credit caps",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "legal-adult-use-cannabis",
+  "name": "Legal adult-use cannabis",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "legal-sports-betting",
+  "name": "Legal sports betting",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "let-counties-regulate-tobacco",
+  "name": "Let counties regulate tobacco sales",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "limit-nicotine-levels",
+  "name": "Limit nicotine levels in products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "looser-alcohol-sales-rules",
+  "name": "Looser alcohol sales rules",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "lower-school-meal-prices",
+  "name": "Lower school meal prices",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "make-snap-easier",
+  "name": "Make SNAP easier to get and keep",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "maui-wildfire-health-study",
+  "name": "Funding for Maui wildfire health study",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "more-snap-help",
+  "name": "More SNAP help for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-child-denied-a-meal",
+  "name": "No child denied a meal over unpaid bills",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-snap-for-sugary-drinks",
+  "name": "No SNAP for sugary drinks and candy",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-surge-pricing-on-snap-foods",
+  "name": "No surge pricing on SNAP and WIC foods",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-surveillance-pricing",
+  "name": "No prices based on your personal data",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-tax-on-groceries",
+  "name": "No tax on groceries",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "no-tax-on-period-products",
+  "name": "No tax on period products",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "packaging-recycling",
+  "name": "Study for packaging recycling program",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "paid-family-and-medical-leave",
+  "name": "Paid family and medical leave",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "pedestrian-safety-pilot",
+  "name": "Pedestrian safety pilot program",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "pesticide-buffer-zones",
+  "name": "Pesticide-free buffer zones",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "pesticide-use-reporting",
+  "name": "Better public reporting of pesticide use",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "plan-for-a-changing-climate",
+  "name": "Plan for a changing climate",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "poverty-is-not-neglect",
+  "name": "Poverty alone is not child neglect",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "protect-abortion-and-contraception",
+  "name": "Protect abortion and birth control",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "protect-students-from-heat",
+  "name": "Protect students from extreme heat",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "red-light-and-speed-cameras",
+  "name": "More red-light and school speed cameras",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "renters-tax-credit",
+  "name": "Bigger tax credit for low-income renters",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "replace-cesspools",
+  "name": "Replace cesspools with cleaner systems",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "replace-shutdown-food-aid",
+  "name": "Replace food aid lost in the shutdown",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "right-to-a-clean-environment",
+  "name": "Right to a clean environment amendment",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "rural-community-health-workers",
+  "name": "Rural community health worker pilot",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "safer-pedestrian-signals",
+  "name": "Safer pedestrian signals at crossings",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "single-payer-health-care",
+  "name": "Single-payer health care for Hawaiʻi",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "snap-before-prison-release",
+  "name": "SNAP sign-up before prison release",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "snap-match-for-local-food",
+  "name": "SNAP match for healthy local food",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "snap-nutrition-education",
+  "name": "SNAP nutrition education",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "state-buys-vaccines",
+  "name": "State buys vaccines for providers",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "state-e-cigarette-maker-directory",
+  "name": "State directory of approved e-cigarette makers",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "sugary-drink-warning-labels",
+  "name": "Warning labels on sugary drinks",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "summer-streets",
+  "name": "Summer Streets car-free road pilot",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "tax-capital-gains-fairly",
+  "name": "Tax capital gains fairly",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "tax-real-estate-investment-trusts",
+  "name": "Tax real estate investment trusts",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "tobacco-free-generation",
+  "name": "Phase out tobacco sales by birth year",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "tougher-drunk-driving-consequences",
+  "name": "Tougher consequences for drunk driving",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "update-sex-marker",
+  "name": "Update sex marker on birth certificates",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "wildfire-prevention",
+  "name": "Wildfire hazard map and brush clearing",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "workers-comp-for-student-workers",
+  "name": "Workers’ comp for new grads in training",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "youth-mental-health-app",
+  "name": "Youth mental health app pilot",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "follow",
+  "slug": "youth-substance-misuse-prevention",
+  "name": "Youth substance misuse prevention funds",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "hold",
+  "slug": "looser-alcohol-sales-rules",
+  "name": "Looser alcohol sales rules",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "income-tax-changes",
+  "name": "Income tax changes and tax credit caps",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "lower-school-meal-prices",
+  "name": "Lower school meal prices",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "make-snap-easier",
+  "name": "Make SNAP easier to get and keep",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "replace-cesspools",
+  "name": "Replace cesspools with cleaner systems",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "replace-shutdown-food-aid",
+  "name": "Replace food aid lost in the shutdown",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "snap-before-prison-release",
+  "name": "SNAP sign-up before prison release",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "law",
+  "slug": "summer-streets",
+  "name": "Summer Streets car-free road pilot",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "ban-telone",
+  "name": "Ban the pesticide Telone by 2030",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "child-and-dependent-care-credit",
+  "name": "Bigger child and dependent care credit",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "clearer-water-shortage-rules",
+  "name": "Clearer rules for water shortages",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "drivers-stop-for-people-in-crosswalks",
+  "name": "Drivers stop for people in crosswalks",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "dui-limit-05",
+  "name": "Lower the DUI limit to .05",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "family-caregiver-tax-credit",
+  "name": "Tax credit for family caregivers",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "farm-to-families",
+  "name": "Farm to Families food program",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "fight-invasive-species",
+  "name": "Funding to fight invasive species",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "flavored-tobacco-ban",
+  "name": "Flavored tobacco sales ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "free-bus-rides-for-kids",
+  "name": "Free bus rides for kids",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "free-school-meals-for-every-student",
+  "name": "Free school meals for every student",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "free-school-meals-for-more-families",
+  "name": "Free school meals for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "graduated-tax-on-property-sales",
+  "name": "Graduated tax on property sales",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "higher-liquor-taxes",
+  "name": "Higher liquor taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "higher-taxes-on-top-earners",
+  "name": "Higher taxes on top earners",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "homes-for-local-residents",
+  "name": "Pilot to keep homes for local residents",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "hygienists-temporary-fillings",
+  "name": "Hygienists can place temporary fillings",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "income-tax-changes",
+  "name": "Income tax changes and tax credit caps",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "let-counties-regulate-tobacco",
+  "name": "Let counties regulate tobacco sales",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "looser-alcohol-sales-rules",
+  "name": "Looser alcohol sales rules",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "lower-school-meal-prices",
+  "name": "Lower school meal prices",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "make-snap-easier",
+  "name": "Make SNAP easier to get and keep",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "maui-wildfire-health-study",
+  "name": "Funding for Maui wildfire health study",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "no-surveillance-pricing",
+  "name": "No prices based on your personal data",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "paid-family-and-medical-leave",
+  "name": "Paid family and medical leave",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "pedestrian-safety-pilot",
+  "name": "Pedestrian safety pilot program",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "pesticide-buffer-zones",
+  "name": "Pesticide-free buffer zones",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "pesticide-use-reporting",
+  "name": "Better public reporting of pesticide use",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "plan-for-a-changing-climate",
+  "name": "Plan for a changing climate",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "poverty-is-not-neglect",
+  "name": "Poverty alone is not child neglect",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "protect-students-from-heat",
+  "name": "Protect students from extreme heat",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "red-light-and-speed-cameras",
+  "name": "More red-light and school speed cameras",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "renters-tax-credit",
+  "name": "Bigger tax credit for low-income renters",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "replace-cesspools",
+  "name": "Replace cesspools with cleaner systems",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "replace-shutdown-food-aid",
+  "name": "Replace food aid lost in the shutdown",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "safer-pedestrian-signals",
+  "name": "Safer pedestrian signals at crossings",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "snap-before-prison-release",
+  "name": "SNAP sign-up before prison release",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "snap-nutrition-education",
+  "name": "SNAP nutrition education",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "summer-streets",
+  "name": "Summer Streets car-free road pilot",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "tax-capital-gains-fairly",
+  "name": "Tax capital gains fairly",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "tax-real-estate-investment-trusts",
+  "name": "Tax real estate investment trusts",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "tougher-drunk-driving-consequences",
+  "name": "Tougher consequences for drunk driving",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "wildfire-prevention",
+  "name": "Wildfire hazard map and brush clearing",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "youth-mental-health-app",
+  "name": "Youth mental health app pilot",
+  "category": "care",
+  "have": true
+ }
+]

@@ -197,6 +197,20 @@ practice copy's own share pages**, `b/demo/` and `i/demo/`, built from `demo/sna
 by the same job, `noindex`, opening `track.html?demo=1`: the practice copy (in session; not `?season=off`) and Staff v2's
 practice copy share them (`billShareUrl`, `issueShareUrl`, `sharePageUrl`), so a share made there shows the in-session
 card now; `404.html` sends a `b/demo/` link to the practice copy.
+Then Nate's picks (10/5) from a debate of the words and three picture directions: **testimony takes "a few minutes"** on
+every screen (the bill page's newcomer card, More ways to help, the cards, onboarding plan 4 and the new onboarding's sample
+alerts; emails stay "about 2 minutes"), and **the time is recorded**: `logTime` in visitlog.js sends the seconds from
+opening the walkthrough to sending (testimony, not one sent again; a chair's email), first testimony on the device or not,
+device and version, to `log_act_time` (backend migration 143, `act_times`; staff read `act_times_weekly`), the start kept
+with the draft for three hours so a reload on the Capitol site keeps it. **Pictures per ask and per issue**: each ask its
+own wash, label icon and drawing (testimony orange with neighbours speaking up, "Testimony due soon / Speak up before the
+vote"; a hearing blue with a calendar, "Needs a hearing / Help this bill get a hearing"; the floor vote violet, the final
+version teal, the Governor green with the Capitol, following grey with a bell, a law gold with flowers), and for a bill
+with an issue the same ask with the topic's icon and colour and the issue's name in place of the drawing
+(`pub/og/<ask>/<issue>.jpg`, drawn only when a page needs one: `tools/og_wanted.json` lists them, the job draws the missing
+ones and builds again). JPEG at quality 86 (about 60 KB; the PNGs were 185 KB). Tobacco's topic icon is the crossed-out
+cigarette. "Testimony" stays once, with plain words around it; the title under the picture keeps the ask first; "HIPHI"
+stays.
 
 **The public page reports its own errors, and every push is tested (R-111, 10/1; the assessment's U1).** `pub/errlog.js`
 (imported first by `pub/app.js`) sends one small row per distinct error (a thrown error, an unhandled rejection, a screen
