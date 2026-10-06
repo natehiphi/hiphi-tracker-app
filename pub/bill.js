@@ -542,10 +542,14 @@ const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newla
 // On to the rest of the first visit, on this bill.
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
-// visit. Shared by the bar's "Yes, I sent it" and the email box's (actions.js), which used to give only a toast, so
-// the quick email from a link was never counted or celebrated (R-067). Resolves true when it took over.
+// visit. Called by the bar's "Yes, I sent it" (it once gave only a toast, so the quick email from a link was never
+// counted or celebrated, R-067). Since R-167 the page's email buttons open the walkthrough instead (speakup.js), which
+// has its own Mahalo and calls newcomerNext, so this is reached only where no walkthrough opens (the Governor's form, for one).
+// Resolves true when it took over.
 // Acting also follows the bill's issue, quietly, with "Don't follow it" in the moment: someone who emailed and
 // followed nothing was forgotten the moment they left, and the next visit started them over (R-067).
+// The words celebrate the act and never say that few people do it (R-171): a "most people never do it" line tells
+// people that not acting is normal, and research on such messages finds it makes them act less (R-164's research).
 app.newcomerActed = async b => {
   // Asked after markDone, so firstVisit() is already false (an action counts as having been here): this is the first
   // action of a first visit that began on this bill's card.
@@ -553,7 +557,7 @@ app.newcomerActed = async b => {
   logVisit('act', 'next', { path: 'link' });
   const i = issuesOf(b)[0], follow = !!i && !issueFollowed(i) && await setFollows({ issuesOn: [i.id] }) !== false;
   moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
-    small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move. Most people never do it.',
+    small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move: committees hear from the people who write.',
     alt: follow ? { label: 'Don’t follow it', act: () => setFollows({ issuesOff: [i.id] }) } : null },
     () => viaStart(b, { viaActed: true }));
   return true;
