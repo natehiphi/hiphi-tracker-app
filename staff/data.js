@@ -502,7 +502,7 @@ export const DB = {
   },
   // The public page's own error reports, the last 7 days (110, R-111): staff only, nothing personal in them.
   // The public page's A/B tests (116, R-135; Session setup > Tests): the switches and their words, and the sums per test
-  // and version (met it, measure, second measure; forced rows apart). Only is_on, fallback and winner can be changed,
+  // and version (met it, measure, second measure; forced rows apart). Only is_on, fallback, winner and arms_on (a version's own switch, backend 136) can be changed,
   // and only by an admin (the database refuses anything else).
   async abTests() {
     if (DEMO) return DEMO_AB.tests;
@@ -515,7 +515,7 @@ export const DB = {
     if (error) throw error; return data || [];
   },
   async setAbTest(key, patch) {
-    const p = Object.fromEntries(Object.entries(patch).filter(([k]) => ['is_on', 'fallback', 'winner'].includes(k)));
+    const p = Object.fromEntries(Object.entries(patch).filter(([k]) => ['is_on', 'fallback', 'winner', 'arms_on'].includes(k)));
     if (DEMO) { const t = DEMO_AB.tests.find(x => x.key === key); Object.assign(t, p, { changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); if (t.is_on && !t.started) t.started = DEMO_DAY(0); return { ...t }; }
     const { data, error } = await S.supa.from('ab_tests').update(p).eq('key', key).select('*');
     if (error) throw error;
@@ -1491,6 +1491,8 @@ export const DEMO_AB = {
     { key: 'email', sort: 4, name: 'Where the email ask goes', question: 'Do more people give an email when the first ask comes after their first action instead of in the first visit?', arms: ['finale', 'after'], arm_names: { finale: 'Asked in the first visit', after: 'Not asked in the first visit: first asked after an action, or on coming back' }, measure: 'Gave an email within 14 days', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'finale', winner: null, started: null, note: 'Off until a lawyer checks both versions: they ask for consent at different moments.' },
     { key: 'share', sort: 5, name: 'The share message', question: 'Do more friends come and act when the shared message starts with the deadline?', arms: ['summary', 'deadline'], arm_names: { summary: 'Starts with what the bill does', deadline: 'Starts with the deadline' }, measure: 'Friends who arrived, per 100 shares', measure2: 'Friends who acted, per 100 shares', rate: true, is_on: true, fallback: 'summary', winner: null, started: '2026-10-03', note: '' },
     { key: 'home', sort: 6, name: 'Home’s top', question: 'Do people act more when Home groups what they can do by topic?', arms: ['by-day', 'by-issue'], arm_names: { 'by-day': 'The soonest deadline first', 'by-issue': 'Grouped by topic, the six on the first screen' }, measure: 'Acted within 7 days', measure2: 'Came back within 14 days', rate: false, is_on: true, fallback: 'by-day', winner: null, started: '2026-10-03', note: '' },
+    { key: 'onb', sort: 0, name: 'The first visit, six ways', question: 'Which first visit gets the most newcomers to act and to come back?', arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], arm_names: { today: 'Today’s first visit', p1: 'Plan 1: Start with one bill', p2: 'Plan 2: A bill’s journey', p3: 'Plan 3: Meet your people', p4: 'Plan 4: How do you like to help?', p5: 'Plan 5: A light start' }, measure: 'Acted within 14 days', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'today', arms_on: ['today', 'p1'], winner: null, started: null, note: 'Plans 2 to 5 are working versions with stand-in drawings: switch each on once you have seen it. Plan 3 asks for the street address before showing any bills. The sign-up words need a lawyer’s look (R-149).' },
+    { key: 'join', sort: 7, name: 'The plans’ alerts sign-up', question: 'Do more people give a number or email when they see an example of the text they would get?', arms: ['shown', 'watch'], arm_names: { shown: 'Your next text, shown: an example text right after you act', watch: 'We watch, you speak: three steps from a hearing to your note' }, measure: 'Gave a number or email that day', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'shown', winner: null, started: null, note: 'Met only on the five first-visit plans. The consent words are the same in both.' },
   ],
   results: [
     ...abSample('end', 'today', 'home', 640, 0.41, 0.52, 0.30, 0.36), { test: 'end', arm: 'home', forced: true, seen: 5, goal: 4, goal2: 1 },

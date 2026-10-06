@@ -1,0 +1,117 @@
+/* Plan 2, "A bill's journey" (R-164, pub/onb-p2.js): the story (a welcome and six scenes on one road) and the road (the
+   person's issues, each bill on the same road). Tokens and type sizes from base.css only (A-4, A-8); orange only for the
+   sun on the two scenes that are a win (C-7). Everything that moves stops under Reduce Motion (A-10, at the end). */
+
+/* ---- the story: the drawing first on a phone, beside the words on a laptop ----
+   On a phone the picture leads, as in a picture book: the named parts and Back, then the scene, then its words. The
+   frame keeps the words (.st-intro) before the drawing (.st-main), so below the frame's own wide switch the intro steps
+   aside (display: contents) and its pieces are ordered around the drawing. This one is in px on purpose: it must flip at
+   exactly the frame's 900px (start.css), or the two layouts would mix when someone enlarges their text. */
+@media (max-width: 899px) {
+  .ob2-story .st-intro { display: contents; }
+  .ob2-story .st-main { order: 1; }
+  .ob2-story .ob2-words { order: 2; }
+}
+.ob2-words { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
+.ob2-story h1:focus { outline: none; }   /* focused only so a screen reader starts there (tabindex="-1") */
+.ob2-pic { position: relative; width: 100%; }
+.ob2-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ob2-svg text { font-family: var(--font); }
+/* Short phones keep the words and the Next button in view: the drawing shrinks, and the welcome's (which only decorates
+   what its words and the law's card already say) steps aside. */
+@media (max-width: 899px) and (max-height: 700px) {
+  .ob2-svg { max-height: 23vh; }
+  .ob2-welcomepic { display: none; }
+  /* "2 of 6" is still read out; on the screen the road's lit stop already says how far along the story is */
+  .ob2-count { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 22.4375em) { .ob2-welcomepic { display: none; } }
+
+/* the welcome */
+.ob2-eyebrow { margin: 0 0 calc(-1 * var(--s8)); font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.ob2-law { display: grid; gap: var(--s8); padding: var(--s16); }
+.ob2-lawtop { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0; }
+.ob2-num { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.ob2-lawh { margin: 0; font-size: var(--t22); line-height: 1.25; }
+.ob2-lawwhat { margin: 0; color: var(--n700); }
+/* On the smallest phones the welcome's question ("Want to see how?") must sit above the two stacked buttons: the law's
+   summary gives way (its name, number and year stay; the summary is on its bill page). */
+@media (max-width: 22.4375em), (max-width: 899px) and (max-height: 600px) { .ob2-lawwhat { display: none; } }
+/* "Skip to the bills" is the same size as "Show me how" (C-2: skipping is not styled as failure). */
+.st-btns.ob2-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 22.4375em) {
+  .st-btns.ob2-two { grid-template-columns: minmax(0, 1fr); gap: var(--s8); }
+  .st-btns.ob2-two .btn.primary { order: -1; }
+}
+@media (min-width: 900px) { .st-btns.ob2-two .btn { min-width: 200px; } }
+
+/* a scene's words: "2 of 6", its title, one short paragraph */
+.ob2-count { margin: 0 0 calc(-1 * var(--s8)); font-size: var(--t13); font-weight: 700; color: var(--p700); }
+.ob2-say b { color: var(--n900); white-space: nowrap; }   /* a bill number never breaks between "SB" and "1300" */
+
+/* the practice note: said to be practice before and after, and its button is dashed, never the filled button every real
+   action uses (A-12; the doc's risk: practice notes must look nothing like real ones) */
+.ob2-try { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
+.ob2-trytag { display: flex; gap: 6px; align-items: center; margin: 0; font-size: var(--t13); font-weight: 700; color: var(--p800); }
+.ob2-trytag .ic { width: 16px; height: 16px; flex: none; color: var(--p700); }
+.btn.secondary.ob2-practice { box-shadow: none; border: 2px dashed var(--p700); }
+.ob2-sent { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; font-size: var(--t14); line-height: 1.5; color: var(--n900); }
+.ob2-sent.on { padding: var(--s12); border-radius: var(--r12); background: var(--p50); animation: ob2-fade .3s var(--ease) both; scroll-margin: var(--s16) 0 104px; }
+.ob2-sentic { display: flex; flex: none; margin-top: 2px; color: var(--p700); }
+.ob2-sentic .ic { width: 18px; height: 18px; }
+
+/* the drawing's moving parts: each plays once, on the forward Next that drew it (.ob2-play), in beats after the slide */
+.ob2-play .ob2-in { animation: ob2-rise .45s var(--ease) both; animation-delay: calc(.25s + var(--d, 0s)); }
+.ob2-play .ob2-tok { animation: ob2-move .8s var(--ease) .3s both; }
+.ob2-play .ob2-trav { stroke-dasharray: 100 100; animation: ob2-grow .8s var(--ease) .3s both; }
+.ob2-lit { transform-box: fill-box; transform-origin: center; }
+.ob2-play .ob2-lit { animation: ob2-pop .4s cubic-bezier(.34, 1.4, .64, 1) .95s both; }
+.ob2-sun { transform-box: fill-box; transform-origin: center; }
+.ob2-play .ob2-sun { animation: ob2-sunup 1.2s var(--ease) .2s both; }
+.ob2-play .ob2-sig { stroke-dasharray: 100 100; animation: ob2-draw .9s ease-out .8s both; }
+.ob2-hand { transform-box: view-box; transform-origin: 104px 82px; }
+.ob2-play .ob2-hand { animation: ob2-tick 1.1s var(--ease) .45s both; }
+/* the practice note lands: a ring on the chair's desk and a tick on the note */
+.ob2-ring { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.ob2-landed .ob2-ring { animation: ob2-ring .7s ease-out both; }
+.ob2-notecheck { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.ob2-landed .ob2-notecheck, .ob2-sentpic .ob2-notecheck { opacity: 1; }
+.ob2-landed .ob2-notecheck { animation: ob2-pop .35s cubic-bezier(.34, 1.4, .64, 1) both; }
+@keyframes ob2-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes ob2-move { from { transform: translate(var(--fx), var(--fy)); } }
+@keyframes ob2-grow { from { stroke-dashoffset: var(--o); } to { stroke-dashoffset: 0; } }
+@keyframes ob2-pop { 0% { opacity: 0; transform: scale(.4); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes ob2-sunup { from { opacity: .2; transform: translateY(26px); } }
+@keyframes ob2-draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes ob2-tick { from { transform: rotate(-150deg); } }
+@keyframes ob2-ring { 0% { opacity: 1; transform: scale(.5); } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes ob2-fade { from { opacity: 0; } }
+
+/* ---- the road: the person's issues, each bill on the same six stops ---- */
+.ob2-rbill { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+.ob2-rnum { font-weight: 700; color: var(--n500); white-space: nowrap; }
+.ob2-mini { display: block; margin: 2px 0 0; }
+.ob2-minisvg { display: block; width: 100%; max-width: 260px; height: auto; }
+.ob2-where { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+.ob2-where b { color: var(--p800); }
+.ob2-where.ob2-stopped b { color: var(--n700); }
+.ob2-more, .ob2-none { display: flex; gap: var(--s8); align-items: center; margin: var(--s12) 0 0; font-size: var(--t14); }
+.ob2-more .ic, .ob2-none .ic { width: 16px; height: 16px; flex: none; }
+.ob2-none { align-items: flex-start; color: var(--n700); }
+/* the key to the small roads: every stop named, on a laptop only (on a phone each card says where it is in words) */
+.ob2-key { display: none; }
+.ob2-keysvg { display: block; width: 100%; height: auto; }
+.ob2-keysvg text { font-family: var(--font); }
+
+@media (min-width: 900px) {
+  .ob2-pic { max-width: 560px; }
+  .ob2-key { display: block; max-width: 420px; margin: 0 0 var(--s8); }
+}
+
+/* Everything that moves here also works standing still (A-10, WCAG 2.3.3): the still picture is what each scene draws. */
+@media (prefers-reduced-motion: reduce) {
+  .ob2-play .ob2-in, .ob2-play .ob2-tok, .ob2-play .ob2-trav, .ob2-play .ob2-lit, .ob2-play .ob2-sun, .ob2-play .ob2-sig,
+  .ob2-play .ob2-hand, .ob2-landed .ob2-ring, .ob2-landed .ob2-notecheck, .ob2-sent.on { animation: none; }
+  .ob2-play .ob2-trav, .ob2-play .ob2-sig { stroke-dasharray: none; }
+}
+.ob2-rbill .chip { margin-left: 2px; vertical-align: middle; }
