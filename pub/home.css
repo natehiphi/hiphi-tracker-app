@@ -290,3 +290,9 @@
 .hm-rcp .hm-rcpstats .hm-stat { background: var(--n0); box-shadow: var(--sh1); }
 .hm-rcp .hm-sec > h2 { margin: 0 0 var(--s12); }
 .hm-rcp .card.hm-sec > h2 { font-size: var(--t18); }
+
+/* A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js). */
+.hm-later { display: grid; gap: var(--s8); padding: var(--s16); margin: var(--s16) 0; }
+.hm-latert { display: flex; gap: var(--s8); align-items: center; font-size: var(--t18); }
+.hm-laterlead { display: grid; place-items: center; color: var(--p700); flex: none; }
+.hm-laterlead .ic { width: 20px; height: 20px; }

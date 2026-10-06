@@ -27,6 +27,7 @@ import { CAPITOL, islands, flower } from './art.js';
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
 import { endHome, armOf, abSeen } from './variant.js';
 import { logVisit, logAct } from './visitlog.js';
+import { laterCard, wireLater } from './onb-later.js';
 
 S.hmOpen ??= {};   // which in-place lists are open ("Show 12 more", "See all"); kept for the visit so Back returns to the same page
 
@@ -928,11 +929,16 @@ export default {
       if (S.hmMode === 'follow' && welcomed() && !S.nudge && !S.session && !alertsGiven()) nudge('follow');
     }
     const mode = si.phase !== 'in' ? 'off' : S.hmMode === 'explore' || !S.watch.size ? 'explore' : 'follow';
-    return mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);
+    const html = mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);
+    // A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js): at the top between sessions, when
+    // nothing is due; in session under Home's own content, so it never pushes a live deadline down (A-1, A-13).
+    const later = laterCard();
+    if (!later) return html;
+    return si.phase !== 'in' ? html.replace(/^(\s*<div class="hm[^"]*">)/, `$1${later}`) : html.replace(/<\/div>\s*$/, `${later}</div>`);
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root);
+    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root); wireLater(root, () => app.render());
     try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {

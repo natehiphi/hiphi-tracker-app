@@ -10,6 +10,13 @@
 //   email  the email ask: in the first visit | not in it, first asked after an action or on coming back
 //   share  the share message: what the bill does first | the deadline first
 //   home   Home's top: the soonest deadline first | grouped by your issues
+//   onb    the first visit itself (R-164, 10/5): today's | Plan 1 start with one bill | Plan 2 a bill's journey | Plan 3 meet
+//          your people | Plan 4 how do you like to help | Plan 5 a light start. Six versions, each with its own switch
+//          (ab_tests.arms_on, backend 136; Nate: "a switch per version"); a new visitor is spread evenly over the ones that
+//          are on. While a plan runs, the three tests inside today's first visit (end, fv, email) are not met or counted:
+//          the plan replaces the screens they compare.
+//   join   the plans' alerts sign-up (R-164, backend 138): an example text shown | "we watch, you speak". Met only on a
+//          plan's sign-up screen (pub/onb.js), never on today's first visit.
 //
 // How a browser gets a version:
 //   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
@@ -37,8 +44,12 @@ export const TESTS = {
   email: { arms: ['finale', 'after'], first: 'visit', goal: ['email', 14], goal2: ['back', 14] },
   share: { arms: ['summary', 'deadline'], rate: true },
   home: { arms: ['by-day', 'by-issue'], goal: ['acted', 7], goal2: ['back', 14] },
+  onb: { arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], first: 'keep', goal: ['acted', 14], goal2: ['back', 14], multi: true },
+  join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true, onb: false, join: false };
+// The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
+const INSIDE_TODAY = ['end', 'fv', 'email'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
 const BOT = (() => { try { return navigator.webdriver === true && window.__hiphiTossTests !== true; } catch { return false; } })();
 const today = () => hstDay(Date.now());
@@ -58,13 +69,16 @@ function applyRows(rows) {
   if (!Array.isArray(rows)) return;
   const c = {};
   for (const r of rows) { const t = TESTS[r?.key]; if (!t || !Array.isArray(r.arms) || r.arms.join() !== t.arms.join()) continue;
-    c[r.key] = { on: r.is_on === true, fallback: t.arms.includes(r.fallback) ? r.fallback : t.arms[0] }; }
+    const on = Array.isArray(r.arms_on) ? r.arms_on.filter(a => t.arms.includes(a)) : null;
+    c[r.key] = { on: r.is_on === true, fallback: t.arms.includes(r.fallback) ? r.fallback : t.arms[0], arms: on && on.length ? on : null }; }
   cfg = c; try { localStorage.setItem(CFG, JSON.stringify(c)); } catch { /* this page load only */ }
 }
 const cfgOf = key => { const c = cfg || cached(); return c ? c[key] || { on: false, fallback: TESTS[key].arms[0] } : { on: BUILT[key], fallback: TESTS[key].arms[0] }; };
+// The versions a new visitor can get: every version of a two-version test, and of a multi one those switched on.
+const armsOn = key => { const t = TESTS[key], c = cfgOf(key); return t.multi && c.arms ? c.arms : t.arms; };
 let settled = DEMO;
 export const abReady = (DEMO ? Promise.resolve() : (window.__hiphiAB
-  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status)))))
+  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback,arms_on&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status)))))
   .then(applyRows, () => { /* the switches kept from the last visit, or the tests as built */ }).finally(() => { settled = true; });
 // The first screen waits for the switches at most this long, and not at all when it has them from a last visit; they
 // come in the same moment as the catalog, which it waits for anyway (R-122).
@@ -78,16 +92,25 @@ export function armOf(key) {
   try {
     const s = st(), a = s.arms?.[key];
     if (s.forced?.[key] && t.arms.includes(a)) return a;
+    // A plan of the first-visit test replaces the screens these tests compare: today's version of each (R-164).
+    if (INSIDE_TODAY.includes(key) && onPlan()) return t.arms[0];
     if (DEMO || BOT) return t.arms[0];
     const lock = s.lock?.[key];
     if (lock && t.arms.includes(lock) && (t.first === 'keep' || firstOpen())) return lock;
     const c = cfgOf(key);
     if (!c.on) return c.fallback;
+    // A multi-version test keeps a number from the toss rather than a version, so a new visitor is spread evenly over
+    // whichever versions are switched on when their first visit starts (the lock keeps it from then on).
+    if (t.multi) { const on = armsOn(key), u = typeof s.u?.[key] === 'number' ? s.u[key] : 0; return on[Math.min(on.length - 1, Math.floor(u * on.length))]; }
     return t.arms.includes(a) ? a : t.arms[0];
   } catch { return t.arms[0]; }
 }
-// Counted only when the version came from the toss of a test that is on, or from a tester's link.
-const counted = key => isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+// Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
+// today's first visit while the browser is on a plan (R-164).
+const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+// The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
+function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
+export const plan = onPlan;
 
 // ---- sending (before the toss below, which may count a friend's arrival) ----
 let sink = null; const waiting = [];
@@ -113,7 +136,10 @@ try {
     s.v = 1;
   }
   for (const [k, a] of Object.entries(fromUrl())) { s.arms[k] = a; s.forced[k] = true; }
-  if (!DEMO && !BOT) for (const [k, t] of Object.entries(TESTS)) if (!t.arms.includes(s.arms[k])) { s.arms[k] = t.arms[Math.random() < 0.5 ? 0 : 1]; delete s.forced[k]; }
+  if (!DEMO && !BOT) for (const [k, t] of Object.entries(TESTS)) {
+    if (t.multi) { if (typeof s.u?.[k] !== 'number') (s.u ??= {})[k] = Math.random(); continue; }
+    if (!t.arms.includes(s.arms[k])) { s.arms[k] = t.arms[Math.random() < 0.5 ? 0 : 1]; delete s.forced[k]; }
+  }
   // A friend who came by a shared link that said which message brought them (?via=share-deadline): their arrival is the
   // share test's measure, credited once to that message.
   const via = /^share-([a-z0-9-]{1,20})$/.exec(new URLSearchParams(location.search).get('via') || '');
@@ -161,7 +187,8 @@ export function lockFirstVisit() {
     if (!firstOpen()) return;
     const s = st(); let changed = false;
     for (const [key, t] of Object.entries(TESTS)) if (t.first && !s.lock?.[key]) { (s.lock ??= {})[key] = armOf(key); changed = true; }
-    if (changed) { save(s); for (const [key, t] of Object.entries(TESTS)) if (t.first) abSeen(key); }
+    // A newcomer from a shared bill follows today's link path whatever the plan test gave them, so they never meet it.
+    if (changed) { save(s); for (const [key, t] of Object.entries(TESTS)) if (t.first && !(key === 'onb' && wiz().via)) abSeen(key); }
   } catch { /* never in the way */ }
 }
 // The rank test is met on a hearing where testimony is sent and another step is still open; another step later on any
@@ -180,4 +207,5 @@ export const shareTag = () => counted('share') ? `share-${armOf('share')}` : '';
 // R-121's names, kept: the ending, and the version word every private count carries (first_visit_events.variant,
 // visit_counts.variant, migration 113).
 export const endHome = () => armOf('end') === 'home';
-export const variantInfo = () => ({ variant: armOf('end'), forced: isForced('end') });
+// On a plan (R-164), the version word is the plan's ('p1' to 'p5'), so the First visit page's rows per version compare them.
+export const variantInfo = () => onPlan() ? { variant: onPlan(), forced: isForced('onb') } : { variant: armOf('end'), forced: isForced('end') };

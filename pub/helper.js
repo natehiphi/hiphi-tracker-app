@@ -1500,7 +1500,9 @@ function onClick(e) {
   if (e.target.closest('[data-godir]')) app.onAct?.('directions');   // the map's directions opened from the last page (R-142)
   const t = e.target.closest('[data-hp]'); if (!t || !S.helper) return;
   const a = t.dataset.hp;
-  if (a === 'done') { const b = S.helper.b; afterClose = () => { app.newcomerNext?.(b); }; requestClose(); }
+  // Done: a first-visit plan that opened this (R-164, pub/onb.js) goes on to its next step; else a newcomer from a shared
+  // bill goes on to the rest of their first visit.
+  if (a === 'done') { const x = S.helper, b = x.b; afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }
   else if (a === 'goics') { const x = S.helper; downloadIcs(x.b, x.h); paint(); }

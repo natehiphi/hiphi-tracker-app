@@ -41,7 +41,7 @@
     window.__hiphiCatalog.catch(function () { /* boot() asks again with the library */ });
     // The A/B tests' switches (R-135, pub/variant.js): a few short rows, asked in the same moment, so the first screen
     // knows which version to draw without waiting.
-    window.__hiphiAB = Promise.race([get('public_ab_tests?select=key,arms,is_on,fallback'), late]);
+    window.__hiphiAB = Promise.race([get('public_ab_tests?select=key,arms,is_on,fallback,arms_on'), late]);
     window.__hiphiAB.catch(function () { /* variant.js keeps the last switches it saw */ });
   } catch (e) { /* no fetch: the library asks */ }
 })();

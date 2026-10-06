@@ -371,13 +371,19 @@ function loadAb(force) {
     .finally(() => { s.abBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
 const armName = (t, a) => (t.arm_names || {})[a] || a;
-const AB = (t, a) => a === t.arms[0] ? 'A' : 'B';
+// A, B, ... by the version's place (the first is today's). The first-visit test has six (backend 136, R-164).
+const AB = (t, a) => 'ABCDEF'[t.arms.indexOf(a)] || '?';
+// The versions new visitors are spread over while a test is on: all of a two-version test, the switched-on ones of a
+// longer one (ab_tests.arms_on).
+const armsOnOf = t => t.arms.length > 2 && Array.isArray(t.arms_on) && t.arms_on.length ? t.arms_on : t.arms;
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 // Where each version can be seen in the practice copy, and what to do there to meet the difference.
 const SEE = {
   end: ['track.html?demo=1&restart&ab=end.', 'A practice first visit from the start: the difference is at its end.'],
   fv: ['track.html?demo=1&restart&ab=fv.', 'A practice first visit from the start: the difference is its second part.'],
   email: ['track.html?demo=1&restart&ab=email.', 'A practice first visit: the difference is on “Coming up on your issues”.'],
+  onb: ['track.html?demo=1&restart&ab=onb.', 'A practice first visit from the start, in that version.'],
+  join: ['track.html?demo=1&restart&ab=onb.p1,join.', 'A practice first visit on Plan 1: the difference is the alerts sign-up, after the email.'],
   rank: ['track.html?demo=1&ab=rank.', 'Free school bus passes: write practice testimony and say you sent it. The difference is the card after.', '#/bill/HB1780'],
   share: ['track.html?demo=1&ab=share.', 'Free school bus passes: press Share. The difference is the message.', '#/bill/HB1780'],
   home: ['compare.html?ab=home.', 'Pick Leilani (16 issues), then Open today’s version. The difference is the top of Home.'],
@@ -406,19 +412,28 @@ const abBar = tests => tests.filter(t => t.is_on).length > 1 ? { z: 2.576, pct: 
 // not yet picked. never: never switched on and nobody has met it, so there is nothing to show but the switch (A-14).
 function abState(t, res, bar) {
   const rows = res.filter(r => r.test === t.key), get = a => rows.find(r => r.arm === a && !r.forced) || { arm: a, seen: 0, goal: 0, goal2: 0 };
-  const [a, b] = t.arms.map(get), v = abVerdict(t, a, b, bar);
-  return { a, b, v, forced: rows.filter(r => r.forced && r.seen), ready: !!v[2] && !t.winner, never: !t.started && !a.seen && !b.seen };
+  const all = t.arms.map(get), [a] = all;
+  // Two versions: A against B. More (the first-visit test): today's (A) against the version doing best among those that
+  // are on or have numbers, so the verdict still names one comparison a person can act on.
+  const rate = r => r.seen ? r.goal / r.seen : -1;
+  const b = all.length === 2 ? all[1] : all.slice(1).filter(r => r.seen || armsOnOf(t).includes(r.arm)).sort((x, y) => rate(y) - rate(x))[0] || all[1];
+  const v = abVerdict(t, a, b, bar);
+  return { a, b, all, v, forced: rows.filter(r => r.forced && r.seen), ready: !!v[2] && !t.winner, never: !t.started && all.every(r => !r.seen) };
 }
 // Ready to decide first, then running, then picked, then off: the card that needs Nate is the first one he sees (A-13).
 const abRank = (t, x) => x.ready ? 0 : t.is_on ? 1 : t.winner ? 2 : 3;
 function abCard(t, x) {
-  const { a, b, v } = x;
+  const { a, b, v, all } = x, multi = t.arms.length > 2, on = armsOnOf(t);
   const m = (r, k) => t.rate ? (r.seen ? String(Math.round(100 * r[k] / r.seen)) : '–') : pct(r[k], r.seen);
   // On a phone each version's numbers are one line under its name ("640 visitors · 41% finished the first visit"): the
   // cells carry their words in data-l (staff.css).
   const tr = r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span><span class="sr">${AB(t, r.arm)}: </span>${esc(armName(t, r.arm))}${r.arm === t.arms[0] ? ' <span class="muted">(today’s)</span>' : ''}</th>`
     + `<td class="num" data-l="${t.rate ? 'shares' : 'visitors'}">${r.seen}</td><td class="num" data-l="${esc(t.measure.toLowerCase())}">${m(r, 'goal')}</td><td class="num" data-l="${esc(t.measure2.toLowerCase())}">${m(r, 'goal2')}</td></tr>`;
   const offLine = `Off: everyone gets ${AB(t, t.fallback)}, “${esc(armName(t, t.fallback))}”.`;
+  // A test with more than two versions has a switch for each: new visitors are spread evenly over the ones that are on
+  // (Nate 10/5: "a switch per version"). At least one stays on.
+  const armSwitches = multi ? `<fieldset class="ab-arms"><legend class="small">${t.is_on ? 'New visitors are spread over the versions switched on' : 'When it is on, new visitors are spread over the versions switched on'}</legend>
+    ${t.arms.map(x => switchRow(`ab-arm-${t.key}-${x}`, `${AB(t, x)}: ${armName(t, x)}`, on.includes(x), '', { 'data-abarm-on': `${t.key}|${x}` })).join('')}</fieldset>` : '';
   const verdict = x.never ? '' : x.ready ? notice('ok', 'circle-check', `<span>${v[1]}</span>`) : `<p class="small ab-verdict">${icon(v[0])}<span>${v[1]}</span></p>`;
   const pick = x.ready ? btn(`Pick ${AB(t, v[2])}`, { kind: 'primary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': v[2] } })
     : x.never ? '' : btn(t.winner ? 'Change the pick' : 'Pick the winner', { kind: 'text', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'aria-haspopup': 'dialog' } });
@@ -427,10 +442,10 @@ function abCard(t, x) {
     <p class="small ab-q">${esc(t.question)}</p>
     ${t.note && !t.is_on ? notice('warn', 'info', esc(t.note)) : ''}
     ${verdict}
-    ${switchRow('ab-on-' + t.key, 'Test it on new visitors', t.is_on, t.is_on ? '' : offLine, { 'data-abon': t.key })}
+    ${switchRow('ab-on-' + t.key, 'Test it on new visitors', t.is_on, t.is_on ? '' : offLine, { 'data-abon': t.key })}${armSwitches}
     ${x.never ? '' : `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}</caption>
       <thead><tr><th scope="col">Version</th><th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th></tr></thead>
-      <tbody>${tr(a)}${tr(b)}</tbody></table></div>`}
+      <tbody>${(multi ? all : [a, b]).map(tr).join('')}</tbody></table></div>`}
     ${x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : ''}
     <div class="btnrow ab-acts">${pick}${btn('See it', { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-absee': t.key, 'aria-haspopup': 'dialog' } })}</div>
     ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
@@ -707,8 +722,16 @@ const PAGES = {
         const on = el.checked, before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner };
         if (on && t.note && !await confirmSheet({ title: `Turn on “${t.name}”?`, text: `${esc(t.note)} New visitors start getting A or B at once.`, ok: 'Turn it on' })) { el.checked = false; return; }
         try { await saveAb(t.key, on ? { is_on: true, winner: null } : { is_on: false });
-          toast(on ? `Saved. New visitors get A or B of “${t.name}” at random.` : `Saved. Everyone gets ${AB(t, t.fallback)} of “${t.name}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
+          toast(on ? `Saved. New visitors get ${t.arms.length > 2 ? `one of the ${armsOnOf(t).length} versions switched on` : 'A or B'} of “${t.name}” at random.` : `Saved. Everyone gets ${AB(t, t.fallback)} of “${t.name}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
         catch (e) { el.checked = !on; toast(e, { err: true }); } });
+      // One version's switch (R-164): saved at once, with Undo; the last one on cannot be switched off.
+      root.querySelectorAll('[data-abarm-on]').forEach(el => el.onchange = async () => {
+        const [key, arm] = el.dataset.abarmOn.split('|'), t = test(key); if (!t) return;
+        const was = armsOnOf(t), next = el.checked ? t.arms.filter(x => was.includes(x) || x === arm) : was.filter(x => x !== arm);
+        if (!next.length) { el.checked = true; toast('At least one version stays on. Turn the test off instead.', { err: true }); return; }
+        try { await saveAb(key, { arms_on: next });
+          toast(`Saved. ${AB(t, arm)}, “${armName(t, arm)}”, is ${el.checked ? 'on' : 'off'} for new visitors.`, { ok: true, undo: () => saveAb(key, { arms_on: was }) }); }
+        catch (e) { el.checked = !el.checked; toast(e, { err: true }); } });
       // See it: the practice copy forced to each version, in a new tab, with where on it the difference is.
       root.querySelectorAll('[data-absee]').forEach(b => b.onclick = () => { const t = test(b.dataset.absee); if (!t) return;
         openSheet({ title: `See it: ${t.name}`, pop: true, body: `<p class="small muted ab-seehint">${esc(SEE[t.key]?.[1] || '')} The practice copy opens in a new tab; nothing there is saved or counted.</p>
