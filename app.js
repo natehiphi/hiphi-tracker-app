@@ -826,7 +826,8 @@ async function demoInit() {
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
       status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
-      doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString() }];
+      doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString(),
+      version: b0.current_version || null }];   // as the live job stamps it (Staff v2's sandbox does the same)
   }
   // And one per hearing in the coming week, so whichever bills the Desk
   // "hearing posted" band shows under the current lens, a link is there.
