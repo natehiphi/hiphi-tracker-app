@@ -17,6 +17,7 @@ import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, 
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
+import { followAsk, profileSaved } from './alerts.js';   // the profile ask after a follow (R-184)
 import { logAct } from './visitlog.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
   issueList, issueOrder, billsOfIssue, what } from './mybills.js';
@@ -463,15 +464,21 @@ async function followIssueNow(i, on) {
   if (!ok) { app.render(); return; }
   app.render();
   const whole = !on && (i.categories || [i.category]).filter(k => before.c.has(k)).map(k => catBySlug(k)?.name).filter(Boolean);
-  toast(on ? `Following ${i.name}. Its bills come to you, next session’s too.` : whole && whole.length ? `You no longer follow ${i.name}. You still follow the rest of ${whole.join(' and ')}, but not new issues in it.` : `You no longer follow ${i.name}.`,
+  // After a yes the toast says only what the profile did, with no Undo: an Undo beside "text alerts are on" undid the
+  // follow and left the texts on (the fresh-eyes review, 10/6). The page's own "Stop following" undoes the follow.
+  const say = r => r ? toast(profileSaved(r), { yay: true }) : toast(on ? `Following ${i.name}. Its bills come to you, next session’s too.` : whole && whole.length ? `You no longer follow ${i.name}. You still follow the rest of ${whole.join(' and ')}, but not new issues in it.` : `You no longer follow ${i.name}.`,
     { yay: on, undo: async () => { await setFollows({ issuesOn: [...before.i], catsOn: [...before.c], issuesOff: [...S.issueFollows].filter(x => !before.i.has(x)), catsOff: [...S.catFollows].filter(x => !before.c.has(x)) }); app.render(); } });
+  // Someone with no way to be reached is asked to save their profile first (R-184: every live share card opens an issue
+  // page until January, and its Follow asked nothing), and the toast, with its Undo, comes once the sheet closes.
+  if (!on || !followAsk(i.name, say)) say(null);
 }
 async function followCatNow(key, on) {
   const c = catBySlug(key); if (!c) return;
   if (!(await setFollows(on ? { catsOn: [key] } : { catsOff: [key] }))) { app.render(); return; }
   S.fdFocus = on ? '#fd-catok' : '[data-fdcat]'; app.render();
-  toast(on ? `Following all of ${c.name}, and any new issue in it.` : `You no longer follow all of ${c.name}.`, { yay: on,
+  const say = r => r ? toast(profileSaved(r), { yay: true }) : toast(on ? `Following all of ${c.name}, and any new issue in it.` : `You no longer follow all of ${c.name}.`, { yay: on,
     undo: async () => { await setFollows(on ? { catsOff: [key] } : { catsOn: [key] }); app.render(); } });
+  if (!on || !followAsk(c.name, say, { many: true, receipt: `You’re following all of ${c.name}.` })) say(null);   // the profile ask after a follow (R-184), as followIssueNow
 }
 
 // ---------------- a HIPHI list's page ----------------

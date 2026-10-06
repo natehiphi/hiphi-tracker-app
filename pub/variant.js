@@ -17,6 +17,10 @@
 //          the plan replaces the screens they compare.
 //   join   the plans' alerts sign-up (R-164, backend 138): an example text shown | "we watch, you speak". Met only on a
 //          plan's sign-up screen (pub/onb.js), never on today's first visit.
+//   save   the ask for a number or email (R-184, backend 148): "Save your profile", the first thing seen after a follow or
+//          a letter | the "Get alerts" ask as it was before 6 Oct. The other way round from the rest: the FIRST version is
+//          the new one, which everyone gets while the test is off (Nate 10/6: "Replace, leave the current method as an
+//          alternative backup that could be tested later"). Met wherever the two differ on screen (alerts.js saveArm).
 //
 // How a browser gets a version:
 //   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
@@ -46,8 +50,9 @@ export const TESTS = {
   home: { arms: ['by-day', 'by-issue'], goal: ['acted', 7], goal2: ['back', 14] },
   onb: { arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], first: 'keep', goal: ['acted', 14], goal2: ['back', 14], multi: true },
   join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
+  save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true, onb: false, join: false };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true, onb: false, join: false, save: false };
 // The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
 const INSIDE_TODAY = ['end', 'fv', 'email'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';

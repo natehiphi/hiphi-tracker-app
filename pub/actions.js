@@ -8,7 +8,7 @@ import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, codeStep } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, codeStep, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
 // S.compose and S.sentq are still read by the bill page (pub/bill.js); nothing here sets S.compose any more.
@@ -427,30 +427,39 @@ export function wireActions(root = document) {
 // pub/alerts.js: a mobile number for texts, email as a link under it; both name the same two kinds of alert (C-4), so
 // giving either IS the consent for them. One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 // pfx: the ids' prefix ('ng'; the letter helper's dialog draws its own copy as 'hp-ng', so the two never share an id).
-export function nudgeCard(kind = S.nudge, pfx = 'ng') {
+// bar: the host's bar holds the box's submit button (<button form="<pfx>-form">, the letter's Mahalo, R-184), so the card
+// keeps only "Not now".
+export function nudgeCard(kind = S.nudge, pfx = 'ng', { bar = false } = {}) {
   if (!kind) return '';
   // Before the signed-in check: a code (R-155) signs the person in as it turns texts on, and the card says so.
   if (S.nudgeText || S.nudgeSent) return `<div class="card tint nudgecard" role="status">${icon(S.nudgeText ? 'message-square' : 'mail-check')}<div>${alertDoneHTML(S.nudgeText ? { kind: 'phone', phone: S.nudgeText, demo: DEMO } : { kind: 'email', email: S.nudgeSent, demo: DEMO })}</div></div>`;
   if (S.session) return '';
   const nb = S.watch.size, na = myActions().length, ni = followedIssues().length;   // every issue followed, by itself or with its whole category (R-120, Bug 9); issues, not their bills (R-067)
   const email = S.alertMode === 'email', keep = email ? ' Your email also keeps your issues on any device.' : '';
-  // The box under it says what arrives (pub/alerts.js), so these lines only say why now, once (A-14).
-  const text = kind === 'action' ? `Mahalo for speaking up. Get a heads-up the next time one of your issues needs you.${keep}`
-    : kind === 'back' ? `Welcome back. ${ni ? `Your ${ni} issue${ni === 1 ? '' : 's'}` : `Your ${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''} live in this browser only, and phones clear it after a while.${email ? ' Add your email so they’re still here in January, and to hear when a hearing is set.' : ' Get a text when a hearing is set, so you don’t miss it.'}`
+  const things = `${ni ? `${ni} issue${ni === 1 ? '' : 's'}` : `${nb} bill${nb === 1 ? '' : 's'}`}${na ? ` and ${na} action${na === 1 ? '' : 's'}` : ''}`;
+  // "Save your profile" (R-184, alerts.js profileAsk): the line says what the profile keeps; the old "Get alerts" words are
+  // the test 'save''s second version. Either way the box under it says what arrives (pub/alerts.js), so these lines only
+  // say why now, once (A-14). The heading is where the two versions differ on screen: met there.
+  abSeen('save');
+  const prof = profileAsk();
+  const text = prof ? profileLede(['action', 'intro', 'back'].includes(kind) ? kind : 'follow', { things, many: ni > 1 })
+    : kind === 'action' || kind === 'intro' ? `Mahalo for speaking up. Get a heads-up the next time one of your issues needs you.${keep}`
+    : kind === 'back' ? `Welcome back. Your ${things} live in this browser only, and phones clear it after a while.${email ? ' Add your email so they’re still here in January, and to hear when a hearing is set.' : ' Get a text when a hearing is set, so you don’t miss it.'}`
     : `Hearings are set only about two days ahead, so a heads-up matters.${keep}`;
   const b = alertButton(pfx);
   // The sandbox used to show the heading with no box to type in (Nate 9/29: "nowhere to enter an email address"). The form
   // is the same there; nothing is sent or saved in the sandbox.
-  return `<section class="card tint nudgecard" aria-labelledby="${pfx}-t">${icon(email ? 'mail-check' : 'message-square')}<div class="ngbody">
-    <p class="strong" id="${pfx}-t">${codeStep(pfx) ? 'Check your texts' : 'Get alerts on your issues'}</p><p class="small">${codeStep(pfx) ? 'Type the 6-digit code from the text to turn on alerts.' : text}</p>
+  return `<section class="card tint nudgecard" aria-labelledby="${pfx}-t">${icon(prof ? 'user-round-plus' : email ? 'mail-check' : 'message-square')}<div class="ngbody">
+    <p class="strong" id="${pfx}-t">${codeStep(pfx) ? 'Check your texts' : prof ? PROFILE_H : 'Get alerts on your issues'}</p><p class="small">${codeStep(pfx) ? 'Type the 6-digit code from the text to turn on alerts.' : esc(text)}</p>
     <form class="ngform" id="${pfx}-form" novalidate>${alertFields(pfx, { compact: true })}
-      <div class="btnrow">${btn(b.label, { kind: 'primary', sm: true, icon: b.icon, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div></form></div></section>`;
+      <div class="btnrow">${bar ? '' : btn(b.label, { kind: 'primary', sm: true, icon: b.icon, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div></form></div></section>`;
 }
 // The letter helper passes its own prefix and redraw: its box once looked up 'ng-' ids its copy no longer had, so Text me
 // there was never wired (found 10/5 building R-155).
 export function wireNudge(root = document, { pfx = 'ng', redraw } = {}) {
-  root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; app.render(); });
-  const f = root.querySelector('.ngform'); if (!f) return;
   const again = redraw || (() => app.render());
+  // Not now redraws its host: the letter's Mahalo is a dialog that app.render() does not draw, so its card stayed (R-184).
+  root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; again(); if (redraw) app.render(); });
+  const f = root.querySelector('.ngform'); if (!f) return;
   wireAlertForm(f, { pfx, source: S.nudge === 'action' ? 'action' : 'home', onSwap: again, onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; again(); } });
 }

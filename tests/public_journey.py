@@ -82,7 +82,7 @@ with sync_playwright() as pw:
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     # Then the alerts, right after the issues and before the "Mahalo!" (R-146, Nate 10/4): a mobile number first, email as
     # a link under it. Here the email: the walk below greets them by the name asked after it.
-    ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Get alerts on your' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
+    ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Save your profile' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
     std(p, 'alerts', axe=True); shot(p, 'p_alerts')
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
     p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1500)

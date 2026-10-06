@@ -33,7 +33,10 @@ const committees = lazy('committees', () => import('./committees.js')), allbills
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
 const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'wide'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
-const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['find'], issue: ['find'], category: ['find'], list: ['find'],
+// Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
+// issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
+// phone zoomed the page out, and a Follow tapped then opened the profile sheet cut off at both edges).
+const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);

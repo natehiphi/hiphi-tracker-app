@@ -35,7 +35,7 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the first screen loads first and every
   other screen on first use (R-122; "How the page loads" below); Home's first card counts the day's deadlines and twin bills
   are one card (R-131); Staff v2's Week view has "This week's asks" to paste into the newsletter or a post (R-132).
-- **Six live A/B tests (R-135, 10/3; `docs/FEATURES.md`, `../backend/docs/AB-TESTS-PLAN.md`):** every new browser gets
+- **Six live A/B tests (R-135, 10/3; `docs/FEATURES.md`, `../backend/docs/AB-TESTS-PLAN.md`), with `onb`, `join` and `save` (R-184) built and off:** every new browser gets
   a version of each by its own coin toss (`pub/variant.js`), Nate switches each on or off and picks winners in Staff v2 >
   Session setup > Tests, and every count is per version. A change to one of those screens keeps both versions working
   until the winner is picked; `python3 tests/abtests.py` checks them.
@@ -257,7 +257,14 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      AND HIPHI's own advocacy alerts, in one "keep me updated" opt-in (Nate, 9/20, HANDOFF 3.5 - this reverses
      the earlier rule that action alerts stayed a separate, off-by-default choice). One ask per visit, always
      skippable. An existing account only ever GAINS choices from an ask, never loses one. Email to the public
-     stays paused regardless of what an ask would consent to.
+     stays paused regardless of what an ask would consent to. **Since R-184 (Nate 10/6) the ask is "Save your profile"**
+     (`profileAsk`, `profileLede`, `followAsk` in `pub/alerts.js`): the line over the box says what the profile keeps
+     (the brainstorm's picks A1 and B1: https://claude.ai/artifact/6nDhS6Loh5k1MMnukptc3B, Nate picks other words by
+     number there), the box and its consent words are unchanged. It is the first thing seen after a first follow or
+     letter: an issue page's or a category's Follow, and a bill page's "Follow the issue", open it in the alerts sheet with
+     "You're following ..." over it (the follow's toast comes after the sheet closes); after a letter it sits right under
+     the "Mahalo", above "What happens next". No second ask on Home after a skip (Nate). The old "Get alerts" ask is the
+     test `save`'s second version, off (backend 148; `?ab=save.alerts` shows it); `tests/profile_ask.py` checks both.
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 

@@ -18,6 +18,7 @@ import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
 import { flower } from './art.js';
+import { followAsk, profileSaved } from './alerts.js';   // the profile ask after a follow (R-184)
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
@@ -1033,7 +1034,12 @@ export default {
     each('[data-bl-followissue]', el => el.addEventListener('click', async () => {
       const i = S.issueById.get(el.dataset.blFollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');
-      if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}. Its bills come to you, next session’s too.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); }
+      if (await setFollows({ issuesOn: [i.id] })) {
+        const say = r => r ? toast(profileSaved(r), { yay: true }) : toast(`Following ${i.name}. Its bills come to you, next session’s too.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } });   // no Undo beside a yes (as find.js)
+        app.render();
+        if (!followAsk(i.name, say)) say(null);   // the profile ask after a follow (R-184; a stopped bill's main button is this)
+        return;
+      }
       app.render();
     }));
     // Where do you stand? The answer rides on the follow (that is how it reaches an account, and the bill's totals),

@@ -95,7 +95,7 @@ with sync_playwright() as pw:
     p.click('[data-alresend]'); p.wait_for_timeout(300)
     ok('Wait a minute' in text(p, '#st-a-status'), 'a new code right away: "Wait a minute", never a disabled button')
     p.click('[data-alnumber]'); p.wait_for_timeout(500)
-    ok(p.locator('#st-a-phone').count() == 1 and p.input_value('#st-a-phone') == '(808) 555-0123' and p.locator('#st-send', has_text='Text me a code').count() == 1 and 'Get alerts on your' in p.inner_text('#st-h'), 'a different number: the number box again, with the number in it')
+    ok(p.locator('#st-a-phone').count() == 1 and p.input_value('#st-a-phone') == '(808) 555-0123' and p.locator('#st-send', has_text='Text me a code').count() == 1 and 'Save your profile' in p.inner_text('#st-h'), 'a different number: the number box again, with the number in it')
     p.fill('#st-a-phone', '808 555 0177'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000)
     p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=6000); p.wait_for_timeout(1500)
     m = moment(p)

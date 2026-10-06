@@ -9,8 +9,8 @@ import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
-import { endHome, armOf } from './variant.js';
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow } from './alerts.js';
+import { endHome, armOf, abSeen } from './variant.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -336,6 +336,9 @@ function stepAlerts(step) {
   // "your 2&nbsp;issues": the heading never breaks with "issues" alone on its line (the review, A-19).
   const what = n ? (n === 1 ? 'your issue' : `your ${n}&nbsp;issues`) : 'your bills';
   const done = !S.alertEdit && (t || sent);
+  // "Save your profile" (R-184): the same box, named for what a number or an email makes; "Get alerts on your issues" is
+  // the test 'save''s second version. Met here only while the box shows.
+  const prof = profileAsk(); if (!done) abSeen('save');
   const body = done
     ? `<section class="card st-sent st-alertdone" aria-labelledby="st-al-t"><span class="st-ilead">${icon(t ? 'message-square' : 'mail-check')}</span>
         <div class="st-sentbody" id="st-al-t" tabindex="-1">${alertDoneHTML(t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed, demo: DEMO } : { kind: 'email', email: sent, demo: DEMO, later: true },
@@ -344,8 +347,8 @@ function stepAlerts(step) {
   // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
   // has to make sense on its own (the review, 10/4).
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
-    <h1 class="hero" id="st-h">${done ? (t?.confirmed ? 'You’re all set' : 'You’re almost set') : codeStep('st-a') ? 'Check your texts' : `Get alerts on ${what}`}</h1>
-    <p class="lede">${!done && codeStep('st-a') ? 'Type the 6-digit code from the text to turn on alerts.' : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`}</p>`,
+    <h1 class="hero" id="st-h">${done ? (t?.confirmed ? 'You’re all set' : 'You’re almost set') : codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
+    <p class="lede">${!done && codeStep('st-a') ? 'Type the 6-digit code from the text to turn on alerts.' : prof && !done ? esc(profileLede('first', { off })) : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`}</p>`,
     body);
 }
 // The first success: a moment that fills the screen and waits for Continue (C-7). It celebrates the issues just

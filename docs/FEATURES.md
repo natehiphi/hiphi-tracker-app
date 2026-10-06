@@ -699,3 +699,43 @@ first visit. All five are working versions in the same frame as today's first vi
   waits); it opens the same alerts box in a sheet (from the bottom on a phone, 520px in the middle on a laptop; the consent
   words, the code step, email in place), and the ending is drawn again standing still (`S.stCalm`) with the new status.
   `tests/d1_status.py` checks both (72 checks at 390x844 and 1366x900; on the code before it fails 35).
+
+## "Save your profile": the ask right after a follow or a letter (R-184; 6 Oct 2026)
+
+Nate (10/6): "if people get a link to take action or to follow a bill ... Are they then immediately prompted to sign-up?
+It's crucially important that we encourage them to build a profile for future engagement opportunities." Walked as a
+newcomer on the published site: following from a bill page's "New here?" card led to the first visit's alerts screen;
+after testimony or a chair email the ask sat 793px down on an 812px phone, under "What happens next", and "Done" went
+to Home with no ask; an issue page's Follow (where every live share card leads until January) asked nothing at all. Every
+ask said "Get alerts", never "profile". Nate's answers: "Save your profile" (and a brainstorm of other words, numbered
+for his picks: https://claude.ai/artifact/6nDhS6Loh5k1MMnukptc3B), no line on Home after a skip, and replace the old
+ask but keep it as a backup to test later.
+- **The words** (`pub/alerts.js`): `PROFILE_H` "Save your profile"; `profileLede(kind)` the line over the box, by what
+  just happened: 'follow' (A1, "Nice start. Your profile keeps this issue with you on any phone or computer, so you're
+  ready when it needs you."; "these issues" after a category), 'action' (B1, "Bills often get more than one hearing.
+  Your profile keeps what you wrote, so you can send it again next time."), 'intro' (the hello letter, no bill), 'back'
+  and 'first' (the first visit's screen, which still says in a few words what a hearing is). The box, the consent words
+  and the small print are unchanged (C-4). After a number, `alertDoneHTML` starts "Your profile is saved."; an email's
+  link "finishes your profile".
+- **Where**: the first visit's alerts screen (`start-rest.js stepAlerts`), the card everywhere else (`actions.js
+  nudgeCard`: Home, a bill page after an action, the letter's Mahalo), and after a follow outside the first visit
+  `followAsk(name, after)`, which opens the alerts sheet (`openAlertsSheet` with `profile`, `lede`, `receipt`, `onNo`):
+  "You're following ..." over the heading, the follow's own toast (with Undo) once it closes, "Not now" recorded as
+  every "Not now" is (quiet 14 days, then 60), once a visit, never for someone signed in or with a number or email given.
+  Called by `find.js` (an issue's and a category's Follow) and `bill.js` ("Follow the issue", a stopped bill's main
+  button). After a letter the card sits right under the Mahalo (`helper.js` doneScreen, mailDoneScreen).
+- **The backup**: the test `save` (`variant.js`, backend 148), off, its FIRST version the new ask; `?ab=save.alerts`
+  shows the old one (no sheet after an issue's Follow, "Get alerts", the letter's card under "What happens next").
+  Staff v2 > Session setup > Tests lists it with a practice link.
+- **Found on the way**: an issue, category or list page drew its bill rows before `mybills.css` arrived, about two
+  seconds at 409px wide on a 375px phone, so the phone zoomed the page out and a Follow tapped then opened the sheet cut
+  off at both edges. `pub/app.js` SCREEN_CSS now loads `mybills` with them.
+- **The fresh-eyes review's fixes (10/6)**: on the letter's Mahalo, while the ask waits, the bar's main button is the box's
+  own ("Text me a code", `form="hp-ng-form"`, `helper.js askOpen`) and Done is a text button (a filled Done beside a typed
+  number let people leave believing they had saved); Tell a friend comes back once it is answered, and the card's "Not now"
+  now redraws the dialog (`wireNudge` calls its host's redraw). After a yes the follow's toast says only what the profile
+  did, with no Undo (it undid the follow and left the texts on). Until codes are on, `profileLede` leaves out "on any phone
+  or computer" (a number keeps the profile on that phone only). On a touch screen the profile sheet opens on its heading,
+  so no keyboard covers "Not now"; a laptop starts in the box. The category receipt reads "You're following all of ...".
+- `tests/profile_ask.py` (36 checks, an iPhone SE, a phone and a laptop) walks each path and the backup; the six older
+  files that looked for "Get alerts on your" or the card's own button now look for the new heading and the bar's.

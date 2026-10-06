@@ -59,7 +59,7 @@ with sync_playwright() as pw:
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
     ok('at one of these moments now' in s['story'] and 'top of your home page' in s['story'], f'new: the story names the real moment ({s["story"][:90]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
-    ok('Get alerts on your' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
+    ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
     ok('We sent a link to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
     ok(p.locator('#st-a-email, #st-eform').count() == 0 and p.locator('#st-name').count() == 1, 'new: Coming up asks only the optional first name')
     ok('See my home page' in text(p, '.st-bar'), 'new: the last button says where it goes')
@@ -113,7 +113,7 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     s = walk_to_soon(p, '&end=today')
     ok('We tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen still promises to tell you (R-174: in its three promises)')
-    ok('Get alerts on your' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
+    ok('Save your profile' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
     ok('We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
     p.click('[data-stnext]'); p.wait_for_selector('.st-done', timeout=10000)
     ok('You’re all set' in text(p), 'today: the finale screen is still there')

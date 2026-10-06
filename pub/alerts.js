@@ -16,11 +16,66 @@
 // asks for a YES any more. Before the switch it says the number will be confirmed by text (t3), as the code will do.
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
 // any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
-import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText } from './core.js';
+import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText, nudgeOk, onb, onbSet } from './core.js';
 import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode, myEmail } from './phone.js';
 import { btn } from './ui.js';
 import { burst } from './fx.js';
-import { abEvent } from './variant.js';
+import { abEvent, armOf, abSeen } from './variant.js';
+
+// ---------------- The profile ask (R-184) ----------------
+// Nate, 10/6: "if people get a link to take action or to follow a bill ... Are they then immediately prompted to sign-up?
+// It's crucially important that we encourage them to build a profile for future engagement opportunities." Walking each
+// shared link as a newcomer found the ask missing after an issue page's Follow (every live share card opens one until
+// January), under the first screen after a letter, and always named for alerts, never for the profile that a number or
+// an email is what makes (R-147). Nate's answers: "Save your profile" (with a brainstorm of other words for his picks), no
+// second line on Home after a skip (one ask per visit stays, C-3), and replace the old ask but keep it as a backup to test
+// later. So the box is the same everywhere; the heading says "Save your profile", the line over the box says what the
+// profile keeps (why now), and the consent words under the box still say what arrives and how often (C-4: unchanged, so
+// what people agree to is the stored version; A-14: the line over the box never repeats them).
+// The old "Get alerts" ask is the test 'save''s second version (variant.js; backend 148 holds its switch, off).
+export const profileAsk = () => armOf('save') === 'profile';
+export const PROFILE_H = 'Save your profile';
+// The line under the heading, by what just happened (kind: 'first' the first visit's own screen, 'follow', 'action' a
+// letter or an email about a bill, 'intro' the hello letter, 'back'). It says what the profile keeps of what they just did
+// and one concrete reason that helps next time; never what arrives (the box says it), never that few people act (C-10),
+// one or two short sentences (C-14). The follow and letter lines are the brainstorm's recommended picks (A1, B1; R-184's
+// page of options, for Nate's picks). "Any phone or computer": an email signs in by its link today, a number by a texted
+// code once codes are on (R-155); the page describes texts as working (R-146, R-101).
+// Before text codes are on (R-155) a number keeps the profile on this phone only, so "on any phone or computer" is left
+// out until codesOn() (the fresh-eyes review, 10/6); the practice copy shows codes on, as the public will see them.
+export function profileLede(kind, { off = false, things = '', many = false } = {}) {
+  const anywhere = codesOn() ? ' on any phone or computer' : '';
+  if (kind === 'action') return 'Bills often get more than one hearing. Your profile keeps what you wrote, so you can send it again next time.';
+  if (kind === 'intro') return 'Your profile keeps your name and what you wrote, ready for the next time you write.';
+  if (kind === 'back') return `Welcome back. ${things ? `Your ${things} live` : 'What you follow lives'} only in this browser for now. Save ${things ? 'them' : 'it'} to your profile to keep ${things ? 'them' : 'it'}${anywhere || ' safe'}.`;
+  // The first visit's screen comes before the story that teaches hearings, so it says in a few words what one is.
+  // Between sessions the January line takes the hearing's place, so the line stays under 30 words (C-14).
+  if (kind === 'first') return `Your profile keeps your issues with you${anywhere}. ${off ? 'Their new bills start in January, and hearings are set about two days ahead.' : 'At a hearing, lawmakers hear from the public, and hearings are set about two days ahead.'}`;
+  return `Nice start. Your profile keeps ${many ? 'these issues' : 'this issue'} with you${anywhere}, so you’re ready when ${many ? 'they need' : 'it needs'} you.`;
+}
+// After a yes, in the profile's words (the follow's toast once the sheet closes).
+export function profileSaved(r) {
+  if (r?.kind === 'email') return `Almost there: tap the link we sent to ${r.email} to finish your profile.`;
+  if (r?.kind === 'phone') return r.confirmed || textSaved()?.confirmed ? 'Your profile is saved, and text alerts are on.' : `Your profile is saved. ${confirmWords(fmtPhone(r.phone))}`;
+  return '';
+}
+// After a follow outside the first visit (an issue page, a bill page's "Follow the issue", a category): the profile ask in
+// the sheet, the first thing seen after the follow, for someone with no way to be reached yet, once a visit, never after a
+// recent "Not now" (nudgeOk: 14 days, then 60). name: what was followed, said at the top of the sheet. after(r): called once
+// the sheet closes (r: what was given, or null), so the follow's own toast, with its Undo, comes after the sheet instead of
+// under it. Returns false, without calling after, when it does not ask (the old version, or nothing to ask).
+// The source recorded with a number is 'home' (backend 121 knows four): outside the first visit, not after an action.
+export function followAsk(name, after, { many = false, receipt = '' } = {}) {
+  if (S.session || alertsGiven() || !nudgeOk()) return false;
+  abSeen('save');   // where the two versions differ: the old one asked nothing here
+  if (!profileAsk()) return false;
+  S.nudgedThisVisit = true; S.nudge = null;
+  let got = null;
+  openAlertsSheet({ source: 'home', profile: 'follow', lede: profileLede('follow', { many }), receipt: receipt || (name ? `You’re following “${name}”.` : 'You’re following it.'),
+    onNo: () => { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); },
+    onDone: r => { got = r; }, onClose: () => after && after(got) });
+  return true;
+}
 
 // The version of the text consent words, and the words themselves: text_consent_words 't3' is exactly TEXT_PROMISE, a
 // space, then TEXT_FINE (backend 141, R-176; 't1', backend 121 and 123, said "Our first text asks you to reply YES" and
@@ -274,20 +329,24 @@ function wireCode(form, inp, { pfx, source, onDone, redraw, btnOf }) {
     }
   };
 }
-// The line that says it worked, for a host to show where the box was.
+// The line that says it worked, for a host to show where the box was. In the profile ask (R-184) a number's line starts by
+// saying the profile is saved (a number makes one on this phone, myprofile.js hasProfile), and an email's says its link
+// finishes the profile: the ask said "Save your profile", so the answer says what became of it.
 export function alertDoneHTML(r, { change = '' } = {}) {
+  const prof = profileAsk() && r.kind === 'phone' ? '<p class="al-saved">Your profile is saved.</p>' : '';
   // Confirmed by a code (R-155): done, and signed in with the number.
-  if (r.kind === 'phone' && (r.confirmed || textSaved()?.confirmed)) return `<p class="strong">Text alerts are on for <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>.</p>
+  if (r.kind === 'phone' && (r.confirmed || textSaved()?.confirmed)) return `${prof}<p class="strong">Text alerts are on for <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>.</p>
     <p class="small">${S.session ? 'You’re signed in with your number. Use it to sign in on any phone or computer, and your profile is there.' : 'Use your number to sign in on any phone or computer.'} Reply STOP to any text to end them.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox: no code was sent, nothing was saved, and you stay signed out.</p>' : ''}${change}`;
   // Almost, not done: the first text confirms the number, and only then do alerts start (B-7: nothing looks finished
   // before it is). The same words as alertStatus()'s "Almost set", which every other screen shows (D1-4).
-  if (r.kind === 'phone') return `<p class="strong">${confirmWords(`<span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>`)}</p>
+  if (r.kind === 'phone') return `${prof}<p class="strong">${confirmWords(`<span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>`)}</p>
     <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
   // r.later: inside the first visit, where leaving for the inbox would cut it short (R-098), so: finish here first.
+  const turnOn = profileAsk() ? 'to finish your profile and turn on alerts' : 'to turn on alerts';
   return `<p class="strong">${r.later ? 'Link sent to' : 'Check your inbox at'} <span class="al-break">${esc(r.email)}</span></p>
-    <p class="small">${r.later ? 'Tap it when you finish here to turn on alerts.' : 'Tap the link in the email to turn on alerts.'} It can take a minute; check spam if you don’t see it.</p>
+    <p class="small">${r.later ? `Tap it when you finish here ${turnOn}.` : `Tap the link in the email ${turnOn}.`} It can take a minute; check spam if you don’t see it.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}${change}`;
 }
 export const changeBtn = (attr, label) => btn(label, { kind: 'text', sm: true, attrs: { [attr]: '1' } });
@@ -300,9 +359,11 @@ export const changeBtn = (attr, label) => btn(label, { kind: 'text', sm: true, a
 // visit, so an email given here turns alerts on. A code texted from the alerts step carries over and can be typed here.
 // On a phone it rises from the bottom; on a laptop it sits in the middle (base.css .al-sheet). Not now and Esc close it;
 // what was typed is kept for the page's life (S.alertDraft, C-9). onDone(r) after a yes; onClose() whenever it closes.
+// profile: the profile ask's words for that kind (R-184, followAsk), with receipt, the line saying what just worked, over
+// the heading (C-3: the ask follows a success, and says so). onNo: "Not now" was pressed (it closes the sheet as before).
 let sheet = null;
 const SH = 'al-sh';
-export function openAlertsSheet({ source = 'more', onDone, onClose } = {}) {
+export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profile = '', lede = '', receipt = '' } = {}) {
   if (S.alertCode && S.alertCode.pfx !== SH) S.alertCode.pfx = SH;
   if (!sheet) {
     sheet = document.createElement('dialog'); sheet.className = 'sheet al-sheet'; sheet.setAttribute('aria-labelledby', `${SH}-h`);
@@ -314,18 +375,22 @@ export function openAlertsSheet({ source = 'more', onDone, onClose } = {}) {
     if (mail) S.alertMode = 'phone';   // a signed-in email's alerts are its two choices in the profile (as on More > Get alerts)
     const b = alertButton(SH);
     sheet.innerHTML = `<form class="al-shin" id="${SH}-form" novalidate>
-      <h2 id="${SH}-h">${code ? 'Check your texts' : 'Get alerts on your issues'}</h2>
-      <p class="al-shlede">${code ? CODE_SAY : mail ? emailLede() : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p>
+      ${receipt && !code ? `<p class="al-shrcpt">${icon('circle-check')}<span>${esc(receipt)}</span></p>` : ''}
+      <h2 id="${SH}-h" tabindex="-1">${code ? 'Check your texts' : profile ? PROFILE_H : 'Get alerts on your issues'}</h2>
+      <p class="al-shlede">${code ? CODE_SAY : mail ? emailLede() : profile ? esc(lede || profileLede(profile)) : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p>
       <div class="al-shbox">${alertFields(SH, { swap: !mail })}</div>
       <div class="al-shbtns">${btn(b.label, { kind: 'primary', icon: b.icon, attrs: { type: 'submit', id: `${SH}-send` } })}${btn('Not now', { kind: 'text', attrs: { 'data-alshno': '1' } })}</div>
     </form>`;
-    sheet.querySelector('[data-alshno]').onclick = () => sheet.close();
+    sheet.querySelector('[data-alshno]').onclick = () => { onNo && onNo(); sheet.close(); };
     sheet.querySelectorAll('.al-shlede a').forEach(a => a.addEventListener('click', () => sheet.close()));
     wireAlertForm(sheet.querySelector('form'), { pfx: SH, source, onSwap: paint, onDone: r => { sheet.close(); onDone && onDone(r); } });
   };
   paint();
   try { sheet.showModal(); } catch { sheet.setAttribute('open', ''); }
-  requestAnimationFrame(() => sheet.querySelector(`#${SH}-code, #${SH}-phone, #${SH}-email`)?.focus());
+  // The profile ask opens on its heading on a touch screen: focusing the box there raised the keyboard over "Not now"
+  // before the ask was read (the fresh-eyes review, 10/6). A laptop still starts in the box.
+  const touch = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch { return false; } })();
+  requestAnimationFrame(() => (profile && touch && !codeStep(SH) ? sheet.querySelector(`#${SH}-h`) : sheet.querySelector(`#${SH}-code, #${SH}-phone, #${SH}-email`))?.focus());
 }
 
 // The endings' alerts row (today's "You're all set" and the plans' ending draw the same .st-did list, start.css): the

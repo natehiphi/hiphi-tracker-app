@@ -369,6 +369,12 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .al-sheet .al-shlede { margin: 0; color: var(--n700); }
 .al-sheet .al-shbox { display: flex; flex-direction: column; gap: var(--s8); }
 .al-sheet .al-shbtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin-top: var(--s4); }
+/* The profile ask after a follow (R-184, alerts.js followAsk): a line over the heading says what just worked (C-3), in the
+   success green (--ok-text on white is 7.1:1) with its check, the icon at the text's size (A-18). */
+.al-sheet .al-shrcpt { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
+.al-sheet .al-shrcpt .ic { flex: none; width: 1.15em; height: 1.15em; margin-top: .15em; }
+/* "Your profile is saved." over a number's line, once the profile ask is answered (alerts.js alertDoneHTML). */
+.al-saved { margin: 0 0 var(--s4); font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
 @media (max-width: 719px) { dialog.sheet.al-sheet { top: auto; bottom: 0; height: fit-content; max-height: 92%; margin: 0; border-radius: var(--r16) var(--r16) 0 0; } }
 @media (min-width: 720px) { dialog.sheet.al-sheet { width: 520px; } .al-sheet .al-shin { padding: var(--s24); } }
 /* "Read more about the bill" (pub/billtext.js, R-178): what someone deciding where they stand can read beyond the one

@@ -49,6 +49,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, c
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, shareFor, doShare, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
+import { profileAsk, alertButton } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184)
 import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
@@ -1167,20 +1168,23 @@ function doneScreen() {
   const next = held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${plural ? 'hear' : 'hears'} it ${when}.`;
   const v = streamOf(h), miles = newMilestones(x.before);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
-  const ask = emailAsk(x);
+  // The ask (R-184): right under the thank-you, the first thing seen after it. It sat under "What happens next" and "Going
+  // in person?", which on a phone put it below the first screen, so "Done" in the bar came first. The old place is the test
+  // 'save''s second version.
+  const ask = emailAsk(x), up = profileAsk();
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>
+    </div>${up ? ask : ''}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${unfollowBtn(x)}
       ${held ? '' : goingLine(x)}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
-    ${ask}`;
+    ${up ? '' : ask}`;
 }
 // Going in person (R-142, Nate 10/4: directions for people who sign up for a hearing in person). Someone who said they'd
 // testify in person is shown where and when; anyone else is asked once in a line. "I plan to go" is the card's own
@@ -1237,7 +1241,7 @@ function emailAsk(x) {
         ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
     : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
         ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
-    : S.nudge && x.askStory !== 'ask' ? nudgeCard('action', 'hp-ng') : '';   // one ask on the Mahalo, never two (R-156)
+    : S.nudge && x.askStory !== 'ask' ? nudgeCard(x.mode === 'intro' ? 'intro' : 'action', 'hp-ng', { bar: askOpen(x) }) : '';   // the hello letter has no bill to send again; its button in the bar (R-184)   // one ask on the Mahalo, never two (R-156)
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {
@@ -1255,6 +1259,7 @@ function mailDoneScreen() {
     : h ? `${held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${codesOf(h.committee).length > 1 ? 'hear' : 'hears'} it ${when}.`} ${followWords(x, n)}`
     : m.kind === 'floor' ? `The full ${CHAMBER_NAME[m.chamber] || 'chamber'} votes on it soon. ${followWords(x, n)}`
     : `If it gets a hearing, you’ll see it in My issues. ${followWords(x, n)}`;
+  const ask = emailAsk(x), up = profileAsk();   // right under the thank-you (R-184), as doneScreen
   const v = h && streamOf(h);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
   return `<div class="hp-hero">
@@ -1262,13 +1267,13 @@ function mailDoneScreen() {
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">${esc(lede)}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>
+    </div>${up ? ask : ''}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
       ${unfollowBtn(x)}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
-    ${emailAsk(x)}`;
+    ${up ? '' : ask}`;
 }
 
 // The sticky footer holds the one main button of each screen. On screen 3 a second, quiet row holds the two ways out
@@ -1303,9 +1308,17 @@ function foot() {
     : x.back ? btn('Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
+  // While "Save your profile" waits for an answer (R-184), its button is the bar's main one and Done steps back to a text
+  // button: with "Done" filled beside a typed number, people tapped Done and left believing they had saved (the fresh-eyes
+  // review, 10/6; on an iPhone the number pad's own bar says Done too). Tell a friend comes back once the ask is answered.
+  if (askOpen(x)) { const b = alertButton('hp-ng');
+    return row(btn('Done', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'done' } })
+      + btn(b.label, { kind: 'primary', icon: b.icon, cls: 'hp-main', attrs: { type: 'submit', form: 'hp-ng-form' } })); }
   return row((!x.b ? '' : x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
     + btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
 }
+// The profile ask is on the Mahalo and not yet answered (emailAsk draws nudgeCard then; profileAsk's version only).
+const askOpen = x => profileAsk() && !S.session && !S.nudgeText && !S.nudgeSent && !!S.nudge && x.askStory !== 'ask' && !(x.link && x.linkTo);
 
 // Re-draw the dialog's content in place (the dialog itself stays open, so no flash of the page behind).
 function paint({ focus, top = false } = {}) {

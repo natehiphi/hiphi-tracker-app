@@ -537,6 +537,15 @@ kinds of alert named for either (C-4), how often ("at most one a day"), and for 
 (message and data rates, STOP, HELP). Until 10/4 the ask sat on "Coming up on your issues", after the story and
 the address (Nate 9/21: after the value), where most people never reached it.
 
+**What it is called, and where it comes outside the first visit, since 10/6 (R-184, Nate: "It's crucially important
+that we encourage them to build a profile").** The ask says "Save your profile": a number or an email is what makes a
+profile, and the line over the box says what the profile keeps of what was just done (a reason, not the alerts, which
+the box's consent words already name). It is the first thing seen after a first follow or letter, wherever that
+happens: after an issue page's or a category's Follow it rises in the alerts sheet with the follow said over it, and
+after a letter it sits right under the thank-you, above "What happens next" (it had been under the first phone screen,
+so "Done" came first). Still once per visit, and no second ask on Home after a skip (Nate). The old "Get alerts" ask
+is kept as a switched-off version to test later (the test `save`).
+
 *Reason.* Nate's product rule, and it matches every piece of consent guidance worth citing. The ask
 lands best at the moment somebody has just felt the thing work.
 

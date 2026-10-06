@@ -54,7 +54,7 @@ with sync_playwright() as pw:
     t = text(p)
     ok(p.url.endswith('#/start/3'), f'the alerts screen is the third step, right after the issues ({p.url[-10:]})')
     ok(moment(p) == '', 'no "Mahalo!" before the alerts screen')
-    ok('Get alerts on your' in p.inner_text('#st-h') and 'issues' in p.inner_text('#st-h'), f'the heading counts the issues: {p.inner_text("#st-h")}')
+    ok(p.inner_text('#st-h') == 'Save your profile' and 'At a hearing, lawmakers hear from the public' in text(p, '.st-alertspage .lede'), f'the heading asks to save the profile, and the line says what a hearing is (R-184): {p.inner_text("#st-h")}')
     ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-a-email').count() == 0, 'the mobile number box comes first, alone')
     ok(all(w in t for w in ['gets a hearing', 'HIPHI asks people to speak up', 'At most one text a day', 'We’ll text you to confirm it’s your number', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']) and 'YES' not in t, 'the consent words: what arrives, how often, the confirming text (no YES, R-176), rates, STOP, HELP')
     ok('At a hearing, lawmakers hear from the public' in t, 'the lede says what a hearing is (the story comes after this screen)')
