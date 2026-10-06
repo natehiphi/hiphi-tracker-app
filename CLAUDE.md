@@ -191,7 +191,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills` (My issues), `#/find`, `#/find/category/<key>`,
   `#/issue/<slug>`, `#/find/issue/<slug>` (the old coalition-group page), `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/allbills` (every bill HIPHI tracks, by hearing status, from a row on More, with a search and three filters: topic, HIPHI's position, where it stands; R-091), `#/help`, `#/signin`,
   `#/settings`, `#/privacy`; legacy `#bill=` links redirect). `pub/core.js` data + plain-language layer.
-  `pub/ui.js`, `pub/actions.js` shared parts. One module + CSS per screen: `start`, `home`, `mybills`, `find`,
+  `pub/ui.js`, `pub/actions.js` shared parts; `pub/billtext.js` "Read more about the bill" (the Legislature's summary,
+  HIPHI's reasons, the latest draft's whole text on the Capitol website), on the bill page and the letter's first step (R-178). One module + CSS per screen: `start`, `home`, `mybills`, `find`,
   `bill`, `people`, `more`, `helper`, `committees`, `allbills` (its rows are My issues' `billRow` with `pos` and `watch`,
   so it is a table from 1100px; it loads one session's tracked bills from `public_all_bills` and their hearings). `pub/art.js` drawings (`islands('oahu' | 'mauicounty' | …)`).
 - Design system `pub/base.css`: HIPHI blue ramp `--p50..--p900` (`--p700 #00698E`), orange for celebration
