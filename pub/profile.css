@@ -155,3 +155,20 @@
 .pf .pf-curdist .mr-distlines { display: flex; flex-direction: column; gap: 2px; }
 .pf .pf-where .mr-addr { margin-top: var(--s8); }
 .hp-dlg .tp .tp-add { margin-top: var(--s4); }
+
+/* The save bar (R-165, Nate 10/5: "People should be able to cancel their changes"): at the bottom while a draft waits. */
+.pf-bar .inner { flex-wrap: wrap; }
+.pf-bar .pf-barmsg { flex: 1 1 100%; margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.pf-bar .pf-barmsg.bad { color: var(--bad-text); }
+.pf-bar .btn { flex: 1 1 0; }
+@media (min-width: 600px) {
+  .pf-bar .inner { flex-wrap: nowrap; }
+  .pf-bar .pf-barmsg { flex: 1 1 auto; }
+  .pf-bar .btn { flex: 0 0 auto; min-width: 8em; }
+}
+body.hasbar[data-screen="profile"] main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + 136px); }
+@media (min-width: 900px) { body.hasbar[data-screen="profile"] main { padding-bottom: 120px; } }
+/* A toast sits above the save bar, never on its buttons. */
+body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--safe-b) + 128px); }
+@media (min-width: 600px) { body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--safe-b) + 88px); } }
+@media (min-width: 900px) { body.hasbar[data-screen="profile"] #toast { bottom: 96px; } }

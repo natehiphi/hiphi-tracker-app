@@ -383,11 +383,13 @@ the questions too specific; How you'll help cold, with only three choices; the s
 clearly never be saved; stories by issue, not by category, followed issues first; in letters, one title by default and
 more a tap away. His answers: edit in place; all four groups of ways to help with "Something else? Tell us"; keep a
 general story. Backend migration 135.
-- **Edit in place** (`pub/profile.js`): the page is the form, with no Add, Change, Save or Cancel. The name saves on Enter or
-  when the box is left (the header follows); each title tap saves; picking an address saves its districts ("Saved your
-  districts. Your address was not kept"); a story saves after a pause in typing and when the box is left; ticks and the
-  quote choice save as they change; the email choices too. `flash()` puts "Saved" (or the error) beside what changed and
-  says it aloud; taking a title off or emptying a story says so with Undo. Nothing redraws while typing.
+- **Edit on the page, then Save** (`pub/profile.js`): the page is the form, with nothing to open or close. First built 10/5
+  as save-as-you-go; the same day Nate: "I think the lack of save button or undo button might hurt. People should be able
+  to cancel their changes." His choice: a save bar. A change goes into a draft (`P.draft`, compared with `P.base`); a bar
+  at the bottom (`.actionbar`, drawn by `paintBar` without redrawing the page, and by the screen's `bar()` on a redraw)
+  says "You have unsaved changes" with Cancel (everything back as saved) and Save (`saveAll`: one `saveProfile` with only
+  what changed, and the email choices). A draft survives a redraw and a trip to another page; closing the browser tab
+  with one asks first. A picked address shows "Found your districts. Save to keep them." The toast sits above the bar.
 - **Stories by issue** (people.stories keyed by the issue's id, backend 135; R-156's category keys still read): the general
   story, then one box per issue story, then "Add a story about one issue", a select with the issues they follow first and
   "Another issue…", which opens every other issue by topic. One warm question for all (`storyAsk`, `STORY_HINT`). Letters
@@ -399,7 +401,7 @@ general story. Backend migration 135.
   default (`titles.js pickTitle`), and a tap adds more, as many as they like ("As a parent, teacher and coach").
 - **The address:** "We don't keep your address. We use it once to find your senator and representative, and save only
   their district numbers." The "testimony is public" line moved to the stories.
-- Tests: `tests/profile.py` (80 checks), `tests/titles_test.mjs` (29), backend `test_135.js` (15).
+- Tests: `tests/profile.py` (78 checks), `tests/titles_test.mjs` (29), backend `test_135.js` (15).
 
 ## The profile after its review (R-156; 5 Oct 2026; the review: https://claude.ai/artifact/7C9NPtvH8DTVCTsQEgRkcV)
 Nate 10/5, "Do it": all twelve recommendations of the review of R-147, as recommended (C1 as "choose the next ask"; D1 is
