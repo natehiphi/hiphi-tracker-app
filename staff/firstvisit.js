@@ -37,8 +37,9 @@ const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Fol
   // 'topics' and sometimes 'you'; the Versions table below compares the plans whole.
   one: 'Plan 1: one bill that needs voices', hello: 'Plans 1, 3: say aloha', join: 'Plans: the alerts sign-up', wrap: 'Plans: the ending',
   story: 'Plan 2: a bill’s journey', road: 'Plan 2: your issues on the road', island: 'Plan 3: which island?', way: 'Plan 4: how you like to help',
-  first: 'Plan 4: your first step', picks: 'Plans 3, 4, 5: what’s moving' };
-const PLAN_STEPS = ['island', 'way', 'story', 'picks', 'road', 'one', 'hello', 'join', 'first', 'wrap'];
+  first: 'Plan 4: your first step', picks: 'Plans 3, 4, 5: what’s moving',
+  find: 'Plan 1: find a bill', learn: 'Plan 1: how the bill can move', decide: 'Plan 1: your choice' };
+const PLAN_STEPS = ['island', 'way', 'story', 'picks', 'road', 'find', 'learn', 'decide', 'one', 'hello', 'join', 'first', 'wrap'];
 const FLOWS = {
   // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).
   // 'alerts' (R-146, 10/4): the alerts ask right after the issues; it was part of "Coming up on your issues" before.

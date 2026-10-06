@@ -11,7 +11,7 @@
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
 import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
-  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay } from './core.js';
+  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay, followedIssues } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
@@ -227,10 +227,12 @@ function draft(l, b, where) {
   const about = b && blurb(b, 320).split(/(?<=\.)\s+(?=[A-Z])/)[0].replace(/[.…\s]+$/, '');
   const says = !about ? '' : /^[A-Z][a-z]+s\b/.test(about) && !/^(This|These|The|A|An)\b/.test(about) ? `, which ${about.charAt(0).toLowerCase()}${about.slice(1)}.` : `. ${about}.`;
   if (b) lines.push(`I am writing about ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
-  else lines.push('I am writing to introduce myself. I care about the health of our community, and I would like to share my views with you as bills come up.');
+  // R-172: one issue and one question that invites a reply, not "I am writing to introduce myself".
+  else { const top = (followedIssues()[0] || {}).name; lines.push(top ? `The health issue that matters most to me: ${top}. Where do you stand on it? I’d be grateful to hear back.`
+    : 'The health issue that matters most to me: [the one that matters most to you]. Where do you stand on it? I’d be grateful to hear back.'); }
   lines.push((m.why || '').trim() ? m.why.trim().replace(/([^.!?])$/, '$1.') : '[Why this matters to you, in a sentence or two.]');
   lines.push(`Mahalo,\n${m.name || '[your name]'}`);
-  const subject = b ? `${spaced(b.bill_number)}: please ${verb} it` : `A note from ${town ? 'a neighbor in ' + town : 'a constituent'}`;
+  const subject = b ? `${spaced(b.bill_number)}: please ${verb} it` : `A question from ${town ? 'a neighbor in ' + town : 'your constituent'}`;
   return { subject, body: lines.join('\n\n') };
 }
 const mailto = (l, subject, body) => `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

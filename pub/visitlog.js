@@ -23,7 +23,7 @@ const KEY = 'hiphi_fv', CAP = 60;
 // 'alerts' (R-146, accepted by the database since 121) was missing here, so the alerts screen was never counted; the
 // plans' steps (R-164, backend 136) come after it.
 const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask', 'voice', 'alerts',
-  'one', 'hello', 'join', 'wrap', 'story', 'road', 'island', 'way', 'first', 'picks']);
+  'one', 'hello', 'join', 'wrap', 'story', 'road', 'island', 'way', 'first', 'picks', 'find', 'learn', 'decide']);
 const EVENTS = new Set(['view', 'next', 'skip', 'back', 'leave', 'done', 'answer']);
 const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/;
 const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);

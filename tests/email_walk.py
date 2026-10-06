@@ -256,7 +256,7 @@ with sync_playwright() as pw:
         p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'I am a nurse on Oʻahu.'); shot(p, f'{tag}_1_about')
         tap(p, 'See my email'); p.wait_for_timeout(600)
         letter = p.input_value('#hp-letter'); iname = snap['issues'][0]['name']
-        check(letter.startswith('Dear Senator') and 'Representative' in letter and 'The issues I follow:' in letter and iname in letter, f'{tag}: to both, listing the issues they follow')
+        check(letter.startswith('Dear Senator') and 'Representative' in letter and ('matters most to me' in letter or 'I also follow' in letter) and iname in letter and 'Where do you stand' in letter, f'{tag}: to both, the issue they care about most and one question (R-172)')
         check('I am a nurse on Oʻahu.' in letter and 'Kai Ho' in letter, f'{tag}: their own words and name')
         shot(p, f'{tag}_2_letter')
         tos = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-toaddr')].map(e => e.innerText.trim())")
