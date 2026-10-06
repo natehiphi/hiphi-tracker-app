@@ -150,7 +150,7 @@ function firstPosted(step) {
   const when = told() ? 'When a bill on your issues gets a hearing, we’ll tell you.' : 'When a bill on your issues moves, your home page shows it.';
   return shell('ob4-first', `${topRow('first', step)}<div class="st-art">${CAPITOL}</div>
     <h1 class="hero" id="st-h">We’ll keep you posted</h1>
-    <p class="lede">${f.length ? `${when} That’s all for today.` : 'Follow an issue any time from Find, and your home page will show when its bills move. That’s all for today.'}</p>`,
+    <p class="lede">${f.length ? when : 'Follow an issue any time from Find, and your home page will show when its bills move.'}</p>`,
     f.length ? `<section class="card ob4-follows" aria-labelledby="ob4-fh"><h2 class="ob4-h2" id="ob4-fh">You follow ${esc(plural(f.length, 'issue'))}</h2>
       <ul class="ob4-list" role="list">${f.slice(0, 6).map(x => `<li>${icon('star')}<span>${esc(x.name)}</span></li>`).join('')}</ul>
       ${f.length > 6 ? `<p class="small muted">And ${f.length - 6} more, in My issues.</p>` : ''}</section>

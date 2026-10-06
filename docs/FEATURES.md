@@ -35,7 +35,7 @@ Test: `tests/staff_stance.py`.
 
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,
-with three named parts at the top ("Your issues · How it works · Stay connected": a signpost, never a bar or a counter):
+with three named parts at the top ("Your issues · A bill’s story · Stay connected" since R-174; a signpost, never a bar or a counter):
 topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
 topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
 `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066; its numbers are `WEIGHT` in `pub/rank.js`, shared with the
@@ -61,7 +61,9 @@ is still taken, marked late). **Its words are a step larger and short (R-174, 10
 redefines the type tokens on the first visit's `<main>` (`body[data-screen=start|learn]`) and its moments, so every plan,
 lesson and step reads one size up without a size of its own; the must-read grey lines are `--n700`; each sentence under a
 heading is 30 words or fewer and says nothing the screen says elsewhere. On phones the first screen's three promises are
-three lines under the sentence, and Plan 4's four ways are one per row. `tests/fv_type.py` walks every version.
+three lines under the sentence, and Plan 4's four ways are one per row; cards' summaries get three lines; the story's
+first stage has no lead sentence of its own ("This is your bill" says it); the ending's share and keep lines put each button
+on its own line (`.kp-dot` hidden). `tests/fv_type.py` walks every version.
 **Emails are walkthroughs too (R-079, R-080, 9/29):** `pub/helper.js` has modes `testimony` | `email` | `legislators` | `intro`
 (open with `app.openHelper` for testimony, `app.openMail(o)` for the rest). Every letter or email about a bill opens on
 "Where do you stand?" (R-167, 10/5), a letter sent again and the reminder too, the earlier answer chosen and said ("You

@@ -169,8 +169,9 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // a quiet name. No rings or boxes (they read as radio buttons), no bar, no numbers. Below 360px only the current name
 // is written out (start.css); a screen reader hears all three.
 // "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
-// confused about what it is).
-const CHAPTERS = ['Your issues', 'How a bill becomes law', 'Stay connected'];
+// confused about what it is). Since R-174 (10/5) it is "A bill's story", the name of its one step: at the first visit's
+// larger size the longer name took two lines on every phone screen.
+const CHAPTERS = ['Your issues', 'A bill’s story', 'Stay connected'];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".

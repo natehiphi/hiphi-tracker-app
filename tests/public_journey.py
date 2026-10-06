@@ -55,7 +55,7 @@ with sync_playwright() as pw:
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
     # Three named parts and no counting, no bar (Nate 9/21), and they are not controls (A-12).
     parts = p.evaluate("[...document.querySelectorAll('.st-chapters li')].map(li => li.textContent.replace(/\\(done\\)/, '').trim())")
-    ok(parts == ['Your issues', 'How a bill becomes law', 'Stay connected'], f'the three named parts ({parts})')
+    ok(parts == ['Your issues', 'A bill’s story', 'Stay connected'], f'the three named parts ({parts})')   # R-174: the step's own name
     ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'Your issues', 'step 1 is in "Your issues"')
     ok(p.locator('[role=progressbar], progress').count() == 0 and not re.search(r'step \d+ of \d+', text(p), re.I), 'no progress bar and no "Step N of M"')
     ok(p.locator('.st-chapters button, .st-chapters a').count() == 0, 'the named parts are a signpost, not buttons')
@@ -116,7 +116,7 @@ with sync_playwright() as pw:
     ok(0 < top <= 320, f'the drawing starts within 320px (A-1: {top}px)')
     ok(p.locator('.lx-l-story :is(button, a, input, [role=button], [tabindex])').count() == 0 and p.locator('#lx-story :is(button, a, [tabindex])').count() == 0,
        'stages 1 and 2 have nothing to press but the page’s own buttons (A-12)')
-    ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'How a bill becomes law', 'the story is in "How a bill becomes law"')
+    ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'A bill’s story', 'the story is in "A bill’s story"')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     cap2, draw2 = p.evaluate(CAP), p.evaluate(DRAW)
     ok(p.evaluate(STAGE) == '2' and 'Its road' in cap2 and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Next moves to stage 2, "Its road", on the same page')

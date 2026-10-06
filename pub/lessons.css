@@ -283,7 +283,7 @@
 .lx-scap p.lx-ask { margin: 0; font-weight: 700; color: var(--n900); }
 .lx-chs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); }
 .lx-ch { display: flex; align-items: center; gap: var(--s8); min-height: 56px; min-width: 0; padding: 8px 10px 8px 8px; border-radius: var(--r12);
-  border: 1.5px solid var(--n400); background: var(--n0); box-shadow: var(--sh1); text-align: left; font-weight: 700; font-size: var(--t16); line-height: 1.2;
+  border: 1.5px solid var(--n400); background: var(--n0); box-shadow: var(--sh1); text-align: left; font-weight: 700; font-size: var(--t14); line-height: 1.2;
   color: var(--n900); overflow-wrap: anywhere; transition: border-color .15s, background-color .15s, transform .15s; }
 .lx-ch .lx-chart { flex: none; width: 32px; height: 32px; }
 .lx-ch:hover { border-color: var(--p700); background: var(--p50); }

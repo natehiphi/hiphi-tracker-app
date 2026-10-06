@@ -29,7 +29,7 @@ with sync_playwright() as p:
         pg.goto(f"{BASE}/track.html?demo=1{'&restart' if not skip else ''}&ab={ab}{path}"); ready(pg)
         return ctx, pg, errs
     # end and fv: the first visit's three parts name the versions
-    for ab, want in (('end.today,fv.full', ['How a bill becomes law', 'Stay connected']), ('end.home,fv.short', ['Why your voice matters', 'Your home page'])):
+    for ab, want in (('end.today,fv.full', ['A bill’s story', 'Stay connected']), ('end.home,fv.short', ['Why your voice matters', 'Your home page'])):
         ctx, pg, errs = sandbox(ab, skip=False)
         txt = pg.locator('main').inner_text()
         ok(all(w in txt for w in want), f'{ab}: the first visit says {want}')

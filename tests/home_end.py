@@ -112,7 +112,7 @@ with sync_playwright() as pw:
     # ---- today's version keeps its finale and gets no tips ----
     c, p = ctx(b)
     s = walk_to_soon(p, '&end=today')
-    ok('we’ll tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen is unchanged')
+    ok('We tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen still promises to tell you (R-174: in its three promises)')
     ok('Get alerts on your' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
     ok('We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
     p.click('[data-stnext]'); p.wait_for_selector('.st-done', timeout=10000)

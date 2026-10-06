@@ -70,7 +70,7 @@ export const PLAN_TOPICS = {
   p2: { h: 'What do you care about?', lede: 'Pick what you care about, and we’ll show you where its bills are on the road to becoming law.',
     ledeOff: 'The session opens {open}. Pick what you care about, and we’ll show you where its bills ended up this year.' },
   p3: { h: 'What should they hear about from you?', lede: 'Pick what you care about. We’ll show you what your legislators will decide on it.' },
-  p4: { h: 'What do you care about?', lede: 'Pick what you care about. We’ll find your first step on it, sized to how you like to help.' },
+  p4: { h: 'What do you care about?', lede: 'We’ll find your first step on it, sized to how you like to help.' },
   p5: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows Hawaiʻi’s health bills. Pick what you care about, and we’ll keep watch for you.',
     hOff: 'Get ready for the {next} session', ledeOff: 'The Legislature opens {open}. Pick what you care about, and we’ll keep watch for you.' },
 };

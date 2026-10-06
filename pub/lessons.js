@@ -940,7 +940,8 @@ function storyLede(E) {
   if (E.via === 'followed') return 'Here’s the story of the bill you just followed.';
   if (E.via === 'link') return 'Here’s the story of the bill you opened.';
   if (E.off) return E.isLaw ? `Here’s the story of one that became law in ${E.year}.` : `Here’s the story of one from the ${E.year} session.`;
-  return E.mine ? 'Here’s the story of one bill on your issues.' : 'Here’s the story of one bill HIPHI is working on.';
+  // One of your own bills, in session: its first stage is headed "This is your bill", so nothing more here (R-174, A-14).
+  return E.mine ? '' : 'Here’s the story of one bill HIPHI is working on.';
 }
 function storyMain(E) {
   return `<div class="lx lx-l-story" data-lx="story" data-stage="1">
@@ -1038,7 +1039,7 @@ export function lessonHTML(name, E) {
   if (!E || !LESSON_TITLES[name]) return { intro: '', main: '' };
   // The story's drawing ends the intro: on a phone it sits under the lede as before, and on a laptop it stays in the left
   // column beside the words and the choices (start.css puts the intro there).
-  const intro = `<h1 class="hero lx-h1" id="st-h">${LESSON_TITLES[name]}</h1><p class="lede lx-lede">${ledeOf(name, E)}</p>${name === 'story' ? storyPic(E) : ''}`;
+  const intro = `<h1 class="hero lx-h1" id="st-h">${LESSON_TITLES[name]}</h1>${(l => l ? `<p class="lede lx-lede">${l}</p>` : '')(ledeOf(name, E))}${name === 'story' ? storyPic(E) : ''}`;
   const main = name === 'story' ? storyMain(E) : name === 'bill' ? billMain(E) : name === 'session' ? sessionMain(E) : hearingMain(E);
   return { intro, main };
 }
