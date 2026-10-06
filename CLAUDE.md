@@ -194,7 +194,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills` (My issues), `#/find`, `#/find/category/<key>`,
   `#/issue/<slug>`, `#/find/issue/<slug>` (the old coalition-group page), `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/allbills` (every bill HIPHI tracks, by hearing status, from a row on More, with a search and three filters: topic, HIPHI's position, where it stands; R-091), `#/help`, `#/signin`,
   `#/settings`, `#/privacy`; legacy `#bill=` links redirect). `pub/core.js` data + plain-language layer.
-  `pub/ui.js`, `pub/actions.js` shared parts. One module + CSS per screen: `start`, `home`, `mybills`, `find`,
+  `pub/ui.js`, `pub/actions.js` shared parts; `pub/billtext.js` "Read more about the bill" (the Legislature's summary,
+  HIPHI's reasons, the latest draft's whole text on the Capitol website), on the bill page and the letter's first step (R-178). One module + CSS per screen: `start`, `home`, `mybills`, `find`,
   `bill`, `people`, `more`, `helper`, `committees`, `allbills` (its rows are My issues' `billRow` with `pos` and `watch`,
   so it is a table from 1100px; it loads one session's tracked bills from `public_all_bills` and their hearings). `pub/art.js` drawings (`islands('oahu' | 'mauicounty' | …)`).
 - Design system `pub/base.css`: HIPHI blue ramp `--p50..--p900` (`--p700 #00698E`), orange for celebration
@@ -379,6 +380,10 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
   `is_public`, `public_summary`, `public_action`, `public_action_until`, `nickname`. The database grants UPDATE
   column by column; a new column needs a migration first (see backend 057) or saves fail with
   "permission denied". That is the design working.
+- **Priority is not a staff choice (R-175, Nate 10/5).** It follows the position: strongly support is P1, every other
+  position P2, no position none. The database sets it (backend migration 144, a trigger on `bills`); `DB.updateBill` and
+  `DB.bulkUpdate` add it to any patch with a position (`priorityOf` in `staff/data.js` and `app.js`) so the screen is
+  right at once. Never add a priority picker back; the position pickers say "Makes it P1" (`POS_SUB` in `staff/ui.js`).
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 

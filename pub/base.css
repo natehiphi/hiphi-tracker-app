@@ -359,3 +359,16 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .al-coderow .btn.text { padding-inline: 0; }
 .al-status { margin: 0; color: var(--n700); min-height: 0; }
 .al-status:empty { display: none; }
+/* "Read more about the bill" (pub/billtext.js, R-178): what someone deciding where they stand can read beyond the one
+   sentence, on the bill page and in a letter's first step. Reading-size words (16px, n700 on white 9.57:1) under a small
+   Poppins heading per part (A-19), HIPHI's reasons as a plain list, then the whole bill as a secondary button (the one
+   thing to press here, A-3) with how to read it right under it, and the bill's Capitol page as a quiet text link. */
+.ab { display: flex; flex-direction: column; gap: var(--s16); padding: var(--s4) 0 var(--s8); }
+.ab-part { display: flex; flex-direction: column; gap: var(--s4); }
+.ab-h { margin: 0; font: 700 var(--t16)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.ab p { margin: 0; max-width: 65ch; }
+.ab-pts { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--s4); max-width: 65ch; }
+.ab-pts li { list-style: disc; }
+.ab-read { align-items: flex-start; gap: var(--s8); padding-top: var(--s4); }
+.ab-tip { font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+.ab .btn.text.ab-cap { margin-left: -12px; }   /* lines up with the words above; its padding keeps the 44px target */
