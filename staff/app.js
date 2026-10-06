@@ -239,16 +239,22 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- sign in and a new password (same calls as the current app) ----
+// Both pages say whose tracker this is and point anyone from the public to their own page: the main address is this
+// app, so a resident who types it lands here (X9-2, C-11, B-3). staff.css centres them across the whole window; on a
+// laptop they used to land in the 248px side column of the signed-in frame's grid.
+const LOGIN_NAME = 'HIPHI Bill Tracker · for the HIPHI team';
+const loginTop = h1 => { document.body.classList.add('staff2', 'notabs'); document.title = `${h1} · ${LOGIN_NAME}`;
+  return `<p class="sv-lbrand">${MARK.replace('class="mark"', 'class="mark mk"')}<span><b>HIPHI Bill Tracker</b><span class="sv-lsep" aria-hidden="true"> · </span><span class="sv-lfor">for the HIPHI team</span></span></p><h1>${h1}</h1>`; };
+const loginFoot = `<p class="sv-lpub">Looking for the public tracker? <a href="track.html">Follow bills and speak up there</a></p>`;
 function renderLogin() {
-  document.body.classList.add('staff2', 'notabs');
-  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${MARK.replace('class="mark"', 'class="mark mk"')}<h1>Staff sign in</h1>
-    <form id="lf" novalidate class="stack16">
+  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop('Staff sign in')}
+    <form id="lf" novalidate class="stack16 card sv-lcard">
       <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" inputmode="email" required></div>
       <div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" required></div>
       <div id="l-err" role="alert">${LINK_ERR ? `<p class="inlinemsg">${icon('circle-alert')}${esc(LINK_ERR)}. Each link works only once. Request a new one.</p>` : ''}</div>
       ${btn('Sign in', { kind: 'primary', full: true, attrs: { type: 'submit', id: 'l-go' } })}
       ${btn('Forgot your password?', { kind: 'text', attrs: { id: 'l-forgot' } })}
-    </form></main>`;
+    </form>${loginFoot}</main>`;
   const err = m => { document.getElementById('l-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; };
   document.getElementById('lf').onsubmit = async e => { e.preventDefault(); err('');
     const b = document.getElementById('l-go'); b.setAttribute('aria-busy', 'true');
@@ -259,12 +265,11 @@ function renderLogin() {
     try { await DB.sendRecovery(email); toast('Check your email for a link to set a new password'); } catch (x) { err(x.message || 'Could not send the link'); } };
 }
 function renderRecovery() {
-  document.body.classList.add('staff2', 'notabs');
-  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${MARK.replace('class="mark"', 'class="mark mk"')}<h1>Choose a new password</h1>
-    <form id="rf" novalidate class="stack16">
+  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop('Choose a new password')}
+    <form id="rf" novalidate class="stack16 card sv-lcard">
       <div class="field"><label for="r-pass">New password</label><input id="r-pass" type="password" autocomplete="new-password"><span class="help">At least 8 characters.</span></div>
       <div class="field"><label for="r-pass2">Type it again</label><input id="r-pass2" type="password" autocomplete="new-password"></div>
-      <div id="r-err" role="alert"></div>${btn('Save password', { kind: 'primary', full: true, attrs: { type: 'submit' } })}</form></main>`;
+      <div id="r-err" role="alert"></div>${btn('Save password', { kind: 'primary', full: true, attrs: { type: 'submit' } })}</form>${loginFoot}</main>`;
   const err = m => { document.getElementById('r-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; };
   document.getElementById('rf').onsubmit = async e => { e.preventDefault();
     const a = document.getElementById('r-pass').value, b2 = document.getElementById('r-pass2').value;

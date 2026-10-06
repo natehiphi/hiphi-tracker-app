@@ -117,9 +117,21 @@ dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35
 .sv-menu button[aria-disabled="true"] .title { color: var(--n500); }
 
 /* ---- login ---- */
-.sv-login { max-width: 400px; margin: 10vh auto 0; padding: var(--s24) var(--gutter); display: flex; flex-direction: column; gap: var(--s16); }
-.sv-login .mk { width: 48px; height: 48px; }
-.sv-login h1 { font-size: var(--t22); }
+/* The whole width of the window, centred: from 1100px #app is the signed-in frame's grid (side column + page), and the
+   sign-in used to land in its 248px side column on every laptop (X9-2). The form sits on a card, the way every form does. */
+#app > .sv-login { grid-column: 1 / -1; grid-row: 1 / -1; }
+body.staff2 main.sv-login { width: 100%; max-width: 432px; margin: 10vh auto 0; padding: var(--s24) var(--gutter) var(--s48); display: flex; flex-direction: column; gap: var(--s16); }   /* beats the frame's own main sizes */
+.sv-login .sv-lbrand { display: flex; align-items: center; gap: var(--s12); }
+.sv-login .mk { width: 48px; height: 48px; flex: none; }
+.sv-login .sv-lbrand > span { display: flex; flex-direction: column; }
+.sv-login .sv-lbrand b { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); }
+.sv-login .sv-lsep { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* read aloud, the line break shows it */
+.sv-login .sv-lfor { font-size: var(--t14); color: var(--n500); }
+.sv-login h1 { font-size: var(--t22); margin-top: var(--s8); }
+.sv-login .sv-lcard { margin: 0; }
+.sv-login .sv-lpub { font-size: var(--t14); color: var(--n500); text-align: center; }
+.sv-login .sv-lpub a { white-space: nowrap; }   /* on a phone the link moves to its own line whole */
+@media (min-width: 900px) { .sv-login .sv-lcard { padding: var(--s24); } }
 
 /* ---- desktop: header nav, no tab bar, centred columns ---- */
 @media (min-width: 900px) {

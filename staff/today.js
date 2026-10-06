@@ -38,7 +38,7 @@
 //   - catching up: since yesterday, your last visit or 7 days, with a search (decision 6);
 //   - between sessions: the session's results and the January checklist.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF, draftNotesOf } from './data.js';
-import { sharePageUrl } from './model.js';   // this week's asks (R-132)
+import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, publicWords, stopOf, diedish, currentDeadline, gateName, legislativeDay, hstDayOf, gateNeed, gateGloss, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, factsOf, RISK_DAYS, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark } from './ui.js';
 import { newSteps, markNewStep } from './help.js';
@@ -348,15 +348,18 @@ export function todayItems(scope = 'mine', who = null) {
       else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
         s: `Check ${self && (isOwner(b) || dr.submitted_by === me.id) ? 'your' : 'the'} ${c} testimony: the bill is now ${esc(b.current_version)}`,
         note: `The draft was written for ${esc(dr.version || 'the introduced bill')}.`, btns: dr.doc_url ? [{ label: 'Open Doc', href: dr.doc_url, ext: true }] : [] });
-      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !(b.public_action || '').trim()) {
+      // An ask past its show-through date is no ask (Z1-3 part 4): the card asks for the next one.
+      if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b)) {
+        const gone = String(b.public_action || '').trim() && b.public_action_until ? b.public_action_until : '';
         const d = hst(h.scheduled_at), when = d === hst(now) ? 'today’s' : d === hst(now + DAY) ? 'tomorrow’s' : new Date(h.scheduled_at).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Pacific/Honolulu' }) + '’s';
         // Due at 4:00 PM two calendar days before the hearing, weekends included (Nate, R-025 answer 4): supporters need
         // the ask in time to testify, and written testimony closes a day before the hearing. It used to be due as the
         // hearing began, when it could no longer help anyone.
         const due = askDue(h), past = due <= now;
-        push({ kind: 'ask', key: `s:${b.id}:ask`, b, h, due, who, s: past ? `Write the public ask before ${when} hearing` : `Write the public ask by ${byLine(due)}`,
-          wk: `Write the public ask for ${whoseDay(d, now)} ${c} hearing`,
-          note: 'Until then the public page asks people to act on the next hearing in its own words, not HIPHI’s.', btns: [{ label: 'Write it', href: `#/bill/${b.bill_number}/public` }] });
+        const what = gone ? 'the next public ask' : 'the public ask';
+        push({ kind: 'ask', key: `s:${b.id}:ask`, b, h, due, who, s: past ? `Write ${what} before ${when} hearing` : `Write ${what} by ${byLine(due)}`,
+          wk: `Write ${what} for ${whoseDay(d, now)} ${c} hearing`,
+          note: `${gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}. ` : ''}Until then the public page asks people to act on the next hearing in its own words, not HIPHI’s.`, btns: [{ label: 'Write it', href: `#/bill/${b.bill_number}/public` }] });
       }
     }
     if (!ups.length && b.priority === 1) {
@@ -588,7 +591,7 @@ function oneNotice() {
   // notice waits for a quiet day.
   if (sort && (openWeeks() || legislativeDay())) return sort;
   const prep = todayPrepNotice(); if (prep) return prep;
-  if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; nothing sends.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
+  if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
   return sort;   // Getting started is its own card now (startCard), not this one notice slot (R-106)
 }
 // The opening weeks around the introduction cutoff are when new bills need a decision (the same window as app.js 1633).
@@ -1204,7 +1207,7 @@ function weekAsks(all) {
   return out.sort((x, y) => x.due - y.due);
 }
 const askName = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
-const askLine = b => String(b.public_action || '').trim().replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;
+const askLine = b => liveAsk(b).replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;   // an ask past its date is left out (Z1-3)
 export function weekAsksText(items, kind) {
   const via = kind === 'social' ? 'social' : 'newsletter';
   if (kind === 'social') return items.map(x => { const link = `${sharePageUrl(x.b, 'testify')}?via=${via}`, due = `Testimony due ${fmtDT(x.due)}.`;
@@ -1484,9 +1487,9 @@ async function run(t, act, el) {
     case 'send': {
       const a = t.a, n = S.tdAud?.[a.id], paused = S.emailCfg?.enabled === false;
       const ok = await confirmSheet({ title: `Send to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send',
-        text: `${esc(a.subject)}<br><span class="small muted">It goes out from ${esc(advocate(a.author_id)?.email || 'your address')} and cannot be taken back.${paused ? ' Email is paused, so nothing leaves until an admin turns it back on.' : ''}</span>` });
+        text: `${esc(a.subject)}<br><span class="small muted">It goes out from ${esc(advocate(a.author_id)?.email || 'your address')} and cannot be taken back.${paused ? ' Email is paused, so it is held until an admin turns email on.' : ''}</span>` });
       if (!ok) return;
-      return busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); toast(`Sent to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`, { ok: true }); redraw(); });
+      return busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} once email is turned on.` : `Sent to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`, { ok: true }); redraw(); });
     }
   }
 }

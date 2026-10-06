@@ -12,7 +12,7 @@ import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fm
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail,
   billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
-  listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen } from './model.js';
+  listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
@@ -367,7 +367,8 @@ const firstForBill = d => !Object.values(S.drafts).flat().some(x => x.bill_id ==
 const waitingFor = pred => { const l = S.advocates.filter(a => pred(a) && a.is_active !== false), me = l.some(a => a.id === S.me?.id);
   return [...(me ? ['you'] : []), ...l.filter(a => a.id !== S.me?.id).map(a => a.full_name)].join(' or ') || 'an admin'; };
 function whoLine(d) {
-  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || a.can_approve)}`;
+  // A reviewer standing in near the deadline (R-103) is not in the usual list, so the line says why Approve is theirs too.
+  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || a.can_approve)}${d.submitted_by !== S.me?.id && standingIn(S.me, draftHearing(d)) ? '. Testimony is due soon, so you can stand in' : ''}`;
   if (d.status === 'second_review') return `Approved by ${nameOf(d.approved_by)} ${dWhen(d.approved_at)} · waiting for ${waitingFor(a => a.is_reviewer)}`;
   return draftWho(d).replace(/ \u00b7 file it at the Capitol, then mark it filed$/, '');
 }
@@ -1027,7 +1028,7 @@ export default {
     // opens Activity at the message box. A tab tap never does: it would raise the keyboard uninvited.
     // ?focus=drafts (R-148, Today's "Say what HD2 changed") opens it at the draft notes instead.
     const toDrafts = tab === 'public' && arrival && route.q?.focus === 'drafts';
-    const focusAsk = !toDrafts && tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !String(b.public_action || '').trim()));
+    const focusAsk = !toDrafts && tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !liveAsk(b)));   // an expired ask is no ask (Z1-3)
     measureStick();                        // publishes --bw-under before the tab's own sticky pieces are placed
     markScrolled();
     if (tab === 'overview') wireOverview(pnl, b);

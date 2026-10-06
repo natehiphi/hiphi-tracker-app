@@ -10,7 +10,7 @@ import { S, esc, fmtDT, advocate } from './data.js';
 import { alertsToReview } from './model.js';
 import { icon, btn, row, empty } from './ui.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
-import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord } from './composer.js';
+import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD } from './composer.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const when = a => a.updated_at || a.submitted_at || a.created_at || '';
@@ -22,10 +22,11 @@ function emailRow(a, kind) {
   let sub, end = '';
   switch (kind) {
     case 'review': sub = `From ${esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(a.submitted_at || when(a)))}`; break;
-    case 'send': sub = `Approved${a.approved_by ? ' by ' + esc(first(a.approved_by)) : ''} · ${esc(toWhom(a))}`; break;
-    case 'going': sub = `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm · ${a.recipients || 0} ${a.recipients === 1 ? 'person' : 'people'} · ${esc(toWhom(a))}`; break;
+    // While email is paused an approved email's line leads with "Approved · held while email is paused" (Z1-3).
+    case 'send': sub = `${heldNow(a) ? HELD : `Approved${a.approved_by ? ' by ' + esc(first(a.approved_by)) : ''}`} · ${esc(toWhom(a))}`; break;
+    case 'going': sub = `${heldNow(a) ? HELD : `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`} · ${a.recipients || 0} ${a.recipients === 1 ? 'person' : 'people'} · ${esc(toWhom(a))}`; break;
     case 'draft': sub = a.status === 'returned' && a.review_note ? `<span class="le-rnote">“${esc(a.review_note)}”</span>` : `${mine ? 'You' : esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(when(a)))}`; end = statusChip(a); break;
-    case 'wait': sub = a.status === 'approved' ? `Approved. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
+    case 'wait': sub = a.status === 'approved' ? `${heldNow(a) ? HELD : 'Approved'}. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
     case 'sent': sub = `<span class="le-sline">Sent to ${a.recipients || 0} · ${a.opens || 0} opened · ${a.clicks || 0} clicked · ${a.bounces || 0} bounced</span><span class="le-smeta">${esc(u.name || '')} · ${esc(first(a.author_id))} · ${esc(ago(a.sent_at))}</span>`; break;
   }
   return row({ leadHtml: `<span class="lead">${icon(u.icon)}</span>`, title: esc(a.subject || '(no subject)'), sub, end, href: '#/email/' + encodeURIComponent(a.id), cls: 'le-erow' });
@@ -51,7 +52,7 @@ function nextLine(a, rv) {
   const me = S.me?.id, mine = a.author_id === me, who = esc(first(a.author_id));
   const you = (ic, t) => `<span class="le-next you">${icon(ic)}${t}</span>`, other = t => `<span class="le-next">${t}</span>`;
   if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Needs your approval') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
-  if (a.status === 'approved' && a.scheduled_for) return other(`Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`);
+  if (a.status === 'approved' && a.scheduled_for) return other(heldNow(a) ? 'Goes out at 4:30 pm once email is turned on' : `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`);
   if (a.status === 'approved') return mine ? you('send', 'Approved. Ready for you to send') : other(`Approved. Waiting for ${who} to send it`);
   if (a.status === 'returned') return mine ? you('undo-2', `Sent back to you${a.review_note ? `: “${esc(a.review_note)}”` : ''}`) : other(`Sent back to ${who}${a.review_note ? `: “${esc(a.review_note)}”` : ''}`);
   if (a.status === 'sent') return other(`Sent ${esc(ago(a.sent_at))}${a.bounces ? ` · ${a.bounces} bounced` : ''}`);
@@ -98,7 +99,7 @@ export default {
         : desk ? `<p class="le-tsum" aria-live="polite"><b>${plural(all.length, 'email')}</b> · ${needs ? `${needs} ${needs === 1 ? 'needs' : 'need'} you` : 'none needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
         : group('review', 'Needs your approval', review, 'review')
         + group('send', 'Ready to send', ready, 'send')
-        + group('going', 'Going out at 4:30 pm', going, 'going')
+        + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 pm', going, 'going')
         + group('drafts', 'Drafts and sent back', drafts, 'draft')
         + group('wait', 'Waiting on someone else', waiting, 'wait')
         + group('sent', 'Sent', sent, 'sent')}

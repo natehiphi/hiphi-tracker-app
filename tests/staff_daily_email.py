@@ -10,7 +10,9 @@ def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 with sync_playwright() as p:
     br = p.chromium.launch(); ctx = br.new_context(viewport={'width': 1280, 'height': 900}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(BASE + '#/outreach/emails'); pg.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skel')", timeout=60000); pg.wait_for_timeout(800)
-    aid = pg.evaluate("""async () => { const d = await import('./staff/data.js'); const S = d.S;
+    # These checks are R-101 with email ON. While email is paused an approved email is held instead (Z1-3), which
+    # tests/staff_r180.py checks; the sandbox starts paused, as production does.
+    aid = pg.evaluate("""async () => { const d = await import('./staff/data.js'); const S = d.S; S.emailCfg = { enabled: true };
       const b = S.bills.find(x => x.position && x.position !== 'monitor'); const other = S.advocates.find(x => x.id !== S.me.id);
       S.alerts = [{ id: 'demo-a1', bill_id: b.id, list_id: null, segment_id: null, subject: 'Testify by Thursday', body: 'Please send a short note of support before Thursday.',
         body_html: '<p>Please send a short note of support before Thursday.</p>', author_id: S.me.id, status: 'approved', approved_by: other.id, approved_at: new Date().toISOString(),

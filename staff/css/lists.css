@@ -333,6 +333,8 @@
   .le-page .le-temails th.c-when { width: 104px; }
   .le-page .le-temails th.c-opens { width: 112px; }
   .le-page .le-temails th.c-clicks { width: 96px; }
+  /* "Approved · held while email is paused" (Z1-3) is longer than the column: it wraps to two lines rather than being cut */
+  .le-page .le-table .chip.le-held { white-space: normal; border-radius: var(--r12); }
   .le-page .le-deskback, .le-cmp .le-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s8) -8px; padding: 0 12px 0 4px;
     border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
   .le-page .le-deskback:hover, .le-cmp .le-deskback:hover { background: var(--p50); }
