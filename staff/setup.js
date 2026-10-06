@@ -494,6 +494,8 @@ const ROOM_TASK = {
 // One line on each plan, so "Plan 4" still means something in January (from R-164's doc; change it with the plans).
 const ROOM_PLAN_SUB = { p1: 'Follow your issues, then a 2-minute email on one bill', p2: 'A real law’s road in six scenes, then your issues’ bills',
   p3: 'Your island and your two legislators first', p4: 'Four ways to help, then a first step sized to yours', p5: 'Under a minute, then one card per later visit' };
+// A test added later without a line here (R-184's 'save', 10/6) says its own question instead.
+const roomWhere = t => ROOM_WHERE[t.key] || t.question || '';
 const roomTests = () => (st().ab?.tests || []).filter(t => Array.isArray(t.arms) && t.arms.length > 1).sort((a, b) => (a.sort ?? 99) - (b.sort ?? 99));
 const roomTest = k => roomTests().find(t => t.key === k);
 const armIn = (g, t) => t.arms.includes(g.v?.[t.key]) ? g.v[t.key] : t.arms[0];
@@ -557,7 +559,7 @@ async function roomPrint() {
   const shown = roomShown(r), tasks = roomTasks(r);
   const cell = (g, t) => !applies(g, t) ? `<span class="m">${ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : 'Replaced by the plan'}</span>`
     : armIn(g, t) === t.arms[0] ? `<span class="m">${esc(armName(t, t.arms[0]))}${t.key === 'onb' ? '' : ' (today’s)'}</span>` : `<b>${esc(armName(t, armIn(g, t)))}</b>`;
-  const rowOf = t => `<tr><th scope="row">${esc(t.key === 'onb' ? 'First visit' : t.name)}<small>${esc(ROOM_WHERE[t.key] || '')}</small></th>${r.groups.map(g => `<td>${cell(g, t)}</td>`).join('')}</tr>`;
+  const rowOf = t => `<tr><th scope="row">${esc(t.key === 'onb' ? 'First visit' : t.name)}<small>${esc(roomWhere(t))}</small></th>${r.groups.map(g => `<td>${cell(g, t)}</td>`).join('')}</tr>`;
   const day = new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   const whereLine = where === 'live' ? 'On the live site: what people do there is real, and their visits are counted apart from the public’s.' : 'On the practice copy: a day in March with hearings on. Nothing anyone does is saved.';
   return printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>Tester sheet</title><style>
@@ -925,7 +927,7 @@ const PAGES = {
         if (gone.length) setTimeout(() => toast(`${onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
           { undo: () => { g.v = before; roomKeep(); hooks.render(); } }));
       };
-      const versions = (g, i, t) => pickerSheet({ title: `Group ${i + 1}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(ROOM_WHERE[t.key] || ''),
+      const versions = (g, i, t) => pickerSheet({ title: `Group ${i + 1}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),
         options: t.arms.map(x => [x, armName(t, x), null, x === t.arms[0] ? 'Today’s version' : t.key === 'onb' ? ROOM_PLAN_SUB[x] || '' : '']),
         onPick: arm => change(t.key === 'onb' || arm !== t.arms[0] ? `[data-rmpick="${i}|${t.key}"]` : `#rm-h-${i}`, () => setArm(g, t, arm)) });
       root.querySelectorAll('[data-seg="rmwhere"]').forEach(b => b.onclick = () => change(`[data-seg="rmwhere"][data-val="${b.dataset.val}"]`, () => { r.where = b.dataset.val === 'live' ? 'live' : 'demo'; }));
@@ -942,7 +944,7 @@ const PAGES = {
       root.querySelectorAll('[data-rmscreen]').forEach(b => b.onclick = () => { const i = +b.dataset.rmscreen, g = r.groups[i], diffs = roomDiffs(g);
         const more = T.filter(t => t.key !== 'onb' && applies(g, t) && !diffs.includes(t));
         pickerSheet({ title: `Group ${i + 1}: change another screen`, value: '', help: 'Every screen you do not change stays today’s version.',
-          options: more.map(t => [t.key, t.name, null, ROOM_WHERE[t.key] || '']),
+          options: more.map(t => [t.key, t.name, null, roomWhere(t)]),
           onPick: async k => { await afterClose(); const t = T.find(x => x.key === k); if (t) versions(g, i, t); } }); });
       root.querySelectorAll('[data-rmcopy]').forEach(b => b.onclick = () => copyLink(roomUrl(r.groups[+b.dataset.rmcopy], r.where)));
       root.querySelectorAll('[data-rmmore]').forEach(b => b.onclick = () => { const i = +b.dataset.rmmore, g = r.groups[i], name = `Group ${i + 1}`;
