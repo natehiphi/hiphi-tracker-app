@@ -12,7 +12,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
@@ -47,7 +47,7 @@ function wireInvite() {
   wireAlertForm($('#pf-al'), { pfx: 'pf-alf', source: 'more', onDone: r => {
     // Said on the page, under the header (the review: a toast covered the first section's Save and Cancel).
     P.made = r.kind === 'phone' && r.confirmed ? 'Your profile is made. Text alerts are on.'
-      : r.kind === 'phone' ? `Your profile is made. We’ll text ${masked(phoneDigits(r.phone))} to confirm it’s your number.` : '';
+      : r.kind === 'phone' ? `Your profile is made. ${confirmWords(masked(phoneDigits(r.phone)))}` : '';
     app.render();
     if (r.kind !== 'phone') toast('Check your inbox: open the link to finish your profile.', { yay: true });
     requestAnimationFrame(() => $('#pf-h')?.focus());
@@ -177,7 +177,10 @@ function helpBody() {
 // Alerts: the email choices are part of the same draft (R-165).
 function alertsBody() {
   const t = textSaved(), e = P.draft.emails;
-  const texts = t ? `<p>${icon('message-square')} Texts to <span class="strong">${esc(masked(t.phone))}</span>: hearings on your issues and HIPHI’s asks, at most one a day.</p><p class="small"><a href="#/alerts">Change number or stop texts</a></p>`
+  // The texts' state by the one rule (alerts.js alertStatus, D1-4): on only once the number is confirmed; before that
+  // "Almost set" with the alerts step's own words. It read as on for any number.
+  const num = t ? `<span class="strong">${esc(masked(t.phone))}</span>` : '';
+  const texts = t ? `<p>${icon('message-square')} ${t.confirmed ? `<b>Text alerts are on</b> for ${num}: hearings on your issues and HIPHI’s asks, at most one a day.` : `<b>Almost set.</b> ${confirmWords(num)}`}</p><p class="small"><a href="#/alerts">Change number or stop texts</a></p>`
     : `<p>${icon('message-square')} Texts: off. <a href="#/alerts">Get text alerts</a></p>`;
   // A profile made with a number (R-155) has no email until it adds one: no email choices to show or change.
   const email = signedIn() && myEmail() ? `<fieldset class="mr-set pf-f"><legend>Emails to <span class="mr-break">${esc(myEmail())}</span></legend>

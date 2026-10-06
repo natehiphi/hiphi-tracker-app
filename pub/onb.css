@@ -61,6 +61,8 @@
 .ob-set > div { display: grid; gap: 6px; }
 .ob-setic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--pill); background: var(--ok-wash); color: var(--ok-text); flex: none; }
 .ob-setic .ic { width: 22px; height: 22px; }
+/* Not on yet (a number to confirm, a link to open): the blue of waiting, not the green of done (D1-4, A-5, B-7). */
+.ob-setic.wait { background: var(--p50); color: var(--p700); }
 /* "Not now" the size of the main button (C-3), at every width (start.css gives Skip a quarter of the bar). */
 .st-btns.ob-joinbtns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 @media (min-width: 900px) { .st-btns.ob-joinbtns .btn { min-width: 200px; } }

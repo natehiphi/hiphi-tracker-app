@@ -18,6 +18,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet } from './core.js';
 import { burst, celebrate, petals } from './fx.js';
+import { alertStatus } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, goingPlans, goingCard } from './actions.js';
 import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
@@ -668,7 +669,10 @@ function finRecap() {
     iss.length ? ['check', `Following ${plural(iss.length, 'issue')}`] : S.watch.size ? ['check', `Following ${plural(S.watch.size, 'bill')}`] : null,
     f.learned ? ['check', 'Know how bills become law'] : null,
     f.legs || districtsKnown() ? ['check', 'Know who speaks for you'] : null,
-    S.session ? ['check', 'Email reminders on'] : textSaved() ? ['check', 'Text alerts on'] : f.told || emailGiven() ? ['mail', 'Email: tap the link we sent'] : null,
+    // Alerts by the one rule every screen uses (alerts.js alertStatus, D1-4): "on" only for a confirmed number or an email
+    // choice that is on; a number not yet confirmed or a link not yet opened is "almost set". It said "Email reminders on"
+    // for anyone signed in, and "Text alerts on" for any number.
+    (a => a.key === 'on' ? ['check', a.short] : a.key === 'almost' ? [a.icon, a.short] : null)(alertStatus()),
   ].filter(Boolean);
 }
 function finHead({ off = false, lede = '' } = {}) {

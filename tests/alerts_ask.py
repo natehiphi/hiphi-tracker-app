@@ -4,11 +4,12 @@
 # a mobile number first with the consent words (frequency, rates, STOP, HELP) and "Prefer email?" under it, and fits the
 # first screen of an iPhone SE; errors show only on Text me; a number given plays the "Mahalo!" naming it, then the story;
 # Back shows "You're set" with a way to change it and no second "Mahalo!"; "Coming up on your issues" no longer asks; the
-# finale says "Text alerts are on". Email: the swap, "Email me", the "Mahalo!" says where the link went, the finale's row.
+# finale says "Almost set" (the number is not confirmed yet: D1-4, R-180; tests/d1_status.py checks the rule everywhere).
+# Email: the swap, "Email me", the "Mahalo!" says where the link went, the finale's row.
 # Skip: the "Mahalo!" with the bills line, the quiet line on Coming up. Between sessions: the January line. A visit from
 # a shared bill: Follow on the bill (its own "Mahalo!") -> the alerts screen -> the story, no second "Mahalo!". Home's card after a skipped first
 # visit, on the next load: the phone box, "You're set" after, nothing on the load after. More: "Get alerts" -> the page ->
-# "Text alerts are on" -> Change number -> Stop texts (Undo) -> the box again. The privacy page names numbers. Nothing
+# "Alerts almost set" -> Change number -> Stop texts (Undo) -> the box again. The privacy page names numbers. Nothing
 # reaches the database (the sandbox). No console errors.
 # Every page here is the box before codes are on (&codes=0: the live page until texts are set up), whose small print says
 # the number will be confirmed by text, never "reply YES" (R-176). The code step is tests/phone_signin.py's.
@@ -89,7 +90,8 @@ with sync_playwright() as pw:
     ok(p.locator('#st-a-phone, #st-eform, #st-email').count() == 0 and 'Want alerts' not in text(p), 'Coming up asks nothing (the number was given)')
     shot(p, '1d_soon')
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(600)
-    ok('Text alerts are on' in text(p, '.st-did') and '(808) 555-0123' in text(p, '.st-did'), 'the finale: "Text alerts are on"')
+    # D1-4 (R-180): a number not yet confirmed is "Almost set", never "on" (it said "Text alerts are on").
+    ok('Alerts almost set' in text(p, '.st-did') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in text(p, '.st-did') and 'alerts are on' not in text(p, '.st-did').lower(), 'the finale: "Alerts almost set" (not "Text alerts are on")')
     c.close()
 
     # ---- 2. email instead ----
@@ -108,7 +110,7 @@ with sync_playwright() as pw:
     ok('We sent a link to leilani@example.com' in m and 'when you finish here' in m, f'the "Mahalo!" says where the link went and to finish first (C-6): {m[:140]!r}')
     p.click('#fx-mgo'); story_to_soon(p)
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(500)
-    ok('Reminders: one tap to go' in text(p, '.st-did'), 'the finale: one tap to go')
+    ok('Alerts almost set' in text(p, '.st-did') and 'Tap the link we sent to leilani@example.com to turn on alerts.' in text(p, '.st-did'), 'the finale: "Almost set", tap the link (it said "Reminders: one tap to go")')
     c.close()
 
     # ---- 3. Skip ----
@@ -120,7 +122,7 @@ with sync_playwright() as pw:
     p.click('#fx-mgo'); story_to_soon(p)
     ok('Want alerts by text or email?' in text(p) and p.locator('#st-a-phone').count() == 0, 'Coming up: one quiet line, no second ask')
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
-    ok('Alerts are off' in text(p, '.st-did'), 'the finale: "Alerts are off"')
+    ok('Alerts are off' in text(p, '.st-did') and p.locator('.st-did [data-alsheet]', has_text='Turn on alerts').count() == 1, 'the finale: "Alerts are off", with its own "Turn on alerts" (X10-4)')
     p.click('[data-stdone]'); p.wait_for_timeout(1500)
     # Home on the next load asks once, with the same box.
     p.reload(); p.wait_for_timeout(2500)
@@ -160,7 +162,7 @@ with sync_playwright() as pw:
     shot(p, '6_more_alerts')
     p.fill('#mr-al-phone', '808 555 0166'); p.click('#mr-al-send'); p.wait_for_timeout(800)
     t = text(p)
-    ok('Text alerts are on' in t and '(808) 555-0166' in t and 'Stop texts' in t, 'given: "Text alerts are on" with Change number and Stop texts')
+    ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0166 to confirm it’s your number.' in t and 'Stop texts' in t and 'alerts are on' not in t.lower(), 'given: "Almost set" (not "Text alerts are on") with Change number and Stop texts')
     shot(p, '6b_more_on')
     p.click('[data-mr-alchange]'); p.wait_for_timeout(400)
     ok(p.input_value('#mr-al-phone') == '(808) 555-0166' and 'Change your number' in text(p), 'Change number: the box with the number in it')
@@ -169,7 +171,7 @@ with sync_playwright() as pw:
     ok(p.locator('#mr-al-phone').count() == 1 and 'Texts stopped' in text(p, 'body'), 'Stop texts: the box again, and a toast')
     undo = p.locator('button', has_text='Undo')
     if undo.count(): undo.first.click(); p.wait_for_timeout(800)
-    ok('Text alerts are on' in text(p), 'Undo: texts are on again')
+    ok(p.inner_text('h1') == 'Alerts almost set' and '(808) 555-0166' in text(p), 'Undo: the number is back, almost set again')
     p.goto(BASE + '?demo=1&codes=0#/more'); p.wait_for_timeout(1200)
     ok(p.locator('a.mr-me[href="#/profile"]', has_text='Your profile').count() == 1, 'More: with a number, the first row is the profile (R-147)')
     p.goto(BASE + '?demo=1&codes=0#/profile'); p.wait_for_timeout(1200)

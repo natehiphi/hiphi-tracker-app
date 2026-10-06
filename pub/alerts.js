@@ -17,8 +17,9 @@
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
 // any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
 import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText } from './core.js';
-import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode } from './phone.js';
+import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode, myEmail } from './phone.js';
 import { btn } from './ui.js';
+import { burst } from './fx.js';
 import { abEvent } from './variant.js';
 
 // The version of the text consent words, and the words themselves: text_consent_words 't3' is exactly TEXT_PROMISE, a
@@ -57,6 +58,51 @@ export const linkSent = () => { try { return sessionStorage.getItem('hiphi_link_
 const emailPending = () => { try { return !!(linkSent() || localStorage.getItem(CONSENT_KEY)); } catch { return false; } };
 // Has this person already said how to reach them? Signed in, a link sent or pending, or a number given.
 export const alertsGiven = () => !!(S.session || textSaved() || emailPending());
+
+// ---------------- One status rule for every screen that reports alerts (D1-4, R-180) ----------------
+// The assessment found "Text alerts are on" over a number nobody had confirmed, and "Alerts are on" or "Email reminders
+// on" for anyone signed in, even with both email choices off. The rule now (DESIGN B-7: nothing looks finished before it
+// is): ON only when alerts can really reach the person, that is a number proven by its code, or a signed-in account with
+// an email and at least one email choice ticked. ALMOST SET when a number is kept but not yet confirmed (before codes are
+// on, R-176: "We'll text you to confirm it's your number"), when a code was texted and not yet typed, or when an email
+// link that turns alerts on waits to be opened. OFF otherwise, which includes a link sent from the sign-in page with
+// "Keep me updated" left empty (opening it signs in, nothing more). The words are the alerts box's own (alertDoneHTML,
+// the code step's lede, More's toast), so the alerts step, both endings, Home, the profile and More > Get alerts all say
+// the same thing. Texts are described as working (R-146): nothing here says they are not set up yet.
+// fmt: how a number is shown (the profile masks it). Returns { key: 'on' | 'almost' | 'code' | 'off', text and email (each
+// channel's own state), phone, mail, icon, title, sub, line (one sentence, for a toast or a moment), short (Home's chip,
+// or ''), action (the endings' button on their alerts row: 'Turn on alerts', 'Enter the code', or '') }.
+// A title names what is almost set (the fresh-eyes review, 10/5: "Almost set" alone, in a list of things done, named
+// nothing); a sentence, after the words that say what it is about, keeps the short "Almost set.".
+const ALMOST = 'Almost set', ALMOST_T = 'Alerts almost set';
+const CODE_SAY = 'Type the 6-digit code from the text to turn on alerts.';   // the code step's own lede
+export const confirmWords = ph => `We’ll text ${ph} to confirm it’s your number.`;
+export const almostLine = ph => `${ALMOST}. ${confirmWords(ph)}`;   // a toast's or a moment's one sentence
+const consentPending = () => { try { return JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); } catch { return null; } };
+export function alertStatus({ fmt = fmtPhone } = {}) {
+  const t = textSaved(), prefs = S.user?.prefs || {}, mail = myEmail(), sent = linkSent(), c = consentPending();
+  const text = t?.confirmed ? 'on' : t ? 'almost' : S.alertCode ? 'code' : 'off';
+  const email = S.session ? (mail && (prefs.hearing_alerts === true || prefs.action_alerts === true) ? 'on' : 'off')
+    : (sent || c) && (!c || c.hearing_alerts || c.action_alerts) ? 'almost' : 'off';
+  const ph = t ? fmt(t.phone) : S.alertCode ? fmt(S.alertCode.phone) : '';
+  const out = (key, icon, title, sub, line, short = '', action = '') => ({ key, text, email, phone: ph, mail: email === 'almost' ? sent : mail, icon, title, sub, line, short, action });
+  if (text === 'on' && email === 'on') return out('on', 'bell', 'Alerts are on', `We’ll text ${ph} and email ${mail}`, `Alerts are on for ${ph} and ${mail}.`, 'Alerts on');
+  if (text === 'on') return out('on', 'message-square', 'Text alerts are on', `We’ll text ${ph}`, `Text alerts are on for ${ph}.`, 'Text alerts on');
+  if (email === 'on') return out('on', 'mail', 'Email alerts are on', `We’ll email ${mail}`, `Email alerts are on for ${mail}.`, 'Email alerts on');
+  if (text === 'almost') return out('almost', 'message-square', ALMOST_T, confirmWords(ph), almostLine(ph), ALMOST_T);
+  if (email === 'almost') { const s = sent ? `Tap the link we sent to ${sent} to turn on alerts.` : 'Tap the link in the email to turn on alerts.';
+    return out('almost', 'mail', ALMOST_T, s, `${ALMOST}. ${s}`, ALMOST_T); }
+  // A row that carries its own button says what the button cannot: which phone the code went to; and, off, why alerts
+  // help (it said "Turn them on any time in More" right above "Turn on alerts", and More had no row named alerts).
+  if (text === 'code') return out('code', 'message-square', ALMOST_T, `We texted a code to ${ph}.`, `${ALMOST}. ${CODE_SAY}`, '', 'Enter the code');
+  return out('off', 'bell', 'Alerts are off', 'Hearings are set only about two days ahead.', 'Alerts are off.', '', 'Turn on alerts');
+}
+// The lede over the number box for someone signed in with an email (More > Get alerts and the sheet): their email alerts
+// are the two choices in the profile. It said "Add your mobile number to get texts too" even with both choices off.
+export function emailLede() {
+  return alertStatus().email === 'on' ? 'Your email alerts are in your profile. Add your mobile number to get texts too.'
+    : 'Your email alerts are off. <a href="#/profile">Turn them on in your profile</a>, or add your mobile number to get texts.';
+}
 
 // Which box shows, and what was typed in each, kept for this page's life so a redraw (data landing, Back) loses nothing
 // (C-9). Phone first, always, until the person picks email.
@@ -235,8 +281,8 @@ export function alertDoneHTML(r, { change = '' } = {}) {
     <p class="small">${S.session ? 'You’re signed in with your number. Use it to sign in on any phone or computer, and your profile is there.' : 'Use your number to sign in on any phone or computer.'} Reply STOP to any text to end them.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox: no code was sent, nothing was saved, and you stay signed out.</p>' : ''}${change}`;
   // Almost, not done: the first text confirms the number, and only then do alerts start (B-7: nothing looks finished
-  // before it is).
-  if (r.kind === 'phone') return `<p class="strong">We’ll text <span class="al-nowrap">${esc(fmtPhone(r.phone))}</span> to confirm it’s your number.</p>
+  // before it is). The same words as alertStatus()'s "Almost set", which every other screen shows (D1-4).
+  if (r.kind === 'phone') return `<p class="strong">${confirmWords(`<span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>`)}</p>
     <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>
     ${r.demo ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
   // r.later: inside the first visit, where leaving for the inbox would cut it short (R-098), so: finish here first.
@@ -245,3 +291,64 @@ export function alertDoneHTML(r, { change = '' } = {}) {
     ${r.demo ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}${change}`;
 }
 export const changeBtn = (attr, label) => btn(label, { kind: 'text', sm: true, attrs: { [attr]: '1' } });
+
+// ---------------- The alerts box in a sheet (X10-4, R-180) ----------------
+// The first visit's endings said "Alerts are off · Turn them on any time in More", and More had no row that said alerts.
+// Now that row carries its own button: "Turn on alerts" (or "Enter the code", when a code was texted and not typed) opens
+// this sheet over the ending, so the peak stays where it is. The same fields, consent words and saving as every other box
+// (alertFields, wireAlertForm), the same heading and lede as More > Get alerts; email swaps in place, as in the first
+// visit, so an email given here turns alerts on. A code texted from the alerts step carries over and can be typed here.
+// On a phone it rises from the bottom; on a laptop it sits in the middle (base.css .al-sheet). Not now and Esc close it;
+// what was typed is kept for the page's life (S.alertDraft, C-9). onDone(r) after a yes; onClose() whenever it closes.
+let sheet = null;
+const SH = 'al-sh';
+export function openAlertsSheet({ source = 'more', onDone, onClose } = {}) {
+  if (S.alertCode && S.alertCode.pfx !== SH) S.alertCode.pfx = SH;
+  if (!sheet) {
+    sheet = document.createElement('dialog'); sheet.className = 'sheet al-sheet'; sheet.setAttribute('aria-labelledby', `${SH}-h`);
+    document.body.appendChild(sheet);
+  }
+  sheet.onclose = () => { onClose && onClose(); };
+  const paint = () => {
+    const code = codeStep(SH), mail = !!(S.session && myEmail());
+    if (mail) S.alertMode = 'phone';   // a signed-in email's alerts are its two choices in the profile (as on More > Get alerts)
+    const b = alertButton(SH);
+    sheet.innerHTML = `<form class="al-shin" id="${SH}-form" novalidate>
+      <h2 id="${SH}-h">${code ? 'Check your texts' : 'Get alerts on your issues'}</h2>
+      <p class="al-shlede">${code ? CODE_SAY : mail ? emailLede() : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p>
+      <div class="al-shbox">${alertFields(SH, { swap: !mail })}</div>
+      <div class="al-shbtns">${btn(b.label, { kind: 'primary', icon: b.icon, attrs: { type: 'submit', id: `${SH}-send` } })}${btn('Not now', { kind: 'text', attrs: { 'data-alshno': '1' } })}</div>
+    </form>`;
+    sheet.querySelector('[data-alshno]').onclick = () => sheet.close();
+    sheet.querySelectorAll('.al-shlede a').forEach(a => a.addEventListener('click', () => sheet.close()));
+    wireAlertForm(sheet.querySelector('form'), { pfx: SH, source, onSwap: paint, onDone: r => { sheet.close(); onDone && onDone(r); } });
+  };
+  paint();
+  try { sheet.showModal(); } catch { sheet.setAttribute('open', ''); }
+  requestAnimationFrame(() => sheet.querySelector(`#${SH}-code, #${SH}-phone, #${SH}-email`)?.focus());
+}
+
+// The endings' alerts row (today's "You're all set" and the plans' ending draw the same .st-did list, start.css): the
+// status by the one rule above, and, when alerts are off or a code waits to be typed, the button that opens the sheet
+// (X10-4). A secondary button under the words, so the ending keeps one primary, "Go to my home page" (A-3).
+export function alertRowHTML(k = 0) {
+  const a = alertStatus(), kind = a.key === 'on' ? 'ok' : a.key === 'off' ? 'off' : 'wait';
+  return `<li class="st-alrow" style="--k:${k}" data-alrow tabindex="-1"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : a.icon)}</span><div><b>${esc(a.title)}</b><span>${esc(a.sub)}</span>
+    ${a.action ? btn(a.action, { kind: 'secondary', sm: true, icon: a.key === 'code' ? 'message-square' : 'bell', cls: 'st-alon', attrs: { 'data-alsheet': '1' } }) : ''}</div></li>`;
+}
+// Wire that button. When the sheet closes having changed something, the ending is drawn again standing still (S.stCalm:
+// its words, the next steps and the petals' rule all follow the new status, and nothing that already played plays again),
+// focus goes to the row, which says the new status, and a yes gets the small burst (C-7: a small win, a small burst).
+export function wireAlertRow(root = document, { source = 'first_visit' } = {}) {
+  const b = root.querySelector('[data-alsheet]'); if (!b) return;
+  b.onclick = () => {
+    const said = a => `${a.title}|${a.sub}`, was = said(alertStatus());
+    openAlertsSheet({ source, onClose: () => {
+      const now = alertStatus(); if (said(now) === was) return;
+      S.stCalm = true; try { app.render(); } finally { S.stCalm = false; }
+      const row = document.querySelector('[data-alrow]'); if (!row) return;
+      row.focus({ preventScroll: true });   // the page is the same length, so the row is where the button was
+      if (now.key === 'on' || now.key === 'almost') burst(row.querySelector('.st-rc'), 12, 44);
+    } });
+  };
+}

@@ -39,7 +39,7 @@
    moments, so no screen sets a size of its own and every plan and step follows. Literal values, not var(): a token
    defined from another token on the same element would read the new value. */
 body:is([data-screen="start"], [data-screen="learn"]) main,
-body[data-screen="start"] .fx-moment { --t13: .875rem; --t14: 1rem; --t16: 1.125rem; --t18: 1.375rem; font-size: var(--t16); }
+body[data-screen="start"] :is(.fx-moment, .al-sheet) { --t13: .875rem; --t14: 1rem; --t16: 1.125rem; --t18: 1.375rem; font-size: var(--t16); }
 
 /* ---- base ---- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -360,6 +360,17 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .al-coderow .btn.text { padding-inline: 0; }
 .al-status { margin: 0; color: var(--n700); min-height: 0; }
 .al-status:empty { display: none; }
+/* The same box in a sheet (pub/alerts.js openAlertsSheet; X10-4, R-180): the endings' "Turn on alerts". It rises from the
+   bottom on a phone (a modal dialog is pinned top and bottom, so it is pinned to the bottom only) and sits in the middle,
+   520px wide, from 720px. One primary (A-3): the box's own button; "Not now" is a text button beside it. In the first
+   visit it reads one step larger, like the rest of the visit (C-14, the tokens above). */
+.al-sheet .al-shin { padding: var(--s24) var(--s16) calc(var(--s16) + var(--safe-b)); display: flex; flex-direction: column; gap: var(--s12); }
+.al-sheet h2 { margin: 0; font-size: var(--t22); }
+.al-sheet .al-shlede { margin: 0; color: var(--n700); }
+.al-sheet .al-shbox { display: flex; flex-direction: column; gap: var(--s8); }
+.al-sheet .al-shbtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin-top: var(--s4); }
+@media (max-width: 719px) { dialog.sheet.al-sheet { top: auto; bottom: 0; height: fit-content; max-height: 92%; margin: 0; border-radius: var(--r16) var(--r16) 0 0; } }
+@media (min-width: 720px) { dialog.sheet.al-sheet { width: 520px; } .al-sheet .al-shin { padding: var(--s24); } }
 /* "Read more about the bill" (pub/billtext.js, R-178): what someone deciding where they stand can read beyond the one
    sentence, on the bill page and in a letter's first step. Reading-size words (16px, n700 on white 9.57:1) under a small
    Poppins heading per part (A-19), HIPHI's reasons as a plain list, then the whole bill as a secondary button (the one

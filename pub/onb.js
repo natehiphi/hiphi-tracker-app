@@ -16,7 +16,7 @@ import { shell, topRow, artFor, bar1, bar2, sayRow, sureWide, skel, loadErr, isO
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, flower } from './art.js';
 import { burst, celebrate, later, reduced, petals } from './fx.js';
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow } from './alerts.js';
 import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
 import * as P4 from './onb-p4.js';
@@ -294,12 +294,12 @@ function stepJoin(step) {
   const rm = remindOf(), W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen, remind: rm });
   if (given) {
     const r = S.obJoined || (t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed } : sent ? { kind: 'email', email: sent } : { kind: 'account' });
-    const D = joinDone(r, follows);
+    const D = joinDone(r, follows, alertStatus());
     return shell('st4 st-alertspage ob-join ob-joined', `${topRow('join', step)}<div class="st-art ob-joinart">${VOICES}</div>
       <h1 class="hero" id="st-h">${esc(D.h)}</h1><p class="lede">${esc(D.lede)}</p>`,
-      `<section class="card ob-set" aria-labelledby="ob-set-h"><span class="ob-setic" aria-hidden="true">${icon(r.kind === 'email' ? 'mail-check' : r.kind === 'phone' ? 'message-square' : 'bell')}</span>
-        <div><p class="strong" id="ob-set-h">${r.kind === 'phone' ? `Alerts to ${esc(fmtPhone(r.phone))}` : r.kind === 'email' ? `A link to ${esc(r.email)}` : 'Alerts are on'}</p>
-        ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
+      `<section class="card ob-set" aria-labelledby="ob-set-h"><span class="ob-setic${alertStatus().key === 'on' ? '' : ' wait'}" aria-hidden="true">${icon(r.kind === 'email' ? 'mail-check' : r.kind === 'phone' ? 'message-square' : 'bell')}</span>
+        <div><p class="strong" id="ob-set-h">${r.kind === 'phone' ? `Alerts to ${esc(fmtPhone(r.phone))}` : r.kind === 'email' ? `A link to ${esc(r.email)}` : esc(alertStatus().title)}</p>
+        ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}.${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
         ${r.kind !== 'account' ? `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` : ''}</div></section>`);
   }
   const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic, remind: rm });
@@ -323,7 +323,7 @@ function leaveJoin(step, r = null) {
   const go = () => goStep(step, step + 1);
   if (acted() || S.obMoment) { go(); return; }
   S.obMoment = true;
-  const n = followedIssues().length, D = r && r.kind !== 'given' ? joinDone(r, followedIssues()) : null;
+  const n = followedIssues().length, D = r && r.kind !== 'given' ? joinDone(r, followedIssues(), alertStatus()) : null;
   if (!n && !D) { go(); return; }
   celebrate({ title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
     small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: you’re all set' }, go);
@@ -358,14 +358,13 @@ function didRows() {
   const b = a?.bill ? anyBill(a.bill) : null;
   return [
     a && a.kind === 'email' ? ['send', `You spoke up on ${b ? nick(b) || spaced(b.bill_number) : 'a bill'}`, 'You emailed the committee’s chair', 'ok'] : null,
-    !a && (S.obRemind || wiz().obRemind) && remindOf() ? ['calendar-clock', `A reminder before ${remindOf().day}`, S.session || textSaved() || mailSent() ? `About ${remindOf().name}` : 'It shows on your home page; turn on alerts to get it by text or email', 'ok'] : null,
+    !a && (S.obRemind || wiz().obRemind) && remindOf() ? ['calendar-clock', `A reminder before ${remindOf().day}`, ['on', 'almost'].includes(alertStatus().key) ? `About ${remindOf().name}` : 'It shows on your home page; turn on alerts to get it by text or email', 'ok'] : null,
     a && a.kind === 'intro' ? ['hand-heart', 'You said aloha to your legislators', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and ') || 'They know you now', 'ok'] : null,
     f.length ? ['star', `You follow ${plural(f.length, 'issue')}`, andList(f.slice(0, 3).map(i => i.name)) + (f.length > 3 ? ', and more' : ''), 'ok'] : null,
     legs.length && !(a && a.kind === 'intro') ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and '), 'ok'] : null,
     S.obWay || wiz().obWay ? ['heart-handshake', `You help by ${S.obWay || wiz().obWay}`, 'We’ll fit your next steps to it', 'ok'] : null,
-    S.session ? ['bell', 'Alerts are on', 'At your account’s email', 'ok']
-      : textSaved() ? ['message-square', 'Text alerts are on', `We’ll text ${fmtPhone(textSaved().phone)}`, 'ok']
-      : mailSent() ? ['mail', 'Alerts: one tap to go', `Tap the link we sent to ${mailSent()}`, 'wait'] : ['bell', 'Alerts are off', 'Turn them on any time in More', 'off'],
+    // The alerts row comes last, drawn by alerts.js alertRowHTML, as in today's ending: one status rule (D1-4), and its own
+    // "Turn on alerts" when they are off (X10-4).
   ].filter(Boolean);
 }
 // What happens next, said only as far as it is true (the review, 10/5): "we keep watch" only when something is followed,
@@ -378,7 +377,8 @@ const NEXT3 = {
   p5: ['We keep watch on your issues.', 'When one needs you, we tell you. Each visit, we show you one more thing.'],
 };
 function nextLines(p) {
-  const [watch, tell] = NEXT3[p] || NEXT3.p5, told = !!(S.session || textSaved() || mailSent());
+  // "we tell you" only once alerts are on or almost set by the one rule (D1-4), never for an account with both choices off.
+  const [watch, tell] = NEXT3[p] || NEXT3.p5, al = alertStatus(), told = al.key === 'on' || al.key === 'almost';
   return [followsAnything() ? watch : 'Follow an issue any time, and we keep watch on it for you.',
     told ? tell : 'When it’s your moment, it’s at the top of your home page.',
     'You see what happened, on your home page.'];
@@ -387,16 +387,16 @@ function stepWrap(step) {
   const p = planOn(), rows = didRows(), off = isOff(), open = sessionInfo().nextOpen;
   const name = (S.stMail?.name || wiz().name || '').trim();
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
-  const did = rows.some(r => r[3] === 'ok'), spoke = !!(S.obActed || wiz().obActed);
+  const did = rows.some(r => r[3] === 'ok') || alertStatus().key === 'on', spoke = !!(S.obActed || wiz().obActed);
   const next = nextLines(p), ics = ['eye', 'calendar-clock', 'circle-check'];
   // The peak only for something really done (C-7): petals over "Alerts are off" alone read as a prize for nothing.
   // The finale's timings (start.css, fx.js petals(); X11-2, R-180): the words first, nothing moving after 2 s.
-  return shell('st-done ob-wrap', `${topRow('wrap', step)}
+  return shell(`st-done ob-wrap${S.stCalm ? ' st-calm' : ''}`, `${topRow('wrap', step)}
     <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div>${did ? `<div class="st-petals">${petals()}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div>` : ''}</div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.' : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.'}</p>`,
-    `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
+    `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}${alertRowHTML(rows.length)}</ul>
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">${next.map((s, k) => `<li style="--k:${k}"><span class="st-nic">${icon(ics[k])}</span><div><span>${esc(k === 0 && off && open ? `${s.replace(/\.$/, '')}, from ${shortDay(open)}.` : s)}</span></div></li>`).join('')}</ol>
     ${p === 'p1' || p === 'p3' ? `<aside class="card ob-note" aria-label="A note from HIPHI"><span class="ob-noteic" aria-hidden="true">${icon('heart-handshake')}</span>
@@ -404,6 +404,7 @@ function stepWrap(step) {
 }
 function wireWrap({ $ }) {
   const d = $('[data-stdone]'); if (d) d.onclick = () => finish();
+  wireAlertRow(document, { source: 'first_visit' });   // "Turn on alerts" on the alerts row (X10-4)
 }
 
 // ---------- the dispatch start.js calls ----------
