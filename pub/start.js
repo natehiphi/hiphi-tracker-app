@@ -476,7 +476,11 @@ export default {
   tab: 'home',
   tabs: false,
   // The first visit's A/B versions are fixed as it starts (variant.js lockFirstVisit, R-135), before anything asks which.
-  title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff()); return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
+  // The alerts screen's tab says what its heading says: "Save your profile" unless the old ask is the version shown (the
+  // test 'save', R-184; the tab still said "Get alerts on your issues", R-188).
+  title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff());
+    if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
+    return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);
     lockFirstVisit();
