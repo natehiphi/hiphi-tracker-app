@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen } from './core.js';
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
@@ -20,6 +20,7 @@ import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActin
 import { flower } from './art.js';
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { abEvent } from './variant.js';
 import { legMoments } from './speakup.js';   // the floor vote's email to their own legislator (R-169)
 import { openAddTo, onListsLine } from './mylists.js';
 import { aboutBill, capitolUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
@@ -595,6 +596,13 @@ function newcomer(b, x) {
     <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${asking(x) ? '' : notNow()}</div>
   </section>`;
 }
+// The tips about this page, offered in one quiet line to someone they no longer start for by themselves (X10-4, R-180;
+// core.js billTourHeld): they came here to act, or the first visit already told them a bill's story. It goes once the
+// tips are seen (tour.js), so a person who never wants them sees one line, not a tour over the button they came for.
+function tourOffer() {
+  if (firstVisit() || !billTourHeld() || billTourSeen()) return '';
+  return `<p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the tour', { kind: 'text', sm: true, attrs: { 'data-bl-billtour': '1' } })}</span></p>`;
+}
 // "Just looking" (was "Not now") sits beside the main button (the phone bar; the side panel on a laptop). It used to
 // start the whole first visit, 13 taps, for someone who only wanted to read the bill (R-067). Now it closes the card
 // and stays on the bill; one quiet line offers the tour, which is what "Not now" used to start.
@@ -603,32 +611,45 @@ const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newla
 const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
 // On to the rest of the first visit, on this bill.
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
-// A first visit that began on this bill: the first action gets its moment (C-7), is counted, then the rest of the
-// visit. Called by the bar's "Yes, I sent it" (it once gave only a toast, so the quick email from a link was never
-// counted or celebrated, R-067). Since R-167 the page's email buttons open the walkthrough instead (speakup.js), which
-// has its own Mahalo and calls newcomerNext, so this is reached only where no walkthrough opens (the Governor's form, for one).
+// After a first action from a shared link, the visit ends on that success, at Home (X10-2, R-180; the confirmation-page
+// pattern, C-6). It used to go on into the rest of the first visit: the story of the bill, whose last page promised
+// "We'll show you how" of the thing they had just done, then six more taps before Home, which never said they had acted.
+// Home now leads with what they did and when the committee hears it (home.js loopCard), with the story one quiet line
+// there. The first visit is finished (as R-114's "Go to my home page" after acting already was), and counted so. Home
+// keeps its calm first-visit shape for the rest of this visit (hiphi_welcome, start.js welcome()): nothing else is
+// pushed on someone who has just done their first thing (Nate's rule 1, 9/19); the rest waits behind "Ready now?".
+const homeAfterAct = b => {
+  wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), viaActed: true, viaHome: true, done: true, step: 1 });
+  try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode: Home's everyday shape */ }
+  logVisit('act', 'done', { path: 'link' }); logVisit('done', 'done', { path: 'link' }); abEvent('finished');
+  app.go('#/');
+};
+// A first visit that began on this bill: the first action gets its moment (C-7), is counted, then Home. Called by the
+// bar's "Yes, I sent it" (it once gave only a toast, so the quick email from a link was never counted or celebrated,
+// R-067). Since R-167 the page's email buttons open the walkthrough instead (speakup.js), which has its own Mahalo and
+// calls newcomerNext, so this is reached only where no walkthrough opens (the Governor's form, for one).
 // Resolves true when it took over.
-// Acting also follows the bill's issue, quietly, with "Don't follow it" in the moment: someone who emailed and
-// followed nothing was forgotten the moment they left, and the next visit started them over (R-067).
+// Acting also follows the bill's issue, quietly, with "Stop following <issue>" in the moment (it said "Don't follow it",
+// which read as skipping something; X10-4): someone who emailed and followed nothing was forgotten the moment they left,
+// and the next visit started them over (R-067). The issue is named because the issue is what is followed (R-018).
 // The words celebrate the act and never say that few people do it (R-171): a "most people never do it" line tells
 // people that not acting is normal, and research on such messages finds it makes them act less (R-164's research).
 app.newcomerActed = async b => {
   // Asked after markDone, so firstVisit() is already false (an action counts as having been here): this is the first
   // action of a first visit that began on this bill's card.
   if (!b || !S.blNew.has(b.id) || followsAnything() || myActions().length > 1 || wiz().done || wiz().skipped) return false;
-  logVisit('act', 'next', { path: 'link' });
   const i = issuesOf(b)[0], follow = !!i && !issueFollowed(i) && await setFollows({ issuesOn: [i.id] }) !== false;
   moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
     small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move: committees hear from the people who write.',
-    alt: follow ? { label: 'Don’t follow it', act: () => setFollows({ issuesOff: [i.id] }) } : null },
-    () => viaStart(b, { viaActed: true }));
+    go: 'Go to my home page', alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null },
+    () => homeAfterAct(b));
   return true;
 };
-// After testimony sent from the walkthrough (helper.js): a first visit that began on this bill goes on to the rest of
-// the visit, counted like the quick email (R-068). The walkthrough had its own celebration, so no second moment.
+// After testimony or an email sent from the walkthrough (helper.js), its Done: a first visit that began on this bill ends
+// at Home. The walkthrough had its own celebration, so no second moment.
 app.newcomerNext = b => {
   if (!b || !S.blNew.has(b.id) || wiz().done || wiz().skipped) return false;
-  logVisit('act', 'next', { path: 'link' }); viaStart(b, { viaActed: true }); return true;
+  homeAfterAct(b); return true;
 };
 // Without an everyday name the headline is what the bill does: HIPHI's plain summary; without one, the first sentence
 // of the official description (the whole of it sits under More details, so nothing is lost to "..."). With neither,
@@ -869,14 +890,14 @@ function page(num, b) {
   if (!S.hist?.[b.id]) ensureHistory(b).then(more => { if (more && normNum(numFromHash()) === normNum(b.bill_number)) app.render(); });
   const x = situation(b);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}
+  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}${tourOffer()}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${draftsSection(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
   // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
   // height (bill.css .bl-cols), so the page looks as before.
   return `<div class="bl-page bl-wide">${topbar(num, b)}<div class="cols bl-cols">
-    <div class="bl-main">${head(b, x)}</div>
+    <div class="bl-main">${head(b, x)}${tourOffer()}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
       ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
@@ -1053,6 +1074,7 @@ export default {
     }));
     each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
+    each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');

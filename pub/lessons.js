@@ -54,7 +54,7 @@
 //   mine          the person follows it (S.watch); off, via as given ('link': opened from a shared link;
 //                 'followed': opened from a link and its issue just followed; 'bill': a lesson opened from that bill's page)
 import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, codesOf, cmteLabel, roomLabel, legPhoto,
-  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool } from './core.js';
+  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool, myActions } from './core.js';
 import { posChip } from './ui.js';
 import { situation, railHTML, railBrief } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
@@ -928,7 +928,10 @@ function stageBody(E, k) {
   const now = !E.off && H && !H.example && !H.past && !E.stopped && !E.isLaw
     ? `${E.num.replace(NBSP, ' ')} is at one of these moments now: ${H.dueReal && new Date(H.due) > Date.now() ? `testimony is due ${H.dueDay}` : `it has a hearing ${H.when}`}.` : '';
   // R-099: the version that ends on Home says how, not only when: the moment waits on Home, with help to act on it.
-  const calm = now ? `${now} ${home ? 'It’ll be waiting at the top of your home page, and we’ll help you write your note.' : 'We’ll show you how.'}`
+  // Someone who already spoke up at this hearing (the story opened from Home after acting, X10-2) is not offered help to
+  // do what they have done: they are told what comes next.
+  const acted = !!H?.id && myActions().some(a => a.hearing_id === H.id && (a.kind === 'testimony' || a.kind === 'email'));
+  const calm = now ? `${now} ${acted ? 'You already sent your note. We’ll show you what they decide.' : home ? 'It’ll be waiting at the top of your home page, and we’ll help you write your note.' : 'We’ll show you how.'}`
     : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do by when, and we help you write it.`
     : E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
     : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';

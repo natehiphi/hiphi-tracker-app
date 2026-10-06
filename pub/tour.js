@@ -11,7 +11,7 @@
 // The same tips, since 9/29, also show Home once in the version of the first visit that ends there (R-098, ?end=home,
 // pub/variant.js): what you can do right now, your issues, and the Home tab to come back to. Each tour is a definition
 // below (BILL, HOME): where it runs, when it may start, its tips and its storage name; the drawing is shared.
-import { S, esc, icon, reduceMotion, wiz, CONSENT_KEY } from './core.js';
+import { S, esc, icon, reduceMotion, wiz, CONSENT_KEY, billTourHeld } from './core.js';
 import { endHome } from './variant.js';
 import { logVisit } from './visitlog.js';
 
@@ -254,8 +254,11 @@ function finish(how, o) { const d = T?.def; if (d) { markSeen(d, how); try { d.d
 // ---------------- the tours ----------------
 const BILL = { key: 'hiphi_tour_bill', label: 'Reading a bill', route: 'bill', on: onBill, wide, tips,
   // Never by itself for someone who arrived on a shared link (R-114): they came for the bill, and the "New here?" card
-  // (bill.js) offers the tour in one quiet line. They see the tips on a later bill page.
-  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !wiz().via, delay: () => 450 };
+  // (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who finished the first visit or
+  // opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
+  // starts it (startBill, below), and goes once the tips are seen.
+  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld(), delay: () => 450,
+  done: () => { S.billTourDone = true; document.querySelector('.bl-tourline [data-bl-billtour]')?.closest('.bl-tourline')?.remove(); } };
 
 // Home's tips (R-098) never start over a dialog or the testimony walkthrough.
 const onHome = () => document.body.dataset.screen === 'home' && !!$('#main .hm-fin2');
@@ -305,4 +308,6 @@ export function after(route) {
   if (!def) return;
   clearTimeout(pending); pending = setTimeout(() => start(def), def.delay());
 }
-export default { after };
+// Asked for: the bill page's "Take the tour" line (X10-4). The same tips, at once, whoever the person is.
+export function startBill() { if (T) return; clearTimeout(pending); start(BILL); }
+export default { after, startBill };

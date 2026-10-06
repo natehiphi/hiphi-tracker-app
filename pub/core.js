@@ -899,6 +899,12 @@ export function openActions(bills, hearings) {
 // Every action counts: any kind done on a hearing means the card is done for "Do this now".
 export const actedOn = (b, h) => KINDS.some(k => S.done.has(doneKey(b.id, h?.id, k)));
 export const didKind = (b, h, k) => S.done.has(doneKey(b.id, h?.id, k));
+// The bill page's tour (pub/tour.js) starts by itself only for someone nobody has shown around yet (X10-4, R-180): not
+// after a finished first visit (its story is told on one of their own bills), not for anyone whose first visit began on
+// a shared bill, and not on a bill opened from Home to act (S.toAct, "See how to help"), where it covered the very button
+// they came for. They get one quiet line on the bill page instead (bill.js tourOffer), until they have seen the tips.
+export const billTourHeld = () => { const w = wiz(); return !!(w.via || (w.done && !w.skipped) || S.toAct); };
+export const billTourSeen = () => { if (S.billTourDone) return true; try { return !!localStorage.getItem('hiphi_tour_bill'); } catch { return false; } };
 // A testimony letter saved in the walkthrough for this hearing and not sent yet (helper.js, hiphi_me.drafts; R-068).
 export const testimonyDraft = h => { try { return !!h && !!JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts?.[h.id]; } catch { return false; } };
 // Settled: the person has taken a real step for this hearing - testimony, or an email to the chair.

@@ -238,6 +238,15 @@
 .hm .hm-since.quiet { margin-bottom: var(--s12); color: var(--n700); }
 .hm .hm-since.quiet p { margin: 0; }
 .hm .hm-since .hm-you .lead { color: var(--ok-text); background: var(--ok-wash); }
+/* What you did, until the committee decides (X10-2): a done row like "Since you were here"'s, its sentence never cut
+   short, and the hearing's video under it on the text edge (its padding stays tap area, A-6, A-8). */
+.hm .hm-loop .hm-you .lead { color: var(--ok-text); background: var(--ok-wash); }
+.hm .hm-loop .rows .row .sub { display: block; -webkit-line-clamp: none; overflow: visible; }
+.hm .hm-loop .hm-loopx { padding: 0 var(--s16) var(--s8) 52px; margin-top: calc(-1 * var(--s8)); }
+.hm .hm-loop .hm-loopx .ic-external-link { width: 16px; height: 16px; }
+.hm .hm-loop .hm-looplearn { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
+.hm .hm-loop .hm-looplearn > .ic { flex: none; color: var(--p700); }
+.hm .hm-loop .hm-looplearn a { color: var(--p700); font-weight: 700; }
 /* Keep the tracker on your phone (R-067) */
 .hm .hm-hs { display: flex; flex-direction: column; gap: var(--s8); }
 .hm .hm-hs h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }

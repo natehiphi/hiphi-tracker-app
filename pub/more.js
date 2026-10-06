@@ -241,10 +241,12 @@ export function wireAccountCards() {
 // rest of hiphi.org stays folded away on a phone; with room to spare it is simply shown.
 const WIDE = window.matchMedia?.('(min-width: 900px)');
 WIDE?.addEventListener?.('change', () => { if (document.querySelector('#main .mr-more')) app.render(); });
-// More's first row (R-147): initials, name, and what the profile says about them; or the invitation.
+// More's first row (R-147): initials, name, and what the profile says about them; or the invitation. The invitation is
+// named for what people are sent here to find (X10-4, R-180): the first visit's last screen says "Alerts are off. Turn
+// them on any time in More", and a row called only "Make your profile" hid the alerts in its small print.
 function meRow() {
   if (!hasProfile()) return `<a class="card mr-me mr-me-new" href="#/profile"><span class="pf-av" aria-hidden="true">${icon('user-plus')}</span>
-    <span class="mr-me-t"><span class="mr-me-n">Make your profile</span><span class="mr-me-s">Get a text or email when your issues have a hearing, and keep your issues and letters saved. Free.</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
+    <span class="mr-me-t"><span class="mr-me-n">Get alerts and make your profile</span><span class="mr-me-s">A text or email when your issues have a hearing. Your issues and letters stay saved. Free.</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
     ${signedIn() ? '' : codesOn() ? `<p class="small mr-me-in">Made one before? <a href="#/signin?by=number">Sign in</a></p>`
       // R-155 (Nate 10/5), until codes are on: a number keeps the profile on its phone, so a laptop says how to bring it
       // here (only a wide screen: on a phone the sentence would contradict itself; the review, 10/5).

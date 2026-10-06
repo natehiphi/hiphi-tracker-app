@@ -50,6 +50,7 @@ const cssReady = names => (names || []).every(n => cssDone.has(n) || !!cssLink(n
 const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(SCREEN_CSS[route.name])]); };
 // The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
 let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['tour'])]).then(([m]) => tourMod = m.default);
+app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
 const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
 const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper', 'profile'])]).then(([m]) => { helperMod = m.default; return helperMod; });
