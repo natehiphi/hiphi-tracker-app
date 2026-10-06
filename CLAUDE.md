@@ -255,7 +255,10 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - Nate's product rules (9/19):
   1. A first visit is follow a few issues + maybe say where you stand (R-018, 9/21: people follow issues, and
      bills reach them through the issue). No action is pushed (today's version; the test plans 1 and 3 offer one, with
-     an equal "Not now", as Nate asked in R-150 and R-164: an exception in DESIGN-AUDIT section 4). Later visits prompt
+     an equal "Not now", as Nate asked in R-150 and R-164: an exception in DESIGN-AUDIT section 4). The first visit ends
+     on **"See How I Can Help"** (`GO_HELP` in `pub/topics.js`, every version and the shared-link moment; Nate 10/6, R-190),
+     and Home then opens on every thing to do this week, the soonest as its one main button; **nothing to do is ever folded
+     on Home** (DESIGN B-14; after a first action from a shared link the same list is shown calm, no button singled out). Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
   2. The alerts ask is a step in the flow (right after the issues since R-146, 10/4; one box in `pub/alerts.js`: a

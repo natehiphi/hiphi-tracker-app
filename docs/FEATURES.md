@@ -91,7 +91,7 @@ with the one thing due first (`rightNow()`); then two tips over Home after 4.5 s
 `hiphi_tour_home`): the card, lit and usable (using its button ends the tips), and coming back (the Home tab; add to the
 home screen or bookmark when no email was given). A fresh-eyes review 9/29 cut a third tip and a repeated deadline. The
 words: "we'll show you", "Home shows when it's your moment", the last part "Your home page", "Want an email too?", "Link
-sent to ... Tap it when you finish here", "See my home page". Counted privately as step 'home' (view, done/skip).
+sent to ... Tap it when you finish here", "See How I Can Help" (R-190; it said "See my home page"). Counted privately as step 'home' (view, done/skip).
 **`?demo=1&restart`** (an inline script in `track.html`) clears only the sandbox's own storage, so the testers' two links
 start from the beginning: `track.html?demo=1&end=today&restart` and `track.html?demo=1&end=home&restart`. Fixed in both
 versions the same day: Home's "Your issues" rows open their issue; the sandbox remembers an email was given (it asked
@@ -159,7 +159,7 @@ share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in p
 a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
 on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
 Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting Done goes to Home (X10-2,
-wave 1 below; it went on to the "voice" step's "Go to my home page" or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
+wave 1 below; it went on to the "voice" step's "Go to my home page", since R-190 "See How I Can Help", or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
 hearing back link and the Help words from R-112).
 
 **A shared link leads with its ask and opens it (R-169, 10/5).** Nate: "Card wording should lead with the action that is
@@ -682,7 +682,7 @@ first visit. All five are working versions in the same frame as today's first vi
   link, not on a bill opened from Home to act, `data-hm-act` setting `S.toAct`); they get "New to this? Take the tour" under
   the bill's name (`tourOffer` in bill.js, `app.billTour`, `startBill` in `pub/tour.js`), gone once the tips are seen. The
   walkthrough's "Don't follow it" is "Stop following <the issue>", right under the sentence that says it is followed, and
-  the link newcomer's moment says the same with "Go to my home page". More's first row without a profile is "Get alerts
+  the link newcomer's moment says the same with "See How I Can Help" (R-190; it said "Go to my home page"). More's first row without a profile is "Get alerts
   and make your profile". The finale's "Turn on alerts" button is the next entry; Home's main button is R-150's question.
 - **One status rule for alerts** (D1-4; `pub/alerts.js alertStatus()`): "on" only for a number confirmed by its code, or a
   signed-in account with an email and an email choice ticked. A number kept but not yet confirmed (codes off), a code texted
@@ -825,3 +825,27 @@ A on the tester sheet and put it on the A/B testing now."
   met, the old address and the compare page, Next day, the toss, the switch, the version kept for the page load, Tests and
   the tester sheet); `abtests.py` and `room.py` count ten tests; `tests/density.py` measures version A's Home and bill page
   as `publicA`.
+
+## The first visit ends on "See How I Can Help", and Home folds nothing to do (R-190; 6 Oct 2026)
+
+Nate 10/6: the last button, "Go to my home page", was "boring and doesn't encourage more advocacy"; and "on the homepage we
+need to not hide more actions beneath a collapsed field". After research put to him in chat, he picked **"See How I Can
+Help"** (`GO_HELP` in `pub/topics.js`, title case his own): today's finale (`start-rest.js` 'done'), the plans' ending
+(`onb.js` 'wrap'), the ends-on-Home version's last step ('soon'), the shared-link newcomer's "voice" choice and the Mahalo
+moment after a first action from a link (`bill.js`), with an arrow. Home keeps the promise (DESIGN **B-14**, new):
+- **Right after the first visit** (`home.js` welcomeView): "N things you can do this week" under the hello, open, the
+  soonest a full card with the one filled button, a second card, the rest one line each, then "Bills that need a hearing"
+  as a sub-part (an h3, 18px). It replaced the "This week" card and the "Ready now?" fold at the bottom. After a first
+  action from a shared link (no finale) the same list is calm, no filled button.
+- **Later visits** (returnView): nothing behind "Show N more" or "Show N more topics"; `moreRows` draws its rows open.
+  "Done this week" stays folded, as do the results' "See all" and folds inside a card or bill. A row past its written
+  deadline says "Late testimony still accepted · hearing ..." (not a red "deadline passed"); the hearing asks' rows carry
+  their topic's icon, and when they share one cut-off it is said once over them ("All 13 stop Mon, Mar 30 without a
+  hearing."), not "14 days left" on each (the fresh-eyes review).
+- **The ends-on-Home version** (rightNow): "More you can do this week" open, one line each.
+- **Version A** (`pub/a/home.js`): every day of the week open (today with its written deadlines gone says so once under
+  its heading), and the bills that need a hearing an open list.
+- **Between sessions**, arriving from the finale: the "Get ready for January" / "Say aloha" card leads, above Your issues,
+  and a phone leaves out the second Capitol drawing (`.hm-lead`).
+Tests updated: `home_end.py`, `public_journey.py`, `d1_status.py` (the words), `x10_close_loop.py` (the open, calm list).
+Backend HANDOFF 3.126.

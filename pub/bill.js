@@ -25,6 +25,7 @@ import { abEvent } from './variant.js';
 import { legMoments } from './speakup.js';   // the floor vote's email to their own legislator (R-169)
 import { openAddTo, onListsLine } from './mylists.js';
 import { aboutBill, capitolUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
+import { GO_HELP } from './topics.js';   // the first visit's last button (R-190)
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -616,9 +617,10 @@ const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, 
 // pattern, C-6). It used to go on into the rest of the first visit: the story of the bill, whose last page promised
 // "We'll show you how" of the thing they had just done, then six more taps before Home, which never said they had acted.
 // Home now leads with what they did and when the committee hears it (home.js loopCard), with the story one quiet line
-// there. The first visit is finished (as R-114's "Go to my home page" after acting already was), and counted so. Home
+// there. The first visit is finished (as R-114's "Go to my home page", now "See How I Can Help" (R-190), after acting already was), and counted so. Home
 // keeps its calm first-visit shape for the rest of this visit (hiphi_welcome, start.js welcome()): nothing else is
-// pushed on someone who has just done their first thing (Nate's rule 1, 9/19); the rest waits behind "Ready now?".
+// pushed on someone who has just done their first thing (Nate's rule 1, 9/19): the things to do this week are shown open
+// but calm, no button singled out (R-190: nothing on Home is folded any more).
 const homeAfterAct = b => {
   wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), viaActed: true, viaHome: true, done: true, step: 1 });
   try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode: Home's everyday shape */ }
@@ -642,7 +644,7 @@ app.newcomerActed = async b => {
   const i = issuesOf(b)[0], follow = !!i && !issueFollowed(i) && await setFollows({ issuesOn: [i.id] }) !== false;
   moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
     small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move: committees hear from the people who write.',
-    go: 'Go to my home page', alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null },
+    go: GO_HELP, alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null },
     () => homeAfterAct(b));
   return true;
 };

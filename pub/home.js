@@ -1,7 +1,8 @@
 // Home (redesign 9/19, reworked the same day after Nate read the assessment). Home has one shape per moment:
 //  - the first visit, right after the guided start: calm. "You're all set", what you follow, where you stand, the
-//    milestones just earned and what happens next. Nothing is pushed: the things to do wait behind one quiet line
-//    (Nate, 9/19: a first visit is "follow a few bills and maybe say where you stand"; asks to act come later);
+//    milestones just earned and what happens next. The first visit itself pushes nothing (Nate, 9/19: "follow a few
+//    bills and maybe say where you stand"); its last button, "See How I Can Help", opens Home on every thing to do this
+//    week, none folded (Nate 10/6, R-190; DESIGN B-14);
 //  - later visits in session, following bills: what you can do this week, easiest first (actionCard has the ladder),
 //    then a lighter "ask the chair for a hearing" for bills that are running out of time, then your own session;
 //  - in session, following nothing (the person skipped the guided start): "This week at the Capitol", issues, lists;
@@ -438,15 +439,24 @@ function askCard({ b, st }, primary) {
 }
 // Past the first two, things to do are one line each and open the bill page, where the same action lives. Fourteen
 // full cards made Home a 7,000px wall on a phone and 5,600px on a laptop (assessment 9/19).
+// A row past its written deadline is still a thing to do (late testimony is accepted until the hearing), so it says that,
+// not a red "deadline passed" inside "things you can do" (the fresh-eyes review of R-190; version A's words).
 const actRow = x => { const d = dueInfo(x.h);
+  const due = d?.late ? `Late testimony still accepted · hearing ${dayWord(x.h.scheduled_at)} at ${timeWord(x.h.scheduled_at)}` : d ? d.text : hearingText(x.h);
   return row({ lead: issueOf(x.b)?.icon || 'landmark', title: esc(headline(x.b, 200)), href: billPath(x.b), attrs: { 'data-hm-act': '1' },
-    sub: `${esc(spaced(x.b.bill_number))} · <span class="hm-due${d?.tone ? ' ' + d.tone : ''}">${esc(d ? d.text : hearingText(x.h))}</span>` }); };
-const askRow = ({ b, st }) => row({ lead: 'hourglass', title: esc(headline(b, 200)), href: billPath(b), attrs: { 'data-hm-act': '1' },
-  sub: `${esc(spaced(b.bill_number))} · <span class="hm-due${st.deadline.days <= 7 ? ' warn' : ''}">${esc(daysLeft(st.deadline.days))}</span>` });
-const moreRows = (id, rows) => `${toggle(id, 'hm-' + id, `Show ${rows.length} more`)}<div id="hm-${id}" class="rows hm-more"${S.hmOpen[id] ? '' : ' hidden'}>${rows.join('')}</div>`;
-// Open actions first (two cards, then one line each), then up to two "ask the chair" cards. calm: inside the first
-// visit's "Ready now?" fold, where no card is singled out.
-function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
+    sub: `${esc(spaced(x.b.bill_number))} · <span class="hm-due${d?.tone && !d.late ? ' ' + d.tone : ''}">${esc(due)}</span>` }); };
+// One line per bill that needs a hearing, its topic's icon like the testimony rows. same: every row shares one cut-off,
+// said once over the rows instead of "14 days left" on each (A-14; the review of R-190 counted 13 in a row).
+const askRow = ({ b, st }, same = false) => row({ lead: issueOf(b)?.icon || 'hourglass', title: esc(headline(b, 200)), href: billPath(b), attrs: { 'data-hm-act': '1' },
+  sub: `${esc(spaced(b.bill_number))}${same ? '' : ` · <span class="hm-due${st.deadline.days <= 7 ? ' warn' : ''}">${esc(daysLeft(st.deadline.days))}</span>`}` });
+const oneCutoff = asks => asks.length > 1 && asks.every(x => x.st.deadline.date === asks[0].st.deadline.date) ? asks[0].st.deadline : null;
+const cutoffLine = (d, n) => `<p class="small hm-cutoff">${icon('hourglass')}<span>${n === 2 ? 'Both' : `All ${n}`} stop ${esc(dateLong(d.date + 'T12:00:00-10:00'))} without a hearing.</span></p>`;
+// Past the first two, every other thing to do is one line, all of them shown: nothing to do waits behind a closed toggle
+// (Nate 10/6, R-190: "not hide more actions beneath a collapsed field"). One line each keeps the page short.
+const moreRows = (id, rows) => `<div id="hm-${id}" class="rows hm-more">${rows.join('')}</div>`;
+// Open actions first (two cards, then one line each), then up to two "ask the chair" cards. calm: no card is singled out
+// (Home right after a first action from a shared link, R-190).
+function todoBlock(cards, asks, { nudgeHtml = '', calm = false, sub = false } = {}) {
   const first = calm ? null : cards.find(x => !settledOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
   // The first card says how many are due the same day (Layout A's Now card, R-131): "1 of 3 due today".
   const dayOf = x => x.h.testimony_deadline ? hstDay(x.h.testimony_deadline) : '';
@@ -455,20 +465,24 @@ function todoBlock(cards, asks, { nudgeHtml = '', calm = false } = {}) {
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
       ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
       ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : nudgeHtml}
-    ${asksSec(cards, asks, arest)}`;
+    ${asksSec(cards, asks, arest, calm, sub)}`;
 }
-const asksSec = (cards, asks, arest = asks.slice(2)) => asks.length ? `<section class="hm-sec hm-asks" aria-labelledby="hm-asks-t"><h2 id="hm-asks-t">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</h2>
+// sub: a part of the list under "N things you can do this week" (Home right after the first visit), so its heading is one
+// step down, not a second list beside it (A-13; the review of R-190).
+const asksSec = (cards, asks, arest = asks.slice(2), calm = false, sub = false) => { if (!asks.length) return '';
+  const h = sub ? 'h3' : 'h2', cut = oneCutoff(arest);
+  return `<section class="hm-sec hm-asks${sub ? ' hm-asks-sub' : ''}" aria-labelledby="hm-asks-t"><${h} id="hm-asks-t">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</${h}>
       <p class="small hm-asksub">The committee chair decides which bills get a hearing. A short, polite note helps.</p>
-      ${asks.slice(0, 2).map((x, i) => askCard(x, !cards.length && !i)).join('')}
-      ${arest.length ? moreRows('asks', arest.map(askRow)) : ''}</section>` : '';
+      ${asks.slice(0, 2).map((x, i) => askCard(x, !calm && !cards.length && !i)).join('')}
+      ${arest.length ? `${cut ? cutoffLine(cut, arest.length) : ''}${moreRows('asks', arest.map(x => askRow(x, !!cut)))}` : ''}</section>`; };
 // Home's top grouped by topic: the home test's second version (R-135, variant.js 'home'). By topic, the six the first
 // visit's first screen offers, not by issue: 55 of the 91 issues share their name with one of their bills, so an issue
 // heading would repeat the card title under it most of the time (A-14). Each topic with something to do is a section, the
 // one with the soonest deadline first (the cards come in deadline order). As in today's version, only the two soonest
 // things are full cards and everything else is one line (the review 10/3: one full card per topic made a later bill a
 // card and a sooner one a line, and three main buttons against two), so the test measures the grouping and nothing else.
-// Three topics show; the rest fold under "Show N more topics". The cards under a topic heading leave out their own topic
-// line. The asks for a hearing stay as they are.
+// Every topic with something to do shows (R-190: they folded under "Show N more topics" past the third). The cards under a
+// topic heading leave out their own topic line. The asks for a hearing stay as they are.
 function issueBlock(cards, asks, { nudgeHtml = '' } = {}) {
   const groups = new Map();
   for (const x of cards) { const t = issueOf(x.b), k = t ? t.key : ''; if (!groups.has(k)) groups.set(k, { t, xs: [] }); groups.get(k).xs.push(x); }
@@ -477,9 +491,7 @@ function issueBlock(cards, asks, { nudgeHtml = '' } = {}) {
     return `<section class="hm-iss" aria-labelledby="${id}"><h2 class="hm-isst" id="${id}">${icon(g.t ? issueIcon(g.t.icon) : 'landmark')}<span>${esc(g.t ? g.t.key : 'Other bills you follow')}</span></h2>
       ${big.map(x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text, twin: S.hmTwins?.get(x.b.id) || null, noTopic: !!g.t })).join('')}
       ${small.length ? `<div class="rows">${small.map(actRow).join('')}</div>` : ''}</section>${n === 0 ? nudgeHtml : ''}`; };
-  const more = list.slice(3);
-  return `${cards.length ? `<div class="hm-now hm-byissue">${list.slice(0, 3).map(sec).join('')}
-      ${more.length ? `${toggle('iss', 'hm-issmore', `Show ${more.length} more ${more.length === 1 ? 'topic' : 'topics'}`)}<div id="hm-issmore" class="hm-now hm-more"${S.hmOpen.iss ? '' : ' hidden'}>${more.map((g, k) => sec(g, k + 3)).join('')}</div>` : ''}</div>` : nudgeHtml}
+  return `${cards.length ? `<div class="hm-now hm-byissue">${list.map(sec).join('')}</div>` : nudgeHtml}
     ${asksSec(cards, asks)}`;
 }
 
@@ -594,7 +606,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
 }
 
 // The first visit (Nate, 9/19): they followed a few bills and maybe said where they stand, and that is enough for
-// today. No deadline shouts here. Anything they could do this week waits behind one quiet line.
+// today. Since R-190 (10/6) the things they could do this week are on the page, open, under the hello (welcomeView).
 // Right after the first visit's last screen (R-023): the issues just followed, one line each, with a hearing day when
 // there is one. The finale has just celebrated; badges, a stats panel and "What's new" here would say it all again, and
 // counted differently (the review, 9/21: "said where you stand on one of them" beside "2 stands taken").
@@ -623,19 +635,20 @@ function welcomeView(si, { cards, asks, total }) {
   const ask = (S.session && !S.nudgeText) || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
-  // says aloha instead of repeating them (A-14), and the week's first hearing on their issues gets a quiet way in to
-  // help (B-3: the lessons need somewhere to go). Nothing is pushed: the rest still waits behind one line.
+  // says aloha instead of repeating them (A-14), and opens on the things they can do this week (B-3: the lessons need
+  // somewhere to go; R-190, below).
   const fin = !!wiz().finale, name = (wiz().name || '').trim();
   // What they did since, and when the committee hears it (X10-2): a plan to go has its own card, so it is left to it.
   const loop = loopCard(new Set(goingPlans().map(p => p.h.id)));
   if (fin && endHome()) return homeFirst({ cards, asks, ask, loop });
-  // The week's first hearing they have not acted on yet: once they have, the row above says so (X10-2).
-  const week = fin ? cards.filter(x => x.h && new Date(x.h.scheduled_at) > Date.now() && !settledOn(x.b, x.h) && !S.hmLoopB.has(x.b.id)).sort((a, b) => a.h.scheduled_at.localeCompare(b.h.scheduled_at))[0] : null;
-  const due = week ? dueInfo(week.h) : null;
-  const weekCard = week ? `<section class="card hm-week" aria-labelledby="hm-wk"><p class="hm-eyebrow">This week</p>
-      <h2 id="hm-wk">${esc(spaced(week.b.bill_number))} has a hearing ${esc(dayWord(week.h.scheduled_at))}</h2>
-      <p>${esc(nick(week.b) || blurb(week.b, 80))} · ${esc(timeWord(week.h.scheduled_at))} · ${esc(roomLabel(week.h.room))}.${due && !due.late ? ` ${due.html}${S.session && S.user?.prefs?.hearing_alerts ? '; we’ll remind you' : ''}.` : ''}</p>
-      ${btn('See how to help', { kind: 'text', iconEnd: 'arrow-right', href: billPath(week.b), cls: 'hm-link', attrs: { 'data-hm-act': '1' } })}</section>` : '';
+  // Every thing they can do this week, open, right under the hello (Nate 10/6, R-190: "not hide more actions beneath a
+  // collapsed field"; R-150, 10/4: folded at the bottom was "not the right move"). It is what the first visit's last button,
+  // "See How I Can Help", promises (C-6), so after that button the soonest is the one main button (A-3, A-13). After a
+  // first action from a shared link the list is shown calm, no button singled out: a bigger ask straight after the one
+  // just done backfires (R-150's research). It replaced "This week", one hearing with a "See how to help" link, and the
+  // "Ready now?" fold under everything. A hearing the "What you did" card above already names is left to that card (A-14).
+  const todoCards = cards.filter(x => !(S.hmLoopB.has(x.b.id) && settledOn(x.b, x.h)));
+  const todo = total ? `<h2 class="hm-todot" id="hm-td">${plural(total, 'thing')} you can do this week</h2>${todoBlock(todoCards, asks, { calm: !fin, sub: true })}` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
   const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;
   return `<div class="hm hm-follow hm-welcome${fin ? ' hm-fin' : ''}">
@@ -645,7 +658,7 @@ function welcomeView(si, { cards, asks, total }) {
         <p class="lede">${lede}</p>
         ${fin ? '' : chipsHtml(ms.got)}
         ${fin ? '' : btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
-      ${loop}${weekCard}${fin ? yourIssues() : ''}
+      ${loop}${todo ? `<section class="hm-todo" aria-labelledby="hm-td">${todo}</section>` : ''}${fin ? yourIssues() : ''}
       ${fin ? '' : `<section class="card hm-nextup" aria-labelledby="hm-nu"><h2 id="hm-nu">What happens next</h2>
         <ul class="hm-steps">
           ${step('eye', 'We keep watch.', 'We check every bill on your issues each day, so you don’t have to.')}
@@ -653,8 +666,6 @@ function welcomeView(si, { cards, asks, total }) {
           ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My issues.')}
         </ul></section>`}
       ${ask}
-      ${total ? `<section class="hm-later">${toggle('ready', 'hm-readybox', `Ready now? ${plural(total, 'thing')} you can do this week`, 'Hide these for now')}
-        <div id="hm-readybox" class="hm-readybox"${S.hmOpen.ready ? '' : ' hidden'}>${todoBlock(cards, asks, { calm: true })}</div></section>` : ''}
     </div>${fin ? '' : `<div class="side hm-side">
       ${sessionPanel(si, { welcome: true, skip: S.hmLoopB })}
       ${whatsNew(new Set(S.hmLoopB))}
@@ -690,14 +701,14 @@ function finHead({ off = false, lede = '' } = {}) {
     ${rows.length ? `<ul class="hm-did" role="list" aria-label="What you did today">${rows.map(([ic, t], k) => `<li style="--k:${k}"><span class="hm-didic${ic === 'check' ? ' ok' : ''}">${icon(ic)}</span>${esc(t)}</li>`).join('')}</ul>` : ''}`;
 }
 // "What you can do right now" (Nate 9/29, R-098 decision 3): the one thing due first, open, as the full card with its
-// main button; anything else this week folds under it. Nothing due: the section says what will come here.
+// main button; anything else this week one line each under it, all shown (R-190: they folded under "More you can do this
+// week"). Nothing due: the section says what will come here.
 function rightNow(cards, asks) {
-  const first = cards.find(x => !settledOn(x.b, x.h)) || null, rest = cards.filter(x => x !== first), more = rest.length + asks.length;
+  const first = cards.find(x => !settledOn(x.b, x.h)) || null, rest = cards.filter(x => x !== first && !settledOn(x.b, x.h)), more = rest.length + asks.length;
   S.hmTip = first ? { num: spaced(first.b.bill_number) } : null;   // the tips' words (pub/tour.js)
   return `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>
     ${first ? actionCard(first.b, first.h, { focus: true }) : `<p class="hm-rnnone">Nothing needs you this week. When a bill on your issues has a hearing, what you can do shows up here, and by when.</p>`}
-    ${more ? `<div class="hm-later">${toggle('ready', 'hm-readybox', `More you can do this week (${more})`)}
-      <div id="hm-readybox" class="hm-readybox"${S.hmOpen.ready ? '' : ' hidden'}>${todoBlock(rest, asks, { calm: true })}</div></div>` : ''}
+    ${more ? `<h3 class="hm-rnmore">More you can do this week</h3><div class="rows">${[...rest.map(actRow), ...asks.map(x => askRow(x))].join('')}</div>` : ''}
   </section>`;
 }
 function homeFirst({ cards, asks, ask, loop = '' }) {
@@ -834,6 +845,9 @@ function offView(si) {
   // The version that ends on Home (R-098): the first visit's last moment happens here, "What you can do right now" is the
   // top of the page (between sessions, the one useful thing: a hello to their legislators), and the tips follow.
   const v2 = welcome && !!wiz().finale && endHome(), anim = v2 && finNow() && !S.hmFinDrawn;
+  // Arriving from the first visit's last button, "See How I Can Help" (R-190), the one thing to do between sessions leads
+  // the page, above their issues, so the button's words are kept on a phone too (C-6); on later visits it is the side card.
+  const lead = welcome && !!wiz().finale && !v2;
   const readyCard = `<section class="card hm-ready" aria-labelledby="hm-rd"><${v2 ? 'h3' : 'h2'} id="hm-rd">${ready[0]}</${v2 ? 'h3' : 'h2'}>
         <p class="muted">${ready[1]}</p>
         <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: nothingYet ? 'secondary' : 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}
@@ -841,7 +855,7 @@ function offView(si) {
           ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>`;
   const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
   const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
-  return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}">
+  return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}${lead ? ' hm-lead' : ''}">
     ${accountCards()}${welcome ? '' : sinceStrip()}
     ${v2 ? `<header class="hm-head hm-break hm-finhead"><div class="hm-art">${anim ? CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>') : CAPITOL}</div>
       <div class="hm-breakt">${finHead({ off: true, lede: v2lede })}${daysChip}</div></header>`
@@ -850,7 +864,7 @@ function offView(si) {
         <p class="lede">${lede}</p>
         ${daysChip}</div></header>`}
     <div class="cols even"><div class="hm-col">
-      ${v2 ? `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>${readyCard}</section>` : ''}
+      ${v2 ? `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>${readyCard}</section>` : lead ? readyCard : ''}
       ${rows.length ? `<section class="card hm-recap" aria-labelledby="hm-rc"><div class="hm-recaphead"><h2 id="hm-rc">Your ${yr} session</h2><div class="hm-isl">${islands(myIsland())}</div></div>
         <p>${esc(said)}</p>
         ${chipsHtml(milestoneState(acts).got)}
@@ -860,7 +874,7 @@ function offView(si) {
         <p class="muted">Pick a few health issues now. When the session opens, HIPHI’s bills for them will be waiting here.</p>
         <div class="btncol">${btn('Pick the issues I care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}</div></section>` : ''}
     </div><div class="hm-col">
-      ${v2 ? '' : readyCard}
+      ${v2 || lead ? '' : readyCard}
       ${winsCard(yr)}
       ${meetCard()}
       ${newIssuesCard()}

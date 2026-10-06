@@ -5,10 +5,10 @@
 //      With nothing due it is the news, or "Nothing needs you this week".
 //   2. Since …: what committees decided on your bills since your last visit, and what you did. Results only; a new
 //      hearing is not news, it gets a New dot in the week.
-//   3. This week on your issues: one row per hearing (a committee sitting), not per bill. Today and tomorrow open,
-//      later days one line each, past days gone.
+//   3. This week on your issues: one row per hearing (a committee sitting), not per bill. Every day open, past days gone
+//      (R-190, Nate 10/6: nothing to do behind a closed fold; later days were one folded line each).
 //   4. Where your issues stand: up to six issues as rows with a progress bar; more than six as one bar with counts,
-//      with the full list in My issues. Bills that need a hearing are one folded line here, not cards.
+//      with the full list in My issues. Bills that need a hearing are one line each here, not cards, shown (R-190).
 // The email ask sits after the week (R-070 decision 3, tried here), never between two hearings.
 // Everything else (the first visit and the rest of that visit, between sessions, following nothing, Your session) is
 // today's Home, unchanged.
@@ -28,7 +28,6 @@ import { laterCard } from '../onb-later.js';
 import today, { extras, wireExtras } from '../home.js';
 
 S.aSkip ??= new Set();   // Now items passed over with "Not now", for this visit
-S.aDays ??= new Set();   // folded days the person opened, kept through redraws
 const welcomed = () => { try { return sessionStorage.getItem('hiphi_welcome') === '1'; } catch { return false; } };
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const list = parts => parts.filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1');
@@ -218,23 +217,17 @@ function weekBlock() {
   const tdy = hstDay(now), tmr = hstDay(now + 864e5);
   const out = [...days.entries()].map(([d, ss]) => {
     const iso = ss[0].h.scheduled_at, urgent = d === tdy && ss.some(openDue);
-    // Today with every written deadline gone folds to one line, so the hearings people can still act on come first
-    // (review 9/28: Leilani's Tuesday opened on four she could not).
+    const head = `${d === tdy ? 'Today' : d === tmr ? 'Tomorrow' : wd(iso)} <span>${esc(d === tdy || d === tmr ? `${wd(iso)} ${dnum(iso)}` : dnum(iso))}</span>`;
+    // Today with every written deadline gone says so once under its heading, not as a chip on each hearing (review 9/28:
+    // four identical chips), and is not marked urgent. It used to fold to one line so the hearings people can still act on
+    // came first; late testimony and watching live are things to do too, so it stays open (R-190).
+    let note = '';
     if (d === tdy && !ss.some(openDue)) {
       ss.forEach(s => { s.quietLate = true; });
       const late = ss.some(s => s.t > now && s.items.some(x => dueInfo(x.h)?.late && !settledOn(x.b, x.h)));
-      return `<details class="a-day a-fold" data-a-day="${esc(d)}"${S.aDays.has(d) ? ' open' : ''}><summary><span class="a-fdd">Today</span>
-        <span class="a-fds"><b>${esc(plural(ss.length, 'hearing'))} · ${esc(plural(ss.flatMap(s => s.items).length, 'bill'))}</b><small>${late ? 'Written deadlines passed · late testimony is still accepted · watch live' : ss.every(s => s.t <= now) ? 'Heard today' : 'You’ve spoken up on these · watch live'}</small></span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-        <ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></details>`;
+      note = `<p class="a-dnote">${late ? 'Written deadlines passed · late testimony is still accepted · watch live' : ss.every(s => s.t <= now) ? 'Heard today' : 'You’ve spoken up on these · watch live'}</p>`;
     }
-    const open = d === tdy || d === tmr;
-    const head = `${d === tdy ? 'Today' : d === tmr ? 'Tomorrow' : wd(iso)} <span>${esc(d === tdy || d === tmr ? `${wd(iso)} ${dnum(iso)}` : dnum(iso))}</span>`;
-    if (open) return `<div class="a-day${urgent ? ' today' : ''}"><h3 class="a-dh">${head}</h3><ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></div>`;
-    const bs = ss.flatMap(s => s.items), names = bs.slice(0, 2).map(x => nameOf(x.b)), more = bs.length - names.length;
-    const dueDay = ss[0].h.testimony_deadline ? dayName(ss[0].h.testimony_deadline) : '';
-    return `<details class="a-day a-fold" data-a-day="${esc(d)}"${S.aDays.has(d) ? ' open' : ''}><summary><span class="a-fdd">${esc(wd(iso))} ${esc(dnum(iso))}</span>
-      <span class="a-fds"><b>${esc(plural(ss.length, 'hearing'))} · ${esc(plural(bs.length, 'bill'))}</b><small>${esc(names.join(', '))}${more ? ` and ${more} more` : ''}${dueDay ? ` · due ${esc(dueDay)}` : ''}</small></span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-      <ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></details>`;
+    return `<div class="a-day${urgent ? ' today' : ''}"><h3 class="a-dh">${head}</h3>${note}<ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></div>`;
   }).join('');
   return `<section class="a-sec" aria-labelledby="a-wk-h"><div class="a-sech"><h2 id="a-wk-h">This week on your issues</h2><p>${esc(plural(all.length, 'hearing'))} · ${esc(plural(bills, 'bill'))}</p></div>
     <div class="a-week">${out}</div></section>`;
@@ -280,8 +273,8 @@ function standBlock({ asksShown = false } = {}) {
     body = `${inWeek ? `<p class="a-inweek">${icon('calendar')}<span>${esc(plural(inWeek, 'issue has', 'issues have'))} a hearing this week, listed above.</span></p>` : ''}
       ${others.length ? `<ul class="a-irows">${others.map(issueRow).join('')}</ul>` : ''}`;
   }
-  const askHtml = asks.length ? `<details class="a-asks" data-a-day="asks"${S.aDays.has('asks') ? ' open' : ''}><summary>${icon('hourglass')}<span>${esc(plural(asks.length, 'bill needs', 'bills need'))} a hearing soon. The committee chair decides which bills get one; a short note helps.</span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></details>` : '';
+  const askHtml = asks.length ? `<div class="a-asks"><p class="a-askh">${icon('hourglass')}<span>${esc(plural(asks.length, 'bill needs', 'bills need'))} a hearing soon. The committee chair decides which bills get one; a short note helps.</span></p>
+      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></div>` : '';
   return `<section class="a-sec" aria-labelledby="a-st-h"><div class="a-sech"><h2 id="a-st-h">Where your ${esc(plural(iss.length, 'issue'))} ${iss.length === 1 ? 'stands' : 'stand'}</h2></div>
     <div class="a-stand">${body}${askHtml}<a class="a-all" href="#/bills">See all ${iss.length} in My issues${icon('chevron-right')}</a></div></section>`;
 }
@@ -341,6 +334,5 @@ export default {
     root.querySelectorAll('[data-a-skip]').forEach(el => el.onclick = () => { const k = el.dataset.aSkip; S.aSkip.add(k); app.render();
       toast(`${el.dataset.aName} moved out of the way. It’s still due, in the week below.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
     root.querySelectorAll('[data-a-unskip]').forEach(el => el.onclick = () => { S.aSkip.clear(); app.render(); });
-    root.querySelectorAll('details[data-a-day]').forEach(d => d.addEventListener('toggle', () => { d.open ? S.aDays.add(d.dataset.aDay) : S.aDays.delete(d.dataset.aDay); }));
   },
 };

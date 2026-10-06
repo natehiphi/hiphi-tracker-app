@@ -7,6 +7,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, 
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
+import { GO_HELP } from './topics.js';
 import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';
@@ -748,17 +749,17 @@ export function barStep(name, step, off) {
     case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU (wireStep)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
     case 'voice': return wiz().via && wiz().viaActed
-      ? `<div class="st-bar"><div class="st-btns">${btn('Go to my home page', { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
+      ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
       : bar2(GO_YOU, { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
     // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's
     // second version, R-135) means Next, never a "Remind me" that submits a form that is not on the page.
-    case 'soon': return endHome() ? bar1('See my home page', 'house') : bar1('Next');
+    case 'soon': return endHome() ? bar1(GO_HELP) : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
     case 'alerts': { if (!S.alertEdit && (textSaved() || mailSent())) return bar1('Next');
       const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
-    case 'done': return bar1('Go to my home page', 'house', { 'data-stdone': '1' });
+    case 'done': return bar1(GO_HELP, 'arrow-right', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
     default: return '';
   }

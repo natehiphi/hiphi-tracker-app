@@ -500,6 +500,24 @@ Reviewed whenever a destination is added.
 screen, not just its own. Rarely-used entries dilute the ones that matter and push real content down,
 which is A-1 again.
 
+### B-14 Things to do are never folded away, and the button that leads to them says so
+
+On Home, every thing a person can do this week is on the page: the soonest as a full card, the rest one line each, none
+behind "Show more", "Ready now?" or a closed fold. Folds stay for what is done ("Done this week"), for results, and for
+detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
+first visit ends on **"See How I Can Help"**, and Home opens on exactly that (C-6: the next screen keeps the button's
+promise).
+
+*Reason.* Nate, 10/6 (R-190): "on the homepage we need to not hide more actions beneath a collapsed field", after
+"Having it hidden at the bottom and collapsed at the home page is not the right move" (10/4, R-150). NN/g: content
+behind an accordion gets less attention and may be missed altogether, so a fold is for what most people can skip;
+57% of attention goes to the first screenful. A label that names a place ("Go to my home page") makes the person guess
+what they will find; one that names the outcome lets them decide (NN/g's information scent: a link must smell like
+its destination, and a broken promise costs trust). One line per thing keeps the page short (the 9/19 assessment found
+fourteen full cards made Home a 7,000px wall). Evidence **moderate** for the fold (NN/g studies), **mixed** for the exact
+words (first-person "my" won by 90% on one page and lost 25% on another, both run by the same copywriter); whether
+more people act from Home is a guess until January's counts.
+
 ---
 
 ## Part C — First visit and the email ask
@@ -721,6 +739,8 @@ finish is a guess until `first_visit_funnel` and the five testers show it; check
     person saw exactly why it is there? (P-5)
 16. **Questions pay off.** For each question the person is asked, what does the answer change on a
     later screen? Nothing, and no recorded waiver from Nate, is a defect. (C-13)
+17. **Nothing to do is folded.** On Home, is any thing a person can do behind a closed toggle? Does the button that
+    led here say what the page opens on? (B-14)
 
 ## Budgets, in one place
 

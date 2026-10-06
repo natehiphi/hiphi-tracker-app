@@ -31,12 +31,10 @@
 .hm .hm-steps b { color: var(--n900); }
 .hm .hm-stepic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
 .hm .hm-stepic .ic { width: 20px; height: 20px; }
-.hm .hm-later, .hm .hm-readybox { display: flex; flex-direction: column; gap: var(--s16); }
-.hm .hm-readybox[hidden] { display: none; }
+.hm .hm-later { display: flex; flex-direction: column; gap: var(--s16); }
 
 /* Do this now: cards, the email ask under card 1, then one line each behind "Show 12 more" */
 .hm .hm-now { display: flex; flex-direction: column; gap: var(--s16); }
-.hm .hm-more[hidden] { display: none; }
 .hm .hm-toggle { align-self: flex-start; margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)) calc(-1 * var(--s12)); }
 .hm .hm-link { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
 .hm .hm-due { color: var(--n700); }
@@ -286,6 +284,17 @@
 .hm.hm-anim .hm-art .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.2s var(--ease) both; }
 .hm .hm-rightnow { display: flex; flex-direction: column; gap: var(--s12); }
 .hm .hm-rnh { font-size: var(--t22); }
+/* Home right after the first visit: every thing to do this week, open under the hello (R-190). */
+.hm .hm-todo { display: flex; flex-direction: column; gap: var(--s12); }
+.hm .hm-todo > .hm-asks { margin-top: var(--s12); }   /* the page's own gap between its parts (A-8) */
+.hm .hm-asks-sub h3 { font-size: var(--t18); }
+.hm .hm-cutoff { display: flex; align-items: center; gap: var(--s8); margin: 0; color: var(--n700); }
+.hm .hm-cutoff .ic { width: 16px; height: 16px; color: var(--p700); flex: none; }
+/* Between sessions, Home right after the finale: the finale just drew the Capitol, so a phone goes straight to the words
+   and the one thing to do (R-190, A-1). From 900px the drawing sits beside the words and costs no height. */
+@media (max-width: 899px) { .hm.hm-lead .hm-break .hm-art { display: none; } }
+.hm .hm-todot { font-size: var(--t22); }
+.hm .hm-rnmore { font-size: var(--t18); margin-top: var(--s8); }
 .hm .hm-rnnone { margin: 0; padding: var(--s16); border-radius: var(--r16); background: var(--n50); color: var(--n700); }
 .hm-petalfx { position: fixed; inset: 56px 0 auto; height: 260px; pointer-events: none; z-index: 40; overflow: hidden; }
 .hm-petalfx .st-petals { inset: 0; height: 100%; }

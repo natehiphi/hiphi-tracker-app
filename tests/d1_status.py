@@ -125,7 +125,7 @@ def s3(p, w=390, h=844):
     btn = p.locator('.st-did li:last-child [data-alsheet]')
     ok(r.startswith('Alerts are off') and btn.count() == 1 and btn.inner_text().strip() == 'Turn on alerts' and 'in More' not in r, f'3 {w}: "Alerts are off" with its own "Turn on alerts", not also "any time in More": {r!r}')
     ok('When it’s your moment, it’s on your home page.' in text(p, '.st-next3'), f'3 {w}: no "we tell you" while alerts are off')
-    ok(p.locator('.st-did .btn.primary').count() == 0, f'3 {w}: the ending keeps one primary, "Go to my home page" (A-3)')
+    ok(p.locator('.st-did .btn.primary').count() == 0, f'3 {w}: the ending keeps one primary, "See How I Can Help" (A-3, R-190)')
     p.locator('.st-did li:last-child').scroll_into_view_if_needed(); shot(p, f'3_end_off_{w}')
     bb = btn.bounding_box(); ok(bb and bb['height'] >= (44 if w < 600 else 32), f'3 {w}: the button is a full target ({bb and round(bb["height"])}px)')
     btn.click(); p.wait_for_timeout(600)
