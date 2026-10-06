@@ -2315,7 +2315,13 @@ const SHORTCUTS = [
 // emails they opened, districts, tags, notes and follow-ups. A segment is a
 // saved filter; an action alert can be sent to one.
 // ============================================================
-const INTERESTS = [['testify', 'Would testify in person'], ['story', 'Has a story to share'], ['quote', 'May be quoted'], ['host', 'Could host or help at an event'], ['volunteer', 'Wants to volunteer']];
+// The public profile's ways to help (R-165, pub/myprofile.js HELP_GROUPS), said about the supporter; 'story' is from
+// before R-156 and 'quote' is asked beside the stories.
+const INTERESTS = [['testify', 'Would testify at a hearing'], ['call', 'Would call or email legislators'], ['letter-editor', 'Would write a letter to the editor'],
+  ['social', 'Would share posts on social media'], ['talk', 'Would talk with friends, family and coworkers'], ['group', 'Would bring it to their church, school or club'],
+  ['rally', 'Would come to rallies and Capitol days'], ['meetings', 'Would go to community meetings'], ['host', 'Could host or help at an event'],
+  ['translate', 'Could translate'], ['create', 'Could help with writing, design, photos or video'], ['volunteer', 'Wants to volunteer'], ['org', 'Could connect HIPHI with their organization'],
+  ['story', 'Has a story to share'], ['quote', 'May be quoted']];
 const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
 const islandOf = sd => sd >= 1 && sd <= 4 ? 'Hawaiʻi' : sd >= 5 && sd <= 7 ? 'Maui' : sd === 8 ? 'Kauaʻi' : sd >= 9 && sd <= 25 ? 'Oʻahu' : null;
 const personById = id => (S.people || []).find(p => p.id === id);

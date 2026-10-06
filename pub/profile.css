@@ -128,3 +128,30 @@
 .hp-dlg .hp-says .hp-out { border-style: dashed; color: var(--n700); }
 .hp-dlg .hp-says { margin: var(--s12) 0; }
 .pf .pf-quoterow p:not(.pf-k) { margin: 0; }
+
+/* Edit in place (R-165): the page is the form; a small status beside what changed. */
+.pf .pf-auto { display: flex; gap: var(--s8); align-items: center; margin: 0; }
+.pf .pf-auto .ic { width: 16px; height: 16px; color: var(--p700); flex: none; }
+.pf-sec > h2 { margin: 0; }
+.pf .pf-f { margin: 0; }
+.pf .pf-f + .pf-f, .pf .pf-st + .pf-f { margin-top: var(--s4); }
+.pf .pf-sec .field label, .pf .pf-sec legend { font-weight: 700; }
+.pf .pf-st { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin: 0; min-height: 0; font-size: var(--t14); color: var(--ok-text); }
+.pf .pf-st:empty { display: none; }
+.pf .pf-st .ic { width: 16px; height: 16px; flex: none; }
+.pf .pf-st.bad { color: var(--bad-text); }
+.pf .pf-st .btn { min-height: 44px; }
+.pf .pf-where .mr-addr { margin-top: var(--s12); }
+.pf .pf-warm { margin: 0; }
+.pf .pf-helpg { border-top: 1px solid var(--n100); padding-top: var(--s12); }
+.pf .pf-helpg legend { font-size: var(--t16); color: var(--n900); }
+.pf .pf-story-f textarea { min-height: 5.5em; }
+.pf .pf-addstory select { max-width: 100%; }
+.pf .pf-addstory select + select { margin-top: var(--s8); }
+.pf .pf-promise { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
+.pf .pf-promise .ic { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--p700); }
+.pf .pf-curdist { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; }
+.pf .pf-curdist > .ic { width: 18px; height: 18px; flex: none; margin-top: 3px; color: var(--p700); }
+.pf .pf-curdist .mr-distlines { display: flex; flex-direction: column; gap: 2px; }
+.pf .pf-where .mr-addr { margin-top: var(--s8); }
+.hp-dlg .tp .tp-add { margin-top: var(--s4); }

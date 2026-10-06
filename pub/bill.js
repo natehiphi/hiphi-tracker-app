@@ -12,7 +12,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
-import { pickTwo, aWords, needsSelf } from './titles.js';   // who is writing (R-147)
+import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing (R-147; one title by default, R-165)
 import { myName, myTitles } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
@@ -271,7 +271,7 @@ function mailFor(b, x, chairs, mode) {
   // (R-156, the review). One name and the titles from the profile (pub/myprofile.js).
   const d = myDistricts(), mine = chairs.filter(c => mineLabel(c.leg || c.l, d)), name = myName();
   const where = !mine.length ? '' : mine.length === chairs.length ? 'your district' : `${mine.map(c => c.greet || `Chair ${c.last}`).join(' and ')}’s district`;
-  const two = pickTwo(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
+  const two = pickTitle(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
   const who = name ? `My name is ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${where ? `${two.length ? ',' : ''} and I live in ${where}` : ''}. ` : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';

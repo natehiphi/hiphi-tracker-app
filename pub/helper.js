@@ -52,8 +52,8 @@ import { flower } from './art.js';
 import { introMark } from './speakup.js';
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, saveProfile } from './myprofile.js';   // R-147, R-156
-import { pickTwo, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
+import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
+import { pickTitle, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
@@ -133,18 +133,20 @@ function headBlock(b, h, stance) {
     `Hearing: ${when} at ${timeWord(h.scheduled_at)}${/^Room /.test(room) ? ', ' + room : ''}`].join('\n');
 }
 // ---------------- who is writing (R-147) ----------------
-// The two of the person's "I'm a..." titles that fit this bill best (pub/titles.js pickTwo; Nate 10/4: "Use two titles,
-// and they should be the most relevant ones for the bill if possible"), unless they chose two for this letter (x.use).
+// The person's "I'm a..." title that fits this bill best (pub/titles.js pickTitle; R-165, Nate 10/5: "The app should
+// default to one"), unless they chose their own for this letter (x.use: any number of them).
 const aboutBill = b => { const is = issuesOf(b) || [];
   return { cats: [...new Set(is.map(i => i.category).filter(Boolean))], text: [nick(b), b.hiphi_summary, b.title, b.description, ...is.map(i => i.name)].filter(Boolean).join(' ') }; };
 const titlesOf = o => cleanTitles(o.tp ? o.tp.chosen : o.titles || []);
-// The topics a letter is about (R-156 B3): the bill's issue categories; an introduction has none (its story is the one for
-// any issue). topicOf: where a story saved from this letter goes.
-const catsOf = b => b ? aboutBill(b).cats : [];
-const topicOf = x => catsOf(x.b)[0] || '';
-const topicName = k => k ? (S.cats || []).find(c => c.key === k)?.name || k : '';
-// x.use: the person's own choice for this letter; [] means no titles in this letter at all.
-const twoFor = o => { const all = titlesOf(o); if (Array.isArray(o.use)) { if (!o.use.length) return []; const use = o.use.filter(t => all.includes(t)).slice(0, 2); if (use.length) return use; } return o.b ? pickTwo(all, aboutBill(o.b)) : all.slice(0, 2); };
+// The issues a letter is about (R-165: stories by issue): the bill's issues, the ones they follow first, then (R-156's
+// stories) its categories; an introduction has none (its story is the general one). topicOf: where a story saved from
+// this letter goes, the first of its issues.
+const catsOf = b => { if (!b) return []; const is = (issuesOf(b) || []).slice().sort((p, q) => (issueFollowed(q) ? 1 : 0) - (issueFollowed(p) ? 1 : 0));
+  return [...is.map(i => i.id), ...new Set(is.map(i => i.category).filter(Boolean))]; };
+const topicOf = x => { const k = catsOf(x.b)[0] || ''; return S.issueById?.get(k) ? k : ''; };
+const topicName = storyName;
+// x.use: the person's own choice for this letter, in the order of their titles; [] means no titles in this letter.
+const twoFor = o => { const all = titlesOf(o); if (Array.isArray(o.use)) { if (!o.use.length) return []; const use = all.filter(t => o.use.includes(t)); if (use.length) return use; } return o.b ? pickTitle(all, aboutBill(o.b)) : all.slice(0, 1); };
 // Where they live, said only to their own lawmakers (Nate 10/4: most letters go to legislators who aren't theirs). In
 // testimony that means a committee one of their own sits on: "I live in Hilo, in Senator Inouye's district."
 const legWord = l => `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${surname(l.name, l.chamber)}`;
@@ -377,7 +379,7 @@ function openMail(o = {}) {
   const me = loadMe(), mineWhy = (b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : ''), saved = mineWhy ? null : storyFor(catsOf(mode === 'intro' ? null : b));
   const x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '',
     why: mineWhy || saved?.text || '', points: o.points || [], pointsText: o.pointsText ?? pointsLine(o.points || []),
-    tp: { chosen: myTitles(), q: '', more: false, student: false, active: -1 }, use: null, saveStory: false,
+    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: false,
     whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
     letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
@@ -420,7 +422,7 @@ function open(billId, hearingId) {
     // another topic is offered, never filled in.
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
     whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy,
-    tp: { chosen: myTitles(), q: '', more: false, student: false, active: -1 }, use: d?.use || null, saveStory: false,
+    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false,
     letter: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
   // the confirmation says where to finish instead of asking again.
@@ -859,11 +861,11 @@ function knowScreen() {
 // tap on the chips above only ever changes this letter (one meaning each). "Done adding" goes back to the chips.
 function titlesStep(x) {
   const all = titlesOf(x), word = isMail(x) ? 'email' : 'letter';
-  if (x.tp.adding) return pickerHTML('hp', x.tp, { hint: `Tap to add to your profile. Your ${word} uses the one or two that fit this bill.`, addOnly: true });
+  if (x.tp.adding) return pickerHTML('hp', x.tp, { hint: `Tap to add to your profile. Then pick which ones this ${word} uses.`, addOnly: true });
   const two = twoFor(x);
-  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${!all.length ? `Optional. Your ${word} can start with who you are, like “As a parent…”.` : all.length > 2 ? `Your ${word} uses the one or two that fit this bill; tap to change.` : `Tap to leave one out of this ${word}.`}</span></legend>
-    <div class="chips tp-chips">${all.map(t => `<button type="button" class="chip tp-c" data-hp="use" data-v="${esc(t)}" aria-pressed="${two.includes(t)}">${two.includes(t) ? icon('check') : ''}<span>${esc(titleLabel(t))}</span></button>`).join('')}
-      <button type="button" class="chip tp-c tp-add" data-hp="addtitle">${icon('plus')}<span>Add a title</span></button></div></fieldset>`;
+  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${!all.length ? `Optional. Your ${word} can start with who you are, like “As a parent…”.` : all.length > 1 ? `We picked the one that fits this bill. Tap to use more, or a different one.` : `Tap to leave it out of this ${word}.`}</span></legend>
+    <div class="chips tp-chips">${all.map(t => `<button type="button" class="chip tp-c" data-hp="use" data-v="${esc(t)}" aria-pressed="${two.includes(t)}">${two.includes(t) ? icon('check') : ''}<span>${esc(titleLabel(t))}</span></button>`).join('')}</div>
+    <button type="button" class="explain tp-morebtn tp-add" data-hp="addtitle">${icon('plus')}<span>Add a title</span></button></fieldset>`;   // a text button, not one of the titles (the review of R-165)
 }
 function titlesAfter(x) {
   const all = titlesOf(x); if (!all.length) return '';
@@ -912,10 +914,10 @@ function aboutScreen() {
       <div id="hp-tp-after">${titlesAfter(x)}</div>
       ${email}
       <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `${x.mode === 'intro' ? 'Why these issues matter to you' : 'Why it matters to you'} <span class="hp-opt">(optional)</span>`}</label>
-        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : esc(storyAsk(topicOf(x)))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
+        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : esc(storyAsk(!!x.b))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${whyHelp(x)}</span>
-        ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about ${topicName(x.offer.topic)}`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
-        ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile as my story${topicOf(x) ? ` about ${esc(topicName(topicOf(x)))}` : ''}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
+        ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about “${topicName(x.offer.topic)}”`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
+        ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
           <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''}</span>` : ''}</div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
@@ -926,7 +928,7 @@ function aboutScreen() {
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
 function whyHelp(x) {
   const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
-  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic ? ` about ${esc(topicName(saved.topic))}` : ''}, from your profile. Change it to fit this bill.`;
+  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, from your profile. Change it to fit this bill.`;
   return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.';
 }
 // Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it. Short and plain, the
@@ -970,7 +972,7 @@ const isMineLeg = l => { const d = myDistricts(); return !!d && !!l && ((l.chamb
 function saysBox(x) {
   if (x.remind) return '';
   const all = titlesOf(x), parts = [];
-  const usual = x.b ? pickTwo(all, aboutBill(x.b)) : all.slice(0, 2), two = twoFor(x);
+  const usual = x.b ? pickTitle(all, aboutBill(x.b)) : all.slice(0, 1), two = twoFor(x);
   if (all.length) parts.push(['titles', asWords(two.length ? two : usual), two.length > 0]);
   if (isMail(x) ? x.mode === 'email' && x.to.some(t => isMineLeg(t.leg)) : !!liveLine(x.h)) parts.push(['live', isMail(x) ? 'You live in their district' : liveLine(x.h).replace(/\.$/, ''), !x.noLive]);
   const saved = [myStory(), ...Object.values(myStories())].includes(x.why.trim());
@@ -1145,12 +1147,12 @@ function doneScreen() {
 // the topic's guiding question and their letter's reason ready in the box. Once per topic ("No thanks" is kept).
 function storyCard(x) {
   const t = topicOf(x);
-  if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about ${esc(topicName(t))}` : ''}.</span></p>`;
+  if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about “${esc(topicName(t))}”` : ''}.</span></p>`;
   if (!x.askStory) return '';
   return `<section class="card hp-storyask" aria-labelledby="hp-sa-t"><h3 id="hp-sa-t">Save a sentence on why this matters to you?</h3>
-    <div class="field"><label for="hp-sa">${esc(storyAsk(t))}</label>
+    <div class="field"><label for="hp-sa">${esc(storyAsk(!!x.b))}</label>
       <textarea id="hp-sa" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="hp-sa-h">${esc(x.storyDraft || '')}</textarea>
-      <span class="help" id="hp-sa-h">Your next ${isMail(x) ? 'email' : 'letter'}${t ? ` on ${esc(topicName(t))}` : ''} starts with it, and you can change it each time. HIPHI staff can see it.</span></div>
+      <span class="help" id="hp-sa-h">${esc(STORY_HINT)} We’ll put it in your next ${isMail(x) ? 'emails' : 'letters'}${t ? ` about “${esc(topicName(t))}”` : ''}, and you can change it each time. HIPHI staff can see it.</span></div>
     <div id="hp-sa-msg"></div>
     <div class="btnrow">${btn('Save to my profile', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'storysave' } })}${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hp': 'storyno' } })}</div></section>`;
 }
@@ -1506,10 +1508,10 @@ function onClick(e) {
   }
   else if (a === 'toprofile') { afterClose = () => app.go('#/profile'); requestClose(); }
   else if (a === 'use') {
-    // This letter's two titles (R-147): a tap never changes the profile; a third replaces the first of the two, and
-    // untapping both writes the letter without titles.
+    // This letter's titles (R-165): a tap adds or takes one off, as many as they like; untapping all writes the letter
+    // without titles. A tap never changes the profile.
     const x = S.helper, v = t.dataset.v, two = twoFor(x);
-    x.use = two.includes(v) ? two.filter(k => k !== v) : [...two, v].slice(-2);
+    x.use = two.includes(v) ? two.filter(k => k !== v) : [...two, v];
     saveDraft(); paintTitles({ step: true });
   }
   else if (a === 'next') goNext();

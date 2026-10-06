@@ -371,6 +371,31 @@ https://claude.ai/artifact/FSzXqzhDcJggJtbhkoNX1d (REQUESTS R-147).
   people_match (backend 127) so a saved segment counts the same at the send. Both staff data layers carry the filter.
 - `tests/profile.py` (31 checks, phone and laptop); `tests/alerts_ask.py` updated for More's first row.
 
+## The profile after Nate's first look (R-165; 5 Oct 2026)
+Nate 10/5 on R-156: "+Add" read wrong and didn't look like a button; the page looked editable before pressing it; opening
+and closing one box at a time was a hurdle; "Name on your letters" should be "Name"; the story words were unclear and
+the questions too specific; How you'll help cold, with only three choices; the student choice clunky; the address must
+clearly never be saved; stories by issue, not by category, followed issues first; in letters, one title by default and
+more a tap away. His answers: edit in place; all four groups of ways to help with "Something else? Tell us"; keep a
+general story. Backend migration 135.
+- **Edit in place** (`pub/profile.js`): the page is the form, with no Add, Change, Save or Cancel. The name saves on Enter or
+  when the box is left (the header follows); each title tap saves; picking an address saves its districts ("Saved your
+  districts. Your address was not kept"); a story saves after a pause in typing and when the box is left; ticks and the
+  quote choice save as they change; the email choices too. `flash()` puts "Saved" (or the error) beside what changed and
+  says it aloud; taking a title off or emptying a story says so with Undo. Nothing redraws while typing.
+- **Stories by issue** (people.stories keyed by the issue's id, backend 135; R-156's category keys still read): the general
+  story, then one box per issue story, then "Add a story about one issue", a select with the issues they follow first and
+  "Another issue…", which opens every other issue by topic. One warm question for all (`storyAsk`, `STORY_HINT`). Letters
+  use the story for one of the bill's issues (followed first), else the general one (`helper.js catsOf`, `topicOf`).
+- **How you'll help** (`myprofile.js HELP_GROUPS`): warm words, four groups (Speak up, Spread the word, Show up, Bring my
+  skills), fourteen choices, and "Something else? Tell us" (people.help_note, 200 characters). Staff see the choices in
+  both staff apps' INTERESTS and the note on the person page.
+- **Titles:** "high school student" and "college student" are shown first as plain titles; letters use one title by
+  default (`titles.js pickTitle`), and a tap adds more, as many as they like ("As a parent, teacher and coach").
+- **The address:** "We don't keep your address. We use it once to find your senator and representative, and save only
+  their district numbers." The "testimony is public" line moved to the stories.
+- Tests: `tests/profile.py` (80 checks), `tests/titles_test.mjs` (29), backend `test_135.js` (15).
+
 ## The profile after its review (R-156; 5 Oct 2026; the review: https://claude.ai/artifact/7C9NPtvH8DTVCTsQEgRkcV)
 Nate 10/5, "Do it": all twelve recommendations of the review of R-147, as recommended (C1 as "choose the next ask"; D1 is
 R-155's sign-in by text code). Backend migration 130.

@@ -299,7 +299,7 @@ export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], c
 // The profile at sign-in (R-156, the review): two pure steps, tested in tests/profile.py. pr: the account's profile
 // (S.profile's shape); me: this device's hiphi_me; dist: its hiphi_districts; uid: the account.
 // The device's profile, as kept in hiphi_me; another account's leftovers are cleared (pub/myprofile.js has the same list).
-export const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'titles', 'story', 'stories', 'quote', 'interests', 'drafts', 'mail', 'letters', 'capitolAcct'];
+export const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'titles', 'story', 'stories', 'quote', 'interests', 'helpNote', 'drafts', 'mail', 'letters', 'capitolAcct'];
 const QUOTE_KEY = /^quote(-|$)/;
 const quoteKeys = q => !q ? [] : q === 'media' ? ['quote', 'quote-media'] : q === 'name' ? ['quote', 'quote-name'] : ['quote'];
 // What a profile made on this device while signed out (no acct mark) adds to the account: only what the account lacks.
@@ -313,6 +313,7 @@ export function profileJoin(pr, me, dist, firstName = '') {
   if (!pr.story && me.story) join.story = me.story;
   if (!Object.keys(pr.stories || {}).length && me.stories && Object.keys(me.stories).length) join.stories = me.stories;
   if (!(pr.interests || []).length && (ints.length || q)) join.interests = [...ints, ...quoteKeys(q)];
+  if (!pr.help_note && me.helpNote) join.help_note = me.helpNote;   // "Something else? Tell us" (R-165, backend 135)
   if (!pr.senate_district && dist && +dist.senate && +dist.house) { join.senate = +dist.senate; join.house = +dist.house; }
   return Object.keys(join).length ? join : null;
 }
@@ -320,7 +321,7 @@ export function profileJoin(pr, me, dist, firstName = '') {
 // from this device's (the town is dropped then: it was the old address's), else null.
 export function profileOnDevice(pr, me, dist, uid) {
   const ints = pr.interests || [], q = !ints.includes('quote') ? '' : ints.includes('quote-media') ? 'media' : ints.includes('quote-name') ? 'name' : 'first';
-  const out = { ...me, acct: uid, name: pr.name || '', titles: pr.titles || [], story: pr.story || '', stories: pr.stories || {}, interests: ints.filter(k => !QUOTE_KEY.test(k)), quote: q };
+  const out = { ...me, acct: uid, name: pr.name || '', titles: pr.titles || [], story: pr.story || '', stories: pr.stories || {}, interests: ints.filter(k => !QUOTE_KEY.test(k)), quote: q, helpNote: pr.help_note || '' };
   const sd = +pr.senate_district, hd = +pr.house_district;
   return { me: out, dist: sd && hd && !(dist && +dist.senate === sd && +dist.house === hd) ? { senate: sd, house: hd, label: '' } : null };
 }
@@ -380,7 +381,7 @@ export async function loadUser() {
     if (!v2.data) throw new Error('no profile row');   // nothing to follow: the device keeps its copy (the old read below)
     const p = v2.data, uid = S.user.id;
     S.profile = { name: p.name || null, address: null, senate_district: p.senate ?? null, house_district: p.house ?? null, island: p.island || null,
-      interests: p.interests || [], titles: p.titles || [], story: p.story || null, stories: p.stories || {} };
+      interests: p.interests || [], titles: p.titles || [], story: p.story || null, stories: p.stories || {}, help_note: p.help_note || null };
     let me = {}, dist = null;
     try { me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; dist = JSON.parse(localStorage.getItem('hiphi_districts') || 'null'); } catch { /* private mode */ }
     if (me.acct && me.acct !== uid) { for (const k of PROFILE_KEYS) delete me[k]; dist = null; try { localStorage.removeItem('hiphi_districts'); } catch { /* ignore */ } }

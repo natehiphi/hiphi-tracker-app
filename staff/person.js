@@ -34,7 +34,7 @@ const QUOTE_WORDS = { first: 'HIPHI may quote it with their first name and islan
 const quoteOf = p => { const i = p.interests || []; return !i.includes('quote') ? '' : i.includes('quote-media') ? 'media' : i.includes('quote-name') ? 'name' : 'first'; };
 const storiesOf = p => [...(p.story ? [['', p.story]] : []), ...Object.entries(p.stories || {}).filter(([, t]) => t)];
 const storyHTML = p => { const all = storiesOf(p); if (!all.length) return '';
-  return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(catByKey(k)?.name || k) : 'Any topic'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
+  return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(issueById(k)?.name || catByKey(k)?.name || 'An issue') : 'For any issue'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
 const dueAt = f => new Date(f.due + 'T17:00:00-10:00');   // a follow-up is due by the end of the working day, as in Today
 const P = () => S.spPerson ??= { feedAll: {}, billsAll: {}, loading: {} };
 const FROM = { today: 'Today', search: 'Search', emails: 'Emails', lists: 'Lists', list: 'List' };
@@ -98,6 +98,7 @@ function about(p) {
       ${dd('Where', whereOf(p) ? esc(whereOf(p)) : `${none('No districts yet.')} <button type="button" class="linkbtn" data-pp="dist">Find them from an address</button>`)}
       ${dd('They are', titlesHTML(p) || none('Not said'))}
       ${storiesOf(p).length ? dd(storiesOf(p).length > 1 ? 'Their stories' : 'Their story', storyHTML(p)) : ''}
+      ${p.help_note ? dd('Other ways they’d help', `<q class="sp-story">${esc(p.help_note)}</q>`) : ''}
       ${dd('Interests', (p.interests || []).filter(k => !/^quote-/.test(k)).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}
       ${dd('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
       ${dd('Emails', p.emails_sent ? `${plural(p.emails_sent, 'email')} sent · ${p.emails_opened || 0} opened · ${p.emails_clicked || 0} clicked` : none('None sent yet'))}
@@ -187,6 +188,7 @@ function sidePanel(p) {
       <dl class="sp-sdl">${kv('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
         ${kv('They are', titlesHTML(p) || none('Not said'))}
         ${storiesOf(p).length ? kv(storiesOf(p).length > 1 ? 'Their stories' : 'Their story', storyHTML(p)) : ''}
+        ${p.help_note ? kv('Other ways they’d help', `<q class="sp-story">${esc(p.help_note)}</q>`) : ''}
         ${kv('Interests', (p.interests || []).filter(k => !/^quote-/.test(k)).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-consent"><h2 id="sp-h-consent">What they can be sent</h2>
