@@ -123,7 +123,7 @@ with sync_playwright() as p:
         u = urls(pg)
         n = pg.evaluate("() => (window.__abN = document.querySelectorAll('[data-rmpick]').length)")
         ok(all('demo=1' not in x and '?ab=' in x for x in u), f'{tag}: live links leave the practice copy')
-        ok(all(len(x.split('?ab=')[1].split(',')) == 8 for x in u), f'{tag}: each live link names all eight tests: {u[0]}')
+        ok(all(len(x.split('?ab=')[1].split(',')) == 9 for x in u), f'{tag}: each live link names all nine tests (with R-184\'s save): {u[0]}')
         ok('testers’ links' in pg.locator('.rm-foot').inner_text(), f'{tag}: the page says where live visits are listed')
         pg.locator('[data-seg="rmwhere"][data-val="demo"]').click(); pg.wait_for_timeout(500)
 
