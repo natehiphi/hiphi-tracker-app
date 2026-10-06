@@ -76,6 +76,8 @@
 .hp-dlg .hp-goask p { margin: 0; }
 .hp-dlg .hp-next .godir { margin-top: var(--s4); }
 .hp-dlg .hp-watch { align-self: flex-start; margin-left: -12px; }
+/* "Stop following <issue>" under the sentence that says it is followed, on the text edge (X10-4; X9-1, A-8) */
+.hp-dlg .hp-next .hp-unf { align-self: flex-start; margin: calc(-1 * var(--s8)) 0 0 -16px; justify-content: flex-start; text-align: left; }
 .hp-dlg .hp-watch .ic-external-link { width: 16px; height: 16px; }
 /* "check your inbox": shown instead of the email ask when the person gave their email on screen 1 */
 .hp-dlg .hp-inbox { display: flex; gap: var(--s12); align-items: flex-start; }

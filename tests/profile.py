@@ -48,7 +48,7 @@ with sync_playwright() as p:
     # 1. No profile: More invites; the invitation is the R-146 box; a number makes the profile
     pg.goto(BASE + '#/more'); ready(pg)
     me = pg.locator('#main > .mr > a.mr-me, #main a.mr-me').first
-    ok(me.count() == 1 and 'Make your profile' in me.inner_text() and me.get_attribute('href') == '#/profile', 'More: the first row invites "Make your profile"')
+    ok(me.count() == 1 and 'Get alerts and make your profile' in me.inner_text() and me.get_attribute('href') == '#/profile', 'More: the first row invites "Get alerts and make your profile" (named for the alerts people are sent there for, X10-4)')
     ok(pg.locator('.mr-me-in a[href="#/signin"]').count() == 1, 'and someone returning on a new phone can sign in from there')
     ok(pg.locator('#main a.row[href="#/settings"], #main [data-mr-signout]').count() == 0, 'More: no Settings or Sign out rows (they moved to the profile)')
     shot(pg, '1_more_invite')

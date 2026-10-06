@@ -1176,8 +1176,8 @@ function doneScreen() {
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
+      ${unfollowBtn(x)}
       ${held ? '' : goingLine(x)}
-      ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
     ${ask}`;
@@ -1222,6 +1222,9 @@ function afterSend(x) {
   if (two.length && L.includes(aWords(two))) app.onAct?.('letter_titled');
   if ([myStory(), ...Object.values(myStories())].filter(Boolean).some(st => L.includes(st))) app.onAct?.('letter_story');
 }
+// The undo for the follow that sending did, right under the sentence that says it (X10-4, R-180): "Don't follow it" sat
+// under "I plan to go" and read as not going to the hearing. It names the issue, which is what is followed (R-018).
+const unfollowBtn = x => x.followedIssue ? btn(`Stop following ${esc(x.followedIssue.name)}`, { kind: 'text', sm: true, cls: 'hp-inl hp-unf', attrs: { 'data-hp': 'unfollow' } }) : '';
 const followWords = (x, n) => x.followedIssue ? `We now follow “${esc(x.followedIssue.name)}” for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
 // Someone who gave their email on the About you step has been asked already: they see where to finish, never a second
 // ask. Everyone else who is signed out gets the one email ask (plan 2.9), with its ids renamed so they never clash
@@ -1262,7 +1265,7 @@ function mailDoneScreen() {
     </div>
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
-      ${x.followedIssue ? btn('Don’t follow it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'unfollow' } }) : ''}
+      ${unfollowBtn(x)}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
     ${emailAsk(x)}`;

@@ -243,7 +243,8 @@ with sync_playwright() as pw:
             ok('That’s how bills move: committees hear from the people who write.' in mo, 'a bill on no issue: "That’s how bills move: committees hear from the people who write."')
             std(p, 'link_mahalo'); shot(p, 'p_link_mahalo')
         else:
-            ok('We’ll follow' in mo and 'Don’t follow it' in mo, 'a bill on an issue: the "Mahalo!" follows the issue, with "Don’t follow it"')
+            ok('We’ll follow' in mo and 'Stop following Pilot to keep homes for local residents' in mo and 'Don’t follow it' not in mo, 'a bill on an issue: the "Mahalo!" follows the issue, with "Stop following <the issue>" (X10-4)')
+            ok(p.locator('#fx-mgo').inner_text().strip() == 'Go to my home page', f'its button says where it goes: Home (X10-2) ({p.locator("#fx-mgo").inner_text()!r})')
     c.close()
     # ---- 1c. the short version (?fv=short) keeps its one page and offers the story; the lessons open on their own (R-062) ----
     c, p = ctx(b); fresh(p, '&fv=short'); p.goto(BASE + '?demo=1&fv=short#/start/1'); p.reload(); p.wait_for_timeout(3000)

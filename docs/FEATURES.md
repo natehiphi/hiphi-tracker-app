@@ -98,7 +98,8 @@ versions the same day: Home's "Your issues" rows open their issue; the sandbox r
 again on Home); the welcome-back email ask is not shown after a link was sent; the story's last stage names a real
 hearing instead of "Nothing to do now"; a tour is no longer blocked by fx.js's hidden celebration element (the bill tour
 never started after the first visit's celebrations). `tests/home_end.py`.
-**Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (`pub/tour.js`, mounted
+**Two more teaching places (9/29):** the first bill page anyone opens gets a three-tip tour, once (since X10-4, only someone
+nobody has shown around; others get a "Take the tour" line, wave 1 below) (`pub/tour.js`, mounted
 from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
 50 ready-made conversations (R-075: tap a question, a short answer with a small drawing, the next question; no typing
@@ -157,8 +158,8 @@ who cares about <issue>? Send it" (`shareLine`/`wireShareLine` in start.js, also
 share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in place of `via=share` (W1). A newcomer on
 a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
 on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
-Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting the "voice" step offers
-"Go to my home page" beside "Show me how it works (2 min)". Tests: `tests/share_links.py` (24 checks, with Staff v2's
+Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting Done goes to Home (X10-2,
+wave 1 below; it went on to the "voice" step's "Go to my home page" or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
 hearing back link and the Help words from R-112).
 
 **A shared link leads with its ask and opens it (R-169, 10/5).** Nate: "Card wording should lead with the action that is
@@ -663,3 +664,23 @@ first visit. All five are working versions in the same frame as today's first vi
 - **Text alerts terms** (`text-terms.html`): what you get, how often, cost, how to stop, help, your number and delivery, the
   page carriers ask for before texts can be registered; linked beside Privacy in the alerts box when it asks for a number.
   Drafts for the lawyer (backend `docs/TEXT-MESSAGES.md`).
+- **After a first action, the visit ends on the success (X10-2).** A newcomer from a shared link who sends testimony (or the
+  quick email) and taps Done goes to Home (`homeAfterAct` in `pub/bill.js`, from `app.newcomerNext` and
+  `app.newcomerActed`), not into the story, the address and the finale: the first visit counts as finished (`wiz().done`,
+  `viaHome`; counted as 'act' done and 'done' done), and Home keeps its calm first-visit shape for the visit. **Home leads
+  with what they did** until the committee decides (`loopCard` in `pub/home.js`, for everyone, in every in-session Home):
+  "You sent testimony on <bill>" (or "You emailed the chair about"), the number, "The committee hears it Fri at 9:30 AM"
+  ("today" on the day), and the video (`streamOf`); after the hearing, "We'll show what they decide here", for three days.
+  It reads only this browser's marks (`myActions`); a hearing with its own card on the page (a plan to go, a card done in
+  place) is left to it, and "Since you were here", "What's new" and "What happened after you acted" leave its bill out
+  (`S.hmLoopB`). Someone who came straight from a link is offered the story in one quiet line under it ("New to this? See
+  how a bill becomes law", `#/learn/story/<id>`; gone once opened, `viaLearned`), and the story's last page tells someone
+  who already spoke at that hearing "You already sent your note" instead of "We'll show you how" (`lessons.js`). The
+  issue rows after the first visit say "Today" on a hearing's day, not the weekday (`yourIssues`). `tests/x10_close_loop.py`.
+- **Clear the way for someone who came to act (X10-4).** The bill tour starts by itself only for someone nobody has shown
+  around (`billTourHeld` in `pub/core.js`: not after a finished first visit, not for anyone whose first visit began on a
+  link, not on a bill opened from Home to act, `data-hm-act` setting `S.toAct`); they get "New to this? Take the tour" under
+  the bill's name (`tourOffer` in bill.js, `app.billTour`, `startBill` in `pub/tour.js`), gone once the tips are seen. The
+  walkthrough's "Don't follow it" is "Stop following <the issue>", right under the sentence that says it is followed, and
+  the link newcomer's moment says the same with "Go to my home page". More's first row without a profile is "Get alerts
+  and make your profile". The finale's "Alerts are off" row and Home's main button are separate items (R-150).

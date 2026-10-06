@@ -153,7 +153,7 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&codes=0&restart#/more'); p.wait_for_timeout(2500)
     # R-147 (10/4): More's first row is the person; without a number or email it invites them to make a profile with the same box.
-    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Make your profile').count() == 1, 'More: "Make your profile" is the first row (R-147)')
+    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Get alerts and make your profile').count() == 1, 'More: "Get alerts and make your profile" is the first row (R-147, X10-4)')
     p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_timeout(1500)
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('a.al-swap[href="#/signin"]').count() == 1, 'the page: the phone box, email to the sign-in page')

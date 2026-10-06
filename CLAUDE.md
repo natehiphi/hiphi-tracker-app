@@ -138,7 +138,8 @@ session is dark (until January 2027).
   Capitol page, and on return "Yes, I saw it" / "Something went wrong". The letter follows the person's stance
   (`sameAsHiphi`); HIPHI's wording and ask only when they agree. A saved draft shows as "Finish sending your
   testimony" (`testimonyDraft` in core.js) and a card on Home; it counts as having been here. Sending follows the
-  bill's issue with "Don't follow it"; a newcomer from a link goes on to the first visit (`app.newcomerNext`).
+  bill's issue with "Stop following <issue>"; a newcomer from a link ends at Home, which leads with what they did
+  (`app.newcomerNext`, X10-2).
 - **The first visit's short version** (R-067 #11): the A/B test `fv` since R-135 (coin toss; `?fv=short` and `?fv=full`
   still force one) replaces the lesson with one page, "Your voice counts here" (`stepVoice`, counted as step 'voice',
   backend 080). The lessons also open on their own at
@@ -430,6 +431,7 @@ node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 par
 python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks
 node tests/titles_test.mjs          # the "I'm a..." list and the two-titles rules (R-147, pub/titles.js); 23 checks, no server needed
 python3 tests/going.py              # going to a hearing in person (R-142): "I plan to go", How to get there, Home's plan, the calendar file, the walkthrough's last page, a cancelled hearing, Help; 100 checks
+python3 tests/x10_close_loop.py      # after a first action from a shared link, Done goes Home, which leads with what they did and says "today" on the day; the bill tour waits to be asked for; "Stop following <issue>"; More's alerts row (X10-2, X10-4); 68 checks
 ```
 Each takes the page to test as its first argument, so the published site works too (for example
 `python3 tests/moments.py https://natehiphi.github.io/hiphi-tracker-app/`).
