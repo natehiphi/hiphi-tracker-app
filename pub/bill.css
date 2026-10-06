@@ -227,7 +227,7 @@
 .bl-page .bl-more > summary { min-height: 56px; color: var(--n900); justify-content: space-between; }
 .bl-page .bl-more > summary:hover { background: var(--n50); }
 .bl-page .bl-more > summary .bl-chev { color: var(--n500); }
-.bl-page .bl-more dl { margin: 0; padding: var(--s4) 0 0; border-top: 1px solid var(--n100); }
+.bl-page .bl-more dl { margin: 0; padding: var(--s4) 0 var(--s8); border-top: 1px solid var(--n100); }
 .bl-page .bl-kv { padding: var(--s12) 0; }
 .bl-page .bl-kv + .bl-kv { border-top: 1px solid var(--n100); }
 .bl-page .bl-kv dt { font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 4px; }
@@ -236,7 +236,6 @@
 /* the companion bill link sits in a short line of its own, so give it a full-size target */
 .bl-page .bl-kv dd a[href^="#/bill/"] { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 .bl-page .bl-date { display: block; margin-top: var(--s4); color: var(--n500); }
-.bl-page .bl-cap { margin: 0 0 var(--s8) -12px; }
 
 /* ---- empty and error ---- */
 .bl-page .bl-empty { padding-top: var(--s48); }
@@ -361,6 +360,13 @@
 .bl-page.bl-wide .bl-cols > .bl-side { grid-column: 2; grid-row: 1 / span 2; }
 .bl-page.bl-wide .bl-cols > .bl-main2 { grid-column: 1; grid-row: 2; }
 .bl-page.bl-wide .bl-cols > .bl-main2 > :first-child { margin-top: var(--s16); }
+
+/* ---- "Read more about the bill" (R-178): a fold under the bill's summary, the page's own disclosure look (48px row,
+   turning chevron) with a book beside its words; what it opens is styled in base.css (.ab), shared with the letter ---- */
+.bl-page .bl-about > summary > .ic:first-child { width: 20px; height: 20px; flex: none; }
+.bl-page .bl-about[open] > summary { margin-bottom: var(--s4); }
+/* Open, it can run 900px on a phone: a quiet rule down its left shows where it starts and ends without another card (A-8). */
+.bl-page .bl-about .ab { border-left: 2px solid var(--n200); padding-left: var(--s16); }
 
 /* ---- how it has changed (R-060): the latest draft's note, then the earlier ones folded ---- */
 .bl-page .bl-drafts .bl-drlast { margin: 0; }
