@@ -215,7 +215,13 @@ export const TEMPLATE_KINDS = [['hearing_alert', 'Hearing alert (per bill)'], ['
   ['reminder_morning', 'Reminder: morning of deadline'], ['reminder_before', 'Reminder: hours before'],
   ['reminder_after', 'Reminder: deadline passed'], ['daily_head', 'Daily list heading'], ['daily_empty', 'Daily list, nothing due']];
 export const TOKENS = '{{bill}} {{title}} {{position}} {{priority}} {{owner}} {{committee}} {{hearing}} {{room}} {{deadline}} {{deadline_time}} {{hours}} {{status}} {{draft}} {{tracker}} {{pdf}} {{days}} {{date}}';
-export const INTERESTS = [['testify', 'Would testify in person'], ['story', 'Has a story to share'], ['quote', 'May be quoted'], ['host', 'Could host or help at an event'], ['volunteer', 'Wants to volunteer']];
+// The public profile's ways to help (R-165, pub/myprofile.js HELP_GROUPS), said about the supporter; 'story' is from
+// before R-156 and 'quote' is asked beside the stories.
+export const INTERESTS = [['testify', 'Would testify at a hearing'], ['call', 'Would call or email legislators'], ['letter-editor', 'Would write a letter to the editor'],
+  ['social', 'Would share posts on social media'], ['talk', 'Would talk with friends, family and coworkers'], ['group', 'Would bring it to their church, school or club'],
+  ['rally', 'Would come to rallies and Capitol days'], ['meetings', 'Would go to community meetings'], ['host', 'Could host or help at an event'],
+  ['translate', 'Could translate'], ['create', 'Could help with writing, design, photos or video'], ['volunteer', 'Wants to volunteer'], ['org', 'Could connect HIPHI with their organization'],
+  ['story', 'Has a story to share'], ['quote', 'May be quoted']];
 export const ISLANDS = ['Oʻahu', 'Maui', 'Hawaiʻi', 'Kauaʻi'];
 // A supporter signed in with a number only has no email (backend 128, R-155): '' or null, never shown, never a name.
 export const personName = p => p.name || (p.email || '').split('@')[0] || 'No name yet';

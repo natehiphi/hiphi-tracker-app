@@ -3,6 +3,8 @@
 # position moved, or a point used changed); and Staff v2's tick on a draft note, Claude's suggestion of it, and the to-do.
 # In the sandbox (frozen 16 March 2026): HB 2121 was heard in House Health on 18 Feb (House draft 1) and comes to Senate
 # Health and Commerce on 20 Mar (House draft 2, ticked in demo/drafts.json). ?letter plants the 18 Feb letter.
+# R-167 (Nate 10/5): it begins with "Where do you stand?", the letter's answer chosen; another answer there is checked
+# against the letter (amber) and the letter is written again for it.
 #   python3 tests/again.py [base]     base defaults to http://localhost:8832
 import sys, json
 from playwright.sync_api import sync_playwright
@@ -20,9 +22,17 @@ def plant(**kw):
     L.update(kw)
     me = { 'name': 'Test Person', 'capitolAcct': True, 'letters': { HB2121: L } }
     return f"() => {{ try {{ localStorage.setItem('hiphi_me_demo', {json.dumps(json.dumps(me))}); }} catch {{}} }}"
-def open_again(pg, url='/track.html?demo=1#/bill/HB2121'):
+def open_again(pg, url='/track.html?demo=1#/bill/HB2121', stand=True):
     pg.goto(BASE + url); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(1500)
     pg.locator('[data-bl-go="testify"]').first.click(); pg.wait_for_selector('#hp-dlg .hp-body', timeout=10000); pg.wait_for_timeout(700)
+    if stand: past_stand(pg)
+def past_stand(pg):
+    # R-167: a letter sent again begins with "Where do you stand?", the answer chosen and where it came from; Next goes on
+    sub = pg.locator('#hp-dlg .hp-standsub').inner_text() if pg.locator('#hp-dlg .hp-standsub').count() else ''
+    chosen = pg.locator('#hp-dlg [data-hp="stance"][data-v="support"]').get_attribute('aria-pressed') if pg.locator('#hp-dlg [data-hp="stance"]').count() else ''
+    ok('Where do you stand' in body(pg) and chosen == 'true' and ('Your letter of Feb 18 said you support it.' in sub or 'You marked Support on the bill page.' in sub),
+       f'{tag}: it begins with "Where do you stand?", "I support it" chosen and where that came from ({sub[:48]!r})')
+    pg.click('#hp-dlg .hp-foot [data-hp="next"]'); pg.wait_for_timeout(700)
 def body(pg): return pg.locator('#hp-dlg .hp-body').inner_text()
 def foot(pg): return pg.locator('#hp-dlg .hp-foot').inner_text()
 def stored(pg): return pg.evaluate("() => (JSON.parse(localStorage.getItem('hiphi_me') || '{}').letters || {})")
@@ -45,11 +55,12 @@ with sync_playwright() as p:
         pg.goto(BASE + '/track.html?demo=1&letter=1#/bill/HB2121'); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(1500)
         ok('Send my letter again' in pg.locator('[data-bl-go="testify"]').first.inner_text(), f'{tag}: the bill page offers "Send my letter again"')
         pg.locator('[data-bl-go="testify"]').first.click(); pg.wait_for_selector('#hp-dlg .hp-body'); pg.wait_for_timeout(800)
+        past_stand(pg)
         t = body(pg)
         ok('Your letter needs a check' in t and 'Your letter is ready' not in t and 'Feb 18' in t and 'Fri, Mar 20' in t, f'{tag}: amber: "Your letter needs a check", when they wrote and the next hearing')
         ok('What changed' in t and 'House draft 2' in t and 'HIPHI’s advice' in t, f'{tag}: the ticked draft turns it amber, with what changed and HIPHI’s advice')
         ok('Testimony due Wed, Mar 18 at 9:30 AM' in t, f'{tag}: the deadline carries its date, so two weekdays are never side by side')
-        ok('Part 1 of 3' in pg.locator('#hp-dlg .hp-count').inner_text(), f'{tag}: three parts: ready, the letter, the Capitol (no account step)')
+        ok('Part 2 of 4' in pg.locator('#hp-dlg .hp-count').inner_text(), f'{tag}: four parts: where you stand, ready, the letter, the Capitol (no account step)')
         f = foot(pg)
         ok('Check my letter' in f and 'Start a new letter' in f and 'Use my letter' not in f, f'{tag}: amber: "Check my letter" leads, "Start a new letter" beside it')
         ok(pg.locator('#hp-again-warn [data-hp="again-update"]').count() == 1, f'{tag}: going over the bill again is a link in the box')
@@ -58,7 +69,7 @@ with sync_playwright() as p:
         ok('Senate Health and Human Services Committee' in letter and 'Fri, Mar 20, 2026' in letter and 'Dear Chair San Buenaventura' in letter, f'{tag}: the letter is addressed to the new committee, chairs and date')
         ok('Before you send, check your letter' in body(pg), f'{tag}: the letter screen repeats the warning above the letter')
         pg.click('[data-hp="back"]'); pg.wait_for_timeout(400)
-        ok('Your letter needs a check' in body(pg), f'{tag}: Back returns to the first screen')
+        ok('Your letter needs a check' in body(pg), f'{tag}: Back returns to the letter-ready screen')
         pg.click('[data-hp="again-update"]'); pg.wait_for_timeout(500)
         t = body(pg)
         ok('Update your letter' in t and 'HIPHI’s advice' in t, f'{tag}: going over it again walks the bill step with HIPHI’s advice at the top')
@@ -82,6 +93,20 @@ with sync_playwright() as p:
         c, pg, errs = ctx_for(plant(draft='HD2'), route=no_tick); open_again(pg)
         ok('hasn’t changed since you wrote this' in body(pg), f'{tag}: the same draft says the bill hasn’t changed')
         c.close()
+
+        # ---- R-167: another answer on "Where do you stand?" is checked against the letter, and the letter follows it ----
+        c, pg, errs = ctx_for(plant(draft='HD2'), route=no_tick); open_again(pg, stand=False)
+        pg.click('#hp-dlg [data-hp="stance"][data-v="oppose"]'); pg.wait_for_timeout(900)
+        t = body(pg)
+        ok('Your letter needs a check' in t and 'You now oppose this bill. Your letter supports it.' in t, f'{tag}: "I oppose it" before a letter that supports it: amber, saying so')
+        pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(500)
+        letter = pg.locator('#hp-letter').input_value()
+        ok('OPPOSITION' in letter and 'I oppose HB 2121' in letter and 'I strongly support' not in letter, f'{tag}: and the letter is written again for "I oppose it"')
+        pg.click('[data-hp="back"]'); pg.wait_for_timeout(400); pg.click('[data-hp="back"]'); pg.wait_for_timeout(400)
+        ok('Where do you stand' in body(pg) and pg.locator('#hp-dlg [data-hp="stance"][data-v="oppose"]').get_attribute('aria-pressed') == 'true', f'{tag}: Back twice returns to "Where do you stand?", "I oppose it" chosen')
+        pg.click('#hp-dlg [data-hp="stance"][data-v="support"]'); pg.wait_for_timeout(900)
+        ok('hasn’t changed since you wrote this' in body(pg) and 'Your letter is ready' in body(pg), f'{tag}: back to "I support it", the letter is ready again')
+        ok(not errs, f'{tag}: no page errors (a new answer) ' + '; '.join(errs[:2])); c.close()
 
         # ---- HIPHI's position moved since a letter in HIPHI's words: amber ----
         c, pg, errs = ctx_for(plant(draft='HD2', pos='support_amend'), route=no_tick); open_again(pg)

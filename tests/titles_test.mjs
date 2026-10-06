@@ -1,27 +1,28 @@
-// "I'm a..." (R-147): the agreed list and the rules that pick a letter's two titles (pub/titles.js). No server needed.
+// "I'm a..." (R-147): the agreed list and the rule that picks a letter's title (pub/titles.js). No server needed.
 //   node tests/titles_test.mjs
 import * as T from '../pub/titles.js';
 let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); c ? pass++ : fail++; };
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// The agreed list (Nate 10/4: "Yes to the list"): eight shown first, the rest in five groups, every key unique.
-ok(eq(T.FIRST.map(t => t.k), ['parent', 'kupuna', 'student', 'teacher', 'nurse', 'doctor', 'business', 'volunteer']), 'the eight shown first, in the agreed order');
+// The agreed list (Nate 10/4: "Yes to the list"): shown first, the rest in five groups, every key unique. Since R-165 the
+// two kinds of student are shown first as plain titles (the "student" choice that opened two more was clunky).
+ok(eq(T.FIRST.map(t => t.k), ['parent', 'kupuna', 'student-hs', 'student-college', 'teacher', 'nurse', 'doctor', 'business', 'volunteer']), 'the nine shown first, both kinds of student among them');
 ok(new Set(T.TITLES.map(t => t.k)).size === T.TITLES.length, 'every key is unique');
 ok(T.GROUPS.map(([g]) => g).join() === 'family,health,school,work,community' && T.GROUPS.every(([g]) => T.inGroup(g).length > 0), 'five groups behind "More titles", none empty');
+ok(!T.GROUPS.some(([g]) => T.inGroup(g).some(t => /^student/.test(t.k))), 'the students are not listed twice');
 ok(T.TITLES.filter(t => t.self).map(t => t.k).sort().join() === 'board,faith,nonprofit,public-health', '"writing for myself" after the four agreed titles only');
 ok(!T.TITLES.some(t => /(race|religio|immigra|disab|health condition|snap|recovery)/i.test(t.say)), 'nothing sensitive about the writer goes in a letter (left to their own words)');
 ok(T.TITLES.every(t => t.pick || /^[a-zʻ]/.test(t.say)), 'every title reads in "As a ___" (a plain lowercase noun)');
 
-// Picking two that fit the bill (Nate 10/4: "the most relevant ones for the bill if possible").
+// One title by default, the one that fits the bill best (R-165, Nate 10/5: "The app should default to one").
 const mine = ['bus-rider', 'parent', 'nurse', 'teacher'];
-ok(eq(T.pickTwo(mine, { cats: ['food'], text: 'Free school meals for every student' }), ['parent', 'teacher']), 'school meals: parent and teacher');
-ok(eq(T.pickTwo(mine, { cats: ['around'], text: 'Free bus rides for kids' }), ['bus-rider', 'parent']), 'free bus rides for kids: bus rider and parent');
-ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban' }), ['nurse']), 'an e-cigarette ban: nurse alone (a parent only shares the topic; R-156 the review)');
-ok(eq(T.pickTwo(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban for kids' }), ['parent', 'nurse']), 'an e-cigarette ban for kids: parent and nurse (both named by the bill)');
-ok(eq(T.pickTwo(['volunteer', 'organizer', 'renter'], { cats: ['climate'], text: 'Ban the pesticide Telone' }), ['volunteer']), 'nothing fits: their first title alone (R-156)');
-ok(eq(T.pickTwo(['teacher', 'nurse'], { cats: ['food'], text: 'school meals' }), ['teacher']), 'a second title that only shares the topic is left out (R-156)');
-ok(eq(T.pickTwo(['parent', 'own:youth soccer coach', 'renter'], { cats: ['tobacco'], text: 'Youth substance misuse prevention funds' }), ['parent', 'own:youth soccer coach']), 'their own words count when a word of theirs is in the bill');
-ok(eq(T.pickTwo(['teacher', 'parent'], {}), ['teacher']), 'nothing known about the bill: their first title');
+ok(eq(T.pickTitle(mine, { cats: ['food'], text: 'Free school meals for every student' }), ['parent']), 'school meals: parent');
+ok(eq(T.pickTitle(mine, { cats: ['around'], text: 'Free bus rides for kids' }), ['bus-rider']), 'free bus rides for kids: bus rider (named and on the topic)');
+ok(eq(T.pickTitle(mine, { cats: ['tobacco'], text: 'Disposable e-cigarette ban' }), ['nurse']), 'an e-cigarette ban: nurse');
+ok(eq(T.pickTitle(['volunteer', 'organizer', 'renter'], { cats: ['climate'], text: 'Ban the pesticide Telone' }), ['volunteer']), 'nothing fits: their first title');
+ok(eq(T.pickTitle(['renter', 'own:youth soccer coach'], { cats: ['tobacco'], text: 'Youth substance misuse prevention funds' }), ['own:youth soccer coach']), 'their own words count when a word of theirs is in the bill');
+ok(eq(T.pickTitle(['teacher', 'parent'], {}), ['teacher']), 'nothing known about the bill: their first title');
+ok(eq(T.pickTitle([], { text: 'x' }), []), 'no titles: none');
 
 // The letter's words.
 ok(T.withTitles(['parent', 'teacher'], 'I support HB 1523.') === 'As a parent and teacher, I support HB 1523.', 'As a parent and teacher, I support...');
@@ -29,6 +30,7 @@ ok(T.withTitles(['kupuna', 'faith'], 'I strongly oppose SB 2.') === 'As a kupuna
 ok(T.withTitles(['own:EMT'], 'I oppose SB 1.') === 'As an EMT, I oppose SB 1.' && T.withTitles(['own:UH professor'], 'I oppose SB 1.') === 'As a UH professor, I oppose SB 1.', 'a or an by sound for abbreviations');
 ok(T.withTitles([], 'I support HB 1.') === 'I support HB 1.', 'no titles: the sentence as it was');
 ok(T.aWords(['nurse', 'board']) === 'a nurse and neighborhood board member', '"a nurse and neighborhood board member" for the introduction');
+ok(T.withTitles(['parent', 'teacher', 'coach'], 'I support HB 1.') === 'As a parent, teacher and coach or youth leader, I support HB 1.', 'three or more read as a list (R-165: as many as they like)');
 
 // Typing: suggestions, own words, cleaning.
 ok(eq(T.findTitles('coa').map(t => t.k), ['coach']), '"coa" finds coach or youth leader');

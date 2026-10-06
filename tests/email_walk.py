@@ -6,7 +6,7 @@
 #      action counted exactly as before (<bill>|<hearing>|email)
 #   2. asking the chairs for a hearing from the bill page (no hearing): the walkthrough, not a bare mailto; counted on the
 #      bill with the committee's ask mark
-#   3. late testimony's "Email the chair instead" opens the email walkthrough with the stance carried over
+#   3. late testimony stays testimony: the late notice, and no "Email the chair instead" (R-167, Nate 10/5)
 #   4-6. your own legislator: a row at a hearing on their committee; Home's card for a bill waiting in their committee;
 #      a floor vote on the bill page
 #   7. the introduction card: offered once, "No thanks" is forever, and sent is forever
@@ -177,15 +177,15 @@ with sync_playwright() as pw:
         check(not p.errs, f'who decides ({wide}): no page errors {p.errs}')
         c.close()
 
-    # ---- 3. late testimony: "Email the chair instead" ----
+    # ---- 3. late testimony stays testimony (R-167, Nate 10/5: "We shouldn't have late testimony hand over to an email") ----
     c, p = ctx(br, False); follower(p); visit(p, '/bill/HB1562')
     tap(p, 'Send late testimony', '.btn'); p.wait_for_timeout(900)
-    if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
-    check('Email the chair instead' in dlg(p), 'late: the testimony walkthrough offers "Email the chair instead"')
+    check('Where do you stand' in dlg(p), 'late: the testimony walkthrough begins with "Where do you stand?"')
+    tap(p, '^I support it'); p.wait_for_timeout(500)
+    d = dlg(p)
+    check('Testimony on HB 1562' in d and 'You can still send it. It will be marked late' in d, 'late: the late notice says it can still be sent, marked late')
+    check('Email the chair instead' not in d and 'quickest way to be heard' not in d and p.locator('#hp-dlg [data-hp="email"]').count() == 0, 'late: no "Email the chair instead", and no line steering to an email')
     shot(p, 'late_1_banner')
-    tap(p, 'Email the chair instead'); p.wait_for_timeout(1800)
-    check('Email about HB 1562' in dlg(p) and 'Get to know the bill' in dlg(p), f'late: the email walkthrough opens on the same bill, stance carried over ({dlg(p)[:60]!r})')
-    shot(p, 'late_2_email')
     check(not p.errs, f'late: no page errors {p.errs}')
     c.close()
 

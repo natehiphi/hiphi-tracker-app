@@ -12,7 +12,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
-import { pickTwo, aWords, needsSelf } from './titles.js';   // who is writing (R-147)
+import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing (R-147; one title by default, R-165)
 import { myName, myTitles } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
@@ -273,7 +273,7 @@ function mailFor(b, x, chairs, mode) {
   // (R-156, the review). One name and the titles from the profile (pub/myprofile.js).
   const d = myDistricts(), mine = chairs.filter(c => mineLabel(c.leg || c.l, d)), name = myName();
   const where = !mine.length ? '' : mine.length === chairs.length ? 'your district' : `${mine.map(c => c.greet || `Chair ${c.last}`).join(' and ')}’s district`;
-  const two = pickTwo(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
+  const two = pickTitle(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
   const who = name ? `My name is ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${where ? `${two.length ? ',' : ''} and I live in ${where}` : ''}. ` : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';
@@ -752,7 +752,7 @@ function whoDecides(b, x) {
   const c1 = plural ? 'chairs' : 'chair', from = `?from=${encodeURIComponent(billRef(b))}`;
   const hold = (x.kind === 'hold' || (x.waiting && x.pos && /oppose/.test(x.pos.verb))) && !x.differs;
   const intro = x.act ? (didKind(b, x.act.h, 'testimony') ? `Mahalo for your testimony. A short email to the ${c1} adds even more weight.`
-      : x.act.late ? `The deadline for written testimony has passed. A short email to the ${c1} is the quickest way to be heard now.`
+      : x.act.late ? 'The deadline for written testimony has passed. You can still send it; it will be marked late.'   // late testimony stays testimony (R-167)
       : x.kind === 'email' ? `The hearing is set. A short email to the ${c1} is a quick way to be heard. Testimony carries the most weight.`
       : 'The hearing is set. The best thing you can do now is send testimony.')
     : x.st.hearingState === 'held' ? `The committee heard it. The ${c1} will share what happens next.`

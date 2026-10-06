@@ -19,9 +19,9 @@
 export const TITLES = [
   { k: 'parent', label: 'parent', say: 'parent', first: true, group: 'family', topics: ['food', 'tobacco', 'around', 'family', 'care'], words: /\b(school|keiki|kids?|child(ren)?|youth|teens?|bab(y|ies)|famil(y|ies)|parent|minor)/i },
   { k: 'kupuna', label: 'kupuna (older adult)', say: 'kupuna', first: true, group: 'family', topics: ['care', 'family', 'food', 'around'], words: /(kupuna|kūpuna|older adult|senior|elder|aging|medicare|caregiver|long-term care|pedestrian|crosswalk)/i },
-  { k: 'student', label: 'student', say: 'student', first: true, group: 'school', pick: ['student-hs', 'student-college'], topics: [], words: null },
-  { k: 'student-hs', label: 'high school student', say: 'high school student', group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|e-cig|electronic smoking|nicotine|flavor|bus|heat)/i },
-  { k: 'student-college', label: 'college student', say: 'college student', group: 'school', topics: ['food', 'family', 'care', 'around', 'climate'], words: /\b(student|college|universit|tuition|snap|rent|bus|transit|tax credit for training)/i },
+  { k: 'student', label: 'student', say: 'student', group: 'school', pick: ['student-hs', 'student-college'], topics: [], words: null },
+  { k: 'student-hs', label: 'high school student', say: 'high school student', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|e-cig|electronic smoking|nicotine|flavor|bus|heat)/i },
+  { k: 'student-college', label: 'college student', say: 'college student', first: true, group: 'school', topics: ['food', 'family', 'care', 'around', 'climate'], words: /\b(student|college|universit|tuition|snap|rent|bus|transit|tax credit for training)/i },
   { k: 'teacher', label: 'teacher (kumu)', say: 'teacher', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|classroom|keiki|kids?|child(ren)?|youth|teach|heat)/i },
   { k: 'nurse', label: 'nurse', say: 'nurse', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|nurs|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
   { k: 'doctor', label: 'doctor', say: 'doctor', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|physician|doctor|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
@@ -77,39 +77,37 @@ const article = w => { const first = String(w).split(/\s+/)[0];
   if (/^[A-Z]{2,}$/.test(first)) return /^[AEFHILMNORSX]/.test(first) ? 'an' : 'a';
   return /^[aeiou]/i.test(w) && !/^(uni|use|one|eu)/i.test(w) ? 'an' : 'a'; };
 
-// The titles a letter uses (R-147; R-156 after the review's replay). A title scores 3 when its words appear in what the
-// bill is about (its everyday name, summary, title and issue names), 2 when the bill's category is one of its topics; a
-// title of their own scores 3 when one of its longer words appears there. The letter leads with the best fit, and adds a
-// second only when the bill's own words fit it too: a broad topic alone is not enough for a second (the replay on 248
-// bills found the second title off-topic on up to 142 of them). Nothing fits: their first title alone. The titles keep
-// the person's order in the letter. o: { cats: ['food'], text: 'Free school meals for every student ...' }.
+// The title a letter uses by default (R-165, Nate 10/5: "The app should default to one"; it was two since 10/4): the one
+// that fits the bill best. A title scores 3 when its words appear in what the bill is about (its everyday name, summary,
+// title and issue names), 2 when the bill's category is one of its topics; a title of their own scores 3 when one of its
+// longer words appears there; their order breaks ties, so nothing fitting means their first title. In the letter they can
+// tap to use more, as many as they like. o: { cats: ['food'], text: 'Free school meals for every student ...' }.
 const STOP = new Set(['with', 'from', 'that', 'this', 'their', 'about', 'other', 'person', 'people', 'member', 'worker', 'leader', 'owner']);
 export function fitScore(t, { cats = [], text = '' } = {}) {
   if (isOwn(t)) return ownWords(t).toLowerCase().split(/[^a-zʻāēīōū]+/i).some(w => w.length >= 4 && !STOP.has(w) && text.toLowerCase().includes(w)) ? 3 : 0;
   const d = BY.get(t); if (!d) return 0;
   return (d.words && d.words.test(text) ? 3 : 0) + (d.topics.some(c => cats.includes(c)) ? 2 : 0);
 }
-export function pickTwo(titles, about = {}) {
+export function pickTitle(titles, about = {}) {
   const list = cleanTitles(titles); if (!list.length) return [];
-  const ranked = list.map((t, i) => ({ t, i, s: fitScore(t, about) })).sort((a, b) => b.s - a.s || a.i - b.i);
-  if (!ranked[0].s) return [list[0]];
-  const two = [ranked[0], ...(ranked[1] && ranked[1].s >= 3 ? [ranked[1]] : [])];
-  return two.sort((a, b) => a.i - b.i).map(x => x.t);
+  return [list.map((t, i) => ({ t, i, s: fitScore(t, about) })).sort((a, b) => b.s - a.s || a.i - b.i)[0].t];
 }
 // Does a letter with these titles add "writing for myself"?
 export const needsSelf = two => two.some(t => BY.get(t)?.self);
+// "parent", "parent and teacher", "parent, teacher and coach" (any number since R-165).
+const listOf = xs => xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 // "As a parent and teacher" / "As a faith leader, writing for myself" / '' when there are none.
 export function asWords(two) {
   const says = two.map(titleSay).filter(Boolean); if (!says.length) return '';
-  return `As ${article(says[0])} ${says.join(' and ')}${needsSelf(two) ? ', writing for myself' : ''}`;
+  return `As ${article(says[0])} ${listOf(says)}${needsSelf(two) ? ', writing for myself' : ''}`;
 }
 // "a parent and teacher" for a sentence that already has its subject ("My name is Leilani, a parent and teacher, and ...").
-export function aWords(two) { const says = two.map(titleSay).filter(Boolean); return says.length ? `${article(says[0])} ${says.join(' and ')}` : ''; }
+export function aWords(two) { const says = two.map(titleSay).filter(Boolean); return says.length ? `${article(says[0])} ${listOf(says)}` : ''; }
 // A letter's opening sentence with the titles in front: "As a parent and teacher, I support HB 1523."
 // "I" stays a capital; any other first word is lowered ("As a nurse, the committee..." never happens, but "My" would).
 export const withTitles = (two, sentence) => { const a = asWords(two); if (!a) return sentence;
   return `${a}, ${/^I\b/.test(sentence) ? sentence : sentence.charAt(0).toLowerCase() + sentence.slice(1)}`; };
-// The list a typed word finds: titles whose words start with it, the first eight first. Student finds both kinds.
+// The list a typed word finds: titles whose words start with it, the ones shown first first. Student finds both kinds.
 export function findTitles(q, have = []) {
   const s = String(q || '').trim().toLowerCase(); if (!s) return [];
   const words = t => t.label.toLowerCase().split(/[^a-zʻāēīōū]+/i);
@@ -117,5 +115,6 @@ export function findTitles(q, have = []) {
     .sort((a, b) => (b.first ? 1 : 0) - (a.first ? 1 : 0)).slice(0, 6);
 }
 export const FIRST = TITLES.filter(t => t.first);
-// The two kinds of student are reached through "student" (shown first), so "More titles" does not list them again (A-14).
+// The two kinds of student are shown first as plain titles (R-165: the "student" choice that opened two more was clunky),
+// so "More titles" does not list them again (A-14).
 export const inGroup = g => TITLES.filter(t => t.group === g && !t.first && !t.pick && !/^student-/.test(t.k));
