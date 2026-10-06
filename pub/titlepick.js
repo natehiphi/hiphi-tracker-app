@@ -2,7 +2,8 @@
 // eight shown first, "More titles" for the rest of the agreed list in its groups, and a box to type in that finds a title
 // or adds their own words. Used by the testimony walkthrough's About you step (pub/helper.js) and the profile's About you
 // (pub/profile.js). The list and its words are pub/titles.js; styles are pub/profile.css (.tp).
-// st (the caller's, kept across redraws): { chosen: [keys], q: '', more: false, student: false, active: -1 }.
+// st (the caller's, kept across redraws): { chosen: [keys], q: '', more: false, active: -1 }. The two kinds of student are
+// plain titles shown first since R-165 (the "student" choice that opened two more was clunky).
 // Every change redraws only the picker (#<pfx>-tp) so the page keeps its scroll, and calls onChange(chosen).
 // R-156 (the review, 10/5): Enter picks the list title that was typed ("teacher" is "teacher (kumu)", not their own
 // words); focus stays on a chip, and each change is said aloud; `addOnly` (the letter step's "Add a title") shows only
@@ -12,7 +13,6 @@ import { esc, icon } from './core.js';
 import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
 
 const chip = (k, on, label = titleLabel(k)) => `<button type="button" class="chip tp-c" data-tp="${esc(k)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(label)}</span></button>`;
-const hasStudent = st => st.chosen.some(k => k === 'student-hs' || k === 'student-college');
 
 // The suggestions under the box: titles whose words start with what was typed, then "Add ... as your own".
 function optsOf(st) {
@@ -40,14 +40,16 @@ export function pendingTitle(st) {
 export function pickerHTML(pfx, st, o) {
   const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false } = st.opts = o || st.opts || {};
   const full = st.chosen.length >= TITLES_MAX, q = st.q || '';
-  // Their own titles first, in their order (pressed), then the eight not picked yet. Adding only: just the ones to add.
-  const mine = addOnly ? '' : st.chosen.map(k => chip(k, true)).join('');
-  const firsts = FIRST.filter(t => !st.chosen.includes(t.k) && !(t.pick && hasStudent(st)))
-    .map(t => t.pick ? `<button type="button" class="chip tp-c" data-tp-student aria-expanded="${!!st.student}" aria-controls="${pfx}-tps"><span>${esc(t.label)}</span>${icon(st.student ? 'chevron-up' : 'chevron-down')}</button>` : chip(t.k, false)).join('');
-  const student = st.student && !hasStudent(st) ? `<div class="chips tp-sub" id="${pfx}-tps" role="group" aria-label="Which kind of student">${['student-hs', 'student-college'].map(k => chip(k, false)).join('')}</div>` : '';
-  const more = st.more ? `<div class="tp-more" id="${pfx}-tpm">${GROUPS.map(([g, name]) => { const ts = inGroup(g).filter(t => !st.chosen.includes(t.k)); return ts.length ? `<div class="tp-g"><p class="tp-gh">${esc(name)}</p><div class="chips">${ts.map(t => chip(t.k, false)).join('')}</div></div>` : ''; }).join('')}</div>` : '';
+  // Every title stays where it is, ticked when picked, so a tap never makes a chip jump out of sight (the review of R-165:
+  // a title tapped in "More titles" vanished to the top). After the first ones: titles shown nowhere else, their own words and,
+  // with More titles closed, the ones picked from it. Adding only (the letter's "Add a title"): just the ones to add.
+  const on = k => st.chosen.includes(k), show = t => addOnly ? !on(t.k) : !full || on(t.k);
+  const inMore = new Set(GROUPS.flatMap(([g]) => inGroup(g).map(t => t.k))), isFirst = new Set(FIRST.map(t => t.k));
+  const mine = addOnly ? '' : st.chosen.filter(k => !isFirst.has(k) && !(st.more && !full && inMore.has(k))).map(k => chip(k, true)).join('');
+  const firsts = FIRST.filter(show).map(t => chip(t.k, on(t.k))).join('');
+  const more = st.more ? `<div class="tp-more" id="${pfx}-tpm">${GROUPS.map(([g, name]) => { const ts = inGroup(g).filter(show); return ts.length ? `<div class="tp-g"><p class="tp-gh">${esc(name)}</p><div class="chips">${ts.map(t => chip(t.k, on(t.k))).join('')}</div></div>` : ''; }).join('')}</div>` : '';
   return `<fieldset class="tp${addOnly ? ' tp-addonly' : ''}" id="${pfx}-tp"><legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>
-    <div class="chips tp-chips">${mine}${full ? '' : firsts}</div>${full ? '' : student}
+    <div class="chips tp-chips">${firsts}${mine}</div>
     ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}.${addOnly ? '' : ' Tap one to take it off.'}</p>` : `
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}
     <div class="field tp-type"><label for="${pfx}-tq">Or type one, in your own words</label>
@@ -72,17 +74,16 @@ export function wirePicker(root, pfx, st, onChange = () => {}) {
     // The first of the given places that exists: the chip just tapped, else its neighbour, else the box, else the legend.
     for (const sel of [].concat(focusSels || [])) { const f = sel && root.querySelector(sel); if (f) { f.focus({ preventScroll: true }); if (f.tagName === 'INPUT') f.setSelectionRange(f.value.length, f.value.length); return; } }
   };
-  const add = k => { if (!k || st.chosen.includes(k) || st.chosen.length >= TITLES_MAX) return false; st.chosen = [...st.chosen, k]; st.student = false; onChange(st.chosen); say(`Added ${titleLabel(k)}.`); return true; };
+  const add = k => { if (!k || st.chosen.includes(k) || st.chosen.length >= TITLES_MAX) return false; st.chosen = [...st.chosen, k]; onChange(st.chosen); say(`Added ${titleLabel(k)}.`); return true; };
   const el = host(); if (!el) return;
   el.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => {
     const k = b.dataset.tp, on = st.chosen.includes(k);
-    const chips = [...el.querySelectorAll('.tp-chips [data-tp], .tp-chips [data-tp-student]')], i = chips.indexOf(b);
+    const chips = [...el.querySelectorAll('.tp-chips [data-tp]')], i = chips.indexOf(b);
     const next = chips[i + 1] || chips[i - 1];
-    const nextSel = next ? (next.dataset.tp ? `#${pfx}-tp [data-tp="${CSS.escape(next.dataset.tp)}"]` : `#${pfx}-tp [data-tp-student]`) : '';
+    const nextSel = next ? `#${pfx}-tp [data-tp="${CSS.escape(next.dataset.tp)}"]` : '';
     if (on) { st.chosen = st.chosen.filter(x => x !== k); onChange(st.chosen); say(`Removed ${titleLabel(k)}.`); } else add(k);
     redraw([`#${pfx}-tp [data-tp="${CSS.escape(k)}"]`, nextSel, `#${pfx}-tq`, `#${pfx}-tp [data-tp-more]`]);
   });
-  const sb = el.querySelector('[data-tp-student]'); if (sb) sb.onclick = () => { st.student = !st.student; redraw(st.student ? `#${pfx}-tps [data-tp]` : '[data-tp-student]'); };
   const mb = el.querySelector('[data-tp-more]'); if (mb) mb.onclick = () => { st.more = !st.more; redraw('[data-tp-more]'); };
   const dn = el.querySelector('[data-tp-done]'); if (dn) dn.onclick = () => { const p = pendingTitle(st); if (p) { add(p); st.q = ''; } onChange(st.chosen, { done: true }); };
   const inp = el.querySelector(`#${pfx}-tq`); if (!inp) return;

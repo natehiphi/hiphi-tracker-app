@@ -352,7 +352,7 @@ anything that lengthens one needs a reason in the commit message.
 | Public: arrive → follow a first issue | 3 steps |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
-| Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 5 steps (R-148, 10/4: Send my letter again, Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
+| Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 6 steps (R-148, 10/4: Send my letter again, Next on "Where do you stand?" with their answer chosen (R-167, 10/5), Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
 | Public: an email sent again (its email kept from the bill's last step) | 4 steps (R-153, 10/4: Send my email again, Use my email, read it and Next, open it in the mail app; "Did you send it?" closes it as for any email) |
 | Public: the one follow-up to the same chair, a week before the deadline | 3 steps (R-153: Follow up with the chair, read it and Next, open it in the mail app; offered only once their email is 5 days old; Nate: "Yes for now, but needs to be reconsidered") |
 | Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
@@ -466,7 +466,10 @@ which makes people hesitate before a form they were going to complete.
 **Defaults, added 9/23 (R-052).** A choice may start filled in only when we are highly confident it is what
 the person would pick for themselves: our own numbers show most people choose it, or it is plainly in the
 person's interest, it is visible and one tap undoes it. When we are not that sure, leave it empty or ask. Never
-pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses.
+pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses. A stance the
+person gave themselves is not a default: where they are asked again, it comes back chosen and says where it came from,
+and one tap changes it (B-6; R-167, Nate 10/5: a new letter always asks "Where do you stand?", with "You marked Support
+on the bill page." and their answer chosen).
 **HIPHI's own recommendations are the one other thing that may start selected** (Nate, 9/23): the issues and
 bills the team recommends are what we are asking people to back, and a tick is how we say so. Three
 conditions: every selected item is on screen when the person decides (nothing is chosen unseen), one tap
