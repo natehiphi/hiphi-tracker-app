@@ -220,7 +220,7 @@ with sync_playwright() as pw:
     ok('Keoni Text' in t and 'Signed in with (808) ••• 0123' in t, f'the profile: their name and "Signed in with (808) ••• 0123"')
     ok(p.evaluate("document.activeElement?.id") != 'pf-h' or p.evaluate("getComputedStyle(document.activeElement).outlineStyle") == 'none', 'no focus box drawn round the profile heading')
     ok('Email: not added' in t and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'no email yet: offered, with no email choices to change')
-    ok('We keep your mobile number, which signs you in' in t and 'Sign out' in t, 'Your data: the number-only wording, with Sign out')
+    ok('Your mobile number, which signs you in' in t and 'except your number, your letters' in t and 'Sign out' in t, 'Your data: the number-only list (X4-5), with Sign out')
     shot(p, 'C1_profile_signed_in')
     p.goto(LIVE + '#/signin'); p.wait_for_timeout(1000)
     ok('Add your email' in text(p) and 'sign in with either' in text(p), 'a number account’s "Add your email" adds it to the same account')

@@ -195,11 +195,19 @@ function issuesBody() {
 }
 function dataBody() {
   if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
-  // Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so no emails opened.
-  if (!myEmail()) return `<p>We keep your mobile number, which signs you in, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark and what you add on this page, including your titles and your story. HIPHI staff can see all of it except your number, your testimony letters and your emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
-    ${accountButtons()}`;
-  // R-151's and R-153's wording (10/4: the privacy page made accurate; kept emails), with the profile's titles and story named.
-  return `<p>We keep your email, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, which of our emails you open and what you add on this page, including your titles and your story. HIPHI staff can see all of it, except your testimony letters and emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
+  // What we keep and who sees it, as a short list (X4-5, R-180: it was one 90-word paragraph, well above grade 8). The same
+  // facts as R-151's and R-153's wording (10/4, the privacy page made accurate; kept emails); the privacy page has the long
+  // form. Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so none opened.
+  const num = !myEmail();
+  const rows = [num ? 'Your mobile number, which signs you in' : 'Your email and your email choices',
+    'The issues you picked, and the bills and lists you follow',
+    'Where you stand on each bill you follow: support, oppose or not sure',
+    num ? 'The actions you mark' : 'The actions you mark, and which of our emails you open',
+    'What you add on this page, like your titles and your story',
+    'The last letter and email to lawmakers you sent on each bill, so they’re ready for its next step'];
+  return `<p>We keep:</p><ul class="pf-list pf-keep">${rows.map(r => `<li>${icon('check')}<span>${r}</span></li>`).join('')}</ul>
+    <p>HIPHI staff can see all of it except ${num ? 'your number, ' : ''}your letters and your emails to lawmakers. Only you can see those.</p>
+    <p>We never keep your street address, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
     ${accountButtons()}`;
 }
 // Sign out and delete, for every signed-in profile (an email or a number).

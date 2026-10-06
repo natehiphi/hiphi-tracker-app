@@ -172,3 +172,5 @@ body.hasbar[data-screen="profile"] main { padding-bottom: calc(var(--tabbar) + v
 body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--safe-b) + 128px); }
 @media (min-width: 600px) { body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--safe-b) + 88px); } }
 @media (min-width: 900px) { body.hasbar[data-screen="profile"] #toast { bottom: 96px; } }
+/* What we keep (X4-5): the shared list, a little tighter than the profile's other lists, so it reads as one block. */
+.pf-keep { gap: var(--s4); }
