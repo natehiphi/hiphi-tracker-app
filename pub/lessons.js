@@ -654,7 +654,8 @@ function hearingSet(k, { instant = false, initial = false } = {}) {
 //                          "Tell my legislators", "Stay quiet". Each plays what CAN happen (an email reaches the chair
 //                          and the chair's hearing list gets a bill; notes land on the committee's table; your
 //                          legislators hear from you; nothing is sent, and the bill waits and stops) with one sentence.
-//                          The others stay there to try. Then why it matters (few people write in; a real win).
+//                          The others stay there to try. Then why it matters (notes tell lawmakers what people want,
+//                          and they add up; a real win).
 // Where the bill is decides what is true: a law or a stopped bill still gets the choices, asked about next time.
 // The drawing is aria-hidden and the words say all of it (A-10: motion is never the only way something is said). Nothing
 // else here can be pressed: the four choices are the only controls, and they look like a story's choices, not the app's
@@ -865,10 +866,12 @@ function storyNow(E) {
 // sessions, the session just past; in session, the one before it (loaded quietly, see storySet). R-143 (Nate 10/4):
 // "One 2025 win: more students can get free school meals" read as clunky and out of place on another bill's story, so
 // the wins Nate listed by hand (EARLIER_WINS) stay on Home's wins card, and with no count the reason stands alone.
+// The reason never says few people write in (R-171): that tells people not writing is normal, which makes them act less
+// (R-164's research); it says what a note does instead.
 function winsYear(E) { const si = sessionInfo(); return E.off ? si.recapYear : si.yr - 1; }
 function whyWords(E) {
   const yr = winsYear(E), n = (winsIn(yr) || []).length;
-  return `Few people write in, so each note gets noticed.${n ? ` In ${yr}, notes like these helped ${n === 1 ? 'a bill' : `${n} bills`} HIPHI backed become law.` : ''}`;
+  return `Each note tells lawmakers what people here want, and notes add up.${n ? ` In ${yr}, notes like these helped ${n === 1 ? 'a bill' : `${n} bills`} HIPHI backed become law.` : ''}`;
 }
 // The four choices: what each is called, its small drawing, and what CAN happen (never a promise).
 const CHOICES = [

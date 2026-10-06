@@ -602,9 +602,20 @@ issue and bill names, summaries, talking points, hints, examples and demo data, 
 in both staff apps. The Legislature's own titles stay as written, and search still treats "vape" as a
 match (`pub/find.js` SYN), because people type it.
 
+**Never say that few people act (added 10/5, R-171):** not "Most people never do it", "Few people
+write in" or "far fewer people than you'd think". Say what the act does ("That's how bills move:
+committees hear from the people who write"), or that others take part ("People all over Hawaiʻi write
+to lawmakers every session. Your note joins theirs."). `public_journey.py` checks the screens that used
+to say it (`LOW_TURNOUT`).
+
 *Reason.* Grade 8 is the GOV.UK/NHS standard for public information, and Hawaiʻi's legislative
 vocabulary is a second language even for people who vote in every election. The e-cigarette rule is
-HIPHI's: one name for the product in everything it publishes.
+HIPHI's: one name for the product in everything it publishes. Saying few people act tells people
+that not acting is normal: at Petrified Forest a sign saying many visitors took wood raised theft to
+7.92%, against 2.9% with no sign (Cialdini 2003), and get-out-the-vote messages saying turnout will be
+high beat ones saying it will be low (Gerber and Rogers 2009); found in R-164's sign-up research.
+Strong evidence elsewhere; whether the new words move people here is a guess until the first-visit
+counts and the testers show it.
 
 ### C-11 The first screen is the whole argument
 

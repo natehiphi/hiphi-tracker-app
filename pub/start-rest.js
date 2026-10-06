@@ -217,7 +217,9 @@ function example() {
 // ================= The short version's one page: why your voice matters (R-067 #11) =================
 // Nate's words, 9/28 (option B of three: written for someone who has never written to a lawmaker, so it answers "I
 // don't know enough" rather than explaining the Capitol; the lessons below do that). Three short points, the person's
-// own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062).
+// own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062). The lede says others
+// write in and theirs joins them, not that lawmakers hear from "far fewer people than you'd think": telling people few
+// others act makes not acting sound normal, and messages saying many take part do better (R-171, R-164's research).
 function stepVoice(step) {
   const E = example(), off = isOff(), b = exampleBill();
   const pts = [
@@ -230,7 +232,7 @@ function stepVoice(step) {
   const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
   return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
     <h1 class="hero" id="st-h">Your voice counts here</h1>
-    <p class="lede">Lawmakers hear from far fewer people than you’d think. The ones who write in get noticed.</p>`,
+    <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
     ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>${off ? `Like <b>${esc(E.name)}</b>, one of the bills on your issues.` : `Your first one to watch: <b>${esc(E.name)}</b>.`}</span></p>` : ''}
     <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);

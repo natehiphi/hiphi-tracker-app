@@ -15,6 +15,8 @@ VAPE = next(i['id'] for i in snap.get('issues', []) if i['slug'] == 'disposable-
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 COMMUNITY = re.compile(r'people have spoken up|HIPHI community|Together, |join the count|actions count|community total', re.I)
+# R-171: the public page never says few people act ("Most people never do it"): it makes not acting sound normal.
+LOW_TURNOUT = re.compile(r'most people (never|don|do not|won)|few(er)? people|hardly anyone|almost no one|not many people', re.I)
 
 def ctx(b, w=390, h=844, **kw):
     c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 600, has_touch=w < 600, device_scale_factor=2 if w < 600 else 1, **kw)
@@ -139,9 +141,10 @@ with sync_playwright() as pw:
     # testimony is due Tuesday") instead of "Nothing to do now"; either way nothing is asked here.
     # R-143 (Nate 10/4): no one-off win from another bill here ("One 2025 win: ..." was clunky and out of place); the
     # proof is a count of HIPHI's laws when one has loaded, and the sandbox's year before has none.
-    ok('Few people write in, so each note gets noticed' in cap3 and ' win:' not in cap3 and 'free school meals' not in cap3
+    ok('Each note tells lawmakers what people here want, and notes add up' in cap3 and not LOW_TURNOUT.search(cap3)
+       and ' win:' not in cap3 and 'free school meals' not in cap3
        and ('Nothing to do now' in cap3 or 'at one of these moments now' in cap3),
-       'stage 3 says why it matters, no other bill’s win, and what is (or is not) coming, asking nothing yet')
+       'stage 3 says why it matters (never that few people write in, R-171), no other bill’s win, and what is (or is not) coming, asking nothing yet')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
     for k, must in (('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent'), ('quiet', 'stop')):
@@ -222,11 +225,32 @@ with sync_playwright() as pw:
     std(p, 'link_lesson', axe=True)
     fresh(p); p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); visit(p, '/start/1', wait=3000)
     ok('Want us to tell you next time?' in text(p), 'after a quick email, "Want us to tell you next time?" asks about following'); std(p, 'followask', axe=True)
+    # R-171: the "Mahalo!" after a newcomer's first action from a shared bill (app.newcomerActed) celebrates the act and
+    # never says few people do it. Since R-167 the bill page's email buttons open the walkthrough, which has its own
+    # Mahalo, so the bar's "Yes, I sent it" that calls this is rare (the Governor's form, say); the moment is called
+    # directly here, on a newcomer's shared bill. A bill on an issue follows the issue; one on no issue (the sandbox has
+    # none HIPHI asks about, so its issue is taken off in memory) gets the line about how bills move.
+    for no_issue in (False, True):
+        fresh(p); visit(p, '/bill/HB1732', extra='&via=share', wait=3000)
+        # A newcomer's shared bill is loaded on its own (S.extra), not with the bills they follow (S.bills, empty).
+        p.evaluate("(async no => { const k = await import('./pub/kernel.js'), S = k.S;"
+                   " const b = [...S.bills, ...Object.values(S.extra || {})].find(x => x.bill_number === 'HB1732');"
+                   " if (no) S.issuesByBill.delete(b.id); await k.app.newcomerActed(b); })(%s)" % ('true' if no_issue else 'false'))
+        p.wait_for_timeout(1500)
+        mo = p.inner_text('#fx-moment') if p.locator('#fx-moment:not([hidden])').count() else ''
+        ok('Mahalo' in mo and 'You spoke up on' in mo and not LOW_TURNOUT.search(mo), f'the quick email from a shared link gets its "Mahalo!", which never says few people act ({mo[:120]!r})')
+        if no_issue:
+            ok('That’s how bills move: committees hear from the people who write.' in mo, 'a bill on no issue: "That’s how bills move: committees hear from the people who write."')
+            std(p, 'link_mahalo'); shot(p, 'p_link_mahalo')
+        else:
+            ok('We’ll follow' in mo and 'Don’t follow it' in mo, 'a bill on an issue: the "Mahalo!" follows the issue, with "Don’t follow it"')
     c.close()
     # ---- 1c. the short version (?fv=short) keeps its one page and offers the story; the lessons open on their own (R-062) ----
     c, p = ctx(b); fresh(p, '&fv=short'); p.goto(BASE + '?demo=1&fv=short#/start/1'); p.reload(); p.wait_for_timeout(3000)
     p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Your voice counts here', f"the short version keeps its one page ({p.evaluate('location.hash')})")
+    ok('Your note joins theirs' in text(p) and not LOW_TURNOUT.search(text(p)), 'the short page says others write in and yours joins them, never that few people do (R-171)')
+    shot(p, 'p_voice')
     ok(p.locator('.st-voicelearn a[href^="#/learn/story"]').count() == 1 and p.locator('.st-voicelearn a').count() == 1, '"Want the details?" offers the story')
     p.locator('.st-voicelearn a').click(); p.wait_for_timeout(2500)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.locator('.lx-l-story').count() == 1, f"the story opens on its own ({p.evaluate('location.hash')})")
