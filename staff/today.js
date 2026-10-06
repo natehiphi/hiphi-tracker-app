@@ -46,6 +46,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
 import { todayPrepNotice } from './prep.js';
+import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 
 const HR = 36e5, DAY = 864e5;
 // The Hawaiʻi calendar day of a moment. Hawaiʻi keeps UTC-10 all year (no daylight saving), so this is hstDayOf() by
@@ -1485,11 +1486,13 @@ async function run(t, act, el) {
       const keys = t.i ? [t.i.key] : t.keys || []; await DB.inboxMark(keys);
       toast('Marked done.', { undo: async () => { await DB.inboxUnmark(keys); redraw(); } }); redraw(); });
     case 'send': {
-      const a = t.a, n = S.tdAud?.[a.id], paused = S.emailCfg?.enabled === false;
-      const ok = await confirmSheet({ title: `Send to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send',
-        text: `${esc(a.subject)}<br><span class="small muted">It goes out from ${esc(advocate(a.author_id)?.email || 'your address')} and cannot be taken back.${paused ? ' Email is paused, so it is held until an admin turns email on.' : ''}</span>` });
+      // The composer's words (since R-101 Send joins the 4:30 pm email, from "HIPHI Bill Tracker", replies to the writer,
+      // and can be taken back until then); this said "cannot be taken back" and named the writer's address (R-180).
+      const a = t.a, n = S.tdAud?.[a.id], paused = S.emailCfg?.enabled === false, day = dailyWord();
+      const ok = await confirmSheet({ title: `Send at 4:30 pm to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send at 4:30 pm',
+        text: `${esc(a.subject)}<br><span class="small muted">${paused ? 'Email is paused, so it is held: it goes out in the first 4:30 pm email after an admin turns email on' : `It goes out ${day} at 4:30 pm`}, in each person’s one email of the day. You can take it back until then. Replies go to ${esc(advocate(a.author_id)?.email || 'the writer')}.</span>` });
       if (!ok) return;
-      return busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} once email is turned on.` : `Sent to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`, { ok: true }); redraw(); });
+      return busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} in the first 4:30 pm email after email is turned on.` : `In ${day}’s 4:30 pm email to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); redraw(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); redraw(); });
     }
   }
 }

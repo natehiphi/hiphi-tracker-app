@@ -76,7 +76,7 @@ function header(r, total) {
   return `<div class="td-rvbar">
     <a class="iconbtn td-rvx" href="#/" data-back aria-label="Close review" title="Close review">${icon('x')}</a>
     <h2 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h2>
-    ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-skip': '1' } })}</div>`;
+    ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
 function draftBody(it) {
   const { d, b, h, due } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id;
@@ -144,7 +144,7 @@ function render(route) {
 function bar(route) {
   const { it } = current(route);
   if (!it) return '';
-  if (!actionable(it)) return btn('Next', { attrs: { 'data-skip': '1' }, iconEnd: 'chevron-right' });
+  if (!actionable(it)) return btn('Next', { attrs: { 'data-rvskip': '1' }, iconEnd: 'chevron-right' });
   return `${btn(it.type === 'email' ? 'Send back' : 'Request changes', { kind: 'secondary', attrs: { 'data-changes': '1' } })}${btn('Approve', { icon: 'check', attrs: { 'data-approve': '1' } })}`;
 }
 
@@ -261,13 +261,17 @@ function close() { if ((history.state?.d || 0) > 0) history.back(); else S.go('#
 
 function wire(route, root) {
   const main = root.querySelector('main'); if (!main) return;
-  root.querySelectorAll('[data-skip]').forEach(el => el.onclick = () => { const { r } = current(route); advance(r, null); });
+  // data-rvskip, not data-skip: the frame's "Skip to content" button carries data-skip, so Right arrow clicked that
+  // instead of Skip (R-180, found in wave 1).
+  root.querySelectorAll('[data-rvskip]').forEach(el => el.onclick = () => { const { r } = current(route); advance(r, null); });
   // A new item on screen: Approve waits a second before it listens, and says so (dimmed, aria-disabled; it keeps
-  // focus and its place, so nothing jumps). The card slides in so the change of item cannot be missed.
+  // focus and its place, so nothing jumps). The card slides in so the change of item cannot be missed. A redraw
+  // mid-slide (an email's audience count arriving) picks the slide up where it was instead of snapping the card in.
   const { it: now } = current(route), ap = root.querySelector('[data-approve]');
-  if (now && shown.key !== now.key) {
-    shown = { key: now.key, at: performance.now() };
-    root.querySelector('.td-rvcard')?.classList.add('td-in'); root.querySelector('.td-rvn')?.classList.add('td-tick');
+  if (now && shown.key !== now.key) shown = { key: now.key, at: performance.now() };
+  const since = now ? performance.now() - shown.at : Infinity;
+  if (since < 500) for (const [sel, cls] of [['.td-rvcard', 'td-in'], ['.td-rvn', 'td-tick']]) {
+    const el = root.querySelector(sel); if (el) { el.style.animationDelay = `-${Math.round(since)}ms`; el.classList.add(cls); }
   }
   if (ap && now && !armed(now.key)) { ap.setAttribute('aria-disabled', 'true'); ap.classList.add('td-arming');
     setTimeout(() => { if (ap.isConnected) { ap.removeAttribute('aria-disabled'); ap.classList.remove('td-arming'); } }, Math.max(0, ARM_MS - (performance.now() - shown.at)) + 20); }
@@ -284,7 +288,7 @@ document.addEventListener('keydown', e => {
   const route = S.route, k = e.key.toLowerCase();
   if (k === 'escape') { e.preventDefault(); close(); return; }
   const { it } = current(route); if (!it) return;
-  if (k === 'arrowright') { e.preventDefault(); document.querySelector('[data-skip]')?.click(); }
+  if (k === 'arrowright') { e.preventDefault(); document.querySelector('[data-rvskip]')?.click(); }
   // Approve takes Shift+A: a lone letter from a sentence meant for another window approved two items (9/19).
   else if (k === 'a' && e.shiftKey) { e.preventDefault(); document.querySelector('[data-approve]')?.click(); }
   else if (k === 'r') { e.preventDefault(); document.querySelector('[data-changes]')?.click(); }

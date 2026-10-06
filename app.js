@@ -2891,8 +2891,8 @@ function memoData() {
   // stopped in the last seven days
   const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
   if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => `${name(b)}: ${whyDead(b).replace(/<[^>]+>/g, '')}`).concat(died.length > 12 ? [`…and ${died.length - 12} more.`] : [])]);
-  // what supporters can do
-  const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || !b.public_action_until || b.public_action_until >= today));
+  // what supporters can do: the public page shows an ask only through its date, so an undated ask is not one here (R-180)
+  const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today)));
   if (asks.length) sections.push(['How you can help', asks.slice(0, 8).map(b => `${name(b)}: ${b.public_action.replace(/\s+/g, ' ').trim()}`)]);
   const foot = `Every bill, with hearing dates and how to testify: ${new URL('track.html', location.href).href.split('?')[0]}`;
   return { title, intro, sections, foot, empty: !sections.length };

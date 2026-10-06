@@ -368,8 +368,9 @@ export function memoData() {
   // stopped in the last seven days
   const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
   if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => line(b, whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&'))).concat(more(died.length - 12))]);
-  // what supporters (and partners) can do: the ask on each bill's public page
-  const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || !b.public_action_until || b.public_action_until >= today));
+  // what supporters (and partners) can do: the ask on each bill's public page, which shows an ask only through its date
+  // (an undated ask is not shown there, so it is not one here either; R-180)
+  const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today)));
   if (asks.length) sections.push(['How you can help', asks.slice(0, 8).map(b => ({ ...line(b, b.public_action.replace(/\s+/g, ' ').trim()), text: b.public_action.replace(/\s+/g, ' ').trim() }))]);
   // The foot points a partner at the coalition's own public page (a coalition's slug opens it, pub/find.js).
   const foot = partners && coal?.slug ? { text: `Every ${coalName} bill, with hearing dates and how to testify:`, href: `${PUBLIC_APP()}#/issue/${encodeURIComponent(coal.slug)}` }

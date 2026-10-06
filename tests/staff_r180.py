@@ -1,5 +1,5 @@
 # R-180 wave 1, the Staff v2 fixes (the assessments of 5 Oct 2026), in the practice copy:
-#   X10-1  an approver (Kris) finds Approve on the bill page her Slack link opens; the writer and a teammate do not;
+#   X10-1  an approver (Kris) finds Approve on the bill page their Slack link opens; the writer and a teammate do not;
 #   Z1-5   a failed read of the email settings counts as paused and every email save is refused; a sender Save never
 #          writes "enabled";
 #   Z1-3/3 while email is paused an approved supporter email shows "Approved · held while email is paused";
@@ -37,7 +37,7 @@ with sync_playwright() as p:
         open_(pg, B + f'&as=KR#/bill/{d["bill"]}')
         a = acts(); who = pg.locator('.bw-who').first.inner_text() if pg.locator('.bw-who').count() else ''
         ok('approve' in a and 'changes' in a, f'as Kris (an approver) the bill page shows Approve and Request changes: {a} · "{who}"')
-        ok('waiting for you' in who, 'and the line says it is waiting for her')
+        ok('waiting for you' in who, 'and the line says it is waiting for them')
         pg.screenshot(path=f'{OUT}/r180_kris_approve_1366.png')
         pg.locator('[data-dact="approve"]').first.click(); pg.wait_for_timeout(900)
         t = pg.locator('.toastmsg').first.inner_text() if pg.locator('.toastmsg').count() else ''
@@ -46,12 +46,12 @@ with sync_playwright() as p:
         ok('approve' not in acts(), f'as its writer ({d["writer"]}) the bill page offers no Approve: {acts()}')
         open_(pg, B + f'&as=LR#/bill/{d["bill"]}')
         ok('approve' not in acts(), f'as a teammate who neither approves nor reviews (Lauren) it offers none: {acts()}')
-        # A reviewer (Jess) gets Approve exactly when the Review screen lets her stand in (6 hours before the deadline).
+        # A reviewer (Jess) gets Approve exactly when the Review screen lets them stand in (6 hours before the deadline).
         open_(pg, B + f'&as=JS#/bill/{d["bill"]}')
         st = pg.evaluate(f"""async () => {{ const d = await import('./staff/data.js'); const m = await import('./staff/model.js');
           const x = Object.values(d.S.drafts).flat().find(r => r.id === '{d["id"]}'); return m.canFirstApprove(d.S.me, x, m.draftHearing(x)); }}""")
         ok(('approve' in acts()) == st, f'as a reviewer (Jess) Approve follows the stand-in rule: may stand in {st}, buttons {acts()}')
-        if st: ok('you can stand in' in pg.locator('.bw-who').first.inner_text(), 'and the line says she can stand in')
+        if st: ok('you can stand in' in pg.locator('.bw-who').first.inner_text(), 'and the line says they can stand in')
 
     # ---- Z1-5: fail closed when the email settings cannot be read ----
     open_(pg, B + '#/setup/email')
@@ -143,6 +143,40 @@ with sync_playwright() as p:
     open_(pg, B + '#/bill/HB2121/public')
     resp = ' '.join(pg.locator('#bw-resp-h').locator('xpath=..').inner_text().split())
     ok(re.search(r'\d+ follow', resp) and 'sample numbers' in resp, f'the practice copy\'s sample counts still show: "{resp[:110]}"')
+
+    # ---- Found in wave 1: Review's Skip and the frame's "Skip to content" shared data-skip ----
+    open_(pg, B + '&as=KR#/review')
+    cnt = lambda: pg.locator('.td-rvn').inner_text() if pg.locator('.td-rvn').count() else ''
+    c0 = cnt(); total = int(re.search(r'of (\d+)', c0).group(1)) if re.search(r'of (\d+)', c0) else 0
+    ok(total >= 2, f'as Kris the review queue has two items or more: "{c0}"')
+    pg.evaluate("document.querySelector('button.skip').click()"); pg.wait_for_timeout(300)
+    ok(cnt() == c0 and pg.evaluate("document.activeElement?.id") == 'main', f'"Skip to content" moves focus to the page and skips no item: "{cnt()}"')
+    pg.mouse.move(600, 400); pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(400)
+    ok('2 of' in cnt(), f'Right arrow skips to the next item: "{c0}" -> "{cnt()}"')
+    # An email item redraws when its audience count arrives; the slide carries on instead of the card snapping in.
+    key = pg.evaluate("async () => { const t = await import('./staff/today.js'); return t.reviewQueue().find(x => x.type === 'email')?.key || null; }")
+    if key:
+        pg.evaluate("async () => { (await import('./staff/data.js')).S.tdAud = {}; }")
+        pg.evaluate(f"location.hash = '#/review/' + encodeURIComponent({key!r})"); pg.wait_for_timeout(120)
+        st = pg.evaluate("(() => { const c = document.querySelector('.td-rvcard'); return c ? { cls: c.className, d: c.style.animationDelay, n: (document.querySelector('.td-rvline')?.innerText || '') } : null; })()")
+        ok(st and 'td-in' in st['cls'], f'an email item slides in, and still does after its audience count redraws it: {st}')
+    else:
+        ok(True, 'no supporter email in the practice queue (the slide check is skipped)')
+
+    # ---- Found in wave 1: Today's Send said "cannot be taken back" and named the writer's address as the sender ----
+    # (an email with no bill gets its own card; on a bill's card it is an "Also" line)
+    open_(pg, B + '#/')
+    pg.evaluate("""async () => { const d = await import('./staff/data.js'); const a = d.S.alerts[0];
+      Object.assign(a, { author_id: d.S.me.id, status: 'approved', scheduled_for: null, bill_id: null }); d.hooks.render(); }""")
+    pg.wait_for_timeout(500)
+    sb = pg.locator('main button[data-act="send"]')
+    ok(sb.count() >= 1, 'Today offers Send on my approved email')
+    if sb.count():
+        sb.first.click(); pg.wait_for_timeout(400)
+        txt = ' '.join(pg.evaluate("document.querySelector('dialog[open]')?.innerText || ''").split())
+        ok('4:30 pm' in txt and 'take it back until then' in txt and 'cannot be taken back' not in txt and 'goes out from' not in txt,
+           f'its confirmation says the 4:30 pm email, that it can be taken back, and who gets the replies: "{txt[:220]}"')
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     ctx.close()
 
     # ---- X9-2: the staff sign-in, signed out at the main address ----
