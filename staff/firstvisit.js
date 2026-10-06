@@ -13,6 +13,7 @@
 import { S, DB, DEMO, SESSION_YEAR, hooks, esc } from './data.js';
 import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, notice, pickerSheet, pickerChip, segmented, skeleton } from './ui.js';
 import { plural, afterClose } from './lists.js';
+import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 
 export const FV_HREF = '#/outreach/issues?view=first-visit';
 export const LINKS_HREF = '#/outreach/issues?view=links';
@@ -21,7 +22,6 @@ export const fvView = route => ({ 'first-visit': 'numbers', links: 'links' })[ro
 export const fvTitle = route => ({ numbers: 'First visit', links: 'Make a link' })[fvView(route)] || '';
 export const fvBack = route => fvView(route) === 'links' ? { href: FV_HREF, label: 'First visit' } : fvView(route) ? { href: '#/outreach/issues', label: 'Issues' } : null;
 const LINK_BASE = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
-const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm';
 
 // The screens of the first visit, in the order a person meets them (pub/start.js FLOW_IN, FLOW_OFF, FLOW_LINK). Someone
 // who arrives on a shared bill starts with the bill's card, its quick email and "Follow this issue" instead of the first
@@ -353,19 +353,7 @@ function linkHTML() {
   </section>` : ''}</div>`;
 }
 
-// The QR code: drawn in the browser by qrcode-generator (MIT, from jsDelivr, loaded on first use), as SVG on the page and
-// as a PNG to download. Medium error correction, with the four-module quiet zone scanners expect.
-let qrLib = null;
-const qrMatrix = async text => {
-  qrLib ??= import(QR_LIB).then(m => m.default || m).catch(e => { qrLib = null; throw e; });
-  const make = await qrLib, qr = make(0, 'M'); qr.addData(text, 'Byte'); qr.make();
-  const n = qr.getModuleCount(); return { n, dark: (r, c) => qr.isDark(r, c) };
-};
-const qrSvg = ({ n, dark }, px) => {
-  const q = 4, size = n + 2 * q; let d = '';
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (dark(r, c)) d += `M${c + q},${r + q}h1v1h-1z`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${px}" height="${px}" shape-rendering="crispEdges"><rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
-};
+// The QR code (qr.js): SVG on the page, a PNG to download, and a page of its own to print.
 async function drawQr(root) {
   const box = root.querySelector('#fv-qrbox'), url = root.querySelector('#fv-url')?.textContent; if (!box || !url) return;
   box.dataset.for = url;
@@ -374,35 +362,24 @@ async function drawQr(root) {
 }
 const fileBase = () => { const v = V(); return `hiphi-link-${v.partner}${v.word ? '-' + v.word : ''}`; };
 async function downloadPng(url) {
-  try {
-    const m = await qrMatrix(url), q = 4, scale = Math.max(8, Math.floor(1200 / (m.n + 2 * q))), size = (m.n + 2 * q) * scale;
-    const cv = document.createElement('canvas'); cv.width = cv.height = size; const g = cv.getContext('2d');
-    g.fillStyle = '#fff'; g.fillRect(0, 0, size, size); g.fillStyle = '#000';
-    for (let r = 0; r < m.n; r++) for (let c = 0; c < m.n; c++) if (m.dark(r, c)) g.fillRect((c + q) * scale, (r + q) * scale, scale, scale);
-    const blob = await new Promise(res => cv.toBlob(res, 'image/png')); if (!blob) throw new Error('no image');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fileBase() + '.png'; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    toast('QR code downloaded.', { ok: true });
-  } catch { toast('The QR code could not be made. Copy the link instead.', { err: true }); }
+  try { await qrPng(url, fileBase()); toast('QR code downloaded.', { ok: true }); }
+  catch { toast('The QR code could not be made. Copy the link instead.', { err: true }); }
 }
 // Print: the code at 7cm with the link under it, in a frame of its own, so the rest of the page never prints.
 async function printQr(url, p) {
   try {
     const m = await qrMatrix(url);
-    const f = document.createElement('iframe'); f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'; document.body.appendChild(f);
-    const doc = f.contentDocument;
-    doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(p?.name || 'HIPHI Bill Tracker')}</title><style>
+    const ok = await printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(p?.name || 'HIPHI Bill Tracker')}</title><style>
       @page { margin: 18mm; } body { font: 14px/1.4 system-ui, sans-serif; color: #142B35; text-align: center; margin: 0; padding-top: 10mm; }
       svg { width: 70mm; height: 70mm; } .w { font-size: 18px; font-weight: 700; margin: 6mm 0 2mm; } .u { font-size: 11px; color: #344852; word-break: break-all; margin: 2mm auto 0; max-width: 150mm; }
       .b { margin-top: 8mm; font-size: 12px; color: #5F6F76; }</style></head><body>
       ${qrSvg(m, 265)}${p?.welcome ? `<p class="w">${esc(p.welcome)}</p>` : ''}<p class="u">${esc(url)}</p><p class="b">HIPHI Bill Tracker · Hawaiʻi Public Health Institute</p></body></html>`);
-    doc.close();
-    setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch { toast('Printing did not start. Download the code and print it instead.', { err: true }); } setTimeout(() => f.remove(), 60e3); }, 150);
+    if (!ok) toast('Printing did not start. Download the code and print it instead.', { err: true });
   } catch { toast('The QR code could not be made. Copy the link instead.', { err: true }); }
 }
 // Copy at once (the tap is what lets the browser write the clipboard); if the browser refuses, the link in a sheet to
-// copy by hand. Never window.prompt.
-function copyLink(url) {
+// copy by hand. Never window.prompt. Also the tester sheet's (setup.js, R-185).
+export function copyLink(url) {
   const fallback = async () => {
     await afterClose();
     openSheet({ title: 'Copy the link', size: 'auto', body: `<div class="le-sheet"><p class="small">Select it all and copy it.</p><textarea class="le-copybox" readonly rows="3" aria-label="The link">${esc(url)}</textarea></div>`,

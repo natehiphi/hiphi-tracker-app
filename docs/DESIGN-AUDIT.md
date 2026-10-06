@@ -91,7 +91,8 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 390 | coalitions (9/21) | **211** | 18 | **6** | 6 | 2 | 4 |
 | staff2 | 390 | one coalition (9/21) | 349 | 12 | **3** | 7 | 4 | 5 |
 | staff2 | 390 | hearing (9/21) | **308** | 15 | **6** | 7 | 4 | 5 |
-| staff2 | 390 | Session setup > Tests (10/3, R-135) | **298** | 4 | **1** | 3 | 5 | 5 |
+| staff2 | 390 | Session setup > Tests (10/6, R-185: + the Tester sheet button) | **298** | 5 | **2** | 3 | 5 | 5 |
+| staff2 | 390 | Session setup > Tests > Tester sheet (10/6, R-185) | **285** | 12 | **4** | 3 | 4 | 6 |
 | public | 1440 | start | **144** | 12 | **11** | 1 | 5 | 5 |
 | public | 1440 | home | **218** | 11 | **5** | 6 | 6 | 7 |
 | public | 1440 | my issues (9/21) | **246** | 16 | **2** | 6 | 6 | 5 |
@@ -114,7 +115,8 @@ header comment promises. Measured: every screen is within A-4.
 | staff2 | 1440 | coalitions (9/21) | **210** | 30 | **1** | 16 | 3 | 4 |
 | staff2 | 1440 | one coalition (9/21) | 335 | 39 | **10** | 16 | 5 | 5 |
 | staff2 | 1440 | hearing (9/21) | **313** | 26 | **7** | 11 | 5 | 5 |
-| staff2 | 1440 | Session setup > Tests (10/3, R-135) | **251** | 28 | 17 | 11 | 5 | 7 |
+| staff2 | 1440 | Session setup > Tests (10/6, R-185: + the Tester sheet button) | **251** | 29 | 18 | 11 | 5 | 7 |
+| staff2 | 1440 | Session setup > Tests > Tester sheet (10/6, R-185; 14 of the 19 kinds are Session setup's own list of parts) | **305** | 39 | 19 | 11 | 5 | 6 |
 
 Bold = inside budget. **Every screen in both apps is now inside the A-2 content-control budget**, and
 seven readings sit between the arrival budget and the limit (G-8). Nothing in either app exceeds a limit.
