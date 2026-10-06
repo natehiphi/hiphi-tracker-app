@@ -78,13 +78,20 @@ with sync_playwright() as p:
     ctx = context(); pg = ctx.new_page()
     html404 = open(os.path.join(ROOT, '404.html'), encoding='utf-8').read()
     pg.route(re.compile(r'.*/track\.html\?.*'), lambda r: r.fulfill(status=200, content_type='text/html', body='<title>stub</title>'))
-    pg.route(re.compile(r'.*/b/HB9999.*'), lambda r: r.fulfill(status=404, content_type='text/html', body=html404))
+    pg.route(re.compile(r'.*/b/(2026/)?HB9999.*'), lambda r: r.fulfill(status=404, content_type='text/html', body=html404))
     pg.goto(BASE + 'b/HB9999?via=kokua&utm_source=newsletter'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
     ok(pg.url == BASE + 'track.html?via=kokua&utm_source=newsletter#/bill/HB9999', f'404.html keeps a partner word and a campaign word: {pg.url}')
+    # A page for one ask that is not built yet still opens that ask (R-169); following one opens the bill.
+    pg.goto(BASE + 'b/HB9999-testify?via=kokua'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
+    ok(pg.url == BASE + 'track.html?via=kokua#/bill/HB9999/testify', f'404.html opens the ask a page was for: {pg.url}')
+    pg.goto(BASE + 'b/2026/HB9999-follow'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
+    ok(pg.url == BASE + 'track.html?via=share#/bill/2026/HB9999', f'404.html: following a bill with no page yet opens the bill: {pg.url}')
+    # A built page goes where its own card says (since R-169 a stopped bill's page opens its issue, to follow it).
+    to2175 = re.search(r'var t = "[^"#]*(#[^"]*)"', open(os.path.join(ROOT, 'b', 'SB2175.html'), encoding='utf-8').read()).group(1)
     pg.goto(BASE + 'b/SB2175.html?via=kokua'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
-    ok(pg.url == BASE + 'track.html?via=kokua#/bill/2026/SB2175', f'a share page keeps a partner word: {pg.url}')
+    ok(pg.url == BASE + 'track.html?via=kokua' + to2175, f'a share page keeps a partner word: {pg.url}')
     pg.goto(BASE + 'b/SB2175.html'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000)
-    ok(pg.url == BASE + 'track.html?via=share#/bill/2026/SB2175', f'a share page with nothing added counts as a share: {pg.url}')
+    ok(pg.url == BASE + 'track.html?via=share' + to2175, f'a share page with nothing added counts as a share: {pg.url}')
     ctx.close()
     # ---- 7. Staff v2: the hearing page goes back to where it came from; the Help words ----
     ctx = context(); pg = ctx.new_page()

@@ -22,9 +22,13 @@ with sync_playwright() as p:
     ok('SB 2175' in pg.locator('main').inner_text(), f'#/bill/{NUM} opens the bill')
     pg.goto(BASE + f'track.html#/bill/2025/{NUM}'); ready(pg)
     ok('find SB 2175 from the 2025 session' in pg.locator('main').inner_text(), f'#/bill/2025/{NUM} says there is no such bill in the 2025 session')
-    for path, want in [(f'b/{NUM}', f'#/bill/2026/{NUM}'), (f'b/2026/{NUM}', f'#/bill/2026/{NUM}')]:
-        pg.goto(BASE + path); pg.wait_for_url(re.compile(r'track\.html'), timeout=20000)
-        ok(pg.url == BASE + 'track.html?via=share' + want, f'{path} forwards to the exact bill: {pg.url}')
+    # Since R-169 a page opens its ask: a bill with a hearing ahead #/bill/2026/<n>/testify, a stopped one its issue. Either
+    # way the page names the exact bill (the year) or its issue, and the browser goes where the page says.
+    for path in [f'b/{NUM}', f'b/2026/{NUM}', f'b/2026/{NUM}-follow']:
+        want = re.search(r'var t = "[^"#]*(#[^"]*)"', pg.request.get(BASE + path + '.html').text()).group(1)   # .html: any server
+        ok(want.startswith(f'#/bill/2026/{NUM}') or want.startswith('#/issue/'), f'{path} names the exact bill or its issue: {want}')
+        pg.goto(BASE + path + '.html'); pg.wait_for_url(re.compile(r'track\.html'), timeout=20000)
+        ok(pg.url == BASE + 'track.html?via=share' + want, f'{path} forwards where it says: {pg.url}')
     ok(not errs, 'no page errors: ' + '; '.join(errs[:3]))
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

@@ -160,7 +160,10 @@ export function openKey(k) {
 }
 
 // ---------------- the bill page's email buttons (pub/bill.js) ----------------
-const numOf = () => String((/#\/bill\/([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash)) || [])[1] || '').replace(/\s/g, '').toUpperCase();
+// The bill in the address, with its session when the link names one (#/bill/2026/HB1518: every share page's link, R-110).
+// Without the year these buttons fell back to a bare email for anyone who came from a shared link (found 10/5, R-169).
+const numOf = () => { const m = /#\/bill\/(?:(\d{4})\/)?([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash)) || [];
+  return { num: String(m[2] || '').replace(/\s/g, '').toUpperCase(), year: +m[1] || 0 }; };
 function planFor(el, b) {
   const act = openActions([b], hearingsOf(b))[0] || null, st = stopOf(b), waiting = st.phase === 'committee' && st.hearingState === 'none' && !!st.committee;
   if (el.matches('[data-bl-compose]')) { const hid = el.dataset.blCompose.split('|')[1]; return hid ? { mode: 'email', bill: b.id, hearing: hid, chair: el.dataset.blChair || '' } : null; }
@@ -180,7 +183,8 @@ document.addEventListener('click', e => {
   if (!app.openMail || !/^#\/bill\//.test(location.hash) || e.button > 0 || e.metaKey || e.ctrlKey) return;
   const el = e.target.closest?.('[data-bl-compose], [data-bl-go="compose"], [data-bl-main="ask"], [data-bl-main="hold"], [data-bl-main="remind"], [data-bl-main="floor"], [data-bl-chair][data-bl-mail]');
   if (!el) return;
-  const b = allBills().find(x => x.bill_number === numOf()), plan = b && planFor(el, b);
+  const { num, year } = numOf(), mine = allBills().filter(x => x.bill_number === num);
+  const b = (year && mine.find(x => +x.session_year === year)) || mine[0], plan = b && planFor(el, b);
   if (!plan) return;
   e.preventDefault(); e.stopPropagation();
   app.openMail(plan);

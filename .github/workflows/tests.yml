@@ -4,13 +4,14 @@
 # three Playwright runs against this commit served locally: every public screen as three kinds of person in the sandbox
 # and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py). The live
 # half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
-# pushed. The daily share-pages commit (b/ and i/ only) does not run it.
+# pushed. The share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
 name: Tests
 on:
   push:
     paths-ignore:
       - 'b/**'
       - 'i/**'
+      - 'cal/**'
   workflow_dispatch:
 concurrency:
   group: tests-${{ github.ref }}
@@ -42,6 +43,8 @@ jobs:
         run: node tests/rank_test.mjs
       - name: HIPHI's words ("e-cigarettes", never "vapes", R-158)
         run: node tests/words_test.mjs
+      - name: The share cards lead with the ask and open it (R-169)
+        run: node tests/share_cards_test.mjs
       - name: Playwright
         run: |
           pip install --quiet playwright

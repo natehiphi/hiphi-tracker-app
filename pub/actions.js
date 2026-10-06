@@ -298,10 +298,16 @@ export function downloadIcs(b, h) {
 // One share everywhere (R-113, the assessment's P3): the bill's own share page when it has one (billShareUrl: a text or
 // a post previews with the bill's name, and the friend's visit counts as a share), the deadline in the words while
 // testimony is still open, and the link passed once: the share sheet gets it as the url, the clipboard copy at the end.
-export function shareFor(b, h, { acted = false, law = false, differs = false } = {}) {
+// ask (R-169): what the friend is asked to do, which picks the share page (its card leads with the ask, its link opens
+// it; core.js billShareUrl): 'testify' | 'ask' | 'floor' | 'conference' | 'governor' | 'follow'. The bill page passes
+// the bill's ask of the moment (bill.js shareAsk); without one, a hearing ahead is testimony and a law is following.
+// Where the share test runs (a deadline or a hearing ahead), its two messages stay exactly as tested (R-135); the other
+// messages say the same ask as the card.
+export function shareFor(b, h, { acted = false, law = false, differs = false, ask = '', chamber = '' } = {}) {
   const sp = spaced(b.bill_number), name = nick(b), named = name ? `${name} (${sp})` : sp;
   const due = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? dueWords(h.testimony_deadline) : '';
   const heard = !due && h && new Date(h.scheduled_at) > Date.now() ? dayWord(h.scheduled_at) : '';
+  const a = law ? 'follow' : ask || (due || heard ? 'testify' : '');
   const when = due ? ` Testimony is due ${due}.` : heard ? ` The committee hears it ${heard}.` : '';
   // The share test (R-135, variant.js 'share'): the 'deadline' version leads with the deadline. Only where there is one to
   // lead with, and then the link says which message it was (?via=share-deadline), so a friend's arrival is credited to it.
@@ -310,10 +316,23 @@ export function shareFor(b, h, { acted = false, law = false, differs = false } =
   const text = law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
     : lead && acted ? `${head} I just spoke up, and it took a few minutes. Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : lead ? `${head} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} It takes a few minutes to tell them what you think, and every voice helps.`
+    : !when && askLine(b, a, chamber) ? (acted ? `I just spoke up on a bill I care about: ${named}. ${askLine(b, a, chamber)} Will you add your voice too?`
+      : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${askLine(b, a, chamber)}`)
     : acted ? `I just spoke up at the Legislature on a bill I care about: ${named}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps.`;
-  const url = tag ? withVia(billShareUrl(b), tag) : billShareUrl(b);
+  const page = billShareUrl(b, a), url = tag ? withVia(page, tag) : page;
   return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '' };
+}
+// The message's ask when there is no hearing to name (R-169), the same ask as the card. '' keeps the general words.
+function askLine(b, a, chamber) {
+  const no = /oppose/.test(b.hiphi_position || ''), house = CHAMBER_NAME[chamber] || '';
+  if (a === 'ask') return no ? 'It is waiting for a hearing, and a short email can ask the chair not to hear it. It takes about 2 minutes.'
+    : 'It needs a hearing or it stops for this year. A short email can ask the chair for one, and it takes about 2 minutes.';
+  if (a === 'floor') return `It goes to a vote of the full ${house || 'House or Senate'} soon. A short email can ask your legislator to vote ${no ? 'no' : 'yes'}, and it takes about 2 minutes.`;
+  if (a === 'conference') return 'The House and Senate are working out one final version. A short email can make a difference, and it takes about 2 minutes.';
+  if (a === 'governor') return `It is on the Governor’s desk. A short message can ask the Governor to ${no ? 'veto' : 'sign'} it, and it takes about 2 minutes.`;
+  if (a === 'follow') return `${/dead|vetoed/.test(b.stage || '') ? 'It stopped this year, but ideas like this often come back. ' : ''}Follow it with HIPHI and you’ll hear when your voice can count.`;
+  return '';
 }
 // ?via= goes before the address's #/ part (a bill with no share page links straight to the tracker).
 const withVia = (u, v) => { const i = u.indexOf('#'), base = i < 0 ? u : u.slice(0, i); return `${base}${base.includes('?') ? '&' : '?'}via=${v}${i < 0 ? '' : u.slice(i)}`; };

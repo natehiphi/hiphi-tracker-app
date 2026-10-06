@@ -16,7 +16,7 @@ import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep } from '
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
-import { codesOn, myEmail } from './phone.js';   // sign-in by text code (R-155)
+import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel } from './titles.js';
 import { logAct } from './visitlog.js';
 
@@ -54,127 +54,137 @@ function wireInvite() {
   } });
 }
 
-// ---------------- the profile: edit in place (R-165) ----------------
+// ---------------- the profile: edit on the page, then Save or Cancel (R-165) ----------------
 // Nate 10/5, after his first look: "+Add" read wrong and didn't look like a button; the page looked editable before
-// pressing it; "so many distinct grouped ways to update the profile provide hurdles ... First open this box, then close
-// it, then open another box, then close it." His answer: edit in place. The page itself is the form: type, tap or tick,
-// and each change saves by itself, with a small "Saved" beside it and Undo when something was taken away (B-5). Nothing
-// opens or closes, and nothing on the page redraws while someone is typing (a phone's keyboard stays up).
-const SAVE_WAIT = 900;   // a pause in typing saves a story or the note; leaving the box saves at once
-// A small "Saved" (or what went wrong) beside what changed. undo: a function that puts it back.
-function flash(id, text = 'Saved', undo = null) {
-  const el = document.getElementById(id); if (!el) return;
-  clearTimeout(el._t); el.classList.remove('bad');
-  el.innerHTML = `${icon('circle-check')}<span>${esc(text)}</span>${undo ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-pf-undo': '' } }) : ''}`;
-  const u = el.querySelector('[data-pf-undo]');
-  if (u) u.onclick = async () => { if (u.getAttribute('aria-busy')) return; busy(u, 'Putting it back…');
-    try { await undo(); } catch (e) { unbusy(u); oops(id, e); return; } flash(id, 'Put back'); };
-  announce(undo ? `${text} Undo is next to it.` : `${text}.`);
-  if (!undo) el._t = setTimeout(() => { el.innerHTML = ''; }, 4000);
-}
-function oops(id, e) {
-  const el = document.getElementById(id); if (!el) return;
-  clearTimeout(el._t); el.classList.add('bad');
-  el.innerHTML = `${icon('triangle-alert')}<span>${esc(friendly(e))}</span>`; announce(friendly(e));
-}
+// pressing it; "First open this box, then close it, then open another box, then close it." So the page itself is the
+// form, with nothing to open or close. Then, the same day: "I think the lack of save button or undo button might hurt.
+// People should be able to cancel their changes." His choice: a save bar. A change is kept as a draft (P.draft), and a
+// bar at the bottom says "You have unsaved changes" with Cancel (everything back as saved) and Save. A draft survives
+// leaving the page for another tab and a redraw; closing the browser tab with one asks first (the browser's own question).
 const status = id => `<p class="pf-st" id="${id}"></p>`;
-// A tap (a title, a tick) is confirmed in the toast, which shows wherever the person has scrolled, with Undo when
-// something was taken away (the review of R-165: a status line at the end of a long list was out of sight; A-16).
-function tapSaved(text, undo) { toast(text, undo ? { undo } : {}); }
-async function save(id, patch, undo) {
-  try { await saveProfile(patch); flash(id, undo ? undo.label : 'Saved', undo?.fn); return true; } catch (e) { oops(id, e); return false; }
+function flash(id, text, bad = false) {
+  const el = document.getElementById(id); if (!el) return;
+  el.classList.toggle('bad', bad); el.innerHTML = text ? `${icon(bad ? 'info' : 'circle-check')}<span>${esc(text)}</span>` : '';
+}
+// What is saved now, in the draft's shape.
+function savedNow() {
+  const d = myDistricts(), p = S.user?.prefs || {};
+  return { name: myName(), titles: myTitles(), story: myStory(), stories: myStories(), quote: quoteLevel(),
+    help: myInterests().filter(k => HELP_KEYS.includes(k)), helpNote: myHelpNote(),
+    sd: d?.senate || null, hd: d?.house || null, addrQ: '',
+    emails: { hearing_alerts: p.hearing_alerts === true, action_alerts: p.action_alerts === true } };
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+// Compared as saved: words trimmed, empty stories dropped, choices in a set order.
+const norm = d => JSON.stringify({ ...d, addrQ: '', name: d.name.trim(), story: d.story.trim(), helpNote: d.helpNote.trim(),
+  stories: Object.fromEntries(Object.entries(d.stories).map(([k, v]) => [k, String(v).trim()]).filter(([, v]) => v).sort()),
+  help: [...d.help].sort() });
+const dirty = () => !!(P.base && P.draft) && norm(P.draft) !== norm(P.base);
+const barHTML = () => `<p class="pf-barmsg" id="pf-barmsg" role="status">You have unsaved changes</p>
+  ${btn('Cancel', { kind: 'secondary', attrs: { 'data-pf-cancel': '' } })}${btn('Save', { kind: 'primary', icon: 'check', attrs: { 'data-pf-save': '' } })}`;
+// The bar comes and goes as the draft changes, without redrawing the page (a phone's keyboard stays up).
+function paintBar() {
+  const on = dirty(), main = $('#main'); if (!main) return;
+  const bar = main.querySelector('.actionbar');
+  if (on && !bar) {
+    main.insertAdjacentHTML('beforeend', `<div class="actionbar pf-bar"><div class="inner">${barHTML()}</div></div>`);
+    document.body.classList.add('hasbar'); wireBar(); announce('You have unsaved changes. Save is at the bottom.');
+  } else if (!on && bar) { bar.remove(); document.body.classList.remove('hasbar'); }
+  window.onbeforeunload = on ? e => { e.preventDefault(); e.returnValue = ''; return ''; } : null;
+}
+function wireBar() {
+  const c = $('[data-pf-cancel]'), s = $('[data-pf-save]');
+  if (c) c.onclick = () => { fresh(); window.onbeforeunload = null; app.render(); announce('Your changes are undone.');
+    requestAnimationFrame(() => $('#pf-h')?.focus({ preventScroll: true })); };
+  if (s) s.onclick = saveAll;
+}
+async function saveAll() {
+  const b = $('[data-pf-save]'); if (!b || b.getAttribute('aria-busy')) return;
+  const d = P.draft, base = P.base, patch = {};
+  if (d.name.trim() !== base.name) patch.name = d.name;
+  if (JSON.stringify(d.titles) !== JSON.stringify(base.titles)) patch.titles = d.titles;
+  if (d.story.trim() !== base.story) patch.story = d.story;
+  const st = Object.fromEntries(Object.entries(d.stories).map(([k, v]) => [k, String(v).trim()]).filter(([, v]) => v));
+  if (JSON.stringify(st) !== JSON.stringify(base.stories)) patch.stories = st;
+  if (d.quote !== base.quote) patch.quote = d.quote;
+  if ([...d.help].sort().join() !== [...base.help].sort().join()) patch.interests = [...myInterests().filter(k => !HELP_KEYS.includes(k)), ...d.help];
+  if (d.helpNote.trim() !== base.helpNote) patch.helpNote = d.helpNote;
+  if (d.sd !== base.sd || d.hd !== base.hd) { patch.house = d.hd; patch.senate = d.sd; }
+  const emails = JSON.stringify(d.emails) !== JSON.stringify(base.emails);
+  busy(b, 'Saving…'); const m0 = $('#pf-barmsg'); if (m0) { m0.classList.remove('bad'); m0.setAttribute('role', 'status'); m0.textContent = 'Saving your changes…'; }
+  try {
+    if (Object.keys(patch).length) await saveProfile(patch);
+    if (emails && S.user) {
+      const prefs = { ...(S.user.prefs || {}), ...d.emails, consent_at: new Date().toISOString() };
+      if (!DEMO) { const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (error) throw error; }
+      S.user.prefs = prefs; S.consentCard = false;
+    }
+  } catch (e) { unbusy(b); const m = $('#pf-barmsg'); if (m) { m.classList.add('bad'); m.setAttribute('role', 'alert'); m.textContent = friendly(e); } return; }
+  if ('house' in patch && d.sd) rememberDistricts(d.sd, d.hd, d.addrQ);
+  fresh(); window.onbeforeunload = null; app.render();
+  toast('Your profile is saved.', { yay: true }); announce('Your profile is saved.');
+  requestAnimationFrame(() => $('#pf-h')?.focus({ preventScroll: true }));
 }
 
 // About you: name, "I'm a...", where you live.
 function aboutBody() {
-  const d = myDistricts(), town = place();
+  const d = P.draft, dist = d.sd && d.hd;
   return `<div class="field pf-f"><label for="pf-name">Name</label>
-      <input id="pf-name" type="text" value="${esc(myName())}" maxlength="120" autocomplete="name" autocapitalize="words" enterkeyhint="done" aria-describedby="pf-name-st">
-      ${status('pf-name-st')}</div>
+      <input id="pf-name" type="text" value="${esc(d.name)}" maxlength="120" autocomplete="name" autocapitalize="words" enterkeyhint="done"></div>
     <div class="pf-f" id="pf-tp-host">${pickerHTML('pf', P.tp, { hint: 'Tap any that fit. Your letters can begin “As a parent, I support…”.' })}</div>
     <div class="pf-f pf-where">
-      ${d ? `<p class="mr-dist pf-curdist">${distHTML(d.senate, d.house)}</p>` : ''}
+      ${dist ? `<p class="mr-dist pf-curdist">${distHTML(d.sd, d.hd)}</p>` : ''}
       <p class="pf-promise">${icon('shield-check')}<span>We use your address once to find your senator and representative, then forget it. We keep only their district numbers.</span></p>
-      ${addrField('pf-ad', P.addr, { label: d ? 'Moved? Look up your new address' : 'Your home address', help: '' })}
+      ${addrField('pf-ad', P.addr, { label: dist ? 'Moved? Look up your new address' : 'Your home address', help: '' })}
       ${status('pf-ad-st')}</div>`;
-}
-function paintPicker() {
-  const host = $('#pf-tp-host'); if (!host) return;
-  host.innerHTML = pickerHTML('pf', P.tp); wirePicker(host, 'pf', P.tp, onTitles);
-}
-// Each tap saves; taking one off says so, with Undo; a save that fails puts the chips back as they were.
-async function onTitles(chosen) {
-  const was = P.saved.titles, gone = was.filter(t => !chosen.includes(t));
-  P.saved.titles = [...chosen];
-  try { await saveProfile({ titles: chosen }); }
-  catch (e) { P.saved.titles = [...was]; P.tp.chosen = [...was]; paintPicker(); toast(e, true); return; }
-  tapSaved(gone.length ? `Took off ${gone.map(titleLabel).join(', ')}` : 'Saved', gone.length ? async () => {
-    await saveProfile({ titles: was }); P.saved.titles = [...was]; P.tp.chosen = [...was]; } : null);
 }
 
 // Your stories: one for any issue, and one for any issue they choose, the issues they follow first (R-165).
 function storyField(k, text) {
   const id = k ? `pf-st-${k}` : 'pf-st-any', name = storyName(k);
   return `<div class="field pf-f pf-story-f" data-story="${esc(k)}"><label for="${id}">${k ? `Your story about “${esc(name)}”` : 'Your story'}</label>
-      <textarea id="${id}" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="pf-story-h ${id}-st">${esc(text)}</textarea>
-      ${status(`${id}-st`)}</div>`;
+      <textarea id="${id}" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="pf-story-h">${esc(text)}</textarea></div>`;
 }
-const storyKeys = () => { const st = myStories(); return [...new Set([...P.newStories, ...Object.keys(st)])]; };
+const storyKeys = () => [...new Set([...Object.keys(P.base.stories), ...P.newStories, ...Object.keys(P.draft.stories)])];
 function storyBody() {
-  const st = myStories(), keys = storyKeys(), have = new Set(keys);
+  const d = P.draft, keys = storyKeys(), have = new Set(keys);
   const follow = followedIssues().filter(i => !have.has(i.id)), others = (S.issues || []).filter(i => !have.has(i.id) && !follow.includes(i));
-  const any = !!(myStory() || keys.length), q = quoteLevel();
   return `<p class="pf-warm" id="pf-story-h">${esc(storyAsk(''))} ${esc(STORY_HINT)} We’ll put it in your letters, and you can change it in each one.</p>
     <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
-    ${storyField('', myStory())}
-    ${keys.map(k => storyField(k, st[k] || '')).join('')}
+    ${storyField('', d.story)}
+    ${keys.map(k => storyField(k, d.stories[k] || '')).join('')}
     ${keys.length < 20 && (follow.length || others.length) ? `<div class="field pf-f pf-addstory"><label for="pf-st-add">Add a story about one issue</label>
       <select id="pf-st-add"><option value="">Choose an issue</option>${follow.length ? `<optgroup label="Issues you follow">${follow.map(i => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('')}</optgroup>` : ''}
         ${others.length ? `<option value="other">Another issue…</option>` : ''}</select>
       ${P.otherOpen ? `<label class="sr" for="pf-st-other">Another issue</label><select id="pf-st-other"><option value="">Choose another issue</option>${(S.cats || []).map(c => {
         const xs = others.filter(i => (i.categories || [i.category]).includes(c.key)); return xs.length ? `<optgroup label="${esc(c.name)}">${xs.map(i => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select>` : ''}</div>` : ''}
-    ${any ? `<fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>
+    <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>
       <p class="small muted">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
-      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, q === k)).join('')}${status('pf-quote-st')}</fieldset>` : ''}`;
+      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, d.quote === k)).join('')}</fieldset>`;
 }
 const radio = (name, v, title, on) => `<label class="check mr-check" for="${name}-${v || 'no'}"><input type="radio" name="${name}" id="${name}-${v || 'no'}" value="${v}"${on ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(title)}</span></span></label>`;
-// A story saves after a pause in typing and when the box is left; emptied, it is removed, with Undo.
-function wireStory(ta) {
-  const k = ta.closest('[data-story]').dataset.story, sid = `${ta.id}-st`;
-  const commit = async () => {
-    clearTimeout(ta._t);
-    const text = ta.value.trim(), was = k ? myStories()[k] || '' : myStory();
-    if (text === was) return;
-    const patch = k ? { stories: { ...myStories(), [k]: text } } : { story: text };
-    if (k && !text) delete patch.stories[k];
-    await save(sid, patch, !text && was ? { label: 'Story removed', fn: async () => { await saveProfile(k ? { stories: { ...myStories(), [k]: was } } : { story: was }); ta.value = was; } } : null);
-  };
-  ta.oninput = () => { clearTimeout(ta._t); ta._t = setTimeout(commit, SAVE_WAIT); };
-  ta.onblur = commit;
-}
 
 // How you'll help (R-165): warm, four groups and their own words.
 function helpBody() {
-  const ints = new Set(myInterests());
+  const ints = new Set(P.draft.help);
   return `<p class="pf-warm">Every bit helps, and there’s no wrong way to pitch in. Tick anything that sounds like you, and HIPHI will invite you to the things that fit.</p>
-    ${HELP_GROUPS.map(([g, xs], n) => `<fieldset class="mr-set pf-f pf-helpg"><legend>${esc(g)}</legend>
+    ${HELP_GROUPS.map(([g, xs]) => `<fieldset class="mr-set pf-f pf-helpg"><legend>${esc(g)}</legend>
       ${xs.map(([k, l]) => check(`pf-int-${k}`, esc(l), k === 'testify' ? 'We’ll show you how to sign up to speak when a hearing on your issues is set.' : '', ints.has(k), ` data-pf-int="${k}"`)).join('')}</fieldset>`).join('')}
     <div class="field pf-f"><label for="pf-note">Something else? Tell us</label>
-      <input id="pf-note" type="text" maxlength="200" value="${esc(myHelpNote())}" autocapitalize="sentences" enterkeyhint="done" placeholder="Like cooking for a rally" aria-describedby="pf-help-st"></div>
-    ${status('pf-help-st')}`;
+      <input id="pf-note" type="text" maxlength="200" value="${esc(P.draft.helpNote)}" autocapitalize="sentences" enterkeyhint="done" placeholder="Like cooking for a rally"></div>`;
 }
 
-// Alerts: the email choices save as they are ticked (R-165).
+// Alerts: the email choices are part of the same draft (R-165).
 function alertsBody() {
-  const t = textSaved(), p = S.user?.prefs || {};
+  const t = textSaved(), e = P.draft.emails;
   const texts = t ? `<p>${icon('message-square')} Texts to <span class="strong">${esc(masked(t.phone))}</span>: hearings on your issues and HIPHI’s asks, at most one a day.</p><p class="small"><a href="#/alerts">Change number or stop texts</a></p>`
     : `<p>${icon('message-square')} Texts: off. <a href="#/alerts">Get text alerts</a></p>`;
   // A profile made with a number (R-155) has no email until it adds one: no email choices to show or change.
   const email = signedIn() && myEmail() ? `<fieldset class="mr-set pf-f"><legend>Emails to <span class="mr-break">${esc(myEmail())}</span></legend>
-      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, t2, h, p[key] === true, ` data-pf-em="${key}"`)).join('')}
-      <p class="small muted">Every email has a one-click unsubscribe.</p>${status('pf-em-st')}</fieldset>`
+      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, t2, h, e[key] === true, ` data-pf-em="${key}"`)).join('')}
+      <p class="small muted">Every email has a one-click unsubscribe.</p></fieldset>`
     : signedIn() ? `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email too.</p>`
-    : `<p>${icon('mail')} Email: not added.</p>`;   // Your data says how to add one, and why (the review: said twice)
+    : `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email and keep your profile on any phone.</p>`;
   return `${texts}${email}`;
 }
 
@@ -184,7 +194,7 @@ function issuesBody() {
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
 function dataBody() {
-  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a>' : '<a href="#/signin">Add your email</a>'} to keep it on any phone or computer. HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
+  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
   // Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so no emails opened.
   if (!myEmail()) return `<p>We keep your mobile number, which signs you in, the issues you picked, the bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark and what you add on this page, including your titles and your story. HIPHI staff can see all of it except your number, your testimony letters and your emails to lawmakers: we keep the last of each you sent on each bill, so they’re ready for the bill’s next step, and only you can see them. Your street address is never kept, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
     ${accountButtons()}`;
@@ -225,15 +235,15 @@ const sec = (id, title, body) => `<section class="card pf-sec" id="pf-${id}" ari
 function profileView() {
   if (!hasProfile()) return inviteView();
   if (signedIn() && !S.user) return `<div class="mr pf"><header class="pagehead"><h1 class="hero">Your profile</h1></header><div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:160px"></div><div class="skel" style="height:280px"></div></div></div>`;
-  const name = myName(), s = since();
-  // The email and the text number are in Alerts, and the number that signs them in under Your data (the review: said twice).
+  const name = myName(), s = since(), num = signedIn() ? myNumber() : '';
+  // The email and the text number are in Alerts (the review: said twice); the number that signs them in (R-155) stays here.
   return `<div class="mr pf">
     <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
-      ${s ? `<p class="meta pf-since">Speaking up since ${esc(s)}</p>` : ''}</div></header>
+      ${num || s ? `<p class="meta pf-since">${[num ? `Signed in with ${esc(masked(num))}` : '', s ? `Speaking up since ${esc(s)}` : ''].filter(Boolean).join(' · ')}</p>` : ''}</div></header>
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
     <p class="sr" id="pf-live" aria-live="polite"></p>
-    <p class="small muted pf-auto">${icon('circle-check')}<span>Change anything below. It saves as you go.</span></p>
+    <p class="small muted pf-auto">${icon('pencil')}<span>Change anything below, then Save.</span></p>
     ${sec('about', 'About you', aboutBody())}
     ${sec('story', 'Your stories', storyBody())}
     ${sec('help', 'How you’ll help', helpBody())}
@@ -243,16 +253,13 @@ function profileView() {
     ${sec('data', 'Your data', dataBody())}
   </div>`;
 }
-// The page's own state, kept across redraws of the same visit: the picker's, the address box's, stories just added.
+// The page's own state: what is saved (P.base), the draft being changed (P.draft), the picker's and address box's state,
+// story boxes added but not yet written. A draft is kept until Save or Cancel, across redraws and other pages.
 function fresh() {
-  Object.assign(P, { del: false, made: P.made || '', hsHow: false, otherOpen: false, newStories: [],
-    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, saved: { titles: myTitles() },
+  const base = savedNow();
+  Object.assign(P, { del: false, made: P.made || '', hsHow: false, otherOpen: false, newStories: [], base, draft: clone(base),
+    tp: { chosen: [...base.titles], q: '', more: false, active: -1 },
     addr: { q: '', sd: null, hd: null, picked: false, results: [] } });
-}
-// The name in the header follows the name field.
-function paintWho() {
-  const h = $('#pf-h'); if (h) h.textContent = myName() || 'Your profile';
-  const a = $('.pf-head .pf-av'); if (a) { const i = initials(); a.innerHTML = i ? esc(i) : icon('user'); }
 }
 function addStory(id) {
   P.newStories = [...new Set([...P.newStories, id])]; P.otherOpen = false;
@@ -264,63 +271,39 @@ function repaintStories(focusSel) {
   const f = focusSel && $(focusSel); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
 }
 function wireStories() {
-  document.querySelectorAll('.pf-story-f textarea').forEach(wireStory);
+  document.querySelectorAll('.pf-story-f textarea').forEach(ta => { const k = ta.closest('[data-story]').dataset.story;
+    ta.oninput = () => { if (k) P.draft.stories[k] = ta.value; else P.draft.story = ta.value; paintBar(); }; });
   const add = $('#pf-st-add'); if (add) add.onchange = () => { const v = add.value; if (!v) return;
     if (v === 'other') { P.otherOpen = true; repaintStories('#pf-st-other'); return; } addStory(v); };
   const oth = $('#pf-st-other'); if (oth) oth.onchange = () => { if (oth.value) addStory(oth.value); };
-  document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) save('pf-quote-st', { quote: r.value }); });
+  document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) { P.draft.quote = r.value; paintBar(); } });
 }
 
 function wireProfile() {
   if (!hasProfile()) { wireInvite(); return; }
   const nm = $('#pf-name');
-  if (nm) {
-    nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } };
-    nm.onchange = async () => {
-      const v = nm.value.trim(), was = myName(); if (v === was) return;
-      if (await save('pf-name-st', { name: v }, !v && was ? { label: 'Name removed', fn: async () => { await saveProfile({ name: was }); nm.value = was; paintWho(); } } : null)) paintWho();
-    };
-  }
-  wirePicker($('#pf-tp-host'), 'pf', P.tp, onTitles);
-  // Picking an address saves its districts at once; the address itself is never kept.
-  wireAddr('pf-ad', P.addr, async () => {
-    const a = P.addr, st = $('#pf-ad-st'); if (st && st.classList.contains('bad')) st.innerHTML = '';
+  if (nm) { nm.oninput = () => { P.draft.name = nm.value; paintBar(); }; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } }; }
+  wirePicker($('#pf-tp-host'), 'pf', P.tp, chosen => { P.draft.titles = [...chosen]; paintBar(); });
+  // A picked address finds the districts; they are kept with the rest at Save. The address itself is never kept.
+  wireAddr('pf-ad', P.addr, () => {
+    const a = P.addr; flash('pf-ad-st', '');
     if (!a.picked || !a.sd) return;
-    try { await saveProfile({ house: a.hd, senate: a.sd }); } catch (e) { oops('pf-ad-st', e); return; }
-    rememberDistricts(a.sd, a.hd, a.q);
-    // The box empties, so the page shows the address was not kept; the districts found stay under it.
-    const box = $('#pf-ad-addr'); if (box) box.value = ''; a.q = '';
-    const cur = $('.pf-curdist'); if (cur) cur.innerHTML = distHTML(a.sd, a.hd);
-    flash('pf-ad-st', 'Saved your districts. Your address was not kept');
+    Object.assign(P.draft, { sd: a.sd, hd: a.hd, addrQ: a.q }); paintBar();
+    flash('pf-ad-st', 'Found your districts. Save to keep them. Your address won’t be kept.');
   });
-  // Typed but not picked: nothing can be saved yet, and the page says so (it says changes save as you go).
+  // Typed but not picked: nothing to keep yet, and the page says so.
   const adb = $('#pf-ad-addr');
   if (adb) adb.addEventListener('blur', () => setTimeout(() => {
-    if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) {
-      const st = $('#pf-ad-st'); if (st) { st.classList.add('bad'); st.innerHTML = `${icon('info')}<span>Pick your address from the list to find your senator and representative.</span>`; }
-    } }, 250));
+    if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) flash('pf-ad-st', 'Pick your address from the list to find your senator and representative.', true);
+  }, 250));
   wireStories();
-  const help = $('#pf-help');
-  if (help) {
-    help.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = async () => {
-      const on = HELP_KEYS.filter(k => help.querySelector(`[data-pf-int="${k}"]`)?.checked);
-      try { await saveProfile({ interests: [...myInterests().filter(k => !HELP_KEYS.includes(k)), ...on] }); }
-      catch (e) { c.checked = !c.checked; toast(e, true); return; }
-      tapSaved('Saved');
-    });
-    const note = $('#pf-note');
-    const commit = () => { clearTimeout(note._t); if (note.value.trim() !== myHelpNote()) save('pf-help-st', { helpNote: note.value }); };
-    note.oninput = () => { clearTimeout(note._t); note._t = setTimeout(commit, SAVE_WAIT); };
-    note.onchange = commit;
-    note.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); note.blur(); } };
-  }
-  document.querySelectorAll('[data-pf-em]').forEach(c => c.onchange = async () => {
-    const prefs = { ...(S.user.prefs || {}), [c.dataset.pfEm]: c.checked, consent_at: new Date().toISOString() };
-    if (DEMO) { S.user.prefs = prefs; flash('pf-em-st'); return; }
-    const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id);
-    if (error) { c.checked = !c.checked; oops('pf-em-st', error); return; }
-    S.user.prefs = prefs; S.consentCard = false; flash('pf-em-st');
-  });
+  document.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => {
+    const k = c.dataset.pfInt; P.draft.help = c.checked ? [...new Set([...P.draft.help, k])] : P.draft.help.filter(x => x !== k); paintBar(); });
+  const note = $('#pf-note');
+  if (note) { note.oninput = () => { P.draft.helpNote = note.value; paintBar(); }; note.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); note.blur(); } }; }
+  document.querySelectorAll('[data-pf-em]').forEach(c => c.onchange = () => { P.draft.emails[c.dataset.pfEm] = c.checked; paintBar(); });
+  if (document.querySelector('#main .actionbar [data-pf-save]')) wireBar();
+  window.onbeforeunload = dirty() ? e => { e.preventDefault(); e.returnValue = ''; return ''; } : null;
   document.querySelectorAll('[data-pf-hs]').forEach(b => b.onclick = () => {
     if (b.dataset.pfHs === 'no') { try { localStorage.setItem(HS_NO, '1'); } catch { /* private mode */ } P.hsHow = false; app.render(); requestAnimationFrame(() => $('#pf-h')?.focus({ preventScroll: true })); return; }
     P.hsHow = true; logAct('home_how'); app.render(); requestAnimationFrame(() => $('.pf-steps')?.closest('section')?.querySelector('h2')?.focus?.()); });
@@ -359,9 +342,12 @@ export default {
   tab: 'more',
   title: () => hasProfile() ? 'Your profile' : 'Make your profile',
   render() {
-    // A fresh arrival starts from what is saved; a redraw of the same page keeps the picker and address box as they are.
-    if (!document.querySelector('#main .pf') || !P.tp) fresh();
+    // A fresh arrival starts from what is saved, unless a draft is waiting (Save or Cancel ends it); a redraw of the same
+    // page keeps the picker and address box as they are.
+    if (!P.base || (!document.querySelector('#main .pf') && !dirty())) fresh();
     return profileView();
   },
+  // The save bar, when a draft is waiting (also drawn by paintBar as soon as something changes).
+  bar: () => hasProfile() && dirty() ? barHTML() : '',
   wire() { wireProfile(); },
 };
