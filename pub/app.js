@@ -4,7 +4,7 @@
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
 import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows } from './kernel.js';
 import { MARK } from './art.js';
-import { skeleton, btn } from './ui.js';
+import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
 import { abSettled } from './variant.js';
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
@@ -317,6 +317,7 @@ async function boot() {
   }
 }
 app.boot = boot;
+keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen, on any screen (X9-1)
 $app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>`;
 // The clock starts with the script, so a start that hangs anywhere (the data file, the Supabase client) ends in the
 // "Try again" card instead of a skeleton that never goes away.

@@ -27,4 +27,35 @@ export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href
 export const empty = ({ art = '', title, text = '', action = '', h = 'h2' }) => `<div class="empty">${art ? `<div class="art">${art}</div>` : ''}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;
 export const skeleton = (n = 4) => `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:96px"></div>${Array.from({ length: n }, () => '<div class="skel" style="height:64px"></div>').join('')}</div>`;
 export const notice = (tone, ic, html) => `<div class="notice ${tone}">${icon(ic)}<div>${html}</div></div>`;
+// "e-cigarettes" (and any "e-" word: e-liquids, e-bikes) stays whole on a line (X9-1, R-180). A browser may break a line
+// after a hyphen, so a 28px title read "Disposable e-" / "cigarette ban" on a phone, like a typo. Display only: each match
+// is wrapped in a no-break span as it reaches the page (one observer for every screen, sheet and list), so the data,
+// search, share text and copied text are unchanged. Never inside a field, a select's options, a drawing or a script.
+const EWORD = /\b[Ee]-[A-Za-z]+/g, EWORD1 = /\b[Ee]-[A-Za-z]/;
+const NOWRAP_SKIP = 'textarea, script, style, option, select, svg, .nobr, [contenteditable]';
+function wrapWords(t) {
+  const el = t.parentElement, v = t.nodeValue;
+  if (!el || !EWORD1.test(v) || el.closest(NOWRAP_SKIP)) return;
+  const frag = document.createDocumentFragment(); let at = 0;
+  for (const m of v.matchAll(EWORD)) {
+    if (m.index > at) frag.append(v.slice(at, m.index));
+    const s = document.createElement('span'); s.className = 'nobr'; s.textContent = m[0]; frag.append(s);
+    at = m.index + m[0].length;
+  }
+  if (at < v.length) frag.append(v.slice(at));
+  t.replaceWith(frag);
+}
+function wrapIn(node) {
+  if (node.nodeType === 3) return wrapWords(node);
+  if (node.nodeType !== 1 || !EWORD1.test(node.textContent || '') || node.closest(NOWRAP_SKIP)) return;
+  const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), list = [];
+  for (let t; (t = w.nextNode());) if (EWORD1.test(t.nodeValue)) list.push(t);
+  list.forEach(wrapWords);
+}
+export function keepWordsWhole(root = document.body) {
+  try {
+    wrapIn(root);
+    new MutationObserver(recs => { for (const r of recs) r.addedNodes.forEach(wrapIn); }).observe(root, { childList: true, subtree: true });
+  } catch { /* without the observer every word still shows, only with the browser's own line breaks */ }
+}
 export const inlineErr = (id, text) => `<div class="inlinemsg" id="${id}" role="alert">${icon('circle-alert')}<span>${esc(text)}</span></div>`;

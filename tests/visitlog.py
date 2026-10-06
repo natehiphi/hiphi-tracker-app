@@ -1,7 +1,8 @@
 # pub/visitlog.js, the browser half of counting the first visit (R-023; backend migrations 067-068), in a real browser
 # with every Supabase request intercepted: nothing reaches production, and a request to anything but log_first_visit or
 # public_partners fails the run. Checks what leaves the browser (and what never does), the visit id, where the person came
-# from, the 60-a-visit cap, the keepalive request for leaving, Global Privacy Control, the sandbox, and no network.
+# from, the 60-a-visit cap, the keepalive request for leaving, Global Privacy Control, the sandbox, and no network; a text
+# sign-up kept as the yes-or-no phone flag (Z1-7).
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/visitlog.py
 import json, re, sys
@@ -74,6 +75,13 @@ with sync_playwright() as pw:
     ok('issue_ids' not in p2 and 'quiz' not in p2 and 'lesson_step' not in p2 and p2.get('seconds') == 3600, 'issue ids only with the issue screen\'s Next; a bad answer and a lesson step of 12 dropped; seconds held to an hour')
     ok(all('authorization' not in {k.lower() for k in s['headers']} or s['headers'].get('authorization', '').startswith('Bearer ') for s in rpc), 'no account is attached beyond what supabase-js sends')
     ok(page.evaluate("() => VL.visitVia()") == 'kokua-kalihi', 'visitVia() gives the slug')
+    # ---- a text sign-up counts as an alert sign-up (Z1-7): the phone flag is kept, yes or no only, never the number ----
+    r5 = page.evaluate("() => VL.logVisit('alerts', 'next', { counts: { phone: true, email: false, address: 'yes' }, phone: '808 555 1234' })")
+    page.wait_for_timeout(400)
+    rpc = [s for s in sent if s.get('p')]
+    pj = rpc[-1]['p'] if rpc else {}
+    ok(r5 is True and pj.get('step') == 'alerts' and pj.get('counts') == {'phone': True, 'email': False}, 'a mobile number given is counted as phone: true, beside email (a value that is not yes or no is dropped): ' + json.dumps(pj.get('counts')))
+    ok('555' not in json.dumps(pj) and 'phone' not in pj, 'never the number itself')
     # ---- leaving: a keepalive request straight to the endpoint ----
     n0 = len(rpc)
     page.evaluate("() => VL.logVisit('stand', 'leave', { seconds: 5 })")

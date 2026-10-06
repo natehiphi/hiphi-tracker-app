@@ -26,7 +26,7 @@
 .mb-row .mb-main:focus-visible { outline-offset: -2px; border-radius: var(--r12); }
 .mb-row .mb-bill, .mb-row .mb-who { display: contents; }
 .mb-row .mb-nick, .mb-row .mb-head, .mb-row .mb-what, .mb-row .mb-note { flex: 0 0 100%; min-width: 0; }
-.mb-row .mb-nick, .mb-row .mb-head { padding-right: 40px; font-size: var(--t16); font-weight: 700; color: var(--n900); line-height: 1.35; }
+.mb-row .mb-nick, .mb-row .mb-head { padding-right: 40px; font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }   /* a bill's name in Poppins 18, as on Home's cards (X9-1, A-19) */
 .mb-row .mb-head, .mb-row .mb-what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .mb-row .mb-what { margin-top: calc(-1 * var(--s4)); padding-right: 40px; font-size: var(--t14); color: var(--n700); line-height: 1.45; }
 .mb-row .mb-note { font-size: var(--t14); color: var(--n700); border-left: 3px solid var(--p300); padding-left: var(--s8); }
@@ -121,9 +121,11 @@
   .mb-tiles .row .end { align-self: flex-start; }
   .mb-tiles .row .chev { display: none; }
   .mb-tiles .mb-clamp { -webkit-line-clamp: 3; }
-  .mb-tiles .row .title { font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; }
   .mb-tiles .row .body { gap: var(--s4); }
 }
+
+/* A category's or a list's name on its tile: Poppins 18 on a phone as on a laptop (X9-1, A-19; it was Lato 16 below 900px) */
+.mb-tiles .row .title { font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; }
 
 /* Only stopped bills: the fold header carries the sentence that used to be an empty-state banner
    sitting on top of a list that was not empty (G-2), and the way forward goes after the list. */

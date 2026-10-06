@@ -1,8 +1,17 @@
-// HIPHI's own terms (docs/DESIGN.md C-10, R-158): "e-cigarettes", never "vape", "vapes" or "vaping". Checks HIPHI's words
-// in the sandbox data (a copy of production's, so a rebuilt snapshot brings staff's latest wording) and the quoted text in
-// the apps' code. The Legislature's own titles and descriptions are theirs and are not checked; the search's synonyms,
-// the topic matcher and the old issue addresses name the word on purpose and are allowed below.
-//   node tests/words_test.mjs   (no server needed)
+// HIPHI's own words, checked on every push (docs/DESIGN.md C-10; runs in the public repo's tests.yml, no server needed).
+//   1-2. "e-cigarettes", never "vape", "vapes" or "vaping" (R-158), in the sandbox data (a copy of production's, so a rebuilt
+//        snapshot brings staff's latest wording) and the quoted text in the apps' code. The Legislature's own titles and
+//        descriptions are theirs and are not checked; the search's synonyms, the topic matcher and the old issue addresses
+//        name the word on purpose and are allowed below.
+//   3.   Reading grade (X4-3, R-180): the Flesch-Kincaid grade of every bill summary, talking point, issue description and
+//        outlook in the sandbox data, by the same formula as tests/checks.py fk_grade. C-10 asks grade 8 or below. Most
+//        summaries are over it today and are to be rewritten (X4-2), so this prints how many are over 8 and fails only when
+//        a count RISES above its baseline below: new words over grade 8 turn the push red; old ones are reported.
+//   4.   "Hawaiʻi" with its ʻokina (U+02BB) in the public page's own words (pub/): never "Hawaii", "Hawai'i" or "Hawai‘i".
+//        The Legislature's bill titles come from the data, not the code, and keep their own spelling.
+//   5.   Never "dead" or "died" in words the public page shows (pub/): a bill "stopped" or "did not advance". The stage
+//        code 'dead' and class names like lx-dead are code, not words, and are not counted.
+//   node tests/words_test.mjs
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +46,102 @@ for (const f of files) {
   });
 }
 check(!code.length, `no screen or hint in the code says "vape"${code.length ? `:\n  ${code.join('\n  ')}` : ''}`);
+
+// 3. Reading grade of the content (X4-3). The same arithmetic as tests/checks.py: sentences of three words or more, a word
+// is anything with a letter in it, and syllables are counted by vowel groups.
+const syllables = word => {
+  let w = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return 0;
+  if (w.length <= 3) return 1;
+  w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, '');
+  return Math.max(1, (w.match(/[aeiouy]{1,2}/g) || []).length);
+};
+const fkGrade = text => {
+  const sents = String(text).split(/[.!?]+\s|\n+/).filter(t => t.split(/\s+/).filter(Boolean).length >= 3);
+  const words = sents.flatMap(t => t.split(/\s+/).filter(Boolean)).filter(w => /[A-Za-z]/.test(w));
+  if (!sents.length || !words.length) return 0;
+  const syl = words.reduce((n, w) => n + syllables(w), 0);
+  return Math.round((0.39 * (words.length / sents.length) + 11.8 * (syl / words.length) - 15.59) * 10) / 10;
+};
+// How many were over grade 8 when this check was written (5 Oct 2026, the snapshot of 21 Sep: 734 summaries, 744 talking
+// points, 91 issue descriptions, 91 outlooks). Lower a number when rewrites bring it down (the run says when); raise one
+// only with a reason in the commit, for example a new session's bills added to the snapshot.
+const OVER8 = { summaries: 654, talking_points: 464, issue_descriptions: 35, outlooks: 3 };
+const kinds = {
+  summaries: (snap.bills || []).map(b => [b.bill_number, b.public_summary]),
+  talking_points: (snap.bills || []).flatMap(b => (b.talking_points || []).map((t, k) => [`${b.bill_number} #${k + 1}`, t])),
+  issue_descriptions: (snap.issues || []).map(i => [i.slug, i.description]),
+  outlooks: (snap.issues || []).map(i => [i.slug, i.outlook]),
+};
+for (const [kind, rows] of Object.entries(kinds)) {
+  const texts = rows.filter(([, t]) => typeof t === 'string' && t.trim());
+  const over = texts.map(([w, t]) => [w, fkGrade(t), t]).filter(([, g]) => g > 8).sort((a, b) => b[1] - a[1]);
+  const base = OVER8[kind], name = kind.replace(/_/g, ' ');
+  check(over.length <= base, `${name}: ${over.length} of ${texts.length} read above grade 8 (baseline ${base}${over.length < base ? `; lower OVER8.${kind} to ${over.length}` : ''})`
+    + (over.length > base ? `. Hardest: ${over.slice(0, 3).map(([w, g]) => `${w} ${g}`).join(', ')}. Rewrite new words to grade 8 (C-10)` : ''));
+}
+
+// The quoted text of a script, without its comments, regular expressions or the code inside a template's ${...}: the
+// words a screen can show, each with its line. Enough of a reader for this repo's plain modules.
+function quoted(src) {
+  const out = [], tpl = [], n = src.length;
+  let i = 0, line = 1, depth = 0, last = '', word = '';
+  const template = () => {   // from just after a backtick, or the } that closes a ${...}, to the next backtick or ${
+    let s = '', at = line;
+    while (i < n) {
+      const c = src[i];
+      if (c === '\\') { s += src[i + 1] || ''; if (src[i + 1] === '\n') line++; i += 2; continue; }
+      if (c === '`') { i++; out.push([s, at]); last = 'a'; word = ''; return; }
+      if (c === '$' && src[i + 1] === '{') { i += 2; out.push([s, at]); tpl.push(depth++); last = '{'; word = ''; return; }
+      if (c === '\n') line++;
+      s += c; i++;
+    }
+  };
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (c === '\n') { line++; i++; continue; }
+    if (c === ' ' || c === '\t' || c === '\r') { i++; continue; }
+    if (c === '/' && d === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const e = src.indexOf('*/', i + 2), end = e < 0 ? n : e + 2; line += (src.slice(i, end).match(/\n/g) || []).length; i = end; continue; }
+    if (c === '"' || c === "'") {
+      let s = ''; const at = line; i++;
+      while (i < n && src[i] !== c && src[i] !== '\n') { if (src[i] === '\\') { s += src[i + 1] || ''; i += 2; } else s += src[i++]; }
+      i++; out.push([s, at]); last = 'a'; word = ''; continue;
+    }
+    if (c === '`') { i++; template(); continue; }
+    if (c === '/') {
+      // A regular expression wherever a value is expected (after an operator, a bracket, a comma or a keyword); else division.
+      if (!last || /[(,=:[!&|?{};+\-*%<>~^]/.test(last) || /^(return|typeof|case|in|of|void|delete|new|throw|else|do|yield|await)$/.test(word)) {
+        let cls = false; i++;
+        while (i < n && src[i] !== '\n') { const ch = src[i]; if (ch === '\\') { i += 2; continue; } if (ch === '[') cls = true; else if (ch === ']') cls = false; else if (ch === '/' && !cls) break; i++; }
+        i++; while (i < n && /[a-z]/i.test(src[i])) i++;
+        last = 'a'; word = ''; continue;
+      }
+      last = '/'; word = ''; i++; continue;
+    }
+    if (c === '{') { depth++; last = c; word = ''; i++; continue; }
+    if (c === '}') { if (tpl.length && tpl[tpl.length - 1] === depth - 1) { tpl.pop(); depth--; i++; template(); continue; } depth--; last = c; word = ''; i++; continue; }
+    if (/[\w$]/.test(c)) { let w = ''; while (i < n && /[\w$]/.test(src[i])) w += src[i++]; last = 'a'; word = w; continue; }
+    last = c; word = ''; i++;
+  }
+  return out;
+}
+const pubFiles = ['pub', 'pub/a'].flatMap(d => readdirSync(join(ROOT, d)).filter(f => /\.js$/.test(f)).map(f => `${d}/${f}`));
+const pubWords = pubFiles.flatMap(f => quoted(readFileSync(join(ROOT, f), 'utf8')).map(([text, line]) => ({ f, line, text })));
+const show = list => list.length ? `:\n  ${list.map(x => `${x.f}:${x.line}: ${x.text.trim().slice(0, 110)}`).join('\n  ')}` : '';
+
+// 4. Hawaiʻi with its ʻokina in the public page's own words.
+const HAWAII = /\bHawai(?:i|['‘’`]i)\b/;
+// A map search sent to Google (actions.js, the Capitol's directions): Google's own name for the place, never shown.
+const HAWAII_OK = [/^Hawaii State Capitol, 415 S Beretania St/];
+const noOkina = pubWords.filter(x => HAWAII.test(x.text) && !HAWAII_OK.some(a => a.test(x.text)));
+check(pubWords.length > 1000 && !noOkina.length, `the public page writes "Hawaiʻi" with its ʻokina (${pubWords.length} quoted strings read in pub/)${show(noOkina)}`);
+
+// 5. Never "dead" or "died" on the public page. Only words count: a string with a space in it, the word on its own (not a
+// code like 'dead', a class like lx-dead, or a key like f.dead).
+const DEAD = /(?<![-\w.])(dead|died)(?![-\w])/i;
+const dead = pubWords.filter(x => /\s/.test(x.text.trim()) && DEAD.test(x.text));
+check(!dead.length, `the public page never says a bill is "dead" or "died"${show(dead)}`);
 
 console.log(`\n${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

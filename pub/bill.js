@@ -13,7 +13,7 @@ import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } f
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
 import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing (R-147; one title by default, R-165)
-import { myName, myTitles } from './myprofile.js';   // one name and the profile's titles (R-156)
+import { myName, myTitles, signedIn } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
@@ -657,6 +657,9 @@ function issueLine(b) {
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
+// The line under them says who sees the answer (X4-5, R-180): once signed in, HIPHI staff do, as Help and the privacy page
+// say; before that it stays on this device. Never only "private", which was untrue for anyone with a profile.
+const stanceWho = () => signedIn() ? 'Only you and HIPHI staff see your answer. Others see totals.' : 'Your answer stays on this device. Others see only totals.';
 const STANCES = [['support', 'Support'], ['oppose', 'Oppose'], ['unsure', 'Not sure yet']];
 function stanceInner(b, x) {
   const mine = myStance(b.id);
@@ -664,7 +667,7 @@ function stanceInner(b, x) {
   const own = x.differs && !x.act && !wide() ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.</span></p>` : '';
   return `<h2 id="bl-stance-h">Where do you stand?</h2>
     <div class="chips" role="group" aria-labelledby="bl-stance-h">${STANCES.map(([v, label]) => `<button type="button" class="chip" data-bl-stance="${v}" aria-pressed="${mine === v}">${mine === v ? icon('check') : ''}${label}</button>`).join('')}</div>
-    <p class="bl-stnote">${mine ? 'Saved. ' : ''}Your answer is private. We only show totals.</p>${own}`;
+    <p class="bl-stnote">${mine ? 'Saved. ' : ''}${stanceWho()}</p>${own}`;
 }
 // Follow, share, copy link and "Add to a list" (R-013) on a wide screen (a phone has them in the top bar).
 function sideTools(b) {

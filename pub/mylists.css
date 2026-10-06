@@ -42,6 +42,7 @@
 .mb .ul-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s16); margin: var(--s24) 0 0; }
 .mb .ul-hint p { display: flex; align-items: flex-start; gap: var(--s8); margin: 0; flex: 1 1 280px; }
 .mb .ul-hint p .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.mb .ul-hint > .btn.text { margin: 0 -16px; }   /* "Make a list" on the text edge, below the hint on a phone or at the end of its line (X9-1, A-8) */
 .mb .sechead .btn.text { margin-left: auto; }
 
 /* The sheet: full screen on a phone, a card from 720px (base.css dialog.sheet) */

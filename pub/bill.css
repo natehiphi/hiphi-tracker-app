@@ -47,6 +47,9 @@
 .bl-page .bl-head h1.bl-nick { font-size: var(--t28); line-height: 1.15; }
 .bl-page .bl-lede { margin-top: calc(-1 * var(--s4)); }
 .bl-page .bl-head .chips .chip { white-space: normal; }
+/* On the grey page a soft label's wash vanished ("HIPHI supports", "Testimony due") and its icon looked indented: a white
+   fill (X9-1, A-7). The green, amber, red and orange ones keep their colour. */
+.bl-page .bl-head .chips .chip:not(.ok):not(.warn):not(.danger):not(.yay) { background: var(--n0); }
 /* R-018: the issue a bill belongs to, and one tap to follow it */
 .bl-page .bl-issue { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0; font-size: var(--t14); color: var(--n700); }
 .bl-page .bl-issue > .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
@@ -220,7 +223,8 @@
 .bl-page .bl-hdue.danger, .bl-page .bl-hdue.danger .ic { color: var(--bad-text); }
 .bl-page .bl-hr .chips { margin-top: 4px; }
 .bl-page .bl-hr .chip { white-space: normal; }
-.bl-page .bl-hacts { margin: 0 0 -8px -12px; gap: 0; }
+.bl-page .bl-hacts { margin: 0 0 -8px -16px; gap: 0; }   /* small text buttons: 16px padding, so the first one's icon is on the text edge (X9-1) */
+.bl-page .bl-hacts > .chip:first-child { margin-left: var(--s16); }   /* "Calendar file ready" in the first place: its pill starts at the text edge */
 
 /* ---- more details ---- */
 .bl-page .bl-more { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
@@ -346,6 +350,7 @@
 .bl-page.bl-wide .bl-you .bl-stnote + .bl-stools, .bl-page.bl-wide .bl-you .note + .bl-stools { border-top: 1px solid var(--n100); margin-top: var(--s4); padding-top: var(--s12); }
 .bl-page.bl-wide .bl-stools .btn.secondary.on:not([aria-pressed="true"]) .ic { fill: currentColor; }
 .bl-page.bl-wide .bl-stools .btn.text { padding: 0 var(--s8); }
+.bl-page.bl-wide .bl-stools > .btn.text:first-child { margin-left: -8px; }   /* "Share" on the text edge when it leads (X9-1) */
 /* After "Just looking" (R-067): the New here card becomes one quiet line offering the tour. */
 .bl-page .bl-tourline { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
 .bl-page .bl-tourline > .ic { color: var(--p700); flex: none; }
