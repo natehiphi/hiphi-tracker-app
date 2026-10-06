@@ -50,7 +50,7 @@ four (email the chair, send testimony, tell my legislators, stay quiet) that eac
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
 laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)
--> (its last button, "Next: your legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
+-> (its last button, "Next: Your Legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
 issues" (with the optional first name once a way to reach them was given) -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the

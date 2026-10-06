@@ -272,7 +272,7 @@ function barStory() {
   // link). The frame's Skip handler takes it straight on to the topics, and from there the bills.
   if (k === 0) return `<div class="st-bar"><div class="st-btns ob2-two">${btn('Skip to the bills', { kind: 'secondary', attrs: { 'data-stskip': '1' } })}${btn('Show me how', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`;
   // The last scene's button says where it goes (C-6).
-  if (k === LAST) return bar1('Next: your issues', 'arrow-right');
+  if (k === LAST) return bar1('Next: Your Issues', 'arrow-right');
   return bar2('Next', { iconEnd: 'arrow-right' });
 }
 
