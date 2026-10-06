@@ -26,7 +26,8 @@ jobs:
       # pages again so they use it (R-169; tools/og_images.py). Only then does the job install a browser.
       - name: Any issue picture to draw?
         id: pics
-        run: node -e "process.exit(require('./tools/og_wanted.json').some(w => !w.have) ? 0 : 1)" && echo "draw=yes" >> "$GITHUB_OUTPUT" || echo "draw=no" >> "$GITHUB_OUTPUT"
+        run: |
+          if node -e "process.exit(require('./tools/og_wanted.json').some(w => !w.have) ? 0 : 1)"; then echo "draw=yes" >> "$GITHUB_OUTPUT"; else echo "draw=no" >> "$GITHUB_OUTPUT"; fi
       - if: steps.pics.outputs.draw == 'yes'
         uses: actions/setup-python@v5
         with:
