@@ -466,7 +466,10 @@ which makes people hesitate before a form they were going to complete.
 **Defaults, added 9/23 (R-052).** A choice may start filled in only when we are highly confident it is what
 the person would pick for themselves: our own numbers show most people choose it, or it is plainly in the
 person's interest, it is visible and one tap undoes it. When we are not that sure, leave it empty or ask. Never
-pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses.
+pre-select consent, an email, anything that shares data, or a stance: for those, the person chooses. A stance the
+person gave themselves is not a default: where they are asked again, it comes back chosen and says where it came from,
+and one tap changes it (B-6; R-167, Nate 10/5: a new letter always asks "Where do you stand?", with "You marked Support
+on the bill page." and their answer chosen).
 **HIPHI's own recommendations are the one other thing that may start selected** (Nate, 9/23): the issues and
 bills the team recommends are what we are asking people to back, and a tick is how we say so. Three
 conditions: every selected item is on screen when the person decides (nothing is chosen unseen), one tap

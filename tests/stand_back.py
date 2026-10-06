@@ -1,7 +1,10 @@
 # R-167 (Nate 10/5): "Where do you stand?" in the testimony and email walkthroughs, after an answer. Choosing one moves on;
 # Back to it showed the answer chosen with only Close under it, so the way on was to tap the chosen answer again. Now a
 # chosen answer brings Next, which keeps it; with nothing chosen there is still no Next (the three answers are the buttons).
-# Sandbox (HB 1523, no stance on the bill), phone and laptop.
+# Then (Nate 10/5, later): "People still need to be asked about their support level when beginning to write testimony even
+# if they've clicked it before." Someone who marked Support on the bill page is asked too, with Support chosen and said
+# ("You marked Support on the bill page."); Next keeps it, another answer changes it here and on the bill page.
+# Sandbox (HB 1523), phone and laptop.
 #   python3 tests/stand_back.py [base]     base defaults to http://localhost:8832/track.html?demo=1
 import sys
 from playwright.sync_api import sync_playwright
@@ -15,6 +18,12 @@ FIND = """async () => { const c = await import('./pub/core.js'); const b = c.D.b
 OPEN = """async ([t, mode]) => { const c = await import('./pub/core.js'); c.S.helper = null; c.S.stances = {};
   try { const k = Object.keys(localStorage).find(k => /hiphi_me/.test(k)); if (k) { const m = JSON.parse(localStorage.getItem(k) || '{}'); delete m.mail; delete m.drafts; localStorage.setItem(k, JSON.stringify(m)); } } catch {}
   if (mode === 'testimony') c.app.openHelper(t.b, t.h); else c.app.openMail({ mode: 'email', hearing: t.h, bill: t.b }); }"""
+# The same, keeping their stance on the bill page (set there first, as the bill page's own Support button does).
+KEEP = """async ([t, mode]) => { const c = await import('./pub/core.js'); c.S.helper = null;
+  if (c.myStance(t.b) !== 'support') await c.setStance(t.b, 'support');
+  try { const k = Object.keys(localStorage).find(k => /hiphi_me/.test(k)); if (k) { const m = JSON.parse(localStorage.getItem(k) || '{}'); delete m.mail; delete m.drafts; localStorage.setItem(k, JSON.stringify(m)); } } catch {}
+  if (mode === 'testimony') c.app.openHelper(t.b, t.h); else c.app.openMail({ mode: 'email', hearing: t.h, bill: t.b }); }"""
+STANCE = "async () => (await import('./pub/core.js')).S.helper.stance"
 head = lambda pg: pg.locator('#hp-dlg #hp-sh').inner_text() if pg.locator('#hp-dlg #hp-sh').count() else ''
 nxt = lambda pg: pg.locator('#hp-dlg .hp-foot [data-hp="next"]')
 
@@ -42,6 +51,33 @@ with sync_playwright() as p:
             pg.locator('#hp-dlg [data-hp="stance"][data-v="oppose"]').click(); pg.wait_for_timeout(500)
             ok('Get to know the bill' in head(pg) and pg.evaluate("async () => (await import('./pub/core.js')).S.helper.stance") == 'oppose', f'{k} choosing another answer still moves on at once, with the new answer')
             pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+
+        # Support marked on the bill page first: still asked, with Support chosen and said; Next keeps it
+        pg.goto(BASE + '#/bill/HB1523'); pg.wait_for_selector('[data-bl-stance="support"]', timeout=30000); pg.wait_for_timeout(400)
+        sup = pg.locator('[data-bl-stance="support"]')
+        if sup.get_attribute('aria-pressed') != 'true': sup.click(); pg.wait_for_timeout(600)
+        ok(sup.get_attribute('aria-pressed') == 'true', f'{tag}: Support marked on the bill page')
+        for mode in ('testimony', 'email'):
+            k = f'{tag} {mode}, Support marked first:'
+            if mode == 'testimony': pg.locator('.btn', has_text='Write my testimony').first.click()
+            else: pg.evaluate(KEEP, [t, mode])
+            pg.wait_for_selector('#hp-dlg #hp-sh', timeout=15000); pg.wait_for_timeout(500)
+            sub = pg.locator('#hp-dlg .hp-standsub').inner_text() if pg.locator('#hp-dlg .hp-standsub').count() else ''
+            chosen = pg.locator('#hp-dlg [data-hp="stance"][data-v="support"]').get_attribute('aria-pressed') if pg.locator('#hp-dlg [data-hp="stance"]').count() else ''
+            ok('Where do you stand' in head(pg), f'{k} the walkthrough still begins with "Where do you stand?"')
+            ok(chosen == 'true' and 'You marked Support on the bill page.' in sub, f'{k} "I support it" is chosen, and it says it came from the bill page ({sub[:60]!r})')
+            ok(nxt(pg).count() == 1 and nxt(pg).is_visible() and pg.locator('#hp-dlg .hp-foot .btn.primary').count() == 1, f'{k} Next is there, the one main button')
+            nxt(pg).click(); pg.wait_for_timeout(500)
+            ok('Get to know the bill' in head(pg) and pg.evaluate(STANCE) == 'support', f'{k} Next keeps "support" and goes on to the bill')
+            pg.locator('#hp-dlg .hp-foot [data-hp="back"]').click(); pg.wait_for_timeout(500)
+            pg.locator('#hp-dlg [data-hp="stance"][data-v="oppose"]').click(); pg.wait_for_timeout(600)
+            ok('Get to know the bill' in head(pg) and pg.evaluate(STANCE) == 'oppose' and pg.evaluate(f"async () => (await import('./pub/core.js')).myStance('{t['b']}')") == 'oppose',
+               f'{k} "I oppose it" changes it, here and on the bill page')
+            pg.locator('#hp-dlg .hp-foot [data-hp="back"]').click(); pg.wait_for_timeout(500)
+            ok('You marked' not in pg.locator('#hp-dlg .hp-standsub').inner_text(), f'{k} once changed here, it no longer says "You marked ... on the bill page"')
+            pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+            if mode == 'testimony':   # back to Support on the bill page for the email
+                pg.evaluate(f"async () => {{ const c = await import('./pub/core.js'); await c.setStance('{t['b']}', 'support'); c.app.render(); }}"); pg.wait_for_timeout(400)
         ok(not errs, f'{tag}: no page errors {errs[:2]}')
         ctx.close()
     br.close()
