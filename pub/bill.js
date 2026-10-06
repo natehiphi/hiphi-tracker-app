@@ -446,24 +446,34 @@ function railInfo(b, x) {
     else steps.push({ name: conAm ? 'Constitution' : 'Law', desc: conAm ? 'If the voters say yes, it becomes part of the Hawaiʻi constitution.' : 'It becomes a Hawaiʻi law.' });
   });
   if (x.law) idx = steps.length - 1;
-  // The words under the dots: "Now: House Health, 1st of 3 House committees".
-  const s = steps[idx], C = N[s.ch] || N[ci <= 2 ? o : t];
-  let lead = 'Now: ', rest;
+  // The words under the dots: "Now: House Health, 1st of 3 House committees". `pic` is the same place for a small
+  // picture, the committee by its chamber and number only ("In the 1st of 2 Senate committees"), as these words were before
+  // each committee was named (R-081): a full name ran off both edges of the session lesson's drawing (R-179).
+  const s = steps[idx], C = N[s.ch] || N[ci <= 2 ? o : t], ord = s.kind === 'cmte' ? ORD[s.j] || `${s.j + 1}th` : '';
+  let lead = 'Now: ', rest, pic;
   if (x.law) { lead = res ? 'Adopted' : 'Became law'; rest = ''; }
   else if (x.stopped) {
     lead = '';
     rest = res ? 'Not adopted this session' : b.stage === 'vetoed' ? 'Vetoed by the Governor'
       : s.kind === 'cmte' ? `Stopped in ${s.name}` : s.kind === 'wait' ? `Stopped in ${C} committees`
       : ci === 4 && /conference|second_crossover/.test(d) ? 'Stopped before the final vote' : `Stopped before the ${C} vote`;
+    if (rest === `Stopped in ${s.name}`) pic = `Stopped in ${C} committees`;
   }
   else if (x.ballot) rest = 'The voters decide in November';
   else if (st.phase === 'conference') rest = res ? `Waiting for the ${C} vote` : 'Working out one version';
   else if (!res && ci === 5) rest = 'On the Governor’s desk';
   else if (st.phase === 'floor') rest = `Waiting for the ${C} vote`;
-  else if (s.kind === 'cmte') rest = s.of > 1 ? `${s.name}, ${ORD[s.j] || s.j + 1 + 'th'} of ${s.of} ${C} committees` : `${s.name}, its only ${C} committee`;
-  else rest = `Waiting for the ${C} to choose its committees`;
-  return { names: steps.map(s => s.name), desc: steps.map(s => s.desc), html: steps.map(s => s.html || esc(s.name)), idx, lead, rest };
+  else if (s.kind === 'cmte') {
+    rest = s.of > 1 ? `${s.name}, ${ord} of ${s.of} ${C} committees` : `${s.name}, its only ${C} committee`;
+    pic = s.of > 1 ? `In the ${ord} of ${s.of} ${C} committees` : `In its only ${C} committee`;
+  }
+  else { rest = `Waiting for the ${C} to choose its committees`; pic = `${C} committees not chosen yet`; }
+  return { names: steps.map(s => s.name), desc: steps.map(s => s.desc), html: steps.map(s => s.html || esc(s.name)), idx, lead, rest, pic: pic || rest };
 }
+// The rail's words for where the bill is, short enough for a small picture (the session lesson's label, R-179): "In the
+// 1st of 2 Senate committees" where the rail says "Now: Senate Health and Human Services with Commerce and Consumer
+// Protection, 1st of 2 Senate committees". Everything that names no committee is word for word the same.
+export function railBrief(b, x) { const r = railInfo(b, x); return `${r.lead === 'Now: ' ? '' : r.lead}${r.pic}`.trim(); }
 const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 // A stopped bill: under "Stopped in Senate committees", exactly why (Nate 9/29: "These notes need to be in the steps

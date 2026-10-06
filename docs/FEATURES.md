@@ -219,7 +219,9 @@ has not picked its committees yet stays one "Senate committees" step. Committees
 not "Senate Water"; `cmteBrief`): "Now: Senate Water, Land, Culture and the Arts, 1st of 2 Senate committees" or "Stopped
 in House Health and Human Services" (the committee from `stoppedAt` in `stops.js`); two or more heard together are joined
 with "with" when a name has its own "and" (more than two such: "with 3 other committees"); a retired code stays as its code.
-The lessons and the tour read those words, so change them there. "See all steps" links each committee's page; More
+The lessons and the tour read those words, so change them there. The session lesson's drawing is too small for a full
+name, so its label under the bill says the same place by chamber only (`pic` beside `rest`, read through `railBrief()`: "In
+the 1st of 2 Senate committees", "Stopped in House committees"; R-179); new words go into both. "See all steps" links each committee's page; More
 details no longer repeats the list. From nine dots they shrink; on wide screens (from seven dots) the names alternate
 above and below the line, in a subgrid whose top row grows to the longest name. `tests/pathway.py` checks the dots, the
 names, the links and that no two names overlap.

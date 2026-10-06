@@ -383,7 +383,7 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
 
 Serve first: `python3 -m http.server 8832` in this folder.
 ```bash
-python3 tests/public_journey.py     # public: 466 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season
+python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season, the session lesson's label inside its drawing (R-179)
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
