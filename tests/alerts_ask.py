@@ -73,7 +73,7 @@ with sync_playwright() as pw:
     p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(1800)   # settled, for the screenshot
     m = moment(p)
     ok('Mahalo!' in m and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m, f'the "Mahalo!" celebrates both, and says a text will confirm the number: {m[:140]!r}')
-    ok('Next: how a bill becomes law' in m, 'its button names what comes next (C-6), not "Continue"')
+    ok('Next: How a Bill Becomes Law' in m, 'its button names what comes next (C-6), not "Continue", in title case (R-186)')
     shot(p, '1b_mahalo')
     saved = p.evaluate("localStorage.getItem('hiphi_text')")
     ok(saved and '8085550123' in saved, 'this browser keeps the number (the sandbox copy)')

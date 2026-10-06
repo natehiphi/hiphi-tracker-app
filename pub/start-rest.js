@@ -365,9 +365,10 @@ function mahalo(then, r = null) {
     : r?.kind === 'phone' ? almostLine(fmtPhone(r.phone))
     : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
   // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
+  // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
   celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
     small: told || (off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`),
-    go: armOf('fv') === 'short' ? 'Next: why your voice matters' : 'Next: how a bill becomes law' }, then);
+    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law' }, then);
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false;
