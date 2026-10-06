@@ -35,7 +35,12 @@
 //                   flipped mid-visit never changes a visit under way; end and fv keep it for good (Home's welcome reads it).
 //   the link        ?ab=home.by-issue (several: ?ab=end.home,fv.short), and the testers' older ?end=, ?fv=, ?rank, set a
 //                   version and mark it forced: counted apart, never in the comparison (a tester is not the public).
-//   no toss         the sandbox and automated browsers get today's version unless a link says otherwise (a page flag,
+//                   &abrest=today also sets every test the link does not name to today's version (the tester sheet, the
+//                   compare page and Tests' See it: a group sees exactly what its card says, whatever the switches, R-192).
+//   the practice copy (R-192, Nate 10/6: "These changes should impact how the experience is for public users in the
+//                   sandbox"; his answers: the real switches, a random pick): ?demo=1 reads the same switches and tosses the
+//                   same way, kept for the practice visit (&restart, Start over, tosses again); nothing it does is counted.
+//   no toss         automated browsers get today's version unless a link says otherwise (a page flag,
 //                   window.__hiphiTossTests, lets tests/abtests.py watch the toss).
 // The switches come from public_ab_tests, fetched by track.html alongside the catalog (window.__hiphiAB) and kept for the
 // next visit; before any answer, the tests as built (all on but the email ask).
@@ -87,9 +92,10 @@ function applyRows(rows) {
 const cfgOf = key => { const c = cfg || cached(); return c ? c[key] || { on: false, fallback: TESTS[key].arms[0] } : { on: BUILT[key], fallback: TESTS[key].arms[0] }; };
 // The versions a new visitor can get: every version of a two-version test, and of a multi one those switched on.
 const armsOn = key => { const t = TESTS[key], c = cfgOf(key); return t.multi && c.arms ? c.arms : t.arms; };
-let settled = DEMO;
-export const abReady = (DEMO ? Promise.resolve() : (window.__hiphiAB
-  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback,arms_on&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status)))))
+let settled = false;
+// The practice copy too (R-192): track.html's early fetch is skipped there, so this asks; a read of a few public rows.
+export const abReady = (window.__hiphiAB
+  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback,arms_on&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status))))
   .then(applyRows, () => { /* the switches kept from the last visit, or the tests as built */ }).finally(() => { settled = true; });
 // The first screen waits for the switches at most this long, and not at all when it has them from a last visit; they
 // come in the same moment as the catalog, which it waits for anyway (R-122).
@@ -114,7 +120,7 @@ function arm0(key, t) {
     if (s.forced?.[key] && t.arms.includes(a)) return a;
     // A plan of the first-visit test replaces the screens these tests compare: today's version of each (R-164).
     if (INSIDE_TODAY.includes(key) && onPlan()) return t.arms[0];
-    if (DEMO || BOT) return t.arms[0];
+    if (BOT) return t.arms[0];
     const lock = s.lock?.[key];
     if (lock && t.arms.includes(lock) && (t.first === 'keep' || firstOpen())) return lock;
     const c = cfgOf(key);
@@ -145,6 +151,8 @@ function fromUrl() {
   if (['home', 'today'].includes(q.get('end'))) out.end = q.get('end');
   if (['short', 'full'].includes(q.get('fv'))) out.fv = q.get('fv');
   if (q.has('rank')) out.rank = q.get('rank') === '0' ? 'today' : 'ranked';
+  // Everything the link does not name: today's version, so the link alone sets the path (R-192).
+  if (q.get('abrest') === 'today') for (const [k, t] of Object.entries(TESTS)) if (!(k in out)) out[k] = t.arms[0];
   return out;
 }
 try {
@@ -156,7 +164,7 @@ try {
     s.v = 1;
   }
   for (const [k, a] of Object.entries(fromUrl())) { s.arms[k] = a; s.forced[k] = true; }
-  if (!DEMO && !BOT) for (const [k, t] of Object.entries(TESTS)) {
+  if (!BOT) for (const [k, t] of Object.entries(TESTS)) {
     if (t.multi) { if (typeof s.u?.[k] !== 'number') (s.u ??= {})[k] = Math.random(); continue; }
     if (!t.arms.includes(s.arms[k])) { s.arms[k] = t.arms[Math.random() < 0.5 ? 0 : 1]; delete s.forced[k]; }
   }

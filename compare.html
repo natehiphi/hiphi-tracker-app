@@ -123,7 +123,8 @@ if (fixed) document.querySelectorAll('[data-layout]').forEach(b => { if (b.datas
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
   const day = setScene(); if (!day) return;
   const ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + b.dataset.layout].join(',');
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&ab=${ab}#/`;
+  // &abrest=today: every other test at today's version, whatever the switches, so the two differ only in what is compared (R-192).
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}#/`;
 }));
 </script>
 </body>

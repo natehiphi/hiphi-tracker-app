@@ -32,7 +32,7 @@ with sync_playwright() as p:
         ok(pg.locator('h1').first.inner_text().strip() == 'Tester sheet', f'{tag}: the page opens')
         ok(pg.locator('.rm-group').count() == 2, f'{tag}: a new sheet has two groups (the first-visit versions switched on)')
         u = urls(pg)
-        ok(u[0].endswith('track.html?demo=1&restart&ab=onb.today') and u[1].endswith('track.html?demo=1&restart&ab=onb.p1'), f'{tag}: today’s and Plan 1, on the practice copy: {u}')
+        ok(u[0].endswith('track.html?demo=1&restart&abrest=today&ab=onb.today') and u[1].endswith('track.html?demo=1&restart&abrest=today&ab=onb.p1'), f'{tag}: today’s and Plan 1, on the practice copy, every other test at today’s (R-192): {u}')
         pg.wait_for_function("() => [...document.querySelectorAll('[data-rmqr]')].every(b => b.querySelector('svg'))", timeout=20000)
         ok(True, f'{tag}: every group’s QR code is drawn')
         top = pg.evaluate("() => Math.round(document.querySelector('.rm-group').getBoundingClientRect().top)")

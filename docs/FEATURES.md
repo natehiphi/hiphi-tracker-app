@@ -849,3 +849,30 @@ moment after a first action from a link (`bill.js`), with an arrow. Home keeps t
   and a phone leaves out the second Capitol drawing (`.hm-lead`).
 Tests updated: `home_end.py`, `public_journey.py`, `d1_status.py` (the words), `x10_close_loop.py` (the open, calm list).
 Backend HANDOFF 3.126.
+
+## Pick which versions of each A/B test are live; the practice copy follows (R-192; 6 Oct 2026)
+
+Nate 10/6: "allow me to pick which options are live. I should be able to pick that only option A is running, or only option
+B, or option C, or all of the above, or a combination ... These changes should impact how the experience is for public
+users in the sandbox." His answers to the plan: the practice copy follows the real switches; several on, a random pick per
+practice visit.
+- **Tests** (`staff/setup.js`, `liveOf`, `livePatch`, `liveLine`): every card has a switch per version (the first-visit test
+  had them since R-164), in place of "Test it on new visitors". Above them one line says what runs: "Running: A against B.
+  Each new visitor gets one of them at random." or "Not testing: everyone sees B, "...". Switch on another version to test
+  it." Each flip saves at once with Undo; the last one on refuses to go off and says so ("The only one on, so everyone sees
+  it."); switching on a version of a test with a note (the email ask, Home's top, the plans) asks first; the email ask's B
+  and any plan show the lawyer line when on. "Pick the winner" leaves only the winner on. The page's line counts the tests
+  running. In the practice copy a notice says its switches are samples and links the real page.
+- **Stored as before** (no migration): two or more on is `is_on` with `arms_on` (null when all are on); one on is `is_on =
+  false` with that version as `fallback` (and `arms_on` [it] for the six-way test), so `log_ab` counts only a real
+  comparison and a page holding last visit's switches reads it the same way.
+- **The practice copy** (`pub/variant.js`): reads `public_ab_tests` too (the early fetch in track.html is skipped there, so
+  `abReady` asks), tosses like the live page, kept for the practice visit (`&restart` and Start over toss again), counts
+  nothing; `app.js` boot waits for the switches in the practice copy before the first screen. Automated browsers keep
+  today's version unless a test asks (`window.__hiphiTossTests`), so the other suites stay steady. `&abrest=today` on a link
+  sets every test it does not name to today's (forced, as a tester's): the tester sheet's practice links, Tests' See it and
+  compare.html carry it, so a group or a comparison sees exactly what it names, whatever the switches.
+- Tests: `tests/versions.py` (50 checks: the cards on a phone and a laptop, every flip, Undo, the last one, the note's
+  question, the lawyer line, the six-way mixes, Pick the winner, See it and the tester sheet's links; the practice copy with
+  B only, A only, both (a pick kept for the visit, both seen over fresh visits), C and E of the first visit, the week view
+  only, `&abrest=today`, a link winning, an automated browser at today's, nothing sent); `room.py` expects the new links.

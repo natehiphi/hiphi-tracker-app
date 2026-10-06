@@ -465,6 +465,8 @@ body.sidenarrow .sv-sync span { display: none; }
 /* A switch per version, for a test with more than two (R-164, backend 136). */
 .ab-arms { border: 0; margin: var(--s8) 0 0; padding: 0; min-width: 0; }
 .ab-arms legend { padding: 0; margin-bottom: var(--s4); color: var(--n500); }
+/* What runs now, over the version switches (R-192): read first, so it is the darker line. */
+.ab-arms legend.ab-live { color: var(--n700); }
 /* Session setup > Tests > Tester sheet (R-185): a room of testers, a card per group side by side (three across on a
    laptop, one under another on a phone), each with its versions, its QR code and its link. */
 .ab-introacts { display: flex; flex-wrap: wrap; gap: var(--s4); flex: none; }

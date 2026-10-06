@@ -36,8 +36,11 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   other screen on first use (R-122; "How the page loads" below); Home's first card counts the day's deadlines and twin bills
   are one card (R-131); Staff v2's Week view has "This week's asks" to paste into the newsletter or a post (R-132).
 - **Live A/B tests (R-135, 10/3, and `layout` since R-187, 10/6; `docs/FEATURES.md`, `../backend/docs/AB-TESTS-PLAN.md`), with `onb`, `join`, `save` (R-184) and `home` (since R-187) off:** every new browser gets
-  a version of each by its own coin toss (`pub/variant.js`), Nate switches each on or off and picks winners in Staff v2 >
-  Session setup > Tests, and every count is per version. A change to one of those screens keeps both versions working
+  a version of each by its own coin toss (`pub/variant.js`), Nate switches each **version** on or off and picks winners in
+  Staff v2 > Session setup > Tests (R-192: two or more on, the test runs; one on, everyone gets it and nothing is counted),
+  and every count is per version. **The practice copy follows the real switches (R-192)**, a random pick per practice
+  visit; automated browsers keep today's; a link with `&abrest=today` (the tester sheet, See it, compare.html) keeps every
+  test it does not name at today's. A change to one of those screens keeps both versions working
   until the winner is picked; `python3 tests/abtests.py` checks them. **Version A is the live test `layout` (R-187, 10/6):**
   `track.html` draws `pub/a/home.js` and `pub/a/bill.js` for a browser on it (tabs end with "You"); `track-a.html` only
   redirects there; Home's-top test is off while it runs. A change to Home or the bill page keeps version A working
@@ -81,7 +84,7 @@ whether it should redirect to `track.html`). `mockup-hybrid.html` is a reference
 ## The sandbox: `?demo=1`
 
 Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**, loaded from
-`demo/snapshot.json`; nothing is saved and nothing reaches Supabase. Use it for ALL UI work while the live
+`demo/snapshot.json`; nothing is saved and nothing reaches Supabase except one read of the A/B switches (R-192). Use it for ALL UI work while the live
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions). In the public sandbox every
   `hiphi_` storage name is read and written as `<name>_demo` (a shim at the top of `pub/core.js`, R-067), so a

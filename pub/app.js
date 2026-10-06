@@ -325,6 +325,9 @@ async function boot() {
     const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
     if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await C.loadLists(); await C.loadBills(); })(), timeout]);
+    // The practice copy follows the real A/B switches (R-192): its first screen waits for them (they come in a moment,
+    // long before the practice copy's one big file), so a version never changes under the person.
+    if (DEMO) await abSettled(5000);
     await ensureScreen(parseRoute());
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
