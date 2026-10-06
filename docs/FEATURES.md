@@ -56,7 +56,11 @@ page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "N
 shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
 staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
-is still taken, marked late).
+is still taken, marked late). **Its words are a step larger and short (R-174, 10/5, DESIGN A-4 and C-14):** `pub/base.css`
+redefines the type tokens on the first visit's `<main>` (`body[data-screen=start|learn]`) and its moments, so every plan,
+lesson and step reads one size up without a size of its own; the must-read grey lines are `--n700`; each sentence under a
+heading is 30 words or fewer and says nothing the screen says elsewhere. On phones the first screen's three promises are
+three lines under the sentence, and Plan 4's four ways are one per row. `tests/fv_type.py` walks every version.
 **Emails are walkthroughs too (R-079, R-080, 9/29):** `pub/helper.js` has modes `testimony` | `email` | `legislators` | `intro`
 (open with `app.openHelper` for testimony, `app.openMail(o)` for the rest). Every letter or email about a bill opens on
 "Where do you stand?" (R-167, 10/5), a letter sent again and the reminder too, the earlier answer chosen and said ("You

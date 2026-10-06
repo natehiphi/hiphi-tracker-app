@@ -122,7 +122,7 @@ function stepIssues(step) {
   // more than one. The lede now asks for every issue they care about; the top heading says whose top issues they are.
   const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
     : off ? `Tick every issue you care about, as many as you like, and their ${next} bills come to you.`
-    : ticked ? `Tick every issue you care about. We ticked ${ticked === 1 ? 'one' : ticked} to start you off; add as many as you like.` : 'Tick every issue you care about, as many as you like.';
+    : ticked ? `Tick every issue you care about. We ticked ${ticked === 1 ? 'one' : ticked} to start.` : 'Tick every issue you care about, as many as you like.';
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
@@ -320,7 +320,7 @@ function stepYou(step) {
   }
   return shell('st1 st-you', `${topRow('you', step)}${artFor('you')}
     <h1 class="hero" id="st-h">Who speaks for you</h1>
-    <p class="lede">One senator and one representative speak for where you live. Lawmakers listen closest to the people they represent.</p>`,
+    <p class="lede">One senator and one representative speak for where you live, and they listen closest to you.</p>`,
     `<div class="st-legwrap" id="st-youstage">${body}</div>`);
 }
 
@@ -456,7 +456,7 @@ function nameCard() {
 }
 // The email-ask test's second version (R-135, variant.js 'email'): the first visit does not ask (askAlerts passes the
 // alerts screen over); the first ask comes after the person's first action (pub/actions.js nudgeCard) or another day.
-const quietAsk = () => `<p class="small muted st-quietask">${icon('bell')}<span>Want alerts by text or email? Once you’re through, add them any time from More.</span></p>`;
+const quietAsk = () => `<p class="small muted st-quietask">${icon('bell')}<span>Want alerts by text or email? Add them any time from More.</span></p>`;
 
 // ================= Stay connected, 3: you're all set (the peak; Nate 9/21: end on a high) =================
 // Everything they did, each line ticking in, while petals fall once and flowers bloom under the Capitol as the sun
@@ -496,13 +496,13 @@ function stepDone(step) {
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${lede}</p>`,
     `<ul class="st-did" role="list">${rows.map(([ic, b, s, kind], k) => `<li style="--k:${k}"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : ic)}</span><div><b>${esc(b)}</b><span>${esc(s)}</span></div></li>`).join('')}</ul>
-    ${S.session || textSaved() ? `<p class="st-prof">${icon('user')}<span>Your profile is saved: your ${name ? 'name and ' : ''}issues are ready for your first letter. <a href="#/profile">See your profile</a>, any time under More.</span></p>` : ''}
+    ${S.session || textSaved() ? `<p class="st-prof">${icon('user')}<span>Your profile is saved, ready for your first letter. <a href="#/profile">See your profile</a> any time in More.</span></p>` : ''}
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">
-      <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${!follows ? 'We follow HIPHI’s issues every day. Follow one any time and it becomes yours.' : off ? `From ${esc(shortDay(sessionInfo().nextOpen))} we check your issues every day, so you don’t have to.` : 'We check your issues every day, so you don’t have to.'}</span></div></li>
-      <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>You’ll get one simple way to help. Most take about 2 minutes.</span>'
-        : '<b>When it’s your moment, it’s on your home page.</b><span>One simple way to help, most in about 2 minutes. Turn on reminders in More so you don’t miss one.</span>'}</div></li>
-      <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result shows up on your home page.</span></div></li>
+      <li style="--k:0"><span class="st-nic">${icon('eye')}</span><div><b>We keep watch.</b><span>${!follows ? 'Follow an issue any time, and we watch it for you.' : off ? `Every day from ${esc(shortDay(sessionInfo().nextOpen))}, so you don’t have to.` : 'Every day, so you don’t have to.'}</span></div></li>
+      <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>Most ways to help take about 2 minutes.</span>'
+        : '<b>When it’s your moment, it’s on your home page.</b><span>Most ways to help take about 2 minutes.</span>'}</div></li>
+      <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result is on your home page.</span></div></li>
     </ol>${shareLine()}${keepLine()}`);
 }
 

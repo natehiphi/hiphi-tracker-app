@@ -329,8 +329,8 @@ function stepTopics(step) {
   }
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
-    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} ${endHome() ? 'Pick what you care about. When your voice can count, you’ll see what to do, and we’ll help you do it.' : 'Pick what you care about, and we’ll tell you when your voice can count.'}`
-      : `HIPHI follows the health bills at the Hawaiʻi Legislature. ${endHome() ? 'Pick what you care about.' : 'Pick what you care about, and we’ll tell you when a few minutes of your time can help get bills passed.'}`}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
+    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll keep watch.`
+      : 'HIPHI follows Hawaiʻi’s health bills. Pick what you care about.'}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
     `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
 }
 

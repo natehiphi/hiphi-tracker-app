@@ -189,7 +189,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   `bill`, `people`, `more`, `helper`, `committees`, `allbills` (its rows are My issues' `billRow` with `pos` and `watch`,
   so it is a table from 1100px; it loads one session's tracked bills from `public_all_bills` and their hearings). `pub/art.js` drawings (`islands('oahu' | 'mauicounty' | …)`).
 - Design system `pub/base.css`: HIPHI blue ramp `--p50..--p900` (`--p700 #00698E`), orange for celebration
-  only, red for danger only, Roboto 700 / Lato, type sizes 13/14/16/18/22/28 (36 only `h1.hero` on desktop).
+  only, red for danger only, Roboto 700 / Lato, type sizes 13/14/16/18/22/28 (36 only `h1.hero` on desktop); the
+  first visit reads one step up (14/16/18/22/28, the tokens redefined on its `<main>` in base.css, R-174, DESIGN C-14).
   `pub/wide.css` (loaded last): 900 and 1100px breakpoints, 1120px frame, `.cols` + sticky `.side`, `.grid2/3`.
   Each screen keeps its own desktop rules in its own CSS.
 - Screen contract: `{ tab, tabs?, noTabs?, title?, render(route), wire(route), bar?(route) }`. Screens reach
@@ -409,6 +410,7 @@ python3 tests/boot_live.py          # the staged boot on the published site (R-1
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
 python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; the first visit's six versions (R-164); 69 checks
 python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the later-visit card; 86 checks
+python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
 python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks

@@ -136,6 +136,11 @@ that screen worse by demoting every row but the first, for no gain to anybody us
 Staff: 13/14/16/18/22. Public: those plus 28 (and 36 only for `h1.hero` on desktop). Sizes come from
 the tokens in `pub/base.css`; no screen invents one.
 
+**The first visit is one step larger (R-174, 10/5):** inside it (its lessons opened on their own and its
+moments too) the tokens are redefined, so 13 reads as 14, 14 as 16, 16 as 18 and 18 as 22; 22 and 28 stay.
+Its sentences are 18px, card text 16px, and 14px is left for labels, counts and the fine print. It is
+done once, in `pub/base.css`, so a screen there still sets only token sizes. What that buys is C-14.
+
 *Reason.* A type scale is what makes a hierarchy legible without thinking. Every extra size makes the
 hierarchy flatter, not richer, because it makes the differences smaller. Five steps is enough for
 title / section / body / label / caption, which is every job a screen here has.
@@ -653,6 +658,22 @@ answer being used; evidence **strong** that relevant, personalized experiences k
 short questionnaire whose answers go nowhere reads as data collection. Checked by `first_visit_funnel`: how
 many skip a question, and how many finish after it.
 
+### C-14 In the first visit, what people read is large and short
+
+Anything a person reads to choose or to move on is 16px or larger (18px for the sentence under a
+heading, A-4), in `--n700` or darker; 14px is only for a label, a count, a chip, a time or the fine
+print. The sentence under a heading is one or two short sentences, 30 words at most, and nothing on a
+screen says again what its heading, another line or the screen before already said (A-14). A long line
+is cut, not made smaller. (Added 10/5, R-174.)
+
+*Reason.* Nate, 10/5: "The text during onboarding is far too small. Anything that users need to
+read should be prominent and not long." A newcomer reads every word of the first visit, on a phone,
+before they trust the page; 13-14px grey under a 28px heading reads as small print, and long lines
+are skimmed or skipped. Mobile reading guidance puts body text at about 16-18px (Apple's body style is
+17pt), and shorter lines are read more completely (NN/g on web reading). Whether it changes how many
+finish is a guess until `first_visit_funnel` and the five testers show it; checked by
+`tests/fv_type.py`, which walks every version.
+
 ---
 
 ## The review checklist
@@ -690,6 +711,7 @@ many skip a question, and how many finish after it.
 | Journeys working and inside budget (B-2) | all | all | `tests/journeys.py` |
 | Primary actions in view (A-3) | 1, or 1 per row in a list of equivalent items | as budget | review |
 | Type sizes per screen (A-4) | 5 staff / 6 public | as budget | `tests/density.py` |
+| First visit: reading text / lead sentence (C-14) | 16px+ (14px labels only) / 30 words | as budget | `tests/fv_type.py` |
 | Distinct text colours in view (A-5) | 7 | — | `tests/density.py` |
 | Touch target (A-6) | 44px | 44px | `tests/checks.py` |
 | Text contrast (A-7) | 4.5:1 | 4.5:1 | `DESIGN-AUDIT.md` |

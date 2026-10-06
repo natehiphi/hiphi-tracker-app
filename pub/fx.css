@@ -17,7 +17,7 @@
 .fx-mcard { text-align: center; max-width: 380px; }
 .fx-mtitle { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--o700); letter-spacing: -.02em; animation: fx-rise .35s var(--ease) .35s both; }
 .fx-msub { margin: 8px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .35s var(--ease) .5s both; }
-.fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n500); animation: fx-rise .35s var(--ease) .65s both; }
+.fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n700); animation: fx-rise .35s var(--ease) .65s both; }
 .fx-mgo { margin-top: 24px; min-width: 200px; animation: fx-rise .3s var(--ease) .8s both; }
 .fx-malt { display: flex; margin: 4px auto 0; animation: fx-rise .3s var(--ease) .9s both; }   /* the quiet Undo under Continue (R-067) */
 .fx-bloom { width: 120px; height: 120px; margin: 0 auto 8px; }

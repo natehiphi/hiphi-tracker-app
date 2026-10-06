@@ -63,14 +63,14 @@ export const PLAN_SURE = { p1: 'About 3 minutes. Free.', p2: 'About 3 minutes. F
 // The topics screen's words in each plan (start.js stepTopics): the heading and the line under it, in session and between
 // sessions. {open} is the day the session opens.
 export const PLAN_TOPICS = {
-  p1: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about, and we’ll keep watch on it. Then pick a bill to learn about.',
-    hOff: 'Get ready for the {next} session', ledeOff: 'The Legislature opens {open}. Pick what you care about, and we’ll keep watch on it. Then say hello to the two people who vote for you there.' },
+  p1: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows Hawaiʻi’s health bills. Pick what you care about, and we’ll keep watch.',
+    hOff: 'Get ready for the {next} session', ledeOff: 'The Legislature opens {open}. Pick what you care about, and we’ll keep watch.' },
   // Said so it reads right whether or not the person watched the story (Plan 2's helper: after "Skip to the bills",
   // "That road" pointed at nothing).
   p2: { h: 'What do you care about?', lede: 'Pick what you care about, and we’ll show you where its bills are on the road to becoming law.',
     ledeOff: 'The session opens {open}. Pick what you care about, and we’ll show you where its bills ended up this year.' },
   p3: { h: 'What should they hear about from you?', lede: 'Pick what you care about. We’ll show you what your legislators will decide on it.' },
   p4: { h: 'What do you care about?', lede: 'Pick what you care about. We’ll find your first step on it, sized to how you like to help.' },
-  p5: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows the health bills at the Hawaiʻi Legislature. Pick what you care about. That’s most of it: we’ll keep watch for you.',
+  p5: { h: 'Speak up for a healthier Hawaiʻi', lede: 'HIPHI follows Hawaiʻi’s health bills. Pick what you care about, and we’ll keep watch for you.',
     hOff: 'Get ready for the {next} session', ledeOff: 'The Legislature opens {open}. Pick what you care about, and we’ll keep watch for you.' },
 };

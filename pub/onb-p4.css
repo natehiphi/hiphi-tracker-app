@@ -9,12 +9,12 @@
 .st-tiles.ob4-ways { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .ob4-tile { gap: var(--s8); }
 .ob4-tbody { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; flex: 1 1 auto; }
-.ob4-what { font-size: var(--t13); line-height: 1.4; color: var(--n700); }
+.ob4-what { font-size: var(--t14); line-height: 1.4; color: var(--n700); }
 .ob4-time { display: flex; align-items: center; gap: var(--s4); margin-top: auto; padding-top: var(--s4); font-size: var(--t13); font-weight: 700; color: var(--p800); }
 .ob4-time .ic { width: 14px; height: 14px; flex: none; color: var(--p700); }
-/* Small phones (and large text, 359px at the normal size): one card per row, the icon beside the words, so each line
-   still reads in full rather than five words to a line. */
-@media (max-width: 22.4375em) {
+/* Phones: one card per row, the icon beside the words, so each line reads in full rather than three words to a line
+   (R-174: the descriptions are at reading size now; two by two stays from 600px). */
+@media (max-width: 37.5em) {
   .st-tiles.ob4-ways { grid-template-columns: minmax(0, 1fr); gap: var(--s8); }
   .ob4-tile { flex-direction: row; align-items: flex-start; gap: var(--s12); padding: var(--s12); }
   .ob4-tile .st-ilead { width: 36px; height: 36px; }

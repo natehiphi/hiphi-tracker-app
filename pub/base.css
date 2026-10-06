@@ -31,6 +31,16 @@
   --ease: cubic-bezier(.2,.7,.3,1);
 }
 
+/* The first visit reads one step larger (R-174, Nate 10/5: "The text during onboarding is far too small. Anything that
+   users need to read should be prominent"). A newcomer reads every word there, on a phone, before they trust the page, so
+   the sizes move up a step: 13 -> 14 (labels, counts, the fine print), 14 -> 16 (descriptions and notes), 16 -> 18
+   (sentences, card names, buttons, fields), 18 -> 22 (section headings); 22 and 28 stay. It is still the public scale
+   (A-4): the tokens are redefined on the first visit's <main> (its bar included), its lessons opened on their own and its
+   moments, so no screen sets a size of its own and every plan and step follows. Literal values, not var(): a token
+   defined from another token on the same element would read the new value. */
+body:is([data-screen="start"], [data-screen="learn"]) main,
+body[data-screen="start"] .fx-moment { --t13: .875rem; --t14: 1rem; --t16: 1.125rem; --t18: 1.375rem; font-size: var(--t16); }
+
 /* ---- base ---- */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: calc(var(--header) + 16px); scroll-padding-bottom: calc(var(--tabbar) + 24px); }

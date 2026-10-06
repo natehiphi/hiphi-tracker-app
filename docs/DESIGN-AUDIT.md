@@ -69,6 +69,7 @@ header comment promises. Measured: every screen is within A-4.
 |---|---|---|---|---|---|---|---|---|
 | public | 390 | start | 342 | 8 | 7 | 1 | 4 | 5 |
 | public | 390 | start, re-measured 10/3 | 430 (accepted exception, section 4, 9/27) | 7 | 6 | 1 | 4 | 6 |
+| public | 390 | start, 10/5 after R-174 (one step larger, shorter sentence) | 429 (same exception; about 28px of it is the practice copy's band) | 7 | 6 | 1 | 4 | 6 |
 | public | 390 | home | **225** | 9 | **3** | 6 | 6 | 6 |
 | public | 390 | my issues (9/21) | **205** | 16 | **2** | 6 | 6 | 5 |
 | public | 390 | category (9/21) | 379 | 14 | **3** | 6 | 5 | 6 |
@@ -78,6 +79,7 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | legislators | 382 | 11 | **5** | 6 | 4 | 3 |
 | public | 390 | more | **165** | 17 | **1** | 6 | 4 | 2 |
 | public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
+| public | 390 | alerts, 10/5 after R-174 (one step larger) | 345 (over budget, under the limit: the larger sentence and the three part names on two lines) | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | More > Get alerts (10/4, R-146) | **264** | 10 | **4** | 6 | 4 | 5 |
 | staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
 | staff2 | 390 | bills | 386 | 26 | **12** | 5 | 4 | 5 |

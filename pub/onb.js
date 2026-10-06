@@ -148,7 +148,7 @@ function stepFind(step) {
   const sel = chosen()?.id;
   return shell('st2 ob-picks ob-find', `${topRow('find', step)}${artFor('find')}
     <h1 class="hero" id="st-h">Find a bill you care about</h1>
-    <p class="lede">These bills on ${esc(topicWords())} could move soon. Pick the one you’d most like to learn about. Nothing to do yet.</p>${sureWide('eye', 'Just looking. You decide later.')}`,
+    <p class="lede">These bills on ${esc(topicWords())} could move soon. Pick one to learn about.</p>${sureWide('eye', 'Just looking. You decide later.')}`,
     `${sayRow('eye', 'Just looking. You decide later.')}<ul class="st-picks" role="list" aria-label="Bills to learn about">${m.list.map(b => findCard(b, m.R, b.id === sel)).join('')}</ul>`);
 }
 function wireFind({ step, $, $$ }) {
@@ -171,17 +171,16 @@ function stepLearn(step) {
   const R = ranker(), h = hearingOf(b, R), due = dueOf(h), name = nick(b) || spaced(b.bill_number), to = chairOf(b, h);
   const pl = P2.placeOf ? P2.placeOf(b, isOff(), sessionInfo().recapYear) : null;
   const help = h
-    ? `${esc(cmteLabel(h.committee) || 'A committee')} hears it ${esc(dayWord(h.scheduled_at))}. Before then, anyone can send the chair a short note saying what they think.${due ? ` Notes are taken until ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}.` : ''}`
-    : `It needs a hearing before it can move. Anyone can send the chair${to ? `, ${esc(to)},` : ''} a short note asking for one.`;
+    ? `Anyone can send the chair a short note before ${due ? `${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}` : 'the hearing'}. Lawmakers listen closest to the people a bill affects.`
+    : `It needs a hearing to move. Anyone can send the chair${to ? `, ${esc(to)},` : ''} a short note asking for one.`;
   return shell('st1 ob-learn', `${topRow('learn', step)}
     <p class="ob-num">${esc(spaced(b.bill_number))}${posChip(b)}</p>
     <h1 class="hero" id="st-h">${esc(name)}</h1>
-    <p class="lede">${esc(blurb(b, 220))}</p>`,
+    <p class="lede">${esc(blurb(b, 140))}</p>`,
     `<section class="card ob-lsec" aria-labelledby="ob-l1"><h2 class="ob-lh" id="ob-l1">${icon('route')}<span>Where it is now</span></h2>
       ${pl ? `<div class="ob2-mini">${P2.miniRoad(pl)}</div>` : ''}<p class="ob-lp">${esc(statusWords(b))}</p></section>
     <section class="card ob-lsec" aria-labelledby="ob-l2"><h2 class="ob-lh" id="ob-l2">${icon('message-square')}<span>How people can help</span></h2>
-      <p class="ob-lp">${help}</p>
-      <p class="ob-lp small muted">Lawmakers listen closest to people the bill would affect. A note in your own words, even one sentence, counts.</p></section>`);
+      <p class="ob-lp">${help}</p></section>`);
 }
 function wireLearn({ step, $ }) {
   const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { track('learn', 'next'); goStep(step, step + 1); };
@@ -196,15 +195,15 @@ function stepDecide(step) {
   if (acted) return shell('st1 ob-decide', `${topRow('decide', step)}${artFor('decide')}
     <h1 class="hero" id="st-h">You added your voice</h1><p class="lede">Mahalo for writing about ${esc(name)}. Next: how we’ll tell you what happens.</p>`,
     `<p class="ob-did">${icon('circle-check')}<span>You emailed ${esc(to || 'the chair')}.</span></p>`);
-  const what = h ? `A short email to ${esc(to || 'the committee’s chair')}${due ? `, before ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}` : ''}. We write it with you from your answers, and you send it from your own email.`
-    : `A short email asking ${esc(to || 'the committee’s chair')} to give it a hearing. We write it with you, and you send it from your own email.`;
+  const what = h ? `A short email to ${esc(to || 'the committee’s chair')}${due ? `, before ${esc(dayWord(due).split(',')[0])} at ${esc(timeWord(due))}` : ''}. We help you write it; you send it.`
+    : `A short email asking ${esc(to || 'the committee’s chair')} to give it a hearing. We help you write it; you send it.`;
   return shell('st1 ob-decide', `${topRow('decide', step)}${artFor('decide')}
     <h1 class="hero" id="st-h">Want to add your voice?</h1>
     <p class="lede">${what}</p>`,
     `<ul class="ob-ways" role="list">
-      <li><button type="button" class="card ob-way" data-obwrite="1"><span class="ob-wayic" aria-hidden="true">${icon('mail')}</span><span><b>Write it now</b><span>About 2 minutes, with help at each step</span></span>${icon('chevron-right')}</button></li>
-      ${due ? `<li><button type="button" class="card ob-way" data-obremind="1"><span class="ob-wayic" aria-hidden="true">${icon('calendar-clock')}</span><span><b>Remind me before ${esc(shortWhen(due))}</b><span>We’ll tell you the day before notes are due</span></span>${icon('chevron-right')}</button></li>` : ''}
-      <li><button type="button" class="card ob-way" data-obnot="1"><span class="ob-wayic" aria-hidden="true">${icon('eye')}</span><span><b>Not now, just keep watch</b><span>You follow it, and it stays on your home page</span></span>${icon('chevron-right')}</button></li>
+      <li><button type="button" class="card ob-way" data-obwrite="1"><span class="ob-wayic" aria-hidden="true">${icon('mail')}</span><span><b>Write it now</b><span>About 2 minutes, with help</span></span>${icon('chevron-right')}</button></li>
+      ${due ? `<li><button type="button" class="card ob-way" data-obremind="1"><span class="ob-wayic" aria-hidden="true">${icon('calendar-clock')}</span><span><b>Remind me before ${esc(shortWhen(due))}</b><span>We’ll tell you the day before</span></span>${icon('chevron-right')}</button></li>` : ''}
+      <li><button type="button" class="card ob-way" data-obnot="1"><span class="ob-wayic" aria-hidden="true">${icon('eye')}</span><span><b>Not now, just keep watch</b><span>It stays on your home page</span></span>${icon('chevron-right')}</button></li>
     </ul>`);
 }
 function wireDecide({ step, $ }) {
@@ -251,7 +250,7 @@ function stepHello(step) {
   return shell('st1 ob-hello', `${topRow('hello', step)}${artFor('hello')}
     <h1 class="hero" id="st-h">${done ? 'Aloha sent' : legs.length ? 'Say aloha to your legislators' : 'Say aloha at the Capitol'}</h1>
     <p class="lede">${done ? 'They know you now, and what you care about. That counts when your issues come up.'
-      : `A short note ${off && open ? `before the session opens on ${esc(shortDay(open))} ` : ''}tells them a neighbor cares about ${topics.length ? esc(andList(topics)) : 'health in Hawaiʻi'}, and asks where they stand. Offices keep track of what their own voters care about. We write it with you; you send it from your own email.`}</p>`,
+      : `A short note ${off && open ? `before the session opens on ${esc(shortDay(open))} ` : ''}tells them you care about ${topics.length ? esc(topics[0]) : 'health in Hawaiʻi'}, and asks where they stand. We help you write it; you send it.`}</p>`,
     legs.length ? `<ul class="st-legs ob-legs" role="list">${legs.map(l => `<li class="st-leg">${legPhoto(l, 'st-legpic')}<span class="st-tbody"><b>${esc(legTitle(l))} ${esc(l.name)}</b><span>Your ${l.chamber === 'S' ? 'senator' : 'representative'} · District ${esc(String(l.district))}</span></span></li>`).join('')}</ul>
       ${done ? `<p class="ob-did">${icon('circle-check')}<span>You said hello to ${esc(andList(names))}.</span></p>` : '<p class="small muted ob-legnote">Lawmakers listen closest to the people they represent.</p>'}`
       : `<p class="ob-noaddr">${icon('map-pin')}<span>Find your two legislators first, and we’ll write the hello with you.</span></p>`);
@@ -381,7 +380,7 @@ const NEXT3 = {
 function nextLines(p) {
   const [watch, tell] = NEXT3[p] || NEXT3.p5, told = !!(S.session || textSaved() || mailSent());
   return [followsAnything() ? watch : 'Follow an issue any time, and we keep watch on it for you.',
-    told ? tell : 'When it’s your moment, it shows at the top of your home page. Turn on alerts in More so you don’t miss one.',
+    told ? tell : 'When it’s your moment, it’s at the top of your home page.',
     'You see what happened, on your home page.'];
 }
 function stepWrap(step) {
@@ -401,7 +400,7 @@ function stepWrap(step) {
     <h2 class="st-nexth">What happens next</h2>
     <ol class="st-next3" role="list">${next.map((s, k) => `<li style="--k:${k}"><span class="st-nic">${icon(ics[k])}</span><div><span>${esc(k === 0 && off && open ? `${s.replace(/\.$/, '')}, from ${shortDay(open)}.` : s)}</span></div></li>`).join('')}</ol>
     ${p === 'p1' || p === 'p3' ? `<aside class="card ob-note" aria-label="A note from HIPHI"><span class="ob-noteic" aria-hidden="true">${icon('heart-handshake')}</span>
-      <p><b>Mahalo from the HIPHI team.</b> We follow the health bills at the Capitol every day. ${S.session || textSaved() || mailSent() ? 'We’ll write when your voice counts, and we’ll celebrate the wins with you.' : 'Your home page shows when your voice counts, and the wins too.'}</p></aside>` : ''}`);
+      <p><b>Mahalo from the HIPHI team.</b> We’re at the Capitol every day, and we’ll celebrate the wins with you.</p></aside>` : ''}`);
 }
 function wireWrap({ $ }) {
   const d = $('[data-stdone]'); if (d) d.onclick = () => finish();
