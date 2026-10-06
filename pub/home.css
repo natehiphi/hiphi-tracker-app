@@ -254,6 +254,7 @@
 .hm .hm-meet h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t16); }
 .hm .hm-meet h2 .ic { flex: none; color: var(--p700); margin-top: 2px; }
 .hm .hm-meet .small { margin: var(--s8) 0 0; }
+.hm .hm-meet > .btn.text { margin-left: -16px; }   /* "See the event" on the text edge above it; its padding stays tap area (X9-1, A-8) */
 .hm .hm-draft { display: flex; flex-direction: column; gap: var(--s8); margin-bottom: var(--s12); border: 1.5px solid var(--p300); }
 .hm .hm-draft h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
 

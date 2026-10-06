@@ -298,7 +298,10 @@ label requirement is P-4 again: an icon alone is a guess unless it is universall
 
 `--font-h` is **Poppins** (600 and 700); body and everything else is Lato. Headings at 22px and above
 take `letter-spacing: -.02em` and `line-height: 1.15`; 16–18px headings take `-.01em` and 1.2. Body
-text keeps normal spacing and 1.4–1.5 line height.
+text keeps normal spacing and 1.4–1.5 line height. **A name that titles an issue, a bill or a category
+is a heading wherever it stands** (a card, a list row, a tile): Poppins 18 (22 in the first visit, C-14), on a phone as on a laptop,
+so the same issue never reads in two faces on two screens (X9-1, R-180). The page's own `h1` keeps its
+larger size.
 
 *Reason.* Large type set at default spacing looks loose and unfinished; tightening it is most of the
 difference between a heading that looks designed and one that looks typed. Poppins is HIPHI's heading
@@ -317,7 +320,10 @@ A-13 as well as A-2.
 
 ### A-21 Dark mode — the rules, for when it is built
 
-Not built, and out of scope as of 2026-09-19. When it is: soften borders rather than lightening them;
+Not built, and out of scope as of 2026-09-19. Until it is, every page declares
+`<meta name="color-scheme" content="only light">`, so a phone that darkens websites (Samsung Internet,
+Chrome's "darken websites") shows the page as designed instead of inventing its own dark version (X9-1,
+R-180); drop the `only` when dark mode is built. When it is: soften borders rather than lightening them;
 there are no shadows in dark mode, so show elevation by making the raised surface **lighter** than the
 page; reduce saturation on washes and chips, which glow at full strength on a dark background; and
 re-verify every pair in the contrast table, because inverting is not symmetrical. Every token needs a
@@ -597,8 +603,13 @@ that needs attention.
 
 ### C-10 Plain language, checked
 
-Public text targets **Flesch–Kincaid grade 8 or below**; `tests/checks.py` already computes it and
-`public_journey.py` asserts it. Bills lead with the nickname, then the plain summary, and always show
+Public text targets **Flesch–Kincaid grade 8 or below**. `tests/words_test.mjs` checks it on every push
+(X4-3, R-180): it grades every bill summary, talking point, issue description and outlook in the practice
+data by the formula in `tests/checks.py` (`fk_grade`), prints how many read above grade 8, and fails when
+a count rises above its recorded baseline, so new words over grade 8 are caught while the old summaries
+wait for their rewrite (X4-2). The same test fails on "Hawaii" without its ʻokina (U+02BB) and on "dead"
+or "died" in the public page's own words. No test grades a whole screen yet: `public_journey.py` computes
+each screen's grade and does not compare it. Bills lead with the nickname, then the plain summary, and always show
 the bill number. No jargon without its plain equivalent first — not "referral", "crossover",
 "deferred", or "measure", unless the plain words come first.
 
@@ -717,7 +728,7 @@ finish is a guess until `first_visit_funnel` and the five testers show it; check
 | Text contrast (A-7) | 4.5:1 | 4.5:1 | `DESIGN-AUDIT.md` |
 | Breakpoints (A-9) | 360/900/1100 | — | grep |
 | Journey steps (B-2) | per table | — | by hand (gap G-1) |
-| Public reading grade (C-10) | 8 | 8 | `tests/checks.py` |
+| Public reading grade (C-10) | 8 | 8 (content: no rise over the baseline) | `tests/words_test.mjs` |
 | Actions shown on a row or card (A-20) | 2 | 2 | review |
 | Instructions needed for a core journey (B-11) | 0 | 0 | cold-start test |
 

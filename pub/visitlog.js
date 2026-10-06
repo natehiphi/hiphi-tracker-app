@@ -88,7 +88,9 @@ function pick(step, event, x) {
   if (x.counts && typeof x.counts === 'object') {
     const c = {}, lim = { cats: 6, issues: 300, stances: 50 };
     for (const k of Object.keys(lim)) { const v = num(x.counts[k], 0, lim[k]); if (v !== undefined) c[k] = v; }
-    for (const k of ['address', 'email']) if (typeof x.counts[k] === 'boolean') c[k] = x.counts[k];
+    // Yes/no only: whether an address, an email or a mobile number was given, never the thing itself. 'phone' was dropped
+    // here until 10/5, so a text sign-up never counted as an alert sign-up though the database keeps it (backend 121; Z1-7).
+    for (const k of ['address', 'email', 'phone']) if (typeof x.counts[k] === 'boolean') c[k] = x.counts[k];
     if (Object.keys(c).length) out.counts = c;
   }
   if (step === 'issues' && event === 'next' && Array.isArray(x.issue_ids)) out.issue_ids = [...new Set(x.issue_ids.filter(id => typeof id === 'string'))].slice(0, 300);

@@ -6,7 +6,7 @@
      ?demo=1 it goes to the sandbox, so nothing here reaches the live database or its counts. -->
 <script>if (!new URLSearchParams(location.search).has('demo')) { const q = new URLSearchParams(location.search); q.set('demo', '1'); location.replace(location.pathname + '?' + q + location.hash); }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="only light"><!-- "only": phones that darken websites show the page as designed until dark mode is built (X9-1, DESIGN A-21) -->
 <meta name="theme-color" content="#FFFFFF">
 <title>HIPHI Bill Tracker · version A (sandbox)</title>
 <meta name="robots" content="noindex">

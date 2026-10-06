@@ -422,7 +422,7 @@ export const TALKS = [
     turns: [
       { q: 'Why does a bill ask where I stand?', a: 'So the tracker can help you the right way. On any bill’s page you can say **support**, **oppose** or **not sure yet**.' },
       { q: 'What changes when I answer?', a: 'Your testimony follows your view. If you disagree with HIPHI, we help you say so in your own words.' },
-      { q: 'Who sees my answer?', a: 'If you haven’t added your email, it stays in this browser. If you have, HIPHI staff can see it, like the issues you follow.' },
+      { q: 'Who sees my answer?', a: 'If you haven’t added your email, it stays on this device. If you have, only you and HIPHI staff see it, like the issues you follow. Others see only totals.' },
     ],
     related: ['disagree', 'support-oppose-comments', 'data-private'] },
 
