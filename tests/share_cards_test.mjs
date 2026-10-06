@@ -61,5 +61,11 @@ c = r.card('testify');
 ok(c.title.startsWith('Speak up by Tue, Mar 17: ') && /the Senate Judiciary and Ways and Means committees/.test(c.desc) && !/Testimony is due/.test(c.desc), `late testimony: ${c.title} / ${c.desc}`);
 ok(committeeWords('XYZ', committees) === 'the XYZ committee' && committeeWords('', committees) === 'the committee', 'an unknown committee still reads');
 
+// 7. Each card's picture says its ask (Nate 10/5: "the share card is not specific about the action"); a law's says so.
+const pic = (b, a, hs = []) => { const r = run(b, hs); return r.card(a).image; };
+ok(pic(heard, 'testify') === 'testify' && pic(waiting, 'ask') === 'ask' && pic(held, 'ask') === 'hold', 'testimony, a hearing and a hold each have their picture');
+ok(pic({ ...base, id: 'p1', bill_number: 'HB1', stage: 'second_floor' }, 'floor') === 'floor-yes' && pic({ ...base, id: 'p2', bill_number: 'HB3', stage: 'governor', hiphi_position: 'oppose' }, 'governor') === 'governor-veto', 'the floor and the Governor pictures follow HIPHI\'s side');
+ok(pic({ ...base, id: 'p3', bill_number: 'HB1573', stage: 'enacted' }, 'follow') === 'law' && pic({ ...base, id: 'p4', bill_number: 'HB1523', stage: 'dead' }, 'follow') === 'follow', 'a law has the good-news picture, a stopped bill the follow one');
+
 console.log(bad ? `\n${bad} FAILED` : '\nAll passed');
 process.exit(bad ? 1 : 0);

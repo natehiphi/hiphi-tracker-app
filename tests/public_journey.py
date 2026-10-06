@@ -342,6 +342,48 @@ with sync_playwright() as pw:
         if W == 1440: shot(p, 'd_start1')
         c.close()
 
+    # ---- 3b. the lessons on a laptop (R-173): the words never sit on the drawing ----
+    # A lesson opened on its own (#/learn/...) had no laptop layout: one column with the first visit's sticky intro, so as
+    # the lesson scrolled, the story's words were drawn over its picture (1440x900, stage 3: the caption from y=494 over a
+    # drawing ending at y=596) and the other lessons ran over their heading. It now has the first visit's two columns.
+    COVERS = """(() => { const pic = document.getElementById('lx-story'), cap = document.getElementById('lx-cap'); if (!pic || !cap) return ['no story'];
+      const a = pic.getBoundingClientRect();
+      return [...cap.querySelectorAll('h2, p, .lx-ch')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.left < a.right && a.left < r.right && r.top < a.bottom && a.top < r.bottom; })
+        .map(e => e.innerText.trim().slice(0, 30)); })()"""
+    UNDER = """(() => { const box = e => e.getBoundingClientRect(), hit = (a, r) => r.width && r.height && a.left < r.right - 1 && r.left < a.right - 1 && a.top < r.bottom - 1 && r.top < a.bottom - 1;
+      const intro = [...document.querySelectorAll('.st-intro > *')].map(box).filter(r => r.width && r.height);
+      return [...document.querySelectorAll('.st-main :is(h2, h3, p, button, li)')].filter(e => intro.some(a => hit(a, box(e)))).map(e => e.innerText.trim().slice(0, 30)); })()"""
+    for W, H in ((1440, 900), (1280, 800), (1024, 768)):
+        c, p = ctx(b, W, H); follower(p); visit(p, '/learn/story', wait=2800)
+        for k in (1, 2, 3):
+            if k > 1: p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1900)
+            hits = p.evaluate(COVERS)
+            ok(p.evaluate("document.getElementById('lx-story')?.dataset.stage") == str(k) and not hits, f'#/learn/story at {W}x{H}, stage {k}: no words on the drawing {hits}')
+        if W == 1440: shot(p, 'd_learn_story3')
+        p.locator('[data-lx-ch="chair"]').click(); p.wait_for_timeout(900)
+        hits = p.evaluate(COVERS); ok(not hits, f'#/learn/story at {W}x{H}, after a choice: no words on the drawing {hits}')
+        side = p.evaluate("(() => { const a = document.getElementById('lx-story').getBoundingClientRect(), c = document.getElementById('lx-cap').getBoundingClientRect(); return Math.round(c.left - a.right); })()")
+        ok(side > 0, f'#/learn/story at {W}x{H}: the words sit beside the drawing, as in the first visit ({side}px apart)')
+        if W == 1024:
+            for lesson, title in (('bill', 'Reading a bill'), ('session', 'The session, January to May'), ('hearing', 'What a hearing is')):
+                visit(p, '/learn/' + lesson, wait=2600); seen = []
+                for _ in range(4):
+                    if p.evaluate("document.querySelector('main h1')?.innerText || ''") != title: break
+                    seen += p.evaluate(UNDER); p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1900)
+                ok(not seen, f'#/learn/{lesson} at {W}x{H}: nothing runs over its heading or drawing {seen[:3]}')
+        c.close()
+    c, p = ctx(b, 1440, 900); fresh(p, '&fv=full'); p.goto(BASE + '?demo=1&fv=full&restart'); p.wait_for_timeout(3000)
+    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
+    p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1500)
+    p.locator('#fx-mgo').click(); p.wait_for_timeout(1800)
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', f"the first visit on a laptop reaches the story ({p.evaluate('location.hash')})")
+    for k in (1, 2, 3):
+        if k > 1: p.locator('[data-stnext]').click(); p.wait_for_timeout(1900)
+        hits = p.evaluate(COVERS); ok(not hits, f'the first visit’s story at 1440x900, stage {k}: no words on the drawing {hits}')
+    c.close()
+
     # ---- 4. small and zoomed ----
     for w, h in ((320, 640), (195, 422)):
         c, p = ctx(b, w, h); follower(p)
