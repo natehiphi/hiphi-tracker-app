@@ -27,7 +27,9 @@ jobs:
       - name: Any issue picture to draw?
         id: pics
         run: |
-          if node -e "process.exit(require('./tools/og_wanted.json').some(w => !w.have) ? 0 : 1)"; then echo "draw=yes" >> "$GITHUB_OUTPUT"; else echo "draw=no" >> "$GITHUB_OUTPUT"; fi
+          # The share picture versions too (R-183): tools/og_wanted_pics.json lists every version picture a page wants; the gallery's are drawn
+          # by hand when it is rebuilt.
+          if node -e "const fs = require('fs'); const w = require('./tools/og_wanted.json').some(w => !w.have), v = fs.existsSync('tools/og_wanted_pics.json') && require('./tools/og_wanted_pics.json').some(w => !fs.existsSync('pub/' + w.file)); process.exit(w || v ? 0 : 1)"; then echo "draw=yes" >> "$GITHUB_OUTPUT"; else echo "draw=no" >> "$GITHUB_OUTPUT"; fi
       - if: steps.pics.outputs.draw == 'yes'
         uses: actions/setup-python@v5
         with:
@@ -36,11 +38,11 @@ jobs:
         run: |
           pip install --quiet playwright
           python -m playwright install --with-deps chromium
-          python tools/og_images.py --wanted-only
+          python tools/og_images.py --wanted-only --versions
           node tools/share_pages.mjs
       - name: Commit when a page changed
         run: |
-          git add b i cal pub/og tools/og_wanted.json
+          git add -A b i cal p pub/og share-fit.json tools/og_wanted.json
           if git diff --cached --quiet; then echo "No change."; exit 0; fi
           git config user.name "share-pages bot"
           git config user.email "actions@users.noreply.github.com"

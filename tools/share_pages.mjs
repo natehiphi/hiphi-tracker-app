@@ -21,6 +21,9 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, exists
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { billState, asksFor, cardFor, committeeWords } from './share_cards.mjs';
+import { picBuilder } from './share_pic_pages.mjs';
+import { demoSets, wordsMap } from './share_pic_data.mjs';
+import { ARMS } from './share_pics.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The public page's address and key live in the kernel since the split (R-122, 10/2); reading them from core.js, as
@@ -36,6 +39,8 @@ const SHARE_ASKS = JSON.parse(/export const SHARE_ASKS = (\[[^\]]*\]);/.exec(rea
 const CHECK = process.argv.includes('--check');
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : ROOT;
 
+const want = new Map();   // file -> html
+const DEMO_FEATURED = ['HB1573', 'HB1518', 'HB1780', 'HB1839', 'HB108', 'HB10', 'HB244', 'HB939'];   // the practice copy's bills with every picture version (R-183)
 async function rows(path) {
   const out = [];
   for (let from = 0; ; from += 1000) {   // the 1,000-row cap: ask in pages
@@ -72,6 +77,8 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta property="og:i
   try { var p = new URLSearchParams(location.search), u = new URL(t, location.href);
     if (/^[a-z0-9-]{2,40}$/i.test(p.get('via') || '')) u.searchParams.set('via', p.get('via'));
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (p.get(k)) u.searchParams.set(k, p.get(k).slice(0, 60)); });
+    /* the picture version a sharer's link carried (R-183), so the friend's arrival is counted for it */
+    if (/^[a-z0-9-]{2,20}$/.test(p.get('pic') || '')) u.searchParams.set('pic', p.get('pic'));
     t = u.href; } catch (e) { /* the plain address */ }
   location.replace(t); })();
 </script>
@@ -90,7 +97,17 @@ const deadlines = await rows('public_deadlines?select=session_year,key,label,dea
 const committees = Object.fromEntries((await rows('public_committees?select=code,name,chamber')).map(c => [c.code, c]));
 // The issue's id too: the bills name their issues by it (the calendar feeds below matched on it and, without it, never
 // held an event, 10/5).
-const issues = await rows('public_issues?select=id,slug,name,description,category,bill_ids');   // category: the issue picture's topic
+const issues = await rows('public_issues?select=id,slug,name,description,category,bill_ids,stance,followers');   // category: the issue picture's topic; stance and followers: the picture versions (R-183)
+
+// The share picture versions (R-183). Which are switched on, the issues' checked words and the counts come from public views
+// the page reads; anything missing (the test or the words table not made yet) means no versions are built, and the
+// pages are exactly what they were. A version is built only where its picture is drawn (tools/og_images.py).
+const tryRows = async path => { try { return await rows(path); } catch { return []; } };
+const picTest = (await tryRows('public_ab_tests?select=key,arms,is_on,arms_on&key=eq.pic'))[0];
+const liveArms = new Set(picTest && picTest.is_on ? (picTest.arms_on || picTest.arms).filter(a => ARMS.includes(a) && a !== 'today') : []);
+const liveWords = wordsMap(await tryRows('public_issue_share_words?select=issue_id,slogan,before_text,after_text,island,slogan_ok,fact_ok'), { onlyChecked: true });
+const countsRows = Object.fromEntries((await tryRows('public_action_counts?select=bill_id,testimonies,emails,actions')).map(c => [c.bill_id, c]));
+const pics = picBuilder({ ROOT, want, page });
 // A deadline by its key for this bill's session, or the budget bills' own row that replaces it (pub/core.js deadlineOf).
 const deadlineFor = b => key => {
   const mine = deadlines.filter(d => +d.session_year === +b.session_year);
@@ -99,7 +116,6 @@ const deadlineFor = b => key => {
 };
 const hearingsBy = new Map();
 for (const h of allHearings) { if (!hearingsBy.has(h.bill_id)) hearingsBy.set(h.bill_id, []); hearingsBy.get(h.bill_id).push(h); }
-const want = new Map();   // file -> html
 // The card's picture (R-169, Nate's pick 10/5): the ask's look for this issue, pub/og/<ask>/<issue>.jpg, once drawn; until
 // then the ask's own. tools/og_wanted.json lists every issue picture in use, each marked drawn or not, for
 // tools/og_images.py (the job draws the missing ones, then builds the pages again; --redraw redraws them all). A bill
@@ -113,7 +129,9 @@ const pic = (img, issue) => {
 };
 // The bills' and issues' pages for one set of data. The live site's go in b/ and i/; the practice copy's in b/demo/ and
 // i/demo/ (below), opening the practice copy (?demo=1) and read at its own day, so a share made there shows a real card.
-function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, now, dir = '', query = 'via=share', noindex = false }) {
+// pic (R-183): { arms (the versions to build pages for), words (issue id -> its share words), counts (bill -> counts or null),
+// only (bill numbers to build versions for, or null for all), practice }.
+function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, now, dir = '', query = 'via=share', noindex = false, pic: pv = null }) {
   const issueById = new Map(issues.filter(i => /^[a-z0-9-]+$/.test(i.slug)).map(i => [i.id, i]));
   const sub = dir ? `${dir}/` : '', up = dir ? 1 : 0;
   const goTo = (depth, hash) => `${'../'.repeat(depth + up)}track.html?${query}${hash}`;
@@ -133,6 +151,12 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
       const c = card(ask), cPic = pic(c.image, ctx.issue);
       want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(1, c.hash), noindex }));
       if (y && !dir) want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(2, c.hash) }));
+      // The picture versions that fit this page (R-183): p/<version>/b/HB1573-testify, and under the year as well.
+      if (pv && pv.arms.size && (!pv.only || pv.only.has(n))) {
+        const inp = { b, ask, state, card: c, ctx, words: ctx.issue ? pv.words.get(ctx.issue.id) || null : null, counts: pv.counts(b, ctx.issue), practice: pv.practice };
+        pics.add(`b/${sub}${n}-${ask}`, c, f => `${'../'.repeat(f)}track.html?${query}${c.hash}`, inp, pv.arms, noindex);
+        if (y && !dir) pics.add(`b/${y}/${n}-${ask}`, c, f => `${'../'.repeat(f)}track.html?${query}${c.hash}`, inp, pv.arms, noindex);
+      }
     }
     // An ask that has closed keeps its page, carrying the bill's card of the moment (C5-2; W3C, "Cool URIs don't
     // change"): it was deleted before, so an old post lost its card and a re-share got none. Only pages that exist are
@@ -148,31 +172,30 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
     const desc = `${cut(i.description || '', 180)} ${n ? `HIPHI is working on ${n} bill${n === 1 ? '' : 's'} on it.` : ''} Follow the issue and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
     // The ask first (R-169): following is what an issue's link asks, and its page's main button.
     want.set(`i/${sub}${i.slug}.html`, page({ title: `Follow the issue: ${i.name}`, desc, to: `${'../'.repeat(1 + up)}track.html?${query}#/issue/${i.slug}`, image: pic('follow', i), noindex }));
+    if (pv && pv.arms.size && (!pv.onlyIssues || pv.onlyIssues.has(i.slug))) {
+      const card = { title: `Follow the issue: ${i.name}`, desc, image: 'follow' };
+      const inp = { b: null, ask: 'follow', state: null, card, ctx: { committees, issue: i }, words: pv.words.get(i.id) || null, counts: pv.counts(null, i), practice: pv.practice };
+      pics.add(`i/${sub}${i.slug}`, card, f => `${'../'.repeat(f)}track.html?${query}#/issue/${i.slug}`, inp, pv.arms, noindex);
+    }
     if (!dir) for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
   }
 }
-sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues });
+sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, pic: { arms: liveArms, words: liveWords, practice: false,
+  counts: (b, i) => { const c = b ? countsRows[b.id] : null, f = i && i.followers >= 10 ? i.followers : null; return c || f ? { testimonies: c?.testimonies, emails: c?.emails, followers: f } : null; } } });
 
 // The practice copy's pages (R-169, 10/5): built from demo/snapshot.json the way pub/demo.js shapes it, at the practice
 // copy's day (Mon 16 Mar 2026, in session), so its shares preview the in-session cards ("Speak up by Wed, Mar 18: ...")
 // long before January. The between-sessions practice copy (?season=off) keeps sharing the tracker's own address.
 {
   const snap = JSON.parse(readFileSync(join(ROOT, 'demo', 'snapshot.json'), 'utf8'));
-  const demoBills = snap.bills.filter(b => b.position).map(b => ({ ...b, hiphi_position: b.position, hiphi_summary: b.public_summary,
-    hiphi_nickname: b.is_public ? b.nickname || null : null, hiphi_issues: null }));
-  const byId = new Map(demoBills.map(b => [b.id, b])), billIds = {};
-  for (const r of snap.billIssues || []) { const b = byId.get(r.bill_id); if (!b || b.hiphi_position === 'monitor') continue;
-    (b.hiphi_issues ??= []).push(r.issue_id); (billIds[r.issue_id] ??= []).push(b.id); }
-  const demoHearings = new Map();
-  for (const h of snap.hearings || []) { if (!demoHearings.has(h.bill_id)) demoHearings.set(h.bill_id, []); demoHearings.get(h.bill_id).push(h); }
-  const dl = snap.deadlines || [];
-  sharePages({ bills: demoBills.sort((x, y) => (+x.session_year || 0) - (+y.session_year || 0)), hearingsBy: demoHearings,
-    outcomes: Object.fromEntries((snap.outcomes || []).map(o => [o.hearing_id, o])),
-    deadlineFor: b => key => { const d = dl.find(x => x.replaces === key && (x.bills || []).includes(b.bill_number)) || dl.filter(x => x.key === key && !(x.bills || []).length).slice(-1)[0];
-      return d ? { label: d.label, date: d.deadline_date } : null; },
-    committees: Object.fromEntries((snap.committees || []).map(c => [c.code, c])),
-    issues: (snap.issues || []).map(i => ({ ...i, bill_ids: billIds[i.id] || [] })),
-    now: Date.parse(snap.asof), dir: 'demo', query: 'demo=1&via=share', noindex: true });
+  const D = demoSets(snap);
+  // The practice copy builds every picture version, from every draft word, for a few bills that between them show each kind
+  // of page (the tester sheet, the gallery and the practice share links use them); every bill keeps today's picture.
+  const featured = new Set(DEMO_FEATURED), featuredIssues = new Set(D.issues.filter(i => D.bills.some(b => featured.has(b.bill_number.replace(/\s/g, '')) && (b.hiphi_issues || []).includes(i.id))).map(i => i.slug));
+  const practiceWords = wordsMap(existsSync(join(ROOT, 'demo', 'share_words.json')) ? JSON.parse(readFileSync(join(ROOT, 'demo', 'share_words.json'), 'utf8')) : [], { onlyChecked: false });
+  sharePages({ ...D, dir: 'demo', query: 'demo=1&via=share', noindex: true,
+    pic: { arms: new Set(ARMS.filter(a => a !== 'today')), words: practiceWords, practice: true, only: featured, onlyIssues: featuredIssues,
+      counts: (b, i) => ({ testimonies: 212, emails: 87, followers: 140 }) } });
 }
 // The calendar feeds (R-125, the assessment's W3): cal/<issue slug>.ics, one per issue, every hearing still ahead (and the
 // last week's) on the issue's bills as an event, with its testimony deadline as a second event that rings two hours before.
@@ -214,6 +237,12 @@ for (const dir of ['b', 'i', 'cal']) {
     for (const f of readdirSync(dd)) if (/\.(html|ics)$/.test(f) && !want.has(`${dir}/${sub ? `${sub}/` : ''}${f}`)) { if (keep) { kept++; continue; } removed++; if (!CHECK) unlinkSync(join(dd, f)); }
   }
 }
+// The picture versions' pages (p/<version>/...) are kept like the live pages (C5-2): a link in an old text keeps its card. Only
+// the practice copy's are tidied.
+if (existsSync(join(OUT, 'p'))) for (const arm of readdirSync(join(OUT, 'p'))) for (const d of ['b', 'i']) {
+  const dd = join(OUT, 'p', arm, d, 'demo'); if (!existsSync(dd)) continue;
+  for (const f of readdirSync(dd)) if (/\.html$/.test(f) && !want.has(`p/${arm}/${d}/demo/${f}`)) { removed++; if (!CHECK) unlinkSync(join(dd, f)); }
+}
 for (const [f, html] of want) {
   const p = join(OUT, f), old = existsSync(p) ? readFileSync(p, 'utf8') : null;
   if (old === html) continue; old === null ? added++ : changed++;
@@ -222,5 +251,25 @@ for (const [f, html] of want) {
 // Every issue picture in use, for tools/og_images.py.
 const wantedList = [...wanted.values()].sort((a, b) => `${a.img}/${a.slug}`.localeCompare(`${b.img}/${b.slug}`));
 if (!CHECK) writeFileSync(join(ROOT, 'tools', 'og_wanted.json'), JSON.stringify(wantedList, null, 1) + '\n');
+// The picture versions (R-183): which page has which versions (the tracker reads it when someone shares), and the pictures
+// still to draw (tools/og_images.py reads og_wanted_pics.json; not committed, rebuilt each run).
+if (!CHECK) {
+  const fitSorted = Object.fromEntries(Object.entries(pics.fit).sort(([a], [b]) => a.localeCompare(b)));
+  writeFileSync(join(OUT, 'share-fit.json'), JSON.stringify(fitSorted) + '\n');
+  writeFileSync(join(ROOT, 'tools', 'og_wanted_pics.json'), JSON.stringify([...pics.wantedPics].map(([file, spec]) => ({ file, spec }))) + '\n');
+}
+// A version picture no page uses any more (its bill's date moved, its words changed) is deleted, so the site keeps one picture for
+// every page and no more (the repository stays small, R-183). A page counts if it is in p/ at all, kept or rebuilt just now, and
+// the gallery's pictures count too.
+if (!CHECK && existsSync(join(OUT, 'pub', 'og', 't'))) {
+  const used = new Set(), gal = join(ROOT, 'tools', 'og_wanted_gallery.json');
+  if (existsSync(gal)) for (const w of JSON.parse(readFileSync(gal, 'utf8'))) used.add(w.file);
+  const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
+  if (existsSync(join(OUT, 'p'))) for (const f of walk(join(OUT, 'p'))) { const m = /og:image" content="[^"]*\/pub\/(og\/t\/[^"]+\.jpg)"/.exec(readFileSync(f, 'utf8')); if (m) used.add(m[1]); }
+  let pruned = 0;
+  for (const f of walk(join(OUT, 'pub', 'og', 't'))) { const rel = f.slice(join(OUT, 'pub').length + 1); if (/\.jpg$/.test(f) && !used.has(rel)) { unlinkSync(f); pruned++; } }
+  if (pruned) console.log(`${pruned} version pictures no page uses were removed`);
+}
+console.log(`${Object.keys(pics.fit).length} pages with picture versions; ${pics.wantedPics.size} pictures to draw`);
 console.log(`${wantedList.length} issue pictures in use, ${wantedList.filter(w => !w.have).length} to draw`);
 console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed, ${kept} older pages kept as they are${CHECK ? ' (check only, nothing written)' : ''}`);
