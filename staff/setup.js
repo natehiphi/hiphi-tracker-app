@@ -119,7 +119,7 @@ const reachWord = x => !x ? '' : x.reach === 'slack' ? 'In Slack' : x.reach === 
   : x.reach === 'off' ? '' : (x.why || 'Cannot be reached').replace(/^./, c => c.toUpperCase());
 function reachHTML() {
   const s = st();
-  if (s.reachErr) return notice('warn', 'triangle-alert', `Could not check who the tracker can reach. ${esc(s.reachErr)}`);
+  if (s.reachErr) return notice('info', 'info', 'Who the tracker can reach shows here once Claude finishes setting it up. Until then, Ready for session? lists who is matched in Slack.');   // the database part (backend 154) may not be applied yet; plain words (B-8)
   if (!s.reach) return '';
   const act = S.advocates.filter(a => a.is_active !== false), R = s.reach, out = act.filter(a => !reachOk(R[a.id]));
   const missed = act.reduce((n, a) => n + (R[a.id]?.not_reached || 0), 0);
