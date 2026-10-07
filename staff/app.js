@@ -273,7 +273,7 @@ function renderLogin() {
       if (SELF_RESET) { await DB.sendRecovery(email); help.innerHTML = `<p class="sv-lhelp" role="status">${icon('mail')}If ${esc(email)} is on the team, a link to choose a new password is on its way. It works once.</p>`; }
       else { await DB.askPasswordHelp(email); help.innerHTML = `<p class="sv-lhelp" role="status">${icon('send')}We've let the tracker's admin (Nate) know in Slack. If ${esc(email)} is on the team, Nate will email you a new sign-in link. Open it, press Continue, and choose a new password.</p>`; }
       help.hidden = false; b.setAttribute('aria-expanded', 'true');
-    } catch (x) { err(x.message || 'That did not go through. Try again, or ask Nate directly.'); }
+    } catch (x) { console.warn(x); err('That did not go through. Ask Nate directly for a new sign-in link.'); }   // B-8: plain words, never the server's
     finally { b.removeAttribute('aria-busy'); } };
 }
 const SELF_RESET = false;   // true after Supabase Auth sends through Postmark (docs/BREAK-GLASS.md, R-101)
