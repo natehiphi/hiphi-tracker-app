@@ -169,7 +169,7 @@ function header(route, scr) {
     : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
-  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is saved'}${nextDay()}</p>`}</div>` : ''}
+  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>${ENDED ? 'This test has ended · ' : ''}Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is saved'}${nextDay()}</p>`}</div>` : ''}
     <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(route, scr) {
@@ -182,6 +182,8 @@ function tabbar(route, scr) {
 // visit; "Next day" is the visit after, the Home the layout and Home's-top tests compare (the tester sheet says to press
 // it). &later (track.html) ends the first visit's welcome; everything they followed stays.
 const DAYS_ON = ['mon', 'tue', 'wed'];
+// A tester link that has ended (R-204): track.html dropped its versions and marked the address &ended, which Next day keeps.
+const ENDED = DEMO && new URLSearchParams(location.search).has('ended');
 function nextDay() {
   const q = new URLSearchParams(location.search), i = DAYS_ON.indexOf(q.get('day') || 'mon');
   if (i < 0 || i >= DAYS_ON.length - 1 || firstVisit()) return '';
@@ -346,6 +348,8 @@ async function boot() {
       else history.replaceState({ y: 0 }, '', toHash(r));
     }
     render();
+    // An ended tester link says so once as it opens, as a mistyped address does (R-204); the band keeps saying it.
+    if (ENDED && !new URLSearchParams(location.search).has('day')) setTimeout(() => toast('This test has ended. Mahalo for helping! You can still look around: nothing here is saved.'), 50);
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
     setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a')).catch(() => {}), 2500);   // the other screens' styles, after the first screen
     lists?.finishPlace(place);

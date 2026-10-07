@@ -924,6 +924,13 @@ path (the screens in order, the seconds on each, what they did), testers told.
   `skipped_<step>` in the first visit. Sent every 10 seconds and as the tab closes (keepalive) to `log_tester_path`
   (backend 150). Nothing under the privacy signal or from an automated test run (`window.__hiphiCountTests` lets the suite).
   The practice copy's band says "the screens you visit are noted for this test" while it records; the privacy page says it.
+- **Ended links (R-204, Nate 10/7: "It should show something about the testing has ended"):** a printed link keeps working
+  wherever it went, so `track.html`'s first inline script lists the ended ones (`ENDED`, each the versions a link set,
+  sorted). A practice-copy address with exactly those versions and no `&t` or `&abrest` loses its `ab=` and gains `&ended`
+  before any module runs: the ordinary practice copy (the real switches, as for anyone), nothing recorded, the band led by
+  "This test has ended" (Next day keeps it) and a toast once as it opens. Matched exactly, so the tester sheet's links and
+  the check links (`?ab=onb.today` alone, `?ab=onb.p1` ...) still work. Ended so far: `?demo=1&restart&ab=onb.today,end.home`
+  (the tester sheet's link of 6 Oct). No button on the tester sheet yet (offered in R-204).
 - **The tester sheet** (`staff/setup.js`): each sheet and group has a short random id (`room().id`, `g.gid`, kept in prefs;
   a sheet kept before R-193 gets them at once), so a group's results stay its own when groups move; Start over keeps the
   sheet. "What testers did" under the groups: per group, testers, finished the first visit, followed, acted, gave a number

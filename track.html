@@ -117,6 +117,18 @@
    so the real page in this browser is untouched; then "restart" leaves the address, so a reload keeps the practice run. */
 try {
   var q = new URLSearchParams(location.search);
+  /* Tester links that have ended (R-204, Nate 10/7: "It should show something about the testing has ended"). A printed link
+     or QR code keeps working wherever it went, so an ended one opens the ordinary practice copy: its versions dropped,
+     nothing of the visit recorded (pub/testerlog.js starts only on a link that sets versions), and &ended for the band's
+     and the first toast's "This test has ended" (pub/app.js). Matched exactly: the practice copy, the versions the link
+     set (in any order), and no &t or &abrest, so the tester sheet's links and the check links (?ab=onb.today alone,
+     ?ab=onb.p1 ...) still work. To end another, add its versions, sorted. */
+  var ENDED = ['end.home,onb.today'];   // the tester sheet's link of 6 Oct: ?demo=1&restart&ab=onb.today,end.home
+  if (q.has('demo') && q.has('ab') && !q.has('t') && !q.has('abrest') && ENDED.indexOf(q.get('ab').split(',').sort().join(',')) >= 0) {
+    q.delete('ab'); q.set('ended', '1');
+    sessionStorage.removeItem('hiphi_tester_demo'); sessionStorage.removeItem('hiphi_tester');
+    history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+  }
   if (q.has('demo') && q.has('restart')) {
     [localStorage, sessionStorage].forEach(function (s) { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf('hiphi_') === 0 && /_demo$/.test(k)) s.removeItem(k); } });
     q.delete('restart');
