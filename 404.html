@@ -9,7 +9,7 @@
 // bill whose page is not built yet opens the bill. Anything else goes to the tracker's front door.
 (function () {
   // b/demo/ and i/demo/: the practice copy's pages (R-169) open the practice copy.
-  var p = location.pathname, m = /\/(b|i)\/(?:(\d{4}|demo)\/)?([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/.*$/, '/').replace(/[^/]*$/, '');
+  var p = location.pathname, m = /\/(b|i)\/(?:(\d{4}|demo)\/)?([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/.*$/, '/').replace(/[^/]*$/, '').replace(/p\/[a-z0-9-]+\/$/, ''), pv = /\/p\/([a-z0-9-]{2,20})\/(b|i)\//.exec(p);   // p/<version>/...: a share picture version's page (R-183)
   var demo = m && m[2] === 'demo'; if (demo) m[2] = '';
   var ask = m && m[1] === 'b' ? /^([A-Za-z]+\d+)-(testify|ask|floor|conference|governor|follow)$/i.exec(m[3]) : null;
   var num = ask ? ask[1] : m && m[3], open = ask && ask[2].toLowerCase() !== 'follow' ? '/' + ask[2].toLowerCase() : '';
@@ -18,6 +18,7 @@
   try { var q = new URLSearchParams(location.search), u = new URL(to, location.href);
     if (/^[a-z0-9-]{2,40}$/i.test(q.get('via') || '')) u.searchParams.set('via', q.get('via'));
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (q.get(k)) u.searchParams.set(k, q.get(k).slice(0, 60)); });
+    if (pv) u.searchParams.set('pic', pv[1]);   // the friend's arrival is counted for that picture
     to = u.href; } catch (e) { /* the plain address */ }
   location.replace(to);
 })();

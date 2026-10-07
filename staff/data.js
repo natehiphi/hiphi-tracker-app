@@ -525,6 +525,12 @@ export const DB = {
     const { data, error } = await S.supa.from('ab_tests').select('*').order('sort');
     if (error) throw error; return data || [];
   },
+  // The same sums split by the ask a share was for (155, R-183): staff only.
+  async abResultsByAsk() {
+    if (DEMO) return DEMO_AB.byAsk || [];
+    const { data, error } = await S.supa.rpc('ab_results_by_ask');
+    if (error) throw error; return data || [];
+  },
   async abResults() {
     if (DEMO) return DEMO_AB.results;
     const { data, error } = await S.supa.rpc('ab_results');
@@ -1529,6 +1535,7 @@ export const DEMO_AB = {
     { key: 'join', sort: 7, name: 'The plans’ alerts sign-up', question: 'Do more people give a number or email when they see an example of the text they would get?', arms: ['shown', 'watch'], arm_names: { shown: 'Your next text, shown: an example text right after you act', watch: 'We watch, you speak: three steps from a hearing to your note' }, measure: 'Gave a number or email that day', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'shown', winner: null, started: null, note: 'Met only on the five first-visit plans. The consent words are the same in both.' },
     { key: 'save', sort: 8, name: 'The ask for a number or email', question: 'Do more people give a number or email when the ask is to save their profile, right after they act, than when it is the old alerts ask?', arms: ['profile', 'alerts'], arm_names: { profile: 'Save your profile: the first thing seen after a follow or a letter', alerts: 'Get alerts: the ask as it was before 6 Oct 2026 (the backup)' }, measure: 'Gave a number or email that day', measure2: 'Came back within 14 days', rate: false, is_on: false, fallback: 'profile', winner: null, started: null, note: 'The new ask replaced the old one for everyone on 6 Oct 2026 (Nate). The old one is kept here as a backup to test later. The consent words are the same in both.' },
     { key: 'act', sort: 10, name: 'The page before the end: three ways to help', question: 'Do more newcomers act on the day of their first visit when the page before the end offers three ways to help, one tap each?', arms: ['today', 'three'], arm_names: { today: 'Coming up on your issues', three: 'Three ways to help: testimony, an email, send to a friend' }, measure: 'Acted on the day of the first visit', measure2: 'Came back within 7 days', rate: false, is_on: true, fallback: 'today', winner: null, started: '2026-10-06', note: '' },
+    { key: 'pic', sort: 11, name: 'The picture a shared link shows', question: 'Which picture makes friends tap a shared link, and act when they get there?', arms: ['today', 'issue', 'sign', 'calendar', 'letter', 'text', 'neighbors', 'islands', 'before', 'here', 'ticket', 'crowd', 'stand', 'postcard'], arm_names: { today: 'Today’s picture: the ask in large words', issue: 'The issue up front', sign: '1 · The rally sign', calendar: '2 · The tear-off calendar', letter: '3 · The letter itself', text: '4 · A text from a friend', neighbors: '5 · Neighbors with a sign', islands: '6 · Every island has a say', before: '7 · Before and after', here: '8 · You are here', ticket: '9 · Admit one', crowd: '10 · The crowd count', stand: '11 · Where do you stand?', postcard: '12 · Aloha from the Capitol' }, measure: 'Friends who tapped, per 100 shares', measure2: 'Friends who acted, per 100 shares', rate: true, is_on: true, fallback: 'today', arms_on: ['today', 'issue', 'calendar', 'letter', 'here'], winner: null, started: '2026-10-06', note: '' },
   ],
   results: [
     ...abSample('end', 'today', 'home', 640, 0.41, 0.52, 0.30, 0.36), { test: 'end', arm: 'home', forced: true, seen: 5, goal: 4, goal2: 1 },
@@ -1536,7 +1543,12 @@ export const DEMO_AB = {
     ...abSample('rank', 'today', 'ranked', 74, 0.22, 0.31, 0.5, 0.55),
     ...abSample('share', 'summary', 'deadline', 130, 0.62, 0.81, 0.21, 0.29),
     ...abSample('home', 'by-day', 'by-issue', 310, 0.38, 0.41, 0.52, 0.55),
+    ...[['today', 120, 0.55, 0.20], ['issue', 118, 0.63, 0.24], ['calendar', 60, 0.70, 0.27], ['letter', 119, 0.66, 0.31], ['here', 90, 0.58, 0.22]]
+      .map(([arm, n, a, b]) => ({ test: 'pic', arm, forced: false, seen: n, goal: Math.round(n * a), goal2: Math.round(n * b) })),
   ],
+  // The share picture by ask (made up, for the practice copy).
+  byAsk: [['testify', 'today', 70, 0.6, 0.22], ['testify', 'letter', 69, 0.7, 0.33], ['testify', 'calendar', 60, 0.7, 0.27], ['follow', 'today', 50, 0.48, 0.17], ['follow', 'issue', 58, 0.6, 0.2]]
+    .map(([grp, arm, n, a, b]) => ({ test: 'pic', arm, forced: false, grp, seen: n, goal: Math.round(n * a), goal2: Math.round(n * b) })),
 };
 // The practice copy's tester paths (R-193): made up, so the tester sheet's results can be seen; the page puts all but the
 // last on its own groups.

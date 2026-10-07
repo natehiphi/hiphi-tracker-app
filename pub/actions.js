@@ -6,6 +6,7 @@ import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, 
 import { testifyLabel, againLine, mailLabel } from './letters.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
+import { picShare, picSeen } from './sharepic.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
 import { hearingRow, mountHome, openKey } from './speakup.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, codeStep, profileAsk, profileLede, PROFILE_H } from './alerts.js';
@@ -320,8 +321,9 @@ export function shareFor(b, h, { acted = false, law = false, differs = false, as
       : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${askLine(b, a, chamber)}`)
     : acted ? `I just spoke up at the Legislature on a bill I care about: ${named}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps.`;
-  const page = billShareUrl(b, a), url = tag ? withVia(page, tag) : page;
-  return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '' };
+  // The share picture test (R-183): the address of the version this share shows, when the bill has one for this ask.
+  const ps = picShare(billShareUrl(b, a), a, b.id), page = ps.url, url = tag ? withVia(page, tag) : page;
+  return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '', pic: ps.pic };
 }
 // The message's ask when there is no hearing to name (R-169), the same ask as the card. '' keeps the general words.
 function askLine(b, a, chamber) {
@@ -337,8 +339,8 @@ function askLine(b, a, chamber) {
 // ?via= goes before the address's #/ part (a bill with no share page links straight to the tracker).
 const withVia = (u, v) => { const i = u.indexOf('#'), base = i < 0 ? u : u.slice(0, i); return `${base}${base.includes('?') ? '&' : '?'}via=${v}${i < 0 ? '' : u.slice(i)}`; };
 // The share itself: the device's share sheet, else the clipboard. 'shared' | 'copied' | '' (closed, or nothing works).
-export async function doShare({ title, text, url, copy, ab }) {
-  const done = how => { if (how && ab) abSeen('share', { bill: ab }); return how; };   // a share made under the share test (R-135)
+export async function doShare({ title, text, url, copy, ab, pic }) {
+  const done = how => { if (how && ab) abSeen('share', { bill: ab }); if (how) picSeen(pic); return how; };   // a share made under the share test (R-135) and the picture test (R-183)
   try { if (navigator.share) { await navigator.share({ title, text, url }); return done('shared'); } } catch (e) { if (e?.name === 'AbortError') return ''; }
   try { await navigator.clipboard.writeText(copy || `${text} ${url}`); return done('copied'); } catch { return ''; }
 }
@@ -347,7 +349,8 @@ export async function doShare({ title, text, url, copy, ab }) {
 export async function shareIssue(i) {
   const n = (i.bill_ids || []).length;
   const text = `${i.name} at the Hawaiʻi Legislature: ${(i.description || '').replace(/([^.!?…])$/, '$1.')} ${n ? `HIPHI is working on ${n} ${n === 1 ? 'bill' : 'bills'} on it. ` : ''}Follow it and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
-  const how = await doShare({ title: i.name, text, url: issueShareUrl(i), copy: `${text} ${issueShareUrl(i)}` });
+  const ps = picShare(issueShareUrl(i), 'follow', `issue:${i.id}`);
+  const how = await doShare({ title: i.name, text, url: ps.url, copy: `${text} ${ps.url}`, pic: ps.pic });
   if (how) logAct('share');
   return how;
 }

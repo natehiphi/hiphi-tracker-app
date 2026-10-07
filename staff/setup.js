@@ -371,13 +371,17 @@ async function makeLink(a) {
 function loadAb(force) {
   const s = st(); if (s.abBusy || (s.ab && !force)) return;
   s.abBusy = true; s.abErr = '';
-  Promise.all([DB.abTests(), DB.abResults()]).then(([tests, res]) => { s.ab = { tests: tests || [], res: res || [] }; })
+  // The share picture's counts by ask (R-183, backend 155): a version that fits only some asks is compared on the asks it shares.
+  Promise.all([DB.abTests(), DB.abResults(), DB.abResultsByAsk().catch(() => [])]).then(([tests, res, byAsk]) => { s.ab = { tests: tests || [], res: res || [], byAsk: byAsk || [] }; })
     .catch(e => { s.abErr = e.message || 'Could not load.'; })
     .finally(() => { s.abBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
-const armName = (t, a) => (t.arm_names || {})[a] || a;
+// The share picture's versions go by Nate's numbers (R-183: "3, the letter itself"), "T" for today's and "I" for the issue
+// up front; the names carry the number already, so it is not said twice.
+const PIC_CODE = { today: 'T', issue: 'I', sign: '1', calendar: '2', letter: '3', text: '4', neighbors: '5', islands: '6', before: '7', here: '8', ticket: '9', crowd: '10', stand: '11', postcard: '12' };
+const armName = (t, a) => { const n = (t.arm_names || {})[a] || a; return t.key === 'pic' ? n.replace(/^\d+ · /, '') : n; };
 // A, B, ... by the version's place (the first is today's). The first-visit test has six (backend 136, R-164).
-const AB = (t, a) => 'ABCDEF'[t.arms.indexOf(a)] || '?';
+const AB = (t, a) => t.key === 'pic' ? PIC_CODE[a] || '?' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[t.arms.indexOf(a)] || '?';
 // The versions new visitors are spread over while a test is on: all of a two-version test, the switched-on ones of a
 // longer one (ab_tests.arms_on).
 const armsOnOf = t => t.arms.length > 2 && Array.isArray(t.arms_on) && t.arms_on.length ? t.arms_on : t.arms;
@@ -391,7 +395,8 @@ const livePatch = (t, on) => on.length >= 2 ? { is_on: true, arms_on: on.length 
 const andList = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 // The first-visit test says "today's" and "Plan 2", not its letters: B is Plan 1 there, and Nate thinks in plan numbers
 // (the fresh-eyes review, 10/6, P-4).
-const vName = (t, a) => t.key === 'onb' ? (a === t.arms[0] ? 'today’s' : armName(t, a).split(':')[0]) : AB(t, a);
+const vName = (t, a) => t.key === 'onb' ? (a === t.arms[0] ? 'today’s' : armName(t, a).split(':')[0])
+  : t.key === 'pic' ? (a === 'today' ? 'today’s' : a === 'issue' ? 'the issue picture' : `picture ${AB(t, a)}`) : AB(t, a);
 const liveLine = (t, on) => on.length >= 2 ? `Running: ${on.length === 2 ? `${vName(t, on[0])} against ${vName(t, on[1])}` : andList(on.map(a => vName(t, a)))}. Each new visitor gets one of them at random.`
   : `Not testing: everyone sees ${vName(t, on[0])}, “${esc(armName(t, on[0]))}”. Switch on another version to test it.`;
 // "(today's)" after a version's name, unless the name already says it ("Today's first visit").
@@ -413,6 +418,7 @@ const SEE = {
   home: ['compare.html?ab=home.', 'Pick Leilani (16 issues), then Open today’s version. The difference is the top of Home.'],
   layout: ['compare.html?ab=layout.', 'Pick who is visiting and the day, then Open it. The difference is Home, every bill page and the tabs (R-187).'],
   act: ['track.html?demo=1&restart&ab=act.', 'A practice first visit from the start: the difference is “Coming up on your issues”, just before the end (R-150).'],
+  pic: ['track.html?demo=1&ab=pic.', 'Free school bus passes: press Share. The link it makes carries that picture; text it to yourself to see it as a friend does. Every picture on real bills: the gallery.', '#/bill/HB1780'],
 };
 // &abrest=today: every other test at today's version, whatever the switches (R-192); compare.html adds it itself.
 const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
@@ -449,6 +455,16 @@ function abState(t, res, bar) {
 }
 // Ready to decide first, then running, then picked, then off: the card that needs Nate is the first one he sees (A-13).
 const abRank = (t, x) => x.ready ? 0 : t.is_on ? 1 : t.winner ? 2 : 3;
+// The share picture's numbers by ask (R-183): a picture that only fits some asks (the calendar needs a date, the ticket a
+// hearing) is compared with the others on the asks they share, so each ask has its own small table.
+const ASK_NAMES = { testify: 'Testimony', ask: 'Asking for a hearing', floor: 'A floor vote', conference: 'The final version', governor: 'The Governor', follow: 'Following the issue' };
+function picByAsk(t, rows) {
+  const by = {}; for (const r of rows.filter(r => r.test === 'pic' && !r.forced && r.grp && r.seen)) (by[r.grp] ??= []).push(r);
+  const asks = Object.keys(ASK_NAMES).filter(k => by[k]); if (!asks.length) return '';
+  return `<details class="ab-byask"><summary class="small">The same numbers by ask</summary>${asks.map(k => `<table class="fv-vtable ab-table"><caption class="small">${esc(ASK_NAMES[k])}</caption>
+    <thead><tr><th scope="col">Version</th><th scope="col" class="num">Shares</th><th scope="col" class="num">Tapped per 100</th><th scope="col" class="num">Acted per 100</th></tr></thead>
+    <tbody>${by[k].sort((p, q) => t.arms.indexOf(p.arm) - t.arms.indexOf(q.arm)).map(r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span>${esc(armName(t, r.arm))}</th><td class="num">${r.seen}</td><td class="num">${Math.round(100 * r.goal / r.seen)}</td><td class="num">${Math.round(100 * r.goal2 / r.seen)}</td></tr>`).join('')}</tbody></table>`).join('')}</details>`;
+}
 function abCard(t, x) {
   const { a, b, v, all } = x, multi = t.arms.length > 2, live = liveOf(t);
   const m = (r, k) => t.rate ? (r.seen ? String(Math.round(100 * r[k] / r.seen)) : '–') : pct(r[k], r.seen);
@@ -473,8 +489,9 @@ function abCard(t, x) {
     ${x.never ? '' : `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}</caption>
       <thead><tr><th scope="col">Version</th><th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th></tr></thead>
       <tbody>${(multi ? all : [a, b]).map(tr).join('')}</tbody></table></div>`}
+    ${t.key === 'pic' && !x.never ? picByAsk(t, st().ab?.byAsk || []) : ''}
     ${x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : ''}
-    <div class="btnrow ab-acts">${pick}${btn('See it', { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-absee': t.key, 'aria-haspopup': 'dialog' } })}</div>
+    <div class="btnrow ab-acts">${pick}${btn('See it', { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-absee': t.key, 'aria-haspopup': 'dialog' } })}${t.key === 'pic' ? btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` }) : ''}</div>
     ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
   </section>`;
 }
@@ -510,7 +527,8 @@ const ROOM_WHERE = { onb: 'The whole first visit.', end: 'The last screen of the
   rank: 'After they send testimony on a bill: the card that comes next.', share: 'The message when they press Share on a bill.',
   home: 'The top of Home, once they have two or more things to do.',
   layout: 'Home, every bill page and the tabs, from the visit after the first one.',
-  act: 'The page just before the end of the first visit: “Coming up on your issues”, or three ways to help.' };
+  act: 'The page just before the end of the first visit: “Coming up on your issues”, or three ways to help.',
+  pic: 'The picture in the text message a friend gets when they share a bill or an issue.' };
 // What every group is asked to do, beyond going through the first visit, to meet a screen outside it (the fresh-eyes
 // review, 10/6: a group changed on the share message produced no comparison when nobody pressed Share). The same words
 // for every group, so nobody is steered. The practice copy has Free school bus passes with a hearing on its March day.
@@ -520,10 +538,11 @@ const ROOM_TASK = {
   demo: { rank: 'Find the bill “Free school bus passes” (HB 1780), write practice testimony and say you sent it.',
     share: 'Find the bill “Free school bus passes” (HB 1780) and press Share.',
     home: 'Follow two or more issues. After the first visit, press “Next day” at the very top, then look at the top of Home.',
-    layout: 'After the first visit, press “Next day” at the very top, then look at Home and open one bill.' },
+    layout: 'After the first visit, press “Next day” at the very top, then look at Home and open one bill.',
+    pic: 'Find the bill “Free school bus passes” (HB 1780), press Share, and text yourself the link.' },
   live: { rank: 'Send testimony on a bill with a hearing coming up (in session only).', share: 'Open a bill and press Share.',
     home: 'Follow two or more issues, then come back another day and look at the top of Home.',
-    layout: 'Come back another day, then look at Home and open one bill.' } };
+    layout: 'Come back another day, then look at Home and open one bill.', pic: 'Open a bill and press Share, then text yourself the link.' } };
 // One line on each plan, so "Plan 4" still means something in January (from R-164's doc; change it with the plans).
 const ROOM_PLAN_SUB = { p1: 'Follow your issues, then a 2-minute email on one bill', p2: 'A real law’s road in six scenes, then your issues’ bills',
   p3: 'Your island and your two legislators first', p4: 'Four ways to help, then a first step sized to yours', p5: 'Under a minute, then one card per later visit' };

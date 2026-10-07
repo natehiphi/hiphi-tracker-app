@@ -16,8 +16,11 @@
 #   python3 tools/og_images.py              the asks' own pictures, the tracker's, and every wanted issue picture missing
 #   python3 tools/og_images.py --redraw     the same, redrawing issue pictures that exist (after a change to the look)
 #   python3 tools/og_images.py --wanted-only   only the missing wanted ones (the share-pages job)
+#   python3 tools/og_images.py --versions   also the share picture versions' missing pictures (R-183): tools/og_wanted_pics.json
+#                              lists each (written by share_pages.mjs); tools/og_templates.py draws them under pub/og/t/<version>/
 # Look at the pictures before committing a change to the look.
 import os, re, json, sys, html as H
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,30 +40,11 @@ def flowers():
 
 # The asks' looks: (small label, the ask in large words, the line under it, wash, label ink, label edge, art colour,
 # label icon, the drawing when there is no issue). Inks are dark enough to read on white (A-5).
-ASKS = {
-    'testify':        ('Testimony Due Soon', 'Speak Up Before the Vote', 'Tell lawmakers what you think. It takes a few minutes, and we help you write it.',
-                       '#FFF4EE', '#984B0B', '#FCD09D', '#F68B2C', 'notebook-pen', lambda: VOICES),
-    'ask':            ('Needs a Hearing', 'Help This Bill Get a Hearing', 'Without one, it stops for the year. A short email to the chair takes about 2 minutes.',
-                       '#EDF9FF', '#00698E', '#95DCFE', '#129DCB', 'calendar-clock', lambda: icon('calendar-clock', 240, '#129DCB', 1.4)),
-    'hold':           ('Waiting for a Hearing', 'Ask the Chair Not to Hear It', 'A short email to the chair takes about 2 minutes, and we help you write it.',
-                       '#EDF9FF', '#00698E', '#95DCFE', '#129DCB', 'calendar-clock', lambda: icon('calendar-clock', 240, '#129DCB', 1.4)),
-    'floor-yes':      ('A Vote Is Coming', 'Ask Your Legislator to Vote Yes', 'A short email to your own legislator takes about 2 minutes.',
-                       '#F5F1FF', '#5B21B6', '#C4B5FD', '#7C3AED', 'vote', lambda: icon('vote', 240, '#7C3AED', 1.4)),
-    'floor-no':       ('A Vote Is Coming', 'Ask Your Legislator to Vote No', 'A short email to your own legislator takes about 2 minutes.',
-                       '#F5F1FF', '#5B21B6', '#C4B5FD', '#7C3AED', 'vote', lambda: icon('vote', 240, '#7C3AED', 1.4)),
-    'conference-yes': ('The Final Version', 'Ask Lawmakers to Pass It', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
-                       '#EDFCF8', '#0F766E', '#99E6D8', '#14B8A6', 'handshake', lambda: icon('handshake', 240, '#14B8A6', 1.4)),
-    'conference-no':  ('The Final Version', 'Ask Lawmakers Not to Pass It', 'The House and Senate are writing one final version. A short email takes about 2 minutes.',
-                       '#EDFCF8', '#0F766E', '#99E6D8', '#14B8A6', 'handshake', lambda: icon('handshake', 240, '#14B8A6', 1.4)),
-    'governor-sign':  ('On the Governor’s Desk', 'Ask the Governor to Sign It', 'It passed the Legislature. A short message takes about 2 minutes.',
-                       '#E6FAE9', '#056639', '#9FDDB0', '#16A34A', 'landmark', lambda: CAPITOL),
-    'governor-veto':  ('On the Governor’s Desk', 'Ask the Governor to Veto It', 'It passed the Legislature. A short message takes about 2 minutes.',
-                       '#E6FAE9', '#056639', '#9FDDB0', '#16A34A', 'landmark', lambda: CAPITOL),
-    'follow':         ('Stay in the Loop', 'Follow the Issue', 'We’ll tell you when there’s a hearing or a way to help.',
-                       '#F4F7F9', '#344852', '#C2CCD1', '#5F6F76', 'bell', lambda: icon('bell', 220, '#7D8C93', 1.4)),
-    'law':            ('Good News', 'It Became Law. Follow What’s Next.', 'Follow the issue and we’ll tell you when your voice can count.',
-                       '#FFF8E1', '#7A4F00', '#F4D58D', '#F4B223', 'party-popper', flowers),
-}
+# The words and colours live in tools/og_looks.json, shared with tools/share_pics.mjs (R-183); only the drawings are here.
+ART = {'voices': lambda: VOICES, 'calendar': lambda: icon('calendar-clock', 240, '#129DCB', 1.4), 'vote': lambda: icon('vote', 240, '#7C3AED', 1.4),
+       'handshake': lambda: icon('handshake', 240, '#14B8A6', 1.4), 'capitol': lambda: CAPITOL, 'bell': lambda: icon('bell', 220, '#7D8C93', 1.4), 'flowers': flowers}
+LOOKS = json.load(open(os.path.join(ROOT, 'tools', 'og_looks.json'), encoding='utf-8'))
+ASKS = {k: (v['label'], v['big'], v['sub'], v['wash'], v['ink'], v['edge'], v['accent'], v['icon'], ART[v['art']]) for k, v in LOOKS.items() if not k.startswith('_')}
 TRACKER = ('Hawaiʻi Health Bills', 'Speak Up for a Healthier Hawaiʻi', 'Follow the issues you care about. Speak up in a few minutes.',
            '#EDF9FF', '#984B0B', '#FCD09D', '#F68B2C', 'megaphone', lambda: CAPITOL)
 # The six topics: icon and colour (dark enough to read on white, checked below). Tobacco's is the crossed-out cigarette:
@@ -146,10 +130,28 @@ if __name__ == '__main__':
         out = os.path.join(ROOT, 'pub', 'og', w['img'], f"{w['slug']}.jpg")
         if w['img'] in ASKS and re.fullmatch(r'[a-z0-9-]+', w['slug']) and (redraw or not os.path.exists(out)): jobs.append((ASKS[w['img']], out, w))
     # (each entry's 'have' is what share_pages saw; the file itself decides here)
-    if not jobs: print('nothing to draw'); sys.exit(0)
+    versions, seen = [], set()
+    if '--versions' in sys.argv:
+        # og_wanted_pics.json: the share pages' (written by share_pages.mjs); og_wanted_gallery.json: share-pics.html's.
+        for name in ('og_wanted_pics.json', 'og_wanted_gallery.json'):
+            vf = os.path.join(ROOT, 'tools', name)
+            if not os.path.exists(vf): continue
+            for w in json.load(open(vf, encoding='utf-8')):
+                if w['file'] in seen or not re.fullmatch(r'og/t/[a-z0-9-]+/[0-9a-f]{12}\.jpg', w['file']): continue
+                seen.add(w['file'])
+                if redraw or not os.path.exists(os.path.join(ROOT, 'pub', w['file'])): versions.append(w)
+    if not jobs and not versions: print('nothing to draw'); sys.exit(0)
     with sync_playwright() as pw:
         br = pw.chromium.launch(); pg = br.new_page(viewport={'width': 1200, 'height': 630})
         bad = [os.path.relpath(out, ROOT) for look, out, issue in jobs if not draw(pg, look, out, issue)]
+        if versions:
+            import og_templates as T
+            bad += [w['file'] for w in versions if not T.render(pg, w['spec'], os.path.join(ROOT, 'pub', w['file']))]
         br.close()
-    print(f'{len(jobs)} pictures drawn' + (f'; TOO TALL: {bad}' if bad else ''))
-    sys.exit(1 if bad else 0)
+    print(f'{len(jobs)} pictures drawn, {len(versions)} version pictures drawn' + (f'; TOO TALL: {bad}' if bad else ''))
+    # A version picture whose words did not fit is removed, so no page uses it (share_pages builds a page only for a picture
+    # that exists); the others are kept.
+    for f in bad:
+        fp = f if os.path.isabs(f) else os.path.join(ROOT, 'pub', f) if f.startswith('og/t/') else os.path.join(ROOT, f)
+        if '/og/t/' in fp.replace(os.sep, '/') and os.path.exists(fp): os.remove(fp)
+    sys.exit(1 if [b for b in bad if 'og/t/' not in b] else 0)

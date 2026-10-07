@@ -26,6 +26,13 @@
 //          opens on where the bill is; tabs Home · My issues · Find · You (pub/a/). Met the first time the two differ on
 //          screen: a bill page, or Home in session with something followed after the first visit (app.js). While a browser
 //          is on version A, the Home's-top test is not met or counted: version A replaces the Home it compares.
+//   pic    the picture a shared link shows (R-183, backend 155; Nate 10/6: "make every template"): today's | the issue up front |
+//          the twelve ideas (sign, calendar, letter, text, neighbors, islands, before, here, ticket, crowd, stand, postcard).
+//          Fourteen versions, a switch for each (arms_on); a rate test like 'share': met at every share, its two measures are
+//          the friends who tapped and the friends who acted, per share, kept by the ask shared (the "x" of each event). A
+//          version fits only some asks, so each share picks one at random among the versions that are on AND have a share
+//          page for that bill and ask (pub/sharepic.js, share-fit.json), and shares that version's address (p/<version>/...).
+//          The friend's arrival is counted from the &pic= word the link carries.
 //   act    the page just before the end of the first visit (R-150, backend 151; Nate 10/6: "test it"): today's "Coming up
 //          on your issues" | three ways to help, one tap each: testimony, an email to the chair and Send to a friend, each
 //          on a different bill (between sessions: a hello to their legislators, Send to a friend, one sentence on why it
@@ -68,8 +75,9 @@ export const TESTS = {
   save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
   layout: { arms: ['today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true },
   act: { arms: ['today', 'three'], first: 'keep', goal: ['acted', 1], goal2: ['back', 7] },
+  pic: { arms: ['today', 'issue', 'sign', 'calendar', 'letter', 'text', 'neighbors', 'islands', 'before', 'here', 'ticket', 'crowd', 'stand', 'postcard'], rate: true, multi: true },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true, act: true };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true, act: true, pic: true };
 // The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
 const INSIDE_TODAY = ['end', 'fv', 'email', 'act'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
@@ -181,16 +189,24 @@ try {
   // share test's measure, credited once to that message.
   const via = /^share-([a-z0-9-]{1,20})$/.exec(new URLSearchParams(location.search).get('via') || '');
   if (via && TESTS.share.arms.includes(via[1]) && !s.arrived && !DEMO) { s.arrived = { arm: via[1], day: today() }; emit({ t: 'share', a: via[1], k: 'goal', f: false }); }
+  // A friend who came by a link that carried its picture version (&pic=letter, R-183): their arrival is the picture test's first
+  // measure, credited once to that version and the ask the link opened (from the address's end: .../testify, else following).
+  const pv = new URLSearchParams(location.search).get('pic');
+  if (TESTS.pic.arms.includes(pv) && !s.arrivedPic && !DEMO) {
+    const m = /\/(testify|ask|floor|conference|governor)$/.exec(location.hash.replace(/[?].*$/, ''));
+    s.arrivedPic = { arm: pv, day: today(), x: m ? m[1] : 'follow' }; emit({ t: 'pic', a: pv, k: 'goal', f: false, x: s.arrivedPic.x });
+  }
   save(s);
 } catch { /* storage blocked: today's versions, nothing counted */ }
 
 // ---- counting ----
 // Met a test: the moment its versions differ on screen. Once per browser; a share test counts each bill shared once.
-export function abSeen(key, { bill } = {}) {
+export function abSeen(key, { bill, ask, arm: given } = {}) {
   const t = TESTS[key]; if (!t || !counted(key)) return;
   try {
-    const s = st(), arm = armOf(key), f = isForced(key);
-    if (t.rate) { s.shared ??= {}; if (bill && s.shared[bill]) return; if (bill) s.shared[bill] = 1; save(s); emit({ t: key, a: arm, k: 'seen', f }); return; }
+    const s = st(), arm = given || armOf(key), f = isForced(key);
+    // The share picture (R-183) is counted per bill, ask and version, with the ask on the event.
+    if (t.rate) { s.shared ??= {}; const k = key === 'pic' ? `pic:${bill}|${ask}|${arm}` : bill; if (bill && s.shared[k]) return; if (bill) s.shared[k] = 1; save(s); emit({ t: key, a: arm, k: 'seen', f, ...(ask ? { x: ask } : {}) }); return; }
     if ((s.seen ??= {})[key]) return;
     s.seen[key] = { day: today(), arm, f }; save(s);
     emit({ t: key, a: arm, k: 'seen', f });
@@ -213,6 +229,9 @@ export function abEvent(name) {
     // The share test's second measure: the friend who came by a shared link acted within 14 days.
     if (name === 'acted' && s.arrived && !s.sent?.['share:goal2'] && days(s.arrived.day, t0) <= 14) {
       (s.sent ??= {})['share:goal2'] = 1; changed = true; emit({ t: 'share', a: s.arrived.arm, k: 'goal2', f: false });
+    }
+    if (name === 'acted' && s.arrivedPic && !s.sent?.['pic:goal2'] && days(s.arrivedPic.day, t0) <= 14) {
+      (s.sent ??= {})['pic:goal2'] = 1; changed = true; emit({ t: 'pic', a: s.arrivedPic.arm, k: 'goal2', f: false, x: s.arrivedPic.x });
     }
     if (changed) save(s);
   } catch { /* never in the way */ }
@@ -237,6 +256,22 @@ export function abRankMet(hearingId) {
 }
 export function abStep(hearingId, kind) {
   try { if (kind !== 'testimony' && (st().rankH || []).includes(hearingId)) abEvent('step2'); } catch { /* ignore */ }
+}
+// The picture for one share (R-183): which of the versions on, among those this page has (share-fit.json, pub/sharepic.js),
+// this browser shares. The browser's own number (the toss) picks among them, so sharers are spread evenly over what fits
+// each ask. null: today's picture, nothing counted (no version fits, the test is off, a test run). A tester's link
+// (?ab=pic.letter) names the version and is counted apart; a version that does not fit this page gets today's.
+export function picArm(fit) {
+  try {
+    const t = TESTS.pic, s = st();
+    if (s.forced?.pic && t.arms.includes(s.arms?.pic)) { const a = s.arms.pic; return a === 'today' || fit.includes(a) ? { arm: a, forced: true } : null; }
+    if (BOT || !fit.length) return null;
+    if (!cfgOf('pic').on) return null;
+    const on = armsOn('pic'), c = t.arms.filter(a => on.includes(a) && (a === 'today' || fit.includes(a)));
+    if (c.length < 2) return null;   // one version alone is nothing to compare: everyone gets what the page has
+    const u = typeof s.u?.pic === 'number' ? s.u.pic : 0;
+    return { arm: c[Math.min(c.length - 1, Math.floor(u * c.length))], forced: false };
+  } catch { return null; }
 }
 // The word a shared link carries, so a friend's arrival is credited to the message that brought them ('' when the share
 // test is not running for this browser).

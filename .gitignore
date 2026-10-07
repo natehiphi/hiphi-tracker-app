@@ -3,3 +3,4 @@ shot_*.png
 
 # macOS
 .DS_Store
+tools/og_wanted_pics.json

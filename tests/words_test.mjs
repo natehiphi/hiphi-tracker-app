@@ -11,6 +11,9 @@
 //        The Legislature's bill titles come from the data, not the code, and keep their own spelling.
 //   5.   Never "dead" or "died" in words the public page shows (pub/): a bill "stopped" or "did not advance". The stage
 //        code 'dead' and class names like lx-dead are code, not words, and are not counted.
+//   6.   The share pictures' words (R-183): what tools/share_pics.mjs and og_looks.json write on a picture, and the drafts of the
+//        issues' own words (demo/share_words.json): "e-cigarettes", never "vape"; "Hawaiʻi" with its ʻokina; American spelling
+//        ("neighbors"); never "dead" or "died"; no em or en dash.
 //   node tests/words_test.mjs
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -142,6 +145,17 @@ check(pubWords.length > 1000 && !noOkina.length, `the public page writes "Hawai�
 const DEAD = /(?<![-\w.])(dead|died)(?![-\w])/i;
 const dead = pubWords.filter(x => /\s/.test(x.text.trim()) && DEAD.test(x.text));
 check(!dead.length, `the public page never says a bill is "dead" or "died"${show(dead)}`);
+
+// 6. The share pictures' words (R-183).
+{
+  const looks = JSON.parse(readFileSync(join(ROOT, 'tools/og_looks.json'), 'utf8'));
+  const own = [...quoted(readFileSync(join(ROOT, 'tools/share_pics.mjs'), 'utf8')).map(([text, line]) => ({ f: 'tools/share_pics.mjs', line, text })),
+    ...Object.entries(looks).filter(([k]) => !k.startsWith('_')).flatMap(([k, v]) => ['label', 'big', 'sub', 'short', 'foot'].map(f => ({ f: `tools/og_looks.json ${k}`, line: 0, text: v[f] }))),
+    ...JSON.parse(readFileSync(join(ROOT, 'demo/share_words.json'), 'utf8')).flatMap(r => [r.slogan, r.before_text, r.after_text].filter(Boolean).map(text => ({ f: 'demo/share_words.json', line: 0, text })))]
+    .filter(x => /[a-z]/i.test(x.text) && /\s/.test(x.text.trim()));
+  const bad6 = own.filter(x => WORD.test(x.text) || (HAWAII.test(x.text)) || /neighbour/i.test(x.text) || (DEAD.test(x.text)) || /[—–]/.test(x.text));
+  check(own.length > 100 && !bad6.length, `the share pictures' words follow the word rules (${own.length} strings read)${show(bad6)}`);
+}
 
 console.log(`\n${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
