@@ -310,6 +310,25 @@ function mailFor(b, x, chairs, mode) {
 }
 const mailMode = x => x.differs ? 'own' : x.kind === 'hold' ? 'hold' : x.kind === 'ask' || (x.waiting && x.pos && !/oppose/.test(x.pos.verb)) ? 'ask' : x.waiting && x.pos ? 'hold' : 'about';
 
+// A newcomer from a link whose card is showing (newcomer() below draws it on the same terms).
+const newbie = b => firstVisit() && !S.blLooking?.has(b.id);
+// The stopped bill's main button is "Follow the issue" (mainButton), so no other Follow is drawn beside it (B3-3, A-14).
+const followIsMain = (b, x) => x.kind === 'stopped' && (i => !!i && !issueFollowed(i))(issuesOf(b)[0]);
+// Between sessions, what happens next to a stopped bill (B3-1, R-199): which year it stopped, whether it can come back and
+// when its idea can. Hawaiʻi's two-year term: a bill alive at the end of an odd year's session carries over to the next
+// year, but every bill still not passed at the end of the even year is gone, and its idea needs a new bill. The words
+// follow whatever R-144 settles for "stopped". With the follow as the main button, "Find your legislators" is the second
+// choice, here, for someone whose legislators the page doesn't know yet.
+function stoppedNext(b, x) {
+  const si = sessionInfo(); if (!x.stopped || si.phase === 'in') return '';
+  const yr = +b.session_year || si.recapYear, when = si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
+  const meets = when ? `when the Legislature meets on ${when}` : 'when the Legislature meets in January';
+  const text = yr % 2 === 0 || b.stage === 'vetoed' ? `Stopped in ${yr}. This bill can’t come back, but its idea can, as a new bill ${meets}.`
+    : `Stopped in ${yr}. It may be taken up again ${meets}.`;
+  const second = followIsMain(b, x) && !myDistricts() ? btn('Find your legislators', { kind: 'text', sm: true, icon: 'map-pin', href: `#/legislators?from=${encodeURIComponent(billRef(b))}` }) : '';
+  return `<div class="bl-after"><p>${esc(text)}</p>${second}</div>`;
+}
+
 // The page's one main button. On a phone it sits in the sticky bottom bar; on a wide screen it sits in the side panel,
 // inside the action card when there is one. While the email composer is open its own "Open in my mail app" is the
 // main button, so this one steps aside (two blue buttons competed before).
@@ -338,13 +357,14 @@ function mainButton(b, x) {
       { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: GOV_URL, attrs: { 'data-bl-main': 'governor', 'data-bl-mail': '-', target: '_blank', rel: 'noopener' } });
     case 'law': return btn(x.differs ? 'Share this bill' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
     case 'stopped': {
-      // Between sessions nothing is moving: the useful step is getting ready for January.
-      const off = sessionInfo().phase !== 'in';
+      // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018). Between
+      // sessions too (B3-1, R-199): following the issue is what brings its new bills in January, so it leads, and "Find
+      // your legislators" is the second choice beside the line that says what happens next (stoppedNext). A newcomer from
+      // a link gets their card's own follow here (its moment, then the rest of the first visit), so the page asks once.
+      const off = sessionInfo().phase !== 'in', bi = issuesOf(b)[0];
+      if (bi && !issueFollowed(bi)) return btn('Follow the issue', { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `Follow the issue: ${bi.name}` }, cls: 'bl-barbtn' });
       if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
-      // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018).
-      const bi = issuesOf(b)[0];
-      if (bi) return issueFollowed(bi) ? btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' })
-        : btn(`Follow the issue: ${esc(bi.name)}`, { kind: 'primary', icon: 'star', full: true, attrs: { 'data-bl-followissue': bi.id }, cls: 'bl-barbtn' });
+      if (bi) return btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' });
       return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
     }
     default: return btn('Share this bill', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
@@ -476,7 +496,8 @@ function railInfo(b, x) {
 // 1st of 2 Senate committees" where the rail says "Now: Senate Health and Human Services with Commerce and Consumer
 // Protection, 1st of 2 Senate committees". Everything that names no committee is word for word the same.
 export function railBrief(b, x) { const r = railInfo(b, x); return `${r.lead === 'Now: ' ? '' : r.lead}${r.pic}`.trim(); }
-const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead' };
+// After a stop, the later steps were never reached; "still ahead" told a screen reader the bill could still get there (B3-3, WCAG 1.3.1).
+const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead', unreached: 'not reached' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 // A stopped bill: under "Stopped in Senate committees", exactly why (Nate 9/29: "These notes need to be in the steps
 // section"; R-085). The committee, what happened there, and the rule it missed with its date.
@@ -488,7 +509,7 @@ export function railHTML(b, x) {
   const [align, from] = r.idx + span <= n ? ['l', i1] : i1 - span >= 0 ? ['r', i1 - span + 1] : ['c', Math.min(Math.max(1, i1 - Math.floor(span / 2)), n - span + 1)];
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.
   const dots = r.names.map((nm, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Stopped here' : '';
-    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(nm)}</span><span class="sr">Step ${i + 1} of ${n}, ${esc(nm)}: ${STEP_WORD[s]}.</span></li>`; }).join('');
+    return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(nm)}</span><span class="sr">Step ${i + 1} of ${n}, ${esc(nm)}: ${STEP_WORD[s === 'next' && x.stopped ? 'unreached' : s]}.</span></li>`; }).join('');
   const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
   return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}${n >= 7 ? ' bl-alt' : ''}" style="--n:${n}">
@@ -584,8 +605,9 @@ function newcomer(b, x) {
     : x.kind === 'ask' ? `This bill is waiting for a hearing. You can ask ${one} for one, in about 2 minutes, or follow it and we’ll tell you when.`
     : x.kind === 'hold' ? `This bill is waiting for a hearing. You can ask ${one} not to hear it, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'floor' ? `This bill goes to a vote of the full ${CHAMBER_NAME[x.st.chamber] || 'House or Senate'} soon. You can ask your ${x.st.chamber === 'S' ? 'senator' : 'representative'} to vote ${no ? 'no' : 'yes'}, in about 2 minutes, or follow it and we’ll tell you how it goes.`
-    : x.kind === 'conference' ? 'The House and Senate are working out one final version. You can email lawmakers about it, in about 2 minutes, or follow it and we’ll tell you what happens.'
+    : x.kind === 'conference' ? `The House and Senate are working out one final version. You can ${no ? 'ask lawmakers to let it go' : 'email lawmakers about it'}, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'governor' ? `This bill passed the Legislature and is on the Governor’s desk. You can ask the Governor to ${no ? 'veto' : 'sign'} it, in about 2 minutes, or follow it and we’ll tell you what happens.`
+    : x.stopped && i ? 'This bill stopped. Follow its issue, and we’ll tell you when a new bill on it comes up.'
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   // A partner's link can open on a bill now (Make a link, R-067): their welcome line leads the card, as it does on the
   // first visit's first screen.
@@ -595,7 +617,7 @@ function newcomer(b, x) {
   return `<section class="card bl-newbie" aria-labelledby="bl-nb-h">${S.blWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.blWelcome)}</span></p>` : ''}
     <p class="bl-nbtext" id="bl-nb-h">${icon('sparkles')}<span><b>New here?</b> ${esc(text)}</span></p>
     <p class="small muted">A free tool from the Hawaiʻi Public Health Institute, a nonprofit. Emails open in your own mail app; nothing is sent for you.</p>
-    <div class="bl-nbbtns">${btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${asking(x) ? '' : notNow()}</div>
+    <div class="bl-nbbtns">${followIsMain(b, x) ? '' : btn(i ? 'Follow this issue' : 'Follow this bill', { kind: 'secondary', icon: 'star', attrs: { 'data-bl-newfollow': '1' } })}${asking(x) ? '' : notNow()}</div>
   </section>`;
 }
 // The tips about this page, offered in one quiet line to someone they no longer start for by themselves (X10-4, R-180;
@@ -675,7 +697,7 @@ function head(b, x) {
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b)}${onListsLine(b)}
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b, x)}${onListsLine(b)}
     ${aboutFold(b, name ? lede : plainHead(b))}</div>`;
 }
 // One sentence is not enough to decide on (R-178, Nate 10/5): right under it, "Read more about the bill" opens the
@@ -685,8 +707,10 @@ const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} d
     ${aboutBill(b, { shown, pfx: 'bl-ab' })}</details>`;
 // The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
-function issueLine(b) {
+function issueLine(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
+  // A stopped bill's main button is already "Follow the issue": the line keeps the issue's name and drops its own button.
+  if (x && followIsMain(b, x)) return `<p class="bl-issue">${icon(catOf(iss[0].category)?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(iss[0].slug)}">${esc(iss[0].name)}</a></span></p>`;
   const i = iss[0], on = issueFollowed(i), cat = catOf(i.category);
   // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
   // Follow button with another word). Pressing Following stops following the issue, with Undo.
@@ -743,7 +767,7 @@ function statusCard(b, x) {
     ${x.stopped ? '' : `<p class="bl-say">${x.law ? flower(22) : ''}<span>${esc(plainStatus(b).text)}${extra ? ` ${esc(extra)}` : ''}</span></p>`}
     ${b.hiphi_action && !x.act && x.live && !x.differs ? `<p class="bl-ask">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(b.hiphi_action)}</span></p>` : ''}
     ${!wide() && stepCard(b, x) ? `<p class="bl-next"><b>${esc(stepCard(b, x)[0])}.</b> ${esc(stepCard(b, x)[1])}</p>` : ''}
-    ${railHTML(b, x)}
+    ${railHTML(b, x)}${stoppedNext(b, x)}
   </section>`;
 }
 // A hearing ahead: the action card (the hearing, the deadline, every way to help) under a heading that says what to
@@ -769,9 +793,10 @@ function stepCard(b, x) {
   if (x.kind === 'floor') return x.to.length
     ? [`Ask for a ${opp ? 'no' : 'yes'} vote`, `The full ${ch} votes on it next. Lawmakers listen closest to the people they represent, so a short email from you counts.`]
     : [`Ask for a ${opp ? 'no' : 'yes'} vote`, `The full ${ch} votes on it next. Find your own ${rep}, then send a short email: lawmakers listen closest to the people they represent.`];
+  // An opposed bill asks them to let it go, as its email does (B3-3, R-199); the same words for both sides said nothing.
   if (x.kind === 'conference') return x.conf
-    ? ['Write to the conference chairs', 'The House and Senate passed different versions. A few members of each are working out one version, led by these chairs. A short, polite email helps.']
-    : ['Ask your legislators to speak up', 'The House and Senate passed different versions and are working out one. Your own legislators can speak up for it.'];
+    ? ['Write to the conference chairs', `The House and Senate passed different versions. A few members of each are working out one version, led by these chairs. ${opp ? 'HIPHI opposes it. A short, polite email asking them to let it go helps.' : 'A short, polite email helps.'}`]
+    : ['Ask your legislators to speak up', `The House and Senate passed different versions and are working out one. Your own legislators can ${opp ? 'ask them to let it go' : 'speak up for it'}.`];
   if (x.kind === 'governor') return vetoNotice(b) && !opp
     ? ['The Governor may veto it', 'The Governor has given notice of a possible veto. Tell the Governor’s office why it should become law, on its Comments on Legislation page.']
     : ['On the Governor’s desk', `It passed the House and Senate. The Governor decides whether it becomes law. Tell the Governor’s office ${x.differs ? 'what you think' : opp ? 'why it should be vetoed' : 'why it should be signed'}, on its Comments on Legislation page.`];
@@ -787,7 +812,7 @@ function doCard(b, x) {
     remind: [`Follow up with the ${x.chairs.length > 1 ? 'chairs' : 'chair'}`, `You asked before, and it still has no hearing. Its deadline is ${x.st.deadline ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : 'near'}: a short follow-up can help.`],
     capitol: ['Have your say', 'You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.'],
     law: ['It became law', x.differs ? 'This bill is now a Hawaiʻi law.' : 'Mahalo to everyone who spoke up. Pass on the good news.'],
-    stopped: ['What you can do now', off ? 'The Legislature is between sessions. A good next step is to get ready for the next one.' : 'This bill stopped, but others are still moving and need voices.'],
+    stopped: ['What you can do now', off ? (followIsMain(b, x) ? 'Follow the issue, and its new bills come to you when the Legislature meets.' : 'The Legislature is between sessions. A good next step is to get ready for the next one.') : 'This bill stopped, but others are still moving and need voices.'],
   }[x.kind] || ['Spread the word', 'More voices carry more weight. Send this bill to someone who cares about it.'];
   return `<section class="card bl-do" aria-labelledby="bl-do-h"><h2 id="bl-do-h">${title}</h2><p class="small">${esc(text)}</p>${main}</section>`;
 }
@@ -802,7 +827,8 @@ function whoDecides(b, x) {
       : x.kind === 'email' ? `The hearing is set. A short email to the ${c1} is a quick way to be heard. Testimony carries the most weight.`
       : 'The hearing is set. The best thing you can do now is send testimony.')
     : x.st.hearingState === 'held' ? `The committee heard it. The ${c1} will share what happens next.`
-    : x.st.hearingState === 'scheduled' ? 'The hearing is set. Anyone in Hawaiʻi can send testimony on the Capitol website.'
+    : x.st.hearingState === 'scheduled' ? (dueInfo(x.st.hearing)?.late ? 'The hearing is set. The deadline for written testimony has passed. Anyone can still send it on the Capitol website; it will be marked late.'
+      : 'The hearing is set. Anyone can send testimony on the Capitol website.')   // anyone, not only people in Hawaiʻi (B3-3)
     : hold ? `The committee ${plural ? 'chairs decide' : 'chair decides'} if this bill gets a hearing. HIPHI opposes it, so a short, polite note asking ${plural ? 'them' : 'the chair'} to hold it helps.`
     : `The committee ${plural ? 'chairs decide' : 'chair decides'} if this bill gets a hearing. A short, polite email helps, most of all from someone in their district.`;
   const hid = x.act?.h.id || x.st.hearing?.id || '';

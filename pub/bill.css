@@ -111,6 +111,10 @@
 .bl-page .bl-railstop .bl-nowlbl { color: var(--n700); font-weight: 700; }
 .bl-page .bl-raillaw .bl-nowlbl b { color: var(--ok-text); }
 .bl-page .bl-why { margin: var(--s8) 0 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); }   /* why it stopped, under the step bar (R-085) */
+/* Between sessions, what happens next to a stopped bill, with "Find your legislators" as the second choice (B3-1, R-199) */
+.bl-page .bl-after { margin: var(--s12) 0 0; padding-top: var(--s12); border-top: 1px solid var(--n200); }
+.bl-page .bl-after p { margin: 0; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
+.bl-page .bl-after .btn { margin: var(--s4) 0 0 -8px; }
 /* the label sits under the current dot, kept inside the card at the two ends (its columns are set inline by railHTML,
    since a path has four to eleven steps: each committee is its own step since R-081) */
 /* Nine or more steps (two or three committees a side): smaller dots, so eleven fit a 320px phone without touching. */
