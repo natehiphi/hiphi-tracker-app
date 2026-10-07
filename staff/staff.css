@@ -129,6 +129,9 @@ body.staff2 main.sv-login { width: 100%; max-width: 432px; margin: 10vh auto 0; 
 .sv-login .sv-lfor { font-size: var(--t14); color: var(--n500); }
 .sv-login h1 { font-size: var(--t22); margin-top: var(--s8); }
 .sv-login .sv-lcard { margin: 0; }
+/* What Forgot your password? did (M1-6): calm, not an error (A-5, B-7). */
+.sv-login .sv-lhelp { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; padding: var(--s12); border-radius: var(--r8); background: var(--p50); color: var(--n900); font-size: var(--t14); line-height: 1.45; }
+.sv-login .sv-lhelp .ic, .sv-login .sv-lhelp svg { flex: 0 0 auto; margin-top: 2px; color: var(--p700); }
 .sv-login .sv-lpub { font-size: var(--t14); color: var(--n500); text-align: center; }
 .sv-login .sv-lpub a { white-space: nowrap; }   /* on a phone the link moves to its own line whole */
 @media (min-width: 900px) { .sv-login .sv-lcard { padding: var(--s24); } }

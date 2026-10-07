@@ -897,39 +897,47 @@ async function demoInit() {
   // soonest hearing if it has one, so the Desk link appears too when that
   // hearing is inside the 48-hour window.
   S.drafts = {};
-  const anchor = S.bills.find(b => b.priority === 1 && b.stage !== 'dead' && (sc.assignments[b.id] || []).includes(S.me.id) && sc.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now())) || S.bills.find(b => b.stage !== 'dead') || S.bills[0];
+  // F7-2 (R-199): the same practice testimony as Staff v2's practice copy (staff/data.js demoLoad), so the two can be
+  // compared side by side on Nate's walk-through: drafts only for an actionable position, the one in review on a bill
+  // with a position and a hearing ahead, each draft the bill owner's, returned drafts with their notes, and the drafts
+  // HIPHI really filed earlier in 2026 from the snapshot. Kept in step by hand; the old app retires after the walk-through.
+  const ACTIONABLE = ['strongly_support', 'strongly_oppose', 'support', 'support_amend', 'oppose', 'neutral'];
+  const heardSoon = b => sc.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > Date.now());
+  const positioned = S.bills.filter(b => b.stage !== 'dead' && ACTIONABLE.includes(b.position));
+  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(S.me.id) && heardSoon(b))
+    || positioned.find(heardSoon) || positioned[0] || S.bills[0];
   if (anchor) {
     const b0 = anchor;
-    const h0 = sc.hearings.filter(h => h.bill_id === b0.id)
+    const h0 = sc.hearings.filter(h => h.bill_id === b0.id && new Date(h.scheduled_at) > Date.now())
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
-    S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'),
+    S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'), hearing_id: h0?.id || null,
       status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
       doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString(),
-      version: b0.current_version || null }];   // as the live job stamps it (Staff v2's sandbox does the same)
+      version: b0.current_version || null }];
   }
-  // And one per hearing in the coming week, so whichever bills the Desk
-  // "hearing posted" band shows under the current lens, a link is there.
-  // (Demo hearings carry no testimony_deadline; scheduled_at is the key.)
-  let n = 2, approvedSeeded = false;
+  const NOTES = ['Cite the 2024 BRFSS numbers in paragraph two.', 'Lead with the fiscal note; the chair asked for it.',
+    'Name the two amendments we want in the first paragraph.', 'Shorten it to one page and list the coalition sign-ons.'];
+  let n = 2, approvedSeeded = false, noteN = 0;
   for (const h of sc.hearings.filter(h => new Date(h.scheduled_at) > new Date()
       && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
+    const hb = S.bills.find(b => b.id === h.bill_id);
+    if (!hb || !ACTIONABLE.includes(hb.position)) continue;
     if ((S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
-    // Cycle through the workflow states so every button shows up somewhere.
+    const owner = (sc.assignments[h.bill_id] || [])[0] || null;
     let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
-    // The Desk opens on "my bills", so make sure one of Nate's has the
-    // approved-not-filed state - that is the button training should practise.
     if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(S.me.id)) { st = 'approved'; approvedSeeded = true; }
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
-    (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee,
+    (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: ago(30), submitted_by: st === 'draft' ? null : byIni.KR, submitted_at: st === 'draft' ? null : ago(20),
+      created_at: ago(30), submitted_by: st === 'draft' ? null : owner, submitted_at: st === 'draft' ? null : ago(20),
       approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
       second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(6),
-      filed_by: st === 'filed' ? byIni.KR : null, filed_at: st === 'filed' ? ago(2) : null,
+      filed_by: st === 'filed' ? owner : null, filed_at: st === 'filed' ? ago(2) : null,
       version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
-      review_note: st === 'draft' ? 'Cite the 2024 BRFSS numbers in paragraph two.' : null });
+      review_note: st === 'draft' ? NOTES[noteN++ % NOTES.length] : null });
   }
+  for (const d of snap.drafts || []) if (!(S.drafts[d.bill_id] || []).some(x => x.committee === d.committee)) (S.drafts[d.bill_id] ??= []).push({ ...d });
   S.assignments = sc.assignments; S.billCampaigns = sc.billCampaigns;
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.

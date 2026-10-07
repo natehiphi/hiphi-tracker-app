@@ -2,7 +2,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { exactBill, inboxCount } from './model.js';
@@ -149,6 +149,7 @@ function tabbar(scr) {
 }
 let lastKey = '';
 export function render() {
+  if (LINK_TOKEN && !S.linkUsed) return renderLink();
   if (!S.session && !DEMO) return renderLogin();
   if (RECOVERY && !DEMO) return renderRecovery();
   const route = parseRoute(); S.route = route;
@@ -253,16 +254,43 @@ function renderLogin() {
       <div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" required></div>
       <div id="l-err" role="alert">${LINK_ERR ? `<p class="inlinemsg">${icon('circle-alert')}${esc(LINK_ERR)}. Each link works only once. Request a new one.</p>` : ''}</div>
       ${btn('Sign in', { kind: 'primary', full: true, attrs: { type: 'submit', id: 'l-go' } })}
-      ${btn('Forgot your password?', { kind: 'text', attrs: { id: 'l-forgot' } })}
+      ${btn('Forgot your password?', { kind: 'text', attrs: { id: 'l-forgot', 'aria-expanded': 'false', 'aria-controls': 'l-help' } })}
+      <div id="l-help" hidden></div>
     </form>${loginFoot}</main>`;
   const err = m => { document.getElementById('l-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; };
   document.getElementById('lf').onsubmit = async e => { e.preventDefault(); err('');
     const b = document.getElementById('l-go'); b.setAttribute('aria-busy', 'true');
     try { await DB.login(document.getElementById('l-email').value.trim(), document.getElementById('l-pass').value); }
     catch (x) { err(x.message || 'Sign-in failed'); } finally { b.removeAttribute('aria-busy'); } };
+  // Forgot your password? (M1-6, R-199). Supabase can only email a reset to its own account's team until its sign-in email
+  // goes through HIPHI's email service (Nate's step, R-101 and R-002), so today the button asks the admin, in Slack, to
+  // send a new sign-in link, and says so. SELF_RESET turns the email reset back on once that step is done.
   document.getElementById('l-forgot').onclick = async () => { const email = document.getElementById('l-email').value.trim(); err('');
-    if (!email) { err('Enter your email address first.'); return; }
-    try { await DB.sendRecovery(email); toast('Check your email for a link to set a new password'); } catch (x) { err(x.message || 'Could not send the link'); } };
+    const help = document.getElementById('l-help'), b = document.getElementById('l-forgot');
+    if (!email) { err('Enter your email address first, then press Forgot your password? again.'); document.getElementById('l-email').focus(); return; }
+    b.setAttribute('aria-busy', 'true');
+    try {
+      if (SELF_RESET) { await DB.sendRecovery(email); help.innerHTML = `<p class="sv-lhelp" role="status">${icon('mail')}If ${esc(email)} is on the team, a link to choose a new password is on its way. It works once.</p>`; }
+      else { await DB.askPasswordHelp(email); help.innerHTML = `<p class="sv-lhelp" role="status">${icon('send')}We've let the tracker's admin (Nate) know in Slack. If ${esc(email)} is on the team, Nate will email you a new sign-in link. Open it, press Continue, and choose a new password.</p>`; }
+      help.hidden = false; b.setAttribute('aria-expanded', 'true');
+    } catch (x) { err(x.message || 'That did not go through. Try again, or ask Nate directly.'); }
+    finally { b.removeAttribute('aria-busy'); } };
+}
+const SELF_RESET = false;   // true after Supabase Auth sends through Postmark (docs/BREAK-GLASS.md, R-101)
+// A sign-in link from Session setup > Team opens here first (M1-3): nothing is used until Continue is pressed, so a link
+// preview cannot spend it. Continue turns the link into a session and goes on to "Choose a new password".
+function renderLink() {
+  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop('Welcome to the Bill Tracker')}
+    <div class="stack16 card sv-lcard"><p>Press Continue to choose your password and sign in. This link works once.</p>
+      <div id="k-err" role="alert"></div>
+      ${btn('Continue', { kind: 'primary', full: true, attrs: { id: 'k-go' } })}</div>${loginFoot}</main>`;
+  const err = m => { document.getElementById('k-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${m}</p>` : ''; };
+  document.getElementById('k-go').onclick = async () => { const b = document.getElementById('k-go'); if (b.getAttribute('aria-busy')) return; err('');
+    if (DEMO) { toast('The practice copy signs nobody in. In the live app, Continue goes on to choose a password.'); return; }
+    b.setAttribute('aria-busy', 'true'); S.linkUsed = true; setRecovery(true);
+    try { await DB.verifyLink(LINK_TOKEN); history.replaceState(null, '', location.pathname + location.search); renderRecovery(); }
+    catch (x) { S.linkUsed = false; setRecovery(false); b.removeAttribute('aria-busy');
+      err(`This link has already been used or has run out. Ask Nate for a new one, or <a href="${esc(location.pathname + location.search)}">sign in</a> if you have a password.`); } };
 }
 function renderRecovery() {
   document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop('Choose a new password')}
@@ -283,9 +311,10 @@ function renderRecovery() {
 async function boot() {
   const app = document.getElementById('app');
   try {
+    if (LINK_TOKEN && !S.linkUsed) return renderLink();
     if (!S.session && !DEMO) return renderLogin();
     if (RECOVERY && !DEMO) return renderRecovery();
-    if (!DEMO) {   // "since your last visit" baseline, the same keys and rule as the current app
+    if (!DEMO) {   // "since your last visit" baseline (the old app keeps its own since R-199, F7-1)
       const nowT = Date.now(), last = +localStorage.getItem('lastVisit') || 0;
       if (!last) { localStorage.setItem('lastVisit', String(nowT)); localStorage.setItem('prevVisit', String(nowT)); S.sinceVisit = nowT; }
       else if (nowT - last > 30 * 60e3) { localStorage.setItem('prevVisit', String(last)); localStorage.setItem('lastVisit', String(nowT)); S.sinceVisit = last; }

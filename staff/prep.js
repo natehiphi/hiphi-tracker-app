@@ -340,7 +340,7 @@ function tellHTML() {
   const told = live().some(i => i.owner_told_at);
   if (!others.length) return told ? `<p class="small muted pr-told">${icon('check')}Owners have been told. A new owner hears as soon as you change one.</p>` : '';
   return `<section class="card pr-tell" aria-labelledby="pr-th"><h2 id="pr-th">${told ? `${plural(others.length, 'owner')} not told yet` : 'Nobody has been told yet'}</h2>
-    <p class="small">When the owners look right, tell them. Each gets one Slack message listing their issues and the due date. ${noLogin.length ? `<b>${esc(listWords(noLogin.map(first)))} cannot sign in yet</b>: add ${noLogin.length === 1 ? 'their login' : 'their logins'} in Supabase first, or they cannot open the link.` : ''}</p>
+    <p class="small">When the owners look right, tell them. Each gets one Slack message listing their issues and the due date. ${noLogin.length ? `<b>${esc(listWords(noLogin.map(first)))} cannot sign in yet</b>: make ${noLogin.length === 1 ? 'them a sign-in link' : 'each a sign-in link'} under <a href="#/setup/team">Session setup, Team</a> first, or they cannot open the link.` : ''} Someone the tracker cannot reach is not sent one; Team shows who.</p>
     ${btn(`Tell ${plural(others.length, 'owner')}`, { icon: 'send', attrs: { 'data-pr': 'tell' } })}</section>`;
 }
 function boardRender(route) {
@@ -371,7 +371,11 @@ export function wirePrep(route, root) {
   wireRows();
   root.querySelector('[data-pr="tell"]')?.addEventListener('click', async e => {
     const b = e.currentTarget; b.setAttribute('aria-busy', 'true'); b.disabled = true;
-    try { const n = await DB.tellIssueOwners(); hooks.render(); toast(`Told ${plural(n, 'owner')}. Each got one Slack message.`, { ok: true }); }
+    // M1-1: say how many were actually sent a message, and name anyone the tracker could not reach.
+    const asked = [...new Set(live().filter(i => i.owner_id && !i.owner_told_at && !isDraft(i)).map(i => i.owner_id))].filter(id => id !== S.me?.id);
+    try { const n = await DB.tellIssueOwners(); hooks.render();
+      let lost = []; try { const r = await DB.teamReach(); lost = asked.filter(id => !['slack', 'email', 'unknown'].includes(r.find(x => x.advocate_id === id)?.reach)).map(advocate).filter(Boolean); } catch {}
+      toast(`Sent to ${plural(n, 'owner')}. Each shows as told once their message arrives.${lost.length ? ` Not sent to ${listWords(lost.map(first))}: the tracker can't reach them (Session setup, Team).` : ''}`, { ok: !lost.length }); }
     catch (err) { toast(err, { err: true }); b.removeAttribute('aria-busy'); b.disabled = false; }
   });
 }
