@@ -62,13 +62,13 @@ jobs:
         run: python3 tests/year_links.py
       - name: The error reporter
         run: python3 tests/errlog.py
-      - name: Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports
+      - name: "Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports"
         run: python3 tests/staff_live.py
       - name: Staff v2's flows in the sandbox (R-152)
         run: python3 tests/staff_flows.py
-      - name: Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)
+      - name: "Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)"
         run: python3 tests/staff_r152c.py
-      - name: Staff v2, batch D: the practice copy, readiness, small fixes (R-152)
+      - name: "Staff v2, batch D: the practice copy, readiness, small fixes (R-152)"
         run: python3 tests/staff_r152d.py
       - name: Staff v2, Today | Ahead (R-049)
         run: python3 tests/staff_ahead.py
@@ -90,5 +90,5 @@ jobs:
         run: python3 tests/same_idea_law.py
       - name: The words list for the checker panel is current (R-166 step 3)
         run: node tools/words_extract.mjs --check
-      - name: The tracker in other languages: the machinery, with a made-up language (R-166 step 3)
+      - name: "The tracker in other languages: the machinery, with a made-up language (R-166 step 3)"
         run: python3 tests/i18n.py
