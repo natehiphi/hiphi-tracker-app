@@ -222,7 +222,7 @@ function avatarMenu() {
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
-    { label: 'Open the old app', icon: 'external-link', sub: 'Kept for a week as the way back, same data', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
+    { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ] });
 }

@@ -89,6 +89,7 @@ const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = (msg, err) => {
+  if (msg === LOOK_ONLY) return;   // a look-only refusal has already said so, with its link (F7-1)
   const d = document.createElement('div');
   d.className = 'toastmsg' + (err ? ' err' : ''); d.textContent = msg;
   $('#toast').append(d); setTimeout(() => d.remove(), 3600);
@@ -151,7 +152,7 @@ const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-    S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
+    S.supa = lookOnlyClient(createClient(SUPABASE_URL, SUPABASE_KEY));
     const { data } = await S.supa.auth.getSession();
     S.session = data.session;
     S.supa.auth.onAuthStateChange((e, sess) => {
@@ -170,7 +171,7 @@ const DB = {
     // redirectTo must also be on the Supabase redirect allowlist, and Site URL
     // must point at this app - otherwise the link verifies, then bounces the
     // browser to a dead address and spends the token for nothing.
-    const { error } = await S.supa.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+    const { error } = await S.supa.auth.resetPasswordForEmail(email, { redirectTo: STAFF_URL });   // back to the staff app, never this old address (F7-3)
     if (error) throw error;
   },
   async setPassword(password) {
@@ -771,6 +772,84 @@ const DB = {
   },
 };
 
+// ---------------- look-only (F7-1, R-199) ----------------
+// Nate's decision 12 (R-010) keeps this old app alive as a way back until his walk-through. Since R-199 it reads
+// everything and changes nothing: Staff v2 at the main address is the one place a change is made, so two sets of rules
+// can no longer write the same rows (backend CLAUDE.md rule 1; the F7 assessment found 9 of its 85 data functions had
+// drifted from Staff v2's). Two layers:
+// 1. every DB method that writes is replaced by a refusal that offers the same screen in the staff app. The original
+//    never runs, so no screen state is changed first and nothing optimistic needs rolling back;
+// 2. the Supabase client itself refuses insert, update, upsert and delete, and every database function that is not on
+//    the read list, so a direct call missed in (1) still changes nothing.
+// claim_advocate stays allowed: on a first sign-in it links the login to the person's team row, as Staff v2 does too.
+// The refusal's message is LOOK_ONLY; toast() skips it because lookOnlyNote() has already said so with its link.
+const LOOK_ONLY = 'This old app is look-only. Make the change in the staff app.';
+const STAFF_URL = new URL('./', location.href).href;   // the folder: index.html is Staff v2 (R-010)
+const STAFF_ROUTE = { portfolio: '#/', table: '#/bills', dead: '#/bills', add: '#/bills/new', triage: '#/bills/new', inbox: '#/inbox', memo: '#/bills/memo',
+  lists: '#/outreach/lists', legislators: '#/legislators', emails: '#/outreach/emails', people: '#/outreach', settings: '#/me', setup: '#/setup', help: '#/help' };
+// The same place in the staff app: the open bill, legislator or person, else this page's counterpart. The practice copy
+// keeps its practice flags, so a practice visit stays a practice visit.
+function staffHref(billId) {
+  const b = S.bills.find(x => x.id === (billId || S.drawerBill));
+  const h = b ? `#/bill/${String(b.bill_number).replace(/\s+/g, '')}` : S.legOpen ? `#/legislator/${S.legOpen}` : S.personOpen ? `#/person/${S.personOpen}` : STAFF_ROUTE[S.view] || '#/';
+  const keep = [...new URLSearchParams(location.search)].filter(([k]) => ['demo', 'as', 'season'].includes(k));
+  return STAFF_URL + (keep.length ? '?' + new URLSearchParams(keep) : '') + h;
+}
+function lookOnlyNote() {
+  window.__lookOnly = (window.__lookOnly || 0) + 1;   // counted for the tests
+  $('#toast .lo')?.remove();
+  const d = document.createElement('div'); d.className = 'toastmsg lo'; d.setAttribute('role', 'status');
+  d.innerHTML = `<span>${esc(LOOK_ONLY)}</span><a href="${esc(staffHref())}">Open it there</a>`;
+  $('#toast').append(d); setTimeout(() => d.remove(), 8000);
+}
+const DB_READS = new Set(['init', 'login', 'sendRecovery', 'setPassword', 'logout', 'loadAll', 'timeline', 'companionInfo', 'searchUntracked', 'secretStatus',
+  'readiness', 'triageQueue', 'triageCounts', 'loadInbox', 'loadPeople', 'ensurePerson', 'refreshPerson', 'personNotes', 'personTimeline', 'alertAudience',
+  'canAlert', 'legLatestNotes', 'legNotes', 'applySessionDeadlines']);
+for (const [k, f] of Object.entries(DB)) if (typeof f === 'function' && !DB_READS.has(k))
+  DB[k] = k === 'markChatSeen' ? async () => {} : async () => { lookOnlyNote(); throw new Error(LOOK_ONLY); };   // "seen" marks itself on open: quietly skipped
+const RPC_READS = new Set(['claim_advocate', 'my_inbox', 'list_follow_counts', 'triage_queue', 'triage_counts', 'secret_status', 'readiness', 'person_timeline',
+  'districts_at', 'can_alert', 'alert_audience', 'address_suggest']);
+function lookOnlyClient(c) {
+  const no = () => { const r = Promise.resolve({ data: null, error: { message: LOOK_ONLY }, count: null, status: 403 });
+    const q = new Proxy({}, { get: (_, k) => k === 'then' || k === 'catch' || k === 'finally' ? r[k].bind(r) : () => q }); return q; };
+  const from = c.from.bind(c), rpc = c.rpc.bind(c);
+  c.from = t => { const q = from(t); for (const m of ['insert', 'update', 'upsert', 'delete']) q[m] = no; return q; };
+  c.rpc = (fn, ...a) => RPC_READS.has(fn) ? rpc(fn, ...a) : no();
+  if (c.functions) c.functions.invoke = async () => ({ data: null, error: { message: LOOK_ONLY } });
+  return c;
+}
+// After each draw: controls that would change something are switched off or handed to the staff app, so the screen
+// says it is look-only before anyone tries (DESIGN.md B-7, B-3). Searching, filtering, sorting and opening things work.
+const LO_KEEP = '#scopesel, .topq, .qbox, #addq, #t-matched, #memo-coal, #memo-who, #leg-q, #leg-ch, #leg-cm, #pp-q, #pp-island, #pp-sort, #pp-sd, #pp-hd, #pp-camp, #pp-list, #pp-tag, #pp-int, #pp-acct, #pp-active, #help-q, .fpanel input, .fpanel select, input[type=search]';
+const LO_WRITE = '[data-act], [data-attend], [data-follow], [data-mute], [data-setstream], [data-ttrack], [data-tskip], [data-inboxtoggle], [data-iduptoggle], [data-inboxreply], [data-listt], #inbox-readall, #st-save-me, #st-test, #ln-create, #pp-add, #pp-import, #tedit';
+const LO_WORDS = /^\s*[＋+✓✎]?\s*(save|mark filed|unmark filed|submit|approve|send|track|skip|add|create|import|merge|publish|unpublish|archive|delete|remove|follow|unfollow|mute|unmute|done|request changes|send back|connect|disconnect|tag|assign|claim|undo|i’m attending|paste a link|post|retire|restore|reply|new list|new alert|take it)\b/i;
+const LO_SPOTS = '.drawer, .ldrawer, .pdrawer, .settings, .setupwrap, .modal, .sheet';
+function lookOnlyPass() {
+  const root = $('#app'); if (!root) return;
+  root.querySelectorAll('input, select, textarea').forEach(el => { if (!el.matches(LO_KEEP)) { el.disabled = true; el.title = LOOK_ONLY; } });
+  root.querySelectorAll('button').forEach(el => {
+    if (el.closest('.lo-keep') || el.matches('[data-view], [data-dtab], [data-helpgo], #fopen, #logout, #logout2, #logout3, #railpin, .close')) return;
+    if (!el.matches(LO_WRITE) && !LO_WORDS.test(el.textContent || '')) return;
+    if (el.closest(LO_SPOTS)) { el.hidden = true; return; }   // a form or a bill's page: one line at its top says where to change it
+    const box = el.closest('[data-bill], [data-inbox], [data-idup], .prow, .irow, .tcard, tr, li');
+    if (box?.querySelector('.lo-go')) { el.hidden = true; return; }   // one link per row is enough (Track and Skip, Approve and Reply)
+    const a = document.createElement('a'); a.className = (el.className || 'btn sm') + ' lo-go';
+    const row = el.closest('[data-bill]'); a.href = staffHref(el.dataset.openbill || row?.dataset.bill);
+    a.textContent = 'Change in the staff app'; a.onclick = e => e.stopPropagation();
+    el.replaceWith(a);
+  });
+  root.querySelectorAll('.drawer, .ldrawer, .pdrawer, .settings').forEach(d => { if (d.querySelector('.lo-line')) return;
+    const what = d.matches('.ldrawer') ? 'this legislator' : d.matches('.pdrawer') ? 'this person' : d.matches('.settings') ? (S.view === 'setup' ? 'Session setup' : 'your settings') : 'this bill';
+    const p = document.createElement('p'); p.className = 'lo-line';
+    p.innerHTML = `Look-only. To change ${what}, <a href="${esc(staffHref())}">open ${what} in the staff app</a>.`;
+    (d.querySelector('.dhead, header, h1') || d.firstElementChild)?.after(p); });
+  const bn = document.getElementById('lo-banner-go'); if (bn) bn.href = staffHref();
+}
+// Parts of a screen are also redrawn on their own (a drawer's tab, a list's "show more"), so the pass follows any change.
+let loQueued = false;
+new MutationObserver(() => { if (loQueued) return; loQueued = true; requestAnimationFrame(() => { loQueued = false; lookOnlyPass(); }); })
+  .observe(document.getElementById('app') || document.body, { childList: true, subtree: true });
+
 // ---------------- demo data: the mock training session ----------------
 // ===SANDBOX=== the real session as it stood at DEMO_ASOF, from demo/snapshot.json.
 // Bills, positions, owners, coalitions, committees, schedules and deadlines are
@@ -1047,7 +1126,7 @@ function railHTML(freshTxt, stale) {
     <div class="rbrand"><span class="mark">☀</span><span class="rl">HIPHI Bill Tracker</span></div>
     ${railSimpleNav(count)}
     <div class="rfoot">
-      <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
+      <div class="rl rfacts"><b>${SESSION_YEAR} session</b>${ld ? `<br>${esc(ld.text)}` : ''}<br>${S.bills.filter(b => b.position && b.position !== 'monitor').length} bills tracked<br><span${stale ? ' class="hot"' : ''}>${esc(freshTxt)}</span></div>
       ${`<div class="rfootnav">${SIMPLE_FOOT.map(([k]) => railSimpleBtn(k, count)).join('')}</div>`}
       <button id="railpin" title="${pinned ? 'Collapse the menu' : 'Keep the menu open'}"><span class="ri" aria-hidden="true">${pinned ? '«' : '»'}</span><span class="rl">${pinned ? 'Collapse' : 'Keep open'}</span></button>
       ${''}
@@ -1215,6 +1294,9 @@ function pulseCell(b) {
 // 3-stop bills; everyone else is measured against the lateral that follows.
 const STAGE_ORDER = Object.fromEntries(STAGES.map(([v], i) => [v, i]));
 const BOARD_CAP = 8;
+// "an HHS hearing", "a TRS hearing": committee codes are read letter by letter, so the article follows the first
+// letter's sound (F, H, L, M, N, R, S, X and the vowels take "an"); FIN and WAM are said as words (F7-3).
+const anCode = c => /^(FIN|WAM)\b/.test(c) ? 'a' : /^[AEFHILMNORSX]/.test(String(c)) ? 'an' : 'a';
 function deadlineCalendar() {
   return Object.entries(DEADLINES).flatMap(([phase, arr]) => arr.map(([label, date]) => ({ phase, label, date })))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -1335,7 +1417,7 @@ function pfBoard(list) {
         <div class="chip3 min ${posCls(b)}${priCls(b)}" data-bill="${b.id}">
           <span class="l1"><b>${esc(billNum(b))}</b>${pri(b)}</span>
           <span class="ldesc">${esc(blurb(b, 80))}</span>
-          <span class="lnext">Needs a ${st.committee ? esc(st.committee) + ' hearing' : 'committee referral'}</span>
+          <span class="lnext">Needs ${st.committee ? anCode(st.committee) + ' ' + esc(st.committee) + ' hearing' : 'a committee referral'}</span>
           <span class="ldl ${dl && dl.days <= RISK_DAYS ? 'hot' : ''}">${dl ? `by ${fmtDate(dl.date)} · ${dl.days <= 0 ? 'today' : dl.days + 'd'}` : 'no deadline on the calendar'}</span>
         </div>`, 'Every live bill in committee has a hearing on the books. 🤙')}
       ${col('b', bcol, ({ b, st, h }) => `
@@ -1403,15 +1485,9 @@ function renderPortfolio(list) {
     const todos = Object.entries(S.todos || {}).flatMap(([bid, arr]) => arr.filter(t => !t.done).map(t => ({ t, b: bill(bid) })))
       .filter(x => x.b && ids.has(x.b.id)).sort((x, y) => (x.t.due_date || '9999').localeCompare(y.t.due_date || '9999'));
     const stat = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
-    const jan = [
-      ['Testimony template Doc has {{DATE}}, {{CHAIR}}, {{VICE_CHAIR}}', 'Settings → nothing to click; edit the Doc in Drive'],
-      ['Every coalition has its Slack channel set', 'More → Settings → Hearing alerts'],
-      ['Kevin, Saya, Kris, Jess, Jaylen can sign in', 'Supabase → Authentication → Add user'],
-      ['Postmark inbound address is subscribed to the Capitol notice list', 'capitol.hawaii.gov → mailing lists'],
-      ['Test date-shift removed from notice-inbox', 'Supabase → Edge Functions → notice-inbox → Secrets'],
-      ['Next session deadlines loaded', 'ask Claude: load the ' + (SESSION_YEAR + 1) + ' calendar'],
-      ['Committee chairs refreshed from the Capitol', 'ask Claude: refresh committees'],
-    ];
+    // The once-a-year list lives in one place now: Staff v2's Session setup > Ready for session?, which checks most of
+    // it by itself. The hand-written list here had gone stale (5 of 11 staff named, a removed test step; F7-3).
+    const jan = [['The ' + (SESSION_YEAR + 1) + ' checklist is in the staff app', `<a href="${esc(STAFF_URL + (DEMO ? '?demo=1' : '') + '#/setup')}">Open Session setup, Ready for session?</a> It checks most items by itself.`]];
     return head(dashTitle(), `${today} · session adjourned sine die · the live desk returns when the ${SESSION_YEAR + 1} session convenes`) + `
       <div class="stats pf">
         ${stat(law.length, 'Signed into law')}${stat(vetoed.length, 'Vetoed')}${stat(died.length, 'Died / deferred')}${stat(open.length + gov.length, 'No final action')}
@@ -1428,7 +1504,7 @@ function renderPortfolio(list) {
         </div>
         <div>
           ${panel('pf-jan', '🗓 Before the ' + (SESSION_YEAR + 1) + ' session', 'the once-a-year setup, in order', jan.map(([what, where]) => `
-            <div class="prow"><div class="pmain">${esc(what)}<div class="psmall">${esc(where)}</div></div></div>`).join(''), '')}
+            <div class="prow"><div class="pmain">${esc(what)}<div class="psmall">${where}</div></div></div>`).join(''), '')}
           ${dkBand('✖️', 'Died', 'missed a deadline, deferred, or failed a vote', [...died].sort(byNum),
             b => dkRow(b, `<span style="flex:0 0 auto;font-size:11px;color:var(--muted)">${esc(b.died_deadline ? `missed ${b.died_deadline}${b.died_at_stage ? ' at ' + (STAGE_LABEL[b.died_at_stage] || b.died_at_stage) : ''}` : (b.committee || ''))}</span>`))}
         </div>
@@ -1679,7 +1755,10 @@ function renderPortfolio(list) {
   const calNav = `<span class="calnav"><button data-week="-1" title="Previous week">‹</button>${wkOff ? '<button data-week="0">Today</button>' : ''}<button data-week="1" title="Next week">›</button></span>`;
   const calPanel = panel('pf-week', `◷ ${wkLabel} ${calNav}`, `${week.length} hearing${week.length === 1 ? '' : 's'}${(n => n ? ` · ${n} testimony due within 48 hours` : '')(hUp.filter(h => h.testimony_deadline && new Date(h.testimony_deadline) > now && new Date(h.testimony_deadline) - now < 48 * 36e5).length)}`, weekHtml,
       SESSION_OVER ? 'Session is over — hearings return when the next session convenes.' : 'No hearings on these bills this week. Hearings appear here as soon as the Capitol posts a notice, usually two days ahead; the draft and the Slack alert follow within the hour.');
-  const cur = currentDeadline();
+  // The header names the deadline these bills are racing, by Staff v2's rule (sessionClock in staff/model.js): the first
+  // one ahead that any of them must meet, else the next on the calendar. currentDeadline() named the budget bills' own
+  // decking for every bill, so on 16 March it said "Budget decking today" while the board said Second triple filing (F7-3).
+  const cur = SESSION_OVER ? null : (ahead => ahead.find(g => g.racing.length) || ahead[0] || null)(sessionGates(list).filter(g => !g.past));
   const dlDays = cur ? Math.max(0, Math.floor((new Date(cur.date + 'T23:59:59-10:00') - now) / 864e5)) : null;
   const openWeeks = (() => { const c = (DEADLINES.introduced || [])[0]; if (!c) return false; const cut = new Date(c[1] + 'T23:59:59-10:00').getTime(); return now > cut - 18 * 864e5 && now < cut + 3 * 864e5; })();
   if (openWeeks && !S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true; DB.triageCounts().then(c => { S.triageCounts = c; rerenderKeep(); }).catch(() => {}); }
@@ -1691,7 +1770,7 @@ function renderPortfolio(list) {
       ${dueToday.filter(h => !todayHearings.includes(h)).map(h => { const b = bill(h.bill_id); if (!b) return ''; return `<div class="trow2" data-bill="${b.id}"><span class="tt">${new Date(h.testimony_deadline).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' })}</span><span class="tb"><b>${esc(billNum(b))}</b> testimony due · ${esc(h.committee)} hearing tomorrow</span></div>`; }).join('')}
     </div>` : '';
   const stripShort = `${list.length} bill${list.length === 1 ? '' : 's'}${filterCount() ? ' match the filters' : ''}`;
-  const nextDl = cur ? ` · next deadline: <b>${esc(cur.label)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}` : '';
+  const nextDl = cur ? ` · next deadline: <b>${esc(cur.name)}</b> ${dlDays <= 0 ? 'today' : `in ${dlDays} day${dlDays === 1 ? '' : 's'}`}` : '';
   return head(dashTitle(), `${today} · ${stripShort}${nextDl}`) + firstRunHTML() + banner + todayStrip + `
     <div class="dash home">
       <div>${waitPanel}</div>
@@ -2722,7 +2801,7 @@ function renderHelp() {
       ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop; it must be heard before the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber; it must be heard before the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber; it must be heard before the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => def(k, v)).join('')}`)}
     ${sec('public', 'The public page and lists', `
       <p>The public page shows only bills marked <b>Show on public page</b>, with the plain summary and ask from the Public tab. Visitors pick issues, follow bills or a <b>list</b>, and get a five-minute way to testify. Following a list follows every bill on it, including ones you add later. At sign-in people choose whether to get hearing emails and whether HIPHI may see what they follow; those who say yes appear under Lists → Supporters. Everyone else’s follows are counts only.</p>
-      <p>Share a bill with <code>${esc(APP_URL)}#bill=HB1563</code> or a list with <code>…/track.html#list=keiki-health</code>. Session setup has the code to put the tracker on hiphi.org.</p>`)}
+      <p>Share a bill with <code>${esc(STAFF_URL)}#/bill/HB1563</code> or a list with <code>…/track.html#list=keiki-health</code>. Session setup has the code to put the tracker on hiphi.org.</p>`)}
     ${sec('where', 'Where things live', `
       <p>Drafts: Google Drive, Testimony / year / coalition / bill. Alerts: Slack #hearing-alerts and the coalition channels; DMs for your own steps. Calendar: the HIPHI Hearings Google Calendar. Video: the Senate and House YouTube channels. Your DM and reminder choices: My settings. Questions: Nate.</p>`)}
     ${sec('keys', 'Keyboard shortcuts', `<div class="keys">${SHORTCUTS.map(([k, v]) => row(k, v)).join('')}</div><p class="tok">Shortcuts are off while you are typing in a field.</p>`)}
@@ -3168,11 +3247,11 @@ function wireRTE(id) {
 }
 function alertTemplate(b, l, sg) {
   const who = S.me?.full_name?.split(' ')[0] || 'HIPHI';
-  if (sg) return { subject: `A quick favour from HIPHI`, body: `Aloha,\n\n[What is happening and what would help, in a few sentences. Say which bill, the deadline, and the one thing to do.]\n\nMahalo,\n${who}` };
+  if (sg) return { subject: `A quick favor from HIPHI`, body: `Aloha,\n\n[What is happening and what would help, in a few sentences. Say which bill, the deadline, and the one thing to do.]\n\nMahalo,\n${who}` };
   if (b) { const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
-    return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favour'}`,
+    return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favor'}`,
       body: `Aloha,\n\nYou follow ${billNum(b).replace(/^(\D+)/, '$1 ')}, ${blurb(b, 160)}\n\n${h ? `It will be heard by ${h.committee} on ${fmtDT(h.scheduled_at)}${h.room ? ' in ' + roomShort(h.room) : ''}.${h.testimony_deadline ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}\n\n` : ''}${(b.public_action || '').trim() ? b.public_action.trim() + '\n\n' : 'Here is what would help: [the ask, in one or two sentences]\n\n'}Two sentences in your own words are enough. The link below opens the bill with a five-minute way to testify.\n\nMahalo,\n${who}` }; }
-  return { subject: `${l.title}: a quick favour from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
+  return { subject: `${l.title}: a quick favor from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
 }
 function composerHTML(a) {
   const b = a.bill_id && billById(a.bill_id), l = a.list_id && (S.lists || []).find(x => x.id === a.list_id), sg = a.segment_id && (S.segments || []).find(x => x.id === a.segment_id);
@@ -3935,12 +4014,12 @@ function renderLogin() {
   $('#app').innerHTML = `<div class="loginwrap"><div class="loginbox">
     <div class="logo"><span class="mark" style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#12A0AC,#0E7C86);display:inline-flex;align-items:center;justify-content:center">☀</span>
       HIPHI Bill Tracker</div>
-    <p>Hawai'i Public Health Institute · staff sign in</p>
+    <p>Hawaiʻi Public Health Institute · staff sign in (old app, look-only)</p>
     <label>Email</label><input id="l-email" type="email" autocomplete="username">
     <label>Password</label><input id="l-pass" type="password" autocomplete="current-password">
     <button class="btn" id="l-go">Sign in</button>
     <div class="loginerr" id="l-err"></div>
-    <button class="loginlink" id="l-forgot">Forgot password?</button>
+    <p class="loginnote">Forgot your password? <a href="${esc(STAFF_URL)}">Sign in at the staff app</a>, which can ask an admin for a new link.</p>
     <div class="loginnote" id="l-note"></div>
   </div></div>`;
   const go = async () => {
@@ -3951,24 +4030,7 @@ function renderLogin() {
   $('#l-go').onclick = go;
   $('#l-pass').addEventListener('keydown', e => e.key === 'Enter' && go());
   if (LINK_ERR) $('#l-err').textContent = LINK_ERR + ' - each link works only once. Request a new one.';
-  $('#l-forgot').onclick = async () => {
-    const email = $('#l-email').value.trim();
-    $('#l-err').textContent = '';
-    if (!email) { $('#l-err').textContent = 'Enter your email address first.'; return; }
-    const btn = $('#l-forgot');
-    btn.disabled = true; btn.textContent = 'Sending...';
-    try {
-      await DB.sendRecovery(email);
-      // Reported the same way whether or not the address has an account, so this
-      // cannot be used to enumerate staff emails.
-      btn.textContent = 'Check your email';
-      $('#l-note').textContent = 'If ' + email + ' has an account, a reset link is on its way. '
-        + 'It works once - open it in this browser, and do not click it twice.';
-    } catch (err) {
-      btn.disabled = false; btn.textContent = 'Forgot password?';
-      $('#l-err').textContent = err.message || 'Could not send the reset email.';
-    }
-  };
+  // Forgot your password? lives in the staff app (M1-6): the old app is look-only and its reset email could not be sent.
 }
 
 // Arrived from a reset link: the link already established a session, so the only
@@ -4031,7 +4093,7 @@ function render() {
   const lg = S.legOpen && legById(S.legOpen), pp = S.personOpen && personById(S.personOpen);
   $('#app').innerHTML = chrome(bodyHelp) + (b ? drawerHTML(b) : '') + (lg ? legDrawerHTML(lg) : '') + (pp ? personDrawerHTML(pp) : '');
   arrangeHeader(); a11yPass();
-  wire();
+  wire(); lookOnlyPass();
   foldSections(); plainIcons();
   if (b) DB.timeline(b.id).then(tl => { const el = $('#tlmount'); if (!el) return; el.innerHTML = timelineHTML(tl);
       const m = $('#d-tlmore'); if (m) m.onclick = () => { S.drawerOpen.tlAll = true; el.innerHTML = timelineHTML(tl); }; })
@@ -4255,7 +4317,7 @@ function wireDrawer() {
   document.querySelectorAll('[data-opentab]').forEach(el => el.onclick = async e => { e.stopPropagation(); const id = el.dataset.opentab, tab = el.dataset.tab; await openDrawer(id); if (tab === 'chat') { S.drawerOpen.chat = true; } else S.drawerOpen.tab = tab; render(); });
   document.querySelectorAll('[data-bill-open]').forEach(el => el.onclick = e => { e.stopPropagation(); openDrawer(el.dataset.billOpen); });
   document.querySelectorAll('[data-copylink]').forEach(el => el.onclick = async () => {
-    const url = `${APP_URL}#bill=${el.dataset.copylink}`;
+    const url = `${STAFF_URL}#/bill/${el.dataset.copylink}`;   // the staff app's address, never this old one (F7-3)
     try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { prompt('Copy this link', url); }
   });
   document.querySelectorAll('.drawer [data-attend]').forEach(el => el.onclick = async () => {
@@ -4413,16 +4475,16 @@ async function boot() {
     // same "since your last visit" baseline; first-ever visit starts at now.
     if (!DEMO) {
       const nowT = Date.now();
-      const last = +localStorage.getItem('lastVisit') || 0;
+      const last = +localStorage.getItem('classic_lastVisit') || 0;
       if (!last) {
-        localStorage.setItem('lastVisit', String(nowT));
-        localStorage.setItem('prevVisit', String(nowT));
+        localStorage.setItem('classic_lastVisit', String(nowT));
+        localStorage.setItem('classic_prevVisit', String(nowT));
         S.sinceVisit = nowT;
       } else if (nowT - last > 30 * 60e3) {
-        localStorage.setItem('prevVisit', String(last));
-        localStorage.setItem('lastVisit', String(nowT));
+        localStorage.setItem('classic_prevVisit', String(last));
+        localStorage.setItem('classic_lastVisit', String(nowT));
         S.sinceVisit = last;
-      } else S.sinceVisit = +localStorage.getItem('prevVisit') || last;
+      } else S.sinceVisit = +localStorage.getItem('classic_prevVisit') || last;
     }
     $('#app').innerHTML = '<div class="boot">Loading your bills…</div>';
     await DB.loadAll();
