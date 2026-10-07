@@ -673,6 +673,22 @@ first visit. All five are working versions in the same frame as today's first vi
 - **Text alerts terms** (`text-terms.html`): what you get, how often, cost, how to stop, help, your number and delivery, the
   page carriers ask for before texts can be registered; linked beside Privacy in the alerts box when it asks for a number.
   Drafts for the lawyer (backend `docs/TEXT-MESSAGES.md`).
+- **Stop texts to any number** (R-180 wave 2, D1-3; backend 156): under More > Get alerts a quiet "Stop texts to a number" fold takes a
+  number and stops it from every browser, with no code (`stopNumber` in `pub/alerts.js`); the answer is the same whether or not the number
+  was on file. Staff see the totals of sign-ups, confirmations and stops, never a number (First visit > Text sign-ups, D1-7).
+- **The plans' sign-up** (D1-6, D1-1): on a phone the example goes under the box (and on a short one the lede too), so the promise and
+  the small print are above the pinned button; "Not now" ends the visit's alerts ask for Home. Plan 1's choice offers "Add the hearing to
+  my calendar", never a reminder nothing sends. "Use email instead" on More > Get alerts and the profile's invitation swaps the box in
+  place under the same promise (D1-5; the consent is logged by the database with its own time, backend 157-158).
+- **The privacy page** (J2-3): opens with "What we have on you, in short", then short lists, the keeping periods and "Delete it, or ask
+  us to" (contact@hiphi.org, 10 business days). Every sentence is ticked against the code in backend HANDOFF 3.142.
+- **Session setup > Privacy and keeping** (J2-1, J2-2): admins forget a person (an email, a number or both; counts back, never contents)
+  and see the keeping periods, what is past or near its date, and the switch of the nightly clean-up (off until Nate's yes).
+- **`unsubscribe.html`** (X1-7): the page every email's Unsubscribe link opens; only its button posts the unsubscribe, so a mail scanner
+  that follows links cannot unsubscribe anyone. It talks to the Edge Function `unsubscribe` v2 (deploys with Nate's yes).
+- **A stopped bill whose same idea became law** (X4-4): "The same idea became law as SB 2175, Act 189." under why it stopped (a named
+  companion), or "On “the issue”, SB 2175 became law (Act 189)." when only an issue ties them (the other chamber's bill, same session).
+- **`look-options.html`** (X9-3, options only): four looks for the first screen, as pictures; nothing in the tracker uses them yet.
 - **After a first action, the visit ends on the success (X10-2).** A newcomer from a shared link who sends testimony (or the
   quick email) and taps Done goes to Home (`homeAfterAct` in `pub/bill.js`, from `app.newcomerNext` and
   `app.newcomerActed`), not into the story, the address and the finale: the first visit counts as finished (`wiz().done`,
