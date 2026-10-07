@@ -49,6 +49,7 @@
 // (the moment the versions differ on screen; a share test, every share) and each of its two measures once, within its
 // window of days. No identifier leaves the browser; it remembers itself what it already sent.
 import { DEMO, wiz, hstDay, SUPABASE_URL, SUPABASE_KEY } from './kernel.js';
+import { tlMark } from './testerlog.js';   // a tester's path (R-193): finished the first visit, gave a number or email
 
 // goal, goal2: [event, days]: the event that is the measure, and within how many days of meeting the test (0: any time).
 export const TESTS = {
@@ -191,6 +192,7 @@ export function abSeen(key, { bill } = {}) {
 // 'acted' (an action marked done), 'email' (an email given), 'step2' (another step on a hearing where the rank test was
 // met). Each test's measure is sent once, credited to the version it met, within its window.
 export function abEvent(name) {
+  if (name === 'finished') tlMark('finished'); else if (name === 'email') tlMark('contact');
   try {
     const s = st(), t0 = today(); let changed = false;
     for (const [key, t] of Object.entries(TESTS)) for (const which of ['goal', 'goal2']) {

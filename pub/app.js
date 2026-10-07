@@ -7,6 +7,7 @@ import { MARK } from './art.js';
 import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
 import { abSettled, armOf, abSeen } from './variant.js';
+import { testerActive } from './testerlog.js';   // a tester's path (R-193): starts itself on a tester-sheet link
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
@@ -168,7 +169,7 @@ function header(route, scr) {
     : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
        <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
-  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · nothing is saved${nextDay()}</p>`}</div>` : ''}
+  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is saved'}${nextDay()}</p>`}</div>` : ''}
     <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(route, scr) {

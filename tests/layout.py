@@ -187,7 +187,7 @@ with sync_playwright() as p:
         card = pg.locator('.ab-card', has=pg.locator('#ab-h-layout'))
         ok(card.count() == 1 and pg.locator('#ab-arm-layout-a').is_checked() and pg.locator('#ab-arm-layout-today').is_checked(), f'{tag}: Tests has the version A card, both versions on (R-192’s switches)')
         homec = pg.locator('.ab-card', has=pg.locator('#ab-h-home')).inner_text()
-        ok(not pg.locator('#ab-arm-home-by-issue').is_checked() and 'Not testing' in homec and 'week view' in homec and 'Keep it running' not in homec and 'paused' in homec, f'{tag}: Home’s top is off, saying why, and not told to keep running')
+        ok(not pg.locator('#ab-arm-home-by-issue').is_checked() and 'Not testing' in homec and 'week view' in homec and 'Keep it running' not in homec and 'paused' in homec.lower(), f'{tag}: Home’s top is off, saying why, and not told to keep running')
         card.locator('[data-absee]').click(); pg.wait_for_timeout(500)
         links = pg.eval_on_selector_all('dialog a[href]', 'as => as.map(a => a.getAttribute("href"))')
         ok(any('compare.html?ab=layout.today' in l for l in links) and any('compare.html?ab=layout.a' in l for l in links), f'{tag}: See it opens each version through the compare page {links}')

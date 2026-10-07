@@ -530,6 +530,13 @@ export const DB = {
     const { data, error } = await S.supa.rpc('ab_results');
     if (error) throw error; return data || [];
   },
+  // Testers' paths (R-193, backend 150): the last 60 days, newest first; staff read them, the public key cannot.
+  async testerPaths(days = 60) {
+    if (DEMO) return DEMO_TESTER_PATHS;
+    const since = new Date(Date.now() - days * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+    const { data, error } = await allRows(o => S.supa.from('tester_paths').select('*', o).gte('day', since).order('started_at', { ascending: false }).order('id'));
+    if (error) throw error; return data || [];
+  },
   async setAbTest(key, patch) {
     const p = Object.fromEntries(Object.entries(patch).filter(([k]) => ['is_on', 'fallback', 'winner', 'arms_on'].includes(k)));
     if (DEMO) { const t = DEMO_AB.tests.find(x => x.key === key); Object.assign(t, p, { changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }); if (t.is_on && !t.started) t.started = DEMO_DAY(0); return { ...t }; }
@@ -1530,6 +1537,15 @@ export const DEMO_AB = {
     ...abSample('home', 'by-day', 'by-issue', 310, 0.38, 0.41, 0.52, 0.55),
   ],
 };
+// The practice copy's tester paths (R-193): made up, so the tester sheet's results can be seen; the page puts all but the
+// last on its own groups.
+const DEMO_TP_AT = m => new Date(Date.now() - m * 6e4).toISOString();
+export const DEMO_TESTER_PATHS = [
+  { id: 'demo-1', sheet: null, grp: null, versions: 'onb.today', place: 'practice', device: 'phone', started_at: DEMO_TP_AT(30), steps: [['start:topics', 34], ['start:issues', 51], ['start:alerts', 22], ['start:bill', 63], ['start:done', 12], ['home', 40], ['bill/hb1780', 28], ['bill/hb1780:testimony:know', 55], ['bill/hb1780:testimony:1', 38], ['bill/hb1780:testimony:2', 71], ['bill/hb1780:testimony:done', 9]], did: { followed: 3, skipped_alerts: 1, finished: 1, testimony: 1 } },
+  { id: 'demo-2', sheet: null, grp: null, versions: 'onb.p1', place: 'practice', device: 'phone', started_at: DEMO_TP_AT(35), steps: [['start:topics', 21], ['start:one', 48], ['start:join', 30], ['start:wrap', 8], ['home', 25], ['find', 19], ['issue/disposable-e-cigarette-ban', 31]], did: { followed: 2, contact: 1, finished: 1 } },
+  { id: 'demo-3', sheet: null, grp: null, versions: 'onb.today', place: 'practice', device: 'laptop', started_at: DEMO_TP_AT(42), steps: [['start:topics', 40], ['start:issues', 66], ['start:alerts', 15]], did: { followed: 1, skipped_alerts: 1 } },
+  { id: 'demo-4', sheet: null, grp: null, versions: 'onb.today,share.deadline', place: 'practice', device: 'phone', started_at: DEMO_TP_AT(2000), steps: [['start:topics', 25], ['start:issues', 40], ['home', 20], ['bill/hb1780', 33]], did: { followed: 2, share: 1 } },
+];
 export const DEMO_PUBLIC_ERRORS = [
   { day: DEMO_DAY(0), at_hour: DEMO_AT(0, 2), kind: 'render', place: 'bill/HB1075', message: "TypeError: Cannot read properties of undefined (reading 'scheduled_at')", source: '/hiphi-tracker-app/pub/bill.js:412:31', device: 'phone', sandbox: false, reports: 3, first_at: DEMO_AT(0, 2), last_at: DEMO_AT(0, 1) },
   { day: DEMO_DAY(1), at_hour: DEMO_AT(1, 5), kind: 'error', place: 'home', message: 'ReferenceError: fmtWhen is not defined', source: '/hiphi-tracker-app/pub/home.js:88:9', device: 'laptop', sandbox: false, reports: 1, first_at: DEMO_AT(1, 5), last_at: DEMO_AT(1, 5) },

@@ -47,7 +47,9 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   (`python3 tests/layout.py`). The practice copy's band has "Next day" (the visit after the first, `&day=` and `&later`).
   **The tester sheet (R-185, 10/6):** Session setup >
   Tests > Tester sheet gives each group of a room of testers a link and QR code on the versions Nate picks, side by side,
-  with a page to print (`#/setup/room`; `docs/FEATURES.md`; `python3 tests/room.py`).
+  with a page to print (`#/setup/room`; `docs/FEATURES.md`; `python3 tests/room.py`). **Testers' paths (R-193, 10/6):** a
+  group's link carries `&t=<sheet>-<group>`; `pub/testerlog.js` records each tester's screens, seconds and steps (backend
+  150, `tester_paths`), shown under "What testers did" on the tester sheet (`python3 tests/testers.py`).
 - **Four builds of 10/4 (R-099, R-094 step 5, R-061, R-088 part 2) and R-060** (`docs/FEATURES.md`, last section): the Home
   ending's "how" words, the suggested bills counted, the Follow button's hint, Sort new bills' suggested issue, and each
   bill draft's plain-language note (public "How it has changed", staff Public tab).
@@ -84,7 +86,8 @@ whether it should redirect to `track.html`). `mockup-hybrid.html` is a reference
 ## The sandbox: `?demo=1`
 
 Every app has it. The real 2026 session frozen at **Mon 16 Mar 2026, 9:00 HST**, loaded from
-`demo/snapshot.json`; nothing is saved and nothing reaches Supabase except one read of the A/B switches (R-192). Use it for ALL UI work while the live
+`demo/snapshot.json`; nothing is saved and nothing reaches Supabase except one read of the A/B switches (R-192) and, on a
+tester-sheet link, that tester's path (R-193, `pub/testerlog.js`; the band then says so). Use it for ALL UI work while the live
 session is dark (until January 2027).
 - Public: `&season=off` (imagined end of session), `&seed=1` (sample past actions). In the public sandbox every
   `hiphi_` storage name is read and written as `<name>_demo` (a shim at the top of `pub/core.js`, R-067), so a
@@ -445,6 +448,8 @@ python3 tests/boot_live.py          # the staged boot on the published site (R-1
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
 python3 tests/abtests.py            # the live A/B tests (R-135): every version forced in the sandbox, the toss, the switches, every measure, nothing leaving under the privacy signal; the first visit's six versions (R-164); 69 checks
 python3 tests/layout.py             # version A as the live test 'layout' (R-187): both versions on a phone and a laptop, the bill page, Next day, the toss and the switch, the version kept for the page load, Tests and the tester sheet; 100 checks
+python3 tests/versions.py           # pick which versions of each A/B test are live; the practice copy follows the switches (R-192); 52 checks
+python3 tests/testers.py            # testers' paths from tester-sheet links, what is not recorded, the tester sheet's "What testers did" (R-193); 31 checks
 python3 tests/room.py               # Staff v2's tester sheet (R-185): groups, pickers, the plan rules, QR codes, the printed sheet, live links, Undo, kept; then each link opened as a tester; 108 checks
 python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the later-visit card; 86 checks
 python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks

@@ -28,7 +28,7 @@ const LINK_BASE = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
 // three screens, so those visits get a list of their own, and every percentage is of the visits that could reach that
 // screen. In session and between sessions never share a week (the path follows the calendar), so they are one list.
 // ("Where do you stand?" left the first visit on 9/26, R-053; its name stays here for visits counted before that.)
-const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
+export const NAMES = { arrive: 'A shared bill', act: 'The quick email', followask: 'Follow this issue', topics: 'What you care about', issues: 'Your issues',
   // bill: until 9/29 this step was the "Reading a bill" lesson; now the drawn story (R-062).
   stand: 'Where do you stand?', bill: 'A bill’s story', session: 'The session, January to May', hearing: 'What a hearing is',
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', home: 'Home', voice: 'Why your voice matters (short version)',

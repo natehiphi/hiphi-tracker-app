@@ -48,9 +48,8 @@ with sync_playwright() as p:
         flip(pg, 'share', 'deadline')
         t = pg.locator('#toast').inner_text()
         ok(live(pg, 'share').startswith('Not testing: everyone sees A') and 'nothing is counted' in t, f'{tag}: B off leaves A for everyone, said in the toast ({t[:70]})')
-        ok('The only one on' in card(pg, 'share').inner_text(), f'{tag}: the version left on says it is the only one')
         flip(pg, 'share', 'summary')
-        ok(live(pg, 'share').startswith('Not testing: everyone sees A') and 'At least one version stays on' in pg.locator('#toast').inner_text(), f'{tag}: the last one on refuses to go off')
+        ok(live(pg, 'share').startswith('Not testing: everyone sees A') and 'the only version on' in pg.locator('#toast').inner_text(), f'{tag}: the last one on refuses to go off, saying why')
         pg.locator('#toast button', has_text='Undo').first.click() if pg.locator('#toast button', has_text='Undo').count() else None
         pg.wait_for_timeout(300)
         flip(pg, 'share', 'deadline'); pg.locator('#toast button', has_text='Undo').first.click(); pg.wait_for_timeout(700)
@@ -67,12 +66,17 @@ with sync_playwright() as p:
         ok(live(pg, 'email').startswith('Running: A against B') and 'lawyer' in card(pg, 'email').inner_text().lower(), f'{tag}: then it runs, with the lawyer warning')
         # the first-visit test: any mix of its six
         flip(pg, 'onb', 'p2')
-        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on C').click(); pg.wait_for_timeout(800)
+        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on Plan 2').click(); pg.wait_for_timeout(800)
         flip(pg, 'onb', 'p4')
-        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on E').click(); pg.wait_for_timeout(800)
-        ok(live(pg, 'onb').startswith('Running: A, C and E'), f'{tag}: the first visit runs any mix ({live(pg, "onb")[:40]})')
+        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on Plan 4').click(); pg.wait_for_timeout(800)
+        ok(live(pg, 'onb').startswith('Running: today’s, Plan 2 and Plan 4'), f'{tag}: the first visit runs any mix, named by plan ({live(pg, "onb")[:50]})')
         flip(pg, 'onb', 'today'); flip(pg, 'onb', 'p4')
-        ok(live(pg, 'onb').startswith('Not testing: everyone sees C'), f'{tag}: or one plan for everyone ({live(pg, "onb")[:50]})')
+        ok(live(pg, 'onb').startswith('Not testing: everyone sees Plan 2'), f'{tag}: or one plan for everyone ({live(pg, "onb")[:50]})')
+        # the cards keep their place while switches are flipped (sorted once per visit)
+        order = pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)')
+        flip(pg, 'share', 'summary'); flip(pg, 'share', 'deadline')
+        ok(pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)') == order, f'{tag}: the cards keep their order while switches are flipped')
+        ok(pg.evaluate("document.activeElement?.id || ''").startswith('ab-arm-share-'), f'{tag}: focus stays on the switch just flipped ({pg.evaluate("document.activeElement?.id || null")})')
         # Pick the winner: only the winner on
         card(pg, 'fv').locator('[data-abpick]').click(); pg.wait_for_timeout(400)
         pg.locator('dialog [data-pv="short"]').click(); pg.wait_for_timeout(800)
@@ -88,7 +92,7 @@ with sync_playwright() as p:
         # the tester sheet's links
         pg.goto(f'{BASE}/staff.html?demo=1#/setup/room'); pg.wait_for_selector('.rm-group', timeout=60000); pg.wait_for_timeout(600)
         u = pg.eval_on_selector_all('[data-rmqr]', 'bs => bs.map(b => b.dataset.url)')
-        ok(u and all('demo=1&restart&abrest=today&ab=' in x for x in u), f'{tag}: the tester sheet’s practice links keep every other test at today’s ({u[0] if u else None})')
+        ok(u and all('demo=1&restart&abrest=today&' in x and '&ab=' in x for x in u), f'{tag}: the tester sheet’s practice links keep every other test at today’s ({u[0] if u else None})')
         ok(not errs, f'{tag}: no page errors {errs[:2]}'); ctx.close()
 
     # ================= 2. the public practice copy follows the switches =================

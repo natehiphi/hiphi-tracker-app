@@ -872,7 +872,42 @@ practice visit.
   today's version unless a test asks (`window.__hiphiTossTests`), so the other suites stay steady. `&abrest=today` on a link
   sets every test it does not name to today's (forced, as a tester's): the tester sheet's practice links, Tests' See it and
   compare.html carry it, so a group or a comparison sees exactly what it names, whatever the switches.
-- Tests: `tests/versions.py` (50 checks: the cards on a phone and a laptop, every flip, Undo, the last one, the note's
+- **The fresh-eyes review's fixes (10/6, published with R-193):** the cards keep the order they had when the page opened
+  (`s.abOrder`; Check again sorts afresh), so a card no longer jumps 2,000px down a phone after a flip, and focus stays on
+  the switch (B-6); the first-visit test names its versions ("Running: today's, Plan 2 and Plan 4", `vName`), since its
+  letters were one off from the plan numbers (P-4); what runs sits right under the question, before the numbers' verdict
+  (A-13); one word for the state ("Not testing", never "paused"), no hint under the lone switch (its refusal says why), and
+  no "(today's)" after a name that already says it (A-14); Pick's toast names the test.
+- Tests: `tests/versions.py` (52 checks: the cards on a phone and a laptop, every flip, Undo, the last one, the note's
   question, the lawyer line, the six-way mixes, Pick the winner, See it and the tester sheet's links; the practice copy with
   B only, A only, both (a pick kept for the visit, both seen over fresh visits), C and E of the first visit, the week view
   only, `&abrest=today`, a link winning, an automated browser at today's, nothing sent); `room.py` expects the new links.
+
+## What testers do: each tester's path (R-193; 6 Oct 2026)
+
+Nate 10/6: "We also should start tracking testers actions beginning now." His answers: who counts, tester-sheet links only
+(the practice copy or the live site, older printed links included; staff looking around are not); how much, each tester's
+path (the screens in order, the seconds on each, what they did), testers told.
+- **Recording** (`pub/testerlog.js`, on the first wave, kernel-only): a tester session starts on `&t=<sheet>-<group>` (every
+  tester-sheet link since R-193) or on a link that sets versions without `&abrest` (the sheet's links before it); Tests'
+  See it and compare.html carry `&abrest` and no `&t`, so they are not counted. It lasts the tab (`hiphi_tester`, `_demo` in
+  the practice copy): Next day carries on the same path (and counts `nextday`), `&restart` (a new scan) starts a new one.
+  Every second it notes the screen: the address (`home`, `bill/hb1780`, `issue/<slug>`), the first visit by its step
+  (`start:topics`, from visitlog's view events), and a sheet over it (`:testimony:know`, the walkthrough's mode and step;
+  other dialogs by id); paused while the tab is hidden. What they did, as totals: `followed` (what they follow going up),
+  each `logAct` kind (testimony, email, share, attend ...), `finished` and `contact` once (variant.js `abEvent`), and
+  `skipped_<step>` in the first visit. Sent every 10 seconds and as the tab closes (keepalive) to `log_tester_path`
+  (backend 150). Nothing under the privacy signal or from an automated test run (`window.__hiphiCountTests` lets the suite).
+  The practice copy's band says "the screens you visit are noted for this test" while it records; the privacy page says it.
+- **The tester sheet** (`staff/setup.js`): each sheet and group has a short random id (`room().id`, `g.gid`, kept in prefs;
+  a sheet kept before R-193 gets them at once), so a group's results stay its own when groups move; Start over keeps the
+  sheet. "What testers did" under the groups: per group, testers, finished the first visit, followed, acted, gave a number
+  or email, pressed Next day, and "See their paths" (each tester: device, time, minutes, what they did, what they skipped,
+  then every screen in plain words with its seconds, `stepLabel`); "Earlier tester links" apart, by the versions they set.
+  A group's row names its versions ("Group 2 · Plan 1"), and a group whose versions changed between two sessions gets a row
+  per set, so nothing is mixed (the fresh-eyes review); "pressed Next day" shows only when someone did; newest first.
+  The practice copy shows samples (`DEMO_TESTER_PATHS`) on its own groups. The printed sheet tells testers on their page.
+- Tests: `tests/testers.py` (31 checks: a practice tester's path with its sheet, group, versions, steps by name and seconds,
+  a bill, the walkthrough by step, follows, an action, finishing once, a number once, Next day on the same path; not
+  recorded for the practice copy alone, See it, compare.html, the privacy signal or an automated browser; an older link
+  recorded with no group; the sheet's links, results, paths and printed notice on a phone and a laptop).
