@@ -976,3 +976,57 @@ after "This week on your issues" (they were the last thing in "Where your issues
 **"e-cigarette" kept whole without losing its spaces (R-195, 10/6).** `ui.js` `wrapWords` wraps the pieces in one plain span
 inside a flex or grid box, where the spaces at their edges vanished ("Disposablee-cigaretteban" in version A's week).
 Backend HANDOFF 3.129.
+
+## Ask a friend to speak up: sharing a specific ask, everywhere (R-205; 7 Oct 2026)
+
+Nate 10/7: "Taking action is a huge part of advocacy and getting people to share with others is invaluable", and sharing a
+specific ask "needs to be a KEY feature of this app". The deep dive, the evidence and the recommendation ids are on
+https://claude.ai/artifact/SyXVbiBrnvo9QCDm2u8DS2; his answers: text and email are how people pass things on, the profile
+ask stays first on the Mahalo, nothing shows a sharer what their own link did, the public tracker only, "Do not ask them to
+keep sharing after they've done it", and in alerts sharing is one of the actions, mostly on bills already acted on.
+
+- **One sheet for every share, `pub/askfriend.js` `askFriend({ b, h, did, ask, acted, issue })`.** Opened by the bill
+  page's Share and main button (`bill.js shareBill`), the action cards' "Ask a friend to speak up" (`actions.js`, the
+  `data-share` rows and the rank test's button), the Mahalo (`helper.js tellFriend`), Home's line (`home.js friendLine`),
+  "Just looking" (`bill.js newcomer`), the first visit's act-test card (`start-rest.js`) and every issue share
+  (`actions.js shareIssue`, which now opens it with `issue`).
+  - **Which ask (C1):** `choicesFor(b, h, { did, ask })`. A hearing ahead offers testimony (while it is open), the committee
+    email and the hearing itself as radio cards, the one the person did first and marked "you did this". Otherwise the one
+    ask the caller passes (the bill page's `shareAsk`). One ask on a phone goes straight to the phone's own share menu.
+  - **What the friend sees (C3):** the share page's own og:title and og:image, fetched from the page (`cardOf`, with the
+    `.html` fallback a plain server needs).
+  - **A phone (S1):** `navigator.share` and a coarse pointer: one main button, "Send to a friend", then the phone's menu.
+  - **A laptop (S2):** the message in a box they can change, "Email it" (Gmail, Outlook.com, my mail app on a laptop; the
+    mail app first on a phone without a share menu, the chair email's order), Copy message, Copy link, and "Other ways to
+    send" where the computer has a share menu. "Copied" stays on screen in a `role="status"` line; a refused copy selects
+    the message to copy by hand.
+  - **Counted (K2):** each way out tags the link `sp=sheet | email | copy` (`tagged`); the share is marked done once
+    (`markDone(..., { sp })`, so `logAct('share', { sp })` sends `share_path`). After it, nothing asks again.
+- **The words (`actions.js shareFor`):** `ask` 'email' and 'attend' have their own lines ("A short email to the committee
+  before then takes about 2 minutes", "Anyone can come and listen"); the share test (R-135) runs on testimony only, its two
+  messages unchanged.
+- **The Mahalo (M1, M2, C4, `helper.js`):** while "Save your profile" waits, the bar is "Not now" and its button (the card
+  holds only the box, `nudgeCard({ bar })`, `declineNudge`); answered (or signed in, or no profile ask), "Bring one friend
+  along" takes its place under the thank-you (`friendCard`), "Ask a friend to speak up" the bar's main button and Done
+  plain. The story ask (R-156) is answered first in the same way. After a share, one line (`FRIENDED`) and Done alone.
+  The narrow-phone rule that hid Back's word now hides only Back's (`helper.css`): "Done", "Close" and "Not now" were empty
+  buttons at 375px.
+- **Visible (B1-B4):** Share with its word in the bill page's top bar on a phone and in its top row on a laptop
+  (`.bl-sharebtn`); the "•••" menu keeps Add to a list and the Capitol page; the side panel keeps Follow and Add to a list.
+  After testimony on an open hearing the main button reads "Ask a friend to speak up" (a live bill with no ask: "Share").
+  "Just looking" adds "Can't do it today? Ask someone who might." once. Home: one line under "What you did"
+  (`friendLine`; version A gets it as its own card, `extras.friend`), its "Not now" kept per hearing in `hiphi_askf_no`.
+- **One name (S3):** "Ask a friend to speak up" wherever a share asks for an action, "Share" for a plain bill or issue.
+- **Taught once (C6):** a bill-page tip on Share (`tour.js`, key 'share'), the first visit's voice page ("and a friend's
+  can too"), and Help's answer (`talk-data.js` share-a-bill).
+- **Two new asks (C2):** `SHARE_ASKS` gains 'email' and 'attend' (`core.js`, read by `tools/share_pages.mjs`), with cards
+  in `tools/share_cards.mjs` ("Email the committee before Fri, Mar 20: ...", "Come to the hearing on Fri, Mar 20: ..."),
+  pictures `pub/og/email.jpg` and `pub/og/attend.jpg` (`tools/og_looks.json`), routes `#/bill/<n>/email` and `/attend`
+  (`app.js`; `bill.js openAsk` opens the hearing's when and where for 'attend'), and 404.html. No picture-test versions.
+- **Every bill with an open ask (C5):** `share_pages.mjs` also builds the hearing asks' pages, under the year, for a bill
+  the team does not track while a hearing on it is ahead; `billShareUrl` links them for any bill on a hearing ask.
+- **Where an action came from (K1):** `logAct` sends the visit's `via` ('share', 'alert', a partner) with every action.
+- Backend migration 164: `visit_counts.share_path`, and the 4:30 pm email's alerts (A1-A3: "Write my testimony" opens the
+  steps, tagged `?via=alert`; someone who acted is told so; then a mailto: "Ask a friend to speak up" with the share page).
+Tests: `tests/askfriend.py` (new, 27 checks on a phone and a laptop), `share_links.py`, `profile_ask.py`, `action_rank.py`,
+`tests/share_cards_test.mjs` (the two new cards); backend `tools/migration_tests/test_164.js`.

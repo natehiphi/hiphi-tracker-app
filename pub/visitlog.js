@@ -15,7 +15,7 @@
 //   visitVia()                    this visit's ?via= slug, or ''
 //   partnerWelcome(slug)          the partner's welcome line (public_partners), or null; asked once per slug
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
-//   logAct(kind)                  an action marked done, its kind only (078)
+//   logAct(kind, {sp})            an action marked done: its kind, where the visit came from, a share's way out (078, R-205)
 //   logTime(act, seconds, first)  how long a letter took, from opening the walkthrough to sending it (143)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
 import { tlNote, tlStep } from './testerlog.js';   // a tester's path (R-193): the first visit's screens and what they did
@@ -27,7 +27,7 @@ const KEY = 'hiphi_fv', CAP = 60;
 const STEPS = new Set(['topics', 'issues', 'stand', 'bill', 'session', 'hearing', 'you', 'soon', 'done', 'home', 'arrive', 'act', 'followask', 'voice', 'alerts',
   'one', 'hello', 'join', 'wrap', 'story', 'road', 'island', 'way', 'first', 'picks', 'find', 'learn', 'decide']);
 const EVENTS = new Set(['view', 'next', 'skip', 'back', 'leave', 'done', 'answer']);
-const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/;
+const SLUG = /^[a-z0-9-]{1,40}$/, UTM = /^[a-z0-9._-]{1,40}$/, SITE = /^[a-z0-9.-]{1,80}$/, SP = /^(sheet|email|copy|alert)$/;
 const DEBUG = /(^|[?&])debug(=|&|$)/.test(location.search);
 // The privacy page promises "if your browser asks sites not to track you, we record nothing". Only Global Privacy
 // Control was honoured; Do Not Track is the older way browsers ask, so it counts too (R-067).
@@ -54,7 +54,8 @@ function fromUrl() {
   const q = new URLSearchParams(location.search), word = (k, re) => { const v = (q.get(k) || '').trim().toLowerCase(); return re.test(v) ? v : ''; };
   // A shared link says which message brought the friend (?via=share-deadline, R-135's share test, variant.js); for every
   // other count it is a friend's link like any other: 'share'.
-  return { via: word('via', SLUG).replace(/^share-.*$/, 'share'), utm_source: word('utm_source', UTM), utm_medium: word('utm_medium', UTM), utm_campaign: word('utm_campaign', UTM) };
+  // ?sp= (R-205 K2): the way a shared link was sent (the phone's share menu, an email, a copy, an alert's line).
+  return { via: word('via', SLUG).replace(/^share-.*$/, 'share'), sp: word('sp', SP), utm_source: word('utm_source', UTM), utm_medium: word('utm_medium', UTM), utm_campaign: word('utm_campaign', UTM) };
 }
 // The referring site's name only, when it is another site: l.instagram.com and lm.facebook.com are the apps' link
 // wrappers, m. and www. the same site again.
@@ -172,11 +173,14 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
     try { localStorage.setItem(DAYS_KEY, JSON.stringify({ first, last: today })); } catch { /* ignore */ }
     const src = visit().src || {};
     const p = { kind: 'visit', gap, first_month: first, follows: !!follows, signed_in: !!signedIn, home_screen: homeScreen(), season: season === 'in' ? 'in' : 'off', variant: variantInfo().variant };
-    if (src.via) p.via = src.via; if (src.device) p.device = src.device;
+    if (src.via) p.via = src.via; if (src.device) p.device = src.device; if (src.via === 'share' && src.sp) p.share_path = src.sp;
     return sendCount(p).catch(() => false);
   } catch { return Promise.resolve(false); }
 }
-export function logAct(kind) {
+// K1 (R-205): each action carries where this visit came from (?via=: 'share' for a friend's link, 'alert' for an alert, a
+// partner's word), so the counts can say whether shared links lead to testimony. share_path: for a share, the way it was
+// sent (sp); for any other action, the way the shared link that brought this visit was sent. Counts only, as before.
+export function logAct(kind, { sp = '' } = {}) {
   try {
     tlNote(kind);
     // 'recap' and 'moment' (R-046, migration 106): the session page opened, a result shown as a moment. 'restore' and
@@ -193,7 +197,12 @@ export function logAct(kind) {
       'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how', 'directions',
       'bill_more', 'bill_text', 'bill_capitol'].includes(kind)) return Promise.resolve(false);
     if (['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
-    return sendCount({ kind: 'act', act: kind, device: device(), variant: variantInfo().variant }).catch(() => false);
+    const src = (() => { try { return quiet() ? {} : visit().src || {}; } catch { return {}; } })();
+    const p = { kind: 'act', act: kind, device: device(), variant: variantInfo().variant };
+    if (src.via) p.via = src.via;
+    const path = kind === 'share' ? sp : src.via === 'share' ? src.sp : '';
+    if (SP.test(path || '')) p.share_path = path;
+    return sendCount(p).catch(() => false);
   } catch { return Promise.resolve(false); }
 }
 

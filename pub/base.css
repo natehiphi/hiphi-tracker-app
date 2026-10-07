@@ -382,6 +382,58 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .al-saved { margin: 0 0 var(--s4); font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
 @media (max-width: 719px) { dialog.sheet.al-sheet { top: auto; bottom: 0; height: fit-content; max-height: 92%; margin: 0; border-radius: var(--r16) var(--r16) 0 0; } }
 @media (min-width: 720px) { dialog.sheet.al-sheet { width: 520px; } .al-sheet .al-shin { padding: var(--s24); } }
+/* Ask a friend to speak up (pub/askfriend.js, R-205): one sheet for every share. It rises from the bottom on a phone and
+   sits in the middle, 560px wide, from 720px, like the alerts sheet above. One primary in view (A-3): on a phone "Send to a
+   friend", on a laptop the first email choice until something is sent, then "Done". The asks are radio cards, 48px and up
+   (A-6), the chosen one blue-edged with its dot (never colour alone, A-5); "Your friend sees" is the share page's own card. */
+.af-sheet .af-in { padding: var(--s16) var(--s16) calc(var(--s16) + var(--safe-b)); display: flex; flex-direction: column; gap: var(--s12); }
+.af-sheet .af-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s8); }
+.af-sheet h2 { margin: var(--s8) 0 0; font-size: var(--t22); }
+.af-sheet .af-x { margin: 0 calc(-1 * var(--s8)) 0 0; }
+.af-sheet .af-k { margin: 0; font-size: var(--t13); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--n500); }
+.af-sheet .af-one { margin: 0; color: var(--n700); }
+.af-sheet .af-one b { color: var(--n900); }
+.af-sheet .af-asks { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); min-width: 0; }
+.af-sheet .af-asks legend { padding: 0; margin-bottom: var(--s8); font-weight: 700; color: var(--n900); }
+.af-sheet .af-ask { display: flex; gap: var(--s12); align-items: flex-start; min-height: 48px; padding: var(--s12); border-radius: var(--r12);
+  box-shadow: inset 0 0 0 1px var(--n300); background: var(--n0); cursor: pointer; }
+.af-sheet .af-ask:hover { background: var(--p50); }
+.af-sheet .af-ask.on { box-shadow: inset 0 0 0 2px var(--p700); background: var(--p50); }
+.af-sheet .af-ask input { margin: 3px 0 0; width: 20px; height: 20px; accent-color: var(--p700); flex: none; }
+.af-sheet .af-asktx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.af-sheet .af-asktx b { color: var(--n900); }
+.af-sheet .af-asktx > span { font-size: var(--t14); color: var(--n700); }
+.af-sheet .af-did { display: inline-flex; gap: 3px; align-items: center; color: var(--ok-text); font-weight: 700; }
+.af-sheet .af-did .ic { width: 14px; height: 14px; }
+.af-sheet .af-sees { display: flex; flex-direction: column; gap: var(--s8); }
+.af-sheet .af-first { margin: 0; font-size: var(--t14); color: var(--n700); font-style: italic; }
+.af-sheet .af-card { display: flex; gap: var(--s12); align-items: center; min-height: 63px; padding: var(--s8); border-radius: var(--r12); background: var(--n50); box-shadow: inset 0 0 0 1px var(--n200); }
+.af-sheet .af-card img { width: 120px; height: 63px; object-fit: cover; border-radius: var(--r8); flex: none; background: var(--n100); }
+.af-sheet .af-card p { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); line-height: 1.35; min-width: 0; }
+.af-sheet .af-skel { display: block; width: 120px; height: 63px; border-radius: var(--r8); background: var(--n100); }
+.af-sheet .af-sub { display: block; font-size: var(--t13); color: var(--n500); }
+.af-sheet .af-msgf textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.af-sheet .af-mail ul { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s8); }
+.af-sheet .af-mail li { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.af-sheet .af-mail .btn { padding: 0 var(--s12); }
+.af-sheet .af-mail .af-ext { width: 14px; height: 14px; }
+.af-sheet .af-more { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.af-sheet .af-status { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-weight: 700; color: var(--ok-text); }
+.af-sheet .af-status.empty { display: none; }
+.af-sheet .af-status .ic { flex: none; width: 1.15em; height: 1.15em; margin-top: .15em; }
+.af-sheet .af-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s8) var(--s16); }
+.af-sheet .af-btns .btn.full { flex: 1 1 100%; }
+.af-off { position: fixed; left: -9999px; top: 0; opacity: 0; }
+@media (max-width: 719px) { dialog.sheet.af-sheet { top: auto; bottom: 0; height: fit-content; max-height: 92%; margin: 0; border-radius: var(--r16) var(--r16) 0 0; } }
+@media (min-width: 720px) { dialog.sheet.af-sheet { width: 560px; } .af-sheet .af-in { padding: var(--s16) var(--s24); gap: var(--s8); }
+  /* a laptop's sheet fits an 800px window with room to spare: tighter asks, a shorter box (the pointer is fine here, A-6) */
+  .af-sheet .af-ask { padding: var(--s8) var(--s12); min-height: 44px; } .af-sheet .af-msgf textarea { min-height: 0; } }
+/* The Mahalo's "Bring one friend along" (pub/helper.js friendCard, R-205 M1): the profile ask's place, the same tinted card;
+   once shared, one quiet line in the success green. */
+.hp-friend h3 { margin: 0 0 var(--s4); font-size: var(--t18); }
+.hp-friend p { margin: 0; }
+.hp-friended { display: flex; gap: 6px; align-items: flex-start; margin: 0; }
+.hp-friended .ic { flex: none; width: 1.15em; height: 1.15em; margin-top: .1em; }
 /* "Read more about the bill" (pub/billtext.js, R-178): what someone deciding where they stand can read beyond the one
    sentence, on the bill page and in a letter's first step. Reading-size words (16px, n700 on white 9.57:1) under a small
    Poppins heading per part (A-19), HIPHI's reasons as a plain list, then the whole bill as a secondary button (the one

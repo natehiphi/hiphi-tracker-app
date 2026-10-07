@@ -111,7 +111,8 @@ session is dark (until January 2027).
   first-visit counting skips you).
 - **Share pages** (`b/<HB2121>.html`, `i/<slug>.html`, R-067; one per ask since R-169): a shared link's card leads with
   the ask and the link opens it (Nate 10/5). `b/HB2121-testify` ("Speak up by Wed, Mar 18: ..."; opens the testimony
-  walkthrough), `-ask` (the chairs' email), `-floor`, `-conference`, `-governor`, `-follow` (opens the issue), and
+  walkthrough), `-email` and `-attend` (the committee email and the hearing itself, while one is ahead, R-205), `-ask` (the
+  chairs' email), `-floor`, `-conference`, `-governor`, `-follow` (opens the issue), and
   `b/HB2121` for the bill's ask of the moment; the words and the choice are `tools/share_cards.mjs` (pure; tested by
   `tests/share_cards_test.mjs` on every push). Every share passes its ask: `shareFor(b, h, { ask })`, `billShareUrl(b,
   ask)`, `shareAsk(b, x)` in bill.js; the routes `#/bill/<n>/testify|email|ask|floor|conference|governor` open the ask
@@ -127,6 +128,11 @@ session is dark (until January 2027).
   it took (`logTime`, backend 143). The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
   `demo/snapshot.json` at its March day, which its shares and Staff v2's practice copy use; they rebuild with the job,
   so a snapshot rebuild needs nothing more.
+- **Ask a friend to speak up** (R-205, 10/7; `docs/FEATURES.md`): every share opens one sheet, `pub/askfriend.js` (the
+  person picks the ask, sees the friend's card, a phone's own share menu or a laptop's Email it / Copy), each way out
+  tagged `?sp=sheet|email|copy|alert` (the share pages and 404.html pass it on), marked done once and never asked again.
+  The Mahalo puts "Bring one friend along" in the profile ask's place once that is answered; Share is on the bill page's
+  first screen with its word. `python3 tests/askfriend.py`.
 - **Share picture versions** (R-183, 10/6; backend `docs/SHARE-PICTURES.md`): the test `pic` in `pub/variant.js` has fourteen
   versions (today's, the issue up front, and Nate's twelve ideas), a switch for each in Staff v2 > Tests. What fits a bill and
   ask, and every word and date a picture shows, is `tools/share_pics.mjs` (pure; `tests/share_pics_test.mjs` checks every bill

@@ -104,10 +104,11 @@
 .hp-dlg .hp-footmore .btn { white-space: normal; text-align: center; }
 .hp-dlg .hp-steps .hp-inl .ic-external-link { width: 16px; height: 16px; }
 
-/* narrow phones: Back keeps its icon and its name for screen readers */
+/* narrow phones: Back keeps its icon and its name for screen readers. Only Back itself: "Done", "Close" and "Not now" share
+   its place in the bar and have no icon, so hiding their words left an empty button on a 375px phone (found 10/7, R-205). */
 @media (max-width: 379px) {
-  .hp-dlg .hp-back { min-width: 44px; padding: 0; }
-  .hp-dlg .hp-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hp-dlg .hp-back[data-hp="back"] { min-width: 44px; padding: 0; }
+  .hp-dlg .hp-back[data-hp="back"] span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 /* tablets and computers: a centred card of fixed height, so screens do not jump in size */
 @media (min-width: 720px) {

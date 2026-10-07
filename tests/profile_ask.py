@@ -143,12 +143,13 @@ with sync_playwright() as pw:
       return !!a && !!n && !!(a.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); }""")
     ok(order, '5: the ask comes before "What happens next"')
     seen = p.evaluate("""() => { const i = document.querySelector('#hp-ng-phone')?.getBoundingClientRect();
-      const done = [...document.querySelectorAll('#hp-dlg button')].find(b => b.innerText.trim() === 'Done')?.getBoundingClientRect();
+      const done = [...document.querySelectorAll('#hp-dlg .hp-foot button')].find(b => b.innerText.trim() === 'Not now')?.getBoundingClientRect();
       return !!i && !!done && i.bottom <= done.top && i.top >= 0; }""")
-    ok(seen, '5: its number box is on the first phone screen, above the Done bar')
+    ok(seen, '5: its number box is on the first phone screen, above the bar')
     ok('Bills often get more than one hearing. Your profile keeps what you wrote' in d, '5: the letter’s line (B1)')
     bar = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-foot button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.innerText.trim())")
-    ok(bar == ['Done', '*Text me a code'] and p.locator('#hp-dlg .nudgecard button[type=submit]').count() == 0, f'5: while it waits, the bar’s main button saves and Done is a text button ({bar})')
+    # R-205 C4: the ask's other answer, "Not now", sits beside it in the bar (Done there closed the Mahalo before the share ask).
+    ok(bar == ['Not now', '*Text me a code'] and p.locator('#hp-dlg .nudgecard button[type=submit], #hp-dlg .nudgecard [data-nudgeno]').count() == 0, f'5: while it waits, the bar holds its two answers: Not now and the main button that saves ({bar})')
     shot(p, '5_mahalo_ask')
     p.fill('#hp-ng-phone', '(808) 555-0126'); p.click('#hp-dlg button[form="hp-ng-form"]'); p.wait_for_timeout(900)
     bar = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-foot button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.innerText.trim())")
@@ -156,12 +157,13 @@ with sync_playwright() as pw:
     p.type('#hp-ng-code', '123456'); p.wait_for_timeout(1300)
     d = p.evaluate("document.getElementById('hp-dlg')?.innerText || ''")
     bar = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-foot button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.innerText.trim())")
-    ok('Your profile is saved.' in d and 'Text alerts are on' in d and bar == ['Tell a friend', '*Done'], f'5: saved, the card says so, and the bar is Tell a friend and Done again ({bar})')
+    # R-205 M1-M2: once answered, "Bring one friend along" follows, its button the bar's main one.
+    ok('Your profile is saved.' in d and 'Text alerts are on' in d and 'Who’s one person who’d write too?' in d and bar == ['Done', '*Ask a friend to speak up'], f'5: saved, the card says so, then the share ask, its button the bar\'s main one ({bar})')
     c.close()
     c, p = to_mahalo()
-    p.click('#hp-dlg .nudgecard [data-nudgeno]'); p.wait_for_timeout(700)
+    p.click('#hp-dlg .hp-foot [data-hp="ngno"]'); p.wait_for_timeout(700)
     bar = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-foot button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.innerText.trim())")
-    ok(p.locator('#hp-dlg .nudgecard').count() == 0 and bar == ['Tell a friend', '*Done'], f'5: Not now: the card goes and the bar is as before ({bar})')
+    ok(p.locator('#hp-dlg .nudgecard').count() == 0 and p.locator('#hp-dlg .hp-friend').count() == 1 and bar == ['Done', '*Ask a friend to speak up'], f'5: Not now: the profile card goes and the share ask takes its place ({bar})')
     c.close()
 
     # ---- 6. a bill page's "New here?" Follow: the first visit's screen ----

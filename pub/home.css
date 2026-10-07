@@ -317,3 +317,10 @@
 .hm-latert { display: flex; gap: var(--s8); align-items: center; font-size: var(--t18); }
 .hm-laterlead { display: grid; place-items: center; color: var(--p700); flex: none; }
 .hm-laterlead .ic { width: 20px; height: 20px; }
+
+/* Ask a friend, under what you did (R-205 B4): one quiet line with its two answers, never a second card on today's Home;
+   on version A's Home it is a small card of its own (friendCard). The share icon only on its button (A-14). */
+.hm-askf { display: flex; flex-direction: column; gap: var(--s8); padding: var(--s4) var(--s12) var(--s12) var(--s16); }
+.hm-askf p { margin: 0; font-size: var(--t14); color: var(--n700); }
+.hm-askf .btnrow { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s8); align-items: center; }
+.hm-askfc { padding: var(--s4) 0 0; }

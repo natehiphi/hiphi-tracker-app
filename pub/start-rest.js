@@ -4,7 +4,7 @@
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
-  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, markDone } from './core.js';
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
@@ -239,7 +239,7 @@ function stepVoice(step) {
   const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
   return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
     <h1 class="hero" id="st-h">Your voice counts here</h1>
-    <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs.</p>`,
+    <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs, and a friend’s can too.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
     ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>Like <b>${esc(E.name)}</b>, one of the bills on your issues.</span></p>` : ''}
     <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);
@@ -518,9 +518,9 @@ function wayWords(w) {
     case 'testimony': return ['notebook-pen', 'Write testimony', `${name}: due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, 'a few min'];
     case 'email': return ['mail', 'Email the committee chair', `${name}: hearing ${dayOf(w.h.scheduled_at)}`, '2 min'];
     case 'ask': return ['mail', `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, `${name} needs a hearing by ${dateLong(w.st.deadline.date + 'T12:00:00-10:00')}`, '2 min'];
-    case 'share': return ['share-2', 'Send it to a friend', `${name}: more voices carry more weight`, '1 min'];
+    case 'share': return ['share-2', 'Ask a friend to speak up', `${name}: more voices carry more weight`, '1 min'];   // one name for it (R-205 S3)
     // Issue names are often sentences ("Let counties regulate tobacco sales"), so they lead the line rather than sit inside one.
-    case 'shareissue': return ['share-2', 'Send it to a friend', `${w.i.name}: know someone who cares?`, '1 min'];
+    case 'shareissue': return ['share-2', 'Ask a friend to follow it', `${w.i.name}: know someone who cares?`, '1 min'];
     case 'hello': { const legs = helloLegs();
       return legs.length ? ['hand-heart', 'Say aloha to your legislators', `${legs.map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ')} are writing next year’s bills now`, '2 min']
         : ['landmark', 'Find your legislators', 'About 30 seconds. Then say aloha before January.']; }
@@ -537,7 +537,7 @@ function stepWays(step, ways) {
     const [ic, t, sub, m] = wayWords(w), done = wayDone(w);
     // A share that only copied the link says so, and what to do with it (the review: "Done" when nothing was sent yet).
     const how = w.kind === 'share' ? S.chips['way:' + w.b.id] : w.kind === 'shareissue' ? (S.chips['share:' + w.i.id] === true ? 'copied' : S.chips['share:' + w.i.id]) : '';
-    const said = w.kind === 'story' ? 'Kept for January. Mahalo!' : how === 'copied' ? 'Link copied. Paste it in a text or email.' : how === 'shared' ? 'Sent. Mahalo!' : 'Done. Mahalo!';
+    const said = w.kind === 'story' ? 'Kept for January. Mahalo!' : how === 'copied' ? 'Copied. Paste it in a text or email.' : how === 'shared' ? 'Sent. Mahalo!' : 'Done. Mahalo!';
     if (done) return `<li style="--k:${k}"><div class="card ob-way st-way done"><span class="ob-wayic" aria-hidden="true">${icon('check')}</span><span><b>${title(t, m)}</b><span>${said}</span></span></div></li>`;
     if (w.kind === 'story' && S.stWayStory === w.i.id) return `<li style="--k:${k}"><div class="card ob-way st-way st-waystory"><p class="st-wayiss">${esc(w.i.name)}</p><label for="st-story"><b>${esc(storyAsk(w.i.id))}</b></label>
       <textarea id="st-story" rows="3" maxlength="600" placeholder="When my kids started school…">${esc(S.stWayDraft || '')}</textarea>
@@ -563,9 +563,10 @@ function wireWays({ step }) {
     if (w.kind === 'story') { S.stWayStory = w.i.id; app.render(); requestAnimationFrame(() => document.getElementById('st-story')?.focus()); return; }
     // Share: the bill (its hearing's message), else their first issue's page; the same helpers as the bill and issue pages.
     const A = await import('./actions.js');   // with the bill page's helpers, on first use (R-122)
-    if (w.kind === 'share') { const how = await A.doShare(A.shareFor(w.b, w.h)); if (!how) return;
-      S.chips['way:' + w.b.id] = how; if (w.h && !didKind(w.b, w.h, 'share')) await markDone(w.b.id, w.h.id, 'share'); }
-    else { const how = await A.shareIssue(w.i); if (!how) return; S.chips['share:' + w.i.id] = how === 'copied' ? true : how; }
+    // The same sheet as every share (R-205): it picks the ask with them and marks the share itself.
+    if (w.kind === 'share') { const how = await (await import('./askfriend.js')).askFriend({ b: w.b, h: w.h }); if (!how) return;
+      S.chips['way:' + w.b.id] = how === 'copied' ? 'copied' : 'shared'; }
+    else { const how = await A.shareIssue(w.i); if (!how) return; S.chips['share:' + w.i.id] = how === 'copied' ? true : 'shared'; }
     app.render();
   });
   const ta = document.getElementById('st-story'); if (ta) ta.oninput = () => { S.stWayDraft = ta.value; };

@@ -66,6 +66,8 @@ def run(br, w, h, tag):
                        " return !!u && !!g && !!(u.compareDocumentPosition(g) & 4) && !!(t.compareDocumentPosition(u) & 4) && /We now follow/.test(t.innerText); })()")
     ok(order, f'{tag}: it sits right under "We now follow ..." and above "Going to the hearing in person?"')
     p.screenshot(path=f'{OUT}/{tag}-1-mahalo.png')
+    # R-205 C4: while the profile ask waits, its "Not now" is in the bar; then the share card, and Done beside it.
+    if p.locator('#hp-dlg .hp-foot [data-hp="ngno"]').count(): p.locator('#hp-dlg .hp-foot [data-hp="ngno"]').click(); p.wait_for_timeout(700)
     p.evaluate(click('#hp-dlg .hp-foot button', '^Done$')); p.wait_for_timeout(2500)
     ok(p.evaluate('location.hash') == '#/', f"{tag}: Done goes to Home, not into the first visit's story ({p.evaluate('location.hash')})")
     w8 = p.evaluate("JSON.parse(localStorage.getItem('hiphi_wiz') || '{}')")
@@ -128,7 +130,7 @@ def run(br, w, h, tag):
     ok(p.locator('.bl-tourline [data-bl-billtour]').count() == 1 and 'New to this?' in txt(p, '.bl-tourline'), f'{tag}: the quiet line "New to this? Take the tour" offers it')
     p.screenshot(path=f'{OUT}/{tag}-5-bill-line.png')
     if p.locator('[data-bl-billtour]').count(): p.locator('[data-bl-billtour]').click(); p.wait_for_timeout(1000)
-    ok('Tip 1 of 3' in txt(p, '.tr-tip'), f'{tag}: the line starts the tips')
+    ok('Tip 1 of 4' in txt(p, '.tr-tip'), f'{tag}: the line starts the tips')   # four since R-205's Share tip
     if p.locator('[data-tr-skip]').count(): p.locator('[data-tr-skip]').click(); p.wait_for_timeout(500)
     ok(p.locator('.tr-tip').count() == 0 and p.locator('[data-bl-billtour]').count() == 0, f'{tag}: skipped, the tips and the line are gone')
     p.reload(); ready(p); p.wait_for_timeout(1500)

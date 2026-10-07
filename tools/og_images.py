@@ -42,7 +42,7 @@ def flowers():
 # label icon, the drawing when there is no issue). Inks are dark enough to read on white (A-5).
 # The words and colours live in tools/og_looks.json, shared with tools/share_pics.mjs (R-183); only the drawings are here.
 ART = {'voices': lambda: VOICES, 'calendar': lambda: icon('calendar-clock', 240, '#129DCB', 1.4), 'vote': lambda: icon('vote', 240, '#7C3AED', 1.4),
-       'handshake': lambda: icon('handshake', 240, '#14B8A6', 1.4), 'capitol': lambda: CAPITOL, 'bell': lambda: icon('bell', 220, '#7D8C93', 1.4), 'flowers': flowers}
+       'handshake': lambda: icon('handshake', 240, '#14B8A6', 1.4), 'mail': lambda: icon('mail', 240, '#129DCB', 1.4), 'capitol': lambda: CAPITOL, 'bell': lambda: icon('bell', 220, '#7D8C93', 1.4), 'flowers': flowers}
 LOOKS = json.load(open(os.path.join(ROOT, 'tools', 'og_looks.json'), encoding='utf-8'))
 ASKS = {k: (v['label'], v['big'], v['sub'], v['wash'], v['ink'], v['edge'], v['accent'], v['icon'], ART[v['art']]) for k, v in LOOKS.items() if not k.startswith('_')}
 TRACKER = ('Hawaiʻi Health Bills', 'Speak Up for a Healthier Hawaiʻi', 'Follow the issues you care about. Speak up in a few minutes.',

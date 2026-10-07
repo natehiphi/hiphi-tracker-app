@@ -111,6 +111,7 @@ with sync_playwright() as p:
         pg.click('[data-hp="next"]'); pg.wait_for_timeout(400); pg.click('[data-hp="mailsent"]'); pg.wait_for_timeout(1200)
         ok('You followed up with' in pg.locator('.hp-hero').inner_text(), f'{tag}: "You followed up with …"')
         ok(stored(pg).get('email:' + HB1563, {}).get('sent', '').startswith('2026-03-09'), f'{tag}: the kept email is still the one it followed up, not the reminder')
+        if pg.locator('[data-hp="ngno"]').count(): pg.click('[data-hp="ngno"]'); pg.wait_for_timeout(600)   # R-205 C4: the profile ask's Not now first
         pg.click('[data-hp="done"]'); pg.wait_for_timeout(800)
         ok('Follow up' not in (pg.locator('[data-bl-main]').first.inner_text() if pg.locator('[data-bl-main]').count() else ''), f'{tag}: one follow-up only')
         c.close()

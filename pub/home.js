@@ -383,7 +383,27 @@ function loopRow({ b, h, kind }) {
   // walkthrough's Mahalo offers it).
   const label = !v ? '' : v.state === 'live' ? 'Watch live now' : v.state === 'after' ? v.label : today ? 'Watch it live' : 'Watch it live on YouTube';
   return `${row({ lead: 'circle-check', title: esc(`${LOOP_DID[kind]} ${name || num}`), sub: esc(name ? `${num} · ${when}` : when), href: billPath(b), cls: 'hm-you' })}
-    ${v ? `<div class="hm-loopx">${btn(label, { kind: 'text', sm: true, icon: 'play', iconEnd: 'external-link', href: v.url, attrs: { target: '_blank', rel: 'noopener' } })}</div>` : ''}`;
+    ${v ? `<div class="hm-loopx">${btn(label, { kind: 'text', sm: true, icon: 'play', iconEnd: 'external-link', href: v.url, attrs: { target: '_blank', rel: 'noopener' } })}</div>` : ''}
+    ${friendLine({ b, h, kind })}`;
+}
+// Ask a friend, on a bill they acted on, while its hearing is ahead (R-205 B4; Nate 10/7: the tracker can recommend sharing
+// within the app). One quiet line under what they did; "Not now" hides it for that hearing, and once they have shared it,
+// it never shows again (Nate 10/7: "Do not ask them to keep sharing after they've done it"). The deadlines are one to three
+// days, so a return visit before them is the second-best moment after the Mahalo.
+const ASKF_NO = 'hiphi_askf_no';
+const askfNo = () => { try { return JSON.parse(localStorage.getItem(ASKF_NO) || '[]'); } catch { return []; } };
+function friendLine({ b, h, kind }) {
+  if (!b || !h || h.status === 'cancelled' || new Date(h.scheduled_at) <= Date.now() || didKind(b, h, 'share') || askfNo().includes(h.id)) return '';
+  // "today at 3:00 PM" for the person reading it now (the review: a deadline hours away read as a calendar date). One icon,
+  // on the button (A-14).
+  const due = h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? h.testimony_deadline : null;
+  const say = due ? `Testimony is open until ${dayWord(due).replace(/\s*\(.*\)$/, '')} at ${timeWord(due)}. Know someone who’d write too?` : 'Know someone who’d speak up too?';
+  return `<div class="hm-askf"><p>${esc(say)}</p><div class="btnrow">${btn('Ask a friend to speak up', { kind: 'secondary', sm: true, icon: 'share-2', attrs: { 'data-hm-askf': `${b.id}|${h.id}|${kind}` } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-askno': h.id } })}</div></div>`;
+}
+// Version A's Home has no "What you did" (pub/a/home.js), so there it is a card of its own, for the soonest such hearing.
+function friendCard() {
+  const x = loopItems(new Set()).find(i => friendLine(i));
+  return x ? `<section class="card hm-askfc" aria-label="Ask a friend">${row({ lead: 'circle-check', title: esc(`${LOOP_DID[x.kind]} ${nick(x.b) || spaced(x.b.bill_number)}`), href: billPath(x.b), cls: 'hm-you' })}${friendLine(x)}</section>` : '';
 }
 // skip: the hearings already drawn as their own card on this page. Sets S.hmLoopB, the bills it names, so the rest of Home
 // leaves them out ("Since you were here", "What's new", "What happened after you acted").
@@ -986,7 +1006,7 @@ function newIssuesCard() {
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
 // letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
 // and a first-visit plan's next small thing (onb-later.js), on either Home.
-export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard() };
+export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireLater(root, () => app.render());
   try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
@@ -997,6 +1017,15 @@ export function wireExtras(root) {
     if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
   });
   root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
+  // Ask a friend, on a bill they acted on (R-205 B4): the sheet, with what they did first; "Not now" for that hearing.
+  root.querySelectorAll('[data-hm-askf]').forEach(el => el.onclick = async () => {
+    const [bid, hid, kind] = el.dataset.hmAskf.split('|'), b = anyBill(bid), h = anyHearing(hid); if (!b || !h) return;
+    const how = await (await import('./askfriend.js')).askFriend({ b, h, did: kind, acted: true }); if (how) app.render();
+  });
+  root.querySelectorAll('[data-hm-askno]').forEach(el => el.onclick = () => {
+    try { localStorage.setItem(ASKF_NO, JSON.stringify([...askfNo(), el.dataset.hmAskno].slice(-50))); } catch { /* this visit only */ }
+    app.render();
+  });
 }
 
 // wide.css keeps the side column in view under the header. When the column is taller than the window, a sticky top

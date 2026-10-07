@@ -1,7 +1,7 @@
 # One share everywhere, a link newcomer left to finish, and the staff wording fixes (R-113 P3, R-114 P4, R-112 S9),
 # in the sandbox served locally. Headless Chromium has no share sheet, so every share goes to the clipboard, which the
 # test reads back. Checks: a bill's share text carries the testimony deadline and the link once; the issue page has
-# Share this issue and its text names the issue with the link once; the finale's "Know someone who cares" line; a
+# Share and its text names the issue with the link once (the sheet's Copy message, R-205); the finale's "Know someone who cares" line; a
 # newcomer on a shared link gets the deadline on the card and in the head, no partner welcome, no automatic tour;
 # the Coming-up screen asks once per visit; the share pages and the 404 forwarder pass ?via= and utm_ on; Staff v2's
 # hearing page goes back to Today or Week; the Help words.
@@ -41,15 +41,20 @@ with sync_playwright() as p:
     islug = next((i['slug'] for i in snap['issues'] if any(r['bill_id'] == bill['id'] and r['issue_id'] == i['id'] for r in snap.get('billIssues', []))), None)
     pg.goto(PUB + f'#/issue/{islug}'); ready(pg)
     sb = pg.locator('[data-shareissue]').first
-    ok(sb.count() == 1 and 'Share this issue' in sb.inner_text(), 'the issue page offers Share this issue')
-    pg.evaluate("() => navigator.clipboard.writeText('')"); sb.click(); pg.wait_for_timeout(600); t = clip(pg)
+    ok(sb.count() == 1 and sb.inner_text().strip() == 'Share', 'the issue page offers Share (one word for it, R-205 S3)')
+    pg.evaluate("() => navigator.clipboard.writeText('')"); sb.click(); pg.wait_for_timeout(600)
+    # A laptop with no share menu gets the sheet's box (R-205 S2): Copy message copies the words and the link.
+    pg.locator('dialog.af-sheet [data-af="copy"]').click(); pg.wait_for_timeout(500); t = clip(pg)
+    ok('Copied' in pg.locator('dialog.af-sheet .af-status').inner_text(), 'the sheet says Copied, and it stays on screen')
+    pg.locator('dialog.af-sheet [data-af="close"]').first.click(); pg.wait_for_timeout(500)
     iname = pg.locator('.fd-ihead h1').inner_text()
     ok(iname in t and t.count('http') == 1 and f'i/demo/{islug}' in t, f'the issue share text names the issue with its link once: {t[:120]}')
-    ok('Link copied' in pg.locator('[data-shareissue]').first.inner_text(), 'the button says Link copied')
+    ok('sp=copy' in t, 'the copied link says it was copied (?sp=copy, R-205 K2)')
+    ok('Shared' in pg.locator('[data-shareissue]').first.inner_text(), 'the button then says Shared')
     # ---- 3. the finale's line, for someone who follows an issue ----
     pg.evaluate("async s => { const c = await import('./pub/core.js'); const i = c.S.issues.find(x => x.slug === s); await c.setFollows({ issuesOn: [i.id] }); }", islug)
     line = pg.evaluate("async () => (await import('./pub/keep.js')).shareLine()")
-    ok('Know someone who cares about' in line and 'data-stshare' in line, 'the finale has "Know someone who cares about <issue>? Send it"')
+    ok('Know someone who cares about' in line and 'data-stshare' in line, 'the finale has "Know someone who cares about <issue>? Share"')
     ctx.close()
     # ---- 4. a newcomer on a shared link: the deadline up top, no partner welcome, no automatic tour ----
     ctx = context(390, 844); pg = ctx.new_page(); errs2 = []; pg.on('pageerror', lambda e: errs2.append(str(e)))

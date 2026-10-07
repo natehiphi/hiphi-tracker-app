@@ -4,9 +4,9 @@
 // Follow-ups after Nate's review (9/19): the page leads with the bill's everyday name when it has one, asks "Where do
 // you stand?" near the top, keeps community numbers to this one bill, follows the same easiest-first ladder as the
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
-import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
+import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
-  pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
+  pickBill, billRef, billPath, yearPrefix, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
@@ -16,7 +16,7 @@ import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing 
 import { myName, myTitles, signedIn } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
-import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing, shareFor, doShare } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
 import { followAsk, profileSaved } from './alerts.js';   // the profile ask after a follow (R-184)
 import { celebrate as moment } from './fx.js';
@@ -43,12 +43,6 @@ function myDistricts() {
 }
 const mineLabel = (l, d) => !l || !d ? '' : l.chamber === 'S' && +l.district === +d.senate ? 'Your senator'
   : l.chamber === 'H' && +l.district === +d.house ? 'Your representative' : '';
-// A bill HIPHI has a position on has its own share page (b/HB2121, built daily by tools/share_pages.mjs), so a link
-// pasted into a text previews with the bill's name, not the tracker's general card (R-067); 404.html catches one built
-// tomorrow. Other bills, and the sandbox, share the tracker's own address.
-// The address to share (core.js billShareUrl, R-110, R-113 and R-169): a bill from an earlier session shares
-// b/2026/HB2121; with an ask, that ask's page (b/HB2121-testify).
-const shareUrl = billShareUrl;
 const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length === 10 ? `+1${d}` : d; };
 
 // Two layouts from the same parts. A phone reads top to bottom: what the bill is, where you stand, where it is, what
@@ -355,7 +349,7 @@ function mainButton(b, x) {
     }
     case 'governor': return btn(x.differs ? 'Tell the Governor what you think' : /oppose/.test(b.hiphi_position || '') ? 'Ask the Governor to veto it' : 'Ask the Governor to sign it',
       { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: GOV_URL, attrs: { 'data-bl-main': 'governor', 'data-bl-mail': '-', target: '_blank', rel: 'noopener' } });
-    case 'law': return btn(x.differs ? 'Share this bill' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
+    case 'law': return btn(x.differs ? 'Share' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
     case 'stopped': {
       // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018). Between
       // sessions too (B3-1, R-199): following the issue is what brings its new bills in January, so it leads, and "Find
@@ -367,7 +361,8 @@ function mainButton(b, x) {
       if (bi) return btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' });
       return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
     }
-    default: return btn('Share this bill', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
+    // After testimony on an open hearing the main button asks a friend (R-205 B2); a live bill with no ask just now is Share.
+    default: return btn(x.act ? 'Ask a friend to speak up' : 'Share', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
   }
 }
 
@@ -522,20 +517,22 @@ export function railHTML(b, x) {
 }
 
 // ---------------- the page ----------------
-// Phones: Back, the number, the follow star and a small menu, in a bar that stays at the top. Wide screens: Back and
-// the number in a plain row (follow, share and copy link sit in the side panel, which stays in view).
+// Phones: Back, the number, Share, the follow star and a small menu, in a bar that stays at the top. Wide screens: Back,
+// the number and Share in a plain row (follow and "Add to a list" sit in the side panel, which stays in view).
+// Share is on the first screen with its word on both (R-205 B1): it hid in "•••" on a phone and sat below the first screen
+// on a laptop, and fewer than four in ten people know a share icon by itself. It opens the same sheet as every share
+// (pub/askfriend.js), where Copy link lives now.
 function topbar(num, b) {
   const on = !!b && S.watch.has(b.id), sp = spaced(num) || 'Bill', w = wide();
-  const tools = b && !w ? `${issuesOf(b).length ? '' : iconBtn('star', `Follow ${sp}`, { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' }, on ? 'on' : '')}
+  const share = b ? `<button type="button" class="bl-sharebtn" data-bl-share="1">${icon('share-2')}<span>Share</span></button>` : '';
+  const tools = b && !w ? `${share}${issuesOf(b).length ? '' : iconBtn('star', `Follow ${sp}`, { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false' }, on ? 'on' : '')}
       <div class="bl-menuwrap">${iconBtn('ellipsis', 'More options', { 'data-bl-menu': '1', 'aria-expanded': 'false', 'aria-controls': 'bl-menu' })}
         <div class="bl-menu" id="bl-menu" hidden>
           <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
-          <button type="button" class="bl-mi" data-bl-copy="1">${icon('link')}<span>Copy link</span></button>
-          <button type="button" class="bl-mi" data-bl-share="1">${icon('share-2')}<span>Share</span></button>
           <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1" data-ab-go="capitol">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
         </div></div>` : '';
   return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1">${icon('arrow-left')}<span>Back</span></button>
-    <p class="bl-num">${esc(sp)}</p>${w ? '' : `<div class="bl-tools">${tools}</div>`}</div>`;
+    <p class="bl-num">${esc(sp)}</p>${w ? (share ? `<div class="bl-tools">${share}</div>` : '') : `<div class="bl-tools">${tools}</div>`}</div>`;
 }
 // ---------------- shared links that name an ask (R-124, R-169) ----------------
 // The ask a share of this bill carries: the friend's ask, whatever this person has already done (Nate 10/5: the card
@@ -566,6 +563,10 @@ function openAsk(b, want, tries = 0) {
   const front = sel => { const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus({ preventScroll: true }); } return !!el; };
   if (want === 'testify' && h && !x.differs) return app.openHelper?.(b.id, h.id);
   if (want === 'email' && h) return app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id });
+  // Come to the hearing (R-205): its when and where open on the action card, with "I plan to go" in front of them.
+  const ahead = (x.hs || []).filter(y => y.status !== 'cancelled' && new Date(y.scheduled_at) > Date.now()).sort((p, q) => String(p.scheduled_at).localeCompare(String(q.scheduled_at)))[0];
+  if (want === 'attend' && ahead) { const k = `${b.id}|${ahead.id}`; S.moreOpen?.add(k); S.goOpen?.add(k); app.render();
+    return requestAnimationFrame(() => front('.gopanel [data-attend], [data-go][aria-expanded="true"]')); }
   if (want === 'ask' && ['ask', 'hold', 'remind'].includes(x.kind)) return app.openMail?.({ mode: 'email', bill: b.id, code: x.code, ...(x.kind === 'remind' ? { remind: true } : {}) });
   if (want === 'floor' && x.kind === 'floor') {
     const m = legMoments(b, { all: true }).find(y => y.kind === 'floor');
@@ -593,7 +594,10 @@ const whenWord = iso => { const days = (new Date(iso) - Date.now()) / 864e5, d =
 S.blLooking ??= new Set();   // bills where the newcomer said "Just looking" this visit
 function newcomer(b, x) {
   if (!firstVisit()) return '';
-  if (S.blLooking.has(b.id)) return `<p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the 2-minute tour', { kind: 'text', sm: true, attrs: { 'data-bl-tour': '1' } })}</span></p>`;
+  // After "Just looking", the lighter step, once, and only where there is something to ask a friend (R-205 B3): asking to
+  // share before someone has seen the action pulls them away from it, so this comes only after their no.
+  if (S.blLooking.has(b.id)) return `${asking(x) && !didKind(b, x.act?.h, 'share') ? `<p class="bl-tourline bl-lookshare">${icon('share-2')}<span>Can’t do it today? Ask someone who might. ${btn('Ask a friend to speak up', { kind: 'text', sm: true, attrs: { 'data-bl-share': '1' } })}</span></p>` : ''}
+    <p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the 2-minute tour', { kind: 'text', sm: true, attrs: { 'data-bl-tour': '1' } })}</span></p>`;
   if (!S.blNew.has(b.id)) logVisit('arrive', 'view', { path: 'link' });   // counted privately (R-023 decision 8)
   S.blNew.add(b.id);
   const h = x.act?.h, i = issuesOf(b)[0];
@@ -732,12 +736,12 @@ function stanceInner(b, x) {
     <div class="chips" role="group" aria-labelledby="bl-stance-h">${STANCES.map(([v, label]) => `<button type="button" class="chip" data-bl-stance="${v}" aria-pressed="${mine === v}">${mine === v ? icon('check') : ''}${label}</button>`).join('')}</div>
     <p class="bl-stnote">${mine ? 'Saved. ' : ''}${stanceWho()}</p>${own}`;
 }
-// Follow, share, copy link and "Add to a list" (R-013) on a wide screen (a phone has them in the top bar).
+// Follow and "Add to a list" (R-013) on a wide screen (a phone has them in the top bar). Share moved up to the page's own
+// top row, on the first screen (R-205 B1); Copy link is in its sheet.
 function sideTools(b) {
   const on = S.watch.has(b.id), own = !issuesOf(b).length;   // a bill with an issue is followed by its issue (above)
-  return `<div class="bl-stools" role="group" aria-label="${own ? 'Follow and share' : 'Share'}">
+  return `<div class="bl-stools" role="group" aria-label="${own ? 'Follow and lists' : 'Lists'}">
     ${own ? btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: on ? 'on' : '', attrs: { 'data-bl-star': '1', 'aria-pressed': on ? 'true' : 'false', title: on ? 'Following. Press to stop following.' : null } }) : ''}
-    ${btn('Share', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-bl-share': '1' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-bl-copy': '1' } })}
     ${btn('Add to a list', { kind: 'text', sm: true, icon: 'list-plus', attrs: { 'data-bl-addto': '1' } })}</div>`;
 }
 // Community numbers live here, inside one bill, and nowhere wider (Nate, 9/19): how its followers lean, and what has
@@ -982,20 +986,13 @@ async function flipFollow(b, { quiet = false } = {}) {
   if (was) keep.forEach(o => { if (!S.outcomes[o.hearing_id]) S.outcomes[o.hearing_id] = o; });
   else if (S.bills.some(y => y.id === b.id)) delete S.xh[b.id];
 }
-// Share counts as an action once the share sheet finishes, or the text is copied (Nate, 9/18: every action counts).
-// One share everywhere (R-113): the words, the deadline and the bill's own share page come from shareFor (actions.js).
+// Share counts as an action once it goes, copies too (Nate, 9/18: every action counts). One sheet for every share (R-205,
+// pub/askfriend.js): a hearing ahead offers its three asks, the one this person did first; otherwise the bill's ask of the
+// moment (shareAsk). The words, the deadline and the share page come from shareFor (actions.js), as before (R-113).
 async function shareBill(b, x) {
-  const h = x.act?.h || null;
-  const how = await doShare(shareFor(b, h, { law: !!x.law, differs: !!x.differs, ask: shareAsk(b, x), chamber: x.st?.chamber }));
-  if (!how) { if (!navigator.share) toast('Sharing is not available here. Use Copy link instead.'); return; }
-  const copied = how === 'copied';
-  if (!didKind(b, h, 'share')) await markDone(b.id, h?.id || '', 'share', true, { quiet: copied });
-  if (copied) yay('Copied. Paste it into a text or email. Mahalo for spreading the word.');
-  app.render();
-}
-async function copyLink(b) {
-  try { await navigator.clipboard.writeText(shareUrl(b, shareAsk(b))); yay('Link copied'); }
-  catch { toast('We could not copy the link. Try Share instead.'); }
+  const h = x.act?.h || null, did = h ? ['testimony', 'email', 'attend'].find(k => didKind(b, h, k)) || '' : '';
+  const how = await (await import('./askfriend.js')).askFriend({ b, h, did, ask: h ? '' : shareAsk(b, x), acted: !!did, law: !!x.law, differs: !!x.differs, chamber: x.st?.chamber });
+  if (how) app.render();
 }
 // The overflow menu is a small popover. It opens and closes without a re-render so focus stays put; Escape and a
 // click outside close it. These listeners are added once for the life of the page.
@@ -1104,9 +1101,8 @@ export default {
       app.render();
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
-    root.querySelector('[data-bl-copy]')?.addEventListener('click', () => { setMenu(false, true); copyLink(b); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));
-    root.querySelector('[data-bl-share]')?.addEventListener('click', () => { setMenu(false, true); shareBill(b, x); });
+    root.querySelectorAll('[data-bl-share]').forEach(el => el.addEventListener('click', () => { setMenu(false); shareBill(b, x); }));
     root.querySelector('[data-bl-close]')?.addEventListener('click', () => setMenu(false));
     root.querySelectorAll('[data-bl-compose]').forEach(el => el.addEventListener('click', () => openComposer(el.dataset.blCompose)));
     // A mailto opens the mail app and leaves this page as it was; a moment later, ask whether it went.

@@ -125,7 +125,7 @@ with sync_playwright() as pw:
         send_step(p, tag, wide, to_expect=None, subj_rx=r'^HB 2121: please pass it \(hearing ')
         bid, hid = card.split('|')
         check(f'{bid}|{hid}|email' in done(p), f'{tag}: counted as before: <bill>|<hearing>|email')
-        tap(p, '^Done'); p.wait_for_timeout(1500)
+        (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         check(p.locator('#hp-dlg').count() == 0, f'{tag}: Done closes it')
         emailed = p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); return c ? c.innerText : ''; }", card)
         check('Emailed the chair' in emailed, f'{tag}: the card says "Emailed the chair"')
@@ -147,7 +147,7 @@ with sync_playwright() as pw:
         send_step(p, tag, wide, to_expect=tos, subj_rx=r'^HB 1563: please give it a hearing$')
         d = done(p)
         check(f'{ID["HB1563"]}||email' in d and f'{ID["HB1563"]}|HHS/EIG|ask' in d, f'{tag}: counted on the bill, with the committee ask mark ({[x for x in d if ID["HB1563"] in x]})')
-        tap(p, '^Done'); p.wait_for_timeout(1500)
+        (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         check(p.locator('[data-bl-main="ask"]:visible').count() == 0, f'{tag}: the bill page no longer asks')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()
@@ -222,7 +222,7 @@ with sync_playwright() as pw:
         check(f'{ID["HB1563"]}|cmte-HHS/EIG|ask' in done(p), f'{tag}: that moment is marked done')
         d = done(p)   # 089 (R-087): an email to your own legislators is counted as its own kind, not as a chair email
         check(f'{ID["HB1563"]}||legislators' in d and f'{ID["HB1563"]}||email' not in d, f'{tag}: counted as an email to your own legislators ({[x for x in d if ID["HB1563"] in x]})')
-        tap(p, '^Done'); p.wait_for_timeout(1500)
+        (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         again = p.evaluate("[...document.querySelectorAll('[data-sp=moment] [data-speak]')].map(e => e.dataset.speak)")
         check(not any(k.startswith(ID['HB1563']) for k in again), f'{tag}: and not offered again ({again})')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
@@ -262,7 +262,7 @@ with sync_playwright() as pw:
         tos = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-toaddr')].map(e => e.innerText.trim())")
         send_step(p, tag, wide, to_expect=tos, subj_rx=r'^A question from your constituent in Senate District \d+ and House District \d+$')
         check(p.evaluate("JSON.parse(localStorage.getItem('hiphi_intro') || 'null')?.how") == 'sent', f'{tag}: remembered as sent')
-        tap(p, '^Done'); p.wait_for_timeout(1500)
+        (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         visit(p, '/'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: never offered again')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()

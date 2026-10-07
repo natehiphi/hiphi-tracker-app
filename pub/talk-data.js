@@ -428,8 +428,8 @@ export const TALKS = [
 
   { slug: 'share-a-bill', group: 'tracker', title: 'How do I share a bill with a friend?',
     turns: [
-      { q: 'How do I share a bill with a friend?', a: 'On the bill’s page, choose **Share** or **Copy link**. The link shows the bill’s name when you send it in a text or a post.' },
-      { q: 'What will my friend see?', a: 'The bill’s page, with a short welcome if they’re new here, and the easiest way to help.' },
+      { q: 'How do I share a bill with a friend?', a: 'On the bill’s page, tap **Share** at the top. When there’s a hearing, you pick what your friend is asked to do: send testimony, email the committee, or go to the hearing. On a phone it opens your phone’s own share menu; on a computer you can email it or copy it. Right after you speak up, **Ask a friend to speak up** does the same.' },
+      { q: 'What will my friend see?', a: 'A card with what they’re asked to do and by when. One tap opens the steps for them, and the tracker helps them do it.' },
       { q: 'Does sharing really help?', a: 'Yes. Every person who hears about a bill is one more who can speak up.' },
     ],
     related: ['what-follow-does', 'does-testimony-matter', 'what-is-testimony'] },

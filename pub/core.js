@@ -81,14 +81,14 @@ export async function loadActions(ids) {
   S.billStances = { ...(S.billStances || {}), ...Object.fromEntries(st.map(r => [r.bill_id, r])) };
   S.totals = {};   // community-wide totals are no longer shown (9/19); numbers live inside one bill or one hearing
 }
-export async function markDone(billId, hearingId, kind, on = true, { quiet = false } = {}) {
+export async function markDone(billId, hearingId, kind, on = true, { quiet = false, sp = '' } = {}) {   // sp: a share's way out (R-205 K2)
   const k = doneKey(billId, hearingId, kind);
   const firstTestimony = on && kind === 'testimony' && ![...S.done].some(x => x.endsWith('|testimony'));   // across devices once signed in
   if (on) { S.done.add(k); S.doneAt[k] = new Date().toISOString(); S.justDone = billId + '|' + (hearingId || ''); setTimeout(() => { S.justDone = null; }, 1200); }
   else { S.done.delete(k); delete S.doneAt[k]; }
   saveDone(); saveDoneAt();
   if (on && !quiet) { celebrate(kind, firstTestimony); }
-  if (on) app.onAct?.(kind);   // counted privately, its kind only (visitlog.js logAct, migration 078)
+  if (on) app.onAct?.(kind, sp ? { sp } : undefined);   // counted privately, its kind only (visitlog.js logAct, migration 078)
   if (on && hearingId) abStep(hearingId, kind);   // another step where the rank test was met (R-135)
   if (on) suggestEvent(billId, 'acted');   // acted on a bill it had suggested (R-094)
   if (on && !S.session) nudge('action');
@@ -979,10 +979,13 @@ export async function ensureBill(num, year) {
 // start as if new (R-067): an action they marked counts as having been here.
 const siteRoot = () => `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
 // The address to share a bill at, for one ask (R-169: the friend's card leads with the ask and the link opens it):
-// 'testify' | 'ask' | 'floor' | 'conference' | 'governor' | 'follow', or '' for the bill's ask of the moment. A bill HIPHI
-// has a stance on has a page per ask (b/HB2121-testify, tools/share_pages.mjs); any other bill, and the sandbox, share
-// the tracker's own address, opening the same thing (#/bill/HB2121/testify; following opens the bill's issue).
-export const SHARE_ASKS = ['testify', 'ask', 'floor', 'conference', 'governor', 'follow'];
+// 'testify' | 'email' | 'attend' | 'ask' | 'floor' | 'conference' | 'governor' | 'follow', or '' for the bill's ask of the
+// moment. A bill HIPHI has a stance on has a page per ask (b/HB2121-testify, tools/share_pages.mjs); since R-205 (C5) any
+// other bill has its hearing asks' pages while a hearing is ahead (testify, email: the committee email, attend: going in
+// person); anything else, and the sandbox, share the tracker's own address, opening the same thing (#/bill/HB2121/testify;
+// following opens the bill's issue).
+export const SHARE_ASKS = ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor', 'follow'];
+export const HEARING_ASKS = ['testify', 'email', 'attend'];
 // The practice copy (in session) has share pages of its own, b/demo/ and i/demo/, built from its data at its day in March,
 // so a share made there previews the real card for the ask (Nate 10/5: "the share card is not specific about the action").
 const DEMO_PAGES = DEMO && !SEASON_OFF;
@@ -993,7 +996,7 @@ const DEMO_PAGES = DEMO && !SEASON_OFF;
 const yearRef = b => `${b.session_year ? `${b.session_year}/` : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 export const billShareUrl = (b, ask = '') => {
   const a = SHARE_ASKS.includes(ask) ? ask : '';
-  if (b.hiphi_position && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? `demo/${billRef(b)}` : yearRef(b)}${a ? `-${a}` : ''}`;
+  if ((b.hiphi_position || (!DEMO && HEARING_ASKS.includes(a))) && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? `demo/${billRef(b)}` : yearRef(b)}${a ? `-${a}` : ''}`;
   const i = a === 'follow' ? issuesOf(b)[0] : null;
   return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : `#/bill/${yearRef(b)}` + (a && a !== 'follow' ? `/${a}` : '')}`;
 };

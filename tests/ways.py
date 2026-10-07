@@ -64,7 +64,7 @@ with sync_playwright() as pw:
         ok(p.locator('.st-wayspage').count() == 1 and p.inner_text('#st-h') == 'Three ways to help this week', f'{tag}: "Three ways to help this week" ({p.inner_text("#st-h")})')
         cs = cards(p); titles = [x[0] for x in cs]
         ok(len(cs) == 3, f'{tag}: three cards ({titles})')
-        ok(titles[0].startswith('Write testimony') and titles[1].startswith(('Email the committee chair', 'Ask the chair', 'Ask the chairs')) and titles[2].startswith('Send it to a friend'),
+        ok(titles[0].startswith('Write testimony') and titles[1].startswith(('Email the committee chair', 'Ask the chair', 'Ask the chairs')) and titles[2].startswith('Ask a friend to speak up'),
            f'{tag}: testimony, an email to the chair, send to a friend ({titles})')
         bills = [x[1].split(':')[0].split(' needs a hearing')[0] for x in cs]
         ok(len(set(bills)) == 3, f'{tag}: three different bills ({bills})')
@@ -81,8 +81,10 @@ with sync_playwright() as pw:
             p.locator('[data-stway="1"]').click(); p.wait_for_timeout(1500)
             ok(p.locator('#hp-dlg[open]').count() > 0, f'{tag}: the email card opens the email walkthrough')
             ok(back_to_page(p), f'{tag}: and comes back')
-            p.locator('[data-stway="2"]').click(); p.wait_for_timeout(1500)
-            ok(p.locator('.st-way.done').count() == 1 and 'Link copied. Paste it in a text or email.' in p.inner_text('.st-way.done'), f'{tag}: Send it to a friend copies the link here (no share sheet), and says so, not "Sent"')
+            # The share sheet (R-205): no share menu in a headless browser, so the box; Copy message, then Done.
+            p.locator('[data-stway="2"]').click(); p.wait_for_selector('dialog.af-sheet[open]', timeout=8000); p.wait_for_timeout(600)
+            p.locator('dialog.af-sheet [data-af="copy"]').click(); p.wait_for_timeout(500); p.locator('dialog.af-sheet [data-af="close"]').first.click(); p.wait_for_timeout(900)
+            ok(p.locator('.st-way.done').count() == 1 and 'Copied. Paste it in a text or email.' in p.inner_text('.st-way.done'), f'{tag}: Ask a friend opens the share sheet; a copy there marks the card, and it says Copied, not "Sent"')
             p.locator('[data-stnext]').click(); p.wait_for_timeout(2500)
             ok(p.locator('[data-stdone]').count() == 1, f'{tag}: Next goes on to "You\'re all set!"')
             ok('You sent it to a friend' in p.inner_text('.st-did'), f'{tag}: and "Here\'s what you did today" lists it (C-7)')
@@ -103,7 +105,7 @@ with sync_playwright() as pw:
         walk(p, 'act.three', '&season=off', addr=True)
         cs = cards(p); titles = [x[0] for x in cs]
         ok(p.inner_text('#st-h') == 'Three ways to help before January', f'{tag}: between sessions, "Three ways to help before January"')
-        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Send it to a friend') and titles[2] == 'Say why it matters to you',
+        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Ask a friend to follow it') and titles[2] == 'Say why it matters to you',
            f'{tag}: a hello to their two legislators, send to a friend, why it matters ({cs})')
         p.screenshot(path=os.path.join(OUT, f'{tag}_off.png'))
         if w < 600:

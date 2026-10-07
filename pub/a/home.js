@@ -317,7 +317,7 @@ function view() {
   return `<div class="ah">
     ${extras.account()}
     <header class="a-top"><p class="a-date">${esc(date)}</p><h1>Aloha${name ? `, ${esc(name)}` : ''}</h1></header>
-    ${extras.draft(new Set(items.slice(0, 1).map(x => x.h.id)))}${goSoon}
+    ${extras.draft(new Set(items.slice(0, 1).map(x => x.h.id)))}${goSoon}${extras.friend()}
     ${first}
     ${calm && !hasWeek ? '' : weekBlock()}
     ${!items.length && !due.length && asks.length > 0 ? '' : asksBlock(asks)}

@@ -350,7 +350,7 @@ function ctaHTML(E) {
     case 'hold': return btn('mail', 'Email the chair · 2 min', '');
     case 'law': return `<span class="lx-mcta lx-done">${icon('circle-check')}<span>Became law</span></span>`;
     case 'stopped': return `<span class="lx-mcta lx-stop">${icon('archive')}<span>Stopped this session</span></span>`;
-    default: return btn('share-2', 'Share this bill', '');
+    default: return btn('share-2', 'Share', '');
   }
 }
 // The status line: the bill page's own sentence, except that a hearing ahead is said the prototype's short way

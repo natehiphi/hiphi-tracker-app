@@ -22,7 +22,7 @@ const CARDS = {
   learn: { icon: 'route', title: 'The three moments when you can help', sub: 'One minute, on a real bill: when a short note helps most, and why.',
     label: 'Show me', href: '#/learn/bill' },
   share: { icon: 'share-2', title: 'Bring a friend along', sub: 'Bills move when more neighbors speak up. Send the tracker to one person who cares about what you do.',
-    label: 'Share the tracker', act: 'share' },
+    label: 'Share', act: 'share' },
 };
 // Each plan's order: what its first visit left out comes first.
 const ORDER = { p1: ['legs', 'learn', 'share'], p2: ['legs', 'share'], p3: ['learn', 'share'], p4: ['legs', 'learn'], p5: ['legs', 'learn', 'share'] };

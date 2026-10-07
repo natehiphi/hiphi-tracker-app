@@ -1,16 +1,16 @@
-// The share line and the keep line (R-113, R-123, R-125): "Know someone who cares about <issue>? Send it" and "Keep your
+// The share line and the keep line (R-113, R-123, R-125): "Know someone who cares about <issue>? Share" and "Keep your
 // issues on any phone or browser", shown on the finale and on Home's first-time card. Their own module (R-122): Home
 // imported them from start.js, which pulled the whole first visit and its lessons into every returning visit.
 import { S, esc, icon, toast, issuesLink, calendarUrl, followedIssues } from './kernel.js';
 import { btn } from './ui.js';
 import { logAct } from './visitlog.js';
 
-// "Know someone who cares about <issue>? Send it" (R-113): the first followed issue's own share page, at the moment
+// "Know someone who cares about <issue>? Share" (R-113; the one word since R-205 S3): the first followed issue's own share page, at the moment
 // people are proud. One line, a text button; nothing else on the finale asks for anything.
 export function shareLine(cls = 'st-share') {
   const i = followedIssues()[0]; if (!i) return '';
   const did = S.chips['share:' + i.id];
-  return `<p class="${cls}">${icon('share-2')}<span>Know someone who cares about ${esc(i.name)}? ${btn(did ? 'Link copied' : 'Send it', { kind: 'text', sm: true, icon: did ? 'check' : '', attrs: { 'data-stshare': i.id } })}</span></p>`;
+  return `<p class="${cls}">${icon('share-2')}<span>Know someone who cares about ${esc(i.name)}? ${btn(did ? 'Copied' : 'Share', { kind: 'text', sm: true, icon: did ? 'check' : 'share-2', attrs: { 'data-stshare': i.id } })}</span></p>`;
 }
 // "Keep your issues on any phone": the My issues link (R-123) and, for a followed issue, its calendar feed (R-125).
 // Copy, or text it to yourself (an sms: link with the body filled in; the phone's own app sends it).
@@ -33,7 +33,8 @@ export function wireShareLine(root) {
     const i = S.issueById.get(el.dataset.stshare); if (!i) return;
     const { shareIssue } = await import('./actions.js');   // with the bill page's helpers, on first use (R-122)
     const how = await shareIssue(i);
-    if (how === 'copied') { S.chips['share:' + i.id] = true; el.innerHTML = `${icon('check')}<span>Link copied</span>`; }
-    else if (how === 'shared') el.innerHTML = `${icon('check')}<span>Sent. Mahalo!</span>`;
+    // The sheet (R-205) said what happened; the button keeps it in a word.
+    if (how === 'copied') { S.chips['share:' + i.id] = true; el.innerHTML = `${icon('check')}<span>Copied</span>`; }
+    else if (how) el.innerHTML = `${icon('check')}<span>Sent. Mahalo!</span>`;
   });
 }

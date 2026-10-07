@@ -116,7 +116,8 @@ export function parseRoute(h = location.hash) {
     // again at HB 1 every January (R-110).
     // #/bill/HB1780/testify (or /email) opens the bill with its walkthrough already open: for emails, texts and the calendar feed (R-124).
     // /ask, /floor, /conference and /governor open those asks the same way: the share pages' links (R-169, bill.js openAsk).
-    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'ask', 'floor', 'conference', 'governor'].includes(open) ? open : undefined }; }
+    // /attend (R-205) opens the hearing's when-and-where, for a friend asked to come to it.
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor'].includes(open) ? open : undefined }; }
     // #/follow/flavored-tobacco-ban,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
     case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean) };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };

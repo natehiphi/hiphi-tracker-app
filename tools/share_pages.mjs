@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { billState, asksFor, cardFor, committeeWords } from './share_cards.mjs';
+import { billState, asksFor, cardFor, committeeWords, HEARING_ASKS } from './share_cards.mjs';
 import { picBuilder } from './share_pic_pages.mjs';
 import { demoSets, wordsMap } from './share_pic_data.mjs';
 import { ARMS } from './share_pics.mjs';
@@ -79,6 +79,8 @@ ${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta property="og:i
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (p.get(k)) u.searchParams.set(k, p.get(k).slice(0, 60)); });
     /* the picture version a sharer's link carried (R-183), so the friend's arrival is counted for it */
     if (/^[a-z0-9-]{2,20}$/.test(p.get('pic') || '')) u.searchParams.set('pic', p.get('pic'));
+    /* the way the link was sent (R-205: sheet, email, copy, alert), counted with the friend's arrival and actions */
+    if (/^[a-z]{2,10}$/.test(p.get('sp') || '')) u.searchParams.set('sp', p.get('sp'));
     t = u.href; } catch (e) { /* the plain address */ }
   location.replace(t); })();
 </script>
@@ -151,8 +153,9 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
       const c = card(ask), cPic = pic(c.image, ctx.issue);
       want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(1, c.hash), noindex }));
       if (y && !dir) want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(2, c.hash) }));
-      // The picture versions that fit this page (R-183): p/<version>/b/HB1573-testify, and under the year as well.
-      if (pv && pv.arms.size && (!pv.only || pv.only.has(n))) {
+      // The picture versions that fit this page (R-183): p/<version>/b/HB1573-testify, and under the year as well. The
+      // committee email and the hearing (R-205) have only today's picture: no version was designed for them.
+      if (pv && pv.arms.size && (!pv.only || pv.only.has(n)) && ask !== 'email' && ask !== 'attend') {
         const inp = { b, ask, state, card: c, ctx, words: ctx.issue ? pv.words.get(ctx.issue.id) || null : null, counts: pv.counts(b, ctx.issue), practice: pv.practice };
         pics.add(`b/${sub}${n}-${ask}`, c, f => `${'../'.repeat(f)}track.html?${query}${c.hash}`, inp, pv.arms, noindex);
         if (y && !dir) pics.add(`b/${y}/${n}-${ask}`, c, f => `${'../'.repeat(f)}track.html?${query}${c.hash}`, inp, pv.arms, noindex);
@@ -178,6 +181,23 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
       pics.add(`i/${sub}${i.slug}`, card, f => `${'../'.repeat(f)}track.html?${query}#/issue/${i.slug}`, inp, pv.arms, noindex);
     }
     if (!dir) for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`i/${was}.html`, want.get(`i/${i.slug}.html`));
+  }
+}
+// A bill the team does not track (no position) can still have a hearing, and anyone can testify on it (R-205 C5): while one
+// is ahead it gets its hearing asks' pages too, so a friend's preview names the ask on any bill. Only the year form
+// (b/2027/HB123-testify), which is what the tracker shares; the 404 page sends any other form on. Like every live page,
+// they are kept after the hearing (C5-2).
+{
+  const soon = Date.now(), have = new Set(bills.map(b => b.id));
+  const ids = [...new Set(hearings.filter(h => new Date(h.scheduled_at).getTime() > soon && !have.has(h.bill_id)).map(h => h.bill_id))];
+  for (let k = 0; k < ids.length; k += 100) {
+    const some = await rows(`public_all_bills?select=id,bill_number,session_year,chamber,stage,committee,referrals,origin_stops,last_action,died_deadline,hiphi_nickname,hiphi_summary,description,hiphi_position,hiphi_issues&id=in.(${ids.slice(k, k + 100).join(',')})`);
+    for (const b of some) {
+      const n = b.bill_number.replace(/\s/g, ''), y = +b.session_year || 0; if (!y) continue;
+      const state = billState(b, { hearings: hearingsBy.get(b.id) || [], outcomes, deadlineFor: deadlineFor(b), now: soon });
+      if (!state.open) continue;
+      for (const ask of HEARING_ASKS) { const c = cardFor(b, ask, state, { committees, issue: null }); want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: `og/${c.image}.jpg`, to: `../../track.html?via=share${c.hash}` })); }
+    }
   }
 }
 sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issues, pic: { arms: liveArms, words: liveWords, practice: false,

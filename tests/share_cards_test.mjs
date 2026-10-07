@@ -67,5 +67,15 @@ ok(pic(heard, 'testify') === 'testify' && pic(waiting, 'ask') === 'ask' && pic(h
 ok(pic({ ...base, id: 'p1', bill_number: 'HB1', stage: 'second_floor' }, 'floor') === 'floor-yes' && pic({ ...base, id: 'p2', bill_number: 'HB3', stage: 'governor', hiphi_position: 'oppose' }, 'governor') === 'governor-veto', 'the floor and the Governor pictures follow HIPHI\'s side');
 ok(pic({ ...base, id: 'p3', bill_number: 'HB1573', stage: 'enacted' }, 'follow') === 'law' && pic({ ...base, id: 'p4', bill_number: 'HB1523', stage: 'dead' }, 'follow') === 'follow', 'a law has the good-news picture, a stopped bill the follow one');
 
+// 8. The two other ways to help before a hearing (R-205 C2): the committee email and the hearing itself, each its own page,
+// only while a hearing is ahead; the room as the page says it.
+r = run(heard, [{ id: 'h3', bill_id: 'b1', committee: 'HHS', status: 'scheduled', scheduled_at: '2026-03-20T19:00:00Z', testimony_deadline: '2026-03-18T19:30:00Z', room: 'Conference Room 229' }]);
+ok(r.asks.includes('email') && r.asks.includes('attend'), `a hearing ahead also gets email and attend pages: ${r.asks}`);
+c = r.card('email');
+ok(c.title === 'Email the committee before Fri, Mar 20: FDA proof required to sell e-cigarettes (HB 1573)' && /takes about 2 minutes/.test(c.desc) && c.hash === '#/bill/2026/HB1573/email' && c.image === 'email', `the committee email: ${c.title} / ${c.hash}`);
+c = r.card('attend');
+ok(c.title === 'Come to the hearing on Fri, Mar 20: FDA proof required to sell e-cigarettes (HB 1573)' && /at 9:00 AM, Room 229, at the State Capitol\. Anyone can attend/.test(c.desc) && c.hash === '#/bill/2026/HB1573/attend' && c.image === 'attend', `the hearing: ${c.title} / ${c.desc}`);
+ok(!run(waiting).asks.includes('email') && !run(waiting).asks.includes('attend'), 'no hearing ahead, no email or attend page');
+
 console.log(bad ? `\n${bad} FAILED` : '\nAll passed');
 process.exit(bad ? 1 : 0);

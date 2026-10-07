@@ -367,6 +367,7 @@ anything that lengthens one needs a reason in the commit message.
 | Public: an email sent again (its email kept from the bill's last step) | 4 steps (R-153, 10/4: Send my email again, Use my email, read it and Next, open it in the mail app; "Did you send it?" closes it as for any email) |
 | Public: the one follow-up to the same chair, a week before the deadline | 3 steps (R-153: Follow up with the chair, read it and Next, open it in the mail app; offered only once their email is 5 days old; Nate: "Yes for now, but needs to be reconsidered") |
 | Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
+| Public: ask a friend to speak up, right after acting (from the Mahalo, once the profile ask is answered) | 3 steps on a phone (R-205, 10/7: Ask a friend to speak up, then Send to a friend when a hearing offers more than one ask, then the phone's own menu, where the person and Send are the phone's). 2 on a laptop: Ask a friend to speak up, then an Email it button or Copy message |
 | Public: sign up for alerts (from the moment it is offered) | 3 steps with the code (R-155 and R-176, 10/5: Nate chose "Code at sign-up", then "Code everywhere": type the number, Text me a code, type the code, which sends itself at six digits and which phones offer above the keyboard; the code is the proof the number is theirs and cannot be removed). 2 until codes are on (R-146, 10/4: a mobile number is the box shown first, type it and Text me; email is one tap more, behind "Prefer email?". It was "give an email address", also 2) |
 | Staff: open app → first thing due is on screen | 1 step |
 | Staff: bill number in hand → that bill's page | 2 steps |
@@ -563,6 +564,14 @@ happens: after an issue page's or a category's Follow it rises in the alerts she
 after a letter it sits right under the thank-you, above "What happens next" (it had been under the first phone screen,
 so "Done" came first). Still once per visit, and no second ask on Home after a skip (Nate). The old "Get alerts" ask
 is kept as a switched-off version to test later (the test `save`).
+
+**Then the share ask, since 10/7 (R-205, Nate: "the profile ask stays first", "Do not ask them to keep sharing after
+they've done it").** On a letter's or an email's Mahalo the profile ask's two answers sit in the bar, "Not now" and the box's
+button, so "Done" never closes the screen before what comes next; once it is answered (or there is none) "Bring one friend
+along" takes its place under the thank-you, "Ask a friend to speak up" the bar's main button. One ask in view at a time,
+still; after a share, one quiet line, and nothing asks again for that hearing. *Reason:* the thank-you is where sharing
+happens (about a third of visitors to a thank-you page share, ShareProgress 2017; the urge fades within hours), and a
+second ask on the same screen outperforms one behind a click (NextAfter); evidence **moderate**, practitioner data.
 
 **The first visit's words, since 10/6 (R-188, Nate: "needs to significantly improve").** One sentence under the
 heading, and it says only what the box can't: what a profile is in plain words and why it matters now ("Your profile

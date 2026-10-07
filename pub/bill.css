@@ -16,6 +16,14 @@
 .bl-page .bl-num { flex: 1 1 auto; min-width: 0; text-align: center; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; }
 .bl-page .bl-tools { flex: none; min-width: 96px; display: flex; align-items: center; justify-content: flex-end; }
 .bl-page .bl-tools .iconbtn[aria-busy="true"], .bl-page .bl-stools .btn[aria-busy="true"] { opacity: .6; }
+/* Share, with its word, on the first screen (R-205 B1): a small outlined pill beside the star and "•••", 44px tall for a
+   thumb (A-6), blue like every control (A-12); on a laptop at the right end of the page's own top row. */
+.bl-page .bl-sharebtn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill);
+  color: var(--p700); font: 700 var(--t14)/1 var(--font); box-shadow: inset 0 0 0 1.5px var(--p700); background: var(--n0); flex: none; }
+.bl-page .bl-sharebtn:hover { background: var(--p50); }
+.bl-page .bl-sharebtn:active { background: var(--p100); transform: scale(.98); }
+.bl-page .bl-sharebtn .ic { width: 18px; height: 18px; }
+.bl-page .bl-tools .bl-sharebtn { margin-right: var(--s4); }
 .bl-page .bl-menuwrap { position: relative; }
 .bl-page .bl-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 236px; display: flex; flex-direction: column;
   padding: var(--s4); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
@@ -276,6 +284,7 @@
   .bl-page .bl-back { min-width: 44px; padding: 0; justify-content: center; }
   .bl-page .bl-back span { display: none; }
   .bl-page .bl-num { white-space: normal; font-size: var(--t16); line-height: 1.1; }
+  .bl-page .bl-sharebtn { padding: 0 var(--s8); }
   .bl-page .bl-menu { min-width: 0; width: calc(100vw - 2 * var(--s8)); right: calc(-1 * var(--s4)); }
   .bl-page .bl-name { overflow-wrap: anywhere; }
 }
@@ -329,6 +338,7 @@
 .bl-page.bl-wide .bl-topw::before { display: none; }
 .bl-page.bl-wide .bl-topw .bl-back { min-width: 0; }
 .bl-page.bl-wide .bl-topw .bl-num { flex: none; text-align: left; padding-left: var(--s12); border-left: 1px solid var(--n300); }
+.bl-page.bl-wide .bl-topw .bl-tools { margin-left: auto; min-width: 0; }
 .bl-page.bl-wide .bl-main > :first-child { margin-top: 0; }
 .bl-page.bl-wide .bl-head h1.bl-nick { font-size: var(--t36); letter-spacing: -.025em; line-height: 1.1; }
 .bl-page.bl-wide .bl-lede { font-size: var(--t18); margin-top: 0; }

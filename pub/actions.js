@@ -84,7 +84,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const askBtn = inPerson ? btn('When and where to go', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'data-asked': '1', 'aria-expanded': S.goOpen.has(k) } }) + (S.goOpen.has(k) ? goPanel(b, h, k) : '') : '';
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
-    share: btn('Share with a friend · 1 min', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
+    share: btn('Ask a friend to speak up', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
   const primary = asking ? followBtn
     : R ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
@@ -92,7 +92,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. It takes a few minutes; the first time, the Capitol site asks for a free account.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
     email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     attend: inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
-    share: moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
+    share: moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
   // Their own senator or representative on this committee (R-080): a row, never the main button, since testimony and the
   // chair decide a hearing first.
@@ -104,7 +104,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     asking ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. It takes a few minutes.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
     differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
-    moreRow('share-2', 'Share with a friend · 1 min', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
+    moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
     !inPerson && !planned && S.goOpen.has(k) ? goPanel(b, h, k) : '',
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
@@ -314,9 +314,16 @@ export function shareFor(b, h, { acted = false, law = false, differs = false, as
   const when = due ? ` Testimony is due ${due}.` : heard ? ` The committee hears it ${heard}.` : '';
   // The share test (R-135, variant.js 'share'): the 'deadline' version leads with the deadline. Only where there is one to
   // lead with, and then the link says which message it was (?via=share-deadline), so a friend's arrival is credited to it.
-  const testing = !law && !!(due || heard), lead = testing && armOf('share') === 'deadline', tag = testing ? shareTag() : '';
+  // Testimony only: the committee email and the hearing (R-205) have their own words, the same in both versions.
+  const testing = !law && !!(due || heard) && a === 'testify', lead = testing && armOf('share') === 'deadline', tag = testing ? shareTag() : '';
   const head = due ? `Testimony on ${named} closes ${due}.` : `The committee hears ${named} ${heard}.`;
-  const text = law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
+  // The two other ways to help before a hearing (R-205): a short email to the committee, and going in person.
+  const hwhen = h && new Date(h.scheduled_at) > Date.now() ? dayWord(h.scheduled_at) : '';
+  const hline = a === 'email' ? `${hwhen ? `The committee hears it ${hwhen}. ` : ''}A short email to the committee before then takes about 2 minutes, and the tracker helps you write it.`
+    : a === 'attend' ? `${hwhen ? `The committee hears it ${hwhen} at ${timeWord(h.scheduled_at)}, ${roomLabel(h.room)}, at the State Capitol. ` : ''}Anyone can come and listen, and the tracker says where to go.` : '';
+  const text = hline ? (acted ? `I just spoke up on a bill I care about: ${named}. ${hline} ${a === 'attend' ? 'Want to come?' : 'Will you add your voice too?'}`
+      : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${hline}`)
+    : law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
     : lead && acted ? `${head} I just spoke up, and it took a few minutes. Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : lead ? `${head} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} It takes a few minutes to tell them what you think, and every voice helps.`
     : !when && askLine(b, a, chamber) ? (acted ? `I just spoke up on a bill I care about: ${named}. ${askLine(b, a, chamber)} Will you add your voice too?`
@@ -348,13 +355,14 @@ export async function doShare({ title, text, url, copy, ab, pic }) {
 }
 // An issue's page shared (R-113: Share on the issue page, "Know someone who cares about <issue>? Send it" at the finale).
 // Counted as a share (visit_counts), with no bill to mark. Resolves 'shared' | 'copied' | ''.
-export async function shareIssue(i) {
+export function shareIssueText(i) {
   const n = (i.bill_ids || []).length;
-  const text = `${i.name} at the Hawaiʻi Legislature: ${(i.description || '').replace(/([^.!?…])$/, '$1.')} ${n ? `HIPHI is working on ${n} ${n === 1 ? 'bill' : 'bills'} on it. ` : ''}Follow it and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
-  const ps = picShare(issueShareUrl(i), 'follow', `issue:${i.id}`);
-  const how = await doShare({ title: i.name, text, url: ps.url, copy: `${text} ${ps.url}`, pic: ps.pic });
-  if (how) logAct('share');
-  return how;
+  return `${i.name} at the Hawaiʻi Legislature: ${(i.description || '').replace(/([^.!?…])$/, '$1.')} ${n ? `HIPHI is working on ${n} ${n === 1 ? 'bill' : 'bills'} on it. ` : ''}Follow it and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim();
+}
+// Since R-205 it opens the same sheet as a bill's share (pub/askfriend.js), so a laptop gets Email it and Copy message
+// instead of a silent copy. Resolves 'shared' | 'email' | 'copied' | ''; the sheet counts it.
+export async function shareIssue(i) {
+  return (await import('./askfriend.js')).askFriend({ issue: i });
 }
    // the old shape, for anything still asking
 const findBH = k => { const [bid, hid] = k.split('|'); const b = [...S.bills, ...Object.values(S.extra), ...((S.featured || {}).bills || []), ...((S.pool || {}).bills || [])].find(x => x.id === bid);
@@ -400,9 +408,11 @@ export function wireActions(root = document) {
   // Their own legislator on this committee (R-080), and Home's cards for the other moments and the introduction.
   $$('[data-speak]').forEach(el => el.onclick = () => openKey(el.dataset.speak));
   mountHome(root);
-  $$('[data-share]').forEach(el => el.onclick = async () => { const k = el.dataset.share, [bid, hid] = k.split('|'), { b, h } = findBH(k); if (!b) return;
-    const how = await doShare(shareFor(b, h)); if (how === 'copied') S.chips[k + 'share'] = true;
-    if (how && !didKind(b, h, 'share')) await markDone(bid, hid, 'share'); app.render(); });
+  // "Ask a friend to speak up" (R-205): the sheet picks the ask with them, the one they did first, and marks the share.
+  $$('[data-share]').forEach(el => el.onclick = async () => { const k = el.dataset.share, { b, h } = findBH(k); if (!b) return;
+    const did = ['testimony', 'email', 'attend'].find(x => didKind(b, h, x)) || '';
+    const how = await (await import('./askfriend.js')).askFriend({ b, h, did, acted: !!did }); if (how === 'copied') S.chips[k + 'share'] = true;
+    if (how) app.render(); });
   $$('[data-go]').forEach(el => el.onclick = () => { const k = el.dataset.go; S.goOpen.has(k) ? S.goOpen.delete(k) : S.goOpen.add(k); app.render(); });
   // "I plan to go" under the ask their profile chose (C1) is that ask taken.
   $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'), on = !S.done.has(doneKey(bid, hid, 'attend'));
@@ -432,8 +442,8 @@ export function wireActions(root = document) {
 // pub/alerts.js: a mobile number for texts, email as a link under it; both name the same two kinds of alert (C-4), so
 // giving either IS the consent for them. One ask per visit; "Not now" quiets it for 14 days, then 60 (nudgeOk in core).
 // pfx: the ids' prefix ('ng'; the letter helper's dialog draws its own copy as 'hp-ng', so the two never share an id).
-// bar: the host's bar holds the box's submit button (<button form="<pfx>-form">, the letter's Mahalo, R-184), so the card
-// keeps only "Not now".
+// bar: the host's bar holds the box's submit button (<button form="<pfx>-form">, the letter's Mahalo, R-184) and, since
+// R-205, its "Not now" (declineNudge), so the card holds only the box.
 export function nudgeCard(kind = S.nudge, pfx = 'ng', { bar = false } = {}) {
   if (!kind) return '';
   // Before the signed-in check: a code (R-155) signs the person in as it turns texts on, and the card says so.
@@ -457,14 +467,17 @@ export function nudgeCard(kind = S.nudge, pfx = 'ng', { bar = false } = {}) {
   return `<section class="card tint nudgecard" aria-labelledby="${pfx}-t">${icon(prof ? 'user-round-plus' : email ? 'mail-check' : 'message-square')}<div class="ngbody">
     <p class="strong" id="${pfx}-t">${codeStep(pfx) ? 'Check your texts' : prof ? PROFILE_H : 'Get alerts on your issues'}</p><p class="small">${codeStep(pfx) ? 'Type the 6-digit code from the text to turn on alerts.' : esc(text)}</p>
     <form class="ngform" id="${pfx}-form" novalidate>${alertFields(pfx, { compact: true })}
-      <div class="btnrow">${bar ? '' : btn(b.label, { kind: 'primary', sm: true, icon: b.icon, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div></form></div></section>`;
+      ${bar ? '' : `<div class="btnrow">${btn(b.label, { kind: 'primary', sm: true, icon: b.icon, attrs: { type: 'submit' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-nudgeno': '1' } })}</div>`}</form></div></section>`;
 }
+// "Not now" to the profile ask: quiet for 14 days, then 60 (kernel nudgeOk). With bar, the host's bar holds both answers,
+// "Not now" and the box's own button (the letter's Mahalo, R-205 C4: "Done" there closed the Mahalo before the share ask).
+export function declineNudge() { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; }
 // The letter helper passes its own prefix and redraw: its box once looked up 'ng-' ids its copy no longer had, so Text me
 // there was never wired (found 10/5 building R-155).
 export function wireNudge(root = document, { pfx = 'ng', redraw } = {}) {
   const again = redraw || (() => app.render());
   // Not now redraws its host: the letter's Mahalo is a dialog that app.render() does not draw, so its card stayed (R-184).
-  root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; again(); if (redraw) app.render(); });
+  root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); declineNudge(); again(); if (redraw) app.render(); });
   const f = root.querySelector('.ngform'); if (!f) return;
   wireAlertForm(f, { pfx, source: S.nudge === 'action' ? 'action' : 'home', onSwap: again, onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; again(); } });
 }

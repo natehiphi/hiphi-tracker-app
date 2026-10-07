@@ -87,6 +87,11 @@ function tips() {
     out.push({ key: 'where', els: () => [$('.a-track')], h: 'Where it is now',
       p: `Each part of the bar is one of six steps to becoming law.${now ? ` ${ended() ? 'This session' : 'Now'}: <b>${esc(now)}</b>.` : ''}` });
   }
+  // Asking a friend (R-205 C6, Nate 10/7: sharing a specific ask is "a KEY feature"): taught once, here, on the button itself.
+  const share = $('.bl-page .bl-sharebtn');
+  // top: on a laptop Share is in the page's own top row, which scrolls away, so the page goes back up to it (as tip 1).
+  if (shown(share)) out.push({ key: 'share', els: () => [$('.bl-page .bl-sharebtn')], top: true,
+    h: 'Ask a friend', p: '<b>Share</b> sends this bill to someone you know, in a text or an email, with what they can do and by when. The link opens the steps for them.' });
   // 3. How you can help: the real main button, or Follow when nothing is moving
   const end = ended(), main = mainBtn(), fol = followBtn();
   const inSide = el => wide() && el.closest('.bl-side');

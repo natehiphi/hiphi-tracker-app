@@ -2,7 +2,9 @@
 // the action that is being asked of them. The link needs to link them to taking action, not just the bill page.").
 //
 // A bill has one share page per ask (tools/share_pages.mjs writes them): b/HB1573-testify, b/HB1518-ask, b/HB1-floor,
-// b/HB1-conference, b/HB1-governor and b/HB1523-follow, plus b/HB1573, which carries the bill's ask of the moment. The
+// b/HB1-conference, b/HB1-governor and b/HB1523-follow, plus b/HB1573, which carries the bill's ask of the moment. Since
+// R-205 (10/7) a hearing ahead has two more: b/HB1573-email (a short email to the committee, the 2-minute way) and
+// b/HB1573-attend (come to the hearing), so the person sharing picks what their friend is asked to do (pub/askfriend.js). The
 // tracker shares the page for the ask the person is looking at (pub/core.js billShareUrl), so the card a friend sees
 // names that ask first ("Speak up by Wed, Mar 18: ...") and the link opens it (#/bill/2026/HB1573/testify opens the
 // testimony walkthrough, pub/bill.js). Preview robots read only the page's title, words and picture; most never run a
@@ -11,7 +13,9 @@
 // Pure: no network, no files. The bill is a public_all_bills row; ctx carries what the page builder read.
 import { billStop, isResolution, CHAMBER_NAME } from '../stops.js';
 
-export const ASKS = ['testify', 'ask', 'floor', 'conference', 'governor', 'follow'];
+export const ASKS = ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor', 'follow'];
+// The asks of a hearing ahead (R-205): what a friend can do before it, one page each.
+export const HEARING_ASKS = ['testify', 'email', 'attend'];
 // Hawaiʻi time, whatever machine builds the pages (the GitHub runner keeps UTC).
 const fmt = (iso, o) => new Intl.DateTimeFormat('en-US', { timeZone: 'Pacific/Honolulu', ...o }).format(new Date(iso));
 export const dayWords = iso => fmt(iso, { weekday: 'short', month: 'short', day: 'numeric' });   // "Wed, Mar 18"
@@ -19,6 +23,8 @@ export const timeWords = iso => fmt(iso, { hour: 'numeric', minute: '2-digit' })
 const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…'; };
 const sentence = s => s ? s.replace(/([^.!?…])$/, '$1.') : '';
+// "Conference Room 229" as the page says it, "Room 229" (pub/core.js clean and roomLabel); '' when it is not set yet.
+const roomWords = r => { const x = String(r || '').replace(/\s*via videoconference/i, '').replace(/^(Conference Room|CR|Rm)\s+/i, 'Room ').trim(); return !x || /TBD/i.test(x) ? '' : x; };
 // HIPHI's side in words (pub/kernel.js posInfo says the same on the page).
 const POS = { strongly_support: 'HIPHI strongly supports it.', support: 'HIPHI supports it.', support_amend: 'HIPHI supports it with changes.',
   strongly_oppose: 'HIPHI strongly opposes it.', oppose: 'HIPHI opposes it.', neutral: 'HIPHI has comments on it.', monitor: 'HIPHI is watching it.' };
@@ -56,10 +62,11 @@ export function billState(b, ctx = {}) {
 
 // The asks a bill gets its own page for. Following always; testimony while it is alive (a hearing can be set any day,
 // and a page that is already there previews even in the hour before the next rebuild); the others while it is at that
-// step. An ask with no page yet still works: 404.html sends the link on to the same action.
+// step. An ask with no page yet still works: 404.html sends the link on to the same action. The committee email and the
+// hearing itself (R-205) only while a hearing is ahead: their words need its day, room and committee.
 export function asksFor(b, state) {
   if (state.over) return ['follow'];
-  const out = ['testify', 'follow'], firm = state.side === 'support' || state.side === 'oppose';
+  const out = ['testify', ...(state.open ? ['email', 'attend'] : []), 'follow'], firm = state.side === 'support' || state.side === 'oppose';
   if (state.side && state.st.phase === 'committee') out.push('ask');
   if (firm && ['floor', 'conference', 'governor'].includes(state.st.phase)) out.push(state.st.phase);
   return out;
@@ -70,6 +77,7 @@ export function asksFor(b, state) {
 export function imageFor(ask, state) {
   const no = state.side === 'oppose';
   if (ask === 'testify') return 'testify';
+  if (ask === 'email' || ask === 'attend') return ask;
   if (ask === 'ask') return no ? 'hold' : 'ask';
   if (ask === 'floor') return no ? 'floor-no' : 'floor-yes';
   if (ask === 'conference') return no ? 'conference-no' : 'conference-yes';
@@ -92,6 +100,17 @@ export function cardFor(b, ask, state, ctx = {}) {
     const h = state.open, due = h && h.testimony_deadline && new Date(h.testimony_deadline).getTime() > now ? h.testimony_deadline : null;
     return done(h ? `Speak up by ${dayWords(due || h.scheduled_at)}: ${named}` : `Speak up: ${named}`,
       `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes a few minutes; we help you write it.`, 'testify');
+  }
+  // The two other ways to help before a hearing (R-205): the committee email (2 minutes) and going in person.
+  if (ask === 'email') {
+    const h = state.open;
+    return done(h ? `Email the committee before ${dayWords(h.scheduled_at)}: ${named}` : `Email the committee: ${named}`,
+      `${about}A short email to ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'} takes about 2 minutes; we write it with you.`, 'email');
+  }
+  if (ask === 'attend') {
+    const h = state.open, r = h ? roomWords(h.room) : '', room = r ? `, ${r}` : '';
+    return done(h ? `Come to the hearing on ${dayWords(h.scheduled_at)}: ${named}` : `Come to the hearing: ${named}`,
+      `${about}${h ? `${committeeWords(h.committee, ctx.committees).replace(/^the /, 'The ')} hears it ${dayWords(h.scheduled_at)} at ${timeWords(h.scheduled_at)}${room}, at the State Capitol.` : 'The committee hears it at the State Capitol.'} Anyone can attend, and we tell you where to go.`, 'attend');
   }
   if (ask === 'ask') {
     const where = st.phase === 'committee' && st.committee ? ` in ${committeeWords(st.committee, ctx.committees)}` : '';

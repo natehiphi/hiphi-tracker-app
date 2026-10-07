@@ -45,9 +45,9 @@
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
-  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME } from './core.js';
+  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME, dayWord } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
-import { nudgeCard, wireNudge, shareFor, doShare, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
+import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
 import { profileAsk, alertButton } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184)
 import { introMark } from './speakup.js';
@@ -354,7 +354,7 @@ function sendLink(x, { again = false } = {}) {
 
 // ---------------- state ----------------
 // S.helper = { b, h, screen: 'stand' | 'know' | 1 | 2 | 'acct' | 3 | 'done', name, email, why, points, pointsText, closing, letter, edited, basis, stale, copied,
-//   copyChip, copyFail, saved, away, back, busy, resumed, errs, first, before, followedNow, shareChip, scrollTop,
+//   copyChip, copyFail, saved, away, back, busy, resumed, errs, first, before, followedNow, friended, scrollTop,
 //   focusId, opener, link: '' | 'sending' | 'sent' | 'failed', linkTo, linkErr, linkDemo }
 // screen 'own' is the short screen for someone whose stance differs from HIPHI's: the Capitol's steps, no letter.
 let dlg = null;          // the live <dialog>; kept across app re-renders so typing, scroll and focus survive
@@ -1194,7 +1194,7 @@ function doneScreen() {
       <p class="hp-lede">${x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
         : `You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.`}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>${up ? ask : ''}
+    </div>${up ? ask : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${unfollowBtn(x)}
@@ -1247,6 +1247,28 @@ function afterSend(x) {
 // under "I plan to go" and read as not going to the hearing. It names the issue, which is what is followed (R-018).
 const unfollowBtn = x => x.followedIssue ? btn(`Stop following ${esc(x.followedIssue.name)}`, { kind: 'text', sm: true, cls: 'hp-inl hp-unf', attrs: { 'data-hp': 'unfollow' } }) : '';
 const followWords = (x, n) => x.followedIssue ? `We now follow “${esc(x.followedIssue.name)}” for you, so you’ll see what they decide.` : x.followedNow ? `We added ${esc(n)} to My issues, so you’ll see what they decide.` : 'We’ll show what they decide in My issues.';
+// Bring one friend along (R-205 M1, M2): right under the thank-you, in the profile ask's place once that is answered (Save,
+// or "Not now"), and at once for anyone with no profile ask (Nate 10/7: the profile ask stays first). One ask at a time on
+// the Mahalo still (R-156): the two never show together. The card says what the friend would do and by when; its button
+// is the bar's main one. Once a share is made, or for a hearing already shared, it never asks again (Nate 10/7: "Do not ask
+// them to keep sharing after they've done it"): a share made here leaves one quiet line.
+const FRIENDED = { shared: 'Sent. Mahalo for bringing a friend.', email: 'Your email to a friend is ready. Mahalo for bringing them along.', copied: 'Copied. Paste it to a friend. Mahalo for passing it on.' };
+// The story ask (R-156 B3) is the profile's own ask for someone who has one; it is answered first, as the profile ask is.
+const friendOpen = x => !!x.b && !x.friended && !askOpen(x) && x.askStory !== 'ask' && !didKind(x.b, x.h, 'share');
+function friendCard(x) {
+  if (x.friended) return `<p class="okmsg hp-friended" role="status">${icon('circle-check')}<span>${esc(FRIENDED[x.friended] || FRIENDED.shared)}</span></p>`;
+  if (!friendOpen(x)) return '';
+  // The heading is the ask itself, one named person (the review: "Bring one friend along" read as bringing someone to the
+  // hearing); the line says by when, as "today" or "tomorrow" for the person reading it now.
+  const n = spaced(x.b.bill_number), h = x.h, open = h && new Date(h.scheduled_at) > Date.now(), w = iso => `${dayWord(iso).replace(/\s*\(.*\)$/, '')} at ${timeWord(iso)}`;
+  const due = x.mode === 'testimony' && open && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now();
+  const head = x.mode === 'testimony' ? 'Who’s one person who’d write too?' : x.mode === 'email' && !h ? 'Who’s one person who’d ask the chair too?' : 'Who’s one person who’d speak up too?';
+  const line = due ? `Testimony on ${n} closes ${w(h.testimony_deadline)}. Send it to them in a text or an email.`
+    : open ? `The committee hears ${n} ${w(h.scheduled_at)}. Send it to them in a text or an email.`
+    : x.mode === 'email' ? `${n} still needs a hearing. Send it to them in a text or an email.`
+    : 'Send it to them in a text or an email.';
+  return `<section class="card tint hp-friend" aria-labelledby="hp-fr-t"><h3 id="hp-fr-t">${esc(head)}</h3><p>${esc(line)}</p></section>`;
+}
 // Someone who gave their email on the About you step has been asked already: they see where to finish, never a second
 // ask. Everyone else who is signed out gets the one email ask (plan 2.9), with its ids renamed so they never clash
 // with a copy on the page behind. A link that could not be sent is one quiet line with a way to try again.
@@ -1284,7 +1306,7 @@ function mailDoneScreen() {
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">${esc(lede)}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>${up ? ask : ''}
+    </div>${up ? ask : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
       ${unfollowBtn(x)}
@@ -1325,14 +1347,16 @@ function foot() {
     : x.back ? btn('Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
-  // While "Save your profile" waits for an answer (R-184), its button is the bar's main one and Done steps back to a text
-  // button: with "Done" filled beside a typed number, people tapped Done and left believing they had saved (the fresh-eyes
-  // review, 10/6; on an iPhone the number pad's own bar says Done too). Tell a friend comes back once the ask is answered.
+  // While "Save your profile" waits for an answer (R-184), its button is the bar's main one: with "Done" filled beside a
+  // typed number, people tapped Done and left believing they had saved (the fresh-eyes review, 10/6). Its other answer, "Not
+  // now", sits beside it (R-205 C4): "Done" there closed the Mahalo before the share ask, so few would ever see it.
   if (askOpen(x)) { const b = alertButton('hp-ng');
-    return row(btn('Done', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'done' } })
+    return row(btn('Not now', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'ngno' } })
       + btn(b.label, { kind: 'primary', icon: b.icon, cls: 'hp-main', attrs: { type: 'submit', form: 'hp-ng-form' } })); }
-  return row((!x.b ? '' : x.shareChip ? `<span class="chip ok hp-chip" tabindex="-1">${icon('check')}${esc(x.shareChip)}</span>` : btn('Tell a friend', { kind: 'secondary', icon: 'share-2', attrs: { 'data-hp': 'share' } }))
-    + btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
+  // Then the share is the main button (M2), Done the quiet one; once shared (or nothing to share), Done alone.
+  if (friendOpen(x)) return row(btn('Done', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'done' } })
+    + btn('Ask a friend to speak up', { kind: 'primary', icon: 'share-2', cls: 'hp-main', attrs: { 'data-hp': 'share' } }));
+  return row(btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
 }
 // The profile ask is on the Mahalo and not yet answered (emailAsk draws nudgeCard then; profileAsk's version only).
 const askOpen = x => profileAsk() && !S.session && !S.nudgeText && !S.nudgeSent && !!S.nudge && x.askStory !== 'ask' && !(x.link && x.linkTo);
@@ -1489,17 +1513,16 @@ function burst() {
   dlg.appendChild(box);
   setTimeout(() => box.remove(), 1100);
 }
+// Ask a friend to speak up (R-205): the sheet (pub/askfriend.js), with the ask they just took first (R-169): testimony or the
+// committee email on a hearing, then the hearing itself; with no hearing, asking the chair or their own legislator's vote.
+// The sheet marks the share; the card then says so in one line, and nothing asks again.
 async function tellFriend() {
-  // The friend's ask is the one they just took (R-169): testimony, or asking the chair, or their own legislator's vote.
-  const x = S.helper, t = shareFor(x.b, x.h, { acted: true, ask: x.h ? 'testify' : x.mode === 'email' ? 'ask' : x.moment?.kind === 'floor' ? 'floor' : '', chamber: x.moment?.chamber || '' });
-  const r = await doShare(t);   // the bill's own share page, the deadline in the words, the link once (R-113)
-  let how = r === 'shared' ? 'Shared. Mahalo!' : r === 'copied' ? 'Link copied' : '';
-  if (!how && !navigator.share && await copyText(t.copy)) how = 'Link copied';   // older browsers: the hidden-field copy
+  const x = S.helper, did = x.mode === 'testimony' ? 'testimony' : x.h ? 'email' : '';
+  const ask = x.h ? '' : x.mode === 'email' ? 'ask' : x.moment?.kind === 'floor' ? 'floor' : '';
+  const how = await (await import('./askfriend.js')).askFriend({ b: x.b, h: x.h, did, ask, acted: true, chamber: x.moment?.chamber || '' });
   if (!how || S.helper !== x) return;
-  // A share counts as an action (plan 7, "every action counts").
-  if (!didKind(x.b, x.h, 'share')) await markDone(x.b.id, x.h?.id || '', 'share', true, { quiet: true });
-  x.shareChip = how; paint(); dlg?.querySelector('.hp-foot .hp-chip')?.focus({ preventScroll: true }); announce(how);
-  setTimeout(() => { if (S.helper === x) { x.shareChip = ''; paintFoot(); } }, 2500);
+  x.friended = how; paint({ focus: undefined }); dlg?.querySelector('.hp-friended')?.setAttribute('tabindex', '-1'); dlg?.querySelector('.hp-friended')?.focus({ preventScroll: true });
+  announce(FRIENDED[how] || FRIENDED.shared);
 }
 function finishLater() { const x = S.helper; x.toast = `Saved. Your ${isMail(x) ? 'email' : 'letter'} will be here when you come back.`; requestClose(); }
 // "Yes, I sent it" (or "I already sent it"): counted exactly as the quick email was - an 'email' action, on the hearing
@@ -1563,7 +1586,11 @@ function onClick(e) {
   const a = t.dataset.hp;
   // Done: a first-visit plan that opened this (R-164, pub/onb.js) goes on to its next step; else a newcomer from a shared
   // bill goes on to the rest of their first visit.
-  if (a === 'done') { const x = S.helper, b = x.b; afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
+  if (a === 'done') { const x = S.helper, b = x.b;
+    // Done while the share card shows is a pass for that hearing: Home does not ask again (the review, P-5; C-3's rule for
+    // the profile ask, "no second ask on Home after a skip", kept for this one too; home.js reads hiphi_askf_no).
+    if (friendOpen(x) && x.h) try { const k = 'hiphi_askf_no', no = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...no, x.h.id].slice(-50))); } catch { /* this visit only */ }
+    afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }
   else if (a === 'goics') { const x = S.helper; downloadIcs(x.b, x.h); paint(); }
@@ -1643,6 +1670,7 @@ function onClick(e) {
   else if (a === 'relink') { sendLink(S.helper, { again: true }); paint({ focus: 'hp-inbox' }); }
   else if (a === 'later') finishLater();
   else if (a === 'share') tellFriend();
+  else if (a === 'ngno') { declineNudge(); paint({ focus: undefined }); dlg?.querySelector('#hp-fr-t')?.closest('section')?.setAttribute('tabindex', '-1'); dlg?.querySelector('.hp-friend')?.focus({ preventScroll: true }); }
   else if (a === 'send') sentVia(t.dataset.via);
   else if (a === 'mailsent') confirmMail();
   else if (a === 'copypart') copyPart(t.dataset.part);

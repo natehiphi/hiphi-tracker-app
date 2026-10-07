@@ -5,13 +5,14 @@
 // GitHub Pages shows this for any address it does not have. A share link to a bill or issue whose page is not built yet
 // (tools/share_pages.mjs runs hourly January to June, each morning otherwise; a stance taken this hour has none until the next run) still reaches the tracker
 // (R-067). A bill page from an earlier session carries its year (b/2026/HB2121 -> #/bill/2026/HB2121, R-110). A page
-// for one ask (R-169) opens that ask: b/HB2121-testify -> #/bill/HB2121/testify, as its built page would; following a
+// for one ask (R-169) opens that ask: b/HB2121-testify -> #/bill/HB2121/testify, as its built page would (and -email and
+// -attend since R-205); following a
 // bill whose page is not built yet opens the bill. Anything else goes to the tracker's front door.
 (function () {
   // b/demo/ and i/demo/: the practice copy's pages (R-169) open the practice copy.
   var p = location.pathname, m = /\/(b|i)\/(?:(\d{4}|demo)\/)?([A-Za-z0-9-]+?)(?:\.html)?\/?$/.exec(p), base = p.replace(/\/(b|i)\/.*$/, '/').replace(/[^/]*$/, '').replace(/p\/[a-z0-9-]+\/$/, ''), pv = /\/p\/([a-z0-9-]{2,20})\/(b|i)\//.exec(p);   // p/<version>/...: a share picture version's page (R-183)
   var demo = m && m[2] === 'demo'; if (demo) m[2] = '';
-  var ask = m && m[1] === 'b' ? /^([A-Za-z]+\d+)-(testify|ask|floor|conference|governor|follow)$/i.exec(m[3]) : null;
+  var ask = m && m[1] === 'b' ? /^([A-Za-z]+\d+)-(testify|email|attend|ask|floor|conference|governor|follow)$/i.exec(m[3]) : null;
   var num = ask ? ask[1] : m && m[3], open = ask && ask[2].toLowerCase() !== 'follow' ? '/' + ask[2].toLowerCase() : '';
   var to = m ? base + 'track.html?' + (demo ? 'demo=1&' : '') + 'via=share#/' + (m[1] === 'b' ? 'bill/' + (m[2] ? m[2] + '/' : '') + num.toUpperCase() + open : 'issue/' + m[3].toLowerCase()) : base + 'track.html';
   // A partner's word or a campaign's utm_ words on the link go on in place of ?via=share (R-113, W1).
@@ -19,6 +20,7 @@
     if (/^[a-z0-9-]{2,40}$/i.test(q.get('via') || '')) u.searchParams.set('via', q.get('via'));
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (q.get(k)) u.searchParams.set(k, q.get(k).slice(0, 60)); });
     if (pv) u.searchParams.set('pic', pv[1]);   // the friend's arrival is counted for that picture
+    if (/^[a-z]{2,10}$/.test(q.get('sp') || '')) u.searchParams.set('sp', q.get('sp'));   // the way it was sent (R-205)
     to = u.href; } catch (e) { /* the plain address */ }
   location.replace(to);
 })();
