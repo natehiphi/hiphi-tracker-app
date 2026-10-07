@@ -100,7 +100,7 @@ with sync_playwright() as p:
         txt = pg.locator('body').inner_text()
         links = pg.eval_on_selector_all('a', 'as => as.map(a => a.getAttribute("href"))')
         ok(pg.url.endswith('/test-ended.html') and 'This test has ended' in txt, f'ended link {url[11:]}: lands on the page that says the test has ended ({pg.url[len(BASE):]})')
-        ok(all(l.startswith('mailto:') for l in links) and not pg.locator('#app').count(), f'ended link: no way into the tracker ({links})')
+        ok(not links and not pg.locator('#app').count() and 'contact@' not in txt, f'ended link: no link at all, no way into the tracker, no email ({links})')
         ok(not sent, f'ended link: nothing recorded ({len(sent)} sent)')
         ok(not errs, f'ended link: no page errors {errs[:2]}')
         pg.go_back(); pg.wait_for_timeout(1500)

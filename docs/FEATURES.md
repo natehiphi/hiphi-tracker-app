@@ -928,7 +928,7 @@ path (the screens in order, the seconds on each, what they did), testers told.
   wherever it went, so `track.html`'s first inline script lists the ended ones (`ENDED`, each the versions a link set,
   sorted). A practice-copy address with exactly those versions and no `&t` or `&abrest`, or one already marked `&ended`,
   goes to `test-ended.html` (`location.replace`, so Back does not return to it) before any module runs: "This test has
-  ended", a thank-you, HIPHI's email, and no link into the tracker (DESIGN-AUDIT section 4, B-3). In the moment before that
+  ended", a thank-you, and no link at all (the email line came off at Nate's word too; DESIGN-AUDIT section 4, B-3). In the moment before that
   page arrives the address loses `ab=` and gains `&ended`, so `pub/app.js` does not start and nothing is recorded. Matched
   exactly, so the tester sheet's links and the check links (`?ab=onb.today` alone, `?ab=onb.p1` ...) still work. Ended so
   far: `?demo=1&restart&ab=onb.today,end.home` (the tester sheet's link of 6 Oct). No button on the tester sheet yet
