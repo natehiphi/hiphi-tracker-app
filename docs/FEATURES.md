@@ -103,7 +103,10 @@ nobody has shown around; others get a "Take the tour" line, wave 1 below) (`pub/
 from `pub/app.js` `render()`; remembered in `hiphi_tour_bill`; held back by the "New here?" card, dialogs and
 celebrations; tests set the flag in their setup, `tests/bill_tour.py` tests the tour). Help (`#/help`, `#/help/<slug>`) is
 50 ready-made conversations (R-075: tap a question, a short answer with a small drawing, the next question; no typing
-box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`.
+box): the words are in `pub/talk-data.js` (edit words there, not in `pub/talk.js`); `tests/help_talk.py`. On a phone (under
+600px) the seven groups are folded `<details>` bars with a count and a chevron, so every group's name is on the first screen
+(R-075, Nate 10/4; A-2); the group of the conversation just left is open when Back returns, and a search opens every group with
+a match. From 600px up nothing folds and a heading is only a heading (`fold()` in `pub/talk.js`).
 **Bill links carry the session year when it isn't the current one (R-110, 10/1; the assessment's P6).** Numbers start
 again at HB 1 every January, so `#/bill/HB2121` means the current session's bill (`sessionInfo().yr`, the calendar's
 year) and a bill from an earlier session is `#/bill/2026/HB2121`. In `pub/core.js`: `yearPrefix(b)` ('' or '2026/'),

@@ -276,6 +276,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      the earlier rule that action alerts stayed a separate, off-by-default choice). One ask per visit, always
      skippable. An existing account only ever GAINS choices from an ask, never loses one. Email to the public
      stays paused regardless of what an ask would consent to. **Since R-184 (Nate 10/6) the ask is "Save your profile"**
+     (the first visit's own words since R-188: one line on what a profile keeps and why now, "No password needed" under
+     the number, DESIGN.md C-3)
      (`profileAsk`, `profileLede`, `followAsk` in `pub/alerts.js`): the line over the box says what the profile keeps
      (the brainstorm's picks A1 and B1: https://claude.ai/artifact/6nDhS6Loh5k1MMnukptc3B, Nate picks other words by
      number there), the box and its consent words are unchanged. It is the first thing seen after a first follow or

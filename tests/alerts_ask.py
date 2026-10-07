@@ -13,7 +13,7 @@
 # reaches the database (the sandbox). No console errors.
 # Every page here is the box before codes are on (&codes=0: the live page until texts are set up), whose small print says
 # the number will be confirmed by text, never "reply YES" (R-176). The code step is tests/phone_signin.py's.
-import os, sys
+import os, re, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'alerts_ask'); os.makedirs(OUT, exist_ok=True)
@@ -54,13 +54,16 @@ with sync_playwright() as pw:
     t = text(p)
     ok(p.url.endswith('#/start/3'), f'the alerts screen is the third step, right after the issues ({p.url[-10:]})')
     ok(moment(p) == '', 'no "Mahalo!" before the alerts screen')
-    ok(p.inner_text('#st-h') == 'Save your profile' and 'At a hearing, lawmakers hear from the public' in text(p, '.st-alertspage .lede'), f'the heading asks to save the profile, and the line says what a hearing is (R-184): {p.inner_text("#st-h")}')
+    lede = text(p, '.st-alertspage .lede')
+    ok(p.inner_text('#st-h') == 'Save your profile' and re.fullmatch(r'Your profile keeps your \d+\u00a0issues and a way to reach you in time: bills can get a hearing with about two days’ notice\.', lede) and p.title().startswith('Save your profile'),
+       f'the heading and the tab ask to save the profile; the line says what it keeps, what it does, and why (R-188): {lede!r}')
     ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-a-email').count() == 0, 'the mobile number box comes first, alone')
     ok(all(w in t for w in ['gets a hearing', 'HIPHI asks people to speak up', 'At most one text a day', 'We’ll text you to confirm it’s your number', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']) and 'YES' not in t, 'the consent words: what arrives, how often, the confirming text (no YES, R-176), rates, STOP, HELP')
-    ok('At a hearing, lawmakers hear from the public' in t, 'the lede says what a hearing is (the story comes after this screen)')
+    ok('speak up' not in lede and p.evaluate("(() => { const l = document.querySelector('.st-alertspage .lede'); return Math.round(l.getBoundingClientRect().height / parseFloat(getComputedStyle(l).lineHeight)); })()") <= 3,
+       'the line leaves "speak up" to the box (A-14) and is at most three lines on a phone (C-14)')
     ok(p.evaluate("(() => { const i = document.getElementById('st-a-phone'), h = document.getElementById('st-a-hint'); return !!h && h.getBoundingClientRect().top > i.getBoundingClientRect().bottom && h.getBoundingClientRect().top - i.getBoundingClientRect().bottom < 40 && i.getAttribute('aria-describedby') === 'st-a-hint'; })()"), 'the privacy line sits right under the box, and the box points to it')
     ok('Use email instead' in t, 'email is a link under the box')
-    ok('never see your number' in t, 'it says staff never see the number')
+    ok('No password needed. HIPHI staff never see your number' in text(p, '#st-a-hint') and 'these texts' not in t, 'under the box: no password, and staff never see the number (R-188)')
     ok(p.locator('.st-bar button', has_text='Text me').count() == 1 and p.locator('[data-stskip]').count() == 1, 'the bar: Skip and Text me')
     ok(p.evaluate("getComputedStyle(document.querySelector('.st-chapters li.on')).fontWeight >= 600 && document.querySelector('.st-chapters li.on').innerText.includes('Your issues')"), 'it is still the "Your issues" part')
     shot(p, '1_alerts_phone')
@@ -138,7 +141,8 @@ with sync_playwright() as pw:
     # ---- 4. between sessions ----
     c, p = ctx(b)
     to_alerts(p, '&season=off&fv=full&end=today')
-    ok('Their new bills start in January' in text(p), 'between sessions: the January line')
+    lede = text(p, '.st-alertspage .lede')
+    ok('in time: from January, bills can get a hearing' in lede and p.evaluate("document.querySelector('#st-aform').getBoundingClientRect().top + scrollY") <= 320, f'between sessions: the January line, and the box starts within 320px (A-1): {lede!r}')
     c.close()
 
     # ---- 5. a visit from a shared bill ----

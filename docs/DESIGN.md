@@ -564,6 +564,16 @@ after a letter it sits right under the thank-you, above "What happens next" (it 
 so "Done" came first). Still once per visit, and no second ask on Home after a skip (Nate). The old "Get alerts" ask
 is kept as a switched-off version to test later (the test `save`).
 
+**The first visit's words, since 10/6 (R-188, Nate: "needs to significantly improve").** One sentence under the
+heading, and it says only what the box can't: what a profile is in plain words and why it matters now ("Your profile
+keeps your 4 issues and a way to reach you in time: bills can get a hearing with about two days' notice"; between
+sessions "from January," comes before "bills"). It does not say "speak up" or what arrives, which the consent words under
+it already say (A-14), and it stays at three lines on a phone so the box starts within 320px (A-1). The line under the
+number answers what "Save your profile" makes a newcomer wonder, is this an account to set up: "No password needed."
+The code step says what the code does ("Type the code to save your profile."), and once the code proves the number the
+"Mahalo!" starts with "Your profile is saved". A number not yet confirmed, and an email, keep "Almost set" and "to turn
+on alerts" (D1-4).
+
 *Reason.* Nate's product rule, and it matches every piece of consent guidance worth citing. The ask
 lands best at the moment somebody has just felt the thing work.
 

@@ -43,14 +43,23 @@ export const PROFILE_H = 'Save your profile';
 // code once codes are on (R-155); the page describes texts as working (R-146, R-101).
 // Before text codes are on (R-155) a number keeps the profile on this phone only, so "on any phone or computer" is left
 // out until codesOn() (the fresh-eyes review, 10/6); the practice copy shows codes on, as the public will see them.
-export function profileLede(kind, { off = false, things = '', many = false } = {}) {
+export function profileLede(kind, { off = false, things = '', many = false, n = 0 } = {}) {
   const anywhere = codesOn() ? ' on any phone or computer' : '';
   if (kind === 'action') return 'Bills often get more than one hearing. Your profile keeps what you wrote, so you can send it again next time.';
   if (kind === 'intro') return 'Your profile keeps your name and what you wrote, ready for the next time you write.';
   if (kind === 'back') return `Welcome back. ${things ? `Your ${things} live` : 'What you follow lives'} only in this browser for now. Save ${things ? 'them' : 'it'} to your profile to keep ${things ? 'them' : 'it'}${anywhere || ' safe'}.`;
-  // The first visit's screen comes before the story that teaches hearings, so it says in a few words what one is.
-  // Between sessions the January line takes the hearing's place, so the line stays under 30 words (C-14).
-  if (kind === 'first') return `Your profile keeps your issues with you${anywhere}. ${off ? 'Their new bills start in January, and hearings are set about two days ahead.' : 'At a hearing, lawmakers hear from the public, and hearings are set about two days ahead.'}`;
+  // The first visit's screen (n: the issues just followed). Nate 10/6 (R-188): its words "need to significantly improve".
+  // They were two facts that didn't meet ("keeps your issues with you on any phone or computer", then what a hearing is),
+  // so the reason to save was left for the reader to put together with the box's words. Now one sentence: what a profile
+  // is in plain words (the issues just picked, named by count, and a way to reach you; Baymard: name what is kept), and
+  // why it matters, the one fact only this line gives: a bill can get a hearing with about two days' notice. It leaves
+  // to the box what arrives and "speak up" (the fresh-eyes review, 10/6: a first draft said "speak up at hearings" over a
+  // box that says "speak up" and "hearing" again, A-14, and read as going to talk in a hearing room). Three lines on a
+  // phone in both seasons, so the box starts 305px down (A-1; a 30-word January line pushed it to 332px). C-14.
+  if (kind === 'first') {
+    const yours = n === 1 ? 'your issue' : n ? `your ${n}\u00a0issues` : 'your issues';
+    return `Your profile keeps ${yours} and a way to reach you in time: ${off ? 'from January, ' : ''}bills can get a hearing with about two days’ notice.`;
+  }
   return `Nice start. Your profile keeps ${many ? 'these issues' : 'this issue'} with you${anywhere}, so you’re ready when ${many ? 'they need' : 'it needs'} you.`;
 }
 // After a yes, in the profile's words (the follow's toast once the sheet closes).
@@ -98,6 +107,13 @@ const EMAIL_FINE = 'No password: we email you a link to confirm. Unsubscribe in 
 // What makes a number feel safe to type sits right under the box, where it is typed (P-5).
 const PHONE_HINT = 'Private: HIPHI staff never see your number, and it is used only for these texts.';
 const EMAIL_HINT = 'We never sell your email or give it to other groups. Staff can see which issues you follow.';
+// In the profile ask (R-188) the phone's line first answers what "Save your profile" makes someone wonder (R-184 left it
+// open, the brainstorm's A11): is this an account to set up? No password. It no longer says "these texts" before any
+// text is mentioned (the consent words come under it); its promises are the same: staff never see the number, and it is
+// used only to text you. Not for someone already signed in, who has a profile (More > Get alerts adds a number to it).
+// The email's small print already says "No password", so its line stays as it was.
+const PROFILE_PHONE_HINT = 'No password needed. HIPHI staff never see your number, and it’s used only to text you.';
+const hintFor = phone => !phone ? EMAIL_HINT : profileAsk() && !S.session ? PROFILE_PHONE_HINT : PHONE_HINT;
 const PHONE_ERR = 'Enter a 10-digit mobile number, like (808) 555-0123.';
 const EMAIL_ERR = 'Enter an email like name@example.com.';
 
@@ -175,7 +191,7 @@ export function alertFields(pfx, { emailHref = '', compact = false, swap: withSw
   // A sentence, so its Privacy link is a link in running text (WCAG 2.5.8's inline exception, DESIGN A-6). For texts, the
   // terms page sits beside it: carriers ask for links to privacy AND terms at the sign-up (R-180, D1-2). It stays out of
   // the small print below, whose words must match the stored consent version exactly.
-  const hint = `<p class="help al-hint" id="${pfx}-hint">${phone ? PHONE_HINT : EMAIL_HINT} <a href="#/privacy">Privacy</a>${phone ? ' · <a href="text-terms.html">Text terms</a>' : ''}</p>`;
+  const hint = `<p class="help al-hint" id="${pfx}-hint">${hintFor(phone)} <a href="#/privacy">Privacy</a>${phone ? ' · <a href="text-terms.html">Text terms</a>' : ''}</p>`;
   const field = phone
     ? `<div class="field al-field"><label for="${pfx}-phone">Mobile number</label>
         <input id="${pfx}-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(v)}" aria-describedby="${pfx}-hint">
@@ -342,7 +358,7 @@ export function alertDoneHTML(r, { change = '' } = {}) {
   // before it is). The same words as alertStatus()'s "Almost set", which every other screen shows (D1-4).
   if (r.kind === 'phone') return `${prof}<p class="strong">${confirmWords(`<span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>`)}</p>
     <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>
-    ${r.demo ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
+    ${r.demo && !prof ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
   // r.later: inside the first visit, where leaving for the inbox would cut it short (R-098), so: finish here first.
   const turnOn = profileAsk() ? 'to finish your profile and turn on alerts' : 'to turn on alerts';
   return `<p class="strong">${r.later ? 'Link sent to' : 'Check your inbox at'} <span class="al-break">${esc(r.email)}</span></p>
