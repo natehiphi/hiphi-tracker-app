@@ -125,6 +125,18 @@ session is dark (until January 2027).
   it took (`logTime`, backend 143). The practice copy has its own pages, `b/demo/` and `i/demo/`, built from
   `demo/snapshot.json` at its March day, which its shares and Staff v2's practice copy use; they rebuild with the job,
   so a snapshot rebuild needs nothing more.
+- **Share picture versions** (R-183, 10/6; backend `docs/SHARE-PICTURES.md`): the test `pic` in `pub/variant.js` has fourteen
+  versions (today's, the issue up front, and Nate's twelve ideas), a switch for each in Staff v2 > Tests. What fits a bill and
+  ask, and every word and date a picture shows, is `tools/share_pics.mjs` (pure; `tests/share_pics_test.mjs` checks every bill
+  at every stage against the card's own readings: keep it green); `tools/og_templates.py` only draws what a spec says
+  (`tests/share_pics_draw.py` draws all and fails on words that do not fit; run it after touching a template or the words).
+  A version's page is `p/<version>/<same path>` (`tools/share_pic_pages.mjs`), its picture `pub/og/t/<version>/<hash>.jpg`
+  (one file per distinct words; unused ones are deleted by the job), and `share-fit.json` lists which pages have which
+  versions: `pub/sharepic.js` reads it so a share only offers a version that exists, and never counts one it did not
+  show. No emoji on a picture (A-11), "neighbors" not "neighbours", no dashes, the issue's checked words only on the live
+  site (`public_issue_share_words`; the practice copy draws drafts and marks them). `share-pics.html` is the gallery
+  (`node tools/share_gallery.mjs`, then `python3 tools/og_images.py --versions`). A template change that should redraw
+  every picture bumps `TEMPLATE_V` in `share_pics.mjs`.
 - **Follow means the issue** (R-067): a bill with an issue is followed through its issue (`followToggle`); only a bill
   with no issue is followed alone. The followed state is a filled blue button with a check (`.btn.secondary.on
   [aria-pressed="true"]` in `base.css`, R-061); every Follow button sets `.on` and `aria-pressed`.

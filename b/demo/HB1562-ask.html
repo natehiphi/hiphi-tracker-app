@@ -19,6 +19,8 @@
   try { var p = new URLSearchParams(location.search), u = new URL(t, location.href);
     if (/^[a-z0-9-]{2,40}$/i.test(p.get('via') || '')) u.searchParams.set('via', p.get('via'));
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (p.get(k)) u.searchParams.set(k, p.get(k).slice(0, 60)); });
+    /* the picture version a sharer's link carried (R-183), so the friend's arrival is counted for it */
+    if (/^[a-z0-9-]{2,20}$/.test(p.get('pic') || '')) u.searchParams.set('pic', p.get('pic'));
     t = u.href; } catch (e) { /* the plain address */ }
   location.replace(t); })();
 </script>
