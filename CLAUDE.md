@@ -50,8 +50,8 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   with a page to print (`#/setup/room`; `docs/FEATURES.md`; `python3 tests/room.py`). **Testers' paths (R-193, 10/6):** a
   group's link carries `&t=<sheet>-<group>`; `pub/testerlog.js` records each tester's screens, seconds and steps (backend
   150, `tester_paths`), shown under "What testers did" on the tester sheet (`python3 tests/testers.py`). **Ended tester
-  links (R-204, 10/7):** `ENDED` in `track.html`'s first inline script; such a link opens the ordinary practice copy,
-  records nothing, and says "This test has ended" (band and one toast); `docs/FEATURES.md` has the rule.
+  links (R-204, 10/7):** `ENDED` in `track.html`'s first inline script; such a link goes to `test-ended.html` before the
+  app starts (no way into the tracker, nothing recorded); `docs/FEATURES.md` has the rule.
 - **Four builds of 10/4 (R-099, R-094 step 5, R-061, R-088 part 2) and R-060** (`docs/FEATURES.md`, last section): the Home
   ending's "how" words, the suggested bills counted, the Follow button's hint, Sort new bills' suggested issue, and each
   bill draft's plain-language note (public "How it has changed", staff Public tab).

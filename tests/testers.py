@@ -6,7 +6,7 @@
 #      in its totals (Next day on the same path); the band says the screens are noted
 #   2. Not recorded: the practice copy without a tester link, Tests' See it and compare.html (&abrest, no &t), the privacy
 #      signal, an automated browser that has not asked; a link printed before (versions, no &abrest) is, with no group;
-#      an ended link (R-204) is not, and says the test has ended
+#      an ended link (R-204) goes to test-ended.html, with no way into the tracker, and is not recorded
 #   3. Staff v2's tester sheet: each group's link carries &t=<sheet>-<group>; "What testers did" by group with sample paths
 #      in the practice copy, "See their paths" in plain words, earlier links apart; the printed pages tell testers
 #   python3 -m http.server 8832   (in this folder, once)
@@ -90,17 +90,23 @@ with sync_playwright() as p:
     ctx, pg, sent, errs = rig(); pg.goto(f'{BASE}/track.html?demo=1&restart&ab=onb.p1'); ready(pg); pg.wait_for_timeout(2500); leave(pg)
     ok(sent and sent[0].get('sheet') is None and sent[0].get('versions') == 'onb.p1', f'a link printed before (versions, no &abrest) is recorded, with no group ({sent[0] if sent else None})')
     ctx.close()
-    # R-204: an ended link (track.html's ENDED) opens the ordinary practice copy, says so, and records nothing; the same
-    # versions on a tester sheet's link of today still record
-    for url in ['/track.html?demo=1&restart&ab=onb.today,end.home', '/track.html?demo=1&restart&ab=end.home,onb.today']:
-        ctx, pg, sent, errs = rig(); pg.goto(BASE + url); ready(pg)
-        tst = pg.locator('#toast').inner_text()
-        ok(tst.startswith('This test has ended. Mahalo for helping!'), f'ended link: it says so as it opens ({tst[:60]!r})')
-        pg.wait_for_timeout(2500); leave(pg)
-        band = pg.locator('.band').inner_text()
-        ok(band.startswith('This test has ended') and 'noted for this test' not in band, f'ended link: the band says the test has ended ({band[:70]!r})')
-        ok(not sent and 'ab=' not in pg.url and 'ended=1' in pg.url, f'ended link: its versions dropped and nothing recorded ({pg.url[len(BASE):]}, {len(sent)} sent)')
-        ok(not errs, f'ended link: no page errors {errs[:2]}'); ctx.close()
+    # R-204: an ended link (track.html's ENDED) goes to test-ended.html before the app loads: no way into the tracker, nothing
+    # recorded; so does an address already marked &ended. The same versions on a tester sheet's link of today still record.
+    for url in ['/track.html?demo=1&restart&ab=onb.today,end.home', '/track.html?demo=1&restart&ab=end.home,onb.today', '/track.html?demo=1&ended=1#/start/1']:
+        ctx, pg, sent, errs = rig(); pg.goto(BASE + url)
+        try: pg.wait_for_url('**/test-ended.html', timeout=20000)
+        except Exception: pass
+        pg.wait_for_timeout(2500)
+        txt = pg.locator('body').inner_text()
+        links = pg.eval_on_selector_all('a', 'as => as.map(a => a.getAttribute("href"))')
+        ok(pg.url.endswith('/test-ended.html') and 'This test has ended' in txt, f'ended link {url[11:]}: lands on the page that says the test has ended ({pg.url[len(BASE):]})')
+        ok(all(l.startswith('mailto:') for l in links) and not pg.locator('#app').count(), f'ended link: no way into the tracker ({links})')
+        ok(not sent, f'ended link: nothing recorded ({len(sent)} sent)')
+        ok(not errs, f'ended link: no page errors {errs[:2]}')
+        pg.go_back(); pg.wait_for_timeout(1500)
+        ok('test-ended' in pg.url or not pg.locator('main').count() or 'ended' in pg.url, f'ended link: Back does not open the tracker ({pg.url[len(BASE):]})')
+        if url == '/track.html?demo=1&restart&ab=onb.today,end.home': pg.goto(BASE + url); pg.wait_for_timeout(1500); pg.screenshot(path=os.path.join(OUT, 'test_ended_phone.png'))
+        ctx.close()
     ctx, pg, sent, errs = rig(); pg.goto(f'{BASE}/track.html?demo=1&restart&abrest=today&t=k7f2q3-a9&ab=onb.today,end.home'); ready(pg); pg.wait_for_timeout(2500); leave(pg)
     ok(sent and sent[0].get('grp') == 'a9' and 'This test has ended' not in pg.locator('.band').inner_text(), 'the same versions on a tester sheet’s link still record, with no "ended"')
     ctx.close()
