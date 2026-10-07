@@ -458,7 +458,7 @@ function open(billId, hearingId) {
     // Pick up where they left off. Someone who left for the Capitol site and came back is ready to confirm.
     x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
     x.letter = x.edited ? d.letter : letterFor(b, h, x); x.basis = x.edited ? d.basis || '' : basisOf(x);
-    x.back = x.screen === 3 && !!(d.away || d.back);
+    x.back = x.screen === 3 && !!(d.away || d.back); x.leftAt = d.left || 0;
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
   // When they started, for how long testimony really takes (R-169): kept with the draft for three hours, so a phone that
@@ -644,7 +644,7 @@ function saveDraft() {
   // Back on the bill step with a letter already saved: the points they changed go with it.
   else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, use: x.use || null, at: new Date().toISOString() };
   else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
+    away: !!x.away, back: !!x.back, left: x.leftAt || 0, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
   saveMe({ drafts });
 }
 
@@ -941,10 +941,12 @@ function aboutScreen() {
       <span class="help" id="hp-email-help">We’ll email you when a bill on your issues has a hearing. No password.${isMail(x) ? '' : ' Your email is never part of your letter.'}</span>
       ${x.link === 'failed' && x.linkTo === x.email.trim() ? `<span class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link just now. We’ll try again when you continue.</span></span>` : ''}</div>`;
   const picked = x.points.length, mine = ownPoints(x), asTapped = mine === pointsLine(x.points);
+  // The email's note says what the privacy page says (C3-5, R-199): it goes from their own account, HIPHI doesn't send
+  // it, and a copy only they can see is kept once they say it went (R-153). "HIPHI never sees it" was untrue of that copy.
   return `<div class="hp-top">${screenHead(1, 'About you')}
       ${mine ? `<p class="hp-sub">${!asTapped ? 'Your points are' : picked === 1 ? 'The point you picked is' : `The ${picked} points you picked are`} in your ${isMail(x) ? 'email' : 'letter'}. Add your own reason if you can.</p>` : ''}</div>
-    ${isMail(x) ? notice('info', 'info', `Your email goes from your own email account straight to ${esc(andList(x.to.map(shortName)))}. HIPHI never sees it or sends it for you. Share only what you’re comfortable with. You don’t have to share health details to be heard.`)
-      : notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone in Hawaiʻi can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
+    ${isMail(x) ? notice('info', 'info', `Your email goes from your own email account straight to ${esc(andList(x.to.map(shortName)))}. HIPHI doesn’t send it. Once you say it’s sent, we keep a copy that only you can see, not HIPHI staff, so you can send it again. Share only what you’re comfortable with. You don’t have to share health details to be heard.`)
+      : notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
     <form id="hp-form" class="hp-form" novalidate>
       ${field('name', 'Your name', 'name')}
       <div class="hp-tp" id="hp-tp-host">${titlesStep(x)}</div>
@@ -1142,7 +1144,7 @@ function sendScreen() {
   // "Open the Capitol page" is the footer's main button, so the checklist does not repeat it (assessment, 9/19).
   // Once the footer has turned into "I saw the green box", step 1 offers the way back for a tab closed by mistake.
   const steps = [
-    `<p>Log in to the Capitol website${x.acctStep ? ' with the account you just made' : ''}.</p>${x.back ? capitolLink(b, h, 'Open the Capitol page again', { kind: 'text', sm: true, cls: 'hp-inl' }) : ''}`,
+    `<p>Log in to the Capitol website${x.acctStep && x.acctNew ? ' with the account you just made' : ''}.</p>${x.back ? capitolLink(b, h, 'Open the Capitol page again', { kind: 'text', sm: true, cls: 'hp-inl' }) : ''}`,
     pickHearing(h), formChoices(formWord(x.stance || hiphiStance(b))),
     `<p>Paste your letter${x.saved ? ' (or upload the file)' : ''} and submit. Look for the <b>green box</b>. That means it worked.</p>
       ${x.copied3 ? `<span class="chip ok" id="hp-copy3" tabindex="-1">${icon('check')}Copied</span>` : btn('Copy my letter again', { kind: 'text', sm: true, icon: 'copy', cls: 'hp-inl', attrs: { 'data-hp': 'copy', id: 'hp-copy3' } })}`,
@@ -1150,7 +1152,8 @@ function sendScreen() {
   const trouble = x.trouble ? `<div class="notice warn hp-trouble">${icon('life-buoy')}<div>
       <p><b>Logged out?</b> Log in again. Your letter is still here: choose Copy my letter again.</p>
       <p><b>Can’t find the hearing?</b> The Public Access Room can help: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p>
-      <p><b>Past the deadline?</b> You can still send it. It will be marked late.</p></div></div>` : '';
+      <p><b>Past the deadline?</b> You can still send it. It will be marked late.</p>
+      ${fixLine(h, true)}</div></div>` : '';
   return `<div class="hp-top">${screenHead(3, x.back ? 'Did you see the green box?' : 'Send it at the Capitol')}
       <p class="hp-sub">${x.back ? 'The green box on the Capitol page means your testimony went through.' : 'One tap copies your letter and opens the Capitol page. Follow these steps there. We’ll be right here when you come back.'}</p></div>
     ${trouble}
@@ -1160,6 +1163,19 @@ function sendScreen() {
     ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;
 }
 
+// How to fix a mistake once it's sent (C2-1, R-199). The Capitol's form can't change testimony after it is sent; its
+// Testimony Help says to email or call the committee, and a committee's clerk works from the chair's office, so that
+// office's own address and phone (core.js chairContacts: the directory's, else the Capitol's pattern). Both chairs of a
+// joint hearing. inList: a line of the "Something went wrong" list, with its bold lead like the others.
+function fixLine(h, inList = false) {
+  const tel = p => String(p).replace(/[^\d+]/g, '');
+  const ways = chairContacts(h.committee).map(c => {
+    const how = [c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '', c.phone ? `<a class="hp-tel" href="tel:${esc(tel(c.phone))}">${esc(c.phone)}</a>` : ''].filter(Boolean).join(' or ');
+    return how ? `Chair ${esc(c.last)}’s office: ${how}` : ''; }).filter(Boolean);
+  if (!ways.length) return '';
+  const words = `<b>Need to change it?</b> Email or call the committee at ${ways.join('. Or ')}.`;
+  return inList ? `<p>${words}</p>` : `<p class="note hp-fix">${icon('pencil')}<span>${words}</span></p>`;
+}
 // Confirmation: the reward is what happens next, not points (plan section 1).
 function doneScreen() {
   const x = S.helper, { b, h } = x, n = spaced(b.bill_number), first = x.name.trim().split(/\s+/)[0];
@@ -1175,14 +1191,15 @@ function doneScreen() {
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
-      <p class="hp-lede">You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.</p>
+      <p class="hp-lede">${x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
+        : `You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.`}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
     </div>${up ? ask : ''}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${unfollowBtn(x)}
       ${held ? '' : goingLine(x)}
-      ${watch}</section>
+      ${watch}${fixLine(h)}</section>
     ${storyCard(x)}${profileLine(x)}
     ${up ? '' : ask}`;
 }
@@ -1420,6 +1437,7 @@ function copyAndOpen() {
   const ta = dlg?.querySelector('#hp-letter'); if (ta) x.letter = ta.value;
   try { navigator.clipboard?.writeText(x.letter).catch(() => {}); } catch { /* the steps offer Copy again */ }
   window.open(capitolUrl(x.b, x.h), '_blank', 'noopener');
+  x.leftAt ||= Date.now();   // when they went to send it: late or not is judged from here (C2-1)
   x.away = true; x.copied3 = true; saveDraft(); paint();
 }
 function download() {
@@ -1447,6 +1465,9 @@ async function confirmSent() {
     else if (!iss && !S.watch.has(x.b.id)) { await toggleWatch(x.b.id); x.followedNow = S.watch.has(x.b.id); }
   } catch { /* following is a bonus */ }
   if (S.helper !== x) return;
+  // Late or not (C2-1, R-199): by when they left for the Capitol page, else now. The thank-you must not promise that a late
+  // letter is read before the vote.
+  const dl = x.h.testimony_deadline; x.late = !!dl && (x.leftAt || Date.now()) > Date.parse(dl);
   afterSend(x);
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });

@@ -2443,3 +2443,12 @@ body.simple .drawer #d-savepub{justify-self:start;width:auto}
 .iconpick{display:inline-flex;align-items:center;gap:6px}
 .iconpick select{width:auto}
 .licon svg{width:1.1em;height:1.1em}
+
+/* The old app is look-only (F7-1, R-199): a refusal's toast carries its link; a bill's, legislator's or person's panel
+   says where to change it; switched-off fields read as switched off. */
+.toastmsg.lo{display:flex;align-items:center;gap:16px;animation:none}
+.toastmsg.lo a{color:#fff;font-weight:700;text-decoration:underline;white-space:nowrap}
+.lo-line{margin:8px 0 12px;padding:8px 12px;border-radius:8px;background:#FFF5E8;color:#6B4704;font-size:13px;line-height:1.4}
+.lo-line a{color:#024F69;font-weight:700}
+a.lo-go{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+#app input:disabled, #app select:disabled, #app textarea:disabled{opacity:.6;cursor:not-allowed}
