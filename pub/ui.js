@@ -43,7 +43,11 @@ function wrapWords(t) {
     at = m.index + m[0].length;
   }
   if (at < v.length) frag.append(v.slice(at));
-  t.replaceWith(frag);
+  // In a flex or grid box every child is laid out on its own and the spaces at its edges vanish, so a link in version A's
+  // week read "Disposablee-cigaretteban" (found 10/6, R-195): there the pieces stay one item inside a plain span.
+  let out = frag;
+  try { if (/flex|grid/.test(getComputedStyle(el).display)) { out = document.createElement('span'); out.append(frag); } } catch { /* the pieces as they are */ }
+  t.replaceWith(out);
 }
 function wrapIn(node) {
   if (node.nodeType === 3) return wrapWords(node);

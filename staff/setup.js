@@ -412,6 +412,7 @@ const SEE = {
   share: ['track.html?demo=1&ab=share.', 'Free school bus passes: press Share. The difference is the message.', '#/bill/HB1780'],
   home: ['compare.html?ab=home.', 'Pick Leilani (16 issues), then Open today’s version. The difference is the top of Home.'],
   layout: ['compare.html?ab=layout.', 'Pick who is visiting and the day, then Open it. The difference is Home, every bill page and the tabs (R-187).'],
+  act: ['track.html?demo=1&restart&ab=act.', 'A practice first visit from the start: the difference is “Coming up on your issues”, just before the end (R-150).'],
 };
 // &abrest=today: every other test at today's version, whatever the switches (R-192); compare.html adds it itself.
 const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
@@ -502,13 +503,14 @@ const rid = n => { const a = crypto.getRandomValues(new Uint8Array(n)); return [
 const RID = /^[a-z0-9]{4,12}$/, GID = /^[a-z0-9]{2,8}$/;
 // A plan of the first-visit test replaces the screens these compare (pub/variant.js INSIDE_TODAY); 'join' is met only on
 // a plan's sign-up.
-const ROOM_INSIDE = ['end', 'fv', 'email'], ROOM_PLAN_ONLY = ['join'];
+const ROOM_INSIDE = ['end', 'fv', 'email', 'act'], ROOM_PLAN_ONLY = ['join'];
 // Where in a visit each test's difference shows, for the page Nate keeps.
 const ROOM_WHERE = { onb: 'The whole first visit.', end: 'The last screen of the first visit.', fv: 'The middle of the first visit.',
   email: 'Near the end of the first visit, on “Coming up on your issues”.', join: 'The alerts sign-up, after their first step.',
   rank: 'After they send testimony on a bill: the card that comes next.', share: 'The message when they press Share on a bill.',
   home: 'The top of Home, once they have two or more things to do.',
-  layout: 'Home, every bill page and the tabs, from the visit after the first one.' };
+  layout: 'Home, every bill page and the tabs, from the visit after the first one.',
+  act: 'The page just before the end of the first visit: “Coming up on your issues”, or three ways to help.' };
 // What every group is asked to do, beyond going through the first visit, to meet a screen outside it (the fresh-eyes
 // review, 10/6: a group changed on the share message produced no comparison when nobody pressed Share). The same words
 // for every group, so nobody is steered. The practice copy has Free school bus passes with a hearing on its March day.

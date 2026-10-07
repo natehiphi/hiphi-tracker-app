@@ -3,14 +3,17 @@
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, markDone } from './core.js';
+import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
+import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
 import { burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
-import { endHome, armOf, abSeen } from './variant.js';
+import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
@@ -432,6 +435,7 @@ function upcoming() {
 // else still waits for Home.
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 function stepSoon(step) {
+  if (armOf('act') === 'three') { const ways = waysFor(); if (ways) return stepWays(step, ways); }
   const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
   // No way to reach them yet (they skipped the alerts screen, or the email-ask test's second version, R-135): one quiet
   // line under the list, never a second ask (C-3: once a visit).
@@ -448,6 +452,116 @@ function stepSoon(step) {
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}`,
     `${list}${quiet ? quietAsk() : nameCard()}`);
+}
+// ================= The test 'act', its second version: three ways to help (R-150) =================
+// Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three
+// bills that they followed each with a different type of action. One is write testimony, one is send an email, another is
+// send to a friend"; 10/6: on "Coming up on your issues" (the page just before "You're all set!"), the fill-ins as
+// recommended, no reminder for now, and tested beside today's page (pub/variant.js 'act'). Each card opens what the rest of
+// the tracker already has: the testimony walkthrough, the two-minute email to the chair, asking a chair for a hearing,
+// Share, the hello to their legislators, and the profile's story for an issue. The cards are the choices and all equal
+// (A-3, P-5: one tap each, none singled out, Next goes on without any); a card done says so and stays put (A-16, C-7: the
+// walkthroughs have their own Mahalo).
+// In session: testimony on the soonest bill with testimony still open (else ask a chair for a hearing on a bill waiting for
+// one), an email to the chair on a second bill with a hearing (else a hearing ask on another bill), and Send to a friend on
+// a third (else their first issue). Between sessions, and in session with nothing on their issues: a hello to their two
+// legislators (or finding them first, the step just before), Send to a friend, and one sentence on why it matters, kept for
+// January. Following nothing (Skip): today's page.
+const SOON_MS = 7 * 864e5;
+function waysFor() {
+  const iss = followedIssues().filter(shown); if (!iss.length) return null;
+  const i0 = iss[0], ways = [], used = new Set(), now = Date.now();
+  // Hearings in the next 7 days on their bills, testimony still open first; one whose written deadline has passed still
+  // takes an email to the chair, the quick way to be heard (core.js openActions).
+  const hear = isOff() ? [] : openActions(S.bills, S.hearings).filter(x => new Date(x.h.scheduled_at) - now < SOON_MS);
+  const waits = isOff() ? [] : waitingBills(S.bills).filter(({ b, st }) => !/oppose/.test(b.hiphi_position || '') && agrees(b) !== false
+    && chairContacts(st.committee).length);
+  const take = (list, ok = () => true) => { const x = list.find(y => !used.has(y.b.id) && ok(y)); if (x) used.add(x.b.id); return x || null; };
+  const ask = () => { const w = take(waits); return w ? { kind: 'ask', b: w.b, code: w.st.committee, st: w.st } : null; };
+  if (hear.length || waits.length) {
+    const t = take(hear, x => !x.late && x.h.testimony_deadline && new Date(x.h.testimony_deadline) > now);
+    ways.push(t ? { kind: 'testimony', ...t } : ask());
+    // Never two cards of one kind (the review): with no hearing for an email to the chair, and the first card already a
+    // hearing ask, the second is the hello to their legislators, another kind of email.
+    const e = take(hear, x => agrees(x.b) !== false);
+    ways.push(e ? { kind: 'email', ...e } : ways[0]?.kind === 'ask' ? { kind: 'hello' } : ask());
+    const sh = take(hear) || take(waits.map(w => ({ b: w.b, h: null })));
+    ways.push(sh ? { kind: 'share', b: sh.b, h: sh.h } : { kind: 'shareissue', i: i0 });
+    const out = ways.filter(Boolean);
+    if (out.length === 3) return out;
+  }
+  // Between sessions, or nothing to act on this week in session.
+  return [{ kind: 'hello' }, { kind: 'shareissue', i: i0 }, { kind: 'story', i: iss[1] || i0 }];
+}
+const helloLegs = () => myLegs().filter(l => l.email);
+const wayDone = w => w.kind === 'testimony' ? didKind(w.b, w.h, 'testimony') : w.kind === 'email' ? didKind(w.b, w.h, 'email')
+  : w.kind === 'ask' ? askedChair(w.b, w.code) : w.kind === 'share' ? !!S.chips['way:' + w.b.id] || !!(w.h && didKind(w.b, w.h, 'share'))
+  : w.kind === 'shareissue' ? !!S.chips['share:' + w.i.id] : w.kind === 'hello' ? !!introState() : w.kind === 'story' ? !!myStories()[w.i.id] : false;
+// "today", "tomorrow", else the weekday: a hearing in the next 7 days needs no date.
+const dayOf = iso => { const d = hstDay(iso), t = hstDay(Date.now()); return d === t ? 'today' : d === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }); };
+function wayWords(w) {
+  const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '';
+  switch (w.kind) {
+    case 'testimony': return ['notebook-pen', 'Write testimony', `${name}: due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, 'a few min'];
+    case 'email': return ['mail', 'Email the committee chair', `${name}: hearing ${dayOf(w.h.scheduled_at)}`, '2 min'];
+    case 'ask': return ['mail', `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, `${name} needs a hearing by ${dateLong(w.st.deadline.date + 'T12:00:00-10:00')}`, '2 min'];
+    case 'share': return ['share-2', 'Send it to a friend', `${name}: more voices carry more weight`, '1 min'];
+    // Issue names are often sentences ("Let counties regulate tobacco sales"), so they lead the line rather than sit inside one.
+    case 'shareissue': return ['share-2', 'Send it to a friend', `${w.i.name}: know someone who cares?`, '1 min'];
+    case 'hello': { const legs = helloLegs();
+      return legs.length ? ['hand-heart', 'Say aloha to your legislators', `${legs.map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ')} are writing next year’s bills now`, '2 min']
+        : ['landmark', 'Find your legislators', 'About 30 seconds. Then say aloha before January.']; }
+    case 'story': return ['message-square-heart', 'Say why it matters to you', `${w.i.name}: one sentence, kept for your letters in January`];
+    default: return ['circle', '', ''];
+  }
+}
+const lastOf = l => (l.sort_name || l.name || '').split(',')[0];
+// "Email the committee chair · 2 min", the time never left alone on a line (the review).
+const title = (t, m) => `${esc(t)}${m ? ` <span class="nobr">· ${esc(m)}</span>` : ''}`;
+function stepWays(step, ways) {
+  const off = isOff() || ways[0].kind === 'hello', quiet = !S.session && !mailSent() && !textSaved();
+  const card = (w, k) => {
+    const [ic, t, sub, m] = wayWords(w), done = wayDone(w);
+    // A share that only copied the link says so, and what to do with it (the review: "Done" when nothing was sent yet).
+    const how = w.kind === 'share' ? S.chips['way:' + w.b.id] : w.kind === 'shareissue' ? (S.chips['share:' + w.i.id] === true ? 'copied' : S.chips['share:' + w.i.id]) : '';
+    const said = w.kind === 'story' ? 'Kept for January. Mahalo!' : how === 'copied' ? 'Link copied. Paste it in a text or email.' : how === 'shared' ? 'Sent. Mahalo!' : 'Done. Mahalo!';
+    if (done) return `<li style="--k:${k}"><div class="card ob-way st-way done"><span class="ob-wayic" aria-hidden="true">${icon('check')}</span><span><b>${title(t, m)}</b><span>${said}</span></span></div></li>`;
+    if (w.kind === 'story' && S.stWayStory === w.i.id) return `<li style="--k:${k}"><div class="card ob-way st-way st-waystory"><p class="st-wayiss">${esc(w.i.name)}</p><label for="st-story"><b>${esc(storyAsk(w.i.id))}</b></label>
+      <textarea id="st-story" rows="3" maxlength="600" placeholder="When my kids started school…">${esc(S.stWayDraft || '')}</textarea>
+      <div class="btnrow">${btn('Keep it for January', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-stway-save': w.i.id } })}</div>
+      <p class="small muted">Kept on this device and in your profile. You can change it any time.</p></div></li>`;
+    return `<li style="--k:${k}"><button type="button" class="card ob-way st-way" data-stway="${k}"><span class="ob-wayic" aria-hidden="true">${icon(ic)}</span><span><b>${title(t, m)}</b><span>${esc(sub)}</span></span>${icon('chevron-right')}</button></li>`;
+  };
+  S.stWays = ways;
+  return shell('st4 st-soonpage st-wayspage', `${topRow('soon', step)}
+    <h1 class="hero" id="st-h">${off ? 'Three ways to help before January' : 'Three ways to help this week'}</h1>
+    <p class="lede">${off ? 'The Legislature is back in January. Pick one if you like.' : 'Pick one if you like. We help you with each.'}</p>`,
+    `<ul class="ob-ways st-ways" role="list">${ways.map(card).join('')}</ul>${quiet ? quietAsk() : nameCard()}`);
+}
+function wireWays({ step }) {
+  const ways = S.stWays || [];
+  document.querySelectorAll('[data-stway]').forEach(el => el.onclick = async () => {
+    const w = ways[+el.dataset.stway]; if (!w) return;
+    track('soon', 'answer');   // a way picked (the counts take known events only; what was done is counted as an action)
+    if (w.kind === 'testimony') return app.openHelper(w.b.id, w.h.id);
+    if (w.kind === 'email') return app.openMail?.({ mode: 'email', bill: w.b.id, hearing: w.h.id });
+    if (w.kind === 'ask') return app.openMail?.({ mode: 'email', bill: w.b.id, code: w.code });
+    if (w.kind === 'hello') { const legs = helloLegs(); return legs.length ? app.openMail?.({ mode: 'intro', legs: legs.map(l => l.id) }) : goStep(step, step - 1); }
+    if (w.kind === 'story') { S.stWayStory = w.i.id; app.render(); requestAnimationFrame(() => document.getElementById('st-story')?.focus()); return; }
+    // Share: the bill (its hearing's message), else their first issue's page; the same helpers as the bill and issue pages.
+    const A = await import('./actions.js');   // with the bill page's helpers, on first use (R-122)
+    if (w.kind === 'share') { const how = await A.doShare(A.shareFor(w.b, w.h)); if (!how) return;
+      S.chips['way:' + w.b.id] = how; if (w.h && !didKind(w.b, w.h, 'share')) await markDone(w.b.id, w.h.id, 'share'); }
+    else { const how = await A.shareIssue(w.i); if (!how) return; S.chips['share:' + w.i.id] = how === 'copied' ? true : how; }
+    app.render();
+  });
+  const ta = document.getElementById('st-story'); if (ta) ta.oninput = () => { S.stWayDraft = ta.value; };
+  document.querySelector('[data-stway-save]')?.addEventListener('click', async e => {
+    const id = e.currentTarget.dataset.stwaySave, text = (S.stWayDraft || '').trim();
+    if (!text) { document.getElementById('st-story')?.focus(); return; }
+    try { await saveProfile({ stories: { ...myStories(), [id]: text } }); } catch (err) { console.error(err); }
+    S.stWayStory = null; S.stWayDraft = ''; app.render();
+  });
 }
 // The first name, optional, once there is a way to reach them (R-078 asked it after the email; since R-146 the ask is
 // earlier and leaves straight for the "Mahalo!", so it waits here): the finale and Home greet them by it, and it joins
@@ -470,15 +584,32 @@ const quietAsk = () => `<p class="small muted st-quietask">${icon('bell')}<span>
 // comes up (the bookend to the first screen's drawing). Then what happens next. Nothing here asks for anything.
 // The words come first and the celebration plays around them (X11-2, R-180): every line is in by 0.8 s and nothing moves
 // after 2 s (the timings are in start.css and fx.js petals()).
+// The ways done on the page before (the test 'act', R-150), for the finale's "Here's what you did today" (the review: someone
+// who sent testimony there was not told so).
+const waysDone = () => (S.stWays || []).filter(wayDone);
+const spokeHere = () => waysDone().some(w => ['testimony', 'email', 'ask', 'hello'].includes(w.kind));
+function wayRow(w) {
+  const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '';
+  switch (w.kind) {
+    case 'testimony': return ['send', `You wrote testimony on ${name}`, 'The committee reads it before it votes', 'ok'];
+    case 'email': return ['send', `You emailed the chair about ${name}`, 'You told the committee what you think', 'ok'];
+    case 'ask': return ['send', `You asked for a hearing on ${name}`, 'The chair decides which bills are heard', 'ok'];
+    case 'hello': return ['send', 'You said aloha to your legislators', 'They’ll know what you care about', 'ok'];
+    case 'share': case 'shareissue': return ['share-2', 'You sent it to a friend', name || w.i.name, 'ok'];
+    case 'story': return ['message-square-heart', 'You said why it matters to you', 'Kept for your letters in January', 'ok'];
+    default: return null;
+  }
+}
 function recapRows() {
   const f = followedIssues(), off = isOff(), stances = S.stances || {}, n = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
   const stood = new Set(followedBills().filter(b => ['support', 'oppose'].includes(stances[b.id])).map(b => viaIssue(b)?.id || b.id)).size;
-  const acted = wiz().via && wiz().viaActed;
+  const acted = wiz().via && wiz().viaActed, ways = waysDone();
   const legs = S.stAddr.pick ? S.stAddr.pick.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean)
     .sort((a, b) => (a.chamber === 'H' ? 0 : 1) - (b.chamber === 'H' ? 0 : 1)) : [];
   return [
     f.length || n ? ['star', f.length ? `You follow ${plural(f.length, 'issue')}` : `You follow ${plural(n, 'bill')}`, off ? 'Their new bills come to you as they start' : `${plural(n, 'bill')} we’ll watch for you`, 'ok'] : null,
     acted ? ['send', `You spoke up on ${wiz().viaName || spaced(wiz().via)}`, 'You told the committee what you think', 'ok'] : null,
+    ...ways.map(w => wayRow(w)),
     stood ? ['thumbs-up', `You took a stand on ${plural(stood, 'issue')}`, 'Never shown publicly', 'ok'] : null,
     S.stLearned ? ['landmark', 'You know how a bill becomes law', 'And when your voice counts most', 'ok'] : null,
     legs.length ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${lastName(l)}`).join(' and '), 'ok'] : null,
@@ -492,7 +623,7 @@ function stepDone(step) {
   // In proportion to what was done (C-7): someone who skipped everything was thanked for "speaking up" and promised
   // "we tell you" with no way to be told (R-067). The words follow what really happened: "we tell you" only once alerts
   // are on or almost set by the one rule (D1-4), never for a signed-in account with both email choices off.
-  const spoke = !!(wiz().via && wiz().viaActed), did = rows.some(r => r[3] === 'ok') || al.key === 'on', follows = followsAnything();
+  const spoke = !!(wiz().via && wiz().viaActed) || spokeHere(), did = rows.some(r => r[3] === 'ok') || al.key === 'on', follows = followsAnything();
   const told = al.key === 'on' || al.key === 'almost';
   const lede = spoke ? 'Mahalo for speaking up for a healthier Hawaiʻi. Here’s what you did today.'
     : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
@@ -693,9 +824,14 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
   }
   if (name === 'soon') {
+    abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
+    if (S.stWays && document.querySelector('.st-wayspage')) wireWays({ step });
     // A first name typed here is kept when they move on: the finale and Home both read wiz().name.
     const keepName = () => { const first = ($('#st-name')?.value || '').trim().slice(0, 40); if (first) { wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; } };
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { keepName(); next(); };
+    // A sentence typed in "Say why it matters" and not yet kept is kept on the way out too (C-9, the review).
+    const keepStory = () => { const id = S.stWayStory, text = (S.stWayDraft || '').trim(); if (!id || !text) return;
+      S.stWayStory = null; S.stWayDraft = ''; saveProfile({ stories: { ...myStories(), [id]: text } }).catch(e => console.error(e)); };
+    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { keepName(); keepStory(); next(); };
     const nf = $('#st-name'); if (nf) { nf.oninput = () => { S.stMail.name = nf.value; }; nf.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); keepName(); next(); } }; }
   }
 

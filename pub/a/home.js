@@ -8,7 +8,9 @@
 //   3. This week on your issues: one row per hearing (a committee sitting), not per bill. Every day open, past days gone
 //      (R-190, Nate 10/6: nothing to do behind a closed fold; later days were one folded line each).
 //   4. Where your issues stand: up to six issues as rows with a progress bar; more than six as one bar with counts,
-//      with the full list in My issues. Bills that need a hearing are one line each here, not cards, shown (R-190).
+//      with the full list in My issues.
+//   Between 3 and 4, bills that need a hearing: one line each, not cards, right under the week (R-194, Nate 10/6: they sat at
+//   the end of part 4, about 6,000px down a phone for someone following many issues; R-190 had opened their fold).
 // The email ask sits after the week (R-070 decision 3, tried here), never between two hearings.
 // Everything else (the first visit and the rest of that visit, between sessions, following nothing, Your session) is
 // today's Home, unchanged.
@@ -261,9 +263,9 @@ function issueRow(r) {
   return `<li><a class="a-irow" href="#/issue/${esc(r.i.slug)}"><span class="a-itop"><b>${esc(r.i.name)}</b>${chip(tag, tone)}</span>
     ${r.lead ? stepBar(r.lead) : ''}${line ? `<span class="a-iline">${esc(line)}</span>` : ''}</a></li>`;
 }
-function standBlock({ asksShown = false } = {}) {
+function standBlock() {
   const iss = followedIssues(); if (!iss.length) return '';
-  const rows = iss.map(issueState), asks = asksShown ? [] : askList();
+  const rows = iss.map(issueState);
   let body;
   if (rows.length <= 6) body = `<ul class="a-irows">${rows.map(issueRow).join('')}</ul>`;
   else {
@@ -273,10 +275,16 @@ function standBlock({ asksShown = false } = {}) {
     body = `${inWeek ? `<p class="a-inweek">${icon('calendar')}<span>${esc(plural(inWeek, 'issue has', 'issues have'))} a hearing this week, listed above.</span></p>` : ''}
       ${others.length ? `<ul class="a-irows">${others.map(issueRow).join('')}</ul>` : ''}`;
   }
-  const askHtml = asks.length ? `<div class="a-asks"><p class="a-askh">${icon('hourglass')}<span>${esc(plural(asks.length, 'bill needs', 'bills need'))} a hearing soon. The committee chair decides which bills get one; a short note helps.</span></p>
-      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></div>` : '';
   return `<section class="a-sec" aria-labelledby="a-st-h"><div class="a-sech"><h2 id="a-st-h">Where your ${esc(plural(iss.length, 'issue'))} ${iss.length === 1 ? 'stands' : 'stand'}</h2></div>
-    <div class="a-stand">${body}${askHtml}<a class="a-all" href="#/bills">See all ${iss.length} in My issues${icon('chevron-right')}</a></div></section>`;
+    <div class="a-stand">${body}<a class="a-all" href="#/bills">See all ${iss.length} in My issues${icon('chevron-right')}</a></div></section>`;
+}
+// Bills that need a hearing, right under the week (R-194): things to do come before where the issues stand. Left out when
+// the Now card above already offers them (nothing due this week, R-071).
+function asksBlock(asks) {
+  if (!asks.length) return '';
+  return `<section class="a-sec" aria-labelledby="a-ask-h"><div class="a-sech"><h2 id="a-ask-h">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</h2><p>${esc(plural(asks.length, 'bill'))}</p></div>
+    <div class="a-asks"><p class="a-askh">${icon('hourglass')}<span>The committee chair decides which bills get a hearing. A short, polite note helps.</span></p>
+      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></div></section>`;
 }
 
 // ---------------- the page ----------------
@@ -312,8 +320,9 @@ function view() {
     ${extras.draft(new Set(items.slice(0, 1).map(x => x.h.id)))}${goSoon}
     ${first}
     ${calm && !hasWeek ? '' : weekBlock()}
+    ${!items.length && !due.length && asks.length > 0 ? '' : asksBlock(asks)}
     ${ask}
-    ${standBlock({ asksShown: !items.length && !due.length && asks.length > 0 })}
+    ${standBlock()}
     ${tail ? `<div class="a-extras">${tail}</div>` : ''}
   </div>`;
 }

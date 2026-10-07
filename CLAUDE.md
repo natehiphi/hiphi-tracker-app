@@ -261,7 +261,9 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
 - Nate's product rules (9/19):
   1. A first visit is follow a few issues + maybe say where you stand (R-018, 9/21: people follow issues, and
      bills reach them through the issue). No action is pushed (today's version; the test plans 1 and 3 offer one, with
-     an equal "Not now", as Nate asked in R-150 and R-164: an exception in DESIGN-AUDIT section 4). The first visit ends
+     an equal "Not now", as Nate asked in R-150 and R-164: an exception in DESIGN-AUDIT section 4; and the test `act`, R-150,
+     offers three ways to help on the page before the end, all equal, with Next: `waysFor`/`stepWays` in `pub/start-rest.js`,
+     `tests/ways.py`). The first visit ends
      on **"See How I Can Help"** (`GO_HELP` in `pub/topics.js`, every version and the shared-link moment; Nate 10/6, R-190),
      and Home then opens on every thing to do this week, the soonest as its one main button; **nothing to do is ever folded
      on Home** (DESIGN B-14; after a first action from a shared link the same list is shown calm, no button singled out). Later visits prompt

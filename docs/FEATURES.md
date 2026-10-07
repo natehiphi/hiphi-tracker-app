@@ -911,3 +911,34 @@ path (the screens in order, the seconds on each, what they did), testers told.
   a bill, the walkthrough by step, follows, an action, finishing once, a number once, Next day on the same path; not
   recorded for the practice copy alone, See it, compare.html, the privacy signal or an automated browser; an older link
   recorded with no group; the sheet's links, results, paths and printed notice on a phone and a laptop).
+
+## Three ways to help before the end of the first visit, as a test (R-150; 6 Oct 2026)
+
+Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three
+bills that they followed each with a different type of action. One is write testimony, one is send an email, another is send
+to a friend"; 10/6: on "Coming up on your issues" (the page just before "You're all set!"), no reminder for now, "test it".
+The test `act` (`pub/variant.js`, backend 151): `today` keeps "Coming up on your issues"; `three` draws **"Three ways to help
+this week"** there (`waysFor`, `stepWays`, `wireWays` in `pub/start-rest.js`), three equal cards (Plan 1's `.ob-way`, moved
+from `onb.css` to `start.css`), no main button among them, Next unchanged:
+- In session: **Write testimony** on the soonest bill with testimony open (the walkthrough, `app.openHelper`), **Email the
+  committee chair** on a second bill with a hearing in the next 7 days, its written deadline passed or not (`app.openMail`),
+  **Send it to a friend** on a third (`shareFor`/`doShare`, the bill's share; a bill waiting for a hearing when there is no
+  third with one). With no second hearing, the email is **Ask the chair for a hearing** on a bill waiting for one
+  (`waitingBills`, `app.openMail` with the committee's code).
+- Between sessions, or nothing on their issues this week: **Say aloha to your legislators** (the hello letter, mode
+  `intro`; without an address, **Find your legislators** goes back to "Who speaks for you"), **Send it to a friend** (their
+  first issue's page, `shareIssue`), **Why this matters to you** (one sentence in the card, kept as the profile's story for
+  that issue, `saveProfile({ stories })`).
+- A card done keeps its place with a tick ("Done. Mahalo!", "Kept for January"). Following nothing: today's page.
+- Met on that page (`abSeen('act')`); measures: acted on the day of the first visit, came back within 7 days. Inside today's
+  first visit only (`INSIDE_TODAY`): a plan never meets it. Staff v2 > Tests and the tester sheet list it (`SEE`,
+  `ROOM_WHERE`). DESIGN-AUDIT records it as an exception to "a first visit never pushes an action".
+Tests: `tests/ways.py` (new: every card on a phone and a laptop, in session and between sessions, with and without an
+address, today's version, the test met, type sizes); `fv_type.py` walks it; `abtests.py` and `room.py` count eleven tests.
+
+**Version A's bills that need a hearing, under the week (R-194, 10/6).** `asksBlock` in `pub/a/home.js`, its own section
+after "This week on your issues" (they were the last thing in "Where your issues stand").
+
+**"e-cigarette" kept whole without losing its spaces (R-195, 10/6).** `ui.js` `wrapWords` wraps the pieces in one plain span
+inside a flex or grid box, where the spaces at their edges vanished ("Disposablee-cigaretteban" in version A's week).
+Backend HANDOFF 3.129.

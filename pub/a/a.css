@@ -120,6 +120,8 @@ a.a-newsrow:hover b { text-decoration: underline; }
 .a-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .a-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .a-asks { margin: 6px 0; border-radius: 10px; background: var(--n50); }
+/* Its own section under the week since R-194: a white card like the week's. */
+.a-sec > .a-asks { margin: 0; background: var(--n0); border-radius: 14px; box-shadow: var(--sh1); }
 .a-askh { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 12px 6px; font-size: var(--t14); color: var(--n700); }
 .a-askh > .ic:first-child { color: var(--p700); width: 18px; height: 18px; flex: none; margin-top: 1px; }
 .a-askh > span { flex: 1; }
