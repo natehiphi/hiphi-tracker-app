@@ -5,8 +5,10 @@
 # what in the address; "Done" says what stopped and masks the address; an unknown account and a failed send each say so in plain
 # words and give the contact; a link with no token says it looks incomplete and offers no button; "No, keep them" goes to the
 # tracker; the page fits at 375 with 44px targets and no sideways scroll; no console errors.
-import re, sys
+import os, re, sys
 from playwright.sync_api import sync_playwright
+# Screenshots go to tests/out (git-ignored), as in the older tests: a Mac-only folder crashed the test on GitHub's machine (R-200).
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 ORIGIN = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
 TOK = '0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d'
 passes, fails, errors = [], [], []
@@ -35,7 +37,7 @@ with sync_playwright() as pw:
             ok(len(calls) == 1 and calls[0][0] == 'POST' and f'u={TOK}' in calls[0][1] and 'what=hearing' in calls[0][1] and calls[0][2] == 'List-Unsubscribe=One-Click', f'the button posts the one-click form once, token and what in the address ({calls})')
             t = p.inner_text('#u-card')
             ok(t.startswith('Done') and 'You will no longer get hearing alerts.' in t and 'n…@example.org' in t and p.locator('#u-go').is_hidden(), 'Done: says what stopped, shows the masked address, no button left')
-            p.screenshot(path='/private/tmp/claude-501/unsub_done.png')
+            p.screenshot(path=os.path.join(OUT, 'unsub_done.png'))
         c.close()
     c, p, calls = run(b, 'all', (404, '{"ok":false,"why":"unknown"}'), 'unknown'); p.click('#u-go'); p.wait_for_timeout(400)
     ok('could not find that account' in p.inner_text('#u-card') and 'contact@hiphi.org' in p.inner_text('#u-card'), 'an unknown account says so and gives the contact'); c.close()

@@ -3,8 +3,10 @@
 # Checks: on the stopped bill's page, under the stopped label, "The same idea became law as SB 2175, Act 189." with a link to that bill;
 # a stopped bill whose companion did not become law says nothing extra; a resolution never gets the line; the list label says
 # "Stopped · the same idea became law as SB 2175" (plainStatus); no sideways scroll at 390; no console errors.
-import sys
+import os, sys
 from playwright.sync_api import sync_playwright
+# Screenshots go to tests/out (git-ignored), as in the older tests: a Mac-only folder crashed the test on GitHub's machine (R-200).
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html')
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
@@ -30,7 +32,7 @@ with sync_playwright() as pw:
         ok(p.locator('.bl-sameidea a[href$="SB2175"]').count() == 1, f'{tag}: and links to the law')
         ok(p.evaluate("(() => { const w = document.querySelector('.bl-why'), s = document.querySelector('.bl-sameidea'); return !!w && !!s && w.compareDocumentPosition(s) & 4; })()"), f'{tag}: it sits right under why the bill stopped')
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll')
-        if W == 390: p.screenshot(path='/private/tmp/claude-501/same_idea_390.png')
+        if W == 390: p.screenshot(path=os.path.join(OUT, 'same_idea_390.png'))
         # a stopped bill whose companion did not become law
         p.evaluate("""async () => { const m = await import('./pub/core.js'); [...m.S.bills, ...Object.values(m.S.extra || {}), ...m.D.bills, ...m.D.index].filter(b => b.bill_number === 'SB2175').forEach(b => { b.stage = 'dead'; b.last_action = 'Failed.'; }); }""")
         p.evaluate("location.hash = '#/more'"); p.wait_for_timeout(400); p.evaluate("location.hash = '#/bill/HB2121'"); p.wait_for_timeout(1000)

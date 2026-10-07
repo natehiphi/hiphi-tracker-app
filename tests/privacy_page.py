@@ -5,8 +5,10 @@
 # out (staff notes, what stays after a stop or a deletion, the periods, the contact); the periods named are the ones Nate chose; the
 # counts promise (10 people) is the one the database keeps (backend 159); it fits at 390 and 1440 with no sideways scroll; both
 # variants (texts confirmed by a text, and by a code) work; no console errors.
-import re, sys
+import os, re, sys
 from playwright.sync_api import sync_playwright
+# Screenshots go to tests/out (git-ignored), as in the older tests: a Mac-only folder crashed the test on GitHub's machine (R-200).
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html')
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
@@ -36,7 +38,7 @@ with sync_playwright() as pw:
         ok(p.locator('.mr-factlist').count() >= 8, f'{tag}: the long sections are short lists ({p.locator(".mr-factlist").count()})')
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll')
         ok(re.search(r'Updated \d+ October 2026', p.inner_text('main')), f'{tag}: it is dated')
-        if W == 390: p.screenshot(path='/private/tmp/claude-501/privacy_page_390.png', full_page=True)
+        if W == 390: p.screenshot(path=os.path.join(OUT, 'privacy_page_390.png'), full_page=True)
         c.close()
     b.close()
 ok(not errors, 'no console errors' + ('' if not errors else ': ' + ' | '.join(errors[:4])))

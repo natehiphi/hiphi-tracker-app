@@ -4,8 +4,10 @@
 # and a bad number are refused in plain words; a good one asks first, then says what was done (counts, no identifier) and clears the
 # fields; the keeping table lists the six kinds with their periods; the switch asks before turning the clean-up on and says so after;
 # the page fits at 390 and 1440 wide with no sideways scroll; no console errors.
-import re, sys
+import os, re, sys
 from playwright.sync_api import sync_playwright
+# Screenshots go to tests/out (git-ignored), as in the older tests: a Mac-only folder crashed the test on GitHub's machine (R-200).
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/staff.html').split('#')[0]
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
@@ -43,7 +45,7 @@ with sync_playwright() as pw:
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag} no sideways scroll')
         small = p.evaluate("[...document.querySelectorAll('.st-form button, .st-form input, .st-keeping button, [data-stsave]')].filter(e => e.offsetParent && !e.closest('table')).map(e => [e.textContent.trim().slice(0, 24), Math.round(e.getBoundingClientRect().height)]).filter(([, h]) => h < 44)")
         ok(not small, f'{tag} every target is 44px tall: {small[:4]}')
-        p.screenshot(path=f'/private/tmp/claude-501/privacy_{W}.png', full_page=True)
+        p.screenshot(path=os.path.join(OUT, f'privacy_{W}.png'), full_page=True)
         c.close()
     b.close()
 ok(not errors, 'no console errors' + ('' if not errors else ': ' + ' | '.join(errors[:4])))
