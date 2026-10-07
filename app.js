@@ -76,7 +76,7 @@ const S = {
   // build where that view still existed) must not leave someone staring
   // at an empty page. Unknown names fall back.
   view: (v => ['portfolio','table','add','settings','help','triage','inbox','memo','lists','setup','legislators','emails','people','dead'].includes(v)
-              ? v : 'portfolio')(localStorage.getItem('view')),
+              ? v : 'portfolio')(new URLSearchParams(location.search).get('view') || localStorage.getItem('view')),   // ?view=add opens New bills: the walk-through kit's links (F7-2)
   owner: 'me', q: '', pri: '', pris: new Set(), camps: new Set(), lsts: new Set(), poss: new Set(), stands: new Set(), hearF: false, riskF: false, aliveF: false, filterOpen: false, stageF: '', camp: '',
   drawerBill: null, logType: 'testimony', sort: ['bill_number', 1],
   todos: {},   // bill_id -> [todo]
