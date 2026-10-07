@@ -74,6 +74,18 @@ export function relatedOf(i) {
 export const STANCES = [['support', 'Support', 'circle-check', 'HIPHI is for it'], ['oppose', 'Oppose', 'circle-x', 'HIPHI is against it'],
   ['mixed', 'Mixed', 'scale', 'HIPHI supports some bills on it and opposes others']];
 const stanceOf = i => STANCES.find(x => x[0] === i?.stance) || null;
+// A quiet note when a bill on the issue has gone against the issue's stance (R-095, Nate 10/5, "Build it"): each bill keeps its own
+// position, separate from the issue's stance (R-093), so "HIPHI supports" can sit over a bill HIPHI opposes, as the tax-cut bills on
+// "Higher liquor taxes" do. Nothing changes by itself; the note lets staff decide whether the issue should become Mixed. Only this
+// session's bills with a position that points the other way (neutral and Monitor do not); only for Support or Oppose.
+const FOR = new Set(['strongly_support', 'support', 'support_amend']), AGAINST = new Set(['strongly_oppose', 'oppose']);
+export const againstStance = (i, bills) => i?.stance === 'support' ? bills.filter(b => AGAINST.has(b.position)) : i?.stance === 'oppose' ? bills.filter(b => FOR.has(b.position)) : [];
+function stanceNote(i, now) {
+  const odd = againstStance(i, now); if (!odd.length || i.archived_at) return '';
+  const word = i.stance === 'support' ? 'supports' : 'opposes', say = b => FOR.has(b.position) ? 'supports' : 'opposes';
+  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
+  return `<div class="is-stnote" role="note">${icon('info')}<div><p>${odd.length === 1 ? 'One bill on this issue goes' : `${odd.length} bills on this issue go`} against its stance, which says HIPHI ${word} it: ${list}. Each bill keeps its own position, and nothing has changed. If this is no longer the whole story, set the stance to Mixed.</p>${btn('Change the stance', { kind: 'text', sm: true, attrs: { 'data-is': 'stance' } })}</div></div>`;
+}
 // The picker chip that shows the stance and changes it; `a` carries its data attribute.
 export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
   return pickerChip(s ? s[1] : 'No stance', { 'aria-haspopup': 'dialog', 'aria-label': `HIPHI’s stance on ${i.name}: ${s ? s[1] : 'not set'}. Change`, ...a }, s ? s[2] : 'circle-dashed'); };
@@ -307,6 +319,7 @@ function pageRender(route) {
         ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
         ${i.outlook ? `<p class="le-ldesc is-outlook"><span class="meta">Between sessions, the public sees: </span>${esc(i.outlook)}</p>` : ''}
         <div class="is-stline"><span class="is-stl">HIPHI’s stance</span>${stanceChip(i, { 'data-is': 'stance' })}</div>
+        ${stanceNote(i, now)}
         <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
@@ -461,7 +474,7 @@ export const issuePage = {
     root.querySelector('[data-is="link"]')?.addEventListener('click', () => linkSheet(i));
     root.querySelectorAll('[data-isunlink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isunlink); if (o) setLink(i, o, false); });
     root.querySelectorAll('[data-isrelink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isrelink); if (o) setLink(i, o, true); });
-    root.querySelector('[data-is="stance"]')?.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } }));
+    root.querySelectorAll('[data-is="stance"]').forEach(el => el.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } })));
     const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
     // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).

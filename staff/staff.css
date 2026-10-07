@@ -600,3 +600,9 @@ body.sidenarrow .sv-sync span { display: none; }
 .lg-ulink { color: inherit; text-decoration: none; }
 .lg-ulink:hover .lg-bt { text-decoration: underline; }
 @media (max-width: 30em) { .ut-note { flex-wrap: wrap; } .ut-note .btn { width: 100%; } }
+
+/* R-095: a bill on an issue goes against the issue's stance: one quiet line under the stance, no box, no colour of its own. */
+.is-stnote { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; color: var(--n700); font-size: var(--t14); max-width: 62ch; }
+.is-stnote .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.is-stnote p { margin: 0; }
+.is-stnote .btn { margin-left: -12px; }

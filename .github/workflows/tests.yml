@@ -74,3 +74,5 @@ jobs:
         run: python3 tests/staff_ahead.py
       - name: Staff v2, a bill the team does not track (R-058)
         run: python3 tests/staff_untracked.py
+      - name: Staff v2, the note on an issue when a bill goes against its stance (R-095)
+        run: python3 tests/staff_issue_note.py
