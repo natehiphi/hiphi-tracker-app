@@ -241,7 +241,7 @@ function stepVoice(step) {
     <h1 class="hero" id="st-h">Your voice counts here</h1>
     <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
-    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>${off ? `Like <b>${esc(E.name)}</b>, one of the bills on your issues.` : `Your first one to watch: <b>${esc(E.name)}</b>.`}</span></p>` : ''}
+    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>Like <b>${esc(E.name)}</b>, one of the bills on your issues.</span></p>` : ''}
     <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);
 }
 
