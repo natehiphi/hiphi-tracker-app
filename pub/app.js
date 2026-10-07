@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows, issueFollowed } from './kernel.js';
+import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
@@ -309,6 +309,7 @@ function welcomeBack() {
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
 async function boot() {
+  await initLang(); if (!isEn()) loadDbTranslations();   // the person's language (R-166 step 3): English at once; another language waits for its words, so no screen is drawn half in each
   // The practice copy is one big file (about 6 MB; the testers' links), so it gets far longer than the live page (R-122).
   const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 45000 : 12000));
   try {

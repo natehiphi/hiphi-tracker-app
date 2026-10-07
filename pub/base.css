@@ -395,3 +395,15 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .ab-read { align-items: flex-start; gap: var(--s8); padding-top: var(--s4); }
 .ab-tip { font-size: var(--t14); line-height: 1.45; color: var(--n700); }
 .ab .btn.text.ab-cap { margin-left: -12px; }   /* lines up with the words above; its padding keeps the 44px target */
+
+/* The language picker (R-166 step 3): a plain fold, drawn only when a language is live. */
+.lang-pick { position: relative; margin: 0 0 var(--s8); }
+.lang-pick > summary { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-weight: 700; font-size: var(--t14); cursor: pointer; list-style: none; }
+.lang-pick > summary::-webkit-details-marker { display: none; }
+.lang-pick > summary .ic { width: 18px; height: 18px; color: var(--p700); }
+.lang-pick[open] .lp-chev { transform: rotate(180deg); }
+.lp-list { list-style: none; margin: var(--s8) 0 0; padding: var(--s4); display: grid; gap: 2px; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh2); max-width: 320px; }
+.lp-opt { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; padding: 0 var(--s12); border: 0; border-radius: var(--r8); background: transparent; color: var(--n900); font: inherit; font-size: var(--t16); text-align: left; cursor: pointer; }
+.lp-opt[aria-pressed="true"] { background: var(--p50); font-weight: 700; }
+.lp-opt .ic, .lp-gap { width: 18px; height: 18px; flex: none; color: var(--p700); }
+.lp-opt:focus-visible, .lang-pick > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }

@@ -36,6 +36,8 @@
 import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved, setFollows } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
+import { t, tn, T, trText } from './i18n.js';
+import { langPicker, wireLangPicker } from './langpick.js';
 import { CAPITOL, VOICES, islands } from './art.js';
 import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
@@ -171,18 +173,18 @@ const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
 // "How a bill becomes law" was "How it works", which read as how the app works (R-067: testers liked it but were
 // confused about what it is). Since R-174 (10/5) it is "A bill's story", the name of its one step: at the first visit's
 // larger size the longer name took two lines on every phone screen.
-const CHAPTERS = ['Your issues', 'A bill’s story', 'Stay connected'];
+const CHAPTERS = [T('Your issues'), T('A bill’s story'), T('Stay connected')];   // said through t() where they are drawn (chaptersRow)
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".
-const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : [CHAPTERS[0], SHORT() ? 'Why your voice matters' : CHAPTERS[1], endHome() ? 'Your home page' : CHAPTERS[2]];
+const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
 // A plan names its own parts (pub/plans.js).
 const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : CHAPTER_OF[name]) ?? -1;
 let lastChapter = -1;
 function chaptersRow(name) {
   const k = chapterOf(name); if (k < 0) return '';
-  return `<nav class="st-chapters" aria-label="Your first visit"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
-    <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${c}</span>${i < k ? '<span class="sr"> (done)</span>' : ''}</li>`).join('')}</ol></nav>`;
+  return `<nav class="st-chapters" aria-label="${t('Your first visit')}"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
+    <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${t(c)}</span>${i < k ? `<span class="sr"> (${t('done')})</span>` : ''}</li>`).join('')}</ol></nav>`;
 }
 // Finishing a part ticks it with a small burst: one of the stage celebrations (C-7).
 function tickChapter(name, back) {
@@ -192,8 +194,8 @@ function tickChapter(name, back) {
 }
 
 // ---------- the page frame of a step: the story (left on wide screens) and the choices (right) ----------
-const backBtn = step => btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stback': String(step) } });
-export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : ''}`;
+const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stback': String(step) } });
+export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : step === 1 && name === 'topics' ? langPicker('st-lang') : ''}`;
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
 export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
@@ -204,8 +206,8 @@ export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${ic
 export const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)}<span>${sure}</span></p>`;
 
 // ---------- the bar: one Skip, one primary ----------
-export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = 'Skip') => `<div class="st-bar"><div class="st-btns">
-  ${btn(skip, { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(label, { kind: 'primary', ...opt, attrs })}</div></div>`;
+export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = T('Skip')) => `<div class="st-bar"><div class="st-btns">
+  ${btn(t(skip), { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(t(label), { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the
 // one button on the screen is never a dead one.
 export const barBusy = () => bar2('Finding issues…', { icon: 'loader-circle' }, { 'data-stnext': '1', 'aria-busy': 'true' });
@@ -278,7 +280,7 @@ export const pickedIssues = () => { const sel = new Set(wiz().issues || []); ret
 // ================= Your issues, 1: what do you care about? =================
 // Six tiles, most important first (Nate 9/21), each saying what is in play: in session the issues still moving,
 // between sessions the wins of last session (or its issues).
-const SURE1 = 'About 4 minutes. Free.';
+const SURE1 = T('About 4 minutes. Free.');   // said through t() where it is drawn
 // What the app does, said on the first screen (R-067, Nate's pick 9/27, Version A): testers liked the first visit but
 // were confused about what it is, and the only plain description was on the finale. In session only; between sessions
 // the screen already leads with the opening day.
@@ -286,7 +288,7 @@ const SURE1 = 'About 4 minutes. Free.';
 // took the email as the end of it. Since R-099 (Nate's go 10/3) that version also says how, not only when: the person is
 // the one who speaks up, and the app helps them do it ("an active tool rather than just an alert system"). Today's version
 // keeps its words, so the ending test (R-135) compares the two first visits whole.
-const promise = () => `<ol class="st-promise" role="list" aria-label="What happens next"><li>${icon('eye')}<span>We keep watch</span></li><li>${icon(endHome() ? 'notebook-pen' : 'bell')}<span>${endHome() ? 'When it’s time, we help you speak up' : 'We tell you when it’s your moment'}</span></li><li>${icon('circle-check')}<span>You see what happened</span></li></ol>`;
+const promise = () => `<ol class="st-promise" role="list" aria-label="${t('What happens next')}"><li>${icon('eye')}<span>${t('We keep watch')}</span></li><li>${icon(endHome() ? 'notebook-pen' : 'bell')}<span>${endHome() ? t('When it’s time, we help you speak up') : t('We tell you when it’s your moment')}</span></li><li>${icon('circle-check')}<span>${t('You see what happened')}</span></li></ol>`;
 function tiles(off, yr) {
   // Between sessions the tiles count last session's wins, which live in the recap pool. It used to load only on
   // screen 2, so a newcomer never saw a win here, and the tiles reordered under their finger on Back (R-067). Hold
@@ -299,10 +301,10 @@ function tiles(off, yr) {
   return `<div class="st-tiles" role="group" aria-labelledby="st-h">${catList().map(i => {
     const on = sel.has(i.key) || i.names.some(n => sel.has(n));
     // The slim catalog (R-122's first paint) has no bill lists, so it cannot count yet: no count rather than "0" (R-136).
-    const meta = S.catalogLive === 'slim' && !i.fallback ? '' : i.fallback ? plural(i.count || 0, 'bill') : off ? (i.wins ? `${plural(i.wins, 'win')} in ${yr}` : `${plural(i.count, 'issue')} in ${yr}`) : `${plural(i.count, 'issue')} moving`;
+    const meta = S.catalogLive === 'slim' && !i.fallback ? '' : i.fallback ? tn(i.count || 0, 'bill') : off ? (i.wins ? t('{what} in {yr}', { what: tn(i.wins, 'win'), yr }) : t('{what} in {yr}', { what: tn(i.count, 'issue'), yr })) : t('{what} moving', { what: tn(i.count, 'issue') });
     return `<button type="button" class="st-issue st-tile" data-stissue="${esc(i.names[0])}" aria-pressed="${on}">
       <span class="st-ilead">${icon(i.icon)}</span><span class="st-tick" aria-hidden="true">${icon('check')}</span>
-      <span class="st-iname">${esc(i.key)}</span>${i.description ? `<span class="st-idesc">${esc(i.description)}</span>` : ''}<span class="st-icount">${esc(meta) || '&nbsp;'}</span></button>`;
+      <span class="st-iname">${esc(trText('category.name', i.topicKey, i.key))}</span>${i.description ? `<span class="st-idesc">${esc(trText('category.description', i.topicKey, i.description))}</span>` : ''}<span class="st-icount">${esc(meta) || '&nbsp;'}</span></button>`;
   }).join('')}</div>`;
 }
 // Someone who came from a partner's link or flyer (?via=slug) is welcomed in that partner's words, once, above the
@@ -329,10 +331,10 @@ function stepTopics(step) {
       `${sure ? sayRow('clock', sure) : '<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>'}${tiles(off, yr)}`);
   }
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
-    <h1 class="hero" id="st-h">${off ? `Get ready for the ${next} session` : 'Speak up for a healthier Hawaiʻi'}</h1>
-    <p class="lede">${off ? `The Legislature opens ${esc(shortDay(si.nextOpen))}.${w && w.length ? ` In ${yr}, ${w.length} ${w.length === 1 ? 'bill' : 'bills'} HIPHI backed became law.` : ''} Pick what you care about, and we’ll keep watch.`
-      : 'HIPHI follows Hawaiʻi’s health bills. Pick what you care about.'}</p>${off ? '' : promise()}${sureWide('clock', SURE1)}`,
-    `${sayRow('clock', SURE1)}${tiles(off, yr)}`);
+    <h1 class="hero" id="st-h">${off ? t('Get ready for the {next} session', { next }) : t('Speak up for a healthier Hawaiʻi')}</h1>
+    <p class="lede">${off ? `${t('The Legislature opens {day}.', { day: esc(shortDay(si.nextOpen)) })}${w && w.length ? ` ${w.length === 1 ? t('In {yr}, 1 bill HIPHI backed became law.', { yr }) : t('In {yr}, {n} bills HIPHI backed became law.', { yr, n: w.length })}` : ''} ${t('Pick what you care about, and we’ll keep watch.')}`
+      : t('HIPHI follows Hawaiʻi’s health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', t(SURE1))}`,
+    `${sayRow('clock', t(SURE1))}${tiles(off, yr)}`);
 }
 
 // ================= Your issues, 2: the issues inside them =================
@@ -440,7 +442,7 @@ function wire(route) {
     app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
   $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); LZ?.lessonStop(); finish(); });   // R-114: after acting from a link, Home now
-  wireShareLine(document); wireKeepLine(document);
+  wireShareLine(document); wireKeepLine(document); wireLangPicker(document);
 
   if (name === 'topics') {
     $$('[data-stissue]').forEach(el => el.onclick = () => {
@@ -499,7 +501,7 @@ export default {
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     const name = nameAt(step, off);
-    if (name === 'topics') return bar2('Next', { iconEnd: 'arrow-right' });
+    if (name === 'topics') return bar2(T('Next'), { iconEnd: 'arrow-right' });
     if (planOn() && PLAN_STEPS.includes(name)) return ONB ? ONB.barStep(name, step, off) : '';
     return REST ? REST.barStep(name, step, off) : '';
   },

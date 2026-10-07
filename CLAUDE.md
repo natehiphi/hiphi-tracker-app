@@ -217,6 +217,20 @@ found because sessions start in the backend repo) walks the whole checklist.
 ## Public tracker (`track.html` + `pub/`)
 
 Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
+- **Words and languages (R-166 step 3, backend `docs/LANGUAGES-PLAN.md`).** `pub/i18n.js` (no imports but `pub/words/live.js`):
+  `t('English words', { n })` says a screen's words by their English (identity in English and for any word without a passed
+  translation, so the English page cannot change by converting a screen); `tn(n, 'issue')` is '{n} issue' / '{n} issues';
+  `T('...')` marks a literal that is said later through `t(variable)`; `trText(kind, ref, english)` is HIPHI's own database
+  text (nickname, summary, issue and category names) in the person's language from `public_translations`. Pass `t` values that are
+  already escaped. A language's words are `pub/words/<code>.js` (default export `{ english: text }`), written by the panel
+  (`node tools/translate.js --write-words ../frontend/pub/words`, backend), and **a language shows to the public only when its
+  code is in `pub/words/live.js`** (after the fluent sample check and a first-visit walk); `?lang=<code>` previews one, never saved.
+  `pub/langpick.js` is the picker (More, and the first screen), drawn only when a language is live. **To convert a screen:** wrap
+  its literals in `t()` (a value in a sentence becomes `{name}`), run `node tools/words_extract.mjs` (rewrites `pub/words/en.json`,
+  CI fails when it is stale), prove the English page is unchanged with `python3 tests/i18n_same.py <old tree's address> <this one's>`
+  (serve `git archive origin/main` on another port), and load the list with `node tools/translate.js --load-words`. Converted so far:
+  the first screen's topics step, the chapter row and bar, and More. Not translated, ever: the Legislature's titles and notices, names,
+  the staff app, and the consent words (a lawyer confirms those first). Tests: `tests/i18n.py` (a made-up language), `tests/i18n_same.py`.
 - `pub/app.js` frame + hash router (`#/`, `#/start/1-4`, `#/bills` (My issues), `#/find`, `#/find/category/<key>`,
   `#/issue/<slug>`, `#/find/issue/<slug>` (the old coalition-group page), `#/list/<slug>`, `#/bill/HB1563`, `#/legislators`, `#/legislator/<id>`, `#/more`, `#/allbills` (every bill HIPHI tracks, by hearing status, from a row on More, with a search and three filters: topic, HIPHI's position, where it stands; R-091), `#/help`, `#/signin`,
   `#/settings`, `#/privacy`; legacy `#bill=` links redirect). `pub/core.js` data + plain-language layer.

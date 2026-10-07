@@ -30,6 +30,8 @@ import { MARK } from './art.js';
 import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
+import { t } from './i18n.js';
+import { langPicker, wireLangPicker } from './langpick.js';
 import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, stopNumber, linkSent, codeStep, confirmWords, almostLine, emailLede } from './alerts.js';
 import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
@@ -247,60 +249,62 @@ WIDE?.addEventListener?.('change', () => { if (document.querySelector('#main .mr
 // them on any time in More", and a row called only "Make your profile" hid the alerts in its small print.
 function meRow() {
   if (!hasProfile()) return `<a class="card mr-me mr-me-new" href="#/profile"><span class="pf-av" aria-hidden="true">${icon('user-plus')}</span>
-    <span class="mr-me-t"><span class="mr-me-n">Get alerts and make your profile</span><span class="mr-me-s">A text or email when your issues have a hearing. Your issues and letters stay saved. Free.</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
-    ${signedIn() ? '' : codesOn() ? `<p class="small mr-me-in">Made one before? <a href="#/signin?by=number">Sign in</a></p>`
+    <span class="mr-me-t"><span class="mr-me-n">${t('Get alerts and make your profile')}</span><span class="mr-me-s">${t('A text or email when your issues have a hearing. Your issues and letters stay saved. Free.')}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>
+    ${signedIn() ? '' : codesOn() ? `<p class="small mr-me-in">${t('Made one before? {a}Sign in{b}', { a: '<a href="#/signin?by=number">', b: '</a>' })}</p>`
       // R-155 (Nate 10/5), until codes are on: a number keeps the profile on its phone, so a laptop says how to bring it
       // here (only a wide screen: on a phone the sentence would contradict itself; the review, 10/5).
-      : `<p class="small mr-me-in">Made one before? <a href="#/signin">Sign in with your email</a></p>
-    ${WIDE?.matches ? '<p class="small mr-me-in mr-me-num">Signed up with your number? Add your email on your phone, then sign in here with it.</p>' : ''}`}`;
+      : `<p class="small mr-me-in">${t('Made one before? {a}Sign in with your email{b}', { a: '<a href="#/signin">', b: '</a>' })}</p>
+    ${WIDE?.matches ? `<p class="small mr-me-in mr-me-num">${t('Signed up with your number? Add your email on your phone, then sign in here with it.')}</p>` : ''}`}`;
   const name = myName(), ini = initials(name), d = myDistricts(), ts = myTitles();
   const about = [ts.slice(0, 2).map(titleLabel).join(', '), d ? `Senate ${d.senate}, House ${d.house}` : ''].filter(Boolean).join(' · ');
   return `<a class="card mr-me" href="#/profile"><span class="pf-av" aria-hidden="true">${ini ? esc(ini) : icon('user')}</span>
-    <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : 'Your profile'}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? 'Your profile' : 'Add your name and titles'}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+    <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : t('Your profile')}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? t('Your profile') : t('Add your name and titles')}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 function moreView() {
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
-  const legSub = s && h ? `${esc(legName(s))} and ${esc(legName(h))}` : 'Find your senator and representative';
+  const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,
   // or, without one, the invitation to make one with a number or an email (the R-146 box, on #/profile). The profile holds
   // what Settings, Sign out, Text alerts and Add my email used to (pub/profile.js).
   const me = meRow();
-  const hiphi = `${extRow('megaphone', 'Action Center', 'More ways to speak up for health', HIPHI.act)}
-          ${extRow('newspaper', 'Newsletter', 'HIPHI news and events by email', HIPHI.news)}
-          ${extRow('scroll-text', 'Legislative Recap', 'What passed for health each year', HIPHI.recap)}
-          ${extRow('hand-heart', 'Donate', 'Support HIPHI’s work', HIPHI.donate)}`;
-  const about = extRow('', 'About HIPHI', 'Hawaiʻi Public Health Institute', HIPHI.about, `<span class="lead mr-mark">${MARK}</span>`);
+  const hiphi = `${extRow('megaphone', t('Action Center'), t('More ways to speak up for health'), HIPHI.act)}
+          ${extRow('newspaper', t('Newsletter'), t('HIPHI news and events by email'), HIPHI.news)}
+          ${extRow('scroll-text', t('Legislative Recap'), t('What passed for health each year'), HIPHI.recap)}
+          ${extRow('hand-heart', t('Donate'), t('Support HIPHI’s work'), HIPHI.donate)}`;
+  const about = extRow('', t('About HIPHI'), t('Hawaiʻi Public Health Institute'), HIPHI.about, `<span class="lead mr-mark">${MARK}</span>`);
   return `<div class="mr mr-more">
-    <header class="pagehead"><h1 class="hero">More</h1></header>
+    <header class="pagehead"><h1 class="hero">${t('More')}</h1></header>
     ${me}
+    ${langPicker('mr-lang')}
     <nav class="rows mr-grid grid3" aria-label="Tracker">
-      ${row({ lead: 'sparkles', title: 'Your session', sub: 'What you did and what came of it. Only you see it.', href: '#/recap' })}
-      ${row({ lead: 'users', title: 'Your legislators', sub: legSub, href: '#/legislators' })}
-      ${row({ lead: 'rows-3', title: 'Every bill HIPHI tracks', sub: 'One list of HIPHI’s bills, grouped by hearing status', href: '#/allbills' })}
-      ${row({ lead: 'landmark', title: 'Committees', sub: 'Every Senate and House committee, who sits on it, and what it has now', href: '#/committees' })}
-      ${row({ lead: 'circle-help', title: 'Help', sub: 'Plain answers on hearings, testimony, deadlines and this tracker', href: '#/help' })}
+      ${row({ lead: 'sparkles', title: t('Your session'), sub: t('What you did and what came of it. Only you see it.'), href: '#/recap' })}
+      ${row({ lead: 'users', title: t('Your legislators'), sub: legSub, href: '#/legislators' })}
+      ${row({ lead: 'rows-3', title: t('Every bill HIPHI tracks'), sub: t('One list of HIPHI’s bills, grouped by hearing status'), href: '#/allbills' })}
+      ${row({ lead: 'landmark', title: t('Committees'), sub: t('Every Senate and House committee, who sits on it, and what it has now'), href: '#/committees' })}
+      ${row({ lead: 'circle-help', title: t('Help'), sub: t('Plain answers on hearings, testimony, deadlines and this tracker'), href: '#/help' })}
     </nav>
-    <h2 class="mr-grouphead" id="mr-g-hiphi">From HIPHI</h2>
+    <h2 class="mr-grouphead" id="mr-g-hiphi">${t('From HIPHI')}</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-hiphi">
       ${about}
       ${WIDE?.matches ? hiphi : `<details class="mr-fold"${S.mrFold ? ' open' : ''}>
-        <summary class="row"><span class="lead">${icon('ellipsis')}</span><span class="body"><span class="title">More from HIPHI</span></span><span class="end">${icon('chevron-down', { cls: 'chev mr-foldc' })}</span></summary>
+        <summary class="row"><span class="lead">${icon('ellipsis')}</span><span class="body"><span class="title">${t('More from HIPHI')}</span></span><span class="end">${icon('chevron-down', { cls: 'chev mr-foldc' })}</span></summary>
         <div class="mr-foldb">
           ${hiphi}
         </div>
       </details>`}
     </nav>
-    ${issuesLink() ? `<h2 class="mr-grouphead" id="mr-g-keep">Your issues, anywhere</h2>
-    <div class="rows mr-grid" aria-labelledby="mr-g-keep">${row({ lead: 'link', title: 'My issues link', sub: 'Open it in any browser or phone and your issues come with you. No account needed.', attrs: { 'data-mr-keep': '1', role: 'button', tabindex: '0' } })}</div>` : ''}
-    <h2 class="mr-grouphead" id="mr-g-about">About this tracker</h2>
+    ${issuesLink() ? `<h2 class="mr-grouphead" id="mr-g-keep">${t('Your issues, anywhere')}</h2>
+    <div class="rows mr-grid" aria-labelledby="mr-g-keep">${row({ lead: 'link', title: t('My issues link'), sub: t('Open it in any browser or phone and your issues come with you. No account needed.'), attrs: { 'data-mr-keep': '1', role: 'button', tabindex: '0' } })}</div>` : ''}
+    <h2 class="mr-grouphead" id="mr-g-about">${t('About this tracker')}</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-about">
-      ${row({ lead: 'lock', title: 'Privacy', sub: 'What we keep and who sees it', href: '#/privacy' })}
-      ${row({ lead: A11Y_ICON, title: 'Accessibility', sub: 'Built to work for everyone', href: '#/privacy?part=access' })}
+      ${row({ lead: 'lock', title: t('Privacy'), sub: t('What we keep and who sees it'), href: '#/privacy' })}
+      ${row({ lead: A11Y_ICON, title: t('Accessibility'), sub: t('Built to work for everyone'), href: '#/privacy?part=access' })}
     </nav>
-    <p class="mr-foot">Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.</p>
+    <p class="mr-foot">${t('Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.')}</p>
   </div>`;
 }
 function wireMore() {
+  wireLangPicker();
   const f = $('.mr-fold'); if (f) f.ontoggle = () => { S.mrFold = f.open; };
   // My issues link (R-123): copied, with a text-it-to-myself way beside it in the toast.
   $('[data-mr-keep]')?.addEventListener('click', async () => { const link = issuesLink(); try { await navigator.clipboard.writeText(link); toast('Your issues link is copied. Paste it into a text or a note, and open it on any phone.', { yay: true }); } catch { location.href = `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`; } });

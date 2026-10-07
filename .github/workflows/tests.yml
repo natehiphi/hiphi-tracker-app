@@ -88,3 +88,7 @@ jobs:
         run: python3 tests/unsubscribe_page.py
       - name: A stopped bill whose same idea became law says so (X4-4)
         run: python3 tests/same_idea_law.py
+      - name: The words list for the checker panel is current (R-166 step 3)
+        run: node tools/words_extract.mjs --check
+      - name: The tracker in other languages: the machinery, with a made-up language (R-166 step 3)
+        run: python3 tests/i18n.py

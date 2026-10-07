@@ -4,6 +4,8 @@
 // modules on the first load import from here. Nothing here may import core.js, stops.js or rank.js (tools/check_split.mjs).
 import { ICONS, icon } from '../icons.js';
 export { ICONS, icon };
+import { t, tn, lang, isEn, trText, setDbTranslations, onLang, setLang, initLang, offered } from './i18n.js';
+export { t, tn, lang, isEn, trText, setLang, initLang, offered, onLang };   // the tracker in other languages (R-166 step 3)
 // A copy of stops.js's HELD_RE (tools/check_split.mjs keeps them equal): the kernel must not carry the whole stops module.
 export const HELD_RE = /deferred the measure(?!\s+until)|measure be deferred(?!\s+until)|failed to pass/i;
 export const app = { render: () => {}, boot: () => {}, go: () => {}, openHelper: () => {} };
@@ -80,15 +82,15 @@ export function cleanDesc(t) {
   return x;
 }
 // A bill's short everyday name ("Disposable e-cigarette ban"), written by staff (bills.nickname, 9/19). Empty until one exists.
-export const nick = b => (b && (b.hiphi_nickname || b.nickname)) || '';
+export const nick = b => (b && trText('bill.nickname', b.id, b.hiphi_nickname || b.nickname)) || '';
 // Bare bill numbers from bills.companions: not always one clean number per array element, so split and
 // normalize defensively. Excludes self-references.
 export function blurb(b, n = 110) {
-  const t = (b.hiphi_summary || cleanDesc(b.description) || b.title || '').replace(/\s+/g, ' ').trim();
-  if (t.length <= n) return t;
-  const cut = t.slice(0, n + 1), stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
+  const s = (b.hiphi_summary ? trText('bill.summary', b.id, b.hiphi_summary) : (cleanDesc(b.description) || b.title || '')).replace(/\s+/g, ' ').trim();
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n + 1), stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
   if (stop >= 40) return cut.slice(0, stop + 1).replace(/;$/, '.');
-  return t.slice(0, n - 1).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…';
+  return s.slice(0, n - 1).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…';
 }
 // The name a card or page leads with: the nickname when there is one, else the plain summary.
 export function groups() {
@@ -261,12 +263,19 @@ const CATALOG_KEY = 'hiphi_catalog';
 // shared link, a My issues link (#/follow/...) or a calendar feed made before the rename still opens the issue. Kept on
 // one line of JSON: tools/share_pages.mjs reads it to keep a share page and a calendar feed under each old name.
 export const FORMER_SLUGS = {"disposable-vape-ban": "disposable-e-cigarette-ban", "fda-proof-to-sell-vapes": "fda-proof-to-sell-e-cigarettes", "state-vape-maker-directory": "state-e-cigarette-maker-directory", "higher-tobacco-and-vape-taxes": "higher-tobacco-and-e-cigarette-taxes"};
+// R-166 step 3: an issue's name, description and outlook are HIPHI's own words, shown in the person's language once the checker
+// panel has passed them (public_translations). The English stays on the object (_en) and the catalog is applied again when the
+// translations arrive or the language changes.
+let rawCatalog = null;
+const speak = i => ({ ...i, _en: { name: i.name, description: i.description, outlook: i.outlook }, name: trText('issue.name', i.id, i.name), description: trText('issue.description', i.id, i.description), outlook: trText('issue.outlook', i.id, i.outlook) });
+export function reapplyCatalog() { if (rawCatalog) applyCatalog(...rawCatalog); }
 function applyCatalog(cats, issues, links) {
+  rawCatalog = [cats, issues, links];
   // Related issues (095, R-094): each issue's neighbours, both ways. Only the suggested bill reads them.
   S.issueLinks = new Map();
   for (const { issue_a: a, issue_b: b } of links) { (S.issueLinks.get(a) || S.issueLinks.set(a, new Set()).get(a)).add(b); (S.issueLinks.get(b) || S.issueLinks.set(b, new Set()).get(b)).add(a); }
   S.cats = cats;
-  S.issues = issues.map(i => ({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
+  S.issues = issues.map(i => speak({ ...i, categories: i.categories?.length ? i.categories : [i.category], bill_ids: i.bill_ids || [], bill_years: i.bill_years || [] }));
   S.issueById = new Map(S.issues.map(i => [i.id, i])); S.issueBySlug = new Map(S.issues.map(i => [i.slug, i]));
   // A renamed issue answers to its old address and its new one, whichever the catalog in hand carries (a week-old copy may
   // still have the old one, R-122). Only lookups by address see the extra names; S.issues is unchanged.
@@ -281,6 +290,29 @@ function applyCatalog(cats, issues, links) {
 export function applyCachedCatalog() {
   try { const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null'); if (!c || !c.cats?.length || Date.now() - c.at > 7 * 864e5) return false; applyCatalog(c.cats, c.issues || [], c.links || []); return true; } catch { return false; }
 }
+// HIPHI's own database text in the person's language (R-166 step 3): the passed translations of the language, read through the
+// read-only view public_translations (migration 137), 1,000 rows a page. English until they arrive; a failure leaves English.
+export async function loadDbTranslations() {
+  const code = lang(); if (code === 'en') { setDbTranslations([]); reapplyCatalog(); app.render(); return; }
+  try {
+    let rows = [];
+    if (DEMO) rows = (globalThis.__HIPHI_TRANS__ && globalThis.__HIPHI_TRANS__[code]) || [];
+    else {
+      const sb = S.supa || await supa();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from('public_translations').select('kind,ref,text').eq('lang', code).order('kind').order('ref').range(from, from + 999);
+        if (error) throw error; rows.push(...(data || [])); if ((data || []).length < 1000) break;
+      }
+    }
+    if (lang() === code) setDbTranslations(rows);
+  } catch (e) { console.error(e); }
+  reapplyCatalog(); app.render();
+}
+// A language chosen (or the page opened in one): its database text, the catalog again, and the choice kept with the account.
+onLang(code => {
+  loadDbTranslations();
+  if (S.user && !DEMO) { const prefs = { ...(S.user.prefs || {}), lang: code === 'en' ? null : code }; S.supa.from('public_users').update({ prefs }).eq('id', S.user.id).then(r => { if (!r.error) S.user.prefs = prefs; }); }
+});
 // Follow or unfollow issues and whole categories in one go (the first visit, a category or issue page, Undo).
 export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], catsOff = [] } = {}) {
   const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
@@ -367,6 +399,7 @@ export async function loadUser() {
     try { localStorage.removeItem(CONSENT_KEY); } catch {}
   }
   S.consentCard = hasEmail && !(S.user.prefs || {}).consent_at;
+  { const al = (S.user.prefs || {}).lang; if (al && al !== lang() && offered().includes(al) && !(() => { try { return localStorage.getItem('hiphi_lang'); } catch { return ''; } })()) setLang(al); }   // the account's language, on a device that has not chosen one (R-166)
   // Issues: this device's picks join an account that has none; otherwise the account's picks come to this device.
   { const mine = wiz().issues || [], theirs = (S.user.prefs || {}).issues || [];
     if (mine.length && !theirs.length) saveIssues(mine);
