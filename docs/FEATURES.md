@@ -47,8 +47,12 @@ Home's card, the one after a first action and More > Get alerts at `#/alerts`; a
 version in `text_signups`, backend 121, nothing is sent until texts are set up; passed over when there is nothing to ask,
 `askAlerts()` in `pub/start.js`) -> the "Mahalo!" moment (naming the number or the email when one was given) -> ONE
 lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three stages walked with the primary button,
-the drawing changing in place: the bill, its road to where it really is, then "Why speaking up can help" with a choice of
-four (email the chair, send testimony, tell my legislators, stay quiet) that each animate what CAN happen; Back steps
+the drawing changing in place: the bill, its road to where it really is, then "Three moments to speak up" (R-089, 10/6, Nate: direction C
+with heavy hand-holding): three buttons in the order a bill meets them (before a hearing: email the chair; at the hearing: send testimony; before the full
+vote: tell my legislators), each a drawn neighbor doing it and what CAN happen, tapped through (`CHOICES`, `momentOf`, `momentPanel`, `storyChoose` in
+`pub/lessons.js`); it opens on the bill's own moment, marked "is here", with its real date ("testimony is due Wednesday at 9:30 AM"), says how many of
+the three have been seen, and "Stay quiet" is gone as a choice (its point is the closing line: most bills stop at one of these moments, often without
+anyone asking about them); a law, a stopped bill, one on the Governor's desk and any bill between sessions are at none and the page says so; Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
 laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)

@@ -133,32 +133,39 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '1' and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Back on stage 2 goes back to stage 1, still on the story')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600); p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     cap3 = p.evaluate(CAP)
-    ok(p.evaluate(STAGE) == '3' and 'Why speaking up can help' in cap3 and 'What would you do?' in cap3, f'stage 3: "Why speaking up can help", and a choice ({cap3[:80]})')
-    names = p.evaluate("[...document.querySelectorAll('[data-lx-ch]')].map(b => b.innerText.trim())")
-    ok(names == ['Email the chair', 'Send testimony', 'Tell my legislators', 'Stay quiet'], f'the four choices ({names})')
-    ok(p.locator('.lx-l-story :is(button, a, input, [role=button])').count() == 4 and p.locator('.lx-l-story :is(.chip, .card, .btn)').count() == 0,
-       'the four choices are the only things to press, and none is an app button, chip or card (A-12)')
-    ok(p.evaluate("[...document.querySelectorAll('[data-lx-ch]')].every(b => b.getBoundingClientRect().height >= 44 && getComputedStyle(b).borderRadius !== getComputedStyle(document.querySelector('[data-stnext]')).borderRadius)"),
-       'the choices are big, and shaped unlike the app’s pill buttons')
+    # R-089 (Nate 10/5, "C, with HEAVY hand holding"): three moments, one drawn neighbor each, tapped through; it opens on this bill's own moment.
+    ok(p.evaluate(STAGE) == '3' and 'Three moments to speak up' in cap3 and 'Tap each one' in cap3, f'stage 3: "Three moments to speak up", and what to do with it ({cap3[:80]})')
+    names = p.evaluate("[...document.querySelectorAll('.lx-ch')].map(b => b.querySelector('.lx-chl').innerText.replace(/\\n/g, ' | '))")
+    ok(len(names) == 3 and names[0].startswith('Moment 1 | Before a hearing') and names[1].startswith('Moment 2 | At the hearing') and names[2].startswith('Moment 3 | Before the full vote'), f'the three moments, in the order a bill meets them ({names})')
+    ok(p.locator('.lx-ch').count() == 3 and p.locator('.lx-l-story :is(.chip, .card)').count() == 0 and p.locator('.lx-l-story .btn:not(.lx-momnav .btn)').count() == 0,
+       'three moments to press, none an app chip or card, and the only buttons are the panel’s next and back (A-12)')
+    ok(p.evaluate("[...document.querySelectorAll('.lx-ch')].every(b => b.getBoundingClientRect().height >= 44 && getComputedStyle(b).borderRadius !== getComputedStyle(document.querySelector('[data-stnext]')).borderRadius)"),
+       'the moments are big, and shaped unlike the app’s pill buttons')
+    here = p.evaluate("[...document.querySelectorAll('.lx-ch')].map(b => [b.dataset.lxCh, b.getAttribute('aria-pressed'), !!b.querySelector('.lx-chhere')])")
+    ok(here == [['chair', 'false', False], ['testimony', 'true', True], ['legislators', 'false', False]], f'it opens on the bill’s own moment, marked "is here" ({here})')
+    mom0 = p.evaluate("document.getElementById('lx-mom')?.innerText || ''")
+    ok('Here is your chance' in mom0 and 'testimony is due' in mom0 and 'You have seen 1 of 3' in mom0 and 'See moment 3' in mom0, f'the panel names the real chance and its date, and how far through ({mom0[:120]!r})')
     # R-098: when the bill has a real hearing ahead, the last line names it ("HB 2300 is at one of these moments now:
     # testimony is due Tuesday") instead of "Nothing to do now"; either way nothing is asked here.
     # R-143 (Nate 10/4): no one-off win from another bill here ("One 2025 win: ..." was clunky and out of place); the
     # proof is a count of HIPHI's laws when one has loaded, and the sandbox's year before has none.
     ok('Each note tells lawmakers what people here want, and notes add up' in cap3 and not LOW_TURNOUT.search(cap3)
        and ' win:' not in cap3 and 'free school meals' not in cap3
-       and ('Nothing to do now' in cap3 or 'at one of these moments now' in cap3),
+       and ('Nothing to do now' in cap3 or 'Here is your chance' in cap3 or 'is at moment' in cap3) and 'Most bills stop at one of these moments' in cap3,
        'stage 3 says why it matters (never that few people write in, R-171), no other bill’s win, and what is (or is not) coming, asking nothing yet')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
-    for k, must in (('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent'), ('quiet', 'stop')):
-        p.locator(f'[data-lx-ch="{k}"]').click(); p.wait_for_timeout(1600)
-        out = p.evaluate("document.getElementById('lx-out')?.innerText || ''"); said[k] = out
-        ok(p.evaluate(f"document.getElementById('lx-story').dataset.choice") == k and p.locator(f'[data-lx-ch="{k}"][aria-pressed=true]').count() == 1
-           and p.locator('[data-lx-ch][aria-pressed=true]').count() == 1, f'"{k}" is chosen, and its scene plays')
-        ok(must in out.lower() and ' can ' in f' {out.lower()} ', f'"{k}" says what can happen ({out[:90]})')
-        ok(p.evaluate("document.getElementById('lx-ask')?.innerText") == 'Try another' and p.locator('[data-lx-ch]').count() == 4, f'after "{k}" the others stay to try')
+    for n, (k, must) in enumerate((('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent')), 1):
+        p.locator(f'.lx-ch[data-lx-ch="{k}"]').click(); p.wait_for_timeout(1600)
+        out = p.evaluate("document.getElementById('lx-mom')?.innerText || ''"); said[k] = out
+        ok(p.evaluate(f"document.getElementById('lx-story').dataset.choice") == k and p.locator(f'.lx-ch[data-lx-ch="{k}"][aria-pressed=true]').count() == 1
+           and p.locator('.lx-ch[aria-pressed=true]').count() == 1, f'"{k}" is shown, and its neighbor’s scene plays')
+        ok(f'Moment {n} of 3' in out and must in out.lower() and ' can ' in f' {out.lower()} ' and 'A neighbor' in out, f'"{k}" says who does what and what can happen ({out[:90]!r})')
+        seen = p.locator('.lx-ch.lx-chdone').count()
+        ok(seen == max(n, 2) if n < 3 else seen == 3, f'the moments seen are ticked ({seen})')
         shot(p, f'p_story3_{k}')
-    ok('can stop' in said['quiet'] and 'Most bills stop this way' in said['quiet'], 'Stay quiet says the bill can stop at the deadline')
+    ok('That is all three' in said['legislators'] and 'See moment' not in said['legislators'], 'after the third: that is all three, use the button below')
+    ok('Back to moment 2' in said['legislators'] and 'Back to moment' not in said['chair'], 'Back goes one moment; the first has none')
     allwords = ' '.join(said.values()) + cap1 + cap2 + cap3
     ok(PROMISE.search(allwords) is None, f'no promise words ({PROMISE.search(allwords)})')
     ok('24 hours' not in allwords and 'closes' not in allwords.lower(), 'no "24 hours" and no "closes" anywhere in the story')
@@ -167,7 +174,7 @@ with sync_playwright() as pw:
     p.locator('[data-stback]').first.click(); p.wait_for_timeout(900)
     ok(p.evaluate(STAGE) == '2', 'Back on stage 3 goes back to stage 2')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
-    ok(p.evaluate(STAGE) == '3' and p.locator('[data-lx-ch][aria-pressed=true]').count() == 0, 'coming forward again, nothing is chosen yet')
+    ok(p.evaluate(STAGE) == '3' and p.locator('.lx-ch[aria-pressed=true]').count() == 1 and p.locator('.lx-ch.lx-chdone').count() == 1, 'coming forward again, it opens afresh on the bill’s own moment, one seen')
     ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: Your Legislators', 'on stage 3 the button names the next screen (R-140), in title case (R-186)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     # No full-screen moment here: one mid-way read as the end of the first visit (R-140); the part's tick bursts instead.
@@ -266,8 +273,8 @@ with sync_playwright() as pw:
     ok(p.evaluate("document.getElementById('lx-story')?.dataset.stage") == '1' and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Back on the lesson page steps back a stage')
     p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500); p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500)
     ok('Done' in p.inner_text('.actionbar') and p.evaluate("document.getElementById('lx-story')?.dataset.stage") == '3', 'on its last stage the button says Done')
-    p.locator('[data-lx-ch="quiet"]').click(); p.wait_for_timeout(600)
-    ok('can stop' in p.evaluate("document.getElementById('lx-out')?.innerText || ''"), 'the choices work on the lesson page too')
+    p.locator('.lx-ch[data-lx-ch="legislators"]').click(); p.wait_for_timeout(600)
+    ok('represent' in p.evaluate("document.getElementById('lx-mom')?.innerText || ''"), 'the moments work on the lesson page too')
     p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Your voice counts here', f"Done goes back where the story was opened ({p.evaluate('location.hash')})")
     p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, done:true, skipped:true}))")
@@ -369,7 +376,7 @@ with sync_playwright() as pw:
             hits = p.evaluate(COVERS)
             ok(p.evaluate("document.getElementById('lx-story')?.dataset.stage") == str(k) and not hits, f'#/learn/story at {W}x{H}, stage {k}: no words on the drawing {hits}')
         if W == 1440: shot(p, 'd_learn_story3')
-        p.locator('[data-lx-ch="chair"]').click(); p.wait_for_timeout(900)
+        p.locator('.lx-ch[data-lx-ch="chair"]').click(); p.wait_for_timeout(900)
         hits = p.evaluate(COVERS); ok(not hits, f'#/learn/story at {W}x{H}, after a choice: no words on the drawing {hits}')
         side = p.evaluate("(() => { const a = document.getElementById('lx-story').getBoundingClientRect(), c = document.getElementById('lx-cap').getBoundingClientRect(); return Math.round(c.left - a.right); })()")
         ok(side > 0, f'#/learn/story at {W}x{H}: the words sit beside the drawing, as in the first visit ({side}px apart)')

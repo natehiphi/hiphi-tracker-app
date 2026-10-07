@@ -41,7 +41,7 @@ def walk_to_soon(p, extra, email=None):
     p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(300); seen['mahalo'] = text(p, '#fx-moment'); p.click('#fx-mgo')
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
-    seen['story'] = text(p, '.lx-calm')
+    seen['story'] = text(p, '.lx-calm'); seen['mom'] = text(p, '#lx-cap')
     p.click('[data-stnext]')   # finishing the story goes straight on to who speaks for you (R-140)
     p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(600)
     p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
@@ -57,7 +57,7 @@ with sync_playwright() as pw:
     # R-099 (10/3): the new version says how as well as when: "you'll see what to do, and we'll help you do it"
     ok('When it’s time, we help you speak up' in s['first'] and 'we’ll tell you' not in s['first'], 'new: the first screen says we help you act when it is time (said once, in the promise row)')
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
-    ok('at one of these moments now' in s['story'] and 'top of your home page' in s['story'], f'new: the story names the real moment ({s["story"][:90]})')
+    ok('is at moment' in s['mom'] and 'Here is your chance' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-089: "is at moment N of 3") ({s["story"][:90]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
     ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
     ok('We sent a link to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
