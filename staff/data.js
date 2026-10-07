@@ -668,7 +668,7 @@ export const DB = {
     const j = await r.json().catch(() => ({ ok: false, error: `The link could not be made (${r.status}). Try again.` }));
     if (!j.ok) throw new Error(j.error || 'The link could not be made. Try again.'); return j;
   },
-  // ---- who the tracker can reach (backend 152, M1-1 and M1-3; R-199). Admins only. ----
+  // ---- who the tracker can reach (backend 154, M1-1 and M1-3; R-199). Admins only. ----
   // Per person: 'slack' or 'email' (reachable), 'unknown' (never looked up in Slack), 'off' or 'none', why not, and how
   // many messages did not reach them in 30 days. The practice copy copies today's real picture: the admin, Kevin and
   // Lauren are matched in Slack, nobody else has been looked up.
@@ -687,7 +687,7 @@ export const DB = {
     if (!Array.isArray(j.people)) throw new Error('This check needs the newer team-admin function, which is not live yet. Ask Claude.');
     return j.people;
   },
-  // Email to the team, apart from the public pause (backend 152): off unless an admin turns it on.
+  // Email to the team, apart from the public pause (backend 154): off unless an admin turns it on.
   async teamEmail() {
     if (DEMO) return !!S.demoTeamEmail;
     const { data, error } = await S.supa.from('app_settings').select('value').eq('key', 'team_email').maybeSingle(); if (error) throw error;
@@ -917,7 +917,7 @@ export const DB = {
     const people = new Set(untold.map(i => i.owner_id)); people.delete(S.me?.id);
     if (DEMO) { untold.forEach(i => { i.owner_told_at = now; }); return people.size; }
     const { data, error } = await S.supa.rpc('tell_issue_owners'); if (error) throw error;
-    // Since backend 152 (M1-1) an owner is marked told when their message is actually sent, not now, and someone the
+    // Since backend 154 (M1-1) an owner is marked told when their message is actually sent, not now, and someone the
     // tracker cannot reach is not messaged; the board catches up on the next load.
     return data;
   },
