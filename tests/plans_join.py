@@ -53,7 +53,7 @@ with sync_playwright() as pw:
     for _ in range(6):
         if p.locator('#fx-moment:not([hidden]) #fx-mgo').count(): p.click('#fx-moment #fx-mgo'); p.wait_for_timeout(800)
         elif p.locator('[data-stnext]').count(): p.click('[data-stnext]'); p.wait_for_timeout(1000)
-    flag = p.evaluate("import('/pub/core.js').then(m => !!m.S.nudgedThisVisit)")   # the flag Home's "Get hearing alerts" reads (home.js askBtn)
+    flag = p.evaluate("import('./pub/core.js').then(m => !!m.S.nudgedThisVisit)")   # the flag Home's "Get hearing alerts" reads (home.js askBtn)
     ok(flag is True, 'after the sign-up was shown and "Not now" pressed, Home is told the visit has had its alerts ask (S.nudgedThisVisit)')
     b.close()
 ok(not errors, 'no console errors' + ('' if not errors else ': ' + ' | '.join(errors[:4])))

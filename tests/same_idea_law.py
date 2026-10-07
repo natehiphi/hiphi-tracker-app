@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html')
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
-SETUP = """async () => { const m = await import('/pub/core.js'); const S = m.S;
+SETUP = """async () => { const m = await import('./pub/core.js'); const S = m.S;
   const pool = [...S.bills, ...Object.values(S.extra || {}), ...(m.D ? [...m.D.bills, ...m.D.index] : [])];
   const one = n => pool.filter(b => b.bill_number === n);
   one('HB2121').forEach(b => { b.stage = 'dead'; b.stage_override = null; b.companions = ['SB2175']; b.last_action = 'The committee deferred the measure.'; });
@@ -32,11 +32,11 @@ with sync_playwright() as pw:
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll')
         if W == 390: p.screenshot(path='/private/tmp/claude-501/same_idea_390.png')
         # a stopped bill whose companion did not become law
-        p.evaluate("""async () => { const m = await import('/pub/core.js'); [...m.S.bills, ...Object.values(m.S.extra || {}), ...m.D.bills, ...m.D.index].filter(b => b.bill_number === 'SB2175').forEach(b => { b.stage = 'dead'; b.last_action = 'Failed.'; }); }""")
+        p.evaluate("""async () => { const m = await import('./pub/core.js'); [...m.S.bills, ...Object.values(m.S.extra || {}), ...m.D.bills, ...m.D.index].filter(b => b.bill_number === 'SB2175').forEach(b => { b.stage = 'dead'; b.last_action = 'Failed.'; }); }""")
         p.evaluate("location.hash = '#/more'"); p.wait_for_timeout(400); p.evaluate("location.hash = '#/bill/HB2121'"); p.wait_for_timeout(1000)
         ok(p.locator('.bl-sameidea').count() == 0, f'{tag}: a companion that did not become law adds no line')
         # found through the issue, as in production (the companion field is empty there), and only for the other chamber
-        r = p.evaluate("""async () => { const m = await import('/pub/core.js'); const S = m.S;
+        r = p.evaluate("""async () => { const m = await import('./pub/core.js'); const S = m.S;
           const pool = [...S.bills, ...Object.values(S.extra || {}), ...m.D.bills, ...m.D.index]; const one = n => pool.filter(b => b.bill_number === n);
           const hb = one('HB2121')[0], sb = one('SB2175')[0];
           one('HB2121').forEach(b => { b.companions = null; }); one('SB2175').forEach(b => { b.companions = null; b.stage = 'enacted'; b.last_action = 'Act 189, on 07/07/2026 (Gov. Msg. No. 1291).'; });
