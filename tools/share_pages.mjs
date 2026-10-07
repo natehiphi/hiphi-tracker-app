@@ -31,6 +31,8 @@ const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/';
 // Renamed issues, old address -> new (pub/kernel.js FORMER_SLUGS, R-158): the page and feed under the old name stay, so
 // a link or a calendar subscription made before the rename keeps working.
 const FORMER = JSON.parse(/export const FORMER_SLUGS = (\{[^\n]*\});/.exec(kernel)[1]);
+// Every ask a bill's page can name (pub/core.js SHARE_ASKS, read from there so the two never differ).
+const SHARE_ASKS = JSON.parse(/export const SHARE_ASKS = (\[[^\]]*\]);/.exec(readFileSync(join(ROOT, 'pub/core.js'), 'utf8'))[1].replace(/'/g, '"'));
 const CHECK = process.argv.includes('--check');
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : ROOT;
 
@@ -124,12 +126,20 @@ function sharePages({ bills, hearingsBy, outcomes, deadlineFor, committees, issu
     const cur = card(state.ask), curPic = pic(cur.image, ctx.issue);
     want.set(`b/${sub}${n}.html`, page({ ...cur, image: curPic, to: goTo(1, cur.hash), noindex }));
     if (y && !dir) want.set(`b/${y}/${n}.html`, page({ ...cur, image: curPic, to: goTo(2, cur.hash) }));
-    // One page per ask. A live ask is always this session's bill, so it lives at the short address only; following is
-    // shared for bills from earlier sessions too, so it is at both.
-    for (const ask of asksFor(b, state)) {
+    // One page per ask, at the short address (links made before C5-2) and under the year (b/2026/HB2121-testify), which
+    // is what the tracker shares since C5-2 (R-199): a 2027 bill with the same number then never takes the link over.
+    const asks = asksFor(b, state);
+    for (const ask of asks) {
       const c = card(ask), cPic = pic(c.image, ctx.issue);
       want.set(`b/${sub}${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(1, c.hash), noindex }));
-      if (y && !dir && ask === 'follow') want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(2, c.hash) }));
+      if (y && !dir) want.set(`b/${y}/${n}-${ask}.html`, page({ ...c, image: cPic, to: goTo(2, c.hash) }));
+    }
+    // An ask that has closed keeps its page, carrying the bill's card of the moment (C5-2; W3C, "Cool URIs don't
+    // change"): it was deleted before, so an old post lost its card and a re-share got none. Only pages that exist are
+    // kept this way, so no page is made for an ask that never was.
+    if (!dir) for (const ask of SHARE_ASKS.filter(a => !asks.includes(a))) {
+      for (const [f, depth] of [[`b/${n}-${ask}.html`, 1], ...(y ? [[`b/${y}/${n}-${ask}.html`, 2]] : [])])
+        if (existsSync(join(OUT, f)) || existsSync(join(ROOT, f))) want.set(f, page({ ...cur, image: curPic, to: goTo(depth, cur.hash) }));
     }
   }
   for (const i of issues) {
@@ -192,13 +202,16 @@ for (const i of issues) {
   want.set(`cal/${i.slug}.ics`, cal);
   for (const [was, now] of Object.entries(FORMER)) if (now === i.slug) want.set(`cal/${was}.ics`, cal);
 }
-let added = 0, changed = 0, removed = 0;
+// A share page on the live site is never deleted (C5-2, R-199): a link in an old post or text keeps its card and still
+// opens the tracker, even for a bill or issue no longer on the lists. Only the practice copy's pages (b/demo/, i/demo/)
+// and the calendar feeds are tidied.
+let added = 0, changed = 0, removed = 0, kept = 0;
 for (const dir of ['b', 'i', 'cal']) {
   const d = join(OUT, dir); if (!existsSync(d)) { if (!CHECK) mkdirSync(d); }
   const years = existsSync(d) ? readdirSync(d).filter(f => /^(\d{4}|demo)$/.test(f)) : [];   // b/2026/, one folder per session; b/demo/
   for (const sub of ['', ...years]) {
-    const dd = sub ? join(d, sub) : d;
-    for (const f of readdirSync(dd)) if (/\.(html|ics)$/.test(f) && !want.has(`${dir}/${sub ? `${sub}/` : ''}${f}`)) { removed++; if (!CHECK) unlinkSync(join(dd, f)); }
+    const dd = sub ? join(d, sub) : d, keep = dir !== 'cal' && sub !== 'demo';
+    for (const f of readdirSync(dd)) if (/\.(html|ics)$/.test(f) && !want.has(`${dir}/${sub ? `${sub}/` : ''}${f}`)) { if (keep) { kept++; continue; } removed++; if (!CHECK) unlinkSync(join(dd, f)); }
   }
 }
 for (const [f, html] of want) {
@@ -210,4 +223,4 @@ for (const [f, html] of want) {
 const wantedList = [...wanted.values()].sort((a, b) => `${a.img}/${a.slug}`.localeCompare(`${b.img}/${b.slug}`));
 if (!CHECK) writeFileSync(join(ROOT, 'tools', 'og_wanted.json'), JSON.stringify(wantedList, null, 1) + '\n');
 console.log(`${wantedList.length} issue pictures in use, ${wantedList.filter(w => !w.have).length} to draw`);
-console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed${CHECK ? ' (check only, nothing written)' : ''}`);
+console.log(`${want.size} share pages (${bills.length} bills, ${issues.length} issues): ${added} new, ${changed} changed, ${removed} removed, ${kept} older pages kept as they are${CHECK ? ' (check only, nothing written)' : ''}`);

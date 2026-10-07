@@ -963,11 +963,16 @@ export const SHARE_ASKS = ['testify', 'ask', 'floor', 'conference', 'governor', 
 // The practice copy (in session) has share pages of its own, b/demo/ and i/demo/, built from its data at its day in March,
 // so a share made there previews the real card for the ask (Nate 10/5: "the share card is not specific about the action").
 const DEMO_PAGES = DEMO && !SEASON_OFF;
+// The year is in every shared link (C5-2, R-199): b/2026/HB2121-testify, never b/HB2121-testify, even for this session's
+// bills, so a 2027 bill that reuses the number never takes over a link shared now (R-110's promise, for shares too). The
+// share pages job builds every ask's page under its year and never deletes one. The practice copy's pages (b/demo/) are
+// one frozen session and keep the short form.
+const yearRef = b => `${b.session_year ? `${b.session_year}/` : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 export const billShareUrl = (b, ask = '') => {
   const a = SHARE_ASKS.includes(ask) ? ask : '';
-  if (b.hiphi_position && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? 'demo/' : ''}${billRef(b)}${a ? `-${a}` : ''}`;
+  if (b.hiphi_position && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? `demo/${billRef(b)}` : yearRef(b)}${a ? `-${a}` : ''}`;
   const i = a === 'follow' ? issuesOf(b)[0] : null;
-  return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : billPath(b) + (a && a !== 'follow' ? `/${a}` : '')}`;
+  return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : `#/bill/${yearRef(b)}` + (a && a !== 'follow' ? `/${a}` : '')}`;
 };
 export const issueShareUrl = i => !DEMO || DEMO_PAGES ? `${siteRoot()}i/${DEMO ? 'demo/' : ''}${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;
 // "Wed, Mar 18 at 9:30 AM": a deadline in a text to a friend (R-113).
