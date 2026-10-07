@@ -296,3 +296,12 @@
   .st-srch .st-sgrid.st-two { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: var(--s24); align-items: start; }
   .st-srch .st-sside { position: sticky; top: calc(var(--header) + var(--s8)); max-height: calc(100vh - var(--header) - var(--s16)); overflow-y: auto; padding-bottom: var(--s8); }
 }
+
+/* Team: who the tracker can reach (M1-1, M1-3, R-199). One card above the list; the people who can't be reached are a
+   short plain list with the reason beside each name (B-7), never colour alone (A-5). */
+.st-reach { margin: 0 0 var(--s16); display: grid; gap: var(--s12); }
+.st-reach h2 { margin: 0; font-size: var(--t16); }
+.st-reach p { margin: 0; }
+.st-reachlist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s4); }
+.st-reachlist li { display: flex; flex-wrap: wrap; gap: 0 var(--s8); font-size: var(--t14); }
+.st-reachact { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); }

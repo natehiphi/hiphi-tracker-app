@@ -34,6 +34,8 @@ export let RECOVERY = HASH_Q.get('type') === 'recovery';
 // Surfacing it matters: without it the app showed a bare sign-in form, the link
 // looked like it had done nothing, and clicking again burned the next token too.
 export const LINK_ERR = HASH_Q.get('error_description') || '';
+// A sign-in link from Session setup > Team (M1-3): #/link/<token hash>. Read before the client starts, like the others.
+export const LINK_TOKEN = (/^#\/link\/([0-9a-f]{20,128})$/i.exec(location.hash) || [])[1] || '';
 // Own origin + path, so the GitHub Pages subpath is picked up automatically: the tracker's folder address, which since
 // 9/21 is Staff v2 itself (index.html; staff.html is the same page). Recovery links land there, an address already on
 // Supabase's redirect list, and every Slack, email and calendar link the database writes points there too (R-022).
@@ -666,6 +668,47 @@ export const DB = {
     const j = await r.json().catch(() => ({ ok: false, error: `The link could not be made (${r.status}). Try again.` }));
     if (!j.ok) throw new Error(j.error || 'The link could not be made. Try again.'); return j;
   },
+  // ---- who the tracker can reach (backend 154, M1-1 and M1-3; R-199). Admins only. ----
+  // Per person: 'slack' or 'email' (reachable), 'unknown' (never looked up in Slack), 'off' or 'none', why not, and how
+  // many messages did not reach them in 30 days. The practice copy copies today's real picture: the admin, Kevin and
+  // Lauren are matched in Slack, nobody else has been looked up.
+  async teamReach() {
+    if (DEMO) return S.advocates.map(a => { const r = a.is_active === false ? 'off' : ['NT', 'KV', 'LR'].includes(a.initials) || a.is_admin ? 'slack' : 'unknown';
+      return { advocate_id: a.id, reach: r, why: r === 'unknown' ? 'not matched in Slack yet' : r === 'off' ? 'turned off' : null, not_reached: 0, passed_on: 0 }; });
+    const { data, error } = await S.supa.rpc('team_reach'); if (error) throw error; return data || [];
+  },
+  // Ask Slack about each person by their email, through team-admin. Nobody is messaged.
+  async slackReach() {
+    if (DEMO) throw new Error('The practice copy does not ask Slack. In the live app this looks each person up by email; nobody is messaged.');
+    const { data } = await S.supa.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/team-admin`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'slack_reach' }) });
+    const j = await r.json().catch(() => ({ ok: false, error: `Slack could not be asked (${r.status}). Try again.` }));
+    if (!j.ok) throw new Error(j.error || 'Slack could not be asked. Try again.');
+    if (!Array.isArray(j.people)) throw new Error('This check needs the newer team-admin function, which is not live yet. Ask Claude.');
+    return j.people;
+  },
+  // Email to the team, apart from the public pause (backend 154): off unless an admin turns it on.
+  async teamEmail() {
+    if (DEMO) return !!S.demoTeamEmail;
+    const { data, error } = await S.supa.from('app_settings').select('value').eq('key', 'team_email').maybeSingle(); if (error) throw error;
+    return !!data?.value?.enabled;
+  },
+  async setTeamEmail(on) {
+    if (DEMO) { S.demoTeamEmail = on; return; }
+    const { error } = await S.supa.from('app_settings').upsert({ key: 'team_email', value: { enabled: !!on, changed_by: S.me?.full_name || null, changed_at: new Date().toISOString() }, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  },
+  // "Forgot your password?" (M1-6): until Supabase's sign-in email goes through HIPHI's own email service (R-101, R-002),
+  // Supabase cannot email staff a reset, so the admins are told in Slack instead. The same answer for any address.
+  async askPasswordHelp(email) {
+    if (DEMO) return;
+    const { error } = await S.supa.rpc('ask_password_help', { p_email: email }); if (error) throw error;
+  },
+  // A sign-in link from Team opens a Continue page first (M1-3): the link carries only the token's hash, and nothing is
+  // used until the person presses Continue, so a link preview (Slack's, an email scanner's) cannot spend it.
+  async verifyLink(tokenHash) {
+    const { error } = await S.supa.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }); if (error) throw error;
+  },
   // ---- inbox (migration 032): everything addressed to me, read or unread ----
   async loadInbox() {
     if (DEMO) return S.inbox;
@@ -868,13 +911,14 @@ export const DB = {
     if (action === 'approve' && ['merge', 'retire'].includes(i.proposal)) await this.loadIssues();
     else if (data) Object.assign(i, data);
   },
-  // One Slack message to each owner about the issues they were not told about yet. Returns how many people.
+  // One Slack message to each owner about the issues they were not told about yet. Returns how many people were messaged.
   async tellIssueOwners() {
     const now = new Date().toISOString(), untold = S.issues.filter(i => i.owner_id && !i.owner_told_at && !i.archived_at);
     const people = new Set(untold.map(i => i.owner_id)); people.delete(S.me?.id);
     if (DEMO) { untold.forEach(i => { i.owner_told_at = now; }); return people.size; }
     const { data, error } = await S.supa.rpc('tell_issue_owners'); if (error) throw error;
-    untold.forEach(i => { i.owner_told_at = now; });
+    // Since backend 154 (M1-1) an owner is marked told when their message is actually sent, not now, and someone the
+    // tracker cannot reach is not messaged; the board catches up on the next load.
     return data;
   },
 
