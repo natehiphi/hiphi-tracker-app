@@ -34,7 +34,8 @@ SCAN = """(LABELS) => {
 
 with sync_playwright() as p:
     br = p.chromium.launch()
-    for v in ('today', 'p1', 'p2', 'p3', 'p4', 'p5'):
+    # today's first visit, the five plans, and today's with three ways to help before the end (R-150, the test 'act')
+    for v in ('today', 'p1', 'p2', 'p3', 'p4', 'p5', 'today,act.three'):
         ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True); pg = ctx.new_page()
         errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.goto(f'{BASE}/track.html?demo=1&restart&ab=onb.{v}')

@@ -49,7 +49,8 @@ function ended() {
 function mainBtn() {
   const inBar = $$('.actionbar .btn.primary').find(shown);
   if (inBar) return inBar;
-  return $$('.bl-side .btn.primary').find(shown) || null;
+  // Version A's bill page on a phone keeps the testimony button in its "what's next" card, not the bar (R-187).
+  return $$('.bl-side .btn.primary, .bl-act.a-next .btn.primary').find(shown) || null;
 }
 function followBtn() {
   const all = $$('[data-bl-followissue], [data-bl-unfollowissue], [data-bl-star], [data-bl-newfollow]').filter(shown);
@@ -80,6 +81,11 @@ function tips() {
     const now = lbl.replace(/^Now:\s*/, '');
     const where = !now ? '' : end ? `This session: <b>${esc(now)}</b>.` : `Now: <b>${esc(now)}</b>.${/committee/i.test(now) ? ' Most bills stop in a committee.' : ''}`;
     out.push({ key: 'where', els: () => [$('.bl-status')], h: 'Where it is now', p: `${steps} ${where}`.trim() || 'This card says what happened to it last.' });
+  } else if (shown($('.a-track'))) {
+    // Version A's bill page (the layout test, R-187): its tracker in the status card's place, "In the Senate step 3 of 6".
+    const now = txt($('.a-track .a-snow')).replace(/\s*·\s*Next:.*$/, '').replace(/^Now:\s*/, '').replace(/^Stopped in:\s*/, '');
+    out.push({ key: 'where', els: () => [$('.a-track')], h: 'Where it is now',
+      p: `Each part of the bar is one of six steps to becoming law.${now ? ` ${ended() ? 'This session' : 'Now'}: <b>${esc(now)}</b>.` : ''}` });
   }
   // 3. How you can help: the real main button, or Follow when nothing is moving
   const end = ended(), main = mainBtn(), fol = followBtn();

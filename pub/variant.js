@@ -21,6 +21,15 @@
 //          a letter | the "Get alerts" ask as it was before 6 Oct. The other way round from the rest: the FIRST version is
 //          the new one, which everyone gets while the test is off (Nate 10/6: "Replace, leave the current method as an
 //          alternative backup that could be tested later"). Met wherever the two differ on screen (alerts.js saveArm).
+//   layout Home, the bill page and the tabs (R-187, backend 149; Nate 10/6: "put it on the A/B testing now"): today's |
+//          version A (R-070 Layout A, R-071): Now · Since · This week day by day · Where your issues stand; the bill page
+//          opens on where the bill is; tabs Home · My issues · Find · You (pub/a/). Met the first time the two differ on
+//          screen: a bill page, or Home in session with something followed after the first visit (app.js). While a browser
+//          is on version A, the Home's-top test is not met or counted: version A replaces the Home it compares.
+//   act    the page just before the end of the first visit (R-150, backend 151; Nate 10/6: "test it"): today's "Coming up
+//          on your issues" | three ways to help, one tap each: testimony, an email to the chair and Send to a friend, each
+//          on a different bill (between sessions: a hello to their legislators, Send to a friend, one sentence on why it
+//          matters). Met on that page (start-rest.js); the measure is acting that day, then coming back within 7 days.
 //
 // How a browser gets a version:
 //   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
@@ -30,7 +39,12 @@
 //                   flipped mid-visit never changes a visit under way; end and fv keep it for good (Home's welcome reads it).
 //   the link        ?ab=home.by-issue (several: ?ab=end.home,fv.short), and the testers' older ?end=, ?fv=, ?rank, set a
 //                   version and mark it forced: counted apart, never in the comparison (a tester is not the public).
-//   no toss         the sandbox and automated browsers get today's version unless a link says otherwise (a page flag,
+//                   &abrest=today also sets every test the link does not name to today's version (the tester sheet, the
+//                   compare page and Tests' See it: a group sees exactly what its card says, whatever the switches, R-192).
+//   the practice copy (R-192, Nate 10/6: "These changes should impact how the experience is for public users in the
+//                   sandbox"; his answers: the real switches, a random pick): ?demo=1 reads the same switches and tosses the
+//                   same way, kept for the practice visit (&restart, Start over, tosses again); nothing it does is counted.
+//   no toss         automated browsers get today's version unless a link says otherwise (a page flag,
 //                   window.__hiphiTossTests, lets tests/abtests.py watch the toss).
 // The switches come from public_ab_tests, fetched by track.html alongside the catalog (window.__hiphiAB) and kept for the
 // next visit; before any answer, the tests as built (all on but the email ask).
@@ -39,6 +53,7 @@
 // (the moment the versions differ on screen; a share test, every share) and each of its two measures once, within its
 // window of days. No identifier leaves the browser; it remembers itself what it already sent.
 import { DEMO, wiz, hstDay, SUPABASE_URL, SUPABASE_KEY } from './kernel.js';
+import { tlMark } from './testerlog.js';   // a tester's path (R-193): finished the first visit, gave a number or email
 
 // goal, goal2: [event, days]: the event that is the measure, and within how many days of meeting the test (0: any time).
 export const TESTS = {
@@ -51,10 +66,12 @@ export const TESTS = {
   onb: { arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], first: 'keep', goal: ['acted', 14], goal2: ['back', 14], multi: true },
   join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
   save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
+  layout: { arms: ['today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true },
+  act: { arms: ['today', 'three'], first: 'keep', goal: ['acted', 1], goal2: ['back', 7] },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: true, onb: false, join: false, save: false };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true, act: true };
 // The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
-const INSIDE_TODAY = ['end', 'fv', 'email'];
+const INSIDE_TODAY = ['end', 'fv', 'email', 'act'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
 const BOT = (() => { try { return navigator.webdriver === true && window.__hiphiTossTests !== true; } catch { return false; } })();
 const today = () => hstDay(Date.now());
@@ -81,9 +98,10 @@ function applyRows(rows) {
 const cfgOf = key => { const c = cfg || cached(); return c ? c[key] || { on: false, fallback: TESTS[key].arms[0] } : { on: BUILT[key], fallback: TESTS[key].arms[0] }; };
 // The versions a new visitor can get: every version of a two-version test, and of a multi one those switched on.
 const armsOn = key => { const t = TESTS[key], c = cfgOf(key); return t.multi && c.arms ? c.arms : t.arms; };
-let settled = DEMO;
-export const abReady = (DEMO ? Promise.resolve() : (window.__hiphiAB
-  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback,arms_on&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status)))))
+let settled = false;
+// The practice copy too (R-192): track.html's early fetch is skipped there, so this asks; a read of a few public rows.
+export const abReady = (window.__hiphiAB
+  || fetch(`${SUPABASE_URL}/rest/v1/public_ab_tests?select=key,arms,is_on,fallback,arms_on&apikey=${SUPABASE_KEY}`).then(r => r.ok ? r.json() : Promise.reject(new Error('ab ' + r.status))))
   .then(applyRows, () => { /* the switches kept from the last visit, or the tests as built */ }).finally(() => { settled = true; });
 // The first screen waits for the switches at most this long, and not at all when it has them from a last visit; they
 // come in the same moment as the catalog, which it waits for anyway (R-122).
@@ -92,14 +110,26 @@ export const abSettled = (ms = 300) => settled || cached() ? Promise.resolve() :
 // ---- which version ----
 export function isForced(key) { try { return !!st().forced?.[key] && TESTS[key]?.arms.includes(st().arms?.[key]); } catch { return false; } }
 const firstOpen = () => { const w = wiz(); return !(w.done || w.skipped); };
+// A test that swaps whole screens (page: true, the layout test) keeps one version for the rest of the page load from the
+// first time it is asked with switches it can trust (the ones kept from the last visit, or the database's answer), so a
+// switch flipped meanwhile, or an answer that differs from last visit's, never swaps Home or the bill page under a finger:
+// it takes effect at the next page load.
+const pinned = {};
 export function armOf(key) {
   const t = TESTS[key]; if (!t) return null;
+  if (t.page) { if (pinned[key]) return pinned[key]; const a = arm0(key, t); if (settled || cached()) pinned[key] = a; return a; }
+  return arm0(key, t);
+}
+function arm0(key, t) {
   try {
     const s = st(), a = s.arms?.[key];
+    // The three ways (R-150) are tested beside today's ending only, a tester's link included: the version that ends on Home
+    // already opens on what to do, so there it would offer the same ways twice and blur both tests' counts (the review).
+    if (key === 'act' && arm0('end', TESTS.end) === 'home') return t.arms[0];
     if (s.forced?.[key] && t.arms.includes(a)) return a;
     // A plan of the first-visit test replaces the screens these tests compare: today's version of each (R-164).
     if (INSIDE_TODAY.includes(key) && onPlan()) return t.arms[0];
-    if (DEMO || BOT) return t.arms[0];
+    if (BOT) return t.arms[0];
     const lock = s.lock?.[key];
     if (lock && t.arms.includes(lock) && (t.first === 'keep' || firstOpen())) return lock;
     const c = cfgOf(key);
@@ -112,7 +142,7 @@ export function armOf(key) {
 }
 // Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
 // today's first visit while the browser is on a plan (R-164).
-const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') === 'a') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
 // The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
 function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
 export const plan = onPlan;
@@ -130,6 +160,8 @@ function fromUrl() {
   if (['home', 'today'].includes(q.get('end'))) out.end = q.get('end');
   if (['short', 'full'].includes(q.get('fv'))) out.fv = q.get('fv');
   if (q.has('rank')) out.rank = q.get('rank') === '0' ? 'today' : 'ranked';
+  // Everything the link does not name: today's version, so the link alone sets the path (R-192).
+  if (q.get('abrest') === 'today') for (const [k, t] of Object.entries(TESTS)) if (!(k in out)) out[k] = t.arms[0];
   return out;
 }
 try {
@@ -141,7 +173,7 @@ try {
     s.v = 1;
   }
   for (const [k, a] of Object.entries(fromUrl())) { s.arms[k] = a; s.forced[k] = true; }
-  if (!DEMO && !BOT) for (const [k, t] of Object.entries(TESTS)) {
+  if (!BOT) for (const [k, t] of Object.entries(TESTS)) {
     if (t.multi) { if (typeof s.u?.[k] !== 'number') (s.u ??= {})[k] = Math.random(); continue; }
     if (!t.arms.includes(s.arms[k])) { s.arms[k] = t.arms[Math.random() < 0.5 ? 0 : 1]; delete s.forced[k]; }
   }
@@ -168,6 +200,7 @@ export function abSeen(key, { bill } = {}) {
 // 'acted' (an action marked done), 'email' (an email given), 'step2' (another step on a hearing where the rank test was
 // met). Each test's measure is sent once, credited to the version it met, within its window.
 export function abEvent(name) {
+  if (name === 'finished') tlMark('finished'); else if (name === 'email') tlMark('contact');
   try {
     const s = st(), t0 = today(); let changed = false;
     for (const [key, t] of Object.entries(TESTS)) for (const which of ['goal', 'goal2']) {

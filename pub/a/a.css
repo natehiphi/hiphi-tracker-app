@@ -92,15 +92,8 @@ a.a-newsrow:hover b { text-decoration: underline; }
 @media (pointer: coarse) { .a-hrbills a { min-height: 44px; } }
 .a-hrtag { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .a-hrtag .chip { white-space: normal; text-align: left; }
-.a-fold > summary { list-style: none; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; cursor: pointer; }
-.a-fold > summary::-webkit-details-marker { display: none; }
-.a-fdd { width: 64px; flex: none; font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n900); }
-.a-fds { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: var(--t14); line-height: 1.35; }
-.a-fds b { color: var(--n900); }
-.a-fds small { font-size: var(--t13); color: var(--n500); }
-.a-fchev { width: 18px; height: 18px; color: var(--n400); flex: none; transition: transform .15s; }
-details[open] > summary .a-fchev { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .a-fchev { transition: none; } }
+/* Today with its written deadlines gone: said once under the day's heading (R-190: the day is open, not a fold). */
+.a-dnote { margin: 2px 14px 0; font-size: var(--t13); color: var(--n500); }
 
 .a-nudge { margin-top: var(--s24); }
 
@@ -127,10 +120,11 @@ details[open] > summary .a-fchev { transform: rotate(180deg); }
 .a-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .a-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .a-asks { margin: 6px 0; border-radius: 10px; background: var(--n50); }
-.a-asks > summary { list-style: none; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; font-size: var(--t14); color: var(--n700); cursor: pointer; }
-.a-asks > summary::-webkit-details-marker { display: none; }
-.a-asks > summary > .ic:first-child { color: var(--p700); width: 18px; height: 18px; flex: none; }
-.a-asks > summary > span { flex: 1; }
+/* Its own section under the week since R-194: a white card like the week's. */
+.a-sec > .a-asks { margin: 0; background: var(--n0); border-radius: 14px; box-shadow: var(--sh1); }
+.a-askh { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 12px 6px; font-size: var(--t14); color: var(--n700); }
+.a-askh > .ic:first-child { color: var(--p700); width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.a-askh > span { flex: 1; }
 .a-asks ul { list-style: none; margin: 0; padding: 0 12px 8px; }
 .a-asks li a { display: flex; align-items: center; gap: 8px; min-height: 48px; text-decoration: none; color: inherit; border-top: 1px solid var(--n200); }
 .a-asks li a > span { flex: 1; display: flex; flex-direction: column; }
@@ -157,3 +151,7 @@ details[open] > summary .a-fchev { transform: rotate(180deg); }
 @media (min-width: 900px) {
   .ah { max-width: 680px; margin: 0 auto; width: 100%; }
 }
+
+/* Today's Home's other cards, under version A's own (R-187: a new issue, keeping it on a phone, Meet HIPHI, a plan's next
+   small thing, a plan to go later in the week). */
+.a-extras { display: flex; flex-direction: column; gap: var(--s16); margin-top: var(--s24); }

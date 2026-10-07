@@ -98,6 +98,7 @@
 <link rel="modulepreload" href="pub/variant.js">
 <link rel="modulepreload" href="pub/visitlog.js">
 <link rel="modulepreload" href="pub/keep.js">
+<link rel="modulepreload" href="pub/testerlog.js">
 <style>
 /* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
 .boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
@@ -119,6 +120,13 @@ try {
   if (q.has('demo') && q.has('restart')) {
     [localStorage, sessionStorage].forEach(function (s) { for (var i = s.length - 1; i >= 0; i--) { var k = s.key(i); if (k && k.indexOf('hiphi_') === 0 && /_demo$/.test(k)) s.removeItem(k); } });
     q.delete('restart');
+    history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+  }
+  /* ?demo=1&later: the practice copy's "Next day" (R-187, pub/app.js nextDay): the visit after the first one, so the first
+     visit's welcome (hiphi_welcome, kept for the rest of a visit) ends and Home takes its everyday shape. */
+  if (q.has('demo') && q.has('later')) {
+    sessionStorage.removeItem('hiphi_welcome_demo');
+    q.delete('later');
     history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
   }
 } catch (e) { /* storage blocked: nothing to clear */ }

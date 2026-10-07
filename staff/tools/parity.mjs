@@ -26,7 +26,8 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'table ab_tests', 'rpc ab_results',   // Session setup > Tests: the public page's A/B tests (116, R-135)
   'rpc suggest_summary {weeks}',   // First visit > Suggested bills (118, R-094)
   'table bill_drafts',   // a bill's Public tab: what each draft changed (120, R-060)
-  'rpc profile_rollup']);   // Supporters: how supporters describe themselves, counts only (130, R-156)
+  'rpc profile_rollup',   // Supporters: how supporters describe themselves, counts only (130, R-156)
+  'table tester_paths']);   // the tester sheet: what testers did (150, R-193)   // Supporters: how supporters describe themselves, counts only (130, R-156)
 const cur = calls(read('app.js')), v2 = new Set([...calls(read('staff/data.js')), ...calls(read('staff/model.js'))].filter(x => !V2_ONLY.has(x)));
 // Calls the current app makes only from its screens (none expected: every call lives in DB) would show up here.
 const onlyCur = [...cur].filter(x => !v2.has(x)), onlyV2 = [...v2].filter(x => !cur.has(x));

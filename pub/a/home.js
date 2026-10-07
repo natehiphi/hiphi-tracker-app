@@ -5,23 +5,31 @@
 //      With nothing due it is the news, or "Nothing needs you this week".
 //   2. Since …: what committees decided on your bills since your last visit, and what you did. Results only; a new
 //      hearing is not news, it gets a New dot in the week.
-//   3. This week on your issues: one row per hearing (a committee sitting), not per bill. Today and tomorrow open,
-//      later days one line each, past days gone.
+//   3. This week on your issues: one row per hearing (a committee sitting), not per bill. Every day open, past days gone
+//      (R-190, Nate 10/6: nothing to do behind a closed fold; later days were one folded line each).
 //   4. Where your issues stand: up to six issues as rows with a progress bar; more than six as one bar with counts,
-//      with the full list in My issues. Bills that need a hearing are one folded line here, not cards.
+//      with the full list in My issues.
+//   Between 3 and 4, bills that need a hearing: one line each, not cards, right under the week (R-194, Nate 10/6: they sat at
+//   the end of part 4, about 6,000px down a phone for someone following many issues; R-190 had opened their fold).
 // The email ask sits after the week (R-070 decision 3, tried here), never between two hearings.
-// Everything else (the first visit, between sessions, following nothing) is today's Home, unchanged.
+// Everything else (the first visit and the rest of that visit, between sessions, following nothing, Your session) is
+// today's Home, unchanged.
+// Since R-187 (Nate 10/6: "put it on the A/B testing now") this is the live test 'layout' (pub/variant.js), drawn by
+// track.html for a browser on version A; it no longer has a page of its own (track-a.html sends its links here). Today's
+// Home's other cards come along (home.js extras): the account cards, a saved letter, a plan to go, a new issue, keeping
+// the tracker on a phone, Meet HIPHI and a first-visit plan's next small thing, so the test compares the arrangement and
+// nothing goes missing.
 import { S, app, esc, icon, toast, blurb, nick, headline, spaced, billPath, alive, openActions, dueInfo, dayWord, timeWord, dateLong, cmteLabel,
   roomLabel, hstDay, hiT, HST, followedIssues, issueBills, issuesOf, posInfo, outcomeOf, didKind, myActions, testimonyDraft, sessionInfo,
   followsAnything, waitingBills, chairContacts, askedChair, agrees, plainStatus, stopOf, codesOf, CHAMBER_NAME, wiz, anyHearing, anyBill,
   settledOn, OUTCOME_PLAIN } from '../core.js';
 import { testifyLabel } from '../letters.js';
 import { btn, chip } from '../ui.js';
-import { nudgeCard, wireNudge, wireActions } from '../actions.js';
-import today from '../home.js';
+import { nudgeCard, wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
+import { laterCard } from '../onb-later.js';
+import today, { extras, wireExtras } from '../home.js';
 
 S.aSkip ??= new Set();   // Now items passed over with "Not now", for this visit
-S.aDays ??= new Set();   // folded days the person opened, kept through redraws
 const welcomed = () => { try { return sessionStorage.getItem('hiphi_welcome') === '1'; } catch { return false; } };
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const list = parts => parts.filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1');
@@ -211,23 +219,17 @@ function weekBlock() {
   const tdy = hstDay(now), tmr = hstDay(now + 864e5);
   const out = [...days.entries()].map(([d, ss]) => {
     const iso = ss[0].h.scheduled_at, urgent = d === tdy && ss.some(openDue);
-    // Today with every written deadline gone folds to one line, so the hearings people can still act on come first
-    // (review 9/28: Leilani's Tuesday opened on four she could not).
+    const head = `${d === tdy ? 'Today' : d === tmr ? 'Tomorrow' : wd(iso)} <span>${esc(d === tdy || d === tmr ? `${wd(iso)} ${dnum(iso)}` : dnum(iso))}</span>`;
+    // Today with every written deadline gone says so once under its heading, not as a chip on each hearing (review 9/28:
+    // four identical chips), and is not marked urgent. It used to fold to one line so the hearings people can still act on
+    // came first; late testimony and watching live are things to do too, so it stays open (R-190).
+    let note = '';
     if (d === tdy && !ss.some(openDue)) {
       ss.forEach(s => { s.quietLate = true; });
       const late = ss.some(s => s.t > now && s.items.some(x => dueInfo(x.h)?.late && !settledOn(x.b, x.h)));
-      return `<details class="a-day a-fold" data-a-day="${esc(d)}"${S.aDays.has(d) ? ' open' : ''}><summary><span class="a-fdd">Today</span>
-        <span class="a-fds"><b>${esc(plural(ss.length, 'hearing'))} · ${esc(plural(ss.flatMap(s => s.items).length, 'bill'))}</b><small>${late ? 'Written deadlines passed · late testimony is still accepted · watch live' : ss.every(s => s.t <= now) ? 'Heard today' : 'You’ve spoken up on these · watch live'}</small></span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-        <ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></details>`;
+      note = `<p class="a-dnote">${late ? 'Written deadlines passed · late testimony is still accepted · watch live' : ss.every(s => s.t <= now) ? 'Heard today' : 'You’ve spoken up on these · watch live'}</p>`;
     }
-    const open = d === tdy || d === tmr;
-    const head = `${d === tdy ? 'Today' : d === tmr ? 'Tomorrow' : wd(iso)} <span>${esc(d === tdy || d === tmr ? `${wd(iso)} ${dnum(iso)}` : dnum(iso))}</span>`;
-    if (open) return `<div class="a-day${urgent ? ' today' : ''}"><h3 class="a-dh">${head}</h3><ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></div>`;
-    const bs = ss.flatMap(s => s.items), names = bs.slice(0, 2).map(x => nameOf(x.b)), more = bs.length - names.length;
-    const dueDay = ss[0].h.testimony_deadline ? dayName(ss[0].h.testimony_deadline) : '';
-    return `<details class="a-day a-fold" data-a-day="${esc(d)}"${S.aDays.has(d) ? ' open' : ''}><summary><span class="a-fdd">${esc(wd(iso))} ${esc(dnum(iso))}</span>
-      <span class="a-fds"><b>${esc(plural(ss.length, 'hearing'))} · ${esc(plural(bs.length, 'bill'))}</b><small>${esc(names.join(', '))}${more ? ` and ${more} more` : ''}${dueDay ? ` · due ${esc(dueDay)}` : ''}</small></span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-      <ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></details>`;
+    return `<div class="a-day${urgent ? ' today' : ''}"><h3 class="a-dh">${head}</h3>${note}<ul class="a-hrs">${ss.map(sittingRow).join('')}</ul></div>`;
   }).join('');
   return `<section class="a-sec" aria-labelledby="a-wk-h"><div class="a-sech"><h2 id="a-wk-h">This week on your issues</h2><p>${esc(plural(all.length, 'hearing'))} · ${esc(plural(bills, 'bill'))}</p></div>
     <div class="a-week">${out}</div></section>`;
@@ -261,9 +263,9 @@ function issueRow(r) {
   return `<li><a class="a-irow" href="#/issue/${esc(r.i.slug)}"><span class="a-itop"><b>${esc(r.i.name)}</b>${chip(tag, tone)}</span>
     ${r.lead ? stepBar(r.lead) : ''}${line ? `<span class="a-iline">${esc(line)}</span>` : ''}</a></li>`;
 }
-function standBlock({ asksShown = false } = {}) {
+function standBlock() {
   const iss = followedIssues(); if (!iss.length) return '';
-  const rows = iss.map(issueState), asks = asksShown ? [] : askList();
+  const rows = iss.map(issueState);
   let body;
   if (rows.length <= 6) body = `<ul class="a-irows">${rows.map(issueRow).join('')}</ul>`;
   else {
@@ -273,10 +275,16 @@ function standBlock({ asksShown = false } = {}) {
     body = `${inWeek ? `<p class="a-inweek">${icon('calendar')}<span>${esc(plural(inWeek, 'issue has', 'issues have'))} a hearing this week, listed above.</span></p>` : ''}
       ${others.length ? `<ul class="a-irows">${others.map(issueRow).join('')}</ul>` : ''}`;
   }
-  const askHtml = asks.length ? `<details class="a-asks" data-a-day="asks"${S.aDays.has('asks') ? ' open' : ''}><summary>${icon('hourglass')}<span>${esc(plural(asks.length, 'bill needs', 'bills need'))} a hearing soon. The committee chair decides which bills get one; a short note helps.</span>${icon('chevron-down', { cls: 'a-fchev' })}</summary>
-      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></details>` : '';
   return `<section class="a-sec" aria-labelledby="a-st-h"><div class="a-sech"><h2 id="a-st-h">Where your ${esc(plural(iss.length, 'issue'))} ${iss.length === 1 ? 'stands' : 'stand'}</h2></div>
-    <div class="a-stand">${body}${askHtml}<a class="a-all" href="#/bills">See all ${iss.length} in My issues${icon('chevron-right')}</a></div></section>`;
+    <div class="a-stand">${body}<a class="a-all" href="#/bills">See all ${iss.length} in My issues${icon('chevron-right')}</a></div></section>`;
+}
+// Bills that need a hearing, right under the week (R-194): things to do come before where the issues stand. Left out when
+// the Now card above already offers them (nothing due this week, R-071).
+function asksBlock(asks) {
+  if (!asks.length) return '';
+  return `<section class="a-sec" aria-labelledby="a-ask-h"><div class="a-sech"><h2 id="a-ask-h">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</h2><p>${esc(plural(asks.length, 'bill'))}</p></div>
+    <div class="a-asks"><p class="a-askh">${icon('hourglass')}<span>The committee chair decides which bills get a hearing. A short, polite note helps.</span></p>
+      <ul>${asks.map(({ b, st }) => `<li><a href="${billPath(b)}"><span><b>${esc(nameOf(b))}</b><small>${esc(spaced(b.bill_number))} · ${esc(stopsBy(st))}</small></span>${icon('chevron-right')}</a></li>`).join('')}</ul></div></section>`;
 }
 
 // ---------------- the page ----------------
@@ -300,30 +308,40 @@ function view() {
   else { const news = sinceCard(si, { lead: true }); calm = !news; first = news || calmCard(si); }
   const hasWeek = weekSittings().length;
   const ask = S.nudge && S.nudge !== 'action' ? `<div class="a-nudge">${nudgeCard(S.nudge)}</div>` : '';
+  // A plan to go today or tomorrow is the day's plan, so it leads, as on today's Home (R-142); later ones go to the end.
+  const plans = goingPlans(), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
+  const tail = [goLater, extras.newIssues(), extras.phone(), extras.meet(), laterCard()].filter(Boolean).join('');
+  // A saved letter is left to the Now card only when it is the Now card's hearing, whose button then says "Finish sending
+  // your testimony" (R-187); one for another hearing due this week, a row under "Also due" or in the week, keeps its own
+  // card, or nothing on the page would mention it (R-189).
   return `<div class="ah">
+    ${extras.account()}
     <header class="a-top"><p class="a-date">${esc(date)}</p><h1>Aloha${name ? `, ${esc(name)}` : ''}</h1></header>
+    ${extras.draft(new Set(items.slice(0, 1).map(x => x.h.id)))}${goSoon}
     ${first}
     ${calm && !hasWeek ? '' : weekBlock()}
+    ${!items.length && !due.length && asks.length > 0 ? '' : asksBlock(asks)}
     ${ask}
-    ${standBlock({ asksShown: !items.length && !due.length && asks.length > 0 })}
+    ${standBlock()}
+    ${tail ? `<div class="a-extras">${tail}</div>` : ''}
   </div>`;
 }
 export default {
   tab: 'home',
-  title: () => 'Home',
+  title: route => today.title(route),
   render(route) {
-    // The first visit's own Home, between sessions and following nothing stay today's Home (the test is about this one).
-    delegated = sessionInfo().phase !== 'in' || !followsAnything() || welcomed();
+    // The first visit's own Home, between sessions, following nothing and Your session (#/recap) stay today's Home (the
+    // test is about this one).
+    delegated = route?.name === 'recap' || sessionInfo().phase !== 'in' || !followsAnything() || welcomed();
     return delegated ? today.render(route) : view();
   },
   wire(route) {
     if (delegated) { today.wire && today.wire(route); return; }
     const root = document.querySelector('.ah'); if (!root) return;
-    wireActions(root); wireNudge(root);
+    wireActions(root); wireNudge(root); wireExtras(root);
     // "Show the next one" says what it did, with Undo (B-5, A-16).
     root.querySelectorAll('[data-a-skip]').forEach(el => el.onclick = () => { const k = el.dataset.aSkip; S.aSkip.add(k); app.render();
       toast(`${el.dataset.aName} moved out of the way. It’s still due, in the week below.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
     root.querySelectorAll('[data-a-unskip]').forEach(el => el.onclick = () => { S.aSkip.clear(); app.render(); });
-    root.querySelectorAll('details[data-a-day]').forEach(d => d.addEventListener('toggle', () => { d.open ? S.aDays.add(d.dataset.aDay) : S.aDays.delete(d.dataset.aDay); }));
   },
 };

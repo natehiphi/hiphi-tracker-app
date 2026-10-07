@@ -82,6 +82,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | alerts, the first visit's step 3 (10/4, R-146) | **316** | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | alerts, 10/5 after R-174 (one step larger) | 325 (5px over budget, under the limit: the larger sentence) | 7 | **6** | 1 | 4 | 6 |
 | public | 390 | More > Get alerts (10/4, R-146) | **264** | 10 | **4** | 6 | 4 | 5 |
+| public | 390 | home, version A (10/6, R-187, the live test `layout`; Kai on the practice copy's Monday) | **166** | 13 | **6** | 7 | 6 | 11 (over the aim of 7: the dark Now card's own colours, the 9/28 design Nate checked) |
+| public | 390 | bill, version A (10/6, R-187) | **237** | 11 | **8** | 3 | 6 | 6 |
 | staff2 | 390 | today (9/21, R-022) | **260** | 20 | **4** | 6 | 5 | 9 |
 | staff2 | 390 | bills (10/5, R-175) | 386 | 26 | **11** | 5 | 4 | 5 |
 | staff2 | 390 | bill (10/5, R-175: no Priority chip) | **178** | 15 | **7** | 7 | 4 | 7 |
@@ -105,6 +107,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 1440 | more | **197** | 16 | **1** | 6 | 5 | 2 |
 | public | 1440 | alerts, the first visit's step 3 (10/4, R-146) | **184** | 7 | **6** | 1 | 5 | 6 |
 | public | 1440 | More > Get alerts (10/4, R-146) | **282** | 10 | **4** | 6 | 4 | 5 |
+| public | 1440 | home, version A (10/6, R-187) | **190** | 13 | **6** | 7 | 6 | 11 |
+| public | 1440 | bill, version A (10/6, R-187) | **220** | 19 | **11** | 7 | 6 | 6 |
 | staff2 | 1440 | today (9/21, R-022) | **290** | 44 | **11** | 12 | 5 | 9 |
 | staff2 | 1440 | week (9/21, R-022) | 348 | 39 | **15** | 12 | 5 | 8 |
 | staff2 | 1440 | bills (10/5, R-175: no Priority column) | 364 | 70 | **15** | 13 | 5 | 5 |
@@ -242,5 +246,6 @@ proves it can be done in six words ("reach the last committee by this date"); To
 | Desktop Bills | phone/desktop parity | three quick filter chips kept | On desktop they share a line with the totals and cost no vertical space. Nate has a standing offer to make them match. 2026-09-19. |
 | First visit, Plan 3 "Meet your people" (a test version, `?ab=onb.p3`) | C-1 value first, C-5 ask late | asks which island, then the street address, before showing any bill | R-164 (Nate 10/5: the five plans "will be offered as different options that we can test"). The plan meets the people before the bills on purpose; one tap on the island comes first and the address can be skipped as an equal choice. The test (`onb`, backend 136) settles it: if Plan 3 does worse than the others, it goes. |
 | First visit, Plan 1 "Start with one bill" (a test version, `?ab=onb.p1`) | the product rule "a first visit never pushes an action" (CLAUDE.md, Nate 9/19) | the second screen offers a two-minute email to a committee chair, with "Not now" beside it | Nate asked for an action right after signing up (R-150, 10/4) and picked Plan 1 (R-164, 10/5). "Not now" always goes on to the sign-up and the ending; the test compares it with today's first visit. |
+| First visit, "Three ways to help this week" (a test version, `?ab=act.three`) | the product rule "a first visit never pushes an action" (CLAUDE.md, Nate 9/19) | the page just before "You're all set!" offers three ways to help, one tap each: testimony, an email to the chair and Send to a friend, each on a different bill (between sessions: a hello to their legislators, Send to a friend, one sentence on why it matters) | R-150 (Nate 10/4: "We want people to act right away after signing up"; 10/5: three bills, three kinds of action; 10/6: on "Coming up on your issues", tested beside today's). The three are equal cards with no main button, and Next goes on without any (A-3, P-5). The test (`act`, backend 151) settles it by acting on the day of the first visit, then coming back within 7 days. |
 | First-visit plans' alerts sign-up, phone (`join`, a test version) | A-1 arrival | the number box at about 513px at 390 (`shown`), 546px (`watch`); today's alerts screen 316 | R-164: the sign-up research (10/5) put an example of the text, or the three steps, before the box on purpose: showing exactly what will arrive is the point of the design. Trimmed once after the fresh-eyes review (one-sentence lede, how often said once). The `join` test (backend 138) compares the two versions; if neither beats today's sign-up rate, the box moves up. |
 | ~~Today, filled buttons per screenful~~ | A-3 | — | **Resolved 2026-09-20: Nate amended the rule.** A-3 now permits one primary repeated per item in a list of equivalent items. Today is compliant as built; no exception needed. |

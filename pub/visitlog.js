@@ -18,6 +18,7 @@
 //   logAct(kind)                  an action marked done, its kind only (078)
 //   logTime(act, seconds, first)  how long a letter took, from opening the walkthrough to sending it (143)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
+import { tlNote, tlStep } from './testerlog.js';   // a tester's path (R-193): the first visit's screens and what they did
 import { variantInfo, setAbSink, abEvent } from './variant.js';
 
 const KEY = 'hiphi_fv', CAP = 60;
@@ -114,6 +115,7 @@ function send(payload, leaving) {
 // step or event, no network). Never rejects, so nobody has to catch it; nobody has to wait for it either.
 export function logVisit(step, event, extra = {}) {
   try {
+    tlStep(step, event);
     if (quiet()) return Promise.resolve(false);
     if (!STEPS.has(step) || !EVENTS.has(event)) { console.warn('logVisit: not a first-visit step or event:', step, event); return Promise.resolve(false); }
     const v = visit();
@@ -176,6 +178,7 @@ export function logDay({ follows = false, signedIn = false, season = 'in' } = {}
 }
 export function logAct(kind) {
   try {
+    tlNote(kind);
     // 'recap' and 'moment' (R-046, migration 106): the session page opened, a result shown as a moment. 'restore' and
     // 'calendar' (114) were filtered out here and refused by the table until migration 124, so neither was ever counted.
     // The five 'again_' kinds (R-148, 124): a saved letter offered again, sent again, the warning shown, updated, replaced.

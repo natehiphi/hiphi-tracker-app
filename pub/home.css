@@ -31,12 +31,10 @@
 .hm .hm-steps b { color: var(--n900); }
 .hm .hm-stepic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
 .hm .hm-stepic .ic { width: 20px; height: 20px; }
-.hm .hm-later, .hm .hm-readybox { display: flex; flex-direction: column; gap: var(--s16); }
-.hm .hm-readybox[hidden] { display: none; }
+.hm .hm-later { display: flex; flex-direction: column; gap: var(--s16); }
 
 /* Do this now: cards, the email ask under card 1, then one line each behind "Show 12 more" */
 .hm .hm-now { display: flex; flex-direction: column; gap: var(--s16); }
-.hm .hm-more[hidden] { display: none; }
 .hm .hm-toggle { align-self: flex-start; margin: calc(-1 * var(--s8)) 0 calc(-1 * var(--s8)) calc(-1 * var(--s12)); }
 .hm .hm-link { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
 .hm .hm-due { color: var(--n700); }
@@ -78,10 +76,11 @@
 .hm .hm-sechead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
 .hm .hm-sechead .btn { margin-right: calc(-1 * var(--s12)); }
 /* R-018: a new issue in a category the person partly follows, shown once (Nate, 9/21, answer 3) */
-.hm .hm-newiss { display: flex; flex-direction: column; gap: var(--s8); align-items: flex-start; }
-.hm .hm-newiss h2 { font-size: var(--t18); }
-.hm .hm-newlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); width: 100%; }
-.hm .hm-newlist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+/* :is(.hm, .ah): version A's Home (pub/a/home.js) draws these cards too (R-187). */
+:is(.hm, .ah) .hm-newiss { display: flex; flex-direction: column; gap: var(--s8); align-items: flex-start; }
+:is(.hm, .ah) .hm-newiss h2 { font-size: var(--t18); }
+:is(.hm, .ah) .hm-newlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); width: 100%; }
+:is(.hm, .ah) .hm-newlist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
 .hm .hm-newname { font-weight: 700; color: var(--n900); min-height: 44px; display: flex; align-items: center; }
 .hm .hm-day { font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
 .hm .rows .row .title, .hm .rows .row .sub, .hm .hm-pick .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -248,9 +247,9 @@
 .hm .hm-loop .hm-looplearn > .ic { flex: none; color: var(--p700); }
 .hm .hm-loop .hm-looplearn a { color: var(--p700); font-weight: 700; }
 /* Keep the tracker on your phone (R-067) */
-.hm .hm-hs { display: flex; flex-direction: column; gap: var(--s8); }
-.hm .hm-hs h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
-.hm .hm-hs .small .ic { width: 16px; height: 16px; vertical-align: -3px; }
+:is(.hm, .ah) .hm-hs { display: flex; flex-direction: column; gap: var(--s8); }
+:is(.hm, .ah) .hm-hs h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
+:is(.hm, .ah) .hm-hs .small .ic { width: 16px; height: 16px; vertical-align: -3px; }
 
 /* What HIPHI helped pass (R-067) */
 .hm .hm-wins h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
@@ -260,12 +259,12 @@
 .hm .hm-wins .small { margin-top: var(--s12); }
 
 /* Meet HIPHI (R-067) */
-.hm .hm-meet h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t16); }
-.hm .hm-meet h2 .ic { flex: none; color: var(--p700); margin-top: 2px; }
-.hm .hm-meet .small { margin: var(--s8) 0 0; }
-.hm .hm-meet > .btn.text { margin-left: -16px; }   /* "See the event" on the text edge above it; its padding stays tap area (X9-1, A-8) */
-.hm .hm-draft { display: flex; flex-direction: column; gap: var(--s8); margin-bottom: var(--s12); border: 1.5px solid var(--p300); }
-.hm .hm-draft h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
+:is(.hm, .ah) .hm-meet h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t16); }
+:is(.hm, .ah) .hm-meet h2 .ic { flex: none; color: var(--p700); margin-top: 2px; }
+:is(.hm, .ah) .hm-meet .small { margin: var(--s8) 0 0; }
+:is(.hm, .ah) .hm-meet > .btn.text { margin-left: -16px; }   /* "See the event" on the text edge above it; its padding stays tap area (X9-1, A-8) */
+:is(.hm, .ah) .hm-draft { display: flex; flex-direction: column; gap: var(--s8); margin-bottom: var(--s12); border: 1.5px solid var(--p300); }
+:is(.hm, .ah) .hm-draft h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
 
 /* ---- the version of the first visit that ends on Home (R-098, ?end=home; pub/home.js homeFirst, finFx) ----
    The finale's celebration, on the page they will come back to: blooms pop, the ticks rise in, the sun comes up over the
@@ -285,6 +284,17 @@
 .hm.hm-anim .hm-art .st-sun { transform-box: fill-box; transform-origin: center; animation: st-sunrise 1.2s var(--ease) both; }
 .hm .hm-rightnow { display: flex; flex-direction: column; gap: var(--s12); }
 .hm .hm-rnh { font-size: var(--t22); }
+/* Home right after the first visit: every thing to do this week, open under the hello (R-190). */
+.hm .hm-todo { display: flex; flex-direction: column; gap: var(--s12); }
+.hm .hm-todo > .hm-asks { margin-top: var(--s12); }   /* the page's own gap between its parts (A-8) */
+.hm .hm-asks-sub h3 { font-size: var(--t18); }
+.hm .hm-cutoff { display: flex; align-items: center; gap: var(--s8); margin: 0; color: var(--n700); }
+.hm .hm-cutoff .ic { width: 16px; height: 16px; color: var(--p700); flex: none; }
+/* Between sessions, Home right after the finale: the finale just drew the Capitol, so a phone goes straight to the words
+   and the one thing to do (R-190, A-1). From 900px the drawing sits beside the words and costs no height. */
+@media (max-width: 899px) { .hm.hm-lead .hm-break .hm-art { display: none; } }
+.hm .hm-todot { font-size: var(--t22); }
+.hm .hm-rnmore { font-size: var(--t18); margin-top: var(--s8); }
 .hm .hm-rnnone { margin: 0; padding: var(--s16); border-radius: var(--r16); background: var(--n50); color: var(--n700); }
 .hm-petalfx { position: fixed; inset: 56px 0 auto; height: 260px; pointer-events: none; z-index: 40; overflow: hidden; }
 .hm-petalfx .st-petals { inset: 0; height: 100%; }

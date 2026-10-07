@@ -91,7 +91,7 @@ with the one thing due first (`rightNow()`); then two tips over Home after 4.5 s
 `hiphi_tour_home`): the card, lit and usable (using its button ends the tips), and coming back (the Home tab; add to the
 home screen or bookmark when no email was given). A fresh-eyes review 9/29 cut a third tip and a repeated deadline. The
 words: "we'll show you", "Home shows when it's your moment", the last part "Your home page", "Want an email too?", "Link
-sent to ... Tap it when you finish here", "See my home page". Counted privately as step 'home' (view, done/skip).
+sent to ... Tap it when you finish here", "See How I Can Help" (R-190; it said "See my home page"). Counted privately as step 'home' (view, done/skip).
 **`?demo=1&restart`** (an inline script in `track.html`) clears only the sandbox's own storage, so the testers' two links
 start from the beginning: `track.html?demo=1&end=today&restart` and `track.html?demo=1&end=home&restart`. Fixed in both
 versions the same day: Home's "Your issues" rows open their issue; the sandbox remembers an email was given (it asked
@@ -159,7 +159,7 @@ share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in p
 a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
 on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
 Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting Done goes to Home (X10-2,
-wave 1 below; it went on to the "voice" step's "Go to my home page" or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
+wave 1 below; it went on to the "voice" step's "Go to my home page", since R-190 "See How I Can Help", or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
 hearing back link and the Help words from R-112).
 
 **A shared link leads with its ask and opens it (R-169, 10/5).** Nate: "Card wording should lead with the action that is
@@ -682,7 +682,7 @@ first visit. All five are working versions in the same frame as today's first vi
   link, not on a bill opened from Home to act, `data-hm-act` setting `S.toAct`); they get "New to this? Take the tour" under
   the bill's name (`tourOffer` in bill.js, `app.billTour`, `startBill` in `pub/tour.js`), gone once the tips are seen. The
   walkthrough's "Don't follow it" is "Stop following <the issue>", right under the sentence that says it is followed, and
-  the link newcomer's moment says the same with "Go to my home page". More's first row without a profile is "Get alerts
+  the link newcomer's moment says the same with "See How I Can Help" (R-190; it said "Go to my home page"). More's first row without a profile is "Get alerts
   and make your profile". The finale's "Turn on alerts" button is the next entry; Home's main button is R-150's question.
 - **One status rule for alerts** (D1-4; `pub/alerts.js alertStatus()`): "on" only for a number confirmed by its code, or a
   signed-in account with an email and an email choice ticked. A number kept but not yet confirmed (codes off), a code texted
@@ -775,3 +775,170 @@ ask but keep it as a backup to test later.
   so no keyboard covers "Not now"; a laptop starts in the box. The category receipt reads "You're following all of ...".
 - `tests/profile_ask.py` (36 checks, an iPhone SE, a phone and a laptop) walks each path and the backup; the six older
   files that looked for "Get alerts on your" or the card's own button now look for the new heading and the bar's.
+
+## Version A as a live A/B test, and the practice copy's "Next day" (R-187; 6 Oct 2026)
+
+Nate 10/6: "I thought we were A/B testing the two different homepage versions. Today and another version with a calendar
+app like card format. I'm not seeing it in the A/B testing options." Version A (R-070's Layout A, R-071) had stayed a
+tester-only page (`track-a.html`, a 9/28 copy of the frame) under the 10/3 plan's "testers first". His answer: "Put version
+A on the tester sheet and put it on the A/B testing now."
+- **The test:** `layout` in `pub/variant.js` (`today` | `a`), backend 149 (on from 6 Oct, counting from then; decided by
+  came back within 14 days, then acted within 14 days). It is `page: true`: the version is kept for the whole page load
+  from the first time it is read with switches the page can trust (the ones kept from the last visit, or the database's
+  answer), so a switch flipped meanwhile takes effect at the next load and Home never changes under a finger.
+- **How it is drawn:** in `track.html` itself, not a page of its own, so version A has everything built since 9/28 (the
+  error reports, the counts, the profile, the share routes, the lazy loading). `pub/app.js`: `layoutA()`; the `home` and
+  `bill` stand-ins load `pub/a/home.js` and `pub/a/bill.js` on version A (each draws today's screen wherever it has
+  nothing of its own); `TABS_A` ("You" in More's place); `tabOf` keeps My issues lit on an issue the person follows;
+  `cssFor` adds `pub/a/a.css` (after `wide.css`, never fetched for today's) and `body.va` on every screen but the first
+  visit, which both versions share and other tests compare. `pub/a/app.js` is gone; `track-a.html` sends its links to
+  `track.html?demo=1&ab=layout.a` with the rest of the address; `compare.html`'s buttons open `track.html` with
+  `ab=layout.today` or `layout.a` (Tests' "See it" opens it with one of them: then only that version's button shows).
+- **Version A's Home** (`pub/a/home.js`) as designed, plus today's Home's other cards (`home.js` `extras` and `wireExtras`):
+  the account cards and "Finish your testimony" at the top, a plan to go today or tomorrow above the Now card, and at the
+  end a plan to go later, a new issue, keeping it on a phone, Meet HIPHI and a plan's next small thing (`.a-extras`); their
+  styles in `home.css` read `:is(.hm, .ah)`. Your session (`#/recap`) stays today's page, as do the first visit and the
+  rest of that visit, between sessions and following nothing.
+- **Met** (`app.js` render): the first time the two differ on screen, a bill page or Home in session with something followed
+  after the first visit (version A's `.ah`, or today's `.hm-follow:not(.hm-welcome)`). While a browser is on version A,
+  Home's-top test (`home`) is never met or counted (`variant.js counted`); backend 149 also switched it off, its numbers
+  kept, its card on Tests saying why.
+- **"Next day" in the practice copy's band** (`app.js nextDay`, Monday to Tuesday to Wednesday, `pub/testbed.js` days;
+  never during the first visit): right after the first visit Home keeps its welcome shape for the rest of that visit
+  (`hiphi_welcome`), so neither version's everyday Home could be seen by a room of testers; `&later` (`track.html`'s early
+  script) ends the welcome, and the day moves on with that day's real committee decisions. The tester sheet's tasks for
+  Home's top and version A say to press it (`ROOM_TASK`); it is an inline link in the band's line of text (A-6), 26px tall.
+- **The tester sheet** offers version A under "Change another screen" ("Home and the bill page: the week view",
+  `ROOM_WHERE`); on it, Home's top reads "Replaced by the week view" (`ROOM_A_REPLACES`, `offWhy`), and picking it takes
+  Home's top off with a word and Undo. On the staff screens the design is "the week view (version A)", never "Version A"
+  alone: Tests letters every test's versions A and B, and this one is B (the fresh-eyes review). A paused test with numbers
+  says it is paused instead of "Keep it running" (`abVerdict`).
+- **The fresh-eyes review's other fix:** on version A's Home, "Finish your testimony" leaves out a letter whose hearing the
+  Now card already offers ("Finish sending your testimony"), so one job has one button (`draftsCard(skip)`; A-14, A-3).
+  **Since R-189 (10/6) today's Home does the same,** and on version A the skip is the Now card's own hearing only:
+  `returnView` passes the hearings of its two full cards (either way Home's top is drawn) and of the suggestion once it is
+  followed (before that it leads with Follow); version A passes the Now card's one hearing (it passed every hearing due this
+  week, so a letter for the second one, a row under "Also due", was mentioned nowhere). A letter whose hearing has no full
+  card, one line further down, folded, or not on Home, keeps its "Finish your testimony" card. `tests/draft_once.py`
+  (46 checks: both cases on today's Home, by topic and version A, phone and laptop).
+- Tests: `tests/layout.py` (100 checks: both versions on a phone and a laptop, the bill page and its tour, the saved letter once, Your session, Home's top not
+  met, the old address and the compare page, Next day, the toss, the switch, the version kept for the page load, Tests and
+  the tester sheet); `abtests.py` and `room.py` count ten tests; `tests/density.py` measures version A's Home and bill page
+  as `publicA`.
+
+## The first visit ends on "See How I Can Help", and Home folds nothing to do (R-190; 6 Oct 2026)
+
+Nate 10/6: the last button, "Go to my home page", was "boring and doesn't encourage more advocacy"; and "on the homepage we
+need to not hide more actions beneath a collapsed field". After research put to him in chat, he picked **"See How I Can
+Help"** (`GO_HELP` in `pub/topics.js`, title case his own): today's finale (`start-rest.js` 'done'), the plans' ending
+(`onb.js` 'wrap'), the ends-on-Home version's last step ('soon'), the shared-link newcomer's "voice" choice and the Mahalo
+moment after a first action from a link (`bill.js`), with an arrow. Home keeps the promise (DESIGN **B-14**, new):
+- **Right after the first visit** (`home.js` welcomeView): "N things you can do this week" under the hello, open, the
+  soonest a full card with the one filled button, a second card, the rest one line each, then "Bills that need a hearing"
+  as a sub-part (an h3, 18px). It replaced the "This week" card and the "Ready now?" fold at the bottom. After a first
+  action from a shared link (no finale) the same list is calm, no filled button.
+- **Later visits** (returnView): nothing behind "Show N more" or "Show N more topics"; `moreRows` draws its rows open.
+  "Done this week" stays folded, as do the results' "See all" and folds inside a card or bill. A row past its written
+  deadline says "Late testimony still accepted · hearing ..." (not a red "deadline passed"); the hearing asks' rows carry
+  their topic's icon, and when they share one cut-off it is said once over them ("All 13 stop Mon, Mar 30 without a
+  hearing."), not "14 days left" on each (the fresh-eyes review).
+- **The ends-on-Home version** (rightNow): "More you can do this week" open, one line each.
+- **Version A** (`pub/a/home.js`): every day of the week open (today with its written deadlines gone says so once under
+  its heading), and the bills that need a hearing an open list.
+- **Between sessions**, arriving from the finale: the "Get ready for January" / "Say aloha" card leads, above Your issues,
+  and a phone leaves out the second Capitol drawing (`.hm-lead`).
+Tests updated: `home_end.py`, `public_journey.py`, `d1_status.py` (the words), `x10_close_loop.py` (the open, calm list).
+Backend HANDOFF 3.126.
+
+## Pick which versions of each A/B test are live; the practice copy follows (R-192; 6 Oct 2026)
+
+Nate 10/6: "allow me to pick which options are live. I should be able to pick that only option A is running, or only option
+B, or option C, or all of the above, or a combination ... These changes should impact how the experience is for public
+users in the sandbox." His answers to the plan: the practice copy follows the real switches; several on, a random pick per
+practice visit.
+- **Tests** (`staff/setup.js`, `liveOf`, `livePatch`, `liveLine`): every card has a switch per version (the first-visit test
+  had them since R-164), in place of "Test it on new visitors". Above them one line says what runs: "Running: A against B.
+  Each new visitor gets one of them at random." or "Not testing: everyone sees B, "...". Switch on another version to test
+  it." Each flip saves at once with Undo; the last one on refuses to go off and says so ("The only one on, so everyone sees
+  it."); switching on a version of a test with a note (the email ask, Home's top, the plans) asks first; the email ask's B
+  and any plan show the lawyer line when on. "Pick the winner" leaves only the winner on. The page's line counts the tests
+  running. In the practice copy a notice says its switches are samples and links the real page.
+- **Stored as before** (no migration): two or more on is `is_on` with `arms_on` (null when all are on); one on is `is_on =
+  false` with that version as `fallback` (and `arms_on` [it] for the six-way test), so `log_ab` counts only a real
+  comparison and a page holding last visit's switches reads it the same way.
+- **The practice copy** (`pub/variant.js`): reads `public_ab_tests` too (the early fetch in track.html is skipped there, so
+  `abReady` asks), tosses like the live page, kept for the practice visit (`&restart` and Start over toss again), counts
+  nothing; `app.js` boot waits for the switches in the practice copy before the first screen. Automated browsers keep
+  today's version unless a test asks (`window.__hiphiTossTests`), so the other suites stay steady. `&abrest=today` on a link
+  sets every test it does not name to today's (forced, as a tester's): the tester sheet's practice links, Tests' See it and
+  compare.html carry it, so a group or a comparison sees exactly what it names, whatever the switches.
+- **The fresh-eyes review's fixes (10/6, published with R-193):** the cards keep the order they had when the page opened
+  (`s.abOrder`; Check again sorts afresh), so a card no longer jumps 2,000px down a phone after a flip, and focus stays on
+  the switch (B-6); the first-visit test names its versions ("Running: today's, Plan 2 and Plan 4", `vName`), since its
+  letters were one off from the plan numbers (P-4); what runs sits right under the question, before the numbers' verdict
+  (A-13); one word for the state ("Not testing", never "paused"), no hint under the lone switch (its refusal says why), and
+  no "(today's)" after a name that already says it (A-14); Pick's toast names the test.
+- Tests: `tests/versions.py` (52 checks: the cards on a phone and a laptop, every flip, Undo, the last one, the note's
+  question, the lawyer line, the six-way mixes, Pick the winner, See it and the tester sheet's links; the practice copy with
+  B only, A only, both (a pick kept for the visit, both seen over fresh visits), C and E of the first visit, the week view
+  only, `&abrest=today`, a link winning, an automated browser at today's, nothing sent); `room.py` expects the new links.
+
+## What testers do: each tester's path (R-193; 6 Oct 2026)
+
+Nate 10/6: "We also should start tracking testers actions beginning now." His answers: who counts, tester-sheet links only
+(the practice copy or the live site, older printed links included; staff looking around are not); how much, each tester's
+path (the screens in order, the seconds on each, what they did), testers told.
+- **Recording** (`pub/testerlog.js`, on the first wave, kernel-only): a tester session starts on `&t=<sheet>-<group>` (every
+  tester-sheet link since R-193) or on a link that sets versions without `&abrest` (the sheet's links before it); Tests'
+  See it and compare.html carry `&abrest` and no `&t`, so they are not counted. It lasts the tab (`hiphi_tester`, `_demo` in
+  the practice copy): Next day carries on the same path (and counts `nextday`), `&restart` (a new scan) starts a new one.
+  Every second it notes the screen: the address (`home`, `bill/hb1780`, `issue/<slug>`), the first visit by its step
+  (`start:topics`, from visitlog's view events), and a sheet over it (`:testimony:know`, the walkthrough's mode and step;
+  other dialogs by id); paused while the tab is hidden. What they did, as totals: `followed` (what they follow going up),
+  each `logAct` kind (testimony, email, share, attend ...), `finished` and `contact` once (variant.js `abEvent`), and
+  `skipped_<step>` in the first visit. Sent every 10 seconds and as the tab closes (keepalive) to `log_tester_path`
+  (backend 150). Nothing under the privacy signal or from an automated test run (`window.__hiphiCountTests` lets the suite).
+  The practice copy's band says "the screens you visit are noted for this test" while it records; the privacy page says it.
+- **The tester sheet** (`staff/setup.js`): each sheet and group has a short random id (`room().id`, `g.gid`, kept in prefs;
+  a sheet kept before R-193 gets them at once), so a group's results stay its own when groups move; Start over keeps the
+  sheet. "What testers did" under the groups: per group, testers, finished the first visit, followed, acted, gave a number
+  or email, pressed Next day, and "See their paths" (each tester: device, time, minutes, what they did, what they skipped,
+  then every screen in plain words with its seconds, `stepLabel`); "Earlier tester links" apart, by the versions they set.
+  A group's row names its versions ("Group 2 · Plan 1"), and a group whose versions changed between two sessions gets a row
+  per set, so nothing is mixed (the fresh-eyes review); "pressed Next day" shows only when someone did; newest first.
+  The practice copy shows samples (`DEMO_TESTER_PATHS`) on its own groups. The printed sheet tells testers on their page.
+- Tests: `tests/testers.py` (31 checks: a practice tester's path with its sheet, group, versions, steps by name and seconds,
+  a bill, the walkthrough by step, follows, an action, finishing once, a number once, Next day on the same path; not
+  recorded for the practice copy alone, See it, compare.html, the privacy signal or an automated browser; an older link
+  recorded with no group; the sheet's links, results, paths and printed notice on a phone and a laptop).
+
+## Three ways to help before the end of the first visit, as a test (R-150; 6 Oct 2026)
+
+Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three
+bills that they followed each with a different type of action. One is write testimony, one is send an email, another is send
+to a friend"; 10/6: on "Coming up on your issues" (the page just before "You're all set!"), no reminder for now, "test it".
+The test `act` (`pub/variant.js`, backend 151): `today` keeps "Coming up on your issues"; `three` draws **"Three ways to help
+this week"** there (`waysFor`, `stepWays`, `wireWays` in `pub/start-rest.js`), three equal cards (Plan 1's `.ob-way`, moved
+from `onb.css` to `start.css`), no main button among them, Next unchanged:
+- In session: **Write testimony** on the soonest bill with testimony open (the walkthrough, `app.openHelper`), **Email the
+  committee chair** on a second bill with a hearing in the next 7 days, its written deadline passed or not (`app.openMail`),
+  **Send it to a friend** on a third (`shareFor`/`doShare`, the bill's share; a bill waiting for a hearing when there is no
+  third with one). With no second hearing, the email is **Ask the chair for a hearing** on a bill waiting for one
+  (`waitingBills`, `app.openMail` with the committee's code).
+- Between sessions, or nothing on their issues this week: **Say aloha to your legislators** (the hello letter, mode
+  `intro`; without an address, **Find your legislators** goes back to "Who speaks for you"), **Send it to a friend** (their
+  first issue's page, `shareIssue`), **Why this matters to you** (one sentence in the card, kept as the profile's story for
+  that issue, `saveProfile({ stories })`).
+- A card done keeps its place with a tick ("Done. Mahalo!", "Kept for January"). Following nothing: today's page.
+- Met on that page (`abSeen('act')`); measures: acted on the day of the first visit, came back within 7 days. Inside today's
+  first visit only (`INSIDE_TODAY`): a plan never meets it. Staff v2 > Tests and the tester sheet list it (`SEE`,
+  `ROOM_WHERE`). DESIGN-AUDIT records it as an exception to "a first visit never pushes an action".
+Tests: `tests/ways.py` (new: every card on a phone and a laptop, in session and between sessions, with and without an
+address, today's version, the test met, type sizes); `fv_type.py` walks it; `abtests.py` and `room.py` count eleven tests.
+
+**Version A's bills that need a hearing, under the week (R-194, 10/6).** `asksBlock` in `pub/a/home.js`, its own section
+after "This week on your issues" (they were the last thing in "Where your issues stand").
+
+**"e-cigarette" kept whole without losing its spaces (R-195, 10/6).** `ui.js` `wrapWords` wraps the pieces in one plain span
+inside a flex or grid box, where the spaces at their edges vanished ("Disposablee-cigaretteban" in version A's week).
+Backend HANDOFF 3.129.

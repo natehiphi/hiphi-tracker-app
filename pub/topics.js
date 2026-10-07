@@ -116,3 +116,9 @@ export function policies(bills = []) {
 
 // The lessons' titles, here rather than in lessons.js so the first visit's title bar has them before the lessons load (R-122).
 export const LESSON_TITLES = { bill: 'Reading a bill', session: 'The session, January to May', hearing: 'What a hearing is', story: 'A bill’s story' };
+
+// The button that ends a first visit and leads to Home, in every version of the first visit (Nate 10/6, R-190: "Go to my
+// home page" was boring and did not encourage more advocacy). It says what the person will do there, not the place, and it
+// is a look, not a commitment, right after signing up; Home opens on the things they can do, so the words are kept (DESIGN
+// C-6). Title case is Nate's own (as R-186's "Next:" buttons).
+export const GO_HELP = 'See How I Can Help';

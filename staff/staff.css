@@ -465,6 +465,8 @@ body.sidenarrow .sv-sync span { display: none; }
 /* A switch per version, for a test with more than two (R-164, backend 136). */
 .ab-arms { border: 0; margin: var(--s8) 0 0; padding: 0; min-width: 0; }
 .ab-arms legend { padding: 0; margin-bottom: var(--s4); color: var(--n500); }
+/* What runs now, over the version switches (R-192): read first, so it is the darker line. */
+.ab-arms legend.ab-live { color: var(--n700); }
 /* Session setup > Tests > Tester sheet (R-185): a room of testers, a card per group side by side (three across on a
    laptop, one under another on a phone), each with its versions, its QR code and its link. */
 .ab-introacts { display: flex; flex-wrap: wrap; gap: var(--s4); flex: none; }
@@ -500,3 +502,20 @@ body.sidenarrow .sv-sync span { display: none; }
 .rm-group .sv-pick { width: 100%; justify-content: space-between; border-radius: var(--r12); min-height: 44px; height: auto; padding-top: 6px; padding-bottom: 6px; }
 .rm-group .sv-pick > span { flex: 1 1 auto; min-width: 0; text-align: left; }
 .rm-istoday .sv-pick { color: var(--n700); font-weight: 400; }
+
+/* What testers did (R-193): the tester sheet's results under the groups, and each tester's path in a sheet. */
+.rm-res { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s16); }
+.rm-reshead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.rm-reshead h2 { margin: 0; font-size: var(--t18); }
+.rm-res > p { margin: 0; }
+.rm-resrows { list-style: none; margin: 0; padding: 0; }
+.rm-resrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: var(--s12) var(--s16); border-top: 1px solid var(--n200); }
+.rm-resrows .rm-resrow:first-child { border-top: 0; }
+.rm-resrow p { margin: 2px 0 0; color: var(--n700); }
+.rm-resh3 { margin: var(--s12) 0 0; font-size: var(--t16); }
+.rm-paths { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+.rm-path { border-top: 1px solid var(--n200); padding-top: var(--s12); }
+.rm-path p { margin: 0 0 var(--s4); }
+.rm-steps { margin: var(--s8) 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; font-size: var(--t14); }
+.rm-steps li span.muted { margin-left: var(--s8); }
+@media (max-width: 30em) { .rm-resrow { flex-direction: column; align-items: flex-start; } }

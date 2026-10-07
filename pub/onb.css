@@ -74,14 +74,4 @@
 .ob-lh .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
 .ob-lp { font-size: var(--t14); line-height: 1.5; color: var(--n900); }
 .ob-lp.muted { color: var(--n500); }
-/* The three ways on: equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
-.ob-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
-.ob-way { display: flex; width: 100%; gap: var(--s12); align-items: center; padding: var(--s16); text-align: left; min-height: 64px;
-  border: 1px solid var(--n200); color: var(--n900); }
-.ob-way:hover { border-color: var(--p400); }
-.ob-way > span:nth-child(2) { display: grid; gap: 2px; flex: 1; min-width: 0; }
-.ob-way b { font-size: var(--t16); }
-.ob-way > span:nth-child(2) > span { font-size: var(--t14); color: var(--n700); }
-.ob-way > .ic { width: 18px; height: 18px; color: var(--n400); flex: none; }
-.ob-wayic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
-.ob-wayic .ic { width: 20px; height: 20px; }
+/* The three ways on (.ob-ways, .ob-way): in start.css since R-150, which uses them on today's first visit too. */

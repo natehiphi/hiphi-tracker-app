@@ -21,6 +21,7 @@ import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
 import * as P4 from './onb-p4.js';
 import { joinWords, sampleText, joinDone, OFTEN } from './onb-join.js';
+import { GO_HELP } from './topics.js';
 import { armOf, abSeen } from './variant.js';
 
 // ---------- what the person picked, as issues ranked the way the first visit ranks them (start.js issueInfo) ----------
@@ -415,7 +416,7 @@ const MINE = {
   decide: [stepDecide, wireDecide, barDecide],
   hello: [stepHello, wireHello, barHello],
   join: [stepJoin, wireJoin, barJoin],
-  wrap: [stepWrap, wireWrap, () => bar1('Go to my home page', 'house', { 'data-stdone': '1' })],
+  wrap: [stepWrap, wireWrap, () => bar1(GO_HELP, 'arrow-right', { 'data-stdone': '1' })],
 };
 const PLANS = [P2, P3, P4];
 const owner = name => MINE[name] ? null : PLANS.find(m => m.STEPS?.includes(name)) || null;

@@ -200,7 +200,9 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') in ('#/', ''), f"finishing lands on Home ({p.evaluate('location.hash')})"); shot(p, 'p_home_welcome', full=True)
     th = text(p); ok('Aloha, Leilani' in th and 'What happens next' not in th, 'Home greets them by name and does not repeat "What happens next" (A-14)')
     vis_primary = p.evaluate("[...document.querySelectorAll('main .acard .btn.primary')].filter(e=>e.offsetParent!==null).length")
-    ok(vis_primary == 0, f'welcome Home pushes no action ({vis_primary} primary action buttons visible)')
+    # Since R-190 (Nate 10/6) the finale's "See How I Can Help" opens Home on the things to do this week, none folded, the
+    # soonest with the one main button (DESIGN B-14, A-3); it had been "pushes no action", with the rest behind "Ready now?".
+    ok(vis_primary == 1 and p.locator('main [data-hm-toggle]').count() == 0, f'welcome Home leads with one main button and folds nothing to do (R-190) ({vis_primary} primary action buttons visible)')
     ok(not COMMUNITY.search(th), 'welcome Home has no community-wide totals'); std(p, 'home_welcome', axe=True)
     c.close()
 
@@ -244,7 +246,7 @@ with sync_playwright() as pw:
             std(p, 'link_mahalo'); shot(p, 'p_link_mahalo')
         else:
             ok('We’ll follow' in mo and 'Stop following Pilot to keep homes for local residents' in mo and 'Don’t follow it' not in mo, 'a bill on an issue: the "Mahalo!" follows the issue, with "Stop following <the issue>" (X10-4)')
-            ok(p.locator('#fx-mgo').inner_text().strip() == 'Go to my home page', f'its button says where it goes: Home (X10-2) ({p.locator("#fx-mgo").inner_text()!r})')
+            ok(p.locator('#fx-mgo').inner_text().strip() == 'See How I Can Help', f'its button says what Home is for (X10-2, R-190) ({p.locator("#fx-mgo").inner_text()!r})')
     c.close()
     # ---- 1c. the short version (?fv=short) keeps its one page and offers the story; the lessons open on their own (R-062) ----
     c, p = ctx(b); fresh(p, '&fv=short'); p.goto(BASE + '?demo=1&fv=short#/start/1'); p.reload(); p.wait_for_timeout(3000)
@@ -280,7 +282,10 @@ with sync_playwright() as pw:
     first = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first.lower(), f'first card leads with testimony ("{first}")')
     ok(re.search(r'ask the chair', text(p), re.I) is not None, 'Home offers "Ask the chair for a hearing" for a waiting bill')
     ok(not COMMUNITY.search(text(p)), 'return Home has no community-wide totals'); std(p, 'home_return', axe=True)
-    hgt = p.evaluate('document.documentElement.scrollHeight'); ok(hgt <= 2800, f'Home height {hgt}px')
+    # The wall the 9/19 assessment found was fourteen full cards (7,000px). Since R-190 nothing to do is folded, so the guard
+    # is what prevents the wall: two full cards for things to do, two for hearing asks, every other thing one line.
+    hgt = p.evaluate('document.documentElement.scrollHeight'); full = p.locator('main .hm-now .acard').count(); asks = p.locator('main .hm-asks .acard, main .hm-asks .hm-ask').count()
+    ok(full <= 2 and asks <= 2 and p.locator('main [data-hm-toggle]').count() == 0 and hgt <= 3600, f'Home: {full} full cards and {asks} ask cards, the rest one line each, nothing folded ({hgt}px) (R-190)')
     # after one action, testimony leads
     p.evaluate("localStorage.setItem('hiphi_done_demo', JSON.stringify(['x|y|share'])); localStorage.setItem('hiphi_done_at_demo', JSON.stringify({'x|y|share': new Date().toISOString()}))")
     visit(p, '/', wait=3000); first2 = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first2.lower(), f'after an action, testimony leads ("{first2}")')

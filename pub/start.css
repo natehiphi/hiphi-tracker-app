@@ -199,6 +199,24 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-srow b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-srow > div { min-width: 0; }
 .st-srow .st-now { margin: 2px 0 0 -12px; }   /* the text button's padding lines its label up with the words above */
+/* Three equal ways to help (Plan 1's choice, R-164; the test 'act', R-150): equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
+.ob-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
+.ob-way { display: flex; width: 100%; gap: var(--s12); align-items: center; padding: var(--s16); text-align: left; min-height: 64px;
+  border: 1px solid var(--n200); color: var(--n900); }
+.ob-way:hover { border-color: var(--p400); }
+.ob-way > span:nth-child(2) { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ob-way b { font-size: var(--t16); }
+.ob-way > span:nth-child(2) > span { font-size: var(--t14); color: var(--n700); }
+.ob-way > .ic { width: 18px; height: 18px; color: var(--n400); flex: none; }
+.ob-wayic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
+.ob-wayic .ic { width: 20px; height: 20px; }
+/* The test 'act' (R-150): a way done keeps its place, with a tick (A-16); the story opens its field in the card. */
+.st-ways { margin-top: var(--s4); }
+.st-way.done .ob-wayic { background: var(--n0); color: var(--ok-text); }   /* .card.done (base.css) gives the green wash */
+.st-waystory { display: grid; gap: var(--s8); align-items: stretch; }
+.st-waystory textarea { width: 100%; font: inherit; font-size: var(--t16); padding: var(--s12); border: 1px solid var(--n400); border-radius: var(--r12); resize: vertical; }
+.st-wayiss { margin: 0; font-size: var(--t13); font-weight: 700; color: var(--p700); }
+.st-waystory .btnrow { display: flex; }
 .st-namerow { display: flex; gap: 8px; align-items: stretch; }
 .st-namerow input { flex: 1; min-width: 0; }
 .st-opt { font-weight: 400; color: var(--n500); }

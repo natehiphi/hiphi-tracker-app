@@ -411,7 +411,7 @@ export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profil
 
 // The endings' alerts row (today's "You're all set" and the plans' ending draw the same .st-did list, start.css): the
 // status by the one rule above, and, when alerts are off or a code waits to be typed, the button that opens the sheet
-// (X10-4). A secondary button under the words, so the ending keeps one primary, "Go to my home page" (A-3).
+// (X10-4). A secondary button under the words, so the ending keeps one primary, "See How I Can Help" (A-3, R-190).
 export function alertRowHTML(k = 0) {
   const a = alertStatus(), kind = a.key === 'on' ? 'ok' : a.key === 'off' ? 'off' : 'wait';
   return `<li class="st-alrow" style="--k:${k}" data-alrow tabindex="-1"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : a.icon)}</span><div><b>${esc(a.title)}</b><span>${esc(a.sub)}</span>
