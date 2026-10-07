@@ -38,7 +38,7 @@ function inviteView() {
   return `<div class="mr pf pf-invite">
     <header class="pagehead"><span class="pf-av pf-av-lg" aria-hidden="true">${icon('user')}</span><h1 class="hero">${codeStep('pf-alf') ? 'Check your texts' : 'Make your profile'}</h1>
       <p class="lede">${codeStep('pf-alf') ? 'Type the 6-digit code from the text to make your profile.' : 'Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.'}</p></header>
-    <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf', { emailHref: '#/signin' })}
+    <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf')}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'pf-al-send')}</div></form>
     <p class="small muted pf-back">${codesOn() ? 'Made one before? <a href="#/signin?by=number">Sign in</a>' : 'Added your email before? <a href="#/signin">Sign in on this device</a>'}</p>
   </div>`;
@@ -115,7 +115,7 @@ async function saveAll() {
   try {
     if (Object.keys(patch).length) await saveProfile(patch);
     if (emails && S.user) {
-      const prefs = { ...(S.user.prefs || {}), ...d.emails, consent_at: new Date().toISOString() };
+      const prefs = { ...(S.user.prefs || {}), ...d.emails, consent_at: new Date().toISOString(), consent_source: 'profile', consent_version: null };
       if (!DEMO) { const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (error) throw error; }
       S.user.prefs = prefs; S.consentCard = false;
     }

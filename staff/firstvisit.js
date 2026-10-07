@@ -10,7 +10,7 @@
 // A link is track.html?via=<partner>&utm_campaign=<word>: people arriving by it are counted under the partner and see
 // its welcome line (public_partners). The sandbox has no visits, so it shows made-up numbers, labelled as samples.
 // Both are views of the Issues screen (issues.js hands over), so the frame and its router stay as they are.
-import { S, DB, DEMO, SESSION_YEAR, hooks, esc } from './data.js';
+import { S, DB, DEMO, SESSION_YEAR, hooks, esc, fmtDate } from './data.js';
 import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, notice, pickerSheet, pickerChip, segmented, skeleton } from './ui.js';
 import { plural, afterClose } from './lists.js';
 import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
@@ -114,10 +114,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), at: Date.now() }; v.from = await DB.countsFrom(); return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back, from, sugg] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, at: Date.now() }; v.from = from; }
+  try { const [rows, srcs, back, from, sugg, text] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -243,6 +243,29 @@ function backHTML(rows) {
       <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(actsOnly(r.acts) || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
   </section>`;
 }
+// Text sign-ups (D1-7, R-180 wave 2; backend 156): how many people gave a number, confirmed it and stopped, by where they came from and by
+// day. Counts only: the database function never returns a number, so none can show here. Its own call: if it fails, this says nothing.
+const SRC_WORDS = { first_visit: 'the first visit', home: 'Home', action: 'an action', more: 'More' };
+const sampleText = () => ({ days: 30, signups: 14, confirmed: 9, stopped: 2, on: 12, stop_asks_by_number: 1, by_source: { first_visit: 8, home: 3, action: 2, more: 1 },
+  by_day: [0, 1, 2, 3, 4, 5].map(i => ({ day: new Date(Date.now() - (5 - i) * 864e5).toISOString().slice(0, 10), signups: [1, 3, 2, 4, 2, 2][i], confirmed: [0, 2, 2, 3, 1, 1][i], stopped: [0, 0, 1, 0, 1, 0][i] })) });
+function textHTML(t) {
+  if (!t) return '';
+  const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
+  const head = `<div class="le-sechead"><h2 id="fv-tx">Text sign-ups</h2><span class="meta">counts only: never a number</span></div>`;
+  if (!t.signups && !t.stop_asks_by_number) return `<section class="fv-sec" aria-labelledby="fv-tx">${head}<p class="meta">No one has given a mobile number yet. Texts are off until the texting service is set up, but numbers are kept from now.</p></section>`;
+  const src = Object.entries(t.by_source || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${nf(n)} from ${SRC_WORDS[k] || k}`).join(' · ');
+  const days = (t.by_day || []).slice().sort((a, b) => String(b.day).localeCompare(String(a.day))).slice(0, 14);
+  return `<section class="fv-sec" aria-labelledby="fv-tx">${head}
+    <div class="fv-tiles">
+      ${tile(nf(t.signups), 'numbers given', src)}
+      ${tile(nf(t.confirmed), 'confirmed and on', `${pct(t.confirmed, t.signups)} of those given`)}
+      ${tile(nf(t.stopped), 'stopped', t.stop_asks_by_number ? `${nf(t.stop_asks_by_number)} asked by number` : '')}
+      ${tile(nf(t.on), 'on now', 'not stopped; some not yet confirmed')}
+    </div>
+    ${days.length ? `<div class="fv-tablewrap"><table class="fv-table"><caption class="sr">Text sign-ups by day</caption><thead><tr><th scope="col">Day</th><th scope="col" class="num">Given</th><th scope="col" class="num">Confirmed</th><th scope="col" class="num">Stopped</th></tr></thead>
+      <tbody>${days.map(r => `<tr><th scope="row">${esc(fmtDate(r.day + 'T12:00:00-10:00', { weekday: 'short', month: 'numeric', day: 'numeric' }))}</th><td class="num">${nf(r.signups)}</td><td class="num">${nf(r.confirmed)}</td><td class="num">${nf(r.stopped)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  </section>`;
+}
 // The suggested bills (R-094 step 5, migration 118): how often a suggestion on Home or Find was followed, dismissed or
 // acted on, by its place in the short list (HIPHI's top pick, the person's own interests, the rest). Counts only; each
 // bill once a day for "shown", once per hearing for the rest. Its own call: if it fails, this section says nothing.
@@ -310,7 +333,7 @@ function numbersHTML() {
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
   if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${suggHTML(have.sugg)}${variantsHTML()}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 

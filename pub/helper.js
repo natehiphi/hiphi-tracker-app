@@ -345,7 +345,7 @@ function sendLink(x, { again = false } = {}) {
   x.link = 'sending'; x.linkTo = email; x.linkErr = '';
   // If a retry fails while focus sits on the "check your inbox" card it replaced, focus moves to the retry button.
   const redraw = () => { if (S.helper === x && (x.screen === 'done' || x.screen === 1)) paint({ focus: x.link === 'failed' && document.activeElement?.id === 'hp-inbox' ? 'hp-relink' : undefined }); };
-  Promise.resolve().then(() => sendEmailLink(email, { hearing_alerts: true })).then(r => {
+  Promise.resolve().then(() => sendEmailLink(email, { hearing_alerts: true, source: 'letter_helper' })).then(r => {
     linkSentTo = email; x.link = 'sent'; x.linkDemo = !!r?.demo;
     S.nudgeSent = email;   // the email ask on other screens now says "check your inbox" instead of asking again
     redraw();

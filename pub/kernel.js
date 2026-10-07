@@ -362,7 +362,7 @@ export async function loadUser() {
     // same device, and the name step comes AFTER the email step, so it wasn't typed yet when the link was sent.
     const name = had.name || (wiz().name || '').trim();
     const changed = first || hearing_alerts !== !!had.hearing_alerts || action_alerts !== !!had.action_alerts || name !== (had.name || '');
-    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, ...(name ? { name } : {}), consent_at: new Date().toISOString() };
+    if (changed) { const prefs = { ...had, hearing_alerts, action_alerts, ...(name ? { name } : {}), consent_at: new Date().toISOString(), consent_source: pending.source || 'sign_in', ...(pending.version ? { consent_version: pending.version } : { consent_version: null }) };
       const r = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (!r.error) S.user.prefs = prefs; }
     try { localStorage.removeItem(CONSENT_KEY); } catch {}
   }

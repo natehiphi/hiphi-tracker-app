@@ -75,3 +75,5 @@
 .ob-lp { font-size: var(--t14); line-height: 1.5; color: var(--n900); }
 .ob-lp.muted { color: var(--n500); }
 /* The three ways on (.ob-ways, .ob-way): in start.css since R-150, which uses them on today's first visit too. */
+/* D1-6: on a short phone the lede and the example come under the box (pub/onb.js short()), so the promise and the small print sit above the pinned button. */
+.ob-lede2 { margin: var(--s16) 0 var(--s12); }

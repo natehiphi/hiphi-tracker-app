@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="only light"><meta name="robots" content="noindex">
+<title>First screen looks · HIPHI Bill Tracker</title>
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- Options for the look of the public first screen (R-180 wave 2, X9-3; Nate 10/5: "Build options to choose from that we can then
+     use, but don't implement changes just yet"). Pictures of today's real first screen with each treatment laid over it (made with
+     the page's own code in the practice copy); nothing in the tracker is changed. A pick goes to R-180 in REQUESTS. -->
+<style>
+  :root { --p700: #00698E; --p800: #024F69; --n0: #FFFFFF; --n50: #F4F7F9; --n200: #DBE3E7; --n500: #5F6F76; --n700: #344852; --n900: #142B35;
+          --font-h: 'Poppins', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; --font: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--n50); color: var(--n900); font: 400 1rem/1.6 var(--font); }
+  header { background: var(--n0); border-bottom: 1px solid var(--n200); }
+  header a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 16px; color: var(--n900); text-decoration: none; font: 700 1rem var(--font-h); }
+  header img { width: 28px; height: 28px; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font: 700 1.75rem/1.2 var(--font-h); margin: 8px 0 12px; }
+  h2 { font: 600 1.25rem/1.3 var(--font-h); margin: 0 0 4px; }
+  p { margin: 0 0 10px; } a { color: var(--p700); }
+  .lede { font-size: 1.125rem; max-width: 62ch; }
+  .opts { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 20px; }
+  .opt { background: var(--n0); border: 1px solid var(--n200); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; }
+  .opt img { width: 100%; max-width: 360px; height: auto; align-self: center; border: 1px solid var(--n200); border-radius: 12px; margin: 8px 0 12px; display: block; }
+  .tag { display: inline-block; font: 700 .8125rem var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--p700); }
+  .judge { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--n200); font-size: .9375rem; color: var(--n700); }
+  .box { background: var(--n0); border: 1px solid var(--n200); border-radius: 16px; padding: 16px 20px; margin-top: 24px; }
+  ul { margin: 0 0 8px; padding-left: 20px; } li { margin-bottom: 6px; }
+</style>
+</head><body>
+<header><a href="track.html"><img src="pub/icon.svg" alt="">HIPHI Bill Tracker</a></header>
+<main>
+  <h1>Four looks for the first screen</h1>
+  <p class="lede">Today a first-time visitor lands on a calm white page. These show what it could look like if HIPHI’s own look carried the top, so a stranger sees at once whose it is. Each picture is today’s real first screen with the change laid over it. <b>Nothing in the tracker has changed.</b></p>
+  <p>HIPHI’s website uses the same blue (#00698E) as the tracker’s buttons, with white type and an orange for celebration, so the blue band here is the website’s own blue. The island shapes are placeholders: HIPHI’s own island art would replace them.</p>
+  <div class="opts">
+    <section class="opt"><span class="tag">A · Today</span><h2>Calm and white</h2><img src="look-options/first-a-today.png" alt="Today's first screen: a white page with a black heading, three short lines, then the topic cards." width="390" height="760">
+      <p>Nothing changes. It is clear and quick, and it looks like any app until someone reads the small “from HIPHI” under the logo.</p>
+      <p class="judge"><b>Cost:</b> none.</p></section>
+    <section class="opt"><span class="tag">B · Blue top</span><h2>HIPHI’s blue behind the heading</h2><img src="look-options/first-b-blue.png" alt="The same screen with a deep blue band behind the heading, in white type, with soft island shapes at its right." width="390" height="760">
+      <p>The top of the screen becomes a blue band with white type and soft island shapes, rounded at the bottom. The topic cards below are unchanged. It adds about 20 pixels of height here, so the cards start slightly lower; the final version would fold that into the band.</p>
+      <p class="judge"><b>Cost:</b> about a day, with the final island art.</p></section>
+    <section class="opt"><span class="tag">C · Blue top and a welcome</span><h2>The blue band, with a first line that names it</h2><img src="look-options/first-c-blue-welcome.png" alt="The blue band with a small line above the heading that reads: Welcome to HIPHI's Bill Tracker." width="390" height="760">
+      <p>The same band, with a small line above the heading: “Welcome to HIPHI’s Bill Tracker”. It says who made this in words as well as colour.</p>
+      <p class="judge"><b>Cost:</b> the same, plus the line’s wording.</p></section>
+    <section class="opt"><span class="tag">D · A win in orange</span><h2>Today’s page, with one orange line of good news</h2><img src="look-options/first-d-orange.png" alt="Today's first screen with an orange pill above the topic cards that reads: 3 wins for kids and families in 2026." width="390" height="760">
+      <p>No band. Above the topics, a small orange pill with a real win from the 2026 session (the wording here is an example; the real one would come from the bills that became law). Orange is kept for achievement only (DESIGN A-5), and this is one.</p>
+      <p class="judge"><b>Cost:</b> a few hours.</p></section>
+  </div>
+  <div class="box">
+    <h2>How we would know a look worked</h2>
+    <ul>
+      <li>The five outside testers’ five-second answer to “who made this, and would you trust it?”: do more of them say HIPHI, a health group, or a trusted name?</li>
+      <li>After January: how many people leave on the first screen (the first-visit counts already show it).</li>
+    </ul>
+    <p>This is a design guess until real people use it. The new “try both versions” stops on 15 October, so a look you pick would replace today’s screen for everyone, not be tested against it. The finale (the last screen) would get the same band.</p>
+    <p><b>To choose:</b> reply with a letter (A to D), or say which parts to mix. Nothing is built until you do.</p>
+  </div>
+</main>
+</body></html>

@@ -572,8 +572,8 @@ const closesChip = (E, known) => { const H = E.hear, past = pastTense(E);
 function feedHTML(E, i) {
   if (i === null || i === undefined) return '';
   const H = E.hear, right = `${H.dueDay} at ${H.dueTime}`;
-  return i === 1 ? `<div class="lx-qfeed">${icon('circle-check')}<p><b>Yes: ${esc(H.ahead)} before.</b> No need to count: we can remind you.</p></div>`
-    : `<div class="lx-qfeed lx-meh">${icon('info')}<p><b>It${pastTense(E) ? ' was' : '’s'} due ${esc(H.ahead)} before: ${esc(right)}.</b> No need to count: we can remind you.</p></div>`;
+  return i === 1 ? `<div class="lx-qfeed">${icon('circle-check')}<p><b>Yes: ${esc(H.ahead)} before.</b> No need to count: the bill’s page shows the date.</p></div>`
+    : `<div class="lx-qfeed lx-meh">${icon('info')}<p><b>It${pastTense(E) ? ' was' : '’s'} due ${esc(H.ahead)} before: ${esc(right)}.</b> No need to count: the bill’s page shows the date.</p></div>`;
 }
 function quizHTML(E, chosen) {
   const H = E.hear, past = pastTense(E), num = esc(E.num);

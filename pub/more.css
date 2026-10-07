@@ -169,3 +169,17 @@
 .mr .mr-ecode { align-self: stretch; display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s8); padding-top: var(--s12); border-top: 1px solid var(--n100); }
 .mr .mr-ecode input { max-width: 12em; font-size: var(--t20); letter-spacing: .25em; font-variant-numeric: tabular-nums; }
 .mr .mr-ecode .btn { align-self: flex-start; }
+
+/* D1-3: "Stop texts to a number", quiet and under the alerts box. */
+.mr-stopnum { margin-top: var(--s16); border-top: 1px solid var(--n200); padding-top: var(--s8); }
+.mr-stopnum > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; color: var(--n700); font-weight: 700; }
+.mr-stopnum > summary::-webkit-details-marker { display: none; }
+.mr-stopnum > summary .ic { width: 20px; height: 20px; flex: none; }
+.mr-stopnum > summary > span { flex: 1; }
+.mr-stopnum[open] .mr-sn-chev { transform: rotate(180deg); }
+.mr-sn-form { display: flex; flex-direction: column; gap: var(--s12); padding: var(--s8) 0 var(--s4); }
+.mr-sn-form p { margin: 0; }
+
+/* The privacy page's short lists (J2-3): one fact a line, so a person can find their answer. */
+.mr .mr-factlist { margin: 0; padding-left: var(--s20); display: grid; gap: var(--s8); }
+.mr .mr-factlist li { line-height: 1.5; }

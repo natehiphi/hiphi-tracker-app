@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, yay, blurb,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, yearPrefix, billShareUrl, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
 import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
@@ -516,7 +516,7 @@ export function railHTML(b, x) {
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
       <p class="bl-nowlbl bl-${align}" style="grid-column:${from} / span ${span}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
     </div>
-    ${x.stopped ? `<p class="bl-why">${esc(stopDetail(b))}</p>` : ''}
+    ${x.stopped ? `<p class="bl-why">${esc(stopDetail(b))}</p>${sameLine(b)}` : ''}
     <details class="bl-steps" ${fold(b, 'steps')}><summary><span>See all steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ol class="bl-steplist">${steps}</ol>
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details>`;   // the lesson, in the moment (R-067 #11)
 }
@@ -758,6 +758,24 @@ function othersBlock(b) {
   const lines = [fol ? `${fol} people follow this bill.` : '', sent ? `People have sent ${sent} through HIPHI.` : '', a ? `${a} said they would go to a hearing.` : ''].filter(Boolean);
   return `<section class="card flat bl-others" aria-labelledby="bl-oth-h"><h2 id="bl-oth-h">${icon('users')}<span>Others following this bill</span></h2>
     ${stand}${lines.length ? `<p class="bl-ocount">${lines.map(esc).join(' ')}</p>` : ''}</section>`;
+}
+// X4-4: under the stopped label, "The same idea became law as SB 2175, Act 189", linked to that bill. The companion may not be
+// loaded yet (a shared link to the stopped bill), so ask for it once and draw again; a failed ask just leaves the line out.
+S.sameTried ??= new Set();
+function sameLine(b) {
+  if (isResolution(b)) return '';
+  const L = sameIdeaLaw(b);
+  if (!L) {
+    const key = `${b.id}`;
+    if (!S.sameTried.has(key)) { S.sameTried.add(key);
+      // not loaded yet: the companions by number, and the other chamber's bills on its issues by id
+      const ids = issuesOf(b).flatMap(i => (i.bill_ids || []).filter((id, k) => +(i.bill_years || [])[k] === +b.session_year && id !== b.id));
+      const byId = ids.length && !DEMO ? S.supa.from('public_all_bills').select('*').in('id', [...new Set(ids)].slice(0, 40)).eq('stage', 'enacted').then(r => { (r.data || []).forEach(c => { if (!S.bills.some(x => x.id === c.id)) S.extra[c.id] = c; }); }) : Promise.resolve();
+      Promise.all([byId, ...companionsOf(b).slice(0, 3).map(n => ensureBill(n, b.session_year).catch(() => null))]).then(() => { if (sameIdeaLaw(b)) app.render(); }).catch(() => {});
+    }
+    return '';
+  }
+  return `<p class="bl-sameidea">${icon('circle-check')}<span>${esc(sameIdeaWords(L))} <a href="#/bill/${esc(yearPrefix(b) + L.num)}">See ${esc(spaced(L.num))}</a></span></p>`;
 }
 function statusCard(b, x) {
   const extra = x.law ? 'Mahalo to everyone who spoke up.' : '';

@@ -383,3 +383,7 @@
 .bl-page .bl-drafts .bl-drlist { margin: 0 0 var(--s8); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s8); }
 .bl-page .bl-drafts .bl-drwhy { margin: 0 0 var(--s8); }
 
+/* X4-4: a stopped bill whose same idea became law, under the stopped label. */
+.bl-page .bl-sameidea { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); font-weight: 700; }
+.bl-page .bl-sameidea .ic { width: 18px; height: 18px; margin-top: 2px; flex: none; color: var(--ok-700, var(--p700)); }
+.bl-page .bl-sameidea a { font-weight: 700; }

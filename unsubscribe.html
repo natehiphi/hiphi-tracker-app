@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="only light"><meta name="robots" content="noindex">
+<title>Unsubscribe · HIPHI Bill Tracker</title>
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- The page every email's "Unsubscribe" link opens (R-180, X1-7). Opening it changes nothing: only the button below sends the
+     unsubscribe (or the mail app's own one-click button, which posts to the same function). A mail scanner that follows every
+     link in a message therefore cannot unsubscribe anyone, and the page shows properly (Supabase serves a function's HTML as
+     plain text, so the page lives here). The link is ?u=<token>&what=hearing|action|all, from the email. The function is
+     backend supabase/functions/unsubscribe. In the tracker's own colours and type, like text-terms.html. -->
+<style>
+  :root { --p700: #00698E; --p800: #024F69; --n0: #FFFFFF; --n50: #F4F7F9; --n200: #DBE3E7; --n500: #5F6F76; --n900: #142B35; --ok: #1B6B3A;
+          --font-h: 'Poppins', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; --font: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--n50); color: var(--n900); font: 400 1rem/1.6 var(--font); }
+  header { background: var(--n0); border-bottom: 1px solid var(--n200); }
+  header a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 16px; color: var(--n900); text-decoration: none; font: 700 1rem var(--font-h); }
+  header img { width: 28px; height: 28px; }
+  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font: 700 1.75rem/1.2 var(--font-h); margin: 8px 0 16px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--p700); }
+  .card { background: var(--n0); border: 1px solid var(--n200); border-radius: 16px; padding: 20px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+  button { min-height: 48px; padding: 0 24px; border: 0; border-radius: 999px; background: var(--p700); color: #fff; font: 700 1rem var(--font); cursor: pointer; }
+  button:hover { background: var(--p800); }
+  button[aria-busy="true"] { opacity: .7; cursor: progress; }
+  .keep { display: inline-flex; align-items: center; min-height: 48px; padding: 0 8px; }
+  .small { color: var(--n500); font-size: .875rem; margin-top: 16px; }
+  .ok { color: var(--ok); font-weight: 700; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+</style>
+</head><body>
+<header><a href="track.html"><img src="pub/icon.svg" alt="">HIPHI Bill Tracker</a></header>
+<main>
+  <div class="card" id="u-card" aria-live="polite">
+    <h1 id="u-h">Stop these emails?</h1>
+    <p id="u-p">Press the button to stop them.</p>
+    <div class="row" id="u-row"><button type="button" id="u-go">Yes, unsubscribe</button><a class="keep" id="u-keep" href="track.html">No, keep them</a></div>
+    <p class="small" id="u-note"></p>
+  </div>
+  <noscript><p class="small">This page needs JavaScript to unsubscribe. You can also email <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> and we will do it for you.</p></noscript>
+</main>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), token = q.get('u') || '', what = ['hearing', 'action', 'all'].indexOf(q.get('what')) >= 0 ? q.get('what') : 'all';
+  var URL_ = 'https://eivzjbnygscguqqiiuvh.supabase.co/functions/v1/unsubscribe';
+  var $ = function (id) { return document.getElementById(id); };
+  var WHAT = { hearing: ['Stop hearing alerts?', 'You will no longer get an email when a bill on your issues gets a hearing.'],
+               action: ['Stop action alerts?', 'You will no longer get emails from HIPHI that ask you to speak up.'],
+               all: ['Stop all email from the tracker?', 'You will no longer get any email from the HIPHI Bill Tracker.'] };
+  var CONTACT = 'You can also email <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> and we will do it for you.';
+  function show(h, p, note, hideRow) { $('u-h').textContent = h; $('u-p').innerHTML = p; $('u-note').innerHTML = note || ''; if (hideRow) $('u-row').hidden = true; }
+  if (!/^[0-9a-f-]{36}$/i.test(token)) { show('That link looks incomplete', 'Open the email again and press the link once more. ' + CONTACT, '', true); document.title = 'Unsubscribe · HIPHI Bill Tracker'; return; }
+  show(WHAT[what][0], WHAT[what][1] + ' Nothing changes until you press the button.', 'Changed your mind? Not pressing it keeps everything as it is.');
+  $('u-go').addEventListener('click', function () {
+    var b = $('u-go'); if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true'); b.textContent = 'Unsubscribing…';
+    fetch(URL_ + '?u=' + encodeURIComponent(token) + '&what=' + encodeURIComponent(what), { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { r: r, j: j }; }); })
+      .then(function (x) {
+        if (x.r.ok && x.j.ok) { show('Done', '<span class="ok">' + (x.j.said || 'You are unsubscribed.') + '</span>', (x.j.account ? 'Account: ' + x.j.account.replace(/[<>&]/g, '') + '. ' : '') + 'You can change your mind any time in <a href="track.html#/profile">your profile</a>, under More.', true); document.title = 'Unsubscribed · HIPHI Bill Tracker'; $('u-h').setAttribute('tabindex', '-1'); $('u-h').focus(); }
+        else if (x.j.why === 'unknown') { show('We could not find that account', 'It may have been deleted already. ' + CONTACT, '', true); }
+        else { throw new Error('failed'); }
+      })
+      .catch(function () { b.removeAttribute('aria-busy'); b.textContent = 'Try again'; $('u-note').innerHTML = 'That did not go through. Check your connection and press the button again. ' + CONTACT; });
+  });
+})();
+</script>
+</body></html>

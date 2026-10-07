@@ -76,3 +76,15 @@ jobs:
         run: python3 tests/staff_untracked.py
       - name: Staff v2, the note on an issue when a bill goes against its stance (R-095)
         run: python3 tests/staff_issue_note.py
+      - name: A stop asked for by number, from any browser (D1-3, R-180)
+        run: python3 tests/stop_number.py
+      - name: The plans' sign-up keeps the promise beside the button, and promises no reminder (D1-6, D1-1)
+        run: python3 tests/plans_join.py
+      - name: Staff v2, Session setup > Privacy and keeping (J2-1, J2-2)
+        run: python3 tests/staff_privacy.py
+      - name: The privacy page, whole and short (J2-3)
+        run: python3 tests/privacy_page.py
+      - name: The unsubscribe page changes nothing until its button is pressed (X1-7)
+        run: python3 tests/unsubscribe_page.py
+      - name: A stopped bill whose same idea became law says so (X4-4)
+        run: python3 tests/same_idea_law.py

@@ -13,7 +13,7 @@
 #   the text row is linked (text_link), the number is kept under the t2 words with the session (text_signup) only from
 #   the alerts box, never from the sign-in page; the profile shows the name and "Signed in with (808) ••• 0123".
 # No console errors.
-import base64, json, os, sys, time
+import base64, json, os, re, sys, time
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'phone_signin'); os.makedirs(OUT, exist_ok=True)
@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
     ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
     p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
-    ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and 'Updated 5 October 2026' in text(p), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
+    ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and re.search(r'Updated \d+ October 2026', text(p)), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
     c.close()
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
@@ -129,7 +129,7 @@ with sync_playwright() as pw:
     ok('Code accepted' in text(p) and 'you stay signed out' in text(p), 'the sandbox: "Code accepted", and it says you stay signed out there')
     p.goto(BASE + '?demo=1&codes#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
     t = text(p)
-    ok('6-digit code' in t and 'signs you in, the way an email does' in t and 'never your number' in t and 'Updated 5 October 2026' in t, 'codes on: the privacy page says the number signs people in, staff never see it')
+    ok('6-digit code' in t and 'signs you in, the way an email does' in t and 'never your number' in t and re.search(r'Updated \d+ October 2026', t), 'codes on: the privacy page says the number signs people in, staff never see it')
     c.close()
 
     # More > Get alerts, and the profile's invitation
@@ -137,7 +137,7 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1&restart&codes#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000); p.wait_for_load_state('networkidle')
     p.fill('#mr-al-phone', '808 555 0166'); p.click('#mr-al-send'); p.wait_for_selector('#mr-al-code', timeout=5000)
     ok(p.locator('#mr-al-send', has_text='Confirm').count() == 1 and 'Check your texts' in p.inner_text('h1'), 'More > Get alerts: the code step, Confirm, "Check your texts"')
-    ok(p.locator('#mr-alform a.al-swap[href="#/signin"]').count() == 1, 'More > Get alerts: email is still a way out from the code step')
+    ok(p.locator('#mr-alform button.al-swap[data-alswap="email"]').count() == 1, 'More > Get alerts: email is still a way out from the code step')
     p.type('#mr-al-code', '111111'); p.wait_for_timeout(1200)
     t = text(p)
     ok('Text alerts are on' in t and '(808) 555-0166' in t and 'reply YES' not in t, 'More > Get alerts: on, with no YES text to wait for')

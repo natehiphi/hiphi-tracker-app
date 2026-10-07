@@ -96,7 +96,7 @@ with sync_playwright() as p:
                 ok(st.get('wrap'), f'{plan}: the ending lists what was done')
                 if plan == 'p1':
                     ok(st.get('find_flash'), 'p1: "Learn about it" without a bill picked asks for one, never jumps ahead')
-                    ok(st.get('decide_ways') == 3, f'p1: the choice offers three equal ways (write now, a reminder, just keep watch) ({st.get("decide_ways")})')
+                    ok(st.get('decide_ways') == 3, f'p1: the choice offers three equal ways (write now, add the hearing to my calendar, just keep watch) ({st.get("decide_ways")})')
                 if plan == 'p5': ok(st.get('set'), 'p5: a number given goes straight to the Mahalo moment, which says to save our number (one ending, not three)')
                 # a later visit: Home brings the plan's next small thing, once, and "Not now" puts it away for good
                 pg.evaluate("() => sessionStorage.clear()"); pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}#/"); pg.wait_for_timeout(3500)

@@ -692,6 +692,28 @@ if (typeof window !== 'undefined') setInterval(() => {
   if (over) app.render?.();
 }, 60000);
 export const hearingText = h => h ? `Hearing ${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}` : '';
+// A stopped bill whose companion (the same idea, filed in the other chamber) became law (X4-4, R-180 wave 2): HB 2121 stopped,
+// but the same disposable e-cigarette ban became law as SB 2175, Act 189. Only from bills already loaded; the bill page asks for
+// the companion when it is not (bill.js). Resolutions are not "law". Returns { num, act } or null.
+export function sameIdeaLaw(b) {
+  if (!b || isResolution(b)) return null;
+  const have = [...S.bills, ...Object.values(S.extra || {}), ...(S.results || []), ...(DEMO ? [...D.bills, ...D.index] : [])];
+  const lawOf = c => c && !isResolution(c) && c.id !== b.id && +c.session_year === +b.session_year && (c.stage === 'enacted' || stopOf(c).phase === 'law');
+  const said = (c, issue = '') => { const m = /\bAct\s+(\d+)\b/i.exec(`${c.last_action || ''} ${c.status_text || ''}`); return { num: c.bill_number, act: m ? m[1] : '', issue }; };
+  // 1. its companion, the same idea filed in the other chamber, when the Legislature's data names one
+  for (const num of companionsOf(b)) { const c = have.find(x => x.bill_number === num && +x.session_year === +b.session_year); if (lawOf(c)) return said(c); }
+  // 2. the other chamber's bill on one of its published issues (HIPHI's issue is "the idea behind it"): the companion field is empty for
+  //    HB 2121 and SB 2175, which are the same ban. A bill in the same chamber is never taken for the same idea.
+  for (const i of issuesOf(b)) for (const [k, id] of (i.bill_ids || []).entries()) {
+    if (+(i.bill_years || [])[k] !== +b.session_year) continue;
+    const c = have.find(x => x.id === id);
+    if (lawOf(c) && (c.bill_number || '')[0] !== (b.bill_number || '')[0]) return said(c, i.name || 'the same issue');
+  }
+  return null;
+}
+// A companion is the same idea word for word; a bill found only through an issue is "on the same issue", which is what HIPHI knows
+// (an issue's bills can differ in how far they go), so it is named by the issue and not called the same idea.
+export const sameIdeaWords = L => L.issue ? `On “${L.issue}”, ${spaced(L.num)} became law${L.act ? ` (Act ${L.act})` : ''}.` : `The same idea became law as ${spaced(L.num)}${L.act ? `, Act ${L.act}` : ''}.`;
 // One plain sentence for where a bill is and what happens next.
 export function plainStatus(b) {
   const st = stopOf(b);
@@ -700,7 +722,8 @@ export function plainStatus(b) {
   if (b.stage === 'ballot' || st.phase === 'ballot') return { text: 'Passed the House and Senate. The voters decide on it in the November election.', short: 'Goes to the voters', tone: 'ok' };
   if (b.stage === 'vetoed' || st.phase === 'vetoed') return { text: 'Vetoed by the Governor.', short: 'Vetoed', tone: '' };
   if (b.stage === 'governor' || st.phase === 'governor') return { text: 'Passed the House and Senate. It is on the Governor’s desk.', short: 'On the Governor’s desk', tone: 'info' };
-  if (!alive(b) || st.phase === 'dead') return { text: whyStopped(b), short: isResolution(b) ? 'Not adopted this session' : 'Stopped this session', tone: '' };
+  if (!alive(b) || st.phase === 'dead') { const L = sameIdeaLaw(b);
+    return { text: whyStopped(b) + (L ? ' ' + sameIdeaWords(L) : ''), short: isResolution(b) ? 'Not adopted this session' : L ? (L.issue ? `Stopped · ${spaced(L.num)} on the same issue became law` : `Stopped · the same idea became law as ${spaced(L.num)}`) : 'Stopped this session', tone: '', sameLaw: L }; }
   const ch = CHAMBER_NAME[st.chamber] || '';
   if (st.phase === 'conference') return { text: 'The House and Senate passed different versions. They are working out one version now.', short: 'House and Senate working out one version', tone: 'info' };
   if (st.phase === 'floor') return { text: `Through its ${ch} committees. Next is a vote of the full ${ch}.`, short: `Waiting for a ${ch} vote`, tone: 'info' };
@@ -998,12 +1021,14 @@ export function waitingBills(bills) {
 // like the sign-in page.
 // Both choices are off unless the ask names them (C-4): the hearing-alert asks on Home and in the testimony walkthrough
 // pass only hearing_alerts, and until 10/1 the default here quietly turned HIPHI's action alerts on for them too.
-export async function sendEmailLink(email, { hearing_alerts = false, action_alerts = false } = {}) {
+// source and version say where and under which words the consent was given (D1-5, backend 157): the database records them with its own
+// clock. version is a key of email_consent_words ('e1' = the alerts box's words); a path with no registered words sends none.
+export async function sendEmailLink(email, { hearing_alerts = false, action_alerts = false, source = '', version = '' } = {}) {
   // The sandbox sends nothing, but it remembers the email was given, as the live page does: otherwise Home asked a tester
   // for their email again a minute after they gave it (R-098). Its storage is the sandbox's own (every hiphi_ name is
   // hiphi_*_demo there, see the top of this file), so no consent reaches the live page in this browser.
-  if (DEMO) { try { sessionStorage.setItem('hiphi_link_sent', email); localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ } return { demo: true }; }
-  try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts })); } catch { /* ignore */ }
+  if (DEMO) { try { sessionStorage.setItem('hiphi_link_sent', email); localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts, source, version })); } catch { /* ignore */ } return { demo: true }; }
+  try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ hearing_alerts, action_alerts, source, version })); } catch { /* ignore */ }
   const sb = await supa();
   const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
   if (error) throw error;

@@ -248,10 +248,25 @@ export async function stopText() {
   if (!DEMO) { const sb = await supa(); const { error } = await sb.rpc('text_stop', { p_token: t.token }); if (error) throw error; }
   try { localStorage.removeItem(TEXT_KEY); } catch { /* ignore */ }
 }
-async function saveEmail(input) {
+// "Stop texts to my number" (D1-3, backend 156): a stop asked for by number, from any browser, without the old one. The answer is the
+// same whether or not the number was on file (so it cannot be used to find who signed up). A stop for this device's own number also
+// makes this device forget it.
+export async function stopNumber(input) {
+  const d = phoneDigits(input);
+  if (!d) throw plainErr(PHONE_ERR);
+  if (!DEMO) {
+    const sb = await supa(); const { data, error } = await sb.rpc('text_stop_number', { p: { phone: d } });
+    if (error) throw error;
+    if (!data?.ok) throw plainErr(data?.why === 'busy' ? 'Too many stops are being asked for just now. Try again in a minute, or email contact@hiphi.org.' : PHONE_ERR);
+  }
+  const t = textSaved();
+  if (t && t.phone === d) { try { localStorage.removeItem(TEXT_KEY); } catch { /* ignore */ } }
+  return { phone: d, demo: DEMO };
+}
+async function saveEmail(input, source = '') {
   const email = String(input || '').trim();
   if (!validEmail(email)) throw plainErr(EMAIL_ERR);
-  const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true });
+  const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true, source: source || 'alerts_box', version: 'e1' });   // e1: this box's promise and small print (backend 157)
   S.alertDraft.email = '';
   return { kind: 'email', email, demo: !!r?.demo };
 }
@@ -296,7 +311,7 @@ export function wireAlertForm(form, { pfx, source, onDone, onSwap }) {
         requestAnimationFrame(() => document.getElementById(`${pfx}-code`)?.focus());
         return;
       }
-      const r = email ? await saveEmail(inp.value) : await saveText(inp.value, source);
+      const r = email ? await saveEmail(inp.value, source) : await saveText(inp.value, source);
       onDone && onDone(r);
     } catch (error) { if (!error?.plain && !error?.code) console.error(error); if (b) { b.removeAttribute('aria-busy'); b.innerHTML = was; } show(codes ? codeErr(error, { sending: true }) : sayErr(error)); }
   };

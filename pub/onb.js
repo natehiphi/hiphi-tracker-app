@@ -188,7 +188,6 @@ function wireLearn({ step, $ }) {
 }
 
 S.obActed ??= null;
-S.obRemind ??= null;
 function stepDecide(step) {
   const b = chosen(); if (!b) return stepFind(step);
   const R = ranker(), h = hearingOf(b, R), due = dueOf(h), name = nick(b) || spaced(b.bill_number), to = chairOf(b, h);
@@ -203,7 +202,7 @@ function stepDecide(step) {
     <p class="lede">${what}</p>`,
     `<ul class="ob-ways" role="list">
       <li><button type="button" class="card ob-way" data-obwrite="1"><span class="ob-wayic" aria-hidden="true">${icon('mail')}</span><span><b>Write it now</b><span>About 2 minutes, with help</span></span>${icon('chevron-right')}</button></li>
-      ${due ? `<li><button type="button" class="card ob-way" data-obremind="1"><span class="ob-wayic" aria-hidden="true">${icon('calendar-clock')}</span><span><b>Remind me before ${esc(shortWhen(due))}</b><span>We’ll tell you the day before</span></span>${icon('chevron-right')}</button></li>` : ''}
+      ${h ? `<li><button type="button" class="card ob-way" data-obcal="1"><span class="ob-wayic" aria-hidden="true">${icon('calendar-plus')}</span><span><b>Add the hearing to my calendar</b><span>The time and place, in your own calendar</span></span>${icon('chevron-right')}</button></li>` : ''}
       <li><button type="button" class="card ob-way" data-obnot="1"><span class="ob-wayic" aria-hidden="true">${icon('eye')}</span><span><b>Not now, just keep watch</b><span>It stays on your home page</span></span>${icon('chevron-right')}</button></li>
     </ul>`);
 }
@@ -211,11 +210,13 @@ function wireDecide({ step, $ }) {
   const b = chosen(); if (!b) return;
   const h = hearingOf(b);
   const w = $('[data-obwrite]');
-  if (w) w.onclick = () => { track('decide', 'next'); S.obRemind = null; S.obOpen = { kind: 'email', step }; app.openMail?.({ mode: 'email', bill: b.id, hearing: h?.id, code: h ? undefined : (b.committee || '').split('/')[0] }); };
-  const r = $('[data-obremind]');
-  if (r) r.onclick = () => { track('decide', 'next'); S.obRemind = { bill: b.id, due: dueOf(h) }; wizSet({ obRemind: S.obRemind }); followBill(b); burst(r.querySelector('.ob-wayic'), 10, 34); later(() => goStep(step, step + 1), 380); };
+  if (w) w.onclick = () => { track('decide', 'next'); S.obOpen = { kind: 'email', step }; app.openMail?.({ mode: 'email', bill: b.id, hearing: h?.id, code: h ? undefined : (b.committee || '').split('/')[0] }); };
+  // D1-1 (R-180 wave 2): nothing sends a reminder yet (Nate 10/5: "not for now, maybe later"), so this card does the one thing that
+  // exists, the hearing in their own calendar, and says so. The bill's issue is followed, as with "just keep watch".
+  const r = $('[data-obcal]');
+  if (r) r.onclick = async () => { track('decide', 'next'); try { (await import('./actions.js')).downloadIcs(b, h); } catch (e) { console.error(e); } followBill(b); burst(r.querySelector('.ob-wayic'), 10, 34); later(() => goStep(step, step + 1), 380); };
   const n = $('[data-obnot]');
-  if (n) n.onclick = () => { track('decide', 'skip'); S.obRemind = null; followBill(b); goStep(step, step + 1); };
+  if (n) n.onclick = () => { track('decide', 'skip'); followBill(b); goStep(step, step + 1); };
   const go = $('[data-obon]'); if (go) go.onclick = () => goStep(step, step + 1);
 }
 // "Just keep watch" and a reminder both follow the bill's issue, so it stays on Home and its alerts come (C-4: they chose it).
@@ -281,18 +282,13 @@ function barHello() {
 // "Not now" is a full button the size of the main one (C-3: an equal choice). After a yes, the same screen says what
 // happens now, warmly, before moving on.
 const acted = () => S.obActed || wiz().obActed || null;
-// Plan 1's "Remind me before ..." (decide): the sign-up keeps that promise, in its words.
-function remindOf() {
-  const r = S.obRemind || wiz().obRemind; if (!r || !r.due) return null;
-  const b = anyBill(r.bill); if (!b) return null;
-  const nm = nick(b) || spaced(b.bill_number);
-  return { name: `“${nm}”`, day: new Date(r.due).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) };
-}
 S.obJoined ??= null;
+const boxFirst = () => { try { return matchMedia('(max-width: 600px)').matches; } catch { return false; } };
+const short = () => { try { return matchMedia('(max-height: 740px)').matches; } catch { return false; } };
 function stepJoin(step) {
   const t = textSaved(), sent = mailSent(), given = !S.alertEdit && (t || sent || S.session);
   const arm = armOf('join'), follows = followedIssues(), si = sessionInfo();
-  const rm = remindOf(), W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen, remind: rm });
+  const W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen });
   if (given) {
     const r = S.obJoined || (t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed } : sent ? { kind: 'email', email: sent } : { kind: 'account' });
     const D = joinDone(r, follows, alertStatus());
@@ -303,9 +299,9 @@ function stepJoin(step) {
         ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}.${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
         ${r.kind !== 'account' ? `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` : ''}</div></section>`);
   }
-  const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic, remind: rm });
+  const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic });
   // How often rides with the example (the review: said once, and the box nearer the top on a phone, A-1, A-14).
-  const example = arm === 'watch' && !rm
+  const example = arm === 'watch'
     ? `<ol class="ob-steps" role="list" aria-label="How it works">${W.steps.map(([ic, s], k) => `<li style="--k:${k}"><span class="ob-stepic" aria-hidden="true">${icon(ic)}</span><span>${esc(s)}</span></li>`).join('')}</ol>
        <p class="ob-often">${icon('calendar-check')}<span>${esc(OFTEN)}.</span></p>`
     : `<figure class="ob-sample"><figcaption class="ob-samplecap">${icon(email ? 'mail' : 'message-square')}<span>${email ? 'Example email' : 'Example text'} · ${esc(OFTEN.charAt(0).toLowerCase() + OFTEN.slice(1))}</span></figcaption>
@@ -313,9 +309,11 @@ function stepJoin(step) {
   return shell('st4 st-alertspage ob-join', `${topRow('join', step)}<div class="st-art ob-joinart">${VOICES}</div>
     ${W.receipt ? `<p class="ob-receipt">${icon('circle-check')}<span>${esc(W.receipt)}</span></p>` : ''}
     <h1 class="hero" id="st-h">${codeStep('st-a') ? 'Check your texts' : esc(W.h)}</h1>
-    <p class="lede">${codeStep('st-a') ? 'Type the 6-digit code from the text to turn on alerts.' : esc(W.lede)}</p>`,
-    `${codeStep('st-a') ? '' : example}
-    <form class="card st-form st-askcard st-alertform ob-joinform" id="st-aform" novalidate>${alertFields('st-a')}</form>`);
+    ${codeStep('st-a') ? '<p class="lede">Type the 6-digit code from the text to turn on alerts.</p>' : short() ? '' : `<p class="lede">${esc(W.lede)}</p>`}`,
+    // D1-6 (R-180 wave 2): on a phone the example goes under the box (and on a short one the lede too), so the promise and the small print are on the screen
+    // whenever "Text me" is (CTIA: the disclosures sit next to the button on every screen size); a taller screen keeps it above.
+    (form => boxFirst() ? form + (codeStep('st-a') ? '' : `${short() ? `<p class="lede ob-lede2">${esc(W.lede)}</p>` : ''}${example}`) : (codeStep('st-a') ? '' : example) + form)(
+      `<form class="card st-form st-askcard st-alertform ob-joinform" id="st-aform" novalidate>${alertFields('st-a')}</form>`));
 }
 // Leaving the sign-up: the follow's moment if the visit has had no big moment yet (C-7: the first follow fills the
 // screen; Plan 1's first action had its own in the walkthrough), else straight on.
@@ -330,6 +328,8 @@ function leaveJoin(step, r = null) {
     small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: You’re All Set' }, go);
 }
 function wireJoin({ step, fresh, $ }) {
+  // The visit's one alerts ask, so Home will not ask again after "Not now" (C-3; today's step does the same in start-rest.js; D1-6).
+  S.nudge = null; S.nudgedThisVisit = true;
   if (fresh) abSeen('join');
   const form = $('#st-aform');
   // A yes goes straight on to the moment (or, after an action that had its own, to the ending): a "You're set" screen,
@@ -359,7 +359,6 @@ function didRows() {
   const b = a?.bill ? anyBill(a.bill) : null;
   return [
     a && a.kind === 'email' ? ['send', `You spoke up on ${b ? nick(b) || spaced(b.bill_number) : 'a bill'}`, 'You emailed the committee’s chair', 'ok'] : null,
-    !a && (S.obRemind || wiz().obRemind) && remindOf() ? ['calendar-clock', `A reminder before ${remindOf().day}`, ['on', 'almost'].includes(alertStatus().key) ? `About ${remindOf().name}` : 'It shows on your home page; turn on alerts to get it by text or email', 'ok'] : null,
     a && a.kind === 'intro' ? ['hand-heart', 'You said aloha to your legislators', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and ') || 'They know you now', 'ok'] : null,
     f.length ? ['star', `You follow ${plural(f.length, 'issue')}`, andList(f.slice(0, 3).map(i => i.name)) + (f.length > 3 ? ', and more' : ''), 'ok'] : null,
     legs.length && !(a && a.kind === 'intro') ? ['users', 'You know who speaks for you', legs.map(l => `${legTitle(l)} ${l.name}`).join(' and '), 'ok'] : null,

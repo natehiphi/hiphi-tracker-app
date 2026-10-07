@@ -28,6 +28,7 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'table bill_drafts',   // a bill's Public tab: what each draft changed (120, R-060)
   'rpc profile_rollup',   // Supporters: how supporters describe themselves, counts only (130, R-156)
   'table tester_paths',   // the tester sheet: what testers did (150, R-193)
+  'rpc text_signup_counts {p_days}', 'rpc forget_person {email,p,phone}', 'rpc retention_status', 'rpc retention_set {p_on}', 'rpc retention_run {p_apply}',   // the first visit's numbers: text sign-ups, confirmations and stops (156, D1-7)
   'rpc team_reach', 'rpc ask_password_help {p_email}']);   // Team: who the tracker can reach; staff sign-in's Forgot your password? (154, R-199 M1-1, M1-6)
 const cur = calls(read('app.js')), v2 = new Set([...calls(read('staff/data.js')), ...calls(read('staff/model.js'))].filter(x => !V2_ONLY.has(x)));
 // Calls the current app makes only from its screens (none expected: every call lives in DB) would show up here.

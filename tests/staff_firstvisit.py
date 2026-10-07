@@ -52,7 +52,11 @@ with sync_playwright() as pw:
         ok(names[:4] == ['What you care about', 'Your issues', 'Get alerts (text or email)', 'A bill’s story'] and names[-1].startswith('You'), f'first visit{tag}: screens in the order a person meets them, the alerts after the issues (R-146): {names[:4]} ... {names[-1:]}')
         first_pc = p.locator('ol.fv-screens').first.locator('.fv-rn').first.inner_text()
         ok(first_pc.endswith('100%'), f'first visit{tag}: every first visit reaches the first screen ({first_pc})')
-        ok(p.locator('section:not([aria-labelledby=fv-bh]):not([aria-labelledby=fv-sg]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
+        ok(p.locator('section:not([aria-labelledby=fv-bh]):not([aria-labelledby=fv-sg]):not([aria-labelledby=fv-tx]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
+        # D1-7 (R-180 wave 2, backend 156): text sign-ups counted by source and day, never a number
+        tx = p.locator('section[aria-labelledby=fv-tx]')
+        ok(tx.count() == 1 and tx.locator('.fv-tile').count() == 4 and 'counts only: never a number' in tx.inner_text(), f'first visit{tag}: "Text sign-ups": four totals, counts only')
+        ok('numbers given' in tx.inner_text() and 'confirmed and on' in tx.inner_text() and 'stopped' in tx.inner_text() and 'from the first visit' in tx.inner_text() and not re.search(r'\(?808\)?[ -]?\d{3}', tx.inner_text()), f'first visit{tag}: given, confirmed, stopped, by where they signed up; no number in it')
         # R-094 step 5 (10/3): the suggested bills, counted, with a row per place in the short list
         ok(p.locator('section[aria-labelledby=fv-sg] table.fv-table tbody tr').count() == 3, f'first visit{tag}: suggested bills by place in the list')
         src = p.locator('table.fv-table').first.inner_text()

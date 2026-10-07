@@ -44,7 +44,7 @@ const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_r
 // The sub-pages, in the order the index lists them. Advanced ones are listed under "Advanced", closed by default.
 const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], ['alerts', 'Hearing alerts', 'bell'], ['coalitions', 'Coalitions', 'users'], ['sync', 'Session days and sync', 'calendar-days'],
   ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe'], ['tests', 'Tests', 'flask-conical']];
-const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks']];
+const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks'], ['privacy', 'Privacy and keeping', 'shield-check']];
 // The tester sheet (R-185) is a page of Tests: reached from it, and Tests stays marked in the list of parts.
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED, ['room', 'Tester sheet', 'qr-code']].map(([k, t, ic]) => [k, { t, ic }]));
 
@@ -83,6 +83,13 @@ function errorsHTML() {
   return `<p class="st-sum">${n ? chip(nToday ? 'Errors today' : 'Errors this week', nToday ? 'danger' : 'info', 'circle-alert') : chip('No errors', 'ok', 'circle-check')}<span>${esc(words)}</span></p>
     ${top.length ? `<div class="rows st-ready">${top.map(rowH).join('')}</div>` : ''}
     <p class="st-rfix">A report says which screen broke, what the error said and the file it came from, never who the person is; nothing is sent with the privacy signal. The hourly health check tells admins by Slack when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
+}
+// Privacy (backend 159): the keeping periods and the clean-up's switch, loaded once per visit and after a change.
+function loadRetention(force) {
+  const s = st(); if (s.retBusy || (s.ret && !force)) return;
+  s.retBusy = true; s.retErr = '';
+  DB.retentionStatus().then(r => { s.ret = r; }).catch(e => { s.retErr = e.message || 'Could not load.'; s.ret = { kinds: [] }; })
+    .finally(() => { s.retBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
 function loadOffLists() {
   const s = st(); if (s.offListsBusy || s.offLists) return;
@@ -1028,6 +1035,47 @@ const PAGES = {
       const title = await DB.turnOffList(link, val(root, 'st-ul-why'));
       st().offLists = null;
       return `Turned off ${title}.`;
+    },
+  },
+  privacy: {
+    status: () => ['shield-check', 'Forget a person who asks, and see how long each kind of record is kept.'],
+    body() { loadRetention();
+      return `<div class="card st-form"><h2 class="st-h2">Forget a person</h2>
+        <p class="small st-note st-top">For someone who writes to <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> asking HIPHI to delete what it has. Give the email, the mobile number, or both. It stops their texts, deletes their tracker account and everything saved with it, erases the email we kept for them and which emails they opened, and empties their supporter record down to “do not contact”, so a list upload cannot add them back. It cannot be undone. It never touches a team member. The tracker promises an answer within 10 business days.</p>
+        ${txt('st-fg-email', 'Their email', '', { ph: 'name@example.com', type: 'email', attrs: 'inputmode="email" autocapitalize="off"' })}
+        ${txt('st-fg-phone', 'Their mobile number', '', { ph: '(808) 555-0123', type: 'tel', attrs: 'inputmode="tel"' })}
+        </div>`; },
+    tail() { const s = st(), r = s.ret;
+      if (s.retErr) return notice('bad', 'circle-alert', `Could not load the keeping periods. ${esc(s.retErr)}`);
+      if (!r) return `<section class="st-sec"><h2 class="st-h2">How long things are kept</h2><p class="small muted">Loading…</p></section>`;
+      const k = r.kinds || [], soon = k.filter(x => x.soon > 0 && !['error_reports', 'unconfirmed_numbers'].includes(x.kind));
+      const rows = k.map(x => `<tr><th scope="row">${esc(x.label)}</th><td>${esc(x.period)}</td><td class="num">${x.due}</td><td class="num">${x.soon}</td></tr>`).join('');
+      return `<section class="st-sec st-keeping" aria-labelledby="st-kp-h"><h2 class="st-h2" id="st-kp-h">How long things are kept</h2>
+        <p class="small st-note">The periods are Nate’s, set 5 October. A nightly job (3:15 am, in the database) counts what is past its period and what reaches it within 30 days. <b>${r.on ? 'The clean-up is on: it deletes what is past its period each night.' : 'The clean-up is off: it only counts, and deletes nothing.'}</b>${soon.length ? ` ${chip('Reaching its date soon', 'warn', 'clock')}` : ''}</p>
+        <div class="st-tablewrap"><table class="fv-table st-kptable"><thead><tr><th scope="col">Kind</th><th scope="col">Kept</th><th scope="col" class="num">Past it</th><th scope="col" class="num">Within 30 days</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="small muted">Numbers never confirmed are held until texts really go out: until then no number can be confirmed, so the 30-day rule would erase them all. Accounts unused for two years are counted; the warning email needs a sender that does not exist yet. First-visit counts are kept. Postmark keeps sent email for 45 days on its side, as the privacy page says.</p>
+        <div class="btnrow st-acts">${btn(r.on ? 'Turn the clean-up off' : 'Turn the clean-up on', { kind: r.on ? 'secondary' : 'primary', icon: r.on ? 'pause' : 'play', attrs: { 'data-kpset': r.on ? '0' : '1' } })}${btn('Count again', { kind: 'text', icon: 'refresh-cw', attrs: { 'data-kpcount': '1' } })}</div>
+        ${r.last_run ? `<p class="small muted">Last counted ${esc(fmtDate(r.last_run))}.</p>` : '<p class="small muted">Not counted yet; the first run is tonight.</p>'}</section>`; },
+    wireTail(root) {
+      root.querySelector('[data-kpcount]')?.addEventListener('click', async e => { const b = e.currentTarget; if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true');
+        try { await DB.retentionCount(); st().ret = null; loadRetention(true); toast('Counted. Nothing was deleted.', { ok: true }); } catch (er) { toast(er, { err: true }); b.removeAttribute('aria-busy'); } });
+      root.querySelector('[data-kpset]')?.addEventListener('click', async e => { const b = e.currentTarget, on = b.dataset.kpset === '1'; if (b.getAttribute('aria-busy')) return;
+        if (on && !await confirmSheet({ title: 'Turn the clean-up on?', text: 'Each night the database will delete what is past its keeping period: email text and open and click history after 7 years, stopped numbers after 4, accounts unused for 3 years, and error reports after a year. Nothing in the database is that old yet. You can turn it off again here.', ok: 'Turn it on' })) return;
+        b.setAttribute('aria-busy', 'true');
+        try { await DB.retentionSet(on); st().ret = null; loadRetention(true); toast(on ? 'The nightly clean-up is on.' : 'The nightly clean-up is off.', { ok: true }); } catch (er) { toast(er, { err: true }); b.removeAttribute('aria-busy'); } });
+    },
+    saveLabel: 'Forget this person', track: false,
+    async save(root) {
+      const email = val(root, 'st-fg-email'), phone = val(root, 'st-fg-phone');
+      if (!email && !phone) { fieldErr(root, 'st-fg-email', 'Give an email, a mobile number, or both.'); return null; }
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fieldErr(root, 'st-fg-email', 'That does not look like an email address.'); return null; }
+      if (phone && !/^\+?1?[\s().-]*[2-9]\d{2}[\s().-]*[2-9]\d{2}[\s.-]*\d{4}$/.test(phone)) { fieldErr(root, 'st-fg-phone', 'Enter a 10-digit mobile number, like (808) 555-0123.'); return null; }
+      if (!await confirmSheet({ title: 'Forget this person?', text: `This deletes ${email ? 'the tracker account for ' + email : ''}${email && phone ? ' and ' : ''}${phone ? 'the texts for ' + phone : ''}, and everything saved with them. It cannot be undone.`, ok: 'Forget them', danger: true })) return null;
+      const r = await DB.forgetPerson(email, phone);
+      const why = { nothing: 'Give an email or a number.', phone: 'That number is not a mobile number we can use.', email: 'That does not look like an email address.', team: 'That is a team member. Remove them under Team instead.' };
+      if (!r.ok) { fieldErr(root, why[r.why] && r.why === 'phone' ? 'st-fg-phone' : 'st-fg-email', why[r.why] || 'It could not be done.'); return null; }
+      const t = r.trail || {}, bits = [r.accounts_deleted ? plural(r.accounts_deleted, 'account') + ' deleted' : '', r.numbers_stopped ? plural(r.numbers_stopped, 'number') + ' stopped' : '', t.emails_unsent || t.emails_sent_erased ? `${(t.emails_unsent || 0) + (t.emails_sent_erased || 0)} emails erased` : '', t.opens_clicks_erased ? `${t.opens_clicks_erased} open or click records erased` : '', r.supporter_records ? 'supporter record emptied' : ''].filter(Boolean);
+      return `Done${r.demo ? ' (the sandbox: nothing was changed)' : ''}: ${bits.join(', ') || 'nothing was on file'}. Reply to the person to say so.`;
     },
   },
   embed: {

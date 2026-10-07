@@ -30,7 +30,7 @@ import { MARK } from './art.js';
 import { islandKey } from './people.js';
 import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
-import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, codeStep, confirmWords, almostLine, emailLede } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, stopNumber, linkSent, codeStep, confirmWords, almostLine, emailLede } from './alerts.js';
 import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
@@ -202,7 +202,7 @@ export function wireAccountCards() {
     cc.querySelector('[data-mr-cc="later"]').onclick = () => { S.consentCard = false; app.render(); };
     const save = cc.querySelector('[data-mr-cc="save"]');
     save.onclick = async () => {
-      const prefs = { ...(S.user.prefs || {}), consent_at: new Date().toISOString() };
+      const prefs = { ...(S.user.prefs || {}), consent_at: new Date().toISOString(), consent_source: 'after_sign_in', consent_version: null };
       // Only checkboxes (the old '.ccard input' rule also caught the address field and shrank it to 18px).
       for (const [k, key] of CHOICES) prefs[key] = !!cc.querySelector(`#mr-cc-${k}[type=checkbox]`)?.checked;
       busy(save, 'Saving…'); say('mr-cc-msg', '');
@@ -479,7 +479,7 @@ async function addEmail(email, choices) {
   }
   return { sent: true };
 }
-const sendFor = (email, choices) => S.session && !myEmail() ? addEmail(email, choices) : sendEmailLink(email, choices);
+const sendFor = (email, choices) => { const c = { source: 'sign_in', ...choices }; return S.session && !myEmail() ? addEmail(email, c) : sendEmailLink(email, c); };   // source: where the consent was given (D1-5)
 function wireSignin() {
   if (byNumber()) { wirePhoneIn(); return; }
   $('[data-mr-other]') && ($('[data-mr-other]').onclick = () => { M.sent = ''; app.render(); requestAnimationFrame(() => $('#mr-email')?.focus()); });
@@ -536,6 +536,13 @@ function wireSignin() {
 // The phone-first box on its own page, for More's alerts row and Home's "Get hearing alerts" between sessions. Email goes
 // to the sign-in page ("Prefer email?"), which keeps its own consent box and the returning person's way in.
 const A = { edit: false };
+// Stop texts to any number, from any browser (D1-3): for someone without the browser they signed up on, or a number that is not this
+// device's. It is small and quiet, under the alerts box, and it is also what the text terms page points to.
+const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle-x')}<span>Stop texts to a number</span>${icon('chevron-down', { cls: 'mr-sn-chev' })}</summary>
+  <form class="mr-sn-form" id="mr-snform" novalidate><p class="small">Texts to this number end for good, from every browser. No code needed. You can also email <a href="mailto:contact@hiphi.org">contact@hiphi.org</a>.</p>
+    <div class="field"><label for="mr-sn-phone">Mobile number</label><input id="mr-sn-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(808) 555-0123" maxlength="20"></div>
+    <div id="mr-sn-msg" role="status" aria-live="polite"></div>
+    <div class="mr-send">${submitBtn('Stop texts to this number', 'circle-x', 'mr-sn-go')}</div></form></details>`;
 function alertsView() {
   const t = textSaved();
   // "On" only once the number is confirmed (D1-4, the one rule in alerts.js alertStatus): a number not yet confirmed is
@@ -547,30 +554,57 @@ function alertsView() {
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       ${t.confirmed ? `<p>We’ll text ${ph} when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`
         : `<p class="strong">${confirmWords(ph)}</p><p>Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`}
-      <p class="small">Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
+      <p class="small">Reply STOP to any text to end them. Stopping ends texts to this number from every browser.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
       <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
     </section>
     ${myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
+    ${stopNumberBox()}
   </div>`;
-  S.alertMode = 'phone';   // this page is the phone box; email has its own page
+  // D1-5 (R-180 wave 2): "Use email instead" swaps the box in place, under the same promise, so giving the email turns alerts on
+  // (it used to go to the sign-in page, whose "Keep me updated" box starts empty). A number being changed, or a signed-in
+  // email, keeps the phone box.
+  if (t || myEmail()) S.alertMode = 'phone';
+  const sent = !S.session && S.alertMode === 'email' && linkSent();
+  if (sent) return `<div class="mr mr-alerts">
+    <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Alerts almost set</h1></header>
+    <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
+      <p class="strong">We sent a link to ${esc(sent)}. Tap it to turn on alerts.</p>
+      <p>Then we’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one email a day.</p>
+      <p class="small">Can’t find it in a minute? Check your spam or promotions folder.${DEMO ? ' This is the sandbox, so nothing was sent.' : ''}</p>
+      <div class="btnrow">${btn('Use a different email', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alotheremail': '' } })}</div>
+    </section></div>`;
   const b = alertButton('mr-al');
   return `<div class="mr mr-alerts">
     <header class="pagehead"><h1 class="hero">${codeStep('mr-al') ? 'Check your texts' : t ? 'Change your number' : 'Get alerts on your issues'}</h1>
       <p class="lede">${codeStep('mr-al') ? 'Type the 6-digit code from the text to turn on alerts.' : myEmail() ? emailLede() : 'Hearings are posted about two days ahead. We’ll tell you in time to speak up.'}</p></header>
-    <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { emailHref: '#/signin', swap: !myEmail() })}
+    <form class="card mr-form mr-panel" id="mr-alform" novalidate>${alertFields('mr-al', { swap: !myEmail() })}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'mr-al-send')}${t ? btn('Cancel', { kind: 'text', attrs: { 'data-mr-alcancel': '' } }) : ''}</div>
     </form>
+    ${stopNumberBox()}
   </div>`;
 }
 function wireAlerts() {
+  const other = $('[data-mr-alotheremail]');
+  if (other) other.onclick = () => { try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } S.alertMode = 'email'; app.render(); requestAnimationFrame(() => $('#mr-al-email')?.focus()); };
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
     A.edit = false; app.render();
+    if (r.kind === 'email') { toast('Check your inbox: open the link to turn on alerts.', { yay: true }); requestAnimationFrame(() => $('#mr-al-t')?.focus()); return; }
     toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : almostLine(fmtPhone(r.phone)), { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');
   if (ch) ch.onclick = () => { const t = textSaved(); A.edit = true; S.alertDraft.phone = t ? fmtPhone(t.phone) : ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-al-phone'); if (i) { i.focus(); i.select(); } }); };
   const cancel = $('[data-mr-alcancel]'); if (cancel) cancel.onclick = () => { A.edit = false; S.alertDraft.phone = ''; if (S.alertCode?.pfx === 'mr-al') S.alertCode = null; app.render(); };
+  const sn = $('#mr-snform');
+  if (sn) sn.onsubmit = async e => {
+    e.preventDefault(); const go = $('#mr-sn-go'), v = $('#mr-sn-phone').value, msg = $('#mr-sn-msg');
+    if (go.getAttribute('aria-busy')) return;
+    busy(go, 'Stopping…'); msg.innerHTML = '';
+    try { const r = await stopNumber(v); unbusy(go); $('#mr-sn-phone').value = '';
+      const done = `<p class="strong">${icon('check')} Texts to ${esc(fmtPhone(r.phone))} are stopped.${r.demo ? ' <span class="muted">This is the sandbox, so nothing was sent.</span>' : ''}</p>`;
+      if (textSaved() === null && $('.mr-alon')) { app.render(); const m2 = $('#mr-sn-msg'), f2 = $('.mr-stopnum'); if (f2) f2.open = true; if (m2) m2.innerHTML = done; } else msg.innerHTML = done;
+    } catch (err) { unbusy(go); msg.innerHTML = inlineErr('mr-sn-err', err.plain ? err.message : friendly(err)); }
+  };
   const stop = $('[data-mr-alstop]');
   if (stop) stop.onclick = async () => {
     if (stop.getAttribute('aria-busy')) return;
@@ -593,34 +627,97 @@ function wireAlerts() {
 // like follows and actions. Numbers about other people are totals inside one bill or hearing, from 10 people.
 // The AI helper is named under "Services" (X2-5, R-199, Nate 10/6): Claude's everyday database login is the locked-down one
 // (counts and public bill data only); the full-access login is used only for a fix Nate approves. Keep both true together.
+const MAIL = `<a href="mailto:${EMAIL}">${EMAIL}</a>`;
+// Every sentence here is ticked against the code in HANDOFF 3.142 (J2-3, R-180 wave 2). A body that is an array is a short list.
+// The first section answers "what do you have on me?" in a few lines; the rest is the detail, in the order a person would ask.
 const PRIVACY = [
+  ['eye', 'What we have on you, in short', [
+    'If you only look around: nothing. What you follow stays on your device.',
+    'If you give a mobile number: the number, what you follow, and when you agreed to texts. Staff never see the number.',
+    'If you add your email: your email, what you follow, where you stand and the actions you mark. Staff see these, and which of our emails you open.',
+    'Staff may also keep notes about people who gave an email.',
+    `We never sell it. To see it or remove it, email ${MAIL}. We answer within 10 business days.`]],
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
-  ['message-square', 'If you add your mobile number', 'We keep your number, the issues and bills you follow, when you agreed to texts and the words you agreed to, and use them only to send you those texts. HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; once texts begin, the service that sends them for us will hold it to do that. Our first text confirms the number is yours. Reply STOP to any text, or use Alerts in your profile, under More, to end them. With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.'],
-  ['user', 'If you add your email', 'We keep your email, the issues, bills and lists you follow, where you stand on each bill you follow (support, oppose or not sure), the actions you mark, your email choices, and anything you add in your profile, such as your name, the titles you give yourself (“I’m a…”), your stories (a general one, and one for any issue you choose), whether HIPHI may quote them, and how you’d like to help, in your own words too (HIPHI asks you again before any public use). When we email you, we also see whether you opened each email and which links in it you clicked. HIPHI staff can see all of this, so they can reach out about your issues and learn which asks work. What you saved on this device joins your account; signing out takes your profile off this device.'],
+  ['message-square', 'If you add your mobile number', [
+    'We keep your number, what you follow, when you agreed to texts and the words you agreed to. We use them only to send you those texts.',
+    'HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. The people who run our database could open the table that holds it, but the team does not look numbers up.',
+    'We never sell it or use it for anything else. Once texts begin, the service that sends them for us will hold it to do that.',
+    'Our first text confirms the number is yours. A number you never confirm is deleted after 30 days.',
+    `Reply STOP to any text, or use Alerts in your profile, under More, to end them. You can also email ${MAIL}. After a stop we keep only the number and the day, for 4 years, so we never text it again.`,
+    'With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.']],
+  ['user', 'If you add your email', [
+    'We keep your email, the issues, bills and lists you follow, and your email choices.',
+    'We keep where you stand on each bill you follow (support, oppose or not sure) and the actions you mark.',
+    'We keep what you add to your profile: your name, your titles, your stories (a general one, and one for each issue you choose), and how you’d like to help.',
+    'You choose whether HIPHI may quote your stories. HIPHI asks you again before any public use.',
+    'When we email you, we also see whether you opened each email and which links you clicked.',
+    'HIPHI staff can see all of this, so they can reach out about your issues and learn which asks work.',
+    'What you saved on this device joins your account. Signing out takes your profile off this device.']],
+  ['clipboard-list', 'Notes staff keep', [
+    'HIPHI staff may write notes, tags and follow-up reminders about people who gave an email, like “offered to testify”. Only staff can see them.',
+    `Deleting your account deletes this record, with its notes. If HIPHI knew you before, or you never made an account, the record stays until you ask us to remove it: email ${MAIL}.`]],
   ['list-checks', 'Lists you make', 'A list of bills you make is private: HIPHI staff can’t see it, and it is left out of HIPHI’s backup copies. If you share it, anyone with the link can see its name, your note and its bills, but not who made it. HIPHI can turn off a shared list that is used to harm someone. Deleting your account erases your lists.'],
   ['users', 'Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email. They never show a name, and they appear only once 10 people are in them.'],
   ['map-pin', 'Your home address', 'We never store it. In your profile it is used once to find your districts, and only the district numbers are saved on your account; HIPHI staff see just those. When you look up your legislators, the address you type goes to our address lookup, and to the U.S. Census Bureau’s if ours can’t place it, only to find your districts. It isn’t saved. The district numbers stay on this device, so we can point you to your own senator and representative.'],
-  ['notebook-pen', 'Your testimony and emails', 'Your name and letter stay on this device until you send the letter on the Capitol website. Testimony is public there: the Capitol posts your name and letter online. Once you send it, we keep that letter, the last one on each bill, so it’s ready for the bill’s next hearing. An email to a lawmaker goes from your own email account; we never send it for you. Once you say you sent it, we keep a copy of it too, the last one on each bill, so it’s ready for the bill’s next step. Both are kept on this device, and with your account if you added your email, where only you can see them, not HIPHI staff, and they are left out of HIPHI’s backup copies. The letter helper can delete each one, and deleting your account deletes them all. A letter or email you haven’t sent stays on this device. If you type your email in the letter helper, we use it for your link and your hearing alerts. It is never added to your letter.'],
-  ['chart-column', 'What we count', 'To make the tracker better, we count which screens of the first visit people reach, how long they stay and which issues they pick, whether they came from a partner’s link, a campaign or another website (its name only), and whether it was a phone or a laptop. Each first visit gets a random number that ends when you close the tab. Once a day we also count that the tracker was opened, how long since this browser last opened it (in ranges, like “2 to 7 days”), the month it was first opened, and whether it follows anything; and when you mark an action done, only which kind it was (an email, testimony, going in person, a share); in the same way, that your session page was opened or a good-news moment was shown, or that a saved letter was offered again and whether it was sent, updated or replaced, and the same for a saved email, or a follow-up sent to a committee chair; and that profile titles or a story were saved, that a letter or email went out with your titles or your story in it, that an ask chosen from “How you’ll help” was shown or taken, or that the Add to Home Screen steps were opened, or that “Read more about the bill”, a bill’s whole text or its page on the Capitol website was opened, only that it happened, never the words or which bill. Sometimes we try two versions of a screen to learn which helps more people: this browser is given one at random and keeps it, and we count which version it saw, whether that screen’s step was done, and whether this browser came back, acted or gave an email in the next 14 days; the version is also noted with the other counts on this page. When we suggest a bill, we count that a suggestion was shown, followed, set aside or acted on, never which bill or who. This browser remembers the month and the last day itself; they are never sent more exactly than that. In these counts we never record your email, your name, your address, which stance you took, which bill, or anything else that could tell who you are. If your browser asks sites not to track you, we record none of them. If you test the tracker for HIPHI from a tester’s link or code, we also note, under a random number, which screens you visit in order, the seconds on each and what you did there (followed, wrote, gave a number), never your name or anything you type. (Which of our emails you open is not one of these counts: see “If you add your email”.)'],
-  ['circle-alert', 'If the page breaks', 'The tracker tells us which screen broke (for example, which bill’s page) and what the error said, so we can fix it. The report is built to leave out who you are, what you typed and your address: it strips anything that looks like an email address or a long number. Nothing is sent if your browser asks sites not to track you.'],
+  ['notebook-pen', 'Your testimony and emails', [
+    'Your name and letter stay on this device until you send the letter on the Capitol website. Testimony is public there: the Capitol posts your name and letter online.',
+    'Once you send it, we keep that letter, the last one on each bill, so it’s ready for the bill’s next hearing.',
+    'An email to a lawmaker goes from your own email account; we never send it for you. Once you say you sent it, we keep a copy of it too, the last one on each bill, so it’s ready for the bill’s next step.',
+    'Both are kept on this device, and with your account if you added your email, where only you can see them, not HIPHI staff. They are left out of HIPHI’s backup copies.',
+    'The letter helper can delete each one, and deleting your account deletes them all. A letter or email you haven’t sent stays on this device.',
+    'If you type your email in the letter helper, we use it for your link and your hearing alerts. It is never added to your letter.']],
+  ['chart-column', 'What we count', [
+    'We count which screens of the first visit people reach, how long they stay, which issues they pick, and whether it was a phone or a laptop. Each first visit gets a random number that ends when you close the tab.',
+    'We count where a visit came from: a partner’s link, a campaign, or another website (its name only).',
+    'Once a day we count that the tracker was opened, and how long it was since this browser last opened it, in ranges like “2 to 7 days”. We also count the month it was first opened, and whether it follows anything. This browser keeps the dates itself.',
+    'When you mark an action done, we count only its kind: an email, testimony, going in person or a share.',
+    'We count that your session page was opened, that a good-news moment was shown, and that the Add to Home Screen steps were opened.',
+    'We count that a saved letter or email was offered again, that a follow-up went to a committee chair, and that a letter or email went out with your titles or story in it.',
+    'We count that profile titles or a story were saved, and that an ask from “How you’ll help” was shown or taken. For all of these, only that it happened.',
+    'We count that “Read more about the bill”, a bill’s whole text or its Capitol page was opened, and that a suggested bill was shown, followed, set aside or acted on. Never the words, which bill or who.',
+    'Sometimes we try two versions of a screen. This browser gets one at random and keeps it. We count which version it saw, whether the step was done, and whether this browser came back, acted or gave an email in the next 14 days.',
+    'We never record your email, your name, your address, which stance you took, which bill, or anything else that could tell who you are. If your browser asks sites not to track you, we record none of these counts. They are kept.',
+    'If you test the tracker for HIPHI from a tester’s link or code, we also note, under a random number, which screens you visit, the seconds on each and what you did there (followed, wrote, gave a number). Never your name or anything you type.',
+    'Which of our emails you open is not one of these counts: see “If you add your email”.']],
+  ['circle-alert', 'If the page breaks', 'The tracker tells us which screen broke (for example, which bill’s page) and what the error said, so we can fix it. The report is built to leave out who you are, what you typed and your address: it strips anything that looks like an email address or a long number. Nothing is sent if your browser asks sites not to track you. We keep these reports for a year.'],
   ['archive', 'Backups', 'Every night we save a copy of the tracker’s information, so it can be restored if something goes wrong. Each copy is encrypted before it is stored, and only a key HIPHI keeps separately can open it. Text-alert numbers, the lists you make and your saved letters and emails are left out of these copies. A copy is deleted within about 45 days. Our database service also keeps its own backups of everything for 7 days.'],
-  ['building', 'Services that run the tracker', 'The tracker runs on services HIPHI uses: GitHub hosts the pages, Supabase holds the database, Postmark sends our email, Google Drive keeps the encrypted backups, and the pages load fonts from Google Fonts and code from jsDelivr. Once texts begin, a texting service will send them. Like any website, these services see your device’s internet address, and from it a rough location, and keep it in their own logs. An AI assistant, Anthropic’s Claude, helps HIPHI build and fix the tracker. Its everyday access to our database can’t read anyone’s email, phone number, address, story or notes. It sees only counts and public bill facts. Fuller access is used only for one fix that HIPHI’s director says yes to.'],
-  ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us, and if the law requires it. Every email has a one-click unsubscribe. You can delete your account from your profile, under More, at any time: your account, the issues and bills you follow, your stances, actions, lists and saved letters are erased from the tracker at once, and from our backup copies within about 45 days. We keep a record of the emails we sent you. Text alerts are separate: reply STOP or use Alerts in your profile.'],
+  ['building', 'Services that run the tracker', [
+    'The tracker runs on services HIPHI uses: GitHub hosts the pages, Supabase holds the database, Postmark sends our email, Google Drive keeps the encrypted backups, and the pages load fonts from Google Fonts and code from jsDelivr. Once texts begin, a texting service will send them.',
+    'Like any website, these services see your device’s internet address, and from it a rough location, and keep it in their own logs. Postmark keeps a copy of each email we send, and each time it is opened, for 45 days.',
+    'An AI assistant, Anthropic’s Claude, helps HIPHI build and fix the tracker. Its everyday access to our database can’t read anyone’s email, phone number, address, story or notes. It sees only counts and public bill facts. Fuller access is used only for one fix that HIPHI’s director says yes to.']],
+  ['clock', 'How long we keep things', [
+    'The text of emails we sent you, and which of them you opened or clicked: 7 years.',
+    'A number you never confirm: 30 days. A number you stopped: the number and the day, 4 years.',
+    'An account nobody signs in to: deleted after 3 years.',
+    'Error reports: 1 year. Backup copies: about 45 days.',
+    'The counts on this page have no names in them, and are kept.']],
+  ['shield-check', 'Selling and sharing', 'We never sell your information or give it to other groups. We share it only with the services above, so they can run the tracker for us; if the law requires it; or when you tell us we may, for example when you let HIPHI share your story with reporters. Every email has a one-click unsubscribe.'],
+  ['trash-2', 'Delete it, or ask us to', [
+    'You can delete your account any time, from your profile under More. Your account, what you follow, your stances, actions, lists and saved letters are erased at once. Backup copies lose them within about 45 days.',
+    'We also erase the emails we sent you, which ones you opened, and any waiting to go to you.',
+    'Texts are separate. A number you gave for texts stays until you reply STOP or ask us.',
+    `To have everything removed, even a number, email ${MAIL}. We answer within 10 business days.`]],
 ];
-const PRIVACY_UPDATED = '6 October 2026';   // change it with any sentence above (R-151)
+const PRIVACY_UPDATED = '7 October 2026';   // change it with any sentence above (R-151)
 // Once sign-in by text code is on (R-155), a number signs people in and their profile is kept with the account, so three
 // sections say so. Change the date to the day codes were switched on (backend docs/TEXT-SIGN-IN.md, step 6).
-const PRIVACY_CODES_UPDATED = '5 October 2026';
+const PRIVACY_CODES_UPDATED = '7 October 2026';
 const PRIVACY_CODES = {
   lock: ['If you don’t add your email or number', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
-  'message-square': ['If you add your mobile number', 'We text you a 6-digit code to be sure the number is yours, and from then on the number signs you in, the way an email does. We keep your number, when you agreed to texts and the words you agreed to, and use the number only to sign you in and to send the texts you asked for. Your profile and what you follow, where you stand and the actions you mark are kept with your account, as described under “If you add your email”, and HIPHI staff can see them, but never your number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. We never sell it or use it for anything else; the services that sign you in and send our texts hold it to do that. Reply STOP to any text, or use Alerts in your profile, under More, to end texts.'],
+  'message-square': ['If you add your mobile number', [
+    'We text you a 6-digit code to be sure the number is yours, and from then on the number signs you in, the way an email does.',
+    'We keep your number, when you agreed to texts and the words you agreed to. We use the number only to sign you in and to send the texts you asked for.',
+    'Your profile and what you follow, where you stand and the actions you mark are kept with your account, as described under “If you add your email”. HIPHI staff can see them, but never your number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. The people who run our database could open the table that holds it, but the team does not look numbers up.',
+    'We never sell it or use it for anything else. The services that sign you in and send our texts hold it to do that.',
+    `A number you never confirm is deleted after 30 days. Reply STOP to any text, or use Alerts in your profile, under More, to end texts. You can also email ${MAIL}. After a stop we keep only the number and the day, for 4 years, so we never text it again.`]],
   users: ['Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email or signed in with their number. They never show a name, and they appear only once 10 people are in them.'],
 };
+
 function privacyView() {
   const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
-    <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2><p>${p}</p></div></section>`).join('')}</div>
+    <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2>${Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : `<p>${p}</p>`}</div></section>`).join('')}</div>
     <p class="small muted">Updated ${codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED}.</p>
     <p class="mr-ext">${btn('HIPHI’s website privacy policy', { kind: 'text', icon: 'external-link', href: HIPHI.privacy, attrs: { target: '_blank', rel: 'noopener' } })}</p>
     <section class="mr-access mr-panel" id="mr-access" aria-labelledby="mr-access-t">

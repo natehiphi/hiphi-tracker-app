@@ -22,11 +22,9 @@ const whatOf = follows => follows.length === 1 ? `“${follows[0].name}”` : fo
 // "Rep. David A. Tarnas" -> kept whole; two -> "Sen. Kim and Rep. Lee"
 const names = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 
-// { arm, acted, follows, off, open, remind } -> { receipt, h, lede, steps? }
-// remind: Plan 1's "Remind me before ..." ({ name, due }), which this ask then keeps (the same words in both versions).
-export function joinWords({ arm = 'shown', acted = null, follows = [], off = false, open = '', remind = null }) {
-  if (remind) return { receipt: '', h: `We’ll remind you before ${remind.day}`,
-    lede: `Where should the reminder go? It comes the day before notes on ${remind.name} are due, with a link straight to your email.` };
+// { arm, acted, follows, off, open } -> { receipt, h, lede, steps? }
+// (Plan 1's "Remind me before ..." is gone: nothing sends a reminder, D1-1.)
+export function joinWords({ arm = 'shown', acted = null, follows = [], off = false, open = '' }) {
   const what = whatOf(follows);
   const receipt = acted?.kind === 'email' ? `Your note${acted.to?.length ? ` to ${names(acted.to)}` : ''} is on its way.`
     : acted?.kind === 'intro' ? `Your hello${acted.to?.length ? ` to ${names(acted.to)}` : ''} is on its way.` : '';
@@ -50,9 +48,7 @@ export function joinWords({ arm = 'shown', acted = null, follows = [], off = fal
 
 // An example of an alert, made from what this person follows, so the promise is concrete. Never a real bill number or a
 // real day, so it cannot pass for a real alert; the screen labels it "Example" too.
-export function sampleText({ follows = [], email = false, topic = '', remind = null }) {
-  if (remind) return email ? { subject: `Notes on ${remind.name} are due ${remind.day}`, body: 'Yours takes a few minutes, and we walk you through it.' }
-    : { body: `HIPHI: Notes on ${remind.name} are due ${remind.day}. Yours takes a few minutes (a link to it). Reply STOP to end.` };
+export function sampleText({ follows = [], email = false, topic = '' }) {
   const what = follows[0]?.name ? `“${follows[0].name}”` : topic || 'a bill you follow';
   return email
     ? { subject: `A hearing on ${what} is set`, body: `It’s on Thursday at 2 pm. A short note from you helps, and it takes a few minutes. We’ll walk you through it.` }

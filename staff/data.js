@@ -1052,6 +1052,12 @@ export const DB = {
     if (error) throw error; return data || [];
   },
   // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
+  // Text sign-ups, confirmations and stops by day and source: counts only, never a number (backend 156, D1-7). Staff only.
+  async textSignupCounts(days = 30) {
+    if (DEMO) return null;
+    const { data, error } = await S.supa.rpc('text_signup_counts', { p_days: days });
+    if (error) throw error; return data;
+  },
   async firstVisitSources(weeks = 12) {
     if (DEMO) return [];
     const { data, error } = await S.supa.rpc('first_visit_sources', { weeks: Math.round(+weeks || 12) });
@@ -1273,6 +1279,26 @@ export const DB = {
     if (pairs.length) { const { error } = await S.supa.from('committee_counterparts').insert(pairs); if (error) throw error; }
   },
   // ---- people's own lists (R-013, migration 103): an admin turns off a shared list by its link ----
+  // Privacy (backend 159, R-180 J2-1 and J2-2). forgetPerson answers counts, never contents; the sandbox pretends.
+  async forgetPerson(email, phone) {
+    if (DEMO) return { ok: true, accounts_deleted: email ? 1 : 0, numbers_stopped: phone ? 1 : 0, supporter_records: email ? 1 : 0, trail: { asks_waiting: 0, emails_unsent: 1, emails_sent_erased: 2, opens_clicks_erased: 3 }, demo: true };
+    const { data, error } = await S.supa.rpc('forget_person', { p: { email: email || '', phone: phone || '' } }); if (error) throw error; return data;
+  },
+  async retentionStatus() {
+    if (DEMO) return S.demoRetention ??= { on: false, texts_live: false, last_run: null, kinds: [
+      { kind: 'sent_email_text', label: 'Email text we sent', period: '7 years', due: 0, soon: 0 }, { kind: 'opens_clicks', label: 'Which emails were opened or clicked', period: '7 years', due: 0, soon: 0 },
+      { kind: 'unconfirmed_numbers', label: 'Numbers never confirmed', period: '30 days', due: 2, soon: 5 }, { kind: 'stopped_numbers', label: 'Stopped numbers (the bare stop record)', period: '4 years', due: 0, soon: 0 },
+      { kind: 'unused_accounts', label: 'Accounts not used', period: '3 years (a warning at 2)', due: 0, soon: 0 }, { kind: 'error_reports', label: 'The page’s error reports', period: '1 year', due: 0, soon: 0 }] };
+    const { data, error } = await S.supa.rpc('retention_status'); if (error) throw error; return data;
+  },
+  async retentionSet(on) {
+    if (DEMO) { (S.demoRetention ??= {}).on = !!on; return { on: !!on }; }
+    const { data, error } = await S.supa.rpc('retention_set', { p_on: !!on }); if (error) throw error; return data;
+  },
+  async retentionCount() {   // counts only: the clean-up run with apply off, which deletes nothing
+    if (DEMO) return { applied: false };
+    const { data, error } = await S.supa.rpc('retention_run', { p_apply: false }); if (error) throw error; return data;
+  },
   async turnOffList(link, reason) {
     if (DEMO) { const title = 'A list from the sandbox'; (S.demoOffLists ??= []).unshift({ id: 'demo-ul-' + Date.now(), title, blocked_at: new Date().toISOString(), blocked_by: S.me?.initials || '', blocked_reason: reason || null }); return title; }
     const { data, error } = await S.supa.rpc('turn_off_user_list', { p_link: link, p_reason: reason || null }); if (error) throw error; return data;

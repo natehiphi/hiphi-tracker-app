@@ -462,9 +462,9 @@ export const TALKS = [
   { slug: 'data-private', group: 'hiphi', title: 'Is my data private?',
     turns: [
       { q: 'Is my data private?', a: 'If you don’t add your email, we don’t know who you are. What you follow stays in this browser, on this device.' },
-      { q: 'And if I add my email?', a: 'We keep your email, what you follow, where you stand and the actions you mark. HIPHI staff can see this, so they can reach out about your issues.' },
-      { q: 'Is it ever sold?', a: 'No. We never sell your information or give it to other groups. You can delete your account at any time from your profile, under More.' },
-      { q: 'What about my home address?', a: 'If you add it, only you see it. HIPHI staff see just your districts.' },
+      { q: 'And if I add my email?', a: 'We keep your email, what you follow, where you stand and the actions you mark. HIPHI staff can see this, and which of our emails you open, so they can reach out about your issues. Staff may also keep notes about you. A mobile number is kept apart: staff never see it.' },
+      { q: 'Is it ever sold?', a: 'No. We never sell your information or give it to other groups. You can delete your account at any time from your profile, under More. To have everything removed, even a number, email contact@hiphi.org.' },
+      { q: 'What about my home address?', a: 'We don’t keep it. We use it once to find your districts, and HIPHI staff see just those.' },
     ],
     related: ['testimony-public', 'alerts-and-email', 'contact'],
     act: { label: 'Read the privacy page', href: '#/privacy', icon: 'lock' } },
