@@ -46,6 +46,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
 import { bl, clearAll, changed as billsChanged } from './filters.js';
 import { todayPrepNotice } from './prep.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 
 const HR = 36e5, DAY = 864e5;
@@ -538,13 +539,15 @@ function scopeOf() {
 const whoOf = () => scopeOf() === 'person' ? S.tdWho : null;
 // The Week view lives in the address (#/?view=week&w=1), so it can be linked and reloaded; it only exists on a wide
 // screen, and a phone that opens the link gets the list.
-const viewOf = route => WIDE() && route?.q?.view === 'week' ? 'week' : 'list';
+// "Ahead" (R-049) is a list, so it exists at every width; the grid is laptop-only.
+const viewOf = route => route?.q?.view === 'ahead' ? 'ahead' : WIDE() && route?.q?.view === 'week' ? 'week' : 'list';
 const weekOff = route => Math.max(-26, Math.min(26, parseInt(route?.q?.w, 10) || 0));
 // The heading says whose list it is ("your Today" is what the app calls the list elsewhere), and the Week view says it
 // is the week (Nate, R-025 answer 3: it read "Today" over a whole week).
 const weekWord = off => off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : `the week of ${dayFmt(dayAdd(mondayOf(Date.now()), off * 7), { month: 'short', day: 'numeric' })}`;
 const heading = () => { const s = scopeOf();
   if (viewOf(S.route) === 'week') { const w = weekWord(weekOff(S.route)); return s === 'person' ? `${first(S.tdWho)}: ${w}` : s === 'team' ? `Team: ${w}` : s === 'none' ? `No owner: ${w}` : w[0].toUpperCase() + w.slice(1); }
+  if (viewOf(S.route) === 'ahead') return s === 'person' ? `${first(S.tdWho)}: Ahead` : s === 'team' ? 'Team: Ahead' : s === 'none' ? 'No owner: Ahead' : 'Ahead';
   return s === 'person' ? `${first(S.tdWho)}’s Today` : s === 'team' ? 'Team Today' : s === 'none' ? 'Bills with no owner' : 'Today'; };
 let LAST = new Map();   // key -> task for the list on screen, so a click finds the record its button was drawn from
 
@@ -566,7 +569,7 @@ function toolbar(route, clockShown = false) {
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span>${g ? `<span class="td-dl"><span class="td-sep" aria-hidden="true">·</span>Deadline ${esc(when)}: ${esc(gateName(g).replace(/^First /, '1st ').replace(/^Second /, '2nd '))}${gateGloss(g.label) ? `<span class="td-dlgl"> (${esc(gateGloss(g.label))})</span>` : ''}</span>` : ''}</p></div>
-    <div class="td-tools">${WIDE() ? segmented('tdview', [['list', 'List'], ['week', 'Week']], viewOf(route), 'Layout') : ''}${seg}</div>${whoBtn}</div>`;
+    <div class="td-tools">${segmented('tdview', [['list', 'Today'], ['ahead', 'Ahead'], ...(viewOf(route) === 'week' ? [['week', 'Week']] : [])], viewOf(route), 'Layout')}${seg}</div>${whoBtn}</div>`;
 }
 // At most one notice, most important first: the sync is stale (admins), the issues' prep, email is paused (admins), then
 // the new-bill season.
@@ -1403,6 +1406,69 @@ function digestSection(scope) {
       <p class="td-dinbox">${icon('inbox')}<a href="#/inbox">Your Inbox</a><span> keeps all of it, read or not.</span></p>` : ''}</section>`;
 }
 
+// ---- Ahead (R-049, Nate 10/5: "Go as recommended"): what is coming, for the next three weeks, by deadline ----
+// The review of 26 Sep found Today doing five jobs and "what's coming" split across six places. Ahead is the one calm place for it:
+// this week day by day (hearings and the day testimony closes), then the next deadline with every bill of yours that still needs a
+// hearing (P1 first, each with its committee, its chair, the last meeting before the deadline and when the notice must post, and one
+// button to email the chair), and the deadlines after it, folded to one line each. Hearings are posted about a week ahead; past that
+// it is deadlines, which the app already works out. Nothing here is "due": it is the work coming, not a task list (Today's promise
+// stays a list you can clear). Kris and Saya own no bills, so for them it is their coalitions' bills, as their Today is.
+const AH_DAYS = 21, AH_CAP = 7;
+function aheadBills(scope, who) {
+  const co = scope === 'mine' && !S.bills.some(isMine) ? coalPicked() : null;
+  return co ? { list: S.bills.filter(b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id))), coal: co } : { list: clockBills(scope, who), coal: null };
+}
+const ahNames = bs => { const b = bs[0], more = bs.length - 1; return `<b class="td-num">${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 60))}${more ? `<span class="muted"> and ${plural(more, 'other')}</span>` : ''}`; };
+function aheadWeek(scope, who, coal) {
+  const now = Date.now(), today = hst(now), end = dayAdd(today, 6), inC = b => !coal || (S.billCampaigns[b.id] || []).some(id => coal.ids.has(id));
+  const hs = hearingsIn(today, end, coal ? 'team' : scope, coal ? null : who).filter(x => inC(x.b) && !isMon(x.b) && x.t >= now - 2 * HR);
+  const sit = new Map(); for (const x of hs) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
+  const ev = [];
+  for (const list of sit.values()) {
+    const h = list[0].h, due = testDue(h), open = list.filter(x => draftOf(x.h)?.status !== 'filed');
+    ev.push({ day: list[0].day, at: list[0].t, kind: 'hearing', h, list });
+    if (open.length && due > now && hst(due) <= end) ev.push({ day: hst(due), at: due, kind: 'due', h, list: open });
+  }
+  const days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(today, i)).filter(d => ev.some(e => e.day === d));
+  const row = e => `<li class="ah-ev ah-${e.kind}${e.kind === 'due' && e.at - now <= DAY ? ' ah-soon' : ''}"><a href="#/hearing/${esc(e.h.id)}?from=today"><span class="ah-t">${esc(timeOf(new Date(e.at).toISOString()))}</span><span class="ah-k">${icon(e.kind === 'due' ? 'clock' : 'landmark')}${e.kind === 'due' ? `Written testimony closes · for the ${esc(e.h.committee)} hearing ${esc(dayFmt(hst(e.h.scheduled_at), { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', ''))}` : `Hearing · ${esc(e.h.committee)}${e.h.room ? ' ' + esc(room(e.h.room)) : ''}`}</span><span class="ah-who">${ahNames(e.list.map(x => x.b))}</span></a></li>`;
+  const body = days.length ? `<ol class="ah-days">${days.map(d => `<li class="ah-day"><h3 class="ah-dh">${esc(dayWord(d))} <span class="muted">${esc(dayFmt(d, { month: 'numeric', day: 'numeric' }))}</span></h3><ul class="ah-evs">${ev.filter(e => e.day === d).sort((a, b) => a.at - b.at || (a.kind === 'due' ? -1 : 1)).map(row).join('')}</ul></li>`).join('')}</ol>`
+    : '<p class="ah-none">Nothing is scheduled in the next 7 days.</p>';
+  return `<section class="ah-sec" aria-labelledby="ah-wk"><div class="ah-hd"><h2 id="ah-wk">This week</h2>${WIDE() ? `<a class="btn text sm" href="#/?view=week">${icon('calendar-days')}<span>Week as a grid</span></a>` : ''}</div>${body}
+    <p class="small muted ah-note">Hearings are posted about a week ahead. After that, look at the deadlines below.</p></section>`;
+}
+function aheadRow(x, owners) {
+  const { b, st } = x, m = st.committee ? chairMail(st.committee) : null, nb = noticeByFor(st), ls = st.committee && st.deadline ? lastSlotBefore(st.committee, st.deadline.date, S.slots) : null, two = m && m.n > 1;
+  const dayAt = d => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
+  // The date that matters leads (when the chair must have posted a hearing), then who and where; and a bill whose companion is already
+  // on a hearing says so, since the two usually share a nickname and one could be taken for the other (the fresh-eyes review, 10/6).
+  const comp = (b.companions || []).map(n => billByNum(n, b.session_year)).find(x => x && (S.hearings || []).some(h => h.bill_id === x.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())),
+    ch = comp && S.hearings.filter(h => h.bill_id === comp.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now()).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
+  const sub = [nb ? `a hearing must be posted by ${esc(dayAt(nb))}, ${esc(timeOf(nb.toISOString()))}` : '', st.committee ? esc(st.committee) : '', m ? esc(m.who) : '', ls ? `the committee’s last meeting is ${esc(dayAt(ls.at))}` : '', comp ? `its companion ${esc(comp.bill_number)} is heard ${esc(dayAt(ch.scheduled_at))}` : ''].filter(Boolean).map(p => `<span class="td-part">${p}</span>`).join('\u00a0· ');
+  const body = `Aloha ${m ? m.who : 'Chair'},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${blurb(b, 120) ? ` (${blurb(b, 120)})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${((S.me || {}).full_name || '').split(' ')[0]}`;
+  const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
+  return `<li class="ah-row"><div class="ah-main"><a class="ah-bill" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} <span class="ah-nm">${esc(b.nickname || blurb(b, 80))}</span></a>${own}<p class="ah-sub">${sub}</p></div>
+    <div class="ah-act">${m ? btn(`Email the chair${two ? 's' : ''}`, { kind: 'secondary', sm: true, icon: 'mail', href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}` }) : btn('Open bill', { kind: 'text', sm: true, href: billRoute(b) })}</div></li>`;
+}
+function aheadGate(g, lead, owners) {
+  const need = g.noHearing.slice().sort((x, y) => (y.b.priority === 1) - (x.b.priority === 1) || ((noticeByFor(x.st)?.getTime() ?? Infinity) - (noticeByFor(y.st)?.getTime() ?? Infinity)) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
+  const sum = `${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${need.length ? `; ${need.length} ${need.length === 1 ? 'has' : 'have'} no hearing yet${g.p1 ? ` (${g.p1} P1)` : ''}` : '; every one has a hearing'}.`;
+  const key = `ah${g.date}`, open = !!(S.tdOpen ??= {})[key], rows = open ? need : need.slice(0, AH_CAP);
+  const list = need.length ? `<ul class="ah-rows">${rows.map(x => aheadRow(x, owners)).join('')}</ul>${need.length > AH_CAP ? moreBtn(key, open, need.length) : ''}` : `<p class="ah-ok">${icon('check')}<span>${g.racing.length === 1 ? 'It has a hearing.' : 'Every one of them has a hearing.'}</span></p>`;
+  const head = `<span class="ah-gd">${esc(ckDay(g.date))}</span><span class="ah-gn">${esc(g.name)}</span><span class="ah-gw muted">${esc(awayOf(g.days))}</span>`;
+  if (lead) return `<section class="ah-gate" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><h3 class="ah-gh">${head}</h3><p class="ah-gs">${esc(sum)}</p>${list}</section>`;
+  return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
+}
+function aheadView(scope, who) {
+  const { list, coal } = aheadBills(scope, who), owners = scope === 'team' || scope === 'person' || scope === 'none';
+  if (SESSION_OVER) return `<div class="ah"><section class="ah-sec"><p class="ah-none">The session is over, so there are no deadlines to race. The next one's calendar is loaded in December.</p></section></div>`;
+  const gates = sessionGates(list).filter(g => !g.past && g.racing.length && g.days <= AH_DAYS);
+  // The first deadline that still has a bill without a hearing is the open one; an earlier deadline whose bills all have one is a quiet line above it.
+  const first = gates.find(g => g.noHearing.length) || gates[0];
+  const dl = gates.length ? `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">Deadlines</h2></div>${gates.map(g => aheadGate(g, g === first, owners)).join('')}</section>`
+    : `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">Deadlines</h2></div><p class="ah-none">None of ${esc(whoseBills(scope, who))} races a deadline in the next three weeks.</p></section>`;
+  return `<div class="ah">${aheadWeek(scope, who, coal)}${dl}</div>`;
+}
+
 function render(route) {
   if (!S.me) return empty({ title: 'No staff record yet', text: 'You are signed in, but the tracker does not know who you are. Ask your admin to add you.' });
   MEMO = new Map(); CARDS = new Map(); WAITS = new Map();
@@ -1413,6 +1479,7 @@ function render(route) {
   for (const t of r.tasks) if (t.a && S.tdAud[t.a.id] === undefined) { S.tdAud[t.a.id] = null; DB.alertAudience(t.a.bill_id, t.a.list_id, t.a.segment_id).then(n => { S.tdAud[t.a.id] = n; if (S.route?.name === 'today') hooks.render(); }).catch(() => {}); }
   if (openWeeks() && !S.tdTriage && !S.tdTriageLoading) { S.tdTriageLoading = true; DB.triageCounts().then(c => { S.tdTriage = c || {}; if (S.route?.name === 'today') hooks.render(); }).catch(() => { S.tdTriage = {}; }); }
   if (viewOf(route) === 'week') return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${weekView(route, scope, who, r)}</div>`;
+  if (viewOf(route) === 'ahead') return `<div class="td-root td-aheadroot">${toolbar(route, true)}${aheadView(scope, who)}</div>`;
   const open = S.tdOpen ??= { later: false, digest: false };
   const off = SESSION_OVER;
   // Kris and Saya own no bills: beside "The team's week" their own "This week" (all zeros) and "None of your bills has
@@ -1616,7 +1683,7 @@ function wire(route, root) {
   const main = root.querySelector('.td-root'); if (!main) return;
   main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; save('today_scope', S.tdScope); S.tdCur = null; S.tdSuggOnly = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; hooks.render(); });
   // List or Week swaps the page in place (no new history entry: Back still leaves Today, as it always has).
-  main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(el.dataset.val === 'week' ? '#/?view=week' : '#/', { replace: true }); });
+  main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(el.dataset.val === 'week' ? '#/?view=week' : el.dataset.val === 'ahead' ? '#/?view=ahead' : '#/', { replace: true }); });
   main.querySelectorAll('[data-wkasks]').forEach(el => el.onclick = async () => {   // this week's asks (R-132)
     const text = weekAsksText(S.tdAsks || [], el.dataset.wkasks);
     try { await navigator.clipboard.writeText(text); toast(el.dataset.wkasks === 'social' ? 'Copied: one short ask per bill, each under a post’s length. Paste, and change anything you like.' : 'Copied the week’s asks for the newsletter. Paste, and change anything you like.'); }

@@ -70,3 +70,5 @@ jobs:
         run: python3 tests/staff_r152c.py
       - name: Staff v2, batch D: the practice copy, readiness, small fixes (R-152)
         run: python3 tests/staff_r152d.py
+      - name: Staff v2, Today | Ahead (R-049)
+        run: python3 tests/staff_ahead.py

@@ -146,7 +146,7 @@ with sync_playwright() as pw:
     for row in panel:
         col = next((x for x in s['cols'] if x['h'] == row['day']), None) if row['day'] != 'Weekend' else next((x for x in s['cols'] if x['day'] == 'weekend'), None)
         if col: ok(row['n'] == [len(col['hr']), sum(len(c_['bills']) for c_ in col['dl'])], f'monitor: the side panel agrees on {row["day"]} ({row["n"]})')
-    p.locator('[data-seg="tdview"][data-val="week"]').click(); p.wait_for_timeout(1200); s2 = p.evaluate(WEEK)
+    p.evaluate("location.hash = '#/?view=week'"); p.wait_for_timeout(1200); s2 = p.evaluate(WEEK)   # the grid is reached from Ahead's link or the address now (R-049), not from the switch
     ok(s2['monOn'] == 'true' and s2['monBills'] == n, f'monitor: the choice holds after going to the list and back ({s2["monBills"]})')
     p.locator('.td-wnav [data-mon]').click(); p.wait_for_timeout(900); s3 = p.evaluate(WEEK)
     ok(s3['monOn'] == 'false' and s3['monBills'] == 0 and s3['sum'] == s0['sum'], f'monitor: pressed again, folded away again ("{s3["sum"]}")')

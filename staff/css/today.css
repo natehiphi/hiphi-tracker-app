@@ -637,3 +637,11 @@
 .td-start .rows { border-top: 1px solid var(--n100); }
 .td-startf { padding: var(--s8) var(--s16) var(--s12); }
 @media (prefers-reduced-motion: reduce) { .td-startc { transition: none; } }
+
+/* Two switches in the phone's toolbar (Today | Ahead and Mine | Team): tighter buttons so the date keeps a column of its own (R-049). */
+@media (max-width: 30em) {
+  .td-root .td-head { flex: 1 1 100%; }
+  .td-root .td-tools { flex: 1 1 100%; justify-content: space-between; margin-top: var(--s8); }
+  .td-root .td-sub .sv-seg { flex: 1 1 0; }
+  .td-root .td-sub .sv-seg button { flex: 1 1 0; padding: 0 8px; }
+}

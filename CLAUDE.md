@@ -462,6 +462,14 @@ the old app still draws with does, until it retires. Its "since your last visit"
   freeze a page (`parseRoute`); a bulk edit goes in slices of 150 (`DB.bulkUpdate`); an owner change adds the new owner before taking the
   old one off (`DB.setOwner`); a filing confirmation link must be https (`DB.transition`); the staff apps pin supabase-js@2.117.2, the
   version the public page pins (`pub/kernel.js`): change all of them together, and run `staff_live.py` when you do.
+- **Ahead (R-049, 10/6).** Today's switch is **Today | Ahead** (`#/?view=ahead`, every width); the Week grid (`?view=week`, laptop) is one link
+  from Ahead ("Week as a grid") and the switch shows a third "Week" only while you are on it. `aheadView` in `staff/today.js`: "This week" (the
+  next 7 days: hearings and the day written testimony closes, from `hearingsIn`), then "Deadlines" from `sessionGates` within 21 days: the first
+  deadline that still has a bill with no hearing is open (P1 first, then by when the notice must post, a row's chair, last meeting and one
+  "Email the chair" button; more than 7 fold), earlier ones whose bills all have a hearing and later ones are one folded line. Nothing on it says
+  "due" (it is work coming, not Today's list you clear). Stage 1 of the review's plan: **Today is not yet trimmed**; Nate and Lauren try Ahead
+  in the practice copy first (then move "Next deadlines", "Hearings today" and "This week" off Today). Kris and Saya (no bills) see their
+  coalitions' bills. Between sessions it says so. A testimony row is amber only within 24 hours, as everywhere.
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 
@@ -473,6 +481,7 @@ python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the f
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_r152c.py        # R-152 batch C in the sandbox: one countdown rounded down everywhere, the testimony deadline before a draft, who gets a draft, the phone's Public tab order, the ask's date against the hearing, "This week's asks" folded and on a phone, the next hearing first, bill names not cut; 33 checks. Runs in CI
+python3 tests/staff_ahead.py        # Today | Ahead (R-049): this week day by day, the next deadline's bills with no hearing (once each, P1 first, by when the notice must post, never "due"), later deadlines folded, the Week grid one link away, phone, Team, between sessions; 39 checks. Runs in CI
 python3 tests/staff_r152d.py        # R-152 batch D in the sandbox: the practice copy's to-do, sample email, checklist, calendar and no-draft card as the live app has them, readiness checking the approvers and the next session's committees, a stray % in the address, the pinned library; 17 checks. Runs in CI
 python3 tests/staff_live.py         # Staff v2's LIVE path on a fake Supabase (tests/livefake.py, the snapshot's rows, a stored login): the hearings read, a failed read named, refresh on return, save only what changed, a teammate's conflicting save, two sessions' bill numbers, staff error reports (R-152 B); 52 checks. Runs in CI on every push
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
