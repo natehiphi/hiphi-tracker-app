@@ -2,7 +2,8 @@
 # nothing against the private Bill-Tracker repository's 2,000 a month (R-104). It fails the push when a screen breaks:
 # the module-aware syntax check of every JS file, the two staff apps' data-call parity, the suggested-bill rules, and
 # three Playwright runs against this commit served locally: every public screen as three kinds of person in the sandbox
-# and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py). The live
+# and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py); then Staff v2's
+# live path on a fake database (staff_live.py) and its flows in the sandbox (staff_flows.py, R-152). The live
 # half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
 # pushed. The share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
 name: Tests
@@ -61,3 +62,7 @@ jobs:
         run: python3 tests/year_links.py
       - name: The error reporter
         run: python3 tests/errlog.py
+      - name: Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports
+        run: python3 tests/staff_live.py
+      - name: Staff v2's flows in the sandbox (R-152)
+        run: python3 tests/staff_flows.py

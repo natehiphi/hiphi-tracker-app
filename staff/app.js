@@ -5,7 +5,8 @@
 import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
-import { exactBill, inboxCount } from './model.js';
+import { reportError } from './errlog.js';
+import { exactBill, inboxCount, billRoute, FACTS } from './model.js';
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import inbox from './inbox.js';
@@ -46,7 +47,8 @@ export function parseRoute(h = location.hash) {
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', q };
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
-    case 'bill': return { name: 'bill', num: String(seg[1] || '').toUpperCase(), tab: seg[2] || 'overview', q };
+    // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || ''); return { name: 'bill', year: yr ? seg[1] : '', num: String(seg[yr ? 2 : 1] || '').toUpperCase(), tab: seg[yr ? 3 : 2] || 'overview', q }; }
     case 'legislators': return { name: 'legislators', q };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
     case 'hearing': return { name: 'hearing', id: seg[1] || '', q };
@@ -147,6 +149,41 @@ function tabbar(scr) {
   const bd = badge();
   return `<nav class="sv-tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${t === 'today' && bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>`).join('')}</nav>`;
 }
+// A read that failed is said at the top of every screen, with a Reload (R-152 B). Before, eight of about fifty sign-in reads
+// stopped the app and the rest quietly became empty lists. S.loadFailed names them (data.js loadAll).
+function loadNotice() {
+  const f = S.loadFailed || [];
+  if (!f.length || DEMO) return '';
+  return `<div class="sv-failnote" role="alert"><p><b>Some of this did not load:</b> ${esc(f.join(', '))}. What you see may be missing things.</p>${btn('Reload', { kind: 'secondary', sm: true, icon: 'rotate-ccw', attrs: { 'data-reload': '1' } })}</div>`;
+}
+// Fresh data (R-152 B). The app read the database once, at sign-in, and never again, so an approval from a phone or a new
+// draft stayed invisible on a teammate's open laptop. It now reads again when someone comes back to the tab after five
+// minutes away, and "Refresh" in the menu does it on demand. The screen is redrawn only when that cannot lose anything:
+// not while a dialog or sheet is open or a box is being typed in (the data is still updated underneath; the next move shows it).
+const STALE_MS = 5 * 60e3;
+let hiddenAt = 0, refreshing = false;
+const busyTyping = () => { const a = document.activeElement; return !!document.querySelector('dialog[open]') || sheetOpen() || !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)); };
+export async function refreshData({ say = false } = {}) {
+  if (refreshing) return false;
+  if (DEMO) { if (say) toast('This is the sandbox, so there is nothing newer to read.'); return false; }
+  refreshing = true;
+  try {
+    await DB.loadAll();
+    FACTS.clear();
+    if (!busyTyping()) render();
+    if (say) toast((S.loadFailed || []).length ? 'Reloaded, but some of it still did not load.' : 'Up to date.', (S.loadFailed || []).length ? { err: true } : { ok: true });
+    return true;
+  } catch (e) {
+    console.error(e);
+    if (say) toast('Could not reload. Check your connection and try again.', { err: true });
+    return false;
+  } finally { refreshing = false; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt >= STALE_MS && S.session) refreshData();
+  hiddenAt = 0;
+});
 let lastKey = '';
 export function render() {
   if (!S.session && !DEMO) return renderLogin();
@@ -155,7 +192,7 @@ export function render() {
   const scr = SCREENS[route.name] || today;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   let main, bar = '';
-  try { main = scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
+  try { main = loadNotice() + scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); reportError('render', e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
   const cls = document.body.classList;
   cls.add('staff2'); cls.toggle('sidenarrow', sideNarrow()); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
@@ -177,11 +214,12 @@ export function render() {
   if (ft && ft.tagName !== 'H1' && (!ownH1 || getComputedStyle(ownH1).display === 'none')) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
   try { clearTimeout(window.__bootT); } catch { /* ignore */ }
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'Bill Tracker staff';
-  try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); }
+  try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
 }
 hooks.render = () => render();
+hooks.afterLoad = () => FACTS.clear();   // the derived facts are rebuilt from the new rows (R-152 B)
 hooks.toast = (m, err) => toast(m, err ? { err: true } : {});
 hooks.onAuth = () => boot();
 hooks.onRecovery = () => renderRecovery();
@@ -194,13 +232,14 @@ function wireFrame(app) {
     go(a.getAttribute('href'));
   }));
   app.querySelector('[data-avatar]')?.addEventListener('click', avatarMenu);
+  app.querySelector('[data-reload]')?.addEventListener('click', () => refreshData({ say: true }));
   // Collapse: redrawn in place, so the page under it keeps its scroll position and nothing else moves.
   app.querySelector('[data-sidecol]')?.addEventListener('click', () => { setSideNarrow(!sideNarrow()); render(); document.querySelector('[data-sidecol]')?.focus(); });
   // "Skip to content" moves focus into the page. As a #main link the router read it as a page name and went to Today.
   const skip = app.querySelector('[data-skip]');
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
-  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? `#/bill/${b.bill_number.replace(/\s/g, '')}` : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
+  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? billRoute(b) : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
     // header's). On the Search page the results under the box are the list. With nothing named that way, Search still
     // looks through sponsors, owners and committees, so the last row says so.
@@ -219,6 +258,7 @@ function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Inbox', icon: 'inbox', sub: (n => n ? `${n} unread that need${n === 1 ? 's' : ''} you` : 'Everything sent to you, read or not')(inboxCount()), run: () => go('#/inbox') },
+    { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
@@ -301,7 +341,7 @@ async function boot() {
     else if (r.legacyTo) { history.replaceState({ y: 0 }, '', r.legacyTo); if (r.note) setTimeout(() => toast(decodeURIComponent(r.note)), 300); }
     render();
   } catch (e) {
-    console.error(e);
+    console.error(e); reportError('boot', e);
     app.innerHTML = `<main id="main">${empty({ title: 'We could not load the tracker', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } }) })}</main>`;
   }
 }
@@ -325,4 +365,4 @@ function sandboxExtras() {
       ...(S.alerts || [])];
   }
 }
-DB.init().then(boot).catch(e => { console.error(e); document.getElementById('app').innerHTML = `<main id="main">${empty({ title: 'We could not load the tracker', text: 'Check your connection and try again.' })}</main>`; });
+DB.init().then(boot).catch(e => { console.error(e); reportError('boot', e); document.getElementById('app').innerHTML = `<main id="main">${empty({ title: 'We could not load the tracker', text: 'Check your connection and try again.' })}</main>`; });

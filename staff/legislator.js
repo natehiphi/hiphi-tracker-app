@@ -11,16 +11,17 @@
 // Conversations (R-022 wave 2 #9): "Log a conversation" and the list are the shared ones in conversation.js, filed by
 // issue, so what is logged here also shows on the issue's page and on every bill of that issue, and the other way round.
 import { S, DB, esc, hooks, advocate } from './data.js';
-import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, blurb, cmteName, STANCES } from './model.js';
+import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, blurb, cmteName, STANCES, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, pickerChip, pickerSheet, empty, notice, toast } from './ui.js';
 import { photo, legName, shortName, partyDist, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
 import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount } from './conversation.js';
+import { billRoute } from './model.js';
 
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-const fromBill = route => route.from ? S.bills.find(b => b.bill_number === String(route.from).replace(/\s/g, '').toUpperCase()) : null;
+const fromBill = route => route.from ? billByRef(route.from) : null;
 const FOLD = 8;   // long lists show 8 rows, the rest behind one tap (the count in the heading is always the full count)
 
 // Sponsors are matched to legislators by surname on every bill, so the index is built once per load, not per page.
@@ -171,7 +172,7 @@ export default {
   // The two columns need more than the 720px column the frame gives a plain page between 900 and 1099px.
   wide: () => DESK(),
   title: route => { const l = legById(route.id); return l ? shortName(l) : 'Legislator'; },
-  back: route => { const b = fromBill(route); return b ? { href: `#/bill/${encodeURIComponent(b.bill_number)}/pathway`, label: b.bill_number } : { href: '#/legislators', label: 'Legislators' }; },
+  back: route => { const b = fromBill(route); return b ? { href: `${billRoute(b, 'pathway')}`, label: b.bill_number } : { href: '#/legislators', label: 'Legislators' }; },
   render(route) {
     const l = legById(route.id);
     if (!l) return empty({ title: 'We could not find that legislator', text: 'The link may be from an earlier session.', action: btn('See all legislators', { href: '#/legislators' }), h: 'h1' });

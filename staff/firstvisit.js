@@ -14,6 +14,7 @@ import { S, DB, DEMO, SESSION_YEAR, hooks, esc } from './data.js';
 import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, notice, pickerSheet, pickerChip, segmented, skeleton } from './ui.js';
 import { plural, afterClose } from './lists.js';
 import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
+import { billByNum, billYearPart } from './model.js';
 
 export const FV_HREF = '#/outreach/issues?view=first-visit';
 export const LINKS_HREF = '#/outreach/issues?view=links';
@@ -62,7 +63,7 @@ const wordOf = t => String(t || '').toLowerCase().replace(/\s+/g, '-').replace(/
 const destHash = d => { const [k, x] = String(d || '').split(':'); return k === 'issue' && x ? `#/issue/${encodeURIComponent(x)}` : k === 'bill' && x ? `#/bill/${billYear(x)}${x}` : ''; };
 // A bill from an earlier session carries its year in the link (#/bill/2026/HB2121, R-110); the current session's keep
 // the short form. The staff app holds the tracked bills, so a number it knows from an earlier session gets its year.
-const billYear = n => { const b = (S.bills || []).find(x => x.bill_number === n); return b && b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : ''; };
+const billYear = n => billYearPart(billByNum(n)); 
 export const linkFor = (slug, word = '', dest = '') => `${LINK_BASE}?via=${encodeURIComponent(slug)}${word ? `&utm_campaign=${encodeURIComponent(word)}` : ''}${destHash(dest)}`;
 const billNo = t => { const m = /^\s*([HS])\.?\s*([BRC]|CR|HR|SR)?\.?\s*(\d{1,4})\s*$/i.exec(String(t || '')); return m ? `${m[1].toUpperCase()}${(m[2] || 'B').toUpperCase()}${+m[3]}` : ''; };
 const destName = d => { const [k, x] = String(d || '').split(':'); if (k === 'issue') return (S.issues || []).find(i => i.slug === x)?.name || x; if (k === 'bill') return x.replace(/^([A-Z]+)(\d)/, '$1 $2'); return 'The first visit'; };

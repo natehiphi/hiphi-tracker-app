@@ -11,6 +11,7 @@ import { billNum, PUBLIC_APP, billById, plain } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
 import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, billName, isSide } from './lists.js';
 import * as SP from './supporters.js';
+import { billRoute } from './model.js';
 
 const publicLink = l => `${PUBLIC_APP()}#list=${l.slug}`;
 function embedCode(l) {
@@ -73,7 +74,7 @@ function billRowHTML(l, x, b, i, n) {
   const num = numOf(b);
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <button type="button" class="le-grip" data-grip="${esc(b.id)}" aria-label="Move ${esc(num)}, now ${i + 1} of ${n}. Drag it, or press the up and down arrow keys." title="Drag to reorder">${icon('grip-vertical')}</button>
-    <a class="le-bmain" href="#/bill/${encodeURIComponent(b.bill_number)}">
+    <a class="le-bmain" href="${billRoute(b)}">
       ${billName(b, 140)}
       ${x.note ? `<span class="le-note">${icon('message-square')}<span>${esc(x.note)}</span></span>` : ''}
       ${b.is_public ? '' : `<span class="le-warn">${icon('eye-off')}Not public, so the public page leaves it out</span>`}
@@ -183,7 +184,7 @@ function billMenu(l, billId) {
     { label: 'Move up', icon: 'move-up', disabled: i === 0, reason: `${num} is already first.`, run: () => moveTo(l, b.id, i - 1) },
     { label: 'Move down', icon: 'move-down', disabled: i === rows.length - 1, reason: `${num} is already last.`, run: () => moveTo(l, b.id, i + 1) },
     { label: x.note ? 'Edit the public note' : 'Add a public note', icon: 'message-square', sub: x.note ? x.note : 'Why this bill matters on this list', run: async () => { await afterClose(); noteSheet(l, x, b); } },
-    { label: 'Open the bill', icon: 'scroll-text', run: async () => { await afterClose(); S.go('#/bill/' + encodeURIComponent(b.bill_number)); } },
+    { label: 'Open the bill', icon: 'scroll-text', run: async () => { await afterClose(); S.go(billRoute(b)); } },
     { label: 'Remove from the list', icon: 'trash-2', danger: true, run: () => removeBill(l, b) },
   ] });
 }

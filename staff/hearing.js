@@ -11,10 +11,11 @@
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
 import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit } from './model.js';
+import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD } from './ui.js';
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender } from './bill.js';
+import { billRoute } from './model.js';
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
@@ -135,7 +136,7 @@ function billRow(x, c) {
     end = chip(t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).
-  return `<a class="row hr-bill" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+  return `<a class="row hr-bill" href="${billRoute(b)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 // Bills we only monitor are folded away when bills with a position share the sitting (R-022 decision 4, as on Today and
 // the Week); a sitting of monitored bills alone shows them, or the page would be empty.
@@ -201,7 +202,7 @@ function membersHTML(c) {
     return `<a class="row hr-mem" href="${legHref(m.l)}">${photo(m.l, 40)}<span class="body"><span class="title">${esc(legName(m.l))}</span><span class="sub">${esc(`${role} · ${partyDist(m.l)}`)}</span></span><span class="end">${st}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
   });
   const lead = pos[0]?.b;
-  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it on ${esc(lead.bill_number)}’s <a href="#/bill/${encodeURIComponent(lead.bill_number)}/pathway">Pathway</a>.</p>` : '';
+  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it on ${esc(lead.bill_number)}’s <a href="${billRoute(lead, 'pathway')}">Pathway</a>.</p>` : '';
   return section('hr-s3', 'Committee members', members.length, `${hint}<div class="rows hr-rows">${folded(h.id + '|m', rows)}</div>`);
 }
 
@@ -271,8 +272,8 @@ function backOf(route) {
   if (from === 'today') return { href: '#/', label: 'Today' };
   if (from === 'week') return { href: '#/?view=week', label: 'Week' };
   if (from === 'legislators') return { href: '#/legislators', label: 'Legislators' };
-  const b = from && S.bills.find(x => x.bill_number === from.replace(/\s/g, '').toUpperCase());
-  if (b) return { href: `#/bill/${encodeURIComponent(b.bill_number)}`, label: b.bill_number };
+  const b = from && billByRef(from);
+  if (b) return { href: `${billRoute(b)}`, label: b.bill_number };
   const co = from && (S.campaigns || []).find(x => String(x.id) === from);
   if (co) return { href: `#/coalition/${encodeURIComponent(co.id)}`, label: co.name };
   return { href: '#/', label: 'Today' };

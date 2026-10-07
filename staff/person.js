@@ -10,6 +10,7 @@ import { icon, btn, iconBtn, chip, billRow, empty, skeleton, toast, openSheet, c
 import { followupSheet, afterSheet } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
+import { billRoute } from './model.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
 const isTwo = () => matchMedia('(min-width: 1100px)').matches;
@@ -130,7 +131,7 @@ function follows(p) {
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
     ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
-    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `#/bill/${b.bill_number}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}
+    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `${billRoute(b)}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}
       ${showAll ? '' : `<button type="button" class="row sp-showall" data-pp="billsall">${icon('chevron-down')}<span>Show all ${bills.length} bills</span></button>`}</div>`
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
@@ -154,7 +155,7 @@ function feed(p) {
         ${mine || S.me?.is_admin ? btn('Delete', { kind: 'text', sm: true, attrs: { 'data-ndel': String(x.n.id), 'aria-label': 'Delete this note' } }) : ''}</li>`;
     }
     const b = x.e.bill_id && billById(x.e.bill_id);
-    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? `<a href="#/bill/${esc(b.bill_number)}">${esc(x.e.label)}</a>` : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
+    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? `<a href="${billRoute(b)}">${esc(x.e.label)}</a>` : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
   };
   return `<section class="sp-sec" aria-labelledby="sp-h-feed"><div class="sechead"><h2 id="sp-h-feed">Activity</h2><span class="meta">Notes are for the team only</span></div>
     ${loading ? skeleton(2).replace('skelpage', 'skelpage sp-feedload') : st.loadErr && !items.length ? `<p class="muted sp-none">The activity did not load. Try again later.</p>`

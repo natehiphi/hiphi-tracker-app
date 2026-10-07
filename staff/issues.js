@@ -17,6 +17,7 @@ import { plural, pageHead, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
 import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, indexLinks, isDraft } from './prep.js';
+import { billRoute } from './model.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -210,7 +211,7 @@ function needsHTML(v) {
   return `<section class="card is-needs" aria-labelledby="is-nh">
     <h2 id="is-nh">${icon('triangle-alert')}<span>${plural(need.length, 'position bill')} this session with no issue</span></h2>
     <p class="small">Nobody following issues gets ${need.length === 1 ? 'it' : 'these'}. Put each one on an issue.</p>
-    <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="#/bill/${encodeURIComponent(b.bill_number)}/public">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billNum(b)}` } })}</li>`).join('')}</ul>
+    <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="${billRoute(b, 'public')}">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billNum(b)}` } })}</li>`).join('')}</ul>
     ${need.length > shown.length ? btn(`Show all ${need.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-is': 'needsall' } }) : ''}
   </section>`;
 }
@@ -283,7 +284,7 @@ function hitsHTML(i, q) {
 function billLine(i, b) {
   const why = whyNot(b);
   return `<li class="le-brow" data-bid="${esc(b.id)}">
-    <a class="le-bmain" href="#/bill/${encodeURIComponent(b.bill_number)}">${billName(b, 140)}
+    <a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
       <span class="is-bmeta">${posChip(b.position || '')}${thisSession(b) ? '' : `<span class="meta">${esc(b.session_year)}</span>`}</span>
       ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a>
     ${iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id })}

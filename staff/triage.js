@@ -22,6 +22,7 @@ import { icon, btn, pickerChip, toast, pickerSheet, empty, skeleton, keysOn, POS
 import { iconName } from './setup.js';
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
+import { billRoute } from './model.js';
 
 const T = () => S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
 const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.iss ??= {}; t.done ??= 0; t.hist ??= []; return t; };
@@ -273,7 +274,7 @@ async function decide(kind) {
       const who = own ? (own === S.me?.id ? 'You' : advocate(own)?.full_name || 'Someone') : '';
       const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who, issueId: iss?.id || null, issue: iss?.name || '' }; t.hist.unshift(h); t.last = { ...r, tracked: true };
       count(t, r, -1, true); done(t, idx);
-      toast(`${r.bill_number} tracked for ${c?.name || 'the tracker'}. ${!own ? 'No owner yet.' : own === S.me?.id ? 'You own it.' : `${who} owns it.`}`, { ok: true, undo: () => undoEntry(h), action: { label: 'Open', run: () => S.go('#/bill/' + r.bill_number) } });
+      toast(`${r.bill_number} tracked for ${c?.name || 'the tracker'}. ${!own ? 'No owner yet.' : own === S.me?.id ? 'You own it.' : `${who} owns it.`}`, { ok: true, undo: () => undoEntry(h), action: { label: 'Open', run: () => S.go(billRoute(r)) } });
     } else {
       await DB.triageSkip(r);
       const h = { key: ++seq, kind: 'skip', row: r, idx }; t.hist.unshift(h); t.last = { ...r, tracked: false };

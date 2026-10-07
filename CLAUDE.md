@@ -412,6 +412,22 @@ the life of the toast so Undo can cancel it; there is no call that removes an ac
   position P2, no position none. The database sets it (backend migration 144, a trigger on `bills`); `DB.updateBill` and
   `DB.bulkUpdate` add it to any patch with a position (`priorityOf` in `staff/data.js` and `app.js`) so the screen is
   right at once. Never add a priority picker back; the position pickers say "Makes it P1" (`POS_SUB` in `staff/ui.js`).
+- **Staff v2 with eleven people at once (R-152 batch B, 10/6).** The app was built as if one person used it; these are the rules
+  that came out of the review (a fake database tests them, below). (1) **Never build a bill link by hand:** `billRoute(b[, tab])`,
+  `billRef(b)`, `billByNum(num, year)` and `billByRef(ref)` in `staff/model.js` carry the session year the way the public page
+  does since R-110 (`#/bill/HB2121` is the current session's bill, `#/bill/2026/HB2121` an earlier one's; `route.year`; `billNum(b)`
+  reads "HB5 (2026)" for an earlier session's bill; `?from=` takes a ref). (2) **A read that fails must say so:** `DB.loadAll` names
+  each failed read in `S.loadFailed` (`S.failed('testimony drafts')`), the frame shows one amber notice with Reload (`loadNotice`,
+  `.sv-failnote`), and a screen that would state something false from an empty list checks `S.failed(...)` first (Today's no-draft
+  card, the bill page, the Draft chip). (3) **Fresh data:** `refreshData()` in `staff/app.js` reads again when someone comes back
+  to the tab after 5 minutes away, and "Refresh" is in the avatar menu; it redraws only when nothing is being typed or open.
+  (4) **Save only what changed, never over a teammate's newer text:** a form that saves team fields keeps the values it held when
+  editing began (the base) and calls `DB.saveBillFields(id, patch, base)`, which writes only the keys that differ and reads
+  them fresh first; a conflict comes back as `{ conflicts }` and `askConflict` (`staff/conflict.js`) shows theirs and yours (Keep
+  theirs / Replace with mine). The Public tab and the team note use it. A single-field cell edit (`DB.updateBill`) is already
+  "only what changed". (5) **Hearings are read for tracked bills only** (an inner join on `bills.tracked`, both apps); a bill
+  tracked later brings its own (`DB.adoptHearings`). (6) **Staff errors are reported** like the public page's (`staff/errlog.js`
+  to `log_public_error`, place "staff/<screen>", never from a test run). Do not undo any of these.
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 
@@ -422,6 +438,7 @@ Serve first: `python3 -m http.server 8832` in this folder.
 python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season, the session lesson's label inside its drawing (R-179)
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
+python3 tests/staff_live.py         # Staff v2's LIVE path on a fake Supabase (tests/livefake.py, the snapshot's rows, a stored login): the hearings read, a failed read named, refresh on return, save only what changed, a teammate's conflicting save, two sessions' bill numbers, staff error reports (R-152 B); 52 checks. Runs in CI on every push
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5

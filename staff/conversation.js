@@ -12,6 +12,7 @@ import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } fro
 import { issuesOfBill, issueById } from './issues.js';
 import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pathway.js';
 import { matchLegs } from './legislators.js';
+import { billRoute } from './model.js';
 
 const WINDOW = 10 * 60e3;
 const LATE = 'This conversation can no longer be changed: notes can be corrected for ten minutes after they are saved.';
@@ -85,7 +86,7 @@ function itemHTML(g, here) {
   const bill = g.bill_id && g.bill_id !== here.billId ? billById(g.bill_id) : null;
   const head = here.legId ? (names.length ? `Also with ${andList(names)}` : '') : (andList(names) || 'A legislator');
   const meta = [esc(dayOf(g.day)), mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
-    bill ? `on <a href="#/bill/${esc(bill.bill_number)}">${esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
+    bill ? `on <a href="${billRoute(bill)}">${esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
   return `<article class="row cv-item" data-cvkey="${esc(g.key)}">
     <div class="cv-main">
       ${head ? `<p class="cv-names">${head}</p>` : ''}

@@ -14,6 +14,7 @@ import { icon, btn, empty, toast } from './ui.js';
 import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
+import { billRoute } from './model.js';
 
 const SHOW = { bills: 8, legs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
@@ -70,7 +71,7 @@ export function headerHits(q) {
   const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
   const bills = billHits(q).filter(shows).map((b, k) => [b, k])
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({   // a number's matches: moving ones first, in number order
-    href: `#/bill/${b.bill_number.replace(/\s/g, '')}`, title: name(b), icon: 'scroll-text', inline: true,
+    href: billRoute(b), title: name(b), icon: 'scroll-text', inline: true,
     sub: [spacedNum(b.bill_number), STAGE_LABEL[effStage(b)]].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
   const issues = (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`))))
@@ -120,7 +121,7 @@ function resultsHTML(q) {
   const main = [], side = [];
   const nBills = tracked.length + (un ? un.length : 0);
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
-    main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `#/bill/${encodeURIComponent(b.bill_number)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
+    main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `${billRoute(b)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
   if (legs.length) side.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
   if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
   else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
@@ -211,7 +212,7 @@ export default {
     // Enter in either box: a bill number that names exactly one tracked bill opens that bill (B-2: a number in hand is
     // two steps from its page, and a results page in between made it four; R-022). The header box does the same on
     // every other page. Anything else keeps this page (the header's own submit would push another history entry).
-    const openExact = q => { const b = exactBill(q); if (!b) return false; S.go(`#/bill/${b.bill_number.replace(/\s/g, '')}`); return true; };
+    const openExact = q => { const b = exactBill(q); if (!b) return false; S.go(billRoute(b)); return true; };
     root.querySelector('[data-lgsform]').onsubmit = e => { e.preventDefault(); if (!openExact(own.value)) own.blur(); };
     const hf = hdr?.closest('form');
     if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); if (!openExact(hdr.value)) onType(hdr); }, { capture: true });
@@ -232,7 +233,7 @@ export default {
       try {
         await DB.track(bill);
         s.un.rows = s.un.rows.filter(x => x.id !== r.id); paint();
-        toast(`${r.bill_number} is now tracked. Set its position and owner.`, { ok: true, action: { label: 'Open', run: () => S.go(`#/bill/${encodeURIComponent(r.bill_number)}`) } });
+        toast(`${r.bill_number} is now tracked. Set its position and owner.`, { ok: true, action: { label: 'Open', run: () => S.go(`${billRoute(r)}`) } });
       } catch (x) { tr.removeAttribute('aria-busy'); tr.disabled = false; toast(x, { err: true }); }
     });
     untracked();

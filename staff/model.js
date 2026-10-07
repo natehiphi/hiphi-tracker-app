@@ -543,7 +543,8 @@ export const blurb = (b, n = 90) => { const t = (b.public_summary || b.descripti
   return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
 export const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; P1 rows are double height
 export const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
-export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
+// An earlier session's bill says so ("HB5 (2026)"), so two bills of one number are never two identical rows (R-152 B).
+export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '') + (billYearPart(b) ? ` (${b.session_year})` : '');
 export const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
 export function chairMail(code) {
   // The committee roster knows who chairs it; the last word of the name broke on two-word surnames
@@ -665,7 +666,7 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
         why: `No hearing yet · ${st.deadline.label} deadline ${fmtDate(st.deadline.date)}, ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}${noticeByFor(st) ? ` · the notice has to post by ${fmtDate(noticeByFor(st), { weekday: 'short' }).replace(',', '')}` : ''}${m ? ` · ${m.who}` : ''}`,
         urgent: st.deadline.days <= RISK_DAYS,
         act: m ? { label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(`Aloha ${m.who},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${name ? ` (${name})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(S.me?.full_name || '').split(' ')[0]}`)}`, ext: true }
-          : { label: 'Open the bill', href: `#/bill/${b.bill_number}` },
+          : { label: 'Open the bill', href: billRoute(b) },
         log: { type: 'meeting', title: `Asked ${m ? m.who : 'the chair'} for a hearing` } });
     }
 
@@ -675,7 +676,7 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     if (b.is_public && !String(b.public_summary || '').trim()) {
       add({ kind: 'summary', key: `sg:sum:${b.id}`, b, title: 'Write a plain summary for the public page',
         why: 'The public page shows supporters only the official title',
-        act: { label: 'Write it', href: `#/bill/${b.bill_number}/public` },
+        act: { label: 'Write it', href: billRoute(b, 'public') },
         log: null });
     }
 
@@ -697,7 +698,7 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     if (!b.position && b.tracked) {
       add({ kind: 'position', key: `sg:pos:${b.id}`, b, title: 'Decide where the team stands',
         why: 'Tracked, but it has no position, so it is in nobody\'s list and no supporter sees it',
-        act: { label: 'Open the bill', href: `#/bill/${b.bill_number}` }, log: null });
+        act: { label: 'Open the bill', href: billRoute(b) }, log: null });
     }
 
     // 5. A hearing far enough ahead to be worth telling supporters about. Only when email is switched on: while it
@@ -769,12 +770,34 @@ export function plainAction(t) {
   return [clipPlain(s.replace(/\.$/, ''), 90), 5];
 }
 
+// Bill numbers start again at HB 1 every session (R-152 B, the year-proofing the public page got in R-110): in 2027 the
+// tracked bills include 2026's, so a number alone can mean two bills. #/bill/HB2121 is the current session's bill and an
+// earlier session's is #/bill/2026/HB2121. Never build a bill link by hand: billRoute(b[, tab]) adds the year, billRef(b)
+// is the same without the "#/bill/" (for ?from=), billByNum(num, year) finds the bill (the year named, else the current
+// session's, else the newest), and parseBillRef reads "2026/HB2121" back.
+export const billKey = n => String(n || '').replace(/\s/g, '').toUpperCase();
+export const billYearPart = b => b && b.session_year && +b.session_year !== +SESSION_YEAR ? `${b.session_year}/` : '';
+export const billRef = b => billYearPart(b) + billKey(b.bill_number);
+export const billRoute = (b, tab = '') => `#/bill/${billRef(b)}${tab && tab !== 'overview' ? '/' + tab : ''}`;
+export function parseBillRef(str) {
+  const m = /^(?:(\d{4})\/)?([A-Za-z]+\s?\d+)$/.exec(String(str || '').trim());
+  return m ? { year: m[1] || '', num: billKey(m[2]) } : { year: '', num: billKey(str) };
+}
+export function billByNum(num, year = '') {
+  const n = billKey(num), c = (S.bills || []).filter(b => billKey(b.bill_number) === n);
+  if (!c.length) return null;
+  if (year) return c.find(b => +b.session_year === +year) || null;
+  return c.find(b => !b.session_year || +b.session_year === +SESSION_YEAR) || c.slice().sort((a, b) => (b.session_year || 0) - (a.session_year || 0))[0];
+}
+export const billByRef = ref => { const r = parseBillRef(ref); return billByNum(r.num, r.year); };
+
 // A bill number typed into a search (HB1523, "hb 1523", or just 1523 when only one tracked bill has it) opens the bill:
 // B-2's budget is two steps from a number in hand to its page, and a results page in between made it four (R-022).
 export function exactBill(q) {
   const t = String(q || '').trim().toUpperCase().replace(/\s+/g, '');
   let m = /^(HB|SB|HR|SR|HCR|SCR|GM)(\d{1,4})$/.exec(t);
-  if (m) return S.bills.find(b => b.bill_number.replace(/\s/g, '').toUpperCase() === m[1] + m[2]) || null;
-  if ((m = /^(\d{1,4})$/.exec(t))) { const hits = S.bills.filter(b => b.bill_number.replace(/\D/g, '') === m[1]); return hits.length === 1 ? hits[0] : null; }
+  if (m) return billByNum(m[1] + m[2]);
+  // A bare number: only the current session's bills count, so last year's twin never makes it "ambiguous" (R-152 B).
+  if ((m = /^(\d{1,4})$/.exec(t))) { const hits = S.bills.filter(b => b.bill_number.replace(/\D/g, '') === m[1] && (!b.session_year || +b.session_year === +SESSION_YEAR)); return hits.length === 1 ? hits[0] : null; }
   return null;
 }

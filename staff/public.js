@@ -17,6 +17,8 @@ import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, sha
 import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
+import { billRoute } from './model.js';
+import { askConflict } from './conflict.js';
 
 const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
 const BOOL = new Set(['is_public', 'recommended']);
@@ -26,6 +28,13 @@ const pointsIn = v => String(v || '').split(/\n+/).map(s => s.trim().replace(/\s
 const pointsCount = v => { const n = pointsIn(v).length; return `${n} of 5 points`; };
 // Typed but unsaved values survive the re-render a list change causes; they live here until Save.
 const draftOf = b => drafts.get(b.id + ':pub') || {};
+// What the form's fields held when the person began editing (R-152 B): the base a save is compared with, so only what they
+// changed is written and a teammate's newer save is noticed (DB.saveBillFields). Dropped when the draft is.
+const bases = new Map();
+const rawOf = b => ({ nickname: b.nickname || null, public_summary: b.public_summary || null, public_action: b.public_action || null, public_action_until: b.public_action_until || null,
+  is_public: !!b.is_public, recommended: !!b.recommended, talking_points: b.talking_points || null, talking_points_edited_at: b.talking_points_edited_at || null });
+const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_action: 'The ask', public_action_until: 'Show the ask until', is_public: 'On the public page', recommended: 'Recommended', talking_points: 'Talking points' };
+const asText = v => Array.isArray(v) ? v.join('\n') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
 const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
 const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria-live="polite">${n} of ${max} characters</span>`;
@@ -152,7 +161,7 @@ export function wireDraftsFocus(pnl, b) {
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
-  const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + b.bill_number)}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
+  const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + billRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const lists = S.lists || [];
   const emailOk = b.is_public && b.position !== 'monitor';
   return `<section class="bw-sec bw-pub" aria-labelledby="bw-pub-h">
@@ -219,7 +228,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil'), talking_points: form.querySelector('#bw-ptp') };
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
-    if (Object.keys(d).length) drafts.set(key, d); else drafts.delete(key);
+    if (Object.keys(d).length) { if (!bases.has(key)) bases.set(key, rawOf(b)); drafts.set(key, d); } else { drafts.delete(key); bases.delete(key); }
     const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.small');
     if (Object.keys(d).length && !hint) s.insertAdjacentHTML('beforeend', '<span class="small muted">Not saved yet</span>'); else if (!Object.keys(d).length && hint) hint.remove(); };
   const prev = pnl.querySelector('[data-prev]');
@@ -245,15 +254,25 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     if (ptBad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(ptBad)}</p>`; f.talking_points.setAttribute('aria-invalid', 'true'); f.talking_points.focus(); return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
-    const before = { nickname: b.nickname || null, public_summary: b.public_summary || null, public_action: b.public_action || null,
-      public_action_until: b.public_action_until || null, is_public: !!b.is_public, recommended: !!b.recommended,
-      talking_points: b.talking_points || null, talking_points_edited_at: b.talking_points_edited_at || null };
-    const ptsChanged = JSON.stringify(pts) !== JSON.stringify(b.talking_points || []);
+    // Only what changed is written, compared with what the form held when editing began, and a teammate's newer save of the
+    // same field is shown to the person before anything is written (R-152 B; DB.saveBillFields).
+    const base = bases.get(key) || rawOf(b);
+    const ptsChanged = JSON.stringify(pts) !== JSON.stringify(base.talking_points || []);
+    const want = { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked,
+      ...(ptsChanged ? { talking_points: pts.length ? pts : null, talking_points_edited_at: new Date().toISOString() } : {}) };
+    const finish = res => {
+      drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
+      if (!res.changed.length) { toast('Nothing to save: this already matches what is saved.'); return; }
+      toast('Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
+    };
     try {
-      await DB.updateBill(b.id, { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked,
-        ...(ptsChanged ? { talking_points: pts.length ? pts : null, talking_points_edited_at: new Date().toISOString() } : {}) });
-      drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
-      toast('Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, before); drafts.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
+      const res = await DB.saveBillFields(b.id, want, base);
+      if (!res.conflicts.length) { finish(res); return; }
+      sub.removeAttribute('aria-busy');
+      const bad = new Set(res.conflicts.map(c => c.key));
+      askConflict({ fields: res.conflicts.map(c => ({ label: LABEL[c.key] || c.key, theirs: asText(c.theirs), mine: asText(c.mine) })),
+        keepTheirs: async () => { try { finish(await DB.saveBillFields(b.id, Object.fromEntries(Object.entries(want).filter(([k]) => !bad.has(k) && !(k === 'talking_points_edited_at' && bad.has('talking_points')))), base, { force: true })); } catch (x) { toast(x, { err: true }); } },
+        replace: async () => { try { finish(await DB.saveBillFields(b.id, want, base, { force: true })); } catch (x) { toast(x, { err: true }); } } });
     } catch (x) { sub.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
   // "Write it" on Today lands here: the ask is in view, right under the pinned tabs, with the cursor in it (the way

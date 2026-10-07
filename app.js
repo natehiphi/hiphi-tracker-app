@@ -191,7 +191,8 @@ const DB = {
       allRows(o => S.supa.from('bill_assignments').select('bill_id,advocate_id', o).order('bill_id').order('advocate_id')),
       S.supa.from('campaigns').select('*').order('sort_order'),
       allRows(o => S.supa.from('bill_campaigns').select('bill_id,campaign_id', o).order('bill_id').order('campaign_id')),
-      allRows(o => S.supa.from('hearings').select('*', o).gte('scheduled_at', daysBack(60)).order('id')),
+      // Hearings of tracked bills only (R-152 B, as Staff v2's read): about a tenth of the rows on a peak day.
+      allRows(o => S.supa.from('hearings').select('*, bills!inner(tracked)', o).eq('bills.tracked', true).gte('scheduled_at', daysBack(60)).order('id')),
       allRows(o => S.supa.from('bill_pulse').select('*', o).order('bill_id')),
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
@@ -243,7 +244,7 @@ const DB = {
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data; loadFilters();
-    S.hearings = hear.data;
+    S.hearings = hear.data.map(({ bills: _b, ...h }) => h);
     S.assignments = {}; asg.data.forEach(r =>
       (S.assignments[r.bill_id] ??= []).push(r.advocate_id));
     S.billCampaigns = {}; bc.data.forEach(r =>

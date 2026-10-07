@@ -17,6 +17,7 @@ import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose } from './lists.js';
 import { ICONS } from '../icons.js';
+import { billRoute } from './model.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
 // this short list; old emoji values still display, mapped, until someone saves the coalition again) ----
@@ -245,7 +246,7 @@ function wireIndex(root) {
   });
   const g = root.querySelector('[data-gaps]');
   if (g) g.onclick = () => { const r = readyRows().find(x => x.key === 'public_copy');
-    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="small muted st-shp">Open each one and fill in the Public tab.</p><div class="rows">${r.gaps.map(b => row({ title: `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: `#/bill/${b.bill_number}/public` })).join('')}</div>`,
+    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="small muted st-shp">Open each one and fill in the Public tab.</p><div class="rows">${r.gaps.map(b => row({ title: `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: `${billRoute(b, 'public')}` })).join('')}</div>`,
       wire: d => d.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); goAfterSheet(a.getAttribute('href')); }) }); };
 }
 

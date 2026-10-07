@@ -11,6 +11,7 @@ import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, t
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState } from './filters.js';
 import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
+import { billRoute, billRef } from './model.js';
 
 // ---- groups, in stage order ----
 const GROUPS = [['hear', 'Hearing scheduled'], ['risk', 'At risk: no hearing yet'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
@@ -303,7 +304,7 @@ function phoneList(groups) {
   const look = b => iconBtn('chevron-right', `Quick look at ${billNum(b)}`, { 'data-look': b.id }, 'bl-plk');
   const mine = v.scope === 'me';
   const row = b => v.selecting ? blRow(b, { sub: statusLine(b), selectable: true, selected: v.sel.has(b.id), mine })
-    : `<div class="bl-prow">${blRow(b, { sub: statusLine(b), href: '#/bill/' + b.bill_number, mine })}${look(b)}</div>`;
+    : `<div class="bl-prow">${blRow(b, { sub: statusLine(b), href: billRoute(b), mine })}${look(b)}</div>`;
   return `<div class="bl-list${v.selecting ? ' bl-selecting' : ''}">${groups.map(g => `<div class="bl-grp">${groupHead(esc(g.title), g.rows.length, { fold: g.k, open: g.open, id: 'bl-g-' + g.k })}${g.open ? g.rows.map(row).join('') : ''}</div>`).join('')}</div>`;
 }
 
@@ -399,7 +400,7 @@ function table(groups) {
   const cell = (c, b) => {
     switch (c.k) {
       case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billNum(b))}"></label></td>`;
-      case 'bill': return `<td class="bl-num"><a href="#/bill/${esc(b.bill_number)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
+      case 'bill': return `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
       case 'title': return `<td class="bl-ti">${two(`${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
       case 'next': { const c3 = nextCell(b); return `<td>${c3[0] ? lines(c3) : none}</td>`; }
@@ -423,7 +424,7 @@ function table(groups) {
     <div class="bl-twrap"><div class="bl-tscroll" role="region" aria-label="Bills table" aria-describedby="bl-tnote" tabindex="0" style="--bl-pin:${pin}px">` : ''}<table class="bl-table${v.compact ? ' bl-compact' : ''}${tight || scroll && !fitsStd ? ' bl-tight' : ''}"${scroll ? ` style="width:${Math.round(total)}px"` : cap ? ` style="max-width:${cap}px"` : ''}>${colg}<caption class="sr">Bills, grouped by where they stand</caption>
     <thead><tr>${cols.map(th).join('')}</tr></thead>
     ${groups.map(g => `<tbody class="bl-tg"><tr class="bl-gr"><th colspan="${n}" scope="colgroup"><button type="button" class="sv-group bl-grb" data-fold="${g.k}" aria-expanded="${g.open}"${scroll ? ` style="width:${avail}px"` : ''}><span>${esc(g.title)}</span><span class="n">${g.rows.length}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></th></tr>
-      ${g.open ? g.rows.map(b => `<tr data-row="${b.id}" data-num="${esc(b.bill_number)}" class="${v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}">${cols.map(c => cell(c, b)).join('')}</tr>`).join('') : ''}</tbody>`).join('')}
+      ${g.open ? g.rows.map(b => `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}">${cols.map(c => cell(c, b)).join('')}</tr>`).join('') : ''}</tbody>`).join('')}
   </table>${scroll ? '</div></div>' : ''}`;
 }
 
@@ -435,7 +436,7 @@ function renderMuted() {
     ${deskBack('muted')}
     <h1 class="bl-ptitle">Muted bills</h1>
     <p class="bl-lede">They stay off your list and send you no alerts. A new hearing brings a bill back on its own.</p>
-    ${rows.length ? `<div class="bl-list">${rows.map(b => `<div class="bl-mrow">${blRow(b, { sub: statusLine(b).replace(/^Muted · /, ''), href: '#/bill/' + b.bill_number })}${btn('Unmute', { kind: 'secondary', sm: true, attrs: { 'data-unmute': b.id, 'aria-label': `Unmute ${billNum(b)}` } })}</div>`).join('')}</div>`
+    ${rows.length ? `<div class="bl-list">${rows.map(b => `<div class="bl-mrow">${blRow(b, { sub: statusLine(b).replace(/^Muted · /, ''), href: billRoute(b) })}${btn('Unmute', { kind: 'secondary', sm: true, attrs: { 'data-unmute': b.id, 'aria-label': `Unmute ${billNum(b)}` } })}</div>`).join('')}</div>`
       : empty({ title: 'No muted bills', text: 'Mute a bill from its page when you do not need its alerts for a while.', action: btn('Back to bills', { href: '#/bills', kind: 'secondary' }) })}
   </div>`;
 }

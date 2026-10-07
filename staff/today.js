@@ -49,6 +49,7 @@ import { todayPrepNotice } from './prep.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 
 const HR = 36e5, DAY = 864e5;
+import { billRoute } from './model.js';
 // The Hawaiʻi calendar day of a moment. Hawaiʻi keeps UTC-10 all year (no daylight saving), so this is hstDayOf() by
 // arithmetic: the Intl version costs about 30 times more, and the week panels ask for hundreds of days per draw.
 const hst = t => { const x = new Date(t).getTime(); return Number.isNaN(x) ? hstDayOf(t) : new Date(x - 10 * HR).toISOString().slice(0, 10); };
@@ -147,7 +148,7 @@ const dueChip = (due, text) => { const ms = due - Date.now(), tone = ms <= 0 ? '
 // "Jess", "Jess or Jaylen", "Jess, Jaylen or Nate": whoever a step waits on, in words.
 const names = ids => { const n = ids.map(first); return n.length > 2 ? n.slice(0, -1).join(', ') + ' or ' + n[n.length - 1] : n.join(' or '); };
 // "Message James" opens the bill's chat with @James typed in (the bill page reads ?mention=), so a nudge is two taps.
-const mentionHref = (b, ids) => `#/bill/${b.bill_number}/activity?mention=${ids.map(id => advocate(id)?.initials).filter(Boolean).join(',')}`;
+const mentionHref = (b, ids) => `${billRoute(b, 'activity')}?mention=${ids.map(id => advocate(id)?.initials).filter(Boolean).join(',')}`;
 const msgWho = ids => ids.length === 2 ? 'both' : ids.length > 2 ? 'all of them' : names(ids);
 const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref(b, ids), text: true });
 
@@ -333,7 +334,7 @@ export function todayItems(scope = 'mine', who = null) {
     // Also Claude's suggestion that a draft changes what people should say, waiting for staff's tick.
     if (ups.length && b.is_public && /^(HD|SD|CD|FD)\d+$/.test(b.current_version || '')) {
       const notes = draftNotesOf(b.id), n = notes && notes.find(x => x.version === b.current_version), v = esc(draftWord(b.current_version));
-      const to = `#/bill/${b.bill_number}/public?focus=drafts`;
+      const to = `${billRoute(b, 'public')}?focus=drafts`;
       if (notes && !n) push({ kind: 'dnote', key: `s:${b.id}:dn:${b.current_version}`, b, h: ups[0], due: testDue(ups[0]), who, s: `Say what ${v} changed`,
         note: 'People sending their letter again are shown what changed. One or two sentences; warn them if their letter could now be wrong.',
         btns: [{ label: 'Write it', href: to }] });
@@ -343,10 +344,11 @@ export function todayItems(scope = 'mine', who = null) {
     }
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee), c = esc(h.committee);
-      if (!dr) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: `No testimony draft yet for the ${c} hearing`,
+      // The drafts read failed: the notice at the top says so, and no hearing is called draftless (R-152 B).
+      if (!dr && !S.failed?.('testimony drafts')) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: `No testimony draft yet for the ${c} hearing`,
         note: draftAsking(h) ? 'Asked for it: the draft shows here within a few minutes.' : 'The tracker makes it from the hearing notice. If it has not, make it now.',
-        btns: [{ label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' }, { label: 'Open bill', href: `#/bill/${b.bill_number}`, text: true }] });
-      else if (dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
+        btns: [{ label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' }, { label: 'Open bill', href: `${billRoute(b)}`, text: true }] });
+      else if (dr && dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
         s: `Check ${self && (isOwner(b) || dr.submitted_by === me.id) ? 'your' : 'the'} ${c} testimony: the bill is now ${esc(b.current_version)}`,
         note: `The draft was written for ${esc(dr.version || 'the introduced bill')}.`, btns: dr.doc_url ? [{ label: 'Open Doc', href: dr.doc_url, ext: true }] : [] });
       // An ask past its show-through date is no ask (Z1-3 part 4): the card asks for the next one.
@@ -360,7 +362,7 @@ export function todayItems(scope = 'mine', who = null) {
         const what = gone ? 'the next public ask' : 'the public ask';
         push({ kind: 'ask', key: `s:${b.id}:ask`, b, h, due, who, s: past ? `Write ${what} before ${when} hearing` : `Write ${what} by ${byLine(due)}`,
           wk: `Write ${what} for ${whoseDay(d, now)} ${c} hearing`,
-          note: `${gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}. ` : ''}Until then the public page asks people to act on the next hearing in its own words, not HIPHI’s.`, btns: [{ label: 'Write it', href: `#/bill/${b.bill_number}/public` }] });
+          note: `${gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}. ` : ''}Until then the public page asks people to act on the next hearing in its own words, not HIPHI’s.`, btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}` }] });
       }
     }
     if (!ups.length && b.priority === 1) {
@@ -372,7 +374,7 @@ export function todayItems(scope = 'mine', who = null) {
           s: `Ask the chair${two ? 's' : ''} for a hearing: ${days <= 0 ? 'the deadline is today' : plural(days, 'day') + ' left'}`,
           why: `${esc(deadlineName(st.deadline))} ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { weekday: 'short' }).replace(',', '')}: it must ${esc(gateNeed(st.deadline.label))}${m ? ' · ' + esc(m.who) : ''}`,
           btns: m ? [{ label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}`, ext: true, mail: true }]
-            : [{ label: 'Open bill', href: `#/bill/${b.bill_number}` }] });
+            : [{ label: 'Open bill', href: `${billRoute(b)}` }] });
       }
     }
   }
@@ -434,7 +436,7 @@ export function todayItems(scope = 'mine', who = null) {
     // Seen: every message in it has been opened (here, or in the bill's chat) and none has been answered.
     const seen = list.every(i => !i.unread || st.seen.has(i.key));
     push({ kind: 'reply', key: `m:${bid}`, b, due: null, who: 'yours', s: r.s, q: r.more ? esc(unslack(latest.body || '')) : '', keys: list.map(i => i.key), from: name, seen,
-      why: plural(list.length, seen ? 'message' : 'new message'), btns: [{ label: 'Reply', href: `#/bill/${b.bill_number}/activity?reply=1`, seen: true }] });
+      why: plural(list.length, seen ? 'message' : 'new message'), btns: [{ label: 'Reply', href: `${billRoute(b, 'activity')}?reply=1`, seen: true }] });
   }
   const testimonyBills = new Set(tasks.filter(t => t.b && TESTIMONY.has(t.kind)).map(t => t.b.id));
   for (const i of unread) {
@@ -445,7 +447,7 @@ export function todayItems(scope = 'mine', who = null) {
     const tab = { chat: 'activity', timeline: 'activity' }[i.tab] || '';
     push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(unslack(i.title), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
       why: `${{ testimony: 'Testimony', deadline: 'Reminder', system: 'From the tracker', hearing: 'Hearing', status: 'Update' }[i.kind] || 'Notice'} · ${fmtDT(i.at)}`,
-      btns: b ? [{ label: 'Open', href: `#/bill/${b.bill_number}${tab ? '/' + tab : ''}`, read: true }] : [{ label: 'Mark done', act: 'read' }] });
+      btns: b ? [{ label: 'Open', href: `${billRoute(b)}${tab ? '/' + tab : ''}`, read: true }] : [{ label: 'Mark done', act: 'read' }] });
   }
 
   // A teammate's steps are theirs to take. On a bill the one thing to do about someone else's step is to ask them about
@@ -627,7 +629,7 @@ function button(t, x, primary) {
 const alsoDue = t => t.due == null ? '' : tDue(t) ? dueChip(t.due, `${t.due <= Date.now() ? 'was due' : 'due'} ${atLine(t.due)}`) : cd(t.due);
 function alsoRow(t, c) {
   const x = (t.btns || [])[0], inner = `<span class="td-also-t"><span class="td-also-l">Also:</span> ${t.s}</span>${t.seen ? SEEN() : ''}${alsoDue(t)}${icon(x && x.ext && !x.mail ? 'external-link' : 'chevron-right', { cls: 'chev' })}`;
-  const bill = c.b ? `#/bill/${c.b.bill_number}` : '';
+  const bill = c.b ? `${billRoute(c.b)}` : '';
   if (t.kind === 'wait' || !x) return bill ? `<a class="td-also" href="${esc(bill)}">${inner}</a>` : `<div class="td-also">${inner}</div>`;
   if (x.href) return `<a class="td-also" href="${esc(x.href)}" data-k="${esc(t.key)}"${x.read ? ' data-read="1"' : ''}${x.seen ? ' data-seen="1"' : ''}${x.review ? ' data-review="1"' : ''}${x.ext && !x.mail ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>`;
   return `<button type="button" class="td-also" data-also="${esc(t.key)}">${inner}</button>`;
@@ -653,7 +655,7 @@ function card(c, i, team, o = {}) {
   const p = c.p, b = c.b, also = c.tasks.slice(1), k = (o.gk ? o.gk + '~' : '') + c.key;
   CARDS.set(k, c);
   if (b && c.tasks.every(t => t.kind === 'reply')) return msgCard(c, i, k);
-  const top = b ? `<a class="td-bill${b.nickname ? ' td-named' : ''}" href="#/bill/${esc(b.bill_number)}"><b class="td-num">${esc(billNum(b))}</b> ${b.priority === 1 ? '<span class="sv-p1">P1</span> ' : ''}${billName(b)}</a>`
+  const top = b ? `<a class="td-bill${b.nickname ? ' td-named' : ''}" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b> ${b.priority === 1 ? '<span class="sv-p1">P1</span> ' : ''}${billName(b)}</a>`
     : p.kind === 'followup' ? `<a class="td-bill td-kind" href="#/person/${esc(p.f.person_id)}">${icon('user-round')}<span>Follow-up</span></a>`
     : p.a ? `<a class="td-bill td-kind" href="#/email/${esc(p.a.id)}">${icon('mail')}<span>Email to supporters</span></a>`
     : `<span class="td-bill td-kind">${icon('bell')}<span>From the tracker</span></span>`;
@@ -669,7 +671,7 @@ function card(c, i, team, o = {}) {
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}
     ${p.q ? `<blockquote class="td-q">${p.q}</blockquote>` : ''}
     ${acts ? `<div class="td-acts">${acts}</div>` : ''}
-    ${shown.map(t => alsoRow(t, c)).join('')}${rest > 0 && b ? `<a class="td-also" href="#/bill/${esc(b.bill_number)}"><span class="td-also-t">${plural(rest, 'more thing')} on this bill</span>${icon('chevron-right', { cls: 'chev' })}</a>` : ''}
+    ${shown.map(t => alsoRow(t, c)).join('')}${rest > 0 && b ? `<a class="td-also" href="${billRoute(b)}"><span class="td-also-t">${plural(rest, 'more thing')} on this bill</span>${icon('chevron-right', { cls: 'chev' })}</a>` : ''}
   </article>`;
 }
 // A bill whose only item is chat is one quiet row, "2 new messages · Reply", not a card with an urgency column and a
@@ -678,7 +680,7 @@ function card(c, i, team, o = {}) {
 function msgCard(c, i, k) {
   const p = c.p, b = c.b;
   return `<article class="td-card td-msg${p.seen ? ' td-seen' : ''}" data-k="${esc(k)}" data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}" tabindex="-1" aria-labelledby="td-s${i}">
-    <a class="td-msgl" href="#/bill/${esc(b.bill_number)}/activity?reply=1" data-k="${esc(p.key)}" data-seen="1" data-primary="1">
+    <a class="td-msgl" href="${billRoute(b, 'activity')}?reply=1" data-k="${esc(p.key)}" data-seen="1" data-primary="1">
       <span class="td-msgt"><span class="td-msgb"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? ' ' + P1 : ''} ${b.nickname ? `<b class="td-nick">${esc(b.nickname)}</b>` : `<span class="td-t">${esc(blurb(b, 80))}</span>`}</span>
         <span class="td-s" id="td-s${i}">${p.s}</span></span>
       <span class="td-msgc">${p.seen ? SEEN() : ''}${icon('message-circle')}<span>${esc(p.why)} · Reply</span></span></a>
@@ -716,7 +718,7 @@ function hearingsIn(d0, d1, scope, who) {
 const draftOf = h => (S.drafts?.[h.bill_id] || []).find(d => d.hearing_id && d.hearing_id === h.id && d.status !== 'cancelled') || draftFor(h.bill_id, h.committee) || null;
 // An approved draft still has to be filed, so it is "Ready to file" here as in the Week view: "Approved" read as done.
 const T_STATE = { filed: ['Filed', 'ok', 'check'], approved: ['Ready to file', '', 'clipboard-check'], second_review: ['In review', '', 'hourglass'], review: ['In review', '', 'hourglass'], draft: ['Draft', '', 'pencil'] };
-const stateChip = d => { const [l, tone, ic] = (d && T_STATE[d.status]) || ['No draft', '', 'circle-dashed']; return chip(l, tone, ic); };
+const stateChip = d => { const [l, tone, ic] = (d && T_STATE[d.status]) || (S.failed?.('testimony drafts') ? ['Not loaded', '', 'circle-help'] : ['No draft', '', 'circle-dashed']); return chip(l, tone, ic); };
 // "Lauren is going", "You and Lauren are going": who is going to a hearing, you first; empty when nobody is. A sitting
 // hears several bills and a person marks one of them, so the Week view passes everyone marked on any of its bills.
 function goingOf(people) {
@@ -801,7 +803,7 @@ function waitRow(t) {
   WAITS.set(t.key, t);
   const said = String(t.ws || t.s || ''), at = id => { const i = said.indexOf(first(id)); return i < 0 ? 999 : i; };
   const on = [...new Set((t.on || []).filter(id => id && id !== S.me.id && advocate(id)))].sort((x, y) => at(x) - at(y));
-  const href = t.b ? `#/bill/${t.b.bill_number}` : t.a ? `#/email/${t.a.id}` : '#/';
+  const href = t.b ? `${billRoute(t.b)}` : t.a ? `#/email/${t.a.id}` : '#/';
   const acts = [t.b && on.length ? `<a class="td-wact" href="${esc(mentionHref(t.b, on))}">${icon('message-square')}<span>Message ${esc(msgWho(on))}</span></a>` : '',
     t.t ? `<button type="button" class="td-wact" data-give="${esc(t.key)}" aria-haspopup="dialog">${icon('user-round-plus')}<span>Give to…</span></button>` : ''].join('');
   return `<div class="td-wrow"><a class="td-wmain" href="${esc(href)}"><span class="td-wt">${t.b ? `<b class="td-num">${esc(billNum(t.b))}</b> ` : ''}<span>${t.ws || t.s}</span></span>${t.due != null ? cd(t.due) : ''}</a>${acts ? `<div class="td-wacts">${acts}</div>` : ''}</div>`;
@@ -876,7 +878,7 @@ function clockPanel(scope, who) {
   const n = c.noHearing.length, owners = scope === 'team' || scope === 'person', cap = 4;
   const heard = c.racing === 1 ? 'It has a hearing.' : c.racing === 2 ? 'Both have a hearing.' : 'Every one of them has a hearing.';
   // On someone else's list, or the team's, the name beside each bill is who owns it (a dashed circle: nobody yet).
-  const named = n ? `<ul class="td-cknames" aria-label="${esc(`With no hearing yet, ${ckDay(c.date)}`)}">${c.noHearing.slice(0, cap).map(b => `<li><a href="#/bill/${esc(b.bill_number)}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-ckname">${esc(b.nickname || blurb(b, 60))}</span>${owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : ''}</a></li>`).join('')}${n > cap ? `<li class="td-ckmore">and ${n - cap} more</li>` : ''}</ul>` : '';
+  const named = n ? `<ul class="td-cknames" aria-label="${esc(`With no hearing yet, ${ckDay(c.date)}`)}">${c.noHearing.slice(0, cap).map(b => `<li><a href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-ckname">${esc(b.nickname || blurb(b, 60))}</span>${owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : ''}</a></li>`).join('')}${n > cap ? `<li class="td-ckmore">and ${n - cap} more</li>` : ''}</ul>` : '';
   const t = c.then;
   const then = t ? `<div class="td-ckthen">
     <p class="td-ckwhen td-ckw2"><span class="td-cktag">Then</span><b>${esc(ckDay(t.date))}</b><span>${esc(awayOf(t.days))}</span></p>
@@ -965,7 +967,7 @@ function sugCard(s, i, ro = false) {
   const ext = !!s.act.ext, mail = /^mailto:/i.test(s.act.href || '');
   const more = ro ? '' : iconBtn('ellipsis', `Done, not now or not this bill: ${billNum(s.b)}`, { 'data-sgmore': s.key, 'aria-haspopup': 'dialog' }, 'td-more');
   return `<article class="td-sg${ro ? ' td-sgro' : ''}" data-sg="${esc(s.key)}" data-bill="${esc(s.b.id)}" aria-labelledby="td-sg${i}">
-    <div class="td-top"><a class="td-bill${s.b.nickname ? ' td-named' : ''}" href="#/bill/${esc(s.b.bill_number)}"><b class="td-num">${esc(billNum(s.b))}</b> ${s.b.priority === 1 ? P1 + ' ' : ''}${billName(s.b)}</a>${more}${lookBtn(s.b)}</div>
+    <div class="td-top"><a class="td-bill${s.b.nickname ? ' td-named' : ''}" href="${billRoute(s.b)}"><b class="td-num">${esc(billNum(s.b))}</b> ${s.b.priority === 1 ? P1 + ' ' : ''}${billName(s.b)}</a>${more}${lookBtn(s.b)}</div>
     <p class="td-s" id="td-sg${i}">${esc(s.title)}</p>
     <p class="td-sgwhy">${esc(s.why)}</p>
     <div class="td-acts">${btn(esc(s.act.label), { kind: 'secondary', href: s.act.href, target: ext && !mail ? '_blank' : undefined, iconEnd: ext && !mail ? 'external-link' : undefined })}</div></article>`;
@@ -1101,7 +1103,7 @@ function weekOf(mon, scope, who, r) {
 // One bill in a card or a block: the number (and P1) with the one fact that matters here, then its name on one line.
 function wkBill(b, right, owners) {
   const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
-  return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="#/bill/${esc(b.bill_number)}"><span class="wk-b1"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2"><span class="wk-name">${esc(b.nickname || blurb(b, 80))}</span>${own}${publicWords(b) ? `<span class="wk-pub">${icon('users')}${esc(publicWords(b))}</span>` : ''}</span></a></li>`;
+  return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="${billRoute(b)}"><span class="wk-b1"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2"><span class="wk-name">${esc(b.nickname || blurb(b, 80))}</span>${own}${publicWords(b) ? `<span class="wk-pub">${icon('users')}${esc(publicWords(b))}</span>` : ''}</span></a></li>`;
 }
 // "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
 const wkWhen = (t, wkend) => (wkend ? dayFmt(hst(t), { weekday: 'short' }) + ' ' : '') + timeOf(new Date(t).toISOString());
@@ -1136,14 +1138,14 @@ function wkHearing(list, owners, now, wkend) {
 }
 // A step with a time of its own (the public ask, due when its hearing starts) takes its place in the day's order.
 // Its own words there (t.wk) leave the time out: the line already starts with it.
-const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="#/bill/${esc(t.b.bill_number)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · <b class="td-num">${esc(billNum(t.b))}</b> ${t.wk || t.s}</span></a>`;
+const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="${billRoute(t.b)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · <b class="td-num">${esc(billNum(t.b))}</b> ${t.wk || t.s}</span></a>`;
 // Everything else that day, one row per bill (the first step leads, the rest are counted). Messages are not calendar
 // items: they fold into one row that opens the list, where they are answered (Nate, 9/21).
 function wkAlso(all, now, wkend) {
   const msg = t => t.kind === 'reply' || t.kind === 'notice', msgs = all.filter(msg), per = new Map();
   for (const t of all) { if (msg(t)) continue; const k = t.b ? 'b' + t.b.id : t.key; if (!per.has(k)) per.set(k, []); per.get(k).push(t); }
   const rows = [...per.values()].map(g => {
-    const t = g[0], more = g.length - 1, href = t.b ? `#/bill/${t.b.bill_number}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
+    const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
     const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
     const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `<b class="td-num">${esc(billNum(t.b))}</b> ` : ''}${t.s}${late ? ` <span class="sv-count late">overdue</span>` : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
     return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
@@ -1308,8 +1310,8 @@ function coalSection(r) {
     return `<a class="td-crow" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
       <span class="td-cbody"><span class="td-cbills">${list.map(x => `<b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}`).join('<span class="td-csep">, </span>')}</span>
       <span class="td-cmeta">${esc(h.committee)} · ${esc(room(h.room))} · ${going ? esc(going) : `<span class="td-cnone">${icon('user-round-plus')}Nobody from the team yet</span>`}</span></span></a>`; };
-  const raceRow = b => `<a class="td-crow td-crace" href="#/bill/${esc(b.bill_number)}"><span class="td-cbody"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} ${esc(b.nickname || blurb(b, 60))}</span></span><span class="td-cwho">${owner(b)}</span></a>`;
-  const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="#/bill/${esc(b.bill_number)}"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b> ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
+  const raceRow = b => `<a class="td-crow td-crace" href="${billRoute(b)}"><span class="td-cbody"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} ${esc(b.nickname || blurb(b, 60))}</span></span><span class="td-cwho">${owner(b)}</span></a>`;
+  const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="${billRoute(b)}"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b> ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
   const body = [sit.size ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3><div class="td-crows">${[...sit.values()].map(sitRow).join('')}</div>` : '',
     racing.length ? `<h3 class="td-ch">${icon('circle-dashed')}${esc(`No hearing yet · ${ck.name} ${ckDay(ck.date)}`)}</h3><div class="td-crows">${racing.map(raceRow).join('')}</div>` : '',
     todos.length ? `<h3 class="td-ch">${icon('list-todo')}To-dos nobody has taken</h3><div class="td-crows">${todos.map(todoRow).join('')}</div>` : ''].join('');
@@ -1331,7 +1333,7 @@ function resultsHtml(scope, who) {
   const veto = rest0.filter(b => effStage(b) === 'vetoed' || /\bvetoed\b/i.test(b.last_action || '')), rest1 = rest0.filter(b => !veto.includes(b));
   const gov = rest1.filter(b => effStage(b) === 'governor'), died = rest1.filter(b => !gov.includes(b));
   const byNum = (x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true });
-  const row = (b, extra = '') => `<a class="td-rrow" href="#/bill/${esc(b.bill_number)}"><b class="td-num">${esc(billNum(b))}</b>${actOf(b) ? `<span class="td-act">Act ${esc(actOf(b))}</span>` : ''}<span class="td-rname">${esc(b.nickname || blurb(b, 80))}</span>${extra}</a>`;
+  const row = (b, extra = '') => `<a class="td-rrow" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b>${actOf(b) ? `<span class="td-act">Act ${esc(actOf(b))}</span>` : ''}<span class="td-rname">${esc(b.nickname || blurb(b, 80))}</span>${extra}</a>`;
   const open = !!S.tdOpen?.died;
   const sum = [law.length ? `<b>${plural(law.length, 'bill')} became law</b>` : 'none became law', veto.length ? `${veto.length} vetoed` : '', gov.length ? `${gov.length} still with the Governor` : '', died.length ? `${died.length} did not pass` : ''].filter(Boolean).join(', ');
   return `<section class="td-group td-res" aria-labelledby="td-g-res"><h2 class="td-h">${groupHead(`How the ${SESSION_YEAR} session ended`, plural(pool.length, 'bill'), { id: 'td-g-res' })}</h2>
@@ -1369,7 +1371,7 @@ function syncFoot() {
 // ---- What changed: one line per bill, and opening it counts as read ----
 // Catching up (decision 6): since yesterday, since your last visit, or the last 7 days, and a search across the updates
 // and the messages. It does not bring the old Inbox page back: it is the same folded line, reaching further.
-const digRow = ({ r, hit }) => `<a class="row td-dr" href="#/bill/${esc(r.b.bill_number)}/activity"><span class="body"><span class="title"><b class="td-num">${esc(billNum(r.b))}</b> ${hit ? (hit.msg ? `${esc(hit.who)}: “${esc(clip(hit.text, 100))}”` : esc(hit.text)) : esc(r.best ? r.best[0] : 'New messages')}${!hit && r.n > 1 ? `<span class="td-more-n"> · ${plural(r.n - 1, 'more update')}</span>` : ''}</span></span>${r.msgs ? `<span class="end">${icon('message-square')}${plural(r.msgs, 'message')}</span>` : ''}</a>`;
+const digRow = ({ r, hit }) => `<a class="row td-dr" href="${billRoute(r.b, 'activity')}"><span class="body"><span class="title"><b class="td-num">${esc(billNum(r.b))}</b> ${hit ? (hit.msg ? `${esc(hit.who)}: “${esc(clip(hit.text, 100))}”` : esc(hit.text)) : esc(r.best ? r.best[0] : 'New messages')}${!hit && r.n > 1 ? `<span class="td-more-n"> · ${plural(r.n - 1, 'more update')}</span>` : ''}</span></span>${r.msgs ? `<span class="end">${icon('message-square')}${plural(r.msgs, 'message')}</span>` : ''}</a>`;
 function digRows(dg) {
   const q = S.tdDigQ || '', found = digestFind(dg.rows, q);
   if (!found.length) return { n: 0, html: `<p class="td-dnone2">${esc(q ? `Nothing ${dg.head} matches “${q}”.` : `Nothing changed on these bills ${dg.head}.`)}${S.tdSince !== 'week' ? ' Try the last 7 days.' : ''}</p>` };
@@ -1535,8 +1537,8 @@ function moreMenu(c) {
   // and not answered stays on Today marked "Seen"; Mark unread makes it loud again.
   const notes = c.tasks.filter(t => t.kind === 'notice' || t.kind === 'reply'), reply = c.tasks.find(t => t.kind === 'reply');
   menuSheet({ title: esc(num), items: [
-    { label: 'Open bill', icon: 'scroll-text', run: later(() => S.go(`#/bill/${b.bill_number}`)) },
-    { label: 'Reply in chat', icon: 'message-square', run: later(() => { if (reply) markSeen(reply.keys); S.go(`#/bill/${b.bill_number}/activity?reply=1`); }) },
+    { label: 'Open bill', icon: 'scroll-text', run: later(() => S.go(`${billRoute(b)}`)) },
+    { label: 'Reply in chat', icon: 'message-square', run: later(() => { if (reply) markSeen(reply.keys); S.go(`${billRoute(b, 'activity')}?reply=1`); }) },
     h ? { label: going ? 'I’m not going after all' : 'I’m going to the hearing', icon: going ? 'user-round' : 'user-check', sub: `${h.committee} ${whenLine(h.scheduled_at)}${others.length ? ' · ' + others.join(', ') + (others.length === 1 ? ' is' : ' are') + ' going' : ''}`,
       run: async () => { try { await setGoing(!going); toast(!going ? `You’re going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}.` : `Taken off the list for the ${h.committee} hearing.`, { ok: !going, undo: async () => { if (going) { for (const r of mine) await DB.attend(r.id, true); } else await DB.attend(h.id, false); redraw(); } }); redraw(); } catch (e) { toast(e, { err: true }); } } } : null,
     stream ? { label: 'Watch the hearing', icon: 'video', sub: stream.label + (stream.exact ? '' : ' · ' + stream.channel), run: () => { window.open(stream.url, '_blank', 'noopener'); } } : null,

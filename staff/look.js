@@ -6,8 +6,9 @@
 // j / k walk the list you came from without closing, which is what makes it faster than opening the page.
 import { S, esc, capitolUrl, fmtDT, fmtDate } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
-import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName } from './model.js';
+import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
+import { billRoute } from './model.js';
 
 const dash = v => v || '—';
 
@@ -49,7 +50,7 @@ function body(b, { list, index }) {
     ? `<div class="lk-card next sv-stick"><h3>${esc(cmteName(h.committee) || h.committee)} hearing</h3>
         <p>${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(h.room)}` : ''}</p>
         ${h.testimony_deadline ? `<p>Testimony due ${esc(fmtDT(h.testimony_deadline))} ${countdown(h.testimony_deadline)}</p>` : ''}
-        <p class="small muted">Testimony: ${d ? esc(d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not filed yet' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written') : 'no draft yet'}</p>
+        <p class="small muted">Testimony: ${d ? esc(d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not filed yet' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written') : S.failed?.('testimony drafts') ? 'not loaded' : 'no draft yet'}</p>
         ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`
     : `<div class="lk-card next sv-stick"><h3>No hearing on the books</h3><p class="small">${esc(st.says || '')}</p>
         ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(fmtDate(st.deadline.date))}, the ${esc(deadlineName(st.deadline).toLowerCase())}: it must ${esc(gateNeed(st.deadline.label))}.</p>` : ''}
@@ -99,7 +100,7 @@ export function openLook(b, { list = null, index = 0 } = {}) {
     title: esc(billNum(b)), size: 'look', body: body(b, { list, index: i }), foot,
     wire: d => {
       const move = k => { const to = list?.[i + k]; if (to) openLook(to, { list, index: i + k }); };
-      const open = async () => { const href = `#/bill/${b.bill_number}`; await closeSheet({ silent: true }); S.go ? S.go(href) : (location.hash = href); };
+      const open = async () => { const href = `${billRoute(b)}`; await closeSheet({ silent: true }); S.go ? S.go(href) : (location.hash = href); };
       d.querySelector('[data-lk="open"]')?.addEventListener('click', open);
       d.querySelector('[data-lk="prev"]')?.addEventListener('click', () => move(-1));
       d.querySelector('[data-lk="next"]')?.addEventListener('click', () => move(1));
@@ -115,6 +116,6 @@ export function openLook(b, { list = null, index = 0 } = {}) {
 }
 
 // For a screen that only has a bill number to hand.
-export const lookAt = (num, opts) => { const b = S.bills.find(x => x.bill_number === String(num).toUpperCase()); return b ? openLook(b, opts) : null; };
+export const lookAt = (num, opts) => { const b = billByRef(num); return b ? openLook(b, opts) : null; };
 
 export default openLook;

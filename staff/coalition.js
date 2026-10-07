@@ -21,6 +21,7 @@ import { issuesOfBill } from './issues.js';
 import { sittingOf, goersOf, goingWords, testimonyOf, dueOf, dueTone } from './hearing.js';
 import { billSub, wireLinks } from './pathway.js';
 import { rerender } from './bill.js';
+import { billRoute } from './model.js';
 
 const WEEK = 7 * 864e5, FOLD = 6, HST = { timeZone: 'Pacific/Honolulu' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
@@ -206,7 +207,7 @@ function hearingsHTML(c) {
 function riskHTML(c, list) {
   const rowOf = ({ b, st }) => {
     const nb = noticeByFor(st), dl = st.deadline, left = dl.days <= 0 ? 'Last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
-    return `<a class="row co-brow" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="body"><span class="title">${name(b)}</span>
+    return `<a class="row co-brow" href="${billRoute(b)}"><span class="body"><span class="title">${name(b)}</span>
       <span class="sub">Needs a hearing in ${esc(st.committee || 'committee')} by ${esc(dayOf(dl.date + 'T12:00:00-10:00'))}${nb ? `. The notice has to post by ${esc(fmtDT(nb))}` : ''}</span>
       <span class="co-facts">${ownerBit(b)}</span></span>
       <span class="end"><span class="sv-count${dl.days <= 0 ? ' soon' : ''}">${icon('clock')}${esc(left)}</span>${icon('chevron-right', { cls: 'chev' })}</span></a>`;
@@ -216,14 +217,14 @@ function riskHTML(c, list) {
 // The bills racing the deadline after the at-risk week: on Mon 16 March, CTFH had nothing due Thursday and three P1
 // bills with no hearing for Mon 3/30, which Saya's Today counted and this page used to call "nothing at risk".
 function raceHTML(c, w) {
-  const rowOf = ({ b, st }) => `<a class="row co-brow" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="body"><span class="title">${name(b)}</span>
+  const rowOf = ({ b, st }) => `<a class="row co-brow" href="${billRoute(b)}"><span class="body"><span class="title">${name(b)}</span>
       <span class="sub">${st.committee ? `Waiting in ${esc(st.committee)}` : 'Waiting for a committee referral'}</span><span class="co-facts">${ownerBit(b)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
   return sec('co-s5', `Needs a hearing by ${esc(dayOf(w.next + 'T12:00:00-10:00'))}`, w.race.length, `<div class="rows co-rows">${folded(c.id + '|n', w.race.map(rowOf))}</div>`);
 }
 // Live bills nobody owns, each with "Give to…" (one bill at a time here; many at once from Bills, open to everyone since
 // R-106). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
 function unownedHTML(c, list) {
-  const rowOf = b => `<div class="row co-arow"><a class="co-amain" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="title">${name(b)}</span><span class="sub">${esc(billSub(b))}</span></a>
+  const rowOf = b => `<div class="row co-arow"><a class="co-amain" href="${billRoute(b)}"><span class="title">${name(b)}</span><span class="sub">${esc(billSub(b))}</span></a>
     ${btn('Give to…', { kind: 'secondary', sm: true, attrs: { 'data-coown': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Give ${b.bill_number} to someone` } })}</div>`;
   return sec('co-s3', 'Bills nobody owns', list.length, `<div class="rows co-rows">${folded(c.id + '|o', list.map(rowOf))}</div>`);
 }
@@ -234,7 +235,7 @@ function todosHTML(c, list) {
   const rowOf = ({ t, b }) => {
     const late = t.due_date && t.due_date < today, now = t.due_date === today;
     const due = !t.due_date ? '' : late ? `<span class="co-late">${icon('circle-alert')}Overdue, was due ${esc(dayOf(t.due_date))}</span>` : now ? `<span class="co-soon">${icon('clock')}Due today</span>` : `Due ${esc(dayOf(t.due_date))}`;
-    return `<div class="row co-arow"><a class="co-amain" href="#/bill/${encodeURIComponent(b.bill_number)}"><span class="title co-ttl">${esc(t.title)}</span><span class="sub">${name(b)}${due ? ` · ${due}` : ''}</span></a>
+    return `<div class="row co-arow"><a class="co-amain" href="${billRoute(b)}"><span class="title co-ttl">${esc(t.title)}</span><span class="sub">${name(b)}${due ? ` · ${due}` : ''}</span></a>
       ${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${b.bill_number}` } })}</div>`;
   };
   return sec('co-s4', 'To-dos anyone can take', list.length, `<div class="rows co-rows">${folded(c.id + '|t', list.map(rowOf))}</div>`);

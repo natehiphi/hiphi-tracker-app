@@ -10,9 +10,7 @@
 // The Activity tab lives in activity.js, the Public tab in public.js, Pathway in pathway.js.
 import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail,
-  billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount,
-  listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk } from './model.js';
+import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
@@ -22,6 +20,8 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
+import { billRoute, billByNum } from './model.js';
+import { askConflict } from './conflict.js';
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -75,8 +75,8 @@ const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'P
 // Old links (the current app's tab names, Slack's #bill=…&tab=chat) land where the content lives now.
 const TAB_ALIAS = { chat: 'activity', timeline: 'activity', notes: 'overview', details: 'overview', team: 'overview' };
 const tabOf = r => { const t = TAB_ALIAS[r.tab] || r.tab; return TABS.some(([k]) => k === t) ? t : 'overview'; };
-const billOf = r => { const n = String(r.num || '').replace(/\s/g, '').toUpperCase(); return S.bills.find(b => b.bill_number === n) || null; };
-const billHref = (b, tab = 'overview') => `#/bill/${b.bill_number}${tab === 'overview' ? '' : '/' + tab}`;
+const billOf = r => billByNum(r.num, r.year);
+const billHref = (b, tab = 'overview') => `${billRoute(b)}${tab === 'overview' ? '' : '/' + tab}`;
 
 // ---- where the page was opened from: the back link names it ("Today") ----
 // The frame sets S.route on every render, so watching that setter tells us the page shown before this one. The origin
@@ -87,10 +87,10 @@ let prevRoute = null, prevHash = '', carry = null, lastKey = '', fresh = true;
   let cur = S.route, curHash = '';
   Object.defineProperty(S, 'route', { configurable: true, enumerable: true, get: () => cur,
     set(v) {
-      const same = cur && v && cur.name === 'bill' && v.name === 'bill' && cur.num === v.num;
+      const same = cur && v && cur.name === 'bill' && v.name === 'bill' && cur.num === v.num && cur.year === v.year;
       if (cur && !same) { prevRoute = cur; prevHash = curHash; }
       // A render of a different page or tab (not a re-render after a save) is a fresh view.
-      const k = v ? `${v.name}|${v.num || v.id || ''}|${v.name === 'bill' ? tabOf(v) : ''}` : '';
+      const k = v ? `${v.name}|${v.year || ''}${v.num || v.id || ''}|${v.name === 'bill' ? tabOf(v) : ''}` : '';
       fresh = k !== lastKey; lastKey = k;
       cur = v; curHash = location.hash;
     } });
@@ -126,7 +126,7 @@ function origin(route) {
   if (saved && saved.href) return saved;
   // A list screen may say where it is (S.billNav.label/href); otherwise the page before this one; otherwise Today,
   // which is where a Slack or email link's Back goes.
-  if (prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num)) return { href: prevHash || '#/', label: labelFor(prevRoute) };
+  if (prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num && prevRoute.year === route.year)) return { href: prevHash || '#/', label: labelFor(prevRoute) };
   const nav = S.billNav && !Array.isArray(S.billNav) ? S.billNav : null;
   if (nav && nav.href) return { href: nav.href, label: nav.label || 'Back' };
   return { href: '#/', label: 'Today' };
@@ -425,7 +425,8 @@ function hearingCard(b, h, i) {
     ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>`
     : `<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
-  const noDraft = !d ? (b.position && b.position !== 'monitor'
+  const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load, so this page cannot say whether there is one. Reload, then look again.</p>'
+    : b.position && b.position !== 'monitor'
     ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet. The tracker makes one when the hearing notice comes in.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
     : '<p class="small muted bw-nodraft">Monitor bills get no testimony draft.</p>') : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
@@ -441,7 +442,7 @@ function hearingCard(b, h, i) {
 function chairLinks(b, code) {
   const legs = legsOf(code);
   const one = c => { const l = legs.find(m => m.roles[c] === 'chair')?.l;
-    if (l) return `<a href="#/legislator/${l.id}?from=${esc(b.bill_number)}">${esc(legTitle(l))} ${esc((l.sort_name || '').split(',')[0] || l.name.split(' ').pop())}</a>`;
+    if (l) return `<a href="#/legislator/${l.id}?from=${esc(billRef(b))}">${esc(legTitle(l))} ${esc((l.sort_name || '').split(',')[0] || l.name.split(' ').pop())}</a>`;
     const m = chairMail(c); return m ? `<a href="mailto:${esc(m.email)}">${esc(m.who)}</a>` : ''; };
   const found = codesOf(code).map(c => [c, one(c)]).filter(([, x]) => x);
   if (!found.length) return '';
@@ -661,6 +662,8 @@ function todoSection(b) {
     <form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a task</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a task" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>
   </section>`;
 }
+// The team note as it stood when the person began typing (R-152 B), per bill; dropped when the draft is.
+const noteBase = new Map();
 function noteSection(b) {
   const d = drafts.get(b.id + ':note'), val = d ?? (b.internal_notes || '');
   return `<section class="bw-sec" aria-labelledby="bw-note-h">
@@ -752,7 +755,7 @@ function compHTML(b) {
     const r = rows.find(x => x.bill_number === num);
     if (!r) return `<span class="bw-comp">${esc(num)}</span>`;
     const st = r.stage_override || r.stage || 'introduced', inApp = S.bills.some(x => x.id === r.id);
-    const link = inApp ? `<a class="bw-inline" href="#/bill/${esc(num)}">${esc(num)}</a>` : `<a class="bw-inline" href="${esc(capitolUrl(r))}" target="_blank" rel="noopener">${esc(num)}${icon('external-link')}</a>`;
+    const link = inApp ? `<a class="bw-inline" href="${billRoute(S.bills.find(x => x.id === r.id))}">${esc(num)}</a>` : `<a class="bw-inline" href="${esc(capitolUrl(r))}" target="_blank" rel="noopener">${esc(num)}${icon('external-link')}</a>`;
     return `<span class="bw-comp">${link} ${chip(STAGE_LABEL[st] || st, st === 'enacted' ? 'ok' : '', st === 'enacted' ? 'check' : st === 'dead' || st === 'vetoed' ? 'circle-x' : '')}${r.tracked ? '' : ' ' + chip('Not tracked')}</span>`;
   }).join('');
 }
@@ -982,7 +985,7 @@ export default {
     const tab = tabOf(route), page = root.querySelector('.bw-page');
     // Opened by a link or a reload (not a tab tap, not Previous / Next, not Back, not a re-render after a save)?
     const arrival = fresh && !switching && !popping;
-    const inApp = !!prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num);
+    const inApp = !!prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num && prevRoute.year === route.year);
     // Remember the origin in this history entry, so coming Back to the bill still names the right page.
     const o = origin(route); carry = null;
     try { if (!history.state?.bwFrom || history.state.bwFrom.href !== o.href) history.replaceState({ ...(history.state || {}), bwFrom: o }, ''); } catch { /* ignore */ }
@@ -1059,12 +1062,25 @@ function wireOverview(pnl, b) {
   };
   // team note: never public; typed text survives other saves until it is saved
   const note = pnl.querySelector('#bw-note');
-  note.oninput = () => drafts.set(b.id + ':note', note.value);
+  // The note as it stood when typing began is the base the save is compared with, so a teammate's newer note is shown
+  // to the person instead of being replaced without a word (R-152 B; DB.saveBillFields).
+  note.oninput = () => { if (!noteBase.has(b.id)) noteBase.set(b.id, b.internal_notes ?? null); drafts.set(b.id + ':note', note.value); };
   pnl.querySelector('[data-savenote]').onclick = async e => {
-    const v = note.value.trim(), before = b.internal_notes ?? null; const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
-    // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).
-    try { await DB.updateBill(b.id, { internal_notes: v || null }); drafts.delete(b.id + ':note'); rerender('[data-savenote]');
-      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: before }); drafts.delete(b.id + ':note'); rerender('#bw-note'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } }); }
+    const v = note.value.trim(), base = noteBase.has(b.id) ? noteBase.get(b.id) : (b.internal_notes ?? null); const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
+    const finish = res => {
+      drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('[data-savenote]');
+      if (!res.changed.length) { toast('Nothing to save: the note already says this.'); return; }
+      // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).
+      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: res.prev.internal_notes ?? null }); drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('#bw-note'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } });
+    };
+    try {
+      const res = await DB.saveBillFields(b.id, { internal_notes: v || null }, { internal_notes: (base ?? '').trim() || null });
+      if (!res.conflicts.length) { finish(res); return; }
+      go.removeAttribute('aria-busy');
+      askConflict({ title: 'A teammate changed the team note', fields: res.conflicts.map(c => ({ label: 'Team note', theirs: c.theirs, mine: c.mine })),
+        keepTheirs: async () => { drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('[data-savenote]'); toast('Kept your teammate’s note.'); },
+        replace: async () => { try { finish(await DB.saveBillFields(b.id, { internal_notes: v || null }, { internal_notes: (base ?? '').trim() || null }, { force: true })); } catch (x) { toast(x, { err: true }); } } });
+    }
     catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
   pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);

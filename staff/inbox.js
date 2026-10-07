@@ -11,6 +11,7 @@ import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
 import { inboxRows, inboxCount, unslack, billById, billNum, blurb, canFirstApprove, canSecondApprove } from './model.js';
 import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
 import { sandboxInbox, hearingFor } from './today.js';
+import { billRoute } from './model.js';
 
 const KINDS = [['message', 'Messages'], ['testimony', 'Testimony'], ['deadline', 'Deadlines'], ['hearing', 'Hearings'], ['status', 'Status'], ['system', 'System']];
 const KIND_ICON = { message: 'message-square', testimony: 'file-text', deadline: 'clock', hearing: 'gavel', status: 'arrow-right', system: 'settings' };
@@ -24,7 +25,7 @@ const itemOf = key => (S.inbox || []).find(i => i.key === key);
 function hrefOf(i) {
   const b = i.bill_id && billById(i.bill_id); if (!b) return '';
   const tab = i.kind === 'testimony' ? 'testimony' : i.kind === 'message' || !i.direct ? 'activity' : '';
-  return `#/bill/${encodeURIComponent(b.bill_number)}${tab ? '/' + tab : ''}`;
+  return `${billRoute(b)}${tab ? '/' + tab : ''}`;
 }
 // A testimony step that is yours to approve gets the Review button (the same queue as Today's "Approve"); the rules are
 // the database's (098): an admin or an approver first, a stand-in near the deadline, a reviewer for the second.
@@ -69,11 +70,11 @@ function listBody(rows, v) {
     const by = new Map(); for (const i of rows) { const k = i.bill_id || 'none'; if (!by.has(k)) by.set(k, []); by.get(k).push(i); }
     return [...by.entries()].map(([k, list]) => {
       const b = k !== 'none' && billById(k), un = list.filter(i => i.unread).length;
-      const name = b ? `<a class="ib-gname" href="#/bill/${encodeURIComponent(b.bill_number)}/activity"><b>${esc(billNum(b))}</b>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span>${esc(b.nickname || blurb(b, 80))}</span></a>` : '<b class="ib-gname">Not about one bill</b>';
+      const name = b ? `<a class="ib-gname" href="${billRoute(b, 'activity')}"><b>${esc(billNum(b))}</b>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span>${esc(b.nickname || blurb(b, 80))}</span></a>` : '<b class="ib-gname">Not about one bill</b>';
       return `<section class="ib-group" aria-label="${esc(b ? billNum(b) : 'Not about one bill')}"><div class="ib-ghead">${name}
           ${un ? `<span class="ib-gacts"><span class="ib-gnew">${un} unread</span><button type="button" class="linkbtn ib-gread" data-ibgroup="${esc(k)}">Mark read</button></span>` : ''}</div>
         <div class="rows">${list.slice(0, 4).map(i => item(i, !!b)).join('')}</div>
-        ${list.length > 4 && b ? `<a class="ib-gmore" href="#/bill/${encodeURIComponent(b.bill_number)}/activity">All ${list.length} on its Activity tab</a>` : ''}</section>`;
+        ${list.length > 4 && b ? `<a class="ib-gmore" href="${billRoute(b, 'activity')}">All ${list.length} on its Activity tab</a>` : ''}</section>`;
     }).join('');
   }
   const seen = new Map(), order = [];

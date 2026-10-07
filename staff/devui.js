@@ -1,6 +1,7 @@
 // #/dev/ui: every shared part in every state, to check the building blocks at 390 and 1440 before screens use them.
 import { S, esc } from './data.js';
 import { icon, btn, iconBtn, chip, pickerChip, posChip, avatar, countdown, row, billRow, groupHead, segmented, switchRow, field, stepBar, empty, skeleton, notice, inlineErr, toast, pickerSheet, menuSheet, confirmSheet } from './ui.js';
+import { billRoute } from './model.js';
 export default {
   tab: '', title: () => 'Parts',
   render() {
@@ -9,7 +10,7 @@ export default {
       <h2>Buttons</h2><div class="btnrow">${btn('Approve')}${btn('Request changes', { kind: 'secondary' })}${btn('Open Doc', { kind: 'text', icon: 'file-text' })}${btn('Delete', { kind: 'danger' })}${btn('Saving', { attrs: { 'aria-busy': 'true' }, icon: 'loader-circle' })}${btn('Disabled', { attrs: { disabled: true } })}${iconBtn('ellipsis', 'More')}</div>
       <h2>Chips</h2><div class="chips">${chip('Neutral')}${chip('Info', 'info', 'info')}${chip('Due soon', 'warn', 'clock')}${chip('Overdue', 'danger', 'circle-alert')}${chip('Filed', 'ok', 'check')}${posChip('strongly_support')}${posChip('oppose')}${posChip('')}${pickerChip('Strong support', { 'data-x': 1 }, 'thumbs-up')}${pickerChip('P1')}</div>
       <h2>People and time</h2><div class="btnrow">${avatar(S.me)}${avatar(S.advocates[1])}${avatar(S.me, 32)}${countdown(later)}${countdown(soon)}${countdown(late)}</div>
-      <h2>Rows</h2><div class="rows">${groupHead('Hearing scheduled', 7)}${groupHead('Did not advance', 12, { fold: 'x', open: false })}${billRow(b, { sub: 'Hearing Wed 3/18 · HHS', href: '#/bill/' + b.bill_number })}${billRow(S.bills[3], { sub: 'Selected in select mode', selectable: true, selected: true })}${row({ lead: 'users', title: 'Leilani Kahale', sub: 'Oʻahu · SD 17 · active 3/16', end: '8 actions' })}</div>
+      <h2>Rows</h2><div class="rows">${groupHead('Hearing scheduled', 7)}${groupHead('Did not advance', 12, { fold: 'x', open: false })}${billRow(b, { sub: 'Hearing Wed 3/18 · HHS', href: billRoute(b) })}${billRow(S.bills[3], { sub: 'Selected in select mode', selectable: true, selected: true })}${row({ lead: 'users', title: 'Leilani Kahale', sub: 'Oʻahu · SD 17 · active 3/16', end: '8 actions' })}</div>
       <h2>Controls</h2>${segmented('scope', [['mine', 'Mine'], ['team', 'Team']], 'mine', 'Whose tasks')}
       <div class="card">${switchRow('sw1', 'Slack DM when someone mentions me', true, 'Off means only the in-app list')}${switchRow('sw2', 'Hearing reminders', false)}</div>
       ${field('f1', 'Capitol confirmation link (optional)', '<input id="f1" type="url" placeholder="https://">', 'Paste the link from the green box.')}

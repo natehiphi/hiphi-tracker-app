@@ -12,10 +12,11 @@
 // A fresh-eyes review (9/21) shaped the rows: no "Filed" chip on filed rows (only the exceptions get one), the date in
 // its own column, a plain label rather than an arrow that looked like a link, and one card for the folded category.
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
-import { codesOf } from './model.js';
+import { codesOf, billByNum } from './model.js';
 import { icon, btn, chip, empty, toast } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { issuesOfBill, catByKey } from './issues.js';
+import { billRoute } from './model.js';
 
 // ---- which drafts count ----
 // Sent for review at least once: in review, approved, filed, or sent back to draft with changes asked for.
@@ -24,7 +25,7 @@ const allWorked = () => Object.values(S.drafts || {}).flat().filter(worked);
 const billById = id => S.bills.find(x => String(x.id) === String(id)) || S.draftBills?.[id] || null;
 // A companion is a bill number in the same session; prefer that session's bill when a number repeats across years.
 const compsOf = b => (b.companions || []).map(n => S.bills.find(x => x.bill_number === n && x.session_year === b.session_year)
-  || S.bills.find(x => x.bill_number === n)).filter(x => x && x.id !== b.id);
+  || billByNum(n)).filter(x => x && x.id !== b.id);
 const billsOfIssue = id => (S.billIssues || []).filter(x => x.issue_id === id).map(x => billById(x.bill_id)).filter(Boolean);
 
 // ---- when: the hearing it was written for, else when it was filed, sent or made ----
@@ -67,7 +68,7 @@ function model(b) {
 }
 // What the Next up link counts: the parts that are open on arrival (the category is folded).
 export const earlierCount = b => { const m = model(b); return m.own.length + m.inIssue.length; };
-export const testimonyHref = b => `#/bill/${b.bill_number}/testimony`;
+export const testimonyHref = b => `${billRoute(b, 'testimony')}`;
 // Said once (A-14): the Next up card carries a bill's own drafts while they are unfinished, and a filed one only on the
 // card of a hearing still ahead. Once the hearing has passed, a filed draft lives here and nowhere else.
 export const onNextUp = d => d.status !== 'cancelled' && d.status !== 'filed';
@@ -112,7 +113,7 @@ function byBill(rows, start, issueName = '') {
   const same = (x, y) => String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
   return [...groups.entries()].map(([id, ds]) => {
     const x = billById(id), name = x ? billName(x) : '';
-    return `<div class="tm-group"><p class="tm-ghead"><a href="#/bill/${esc(x?.bill_number || '')}">${esc(x?.bill_number || 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
+    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${esc(x?.bill_number || 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
   }).join('');
 }
 
@@ -132,7 +133,7 @@ function body(b) {
       <p class="small muted">${m.inIssue.length ? `${plural(m.inIssue.length, 'draft', 'drafts')} on ${plural(new Set(m.inIssue.map(d => String(d.bill_id))).size, 'bill', 'bills')}.`
         : m.sameCount ? `No testimony on the other ${plural(m.sameCount, 'bill', 'bills')} in this issue yet.` : 'This is the only bill in its issue so far.'}</p>
       ${m.inIssue.length ? `<div class="tm-rows">${byBill(m.inIssue, m.start, m.issues.length === 1 ? m.issues[0].name : '')}</div>` : ''}</section>`;
-  } else h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="#/bill/${esc(b.bill_number)}/public">Give it one on the Public tab</a>.</p></section>`;
+  } else h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
   h += `<section class="tm-part" role="search" aria-labelledby="tm-q-h"><h3 id="tm-q-h"><label for="tm-q">Search the ${plural(m.all.length, 'draft', 'drafts')} made in the tracker</label></h3>
     <div class="tm-search">${icon('search')}<input id="tm-q" type="search" autocomplete="off" placeholder="A bill, committee, issue or person" value="${esc(S.tmQuery || '')}"></div>
     <div id="tm-res" aria-live="polite">${results(S.tmQuery || '', b)}</div></section>`;

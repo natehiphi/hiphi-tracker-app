@@ -197,7 +197,9 @@ export const DB = {
       allRows(o => S.supa.from('bill_assignments').select('bill_id,advocate_id', o).order('bill_id').order('advocate_id')),
       S.supa.from('campaigns').select('*').order('sort_order'),
       allRows(o => S.supa.from('bill_campaigns').select('bill_id,campaign_id', o).order('bill_id').order('campaign_id')),
-      allRows(o => S.supa.from('hearings').select('*', o).gte('scheduled_at', daysBack(60)).order('id')),
+      // Hearings of tracked bills only (R-152 B): on a peak day that is about a tenth of the rows (the sign-in read 4,602
+      // hearings when 499 were needed). The inner join keeps it to the bills the team tracks, as the activity read above does.
+      allRows(o => S.supa.from('hearings').select('*, bills!inner(tracked)', o).eq('bills.tracked', true).gte('scheduled_at', daysBack(60)).order('id')),
       allRows(o => S.supa.from('bill_pulse').select('*', o).order('bill_id')),
       S.supa.from('activity_log').select('*').eq('source','team')
         .order('occurred_at', { ascending: false }).limit(25),
@@ -234,6 +236,15 @@ export const DB = {
       // number sat far below the public one (Z1-7).
       allRows(o => S.supa.from('follower_counts').select('bill_id,n', o).order('bill_id')),
     ]);
+    // A read that fails must say so (R-152 B). Only eight of these stop the app; the rest fell back to an empty list without a
+    // word, so a failed drafts read made Today say "No testimony draft yet" on every hearing. Each failed read is named
+    // here and the frame shows one notice with a Reload (S.loadFailed, app.js loadNotice); the screens that would otherwise
+    // state something false from an empty list check S.failed(key) instead (Today's no-draft card, the bill page).
+    const READS = { 'to-dos': [todos], 'testimony drafts': [drafts], committees: [comms], 'settings': [scfg, ccfg, ecfg, sycfg], 'session deadlines': [dls], 'committee slots': [slots],
+      follows: [fol], 'who is going': [att], 'hearing results': [outc], 'chat messages': [msgs, reads], 'your inbox': [inb], 'the session calendar': [scal],
+      lists: [pls, plb, plf], legislators: [legs, cms, cps, sts], 'action alerts': [als], people: [segs, fups], mutes: [mut], 'the public response': [pac, wc] };
+    S.loadFailed = Object.entries(READS).filter(([, rs]) => rs.some(r => !r || r.error)).map(([k]) => k);
+    S.failed = key => (S.loadFailed || []).includes(key);
     S.inbox = inb?.data || [];
     S.messages = {}; (msgs?.data || []).forEach(m => (S.messages[m.bill_id] ??= []).push(m));
     S.chatSeen = Object.fromEntries((reads?.data || []).map(r => [r.bill_id, r.seen_at]));
@@ -258,7 +269,7 @@ export const DB = {
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data; hooks.afterLoad();
-    S.hearings = hear.data;
+    S.hearings = hear.data.map(({ bills: _b, ...h }) => h);
     S.assignments = {}; asg.data.forEach(r =>
       (S.assignments[r.bill_id] ??= []).push(r.advocate_id));
     S.billCampaigns = {}; bc.data.forEach(r =>
@@ -287,7 +298,10 @@ export const DB = {
     // Nothing owned or followed yet: the empty "My bills" page helps nobody.
     if (S.me && S.owner === 'me' && !S.bills.some(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id))) S.owner = 'all';
     // The four that went out with the main load, in the same order as above.
-    const [sr, ev, rc] = await extras;
+    const [sr, ev, rc, iss] = await extras;
+    if (!sr || sr.error) S.loadFailed.push('the sync status');
+    if (!ev || ev.error || !rc || rc.error) S.loadFailed.push('what changed lately');
+    if (iss === 'failed') S.loadFailed.push('issues');
     S.syncRuns = sr?.data || [];
     S.sinceEvents = ev?.data || [];
     S.recentEvents = (rc?.data || []).map(({ bills: _b, ...e }) => e);
@@ -319,6 +333,36 @@ export const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('bills').update(patch).eq('id', billId);
     if (error) { if (b) Object.assign(b, before); throw error; }
+  },
+  // Saving a bill's team fields without erasing a teammate (R-152 B). The Public tab used to send all its fields, changed or
+  // not, from the copy loaded at sign-in, and the team note was one whole text, so Lauren's save at 11:00 could undo the
+  // ask Kevin wrote at 10:00. Now: `base` is what the person's screen held when they began editing; only the keys that
+  // differ from it are written; and before writing, those keys are read fresh. If a teammate changed one since `base`
+  // (and to something other than the same thing), nothing is written: the answer lists { key, theirs, mine } for the screen
+  // to show them, and the local copy takes the teammate's value. { force: true } skips the check (the person chose "Replace
+  // with mine"). Returns { changed, conflicts, prev }: prev holds each written key's value just before, for Undo.
+  async saveBillFields(billId, patch, base, { force = false } = {}) {
+    const norm = v => v == null ? null : typeof v === 'string' ? (v.trim() || null) : v, same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+    const b = S.bills.find(x => x.id === billId);
+    const changed = Object.keys(patch).filter(k => !same(patch[k], base?.[k]));
+    if (!changed.length) return { changed: [], conflicts: [], prev: {} };
+    const out = Object.fromEntries(changed.map(k => [k, patch[k]]));
+    const nowRow = await this.billNow(billId, changed);
+    const prev = Object.fromEntries(changed.map(k => [k, nowRow ? nowRow[k] ?? null : b?.[k] ?? null]));
+    const conflicts = force || !nowRow ? [] : changed.filter(k => !/_edited_at$/.test(k) && !same(nowRow[k], base?.[k]) && !same(nowRow[k], patch[k])).map(k => ({ key: k, theirs: nowRow[k] ?? null, mine: patch[k] ?? null }));
+    if (conflicts.length) {
+      if (b) for (const c of conflicts) b[c.key] = c.theirs;
+      return { changed, conflicts, prev };
+    }
+    await this.updateBill(billId, out);
+    return { changed, conflicts: [], prev };
+  },
+  // One bill's current values for some columns, read now. The sandbox has no other writer, so a test can plant one in
+  // S.demoTheirs[billId] to stand in for a teammate's save.
+  async billNow(billId, keys) {
+    if (DEMO) { const t = S.demoTheirs?.[billId]; return t ? Object.fromEntries(keys.map(k => [k, k in t ? t[k] : S.bills.find(x => x.id === billId)?.[k]])) : null; }
+    const { data, error } = await S.supa.from('bills').select(keys.join(',')).eq('id', billId).maybeSingle();
+    if (error) throw error; return data;
   },
   async follow(billId, on) {
     S.follows ??= new Set(); if (on) S.follows.add(billId); else S.follows.delete(billId);
@@ -589,6 +633,7 @@ export const DB = {
     const { data } = await S.supa.from('bills').select('*').eq('id', row.id).single();
     if (data) { S.bills = S.bills.filter(x => x.id !== data.id).concat(data).sort((a, b2) => a.bill_number.localeCompare(b2.bill_number)); }
     if (camp) { S.billCampaigns[row.id] = [camp.id]; if (camp.owner_id && !(S.assignments[row.id] || []).length) S.assignments[row.id] = [camp.owner_id]; }
+    await this.adoptHearings(row.id);
     return data;
   },
   async triageSkip(row) {
@@ -747,7 +792,7 @@ export const DB = {
       S.categories = cats.data || []; S.issues = iss.data || []; S.issueCats = ic.data || []; S.billIssues = bi.data || [];
       S.issueHelpers = hl.error ? [] : hl.data || []; if (prep.data?.value) S.issuePrep = prep.data.value;
       S.issueLinks = ln.error ? [] : ln.data || []; S.issueLinkChoices = lc.error ? [] : lc.data || [];   // related issues (095, R-094)
-    } catch (e) { console.warn('issues:', e.message || e); }
+    } catch (e) { console.warn('issues:', e.message || e); return 'failed'; }   // loadAll names it in S.loadFailed (R-152 B)
   },
   // A new issue is a draft the public never sees until an admin publishes it (091); its owner is its maker unless chosen.
   async createIssue({ name, description, category, also = [], recommended = false, goal = null, talking_points = null, owner_id = null, stance = null }) {
@@ -1237,6 +1282,13 @@ export const DB = {
     }
     bill.tracked = true; S.bills.push(bill);
     S.bills.sort((a,b) => a.bill_number.localeCompare(b.bill_number));
+    await this.adoptHearings(bill.id);
+  },
+  // Sign-in reads the hearings of tracked bills only (R-152 B), so a bill tracked since then brings its own hearings in.
+  async adoptHearings(billId) {
+    if (DEMO) return;
+    try { const { hearings } = await this.billHearings(billId); S.hearings = S.hearings.filter(h => h.bill_id !== billId).concat(hearings); }
+    catch (e) { console.warn('hearings of a newly tracked bill:', e.message || e); }
   },
 };
 

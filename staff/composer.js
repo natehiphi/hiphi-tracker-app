@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk } from './model.js';
+import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef } from './model.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -162,7 +162,7 @@ function stateFor(route) {
     return S.leCmp = { key, a: { ...src }, subject: src.subject || '', ask, msg, step: 1, edited: true, dirty: false, savedAt: src.updated_at || src.created_at, q: '' };
   }
   const a = { id: null, bill_id: null, list_id: null, segment_id: null, status: 'draft', author_id: S.me?.id };
-  if (q.bill) { const b = billById(q.bill) || S.bills.find(x => x.bill_number === String(q.bill).toUpperCase().replace(/\s/g, '')); if (b) a.bill_id = b.id; }
+  if (q.bill) { const b = billById(q.bill) || billByRef(q.bill); if (b) a.bill_id = b.id; }
   else if (q.list) { const l = listById(q.list); if (l) a.list_id = l.id; }
   else if (q.segment) { const sg = segById(q.segment); if (sg) a.segment_id = sg.id; }
   const c = S.leCmp = { key, a, subject: '', ask: '', msg: '', step: 0, edited: false, dirty: false, savedAt: null, q: '', check: audKey(a) !== '||' };

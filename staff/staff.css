@@ -389,7 +389,7 @@ body.sidenarrow .sv-sync span { display: none; }
 .hr-pub svg { width: 14px; height: 14px; }
 .hr-kit .hr-kitrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line, #DBE3E7); }
 .hr-kit .hr-kitrow:first-of-type { border-top: 0; }
-.pr-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 4px 0; }
+.pr-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 4px 0; min-height: 44px; }
 .pr-fold summary::-webkit-details-marker { display: none; }
 .pr-fold .pr-foldt { display: inline-flex; align-items: center; gap: 8px; }
 .pr-fold[open] summary { margin-bottom: 8px; }
@@ -519,3 +519,19 @@ body.sidenarrow .sv-sync span { display: none; }
 .rm-steps { margin: var(--s8) 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; font-size: var(--t14); }
 .rm-steps li span.muted { margin-left: var(--s8); }
 @media (max-width: 30em) { .rm-resrow { flex-direction: column; align-items: flex-start; } }
+
+/* A read that failed at sign-in or on a refresh (R-152 B): said once at the top of the screen, with a Reload. Amber, not red:
+   the page still works, it may just be missing something (colour means one thing each, A-5). */
+.sv-failnote { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s16); padding: var(--s12) var(--s16); border-radius: var(--r12);
+  background: var(--warn-wash); color: var(--n900); box-shadow: inset 3px 0 0 var(--warn-text); }
+.sv-failnote p { margin: 0; flex: 1; min-width: 0; }
+@media (max-width: 30em) { .sv-failnote { flex-direction: column; align-items: stretch; } }
+
+/* The save conflict sheet (staff/conflict.js, R-152 B): theirs and yours, one under the other, as written. */
+.cf-f { margin-top: var(--s12); }
+.cf-f + .cf-f { margin-top: var(--s16); }
+.cf-h { font-size: var(--t16); margin: 0 0 var(--s8); }
+.cf-c { display: flex; flex-direction: column; gap: 2px; padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--n50); }
+.cf-c + .cf-c { margin-top: var(--s8); }
+.cf-c b { font-size: var(--t14); color: var(--n700); }
+.cf-t { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow: auto; }

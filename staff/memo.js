@@ -9,9 +9,10 @@
 // can be sent to a coalition as it is (see model.js). Audience and coalition follow the person between laptop and
 // phone (advocates.prefs.memo, B-6), and a link can set both: #/bills/memo?coalition=<id or slug>&audience=partners.
 import { S, DB, esc, isMine, hooks } from './data.js';
-import { memoData, memoHTML, memoText } from './model.js';
+import { memoData, memoHTML, memoText, billByRef } from './model.js';
 import { btn, segmented, field, toast, empty, keysOn } from './ui.js';
 import { deskBack, wideNow, typingIn, myCoalitions } from './filters.js';
+import { billRoute } from './model.js';
 
 const AUDIENCES = [['team', 'Team'], ['partners', 'Partners']];
 const coalOf = x => x ? S.campaigns.find(c => c.id === x || c.slug === x) : null;
@@ -36,8 +37,8 @@ function applyRoute(route) {
 // or nothing, and it is Bills, as it always was.
 function backOf(route) {
   const from = String(route?.q?.from || '');
-  const b = from && S.bills.find(x => x.bill_number === from.replace(/\s/g, '').toUpperCase());
-  if (b) return { href: `#/bill/${encodeURIComponent(b.bill_number)}`, label: b.bill_number };
+  const b = from && billByRef(from);
+  if (b) return { href: `${billRoute(b)}`, label: b.bill_number };
   const co = from && (S.campaigns || []).find(x => String(x.id) === from || x.slug === from);
   if (co) return { href: `#/coalition/${encodeURIComponent(co.id)}`, label: co.name };
   return null;

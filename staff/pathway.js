@@ -6,12 +6,13 @@
 // public ask, "Introduced by", and likely next stops from the companion bill (else the House/Senate counterpart map).
 import { S, DB, esc, hooks, fmtDT, fmtDate, advocate, pathwayStops } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { stopOf, legsOf, stanceOf, legTitle, legsForSponsors, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto } from './model.js';
+import { stopOf, legsOf, stanceOf, legTitle, legsForSponsors, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef } from './model.js';
 import { icon, btn, chip, pickerChip, openSheet, closeSheet, pickerSheet, toast } from './ui.js';
 import { rerender } from './bill.js';   // used inside functions only (bill.js imports this file too)
 
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
+import { billRoute } from './model.js';
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -26,8 +27,8 @@ export const RANK = { chair: 0, vice_chair: 1, member: 2 };
 export const seatsOf = l => (S.committeeMembers || []).filter(m => m.legislator_id === l.id).sort((a, b) => RANK[a.role] - RANK[b.role] || a.committee.localeCompare(b.committee));
 // "Chair, AEN · EEP · HLT": leadership named, plain seats as codes
 export const seatsText = l => seatsOf(l).map(m => m.role === 'member' ? m.committee : `${roleWord(m.role)}, ${m.committee}`).join(' · ');
-export const billHref = b => `#/bill/${encodeURIComponent(b.bill_number)}`;
-export const legHref = (l, b) => `#/legislator/${l.id}${b ? '?from=' + encodeURIComponent(b.bill_number) : ''}`;
+export const billHref = b => `${billRoute(b)}`;
+export const legHref = (l, b) => `#/legislator/${l.id}${b ? '?from=' + encodeURIComponent(billRef(b)) : ''}`;
 
 // The mail draft about one bill, prefilled with the public ask (same wording as the current app, but the greeting
 // uses the surname from sort_name so "David Alcos III" is "Rep. Alcos", not "Rep. III").
@@ -133,7 +134,7 @@ const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now
 export function renderPathway(b) {
   if (!b) return '';
   const st = stopOf(b);
-  const comp = (b.companions || []).map(n => S.bills.find(x => x.bill_number === String(n).replace(/\s/g, ''))).find(Boolean);
+  const comp = (b.companions || []).map(n => billByNum(n, b.session_year)).find(Boolean);
   const compRefs = comp && comp.chamber !== b.chamber ? (comp.referrals || []).slice(0, comp.origin_stops || undefined) : null;
   const stops = pathwayStops(b, st, S.counterparts || [], compRefs), desk = DESK();
   const intro = legsForSponsors(b), nSp = (b.sponsors || []).length;
