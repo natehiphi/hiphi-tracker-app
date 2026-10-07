@@ -63,7 +63,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const testimonyBtn = btn(testifyLabel(b, h, late), { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
   const mailWords = mailLabel(b, 'email|' + h.id, 'Send a quick email · 2 min');   // "Send my email again" when one is ready (R-153)
   const emailBtn = btn(mailWords, { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-mailwalk': k } });
-  const followBtn = btn('Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false' } });
+  // A bill on an issue is followed through its issue (R-067), so the button says so, as the bill page's does (C1-7, R-199).
+  const fi = issuesOf(b)[0];
+  const followBtn = btn(fi ? 'Follow this issue' : 'Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false', 'aria-label': fi ? `Follow this issue: ${fi.name}` : null } });
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
   // step 4 (email a committee chair about a bill they met four seconds ago).
   const asking = !!suggest && !S.watch.has(b.id);
