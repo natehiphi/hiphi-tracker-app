@@ -25,6 +25,8 @@ const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 // "moving" means any of last session's bills, there is no hearing term, and an issue already won loses 25 so the open
 // fights lead. A category's importance is the sum of its top four. Staff can leave an issue out of the first visit
 // altogether (issues.first_visit, the switch in Staff v2 Outreach > Issues).
+// About ten issues on the issues screen, however many topics were picked (R-139, Nate 10/5).
+const ISSUE_TOTAL = 10;
 const sigOf = (off, sel) => `${off ? 'off' : 'in'}|${sel.map(i => i.topicKey || i.key).join('|')}`;
 function model2() {
   const off = isOff(), sel = pickedIssues(), sig = sigOf(off, sel), yr = sessionInfo().recapYear;
@@ -43,9 +45,13 @@ function model2() {
   per.forEach(p => { p.rows = p.rows.filter(x => !once.has(x.i.id) && once.add(x.i.id)); });
   // full: every issue of the category in play (what "Follow all" counts and follows); rows: the three shown under it.
   per.forEach(p => { p.full = p.rows; });
-  const top = per.flatMap(p => p.full).sort(byScore).slice(0, TOP_PICKS), topIds = new Set(top.map(x => x.i.id));
-  per.forEach(p => { p.rows = p.full.filter(x => !topIds.has(x.i.id)).slice(0, PER_CAT); p.open = S.stOpen[p.c.topicKey] ?? true; });
-  const all = [...top, ...per.flatMap(p => p.rows)];
+  // R-139 (Nate 10/5: "Do 1, 2, and 3 ... a total of 10 issues regardless of how many categories are picked"): no separate block of
+  // top issues. Each topic's issues sit together under it, about ten in all, shared out one rank at a time across the topics so every
+  // picked topic shows its best before any shows its second (the most important topic first). The rest of a topic is behind "Follow
+  // all", and every issue is on My issues later. The four most important of those shown are what starts ticked (B-12).
+  per.forEach(p => { p.rows = []; p.open = S.stOpen[p.c.topicKey] ?? true; });
+  for (let rank = 0, n = 0; n < ISSUE_TOTAL && per.some(p => p.full[rank]); rank++) for (const p of per) if (n < ISSUE_TOTAL && p.full[rank]) { p.rows.push(p.full[rank]); n++; }
+  const all = per.flatMap(p => p.rows), top = [...all].sort(byScore).slice(0, TOP_PICKS);
   // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
   let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
   if (!picks) {
@@ -63,21 +69,19 @@ function model2() {
 // does" button opens it in place, on the card's bottom edge beside the toggle rather than inside it.
 S.stWhat ??= new Set();
 function issueCard(x, m, secKey, extra) {
-  const i = x.i, on = m.ticked(x), tid = `st-w-${secKey}-${i.slug}`, open = S.stWhat.has(tid);
-  const h = x.inf && x.inf.h, within8 = h && new Date(h.scheduled_at) - Date.now() < 8 * 864e5;
-  const day = within8 ? (hstDay(h.scheduled_at) === hstDay(Date.now()) ? 'today' : new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' })) : '';
-  const top = day ? chip(`Hearing ${day}`, 'info', 'calendar') : m.off && x.law ? chip(`Became law in ${sessionInfo().recapYear}`, 'ok', 'circle-check') : '';
-  const n = m.off ? x.bills.length : x.live.length, b = x.lead, billsText = n > 1 ? `${n} bills${b ? `, including ${spaced(b.bill_number)}` : ''}` : b ? spaced(b.bill_number) : '';
-  return `<li class="st-pcard${on ? ' on' : ''}${open ? ' st-open' : ''}${extra ? ' st-extra' : ''}"${extra && !S.stMore[secKey] ? ' hidden' : ''}>
+  const i = x.i, on = m.ticked(x);
+  // R-139 (Nate 10/5, "Do 1, 2, and 3"): the issue's name and one line, nothing else. The bill count, HIPHI's position, the hearing
+  // chip and "What it does" made each card a careful decision; the issue's own page has them all.
+  const text = String(i.description || '').replace(/\s+/g, ' ').trim(), first = (text.match(/^.*?[.!?](?=\s|$)/) || [text])[0].trim();
+  // Cut at a clause when there is one in reach, else at a word.
+  const cut = first.slice(0, 74), at = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf(' – '), cut.lastIndexOf(': ')), line = first.length <= 74 ? first : at > 32 ? cut.slice(0, at).replace(/[,;:]$/, '') + '.' : cut.replace(/\s+\S*$/, '').replace(/[,;:]$/, '') + '…';
+  return `<li class="st-pcard${on ? ' on' : ''}${extra ? ' st-extra' : ''}"${extra && !S.stMore[secKey] ? ' hidden' : ''}>
     <button type="button" class="st-pick" data-stpick="${esc(i.id)}" data-stcat="${esc(secKey)}" aria-pressed="${on}">
       <span class="st-tick" aria-hidden="true">${icon('check')}</span>
       <span class="st-pbody">
-        ${top ? `<span class="st-ptop">${top}</span>` : ''}
         <span class="st-phead">${esc(i.name)}</span>
-        ${i.description ? `<span class="st-pwhat st-clamp" id="${tid}">${esc(i.description)}</span>` : ''}
-        <span class="st-pmeta"><span>${esc(billsText)}</span>${x.pos ? posChip({ hiphi_position: x.pos }) : ''}</span>
-      </span></button>
-    ${i.description ? `<button type="button" class="st-what" data-stwhat="${esc(tid)}" aria-expanded="${open}" aria-controls="${tid}" hidden><span>What it does<span class="sr">: ${esc(i.name)}</span></span>${icon('chevron-down')}</button>` : ''}</li>`;
+        ${line ? `<span class="st-pwhat">${esc(line)}</span>` : ''}
+      </span></button></li>`;
 }
 // Show "What it does" only on cards whose text is really cut off at this width (or is open, so it can be closed).
 function fitWhat() {
@@ -108,7 +112,7 @@ function catSection(p, m) {
     <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
     <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
       ${p.rows.length ? `<ul class="st-picks" role="list">${p.rows.map(x => issueCard(x, m, c.topicKey, false)).join('')}</ul>`
-        : `<p class="st-catnote">${n === 1 ? 'Its issue is' : 'Its issues are'} in the list above.</p>`}
+        : `<p class="st-catnote">${n === 1 ? 'Its issue is' : 'Its issues are'} not shown here. Follow all to get ${n === 1 ? 'it' : 'them'}.</p>`}
     </div></details>`;
 }
 // A category with nothing in play right now can still be followed whole: its issues and bills come as they start.
@@ -130,9 +134,8 @@ function stepIssues(step) {
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${m.top.length ? `<section class="st-topsec" aria-labelledby="st-toph"><h2 class="st-toph" id="st-toph">${off ? `HIPHI’s top issues in ${yr}` : 'HIPHI’s top issues right now'}</h2>
-      <ul class="st-picks" role="list">${m.top.map(x => issueCard(x, m, 'top', false)).join('')}</ul></section>` : ''}
-    ${groups.length ? `${m.top.length ? `<h2 class="st-toph st-moreh">More in your topics</h2>` : ''}<div class="st-tsecs" role="group" aria-label="More in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
+    ${total ? `<p class="st-free">${icon('mail')}<span>Following is free. You get at most one email a day, however many you follow, and you can change it any time.</span></p>` : ''}
+    ${groups.length ? `<div class="st-tsecs" role="group" aria-label="Issues in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
 }
 

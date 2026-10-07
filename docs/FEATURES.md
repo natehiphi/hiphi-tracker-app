@@ -36,8 +36,10 @@ Test: `tests/staff_stance.py`.
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,
 with three named parts at the top ("Your issues · A bill’s story · Stay connected" since R-174; a signpost, never a bar or a counter):
-topics (six tiles, most important first) -> "Your issues" (R-039, 9/26: the four most important issues across the chosen
-topics, then three more per topic and nothing else; only the top four can start ticked; importance uses
+topics (six tiles, most important first) -> "Your issues" (R-039, 9/26, changed by R-139, 10/6: about ten issues in all however many
+topics were picked (`ISSUE_TOTAL` in `pub/start-rest.js`, shared out one rank at a time so every topic shows its best), each topic's issues
+together under it with no separate "top issues" block; a card is the issue's name and one short line, with no bill count, position, hearing
+chip or "What it does"; one line says following is free, at most one email a day; only the four most important shown can start ticked; importance uses
 `public_issues.top_priority` and the staff switch `issues.first_visit`, migration 066; its numbers are `WEIGHT` in `pub/rank.js`, shared with the
 suggested bill on Home and Find since R-094: change them there, once) -> "Get alerts on your N issues" (R-146, 10/4: the
 alerts ask moved here from "Coming up"; a mobile number first, email as a link under it, `pub/alerts.js`, the same box as
