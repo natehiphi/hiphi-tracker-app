@@ -16,7 +16,24 @@
 .tk-search + .sr + .tk-groups { margin-top: var(--s24); }
 .tk-group + .tk-group { margin-top: var(--s24); }
 .tk-group[hidden], .tk-group .row[hidden] { display: none; }
-.tk-group h2 { display: flex; align-items: center; gap: var(--s8); }
+.tk-group h2 { display: flex; align-items: center; gap: var(--s8); margin-bottom: 0; }
+.tk-group > summary { display: flex; align-items: center; gap: var(--s8); margin-bottom: var(--s12); list-style: none; cursor: default; }
+.tk-group > summary::-webkit-details-marker { display: none; }
+.tk-gn, .tk-chev { display: none; }
+/* A phone (R-075): the groups fold. Each heading is one tappable bar with how many questions it holds and a chevron; the
+   open group's rows sit under it. Wider than 599px nothing folds and the heading is only a heading. */
+@media (max-width: 599px) {
+  .tk-group + .tk-group { margin-top: 0; }
+  .tk-group > summary { cursor: pointer; min-height: 52px; margin-bottom: 0; border-bottom: 1px solid var(--n200); }
+  .tk-group > summary h2 { flex: 1; min-width: 0; }
+  .tk-gn { display: inline; font-size: var(--t14); color: var(--n700); }
+  .tk-chev { display: inline-flex; color: var(--n700); transition: transform .2s var(--ease); }
+  .tk-chev .ic { width: 20px; height: 20px; }
+  .tk-group[open] > summary .tk-chev { transform: rotate(180deg); }
+  .tk-group > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+  .tk-group[open] > .rows { margin: var(--s12) 0 var(--s16); }
+}
+@media (max-width: 599px) and (prefers-reduced-motion: reduce) { .tk-chev { transition: none; } }
 .tk-gic { display: inline-flex; color: var(--p700); }
 .tk-gic .ic { width: 20px; height: 20px; }
 /* one-line questions: a shorter row than More's two-line ones, still well over 44px */

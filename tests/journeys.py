@@ -94,7 +94,7 @@ JOURNEYS = [
    dict(what='type the number', fill=('#st-a-phone', '(808) 555-0123'),
         reach="(()=>document.getElementById('st-a-phone')?.value==='(808) 555-0123')()"),
    dict(what='ask for the code', do=click_text('.st-bar #st-send', 'Text me a code'), reach="(()=>{const i=document.getElementById('st-a-code'); return !!i && i.offsetParent!==null;})()"),
-   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /Text alerts are on/.test(m.innerText);})()"),
+   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /text alerts are on/i.test(m.innerText);})()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

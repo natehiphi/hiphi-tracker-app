@@ -80,7 +80,7 @@ with sync_playwright() as pw:
     ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'codes on: the button says what it sends, a code')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000); p.wait_for_timeout(400)
     t = text(p)
-    ok(p.inner_text('#st-h') == 'Check your texts' and 'Type the 6-digit code' in t, 'the heading says to check your texts')
+    ok(p.inner_text('#st-h') == 'Check your texts' and 'Type the code to save your profile.' in t and '6-digit code' in t, 'the heading says to check your texts; the line says what the code does (R-188)')
     ok(p.locator('#st-aform [data-alswap="email"]').count() == 1, 'the code step has a way to email instead')
     ok('We texted a code to (808) 555-0123' in t, 'the box becomes the code field, naming the number')
     ok(p.get_attribute('#st-a-code', 'autocomplete') == 'one-time-code' and p.get_attribute('#st-a-code', 'inputmode') == 'numeric', 'the field lets the phone fill the code in (one-time-code, numeric keypad)')
@@ -99,7 +99,7 @@ with sync_playwright() as pw:
     p.fill('#st-a-phone', '808 555 0177'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000)
     p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=6000); p.wait_for_timeout(1500)
     m = moment(p)
-    ok('Mahalo!' in m and 'Text alerts are on for (808) 555-0177.' in m and 'signed in' not in m, f'six digits send it by themselves; the "Mahalo!" says alerts are on (the sandbox signs no one in): {m[:160]!r}')
+    ok('Mahalo!' in m and 'Your profile is saved, and text alerts are on for (808)\u00a0555-0177.' in m and 'signed in' not in m, f'six digits send it by themselves; the "Mahalo!" says the profile is saved and alerts are on (R-188): {m[:160]!r}')
     shot(p, 'B2_mahalo')
     saved = json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or 'null')
     ok(saved and saved.get('phone') == '8085550177' and saved.get('confirmed') is True, 'this browser keeps the number, confirmed (the sandbox copy)')
@@ -237,7 +237,7 @@ with sync_playwright() as pw:
     p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000)
     ok(any(k == 'otp' for k, _ in calls) and not any(k.endswith('rpc/text_signup') for k, _ in calls), 'Text me asks for a code; nothing is kept before it')
     p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=10000); p.wait_for_timeout(800)
-    ok('Text alerts are on for (808) 555-0123, and you’re signed in with it.' in moment(p) and p.url.split('#')[1].startswith('/start/'), 'the "Mahalo!" says alerts are on and they are signed in, and the visit goes on (no restart)')
+    ok('Your profile is saved, and text alerts are on for (808)\u00a0555-0123.' in moment(p) and p.url.split('#')[1].startswith('/start/'), 'the "Mahalo!" says the profile is saved and alerts are on (R-188), and the visit goes on (no restart)')
     sign = [json.loads(d or '{}') for k, d in calls if k == 'POST rpc/text_signup']
     ok(sign and sign[-1].get('p', {}).get('consent') == 't2' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t2 words ({sign[-1] if sign else None})')
     links = [k for k, _ in calls if k == 'POST rpc/text_link']

@@ -48,7 +48,7 @@ const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees',
 const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED, ['room', 'Tester sheet', 'qr-code']].map(([k, t, ic]) => [k, { t, ic }]));
 
 // ---- async state: readiness and secret status load once per visit and on "Check again" ----
-const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
+const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', reach: null, reachBusy: false, reachErr: '', teamEmail: null, slackBusy: false, offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 function loadReady(force) {
   const s = st(); if (s.readyBusy || (s.ready && !force)) return;
@@ -105,15 +105,43 @@ function loadLogins(force) {
     .finally(() => { s.loginsBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
 
+// Who the tracker can reach (backend 154, M1-1, M1-3) and the team email switch. Loads with the logins.
+function loadReach(force) {
+  const s = st(); if (s.reachBusy || (s.reach && !force)) return;
+  s.reachBusy = true; s.reachErr = '';
+  Promise.all([DB.teamReach(), DB.teamEmail().catch(() => null)])
+    .then(([r, te]) => { s.reach = Object.fromEntries((r || []).map(x => [x.advocate_id, x])); s.teamEmail = te; })
+    .catch(e => { s.reachErr = e.message || 'Could not check.'; })
+    .finally(() => { s.reachBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+const reachOk = x => x && (x.reach === 'slack' || x.reach === 'email');
+const reachWord = x => !x ? '' : x.reach === 'slack' ? 'In Slack' : x.reach === 'email' ? 'Gets email' : x.reach === 'unknown' ? 'Not looked up in Slack yet'
+  : x.reach === 'off' ? '' : (x.why || 'Cannot be reached').replace(/^./, c => c.toUpperCase());
+function reachHTML() {
+  const s = st();
+  if (s.reachErr) return notice('info', 'info', 'Who the tracker can reach shows here once Claude finishes setting it up. Until then, Ready for session? lists who is matched in Slack.');   // the database part (backend 154) may not be applied yet; plain words (B-8)
+  if (!s.reach) return '';
+  const act = S.advocates.filter(a => a.is_active !== false), R = s.reach, out = act.filter(a => !reachOk(R[a.id]));
+  const missed = act.reduce((n, a) => n + (R[a.id]?.not_reached || 0), 0);
+  return `<section class="card st-reach" aria-labelledby="st-reach-h"><h2 id="st-reach-h">Who the tracker can reach</h2>
+    <p class="small">${act.length - out.length} of ${act.length} get the tracker's messages. ${out.length ? `${plural(out.length, 'person', 'people')} can't be reached yet, so their messages go to the next person who can be: an owner of the bill's coalition, then an admin.` : 'Everyone can be reached.'}${missed ? ` ${plural(missed, 'message')} did not reach someone in the last 30 days.` : ''}</p>
+    ${out.length ? `<ul class="st-reachlist">${out.map(a => { const x = R[a.id] || {}; return `<li><span class="strong">${esc(a.full_name)}</span><span class="muted">${esc(reachWord(x))}${x.not_reached ? ` · ${plural(x.not_reached, 'message')} did not reach them` : ''}</span></li>`; }).join('')}</ul>` : ''}
+    <div class="st-reachact">${btn('Check who Slack can reach', { kind: 'secondary', sm: true, icon: 'search', attrs: { 'data-slackreach': '1', ...(s.slackBusy ? { 'aria-busy': 'true' } : {}) } })}<span class="small muted">Looks each person up in Slack by their email. Nobody is messaged.</span></div>
+    ${s.teamEmail === null ? '' : switchRow('st-teamemail', 'Email to the team', !!s.teamEmail, 'On: someone Slack cannot find gets their messages by email, even while email to the public is paused. Off: their messages go to the next person who can be reached. Saves as soon as you flip it.')}
+  </section>`;
+}
+
 // ---- readiness: every row the server checks, plus the one the current app computes here (public page copy) ----
 // Where each problem is fixed. Rows with no page in the app get a plain sentence instead (most are Claude's job).
-const FIX = { advocates_auth: 'team', coalition_owners: 'coalitions', coalition_channels: 'coalitions', keywords: 'coalitions', slack: 'connections', calendar: 'connections', email: 'email', bulk: 'import', session_days: 'sync', template: 'templates' };
+const FIX = { advocates_auth: 'team', team_reach: 'team', advocates_slack: 'team', coalition_owners: 'coalitions', coalition_channels: 'coalitions', keywords: 'coalitions', slack: 'connections', calendar: 'connections', email: 'email', bulk: 'import', session_days: 'sync', template: 'templates' };
 const FIX_TEXT = {
   deadlines: 'Claude loads the session calendar each December. Ask Claude if this stays red.',
   slots: 'The sync loads committee meeting times. Ask Claude if this stays red.',
   committees: 'The sync loads committees and chairs. Ask Claude if this stays red.',
   advocates_auth: 'Make each person a sign-in link under Team and send it to them.',
-  advocates_slack: 'People are matched by email the first time the tracker messages them. Check that their Slack email is their hiphi.org address.',
+  advocates_slack: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email.',
+  team_reach: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email, or turn on Email to the team.',
+  breakglass: 'Make a second admin under Team, or keep a sealed admin login in HIPHI’s password manager and try it every 90 days. The steps are in the break-glass guide Claude wrote (docs/BREAK-GLASS.md).',
   coalition_owners: 'Give each coalition an owner.', coalition_channels: 'Give each coalition a Slack channel.', keywords: 'Add keywords so new bills get suggested.',
   slack: 'Save the Slack bot token.', calendar: 'Save the Google keys, then connect the calendar.',
   outbox: 'Messages are waiting to go out. Ask Claude to check the notify-send function.',
@@ -278,13 +306,20 @@ function loginWord(a) {
 }
 function tmRow(a) {
   const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Reviewer' : '';
-  const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a)].filter(Boolean).join(' · ');
+  const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a)].filter(Boolean).join(' · ');   // who can't be reached is said once, on the card above (A-14)
   // A link is offered on the row only while someone still has to sign in for the first time; a forgotten password
   // is rarer, so that link is in the person's sheet.
   const link = !me && a.is_active !== false && st().logins && !l?.last_sign_in_at
     ? btn(l?.link_made_at ? 'New link' : 'Sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-tmlink': a.id, 'aria-label': `Make a sign-in link for ${a.full_name}` } }) : '';
   return `<div class="st-tm">${row({ leadHtml: `<span class="lead st-tmav">${avatar(a, 32)}</span>`, title: `${esc(a.full_name)}${me ? ' <span class="muted">(you)</span>' : ''}`, sub, attrs: { 'data-tmedit': a.id, 'aria-label': `${a.full_name}${me ? ' (you)' : ''}: edit` } })}${link ? `<span class="st-tmlink">${link}</span>` : ''}</div>`;
 }
+// "Ask another admin" named nobody when there was none (M1-4, B-3): name them, or say how to make one.
+function ownAdminWords() {
+  const others = S.advocates.filter(x => x.is_admin && x.is_active !== false && x.id !== S.me?.id);
+  return others.length ? `You cannot take away your own admin. Ask ${esc(listOf(others.map(firstOf)))}, the other admin${others.length > 1 ? 's' : ''}.`
+    : 'You cannot take away your own admin. You are the only admin: turn on Admin for someone you trust, so the team is not stuck if you are away.';
+}
+const listOf = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 function personSheet(a) {
   const me = a && a.id === S.me?.id, l = a && st().logins?.[a.id], locked = !!l?.has_login, off = a && a.is_active === false, n = a ? ownedBy(a.id) : 0;
   const email = `<input id="tm-email" type="email" value="${esc(a?.email || '')}" placeholder="name@hiphi.org" autocomplete="off" inputmode="email"${locked ? ' readonly aria-describedby="tm-email-help"' : ''}>`;
@@ -297,7 +332,7 @@ function personSheet(a) {
       ${field('tm-name', 'Name', `<input id="tm-name" type="text" value="${esc(a?.full_name || '')}" autocomplete="off"${a ? '' : ' autofocus'}>`)}
       ${field('tm-email', 'Email', email, locked ? 'They sign in with this email. Ask Claude to change it.' : 'Their hiphi.org address. It is how they sign in and how Slack finds them.')}
       ${field('tm-ini', 'Initials', `<input id="tm-ini" type="text" value="${esc(a?.initials || '')}" maxlength="3" autocomplete="off" autocapitalize="characters" aria-describedby="tm-ini-help">`, 'Shown in the small circle beside their bills.')}
-      ${switchRow('tm-admin', 'Admin', !!a?.is_admin, me ? 'You cannot take away your own admin. Ask another admin.' : 'Approves testimony and emails, and can open Session setup.', me ? { disabled: true } : {})}
+      ${switchRow('tm-admin', 'Admin', !!a?.is_admin, me ? ownAdminWords() : 'Approves testimony and emails, and can open Session setup.', me ? { disabled: true } : {})}
       ${switchRow('tm-appr', 'Approver', !!a?.can_approve, 'Approves testimony and supporter emails, without the rest of an admin’s powers.')}
       ${switchRow('tm-rev', 'Reviewer', !!a?.is_reviewer, 'Gives the second approval on testimony, and can stand in for the first from 6 hours before the deadline.')}
       <button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>${extra}`,
@@ -345,17 +380,19 @@ async function makeLink(a) {
   b?.setAttribute('aria-busy', 'true');
   let r; try { r = await DB.teamLink(a.id); } catch (e) { b?.removeAttribute('aria-busy'); toast(e.message || String(e), { err: true }); return; }
   b?.removeAttribute('aria-busy'); loadLogins(true);
-  const first = firstOf(a), email = r.email || a.email;
-  const msg = `Aloha ${first},\n\nHere is your link to the HIPHI Bill Tracker, the team's staff app:\n${r.link}\n\nOpen it, choose a password, and you are in. The link works once, and only for about an hour. From then on, sign in at ${APP_URL} with ${email} and your password.\n\n${S.me ? firstOf(S.me) : ''}`.trim();
+  // M1-3: the newer team-admin hands back continue_link, which opens a Continue page first, so a link preview cannot use
+  // it up. Until that function is live the old one-time link comes back, and the words below say email only either way.
+  const first = firstOf(a), email = r.email || a.email, link = r.continue_link || r.link;
+  const msg = `Aloha ${first},\n\nHere is your link to the HIPHI Bill Tracker, the team's staff app:\n${link}\n\nOpen it${r.continue_link ? ', press Continue,' : ''} and choose a password, and you are in. The link works once, and only for about an hour. From then on, sign in at ${APP_URL} with ${email} and your password.\n\n${S.me ? firstOf(S.me) : ''}`.trim();
   const mail = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Your sign-in for the HIPHI Bill Tracker')}&body=${encodeURIComponent(msg)}`;
   openSheet({ title: `Sign-in link for ${esc(first)}`, size: 'auto',
-    body: `<p class="st-shp">${r.created ? `${esc(first)} now has a login. ` : ''}Send ${esc(first)} this message yourself, by Slack or email. The link works once and only for about an hour, so send it when they are ready. If it runs out, make a new one here.</p>
+    body: `<p class="st-shp">${r.created ? `${esc(first)} now has a login. ` : ''}Email ${esc(first)} this message yourself, not by Slack: a Slack link preview can open the link and use it up. The link works once and only for about an hour, so send it when they are ready. If it runs out, make a new one here.</p>
       ${field('tm-msg', 'The message', `<textarea id="tm-msg" rows="9" readonly>${esc(msg)}</textarea>`)}
       ${notice('info', 'shield-check', `Anyone who opens this link is signed in as ${esc(first)}, so send it only to them.`)}`,
-    foot: `${btn('Copy link', { kind: 'text', icon: 'link', attrs: { 'data-cp': 'link' } })}${btn('Email it', { kind: 'secondary', icon: 'mail', href: mail })}${btn('Copy message', { icon: 'copy', attrs: { 'data-cp': 'msg' } })}`,
+    foot: `${btn('Copy link', { kind: 'text', icon: 'link', attrs: { 'data-cp': 'link' } })}${btn('Copy message', { kind: 'secondary', icon: 'copy', attrs: { 'data-cp': 'msg' } })}${btn('Email it', { icon: 'mail', href: mail })}`,
     wire: d => d.querySelectorAll('[data-cp]').forEach(x => x.onclick = async () => {
-      const text = x.dataset.cp === 'link' ? r.link : msg;
-      try { await navigator.clipboard.writeText(text); toast(x.dataset.cp === 'link' ? 'Link copied.' : 'Message copied. Paste it into Slack or an email.', { ok: true }); }
+      const text = x.dataset.cp === 'link' ? link : msg;
+      try { await navigator.clipboard.writeText(text); toast(x.dataset.cp === 'link' ? 'Link copied. Send it by email.' : 'Message copied. Paste it into an email.', { ok: true }); }
       catch { const t = d.querySelector('#tm-msg'); t.focus(); t.select(); toast('Select the message and copy it.'); }
     }) });
 }
@@ -728,22 +765,35 @@ async function roomPrint() {
 const PAGES = {
   team: {
     status: () => ['users-round', status('team') + '.'],
-    body() { loadLogins(); const s = st(), act = S.advocates.filter(a => a.is_active !== false), off = S.advocates.filter(a => a.is_active === false);
-      return `<p class="small muted st-intro">Everyone who uses the staff app. Add someone, then make them a sign-in link and send it to them by Slack or email.</p>
+    body() { loadLogins(); loadReach(); const s = st(), act = S.advocates.filter(a => a.is_active !== false), off = S.advocates.filter(a => a.is_active === false);
+      return `<p class="small muted st-intro">Everyone who uses the staff app. Add someone, then make them a sign-in link and email it to them.</p>
       <div class="btnrow st-acts st-top">${btn('Add a person', { icon: 'user-plus', attrs: { 'data-tmadd': '1' } })}</div>
       ${s.loginsErr ? notice('warn', 'triangle-alert', `Could not check who has signed in. ${esc(s.loginsErr)}`) : ''}
+      ${reachHTML()}
       <div class="rows st-team">${act.map(tmRow).join('')}</div>
       ${off.length ? `<div class="rows st-team st-teamoff"><button type="button" class="st-fold" data-tmoffopen aria-expanded="${s.offOpen}">${icon('eye-off')}<span>${plural(off.length, 'person', 'people')} turned off</span>${icon(s.offOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.offOpen ? off.map(tmRow).join('') : ''}</div>` : ''}`; },
     wire(root) { const s = st();
       root.querySelector('[data-tmadd]')?.addEventListener('click', () => personSheet(null));
       root.querySelectorAll('[data-tmedit]').forEach(b => b.onclick = () => personSheet(advocate(b.dataset.tmedit)));
       root.querySelectorAll('[data-tmlink]').forEach(b => b.onclick = () => makeLink(advocate(b.dataset.tmlink)));
-      const o = root.querySelector('[data-tmoffopen]'); if (o) o.onclick = () => { s.offOpen = !s.offOpen; hooks.render(); document.querySelector('[data-tmoffopen]')?.focus(); }; },
+      const o = root.querySelector('[data-tmoffopen]'); if (o) o.onclick = () => { s.offOpen = !s.offOpen; hooks.render(); document.querySelector('[data-tmoffopen]')?.focus(); };
+      root.querySelector('[data-slackreach]')?.addEventListener('click', async () => { if (s.slackBusy) return;
+        s.slackBusy = true; hooks.render();
+        try { const p = await DB.slackReach(), found = p.filter(x => x.matched), lost = p.filter(x => !x.matched).map(x => advocate(x.advocate_id)).filter(Boolean);
+          toast(`Slack found ${found.length} of ${p.length}.${lost.length ? ` Not found: ${listOf(lost.map(firstOf))}. Their Slack profile needs their hiphi.org email.` : ''}`, { ok: !lost.length });
+          loadReach(true); }
+        catch (e) { toast(e.message || String(e), { err: true }); }
+        finally { s.slackBusy = false; hooks.render(); } });
+      const te = root.querySelector('#st-teamemail');
+      if (te) te.onchange = async () => { const on = te.checked;
+        try { await DB.setTeamEmail(on); s.teamEmail = on; loadReach(true);
+          toast(on ? 'Email to the team is on.' : 'Email to the team is off.', { ok: true, undo: async () => { await DB.setTeamEmail(!on); s.teamEmail = !on; loadReach(true); toast('Undone.'); } }); }
+        catch (e) { te.checked = !on; toast(e.message || String(e), { err: true }); } }; },
   },
   email: {
     // A failed read counts as paused and every save here is refused until a reload reads it (Z1-5, data.js).
     status: () => S.emailCfgErr ? ['circle-alert', `${esc(S.emailCfgErr)} Until then the app treats email as paused.`]
-      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders and hearing emails to the public are held and never sent; approved supporter emails wait and go out once it is back on. Slack still works.'] : ['circle-check', 'Email is on.'],
+      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders and hearing emails to the public are held and never sent; approved supporter emails wait and go out once it is back on. Slack still reaches the people it has matched (Team shows who).'] : ['circle-check', 'Email is on.'],
     note() { const c = S.emailCfg || {}; return c.changed_at ? `${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.` : ''; },
     body() { const c = S.emailCfg || {};
       return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Alerts and reminders held while it is off are never sent; approved supporter emails wait for it. This switch saves as soon as you flip it.')}

@@ -456,7 +456,7 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
     ok(re.search(r'HIPHI\u2019s top issues in 20\d\d', t) is not None and p.locator('[data-stpick]').count() > 0, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(p.locator('main input[type=tel]').count() == 1 and 'start in January' in text(p), f"between sessions the issues lead on to the alerts, in off-season words ({p.evaluate('location.hash')})")
+    ok(p.locator('main input[type=tel]').count() == 1 and 'from January' in text(p), f"between sessions the issues lead on to the alerts, in off-season words ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     for _ in range(24):
         if p.locator('[data-stdone]').count(): break

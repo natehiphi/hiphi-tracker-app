@@ -349,10 +349,16 @@ function stepAlerts(step) {
           { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', t ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>`
     : `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
   // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
-  // has to make sense on its own (the review, 10/4).
+  // has to make sense on its own (the review, 10/4). In the profile ask (R-188) the code step says what the code does for
+  // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted"), and
+  // Back, once a number or email was given, has no lede: the card under the heading says the rest (it showed the old
+  // alerts reasons, A-14).
+  const lede = !done && codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
+    : prof ? (done ? '' : esc(profileLede('first', { off, n })))
+    : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`;
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
     <h1 class="hero" id="st-h">${done ? (t?.confirmed ? 'You’re all set' : 'You’re almost set') : codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
-    <p class="lede">${!done && codeStep('st-a') ? 'Type the 6-digit code from the text to turn on alerts.' : prof && !done ? esc(profileLede('first', { off })) : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`}</p>`,
+    ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     body);
 }
 // The first success: a moment that fills the screen and waits for Continue (C-7). It celebrates the issues just
@@ -363,7 +369,11 @@ function mahalo(then, r = null) {
   if (wiz().via || S.mahaloShown) { then(); return; }
   S.mahaloShown = true;
   // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it.
-  const told = r?.kind === 'phone' && r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`
+  // The profile ask (R-188): the screen asked "Save your profile", so once the code has proven the number the answer starts
+  // by saying it was saved (as the card on Back does, alerts.js alertDoneHTML); being signed in is what a saved profile
+  // means, so it is not said again. A number not yet confirmed, and an email, keep "Almost set" and "to turn on alerts",
+  // the words every screen uses for them (D1-4). The number never breaks across lines (the review: "(808) / 555-0123").
+  const told = r?.kind === 'phone' && r.confirmed ? (profileAsk() ? `Your profile is saved, and text alerts are on for ${fmtPhone(r.phone).replace(' ', '\u00a0')}.` : `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`)
     // Not confirmed yet: "Almost set", the words every screen uses for it (alerts.js alertStatus, D1-4). It said "Then alerts
     // start.", which read as done.
     : r?.kind === 'phone' ? almostLine(fmtPhone(r.phone))

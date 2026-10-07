@@ -17,7 +17,7 @@ const GROUP = new Map(GROUPS.map(g => [g.key, g]));
 const PAR = { tel: 'tel:+18085870478', text: '(808) 587-0478' };
 const EMAIL = 'contact@hiphi.org';
 // This visit's state: which conversation, how many of its questions have been asked, and what was typed in the search.
-const T = { slug: '', n: 1, q: '' };
+const T = { slug: '', n: 1, q: '', open: '' };
 const $ = s => document.querySelector(s);
 const reduce = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -160,8 +160,12 @@ function art(key) {
 }
 
 // ---------------- the list ----------------
+// On a phone the seven groups fold, so the first screen shows what Help covers instead of 50 questions (R-075, Nate 10/4:
+// "fold the seven groups on a phone"; A-2, C-14). Wider than that they stay open, as before. A group is open when it is
+// the one the last conversation came from (Back lands where you were, B-4) or while a search is typing.
+const narrow = () => !!window.matchMedia?.('(max-width: 599px)').matches;
 function listView() {
-  const keys = !!window.matchMedia?.('(pointer: fine)').matches;
+  const keys = !!window.matchMedia?.('(pointer: fine)').matches, fold = narrow();
   return `<div class="tk tk-list">
     <header class="pagehead"><h1 class="hero">Help</h1>
       <p class="lede">Questions people ask about the Legislature, testimony and this tracker. Tap one for a short answer in plain words.</p></header>
@@ -172,10 +176,11 @@ function listView() {
     <p class="sr" role="status" id="tk-count"></p>
     <div class="tk-groups">
       ${GROUPS.map(g => { const list = TALKS.filter(t => t.group === g.key); if (!list.length) return '';
-        return `<section class="tk-group" data-tkgroup="${g.key}" aria-labelledby="tk-g-${g.key}">
-          <h2 id="tk-g-${g.key}"><span class="tk-gic">${icon(g.icon)}</span>${esc(g.title)}</h2>
+        return `<details class="tk-group" data-tkgroup="${g.key}"${!fold || T.q.trim() || T.open === g.key ? ' open' : ''}>
+          <summary><h2 id="tk-g-${g.key}"><span class="tk-gic">${icon(g.icon)}</span>${esc(g.title)}</h2>
+            <span class="tk-gn" aria-hidden="true">${list.length}</span>${icon('chevron-down', { cls: 'tk-chev' })}</summary>
           <nav class="rows" aria-labelledby="tk-g-${g.key}">${list.map(t => row({ title: esc(t.title), href: '#/help/' + t.slug, attrs: { 'data-tkrow': t.slug } })).join('')}</nav>
-        </section>`; }).join('')}
+        </details>`; }).join('')}
     </div>
     <div class="tk-none" hidden><p class="strong">No questions match that.</p><p>Try one word, like hearing or deadline. Or ask a person below.</p></div>
     <section class="tk-more" aria-labelledby="tk-lx-t">
@@ -211,12 +216,32 @@ function filter(q) {
   let shown = 0;
   document.querySelectorAll('[data-tkrow]').forEach(a => { const hit = words.every(w => HAY.get(a.dataset.tkrow).includes(w)); a.hidden = !hit; if (hit) shown++; });
   document.querySelectorAll('[data-tkgroup]').forEach(s => { s.hidden = !s.querySelector('[data-tkrow]:not([hidden])'); });
+  fold();
   const none = $('.tk-none'); if (none) none.hidden = shown > 0;
   const c = $('#tk-count'); if (c) c.textContent = words.length ? (shown ? `${shown} question${shown === 1 ? '' : 's'} found` : 'No questions match') : '';
 }
+// Which groups are open: all of them wide; on a phone only the last-visited one, or every group with a match while a
+// search is typed. Wide, a group cannot be closed, so its heading is no control (no tab stop, no click).
+function fold() {
+  const n = narrow(), q = T.q.trim();
+  document.querySelectorAll('[data-tkgroup]').forEach(d => {
+    const want = !n || !!q || d.dataset.tkgroup === T.open;
+    if (d.open !== want) d.open = want;
+    d.firstElementChild.tabIndex = n ? 0 : -1;
+  });
+}
+let foldWired = false;
 function wireList() {
   const inp = $('#tk-q');
   if (!inp) return;
+  fold();
+  if (!foldWired) { foldWired = true; window.matchMedia?.('(max-width: 599px)').addEventListener?.('change', () => $('.tk-groups') && fold()); }
+  document.querySelectorAll('[data-tkgroup] > summary').forEach(sm => sm.addEventListener('click', e => {
+    const d = sm.parentElement;
+    if (!narrow()) { e.preventDefault(); return; }
+    // The group opened last is the one Back returns to (the click comes before the browser flips the state).
+    if (!T.q.trim()) T.open = d.open ? (T.open === d.dataset.tkgroup ? '' : T.open) : d.dataset.tkgroup;
+  }));
   if (T.q) filter(T.q);
   inp.oninput = () => { T.q = inp.value; filter(T.q); };
   inp.onkeydown = e => { if (e.key === 'Escape' && inp.value) { e.stopPropagation(); inp.value = ''; T.q = ''; filter(''); } };
@@ -285,6 +310,7 @@ export function view(route) {
   if (!t) return listView();
   // Opened from somewhere else: start at the first answer. A redraw of the same conversation keeps what was asked.
   if (T.slug !== t.slug || !document.querySelector(`#main .tk-conv[data-tkslug="${CSS.escape(t.slug)}"]`)) { T.slug = t.slug; T.n = 1; }
+  T.open = t.group;   // Back to the list lands on this group, open, on a phone
   return convView(t);
 }
 export function wire(route) {

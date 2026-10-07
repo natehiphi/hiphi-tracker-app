@@ -73,7 +73,7 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
 |---|---|---|---|
 | Public tracker | `track.html` | `pub/` | residents new to advocacy |
 | Staff v2, the staff app | `index.html` = `staff.html` | `staff/` | the team, from 9/21 |
-| Old staff app | `classic.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | a way back, until about 9/28 |
+| Old staff app | `classic.html` | `app.js`, `styles.css`, `simple.css`, `stops.js` | a look-only way back (F7-1, R-199), until Nate's walk-through (R-010) |
 
 **The old address is Staff v2 (Nate, 9/21: "make the old webpage be the new site").** Keep `index.html` and
 `staff.html` identical (same stylesheets, same script). Until `classic.html` and its code are deleted, every
@@ -276,6 +276,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      the earlier rule that action alerts stayed a separate, off-by-default choice). One ask per visit, always
      skippable. An existing account only ever GAINS choices from an ask, never loses one. Email to the public
      stays paused regardless of what an ask would consent to. **Since R-184 (Nate 10/6) the ask is "Save your profile"**
+     (the first visit's own words since R-188: one line on what a profile keeps and why now, "No password needed" under
+     the number, DESIGN.md C-3)
      (`profileAsk`, `profileLede`, `followAsk` in `pub/alerts.js`): the line over the box says what the profile keeps
      (the brainstorm's picks A1 and B1: https://claude.ai/artifact/6nDhS6Loh5k1MMnukptc3B, Nate picks other words by
      number there), the box and its consent words are unchanged. It is the first thing seen after a first follow or
@@ -392,6 +394,12 @@ doing this week", and the P1 chair ask stays a dated task (Nate declined making 
 the life of the toast so Undo can cancel it; there is no call that removes an activity row.
 
 ## Two staff apps, one data layer
+
+**Since R-199 (F7-1) the old app is look-only:** every `DB` method that writes is replaced by a refusal that links to
+the same screen in Staff v2, and its Supabase client refuses insert/update/upsert/delete and any database function not
+on `RPC_READS` (`app.js`, "look-only"). So a new WRITE needs no copy in `app.js`; a change to a read or a shared helper
+the old app still draws with does, until it retires. Its "since your last visit" keys are `classic_lastVisit` /
+`classic_prevVisit`, so opening it no longer moves Staff v2's.
 
 `staff/data.js` and `staff/model.js` are hand copies of `app.js`'s data layer and helpers.
 - After ANY change to a Supabase call or shared helper, make the same change in both, then run
