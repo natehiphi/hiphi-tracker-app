@@ -364,6 +364,111 @@
   "have": true
  },
  {
+  "img": "attend",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "free-bus-rides-for-kids",
+  "name": "Free bus rides for kids",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "maui-wildfire-health-study",
+  "name": "Funding for Maui wildfire health study",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "attend",
+  "slug": "youth-mental-health-app",
+  "name": "Youth mental health app pilot",
+  "category": "care",
+  "have": true
+ },
+ {
   "img": "conference-no",
   "slug": "higher-liquor-taxes",
   "name": "Higher liquor taxes",
@@ -403,6 +508,111 @@
   "slug": "red-light-and-speed-cameras",
   "name": "More red-light and school speed cameras",
   "category": "around",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "disposable-e-cigarette-ban",
+  "name": "Disposable e-cigarette ban",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "fda-proof-to-sell-e-cigarettes",
+  "name": "FDA proof required to sell e-cigarettes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "forgive-medical-debt",
+  "name": "State program to forgive medical debt",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "free-bus-rides-for-kids",
+  "name": "Free bus rides for kids",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "funding-for-community-nonprofits",
+  "name": "Funding for community nonprofits",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "maui-wildfire-health-study",
+  "name": "Funding for Maui wildfire health study",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "more-local-food-in-school-meals",
+  "name": "More local food in school meals",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "protect-gender-affirming-care",
+  "name": "Protect gender-affirming care",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "safer-walking-near-schools",
+  "name": "Safer walking routes next to schools",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "seize-untaxed-tobacco",
+  "name": "Seizure of untaxed tobacco products",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "email",
+  "slug": "youth-mental-health-app",
+  "name": "Youth mental health app pilot",
+  "category": "care",
   "have": true
  },
  {

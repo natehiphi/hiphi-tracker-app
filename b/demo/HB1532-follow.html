@@ -21,6 +21,8 @@
     ['utm_source', 'utm_medium', 'utm_campaign'].forEach(function (k) { if (p.get(k)) u.searchParams.set(k, p.get(k).slice(0, 60)); });
     /* the picture version a sharer's link carried (R-183), so the friend's arrival is counted for it */
     if (/^[a-z0-9-]{2,20}$/.test(p.get('pic') || '')) u.searchParams.set('pic', p.get('pic'));
+    /* the way the link was sent (R-205: sheet, email, copy, alert), counted with the friend's arrival and actions */
+    if (/^[a-z]{2,10}$/.test(p.get('sp') || '')) u.searchParams.set('sp', p.get('sp'));
     t = u.href; } catch (e) { /* the plain address */ }
   location.replace(t); })();
 </script>
