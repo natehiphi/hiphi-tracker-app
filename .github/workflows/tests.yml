@@ -72,3 +72,5 @@ jobs:
         run: python3 tests/staff_r152d.py
       - name: Staff v2, Today | Ahead (R-049)
         run: python3 tests/staff_ahead.py
+      - name: Staff v2, a bill the team does not track (R-058)
+        run: python3 tests/staff_untracked.py

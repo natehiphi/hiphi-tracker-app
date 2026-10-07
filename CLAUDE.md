@@ -462,6 +462,11 @@ the old app still draws with does, until it retires. Its "since your last visit"
   freeze a page (`parseRoute`); a bulk edit goes in slices of 150 (`DB.bulkUpdate`); an owner change adds the new owner before taking the
   old one off (`DB.setOwner`); a filing confirmation link must be https (`DB.transition`); the staff apps pin supabase-js@2.117.2, the
   version the public page pins (`pub/kernel.js`): change all of them together, and run `staff_live.py` when you do.
+- **A bill the team does not track (R-058, 10/6).** `#/bill/HB123` for a bill not in `S.bills` used to say "not on our list"; `staff/untracked.js`
+  reads that one bill and its hearings (`DB.untrackedBill`, `DB.billHearings`; the sync records hearings for every bill, R-059, so the page shows
+  them) and draws a read-only page: where it stands, last action, committees, who introduced it, hearings, the Capitol and public links, and one primary
+  button "Track this bill" (`DB.track`; Undo is `DB.untrack`). Search's not-tracked rows link to it. An unknown number still says so. The sandbox's
+  index has only number, title and description, so the practice copy's page is thin. Nothing on it can be edited.
 - **Ahead (R-049, 10/6).** Today's switch is **Today | Ahead** (`#/?view=ahead`, every width); the Week grid (`?view=week`, laptop) is one link
   from Ahead ("Week as a grid") and the switch shows a third "Week" only while you are on it. `aheadView` in `staff/today.js`: "This week" (the
   next 7 days: hearings and the day written testimony closes, from `hearingsIn`), then "Deadlines" from `sessionGates` within 21 days: the first
@@ -481,6 +486,7 @@ python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the f
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_r152c.py        # R-152 batch C in the sandbox: one countdown rounded down everywhere, the testimony deadline before a draft, who gets a draft, the phone's Public tab order, the ask's date against the hearing, "This week's asks" folded and on a phone, the next hearing first, bill names not cut; 33 checks. Runs in CI
+python3 tests/staff_untracked.py    # a bill the team does not track opens a read-only page with Track and Undo (R-058): the Capitol's facts, its hearings, nothing editable, an unknown number, an earlier session, search's link, phone, the sandbox; 22 checks. Runs in CI
 python3 tests/staff_ahead.py        # Today | Ahead (R-049): this week day by day, the next deadline's bills with no hearing (once each, P1 first, by when the notice must post, never "due"), later deadlines folded, the Week grid one link away, phone, Team, between sessions; 39 checks. Runs in CI
 python3 tests/staff_r152d.py        # R-152 batch D in the sandbox: the practice copy's to-do, sample email, checklist, calendar and no-draft card as the live app has them, readiness checking the approvers and the next session's committees, a stray % in the address, the pinned library; 17 checks. Runs in CI
 python3 tests/staff_live.py         # Staff v2's LIVE path on a fake Supabase (tests/livefake.py, the snapshot's rows, a stored login): the hearings read, a failed read named, refresh on return, save only what changed, a teammate's conflicting save, two sessions' bill numbers, staff error reports (R-152 B); 52 checks. Runs in CI on every push

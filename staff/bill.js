@@ -22,6 +22,7 @@ import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
 import { billRoute, billByNum } from './model.js';
 import { askConflict } from './conflict.js';
+import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -910,8 +911,9 @@ function panel(b, tab) {
   loadCompanions(b);
   return overview(b);
 }
-function notFound(route) {
+function notFound(route, failed = false) {
   const num = String(route.num || '').toUpperCase();
+  if (failed) return `<div class="bw-page"><h1 class="bw-num">${esc(num)}</h1>${empty({ h: 'h2', title: 'We could not look that bill up', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } }) })}</div>`;
   return `<div class="bw-page"><h1 class="bw-num">${esc(num || 'Bill')}</h1>${empty({ h: 'h2', title: num ? `${esc(num)} is not on our list` : 'Which bill?', text: num ? 'It may not be tracked yet. Search for it to track it.' : 'Find it by number or words.',
     action: btn(num ? `Search for ${esc(num)}` : 'Search bills', { href: '#/search' + (num ? '?q=' + encodeURIComponent(num) : ''), icon: 'search' }) })}</div>`;
 }
@@ -954,7 +956,7 @@ function fitBack(o, b) {
 
 export default {
   tab: 'bills',
-  title: r => { const b = billOf(r); return b ? billNum(b) : (r.num || 'Bill'); },
+  title: r => { const b = billOf(r); return b ? billNum(b) : (untrackedOf(r)?.bill_number || r.num || 'Bill'); },
   back: r => fitBack(origin(r), billOf(r)),
   // On Activity the message box takes the tab bar's place at the bottom (like select mode on Bills).
   noTabs: r => tabOf(r) === 'activity' && !!billOf(r),
@@ -962,7 +964,7 @@ export default {
   // between 900 and 1100px, where a standard page is a 720px column, the two columns still have room.
   wide: () => true,
   render(route) {
-    const b = billOf(route); if (!b) return notFound(route);
+    const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), desk = DESK();
     // A tab that was just opened fades in, so a key press (1 to 4) is seen to do something. Not on a re-render.
     const pnl = `<div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${panel(b, tab)}</div>`;
@@ -984,7 +986,7 @@ export default {
   bar(route) { const b = billOf(route); return b && tabOf(route) === 'activity' && !DESK() ? composerBar(b) : ''; },
   wire(route, root) {
     const b = billOf(route);
-    if (!b) { const h1 = root.querySelector('.sv-hdr .sv-title'); if (h1) h1.textContent = String(route.num || 'Bill').toUpperCase(); return; }
+    if (!b) { const h1 = root.querySelector('.sv-hdr .sv-title'); if (h1) h1.textContent = String(route.num || 'Bill').toUpperCase(); wireUntracked(route, root); return; }
     const tab = tabOf(route), page = root.querySelector('.bw-page');
     // Opened by a link or a reload (not a tab tap, not Previous / Next, not Back, not a re-render after a save)?
     const arrival = fresh && !switching && !popping;

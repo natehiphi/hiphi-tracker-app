@@ -505,6 +505,19 @@ export const DB = {
     const { error } = await S.supa.from('bill_todos').delete().eq('id', id);
     if (error) { arr.splice(i, 0, gone); throw error; }
   },
+  // One bill the team does not track (or any bill), by number and session, for the read-only page (R-058). The sandbox has only the
+  // bills' number, title and description for these (the snapshot's index).
+  async untrackedBill(num, year) {
+    if (DEMO) { const r = (S.snapshot?.index || []).find(x => x.bill_number === num); return r ? { ...r, session_year: SESSION_YEAR, tracked: false, referrals: [], sponsors: [], companions: [] } : null; }
+    const { data, error } = await S.supa.from('bills').select('*').eq('bill_number', num).eq('session_year', year || SESSION_YEAR).limit(1);
+    if (error) throw error; return data?.[0] || null;
+  },
+  // Takes a bill off the team's list again (the Undo of Track on the read-only page); its position and owner were never set.
+  async untrack(billId) {
+    S.bills = S.bills.filter(b => b.id !== billId); S.hearings = S.hearings.filter(h => h.bill_id !== billId);
+    if (DEMO) return;
+    const { error } = await S.supa.from('bills').update({ tracked: false }).eq('id', billId); if (error) throw error;
+  },
   async companionInfo(nums) {
     if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number));
     const { data, error } = await S.supa.from('bills')
