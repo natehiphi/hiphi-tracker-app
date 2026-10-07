@@ -180,9 +180,9 @@ export function urgentMark(iso, { done = false } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
-  const big = ms <= 0 ? (over >= 48 ? `${Math.round(over / 24)}d` : `${Math.max(1, Math.round(over))}h`)
+  const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
     : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
-  const word = ms <= 0 ? 'overdue' : h < 48 ? 'left' : 'to go';
+  const word = ms <= 0 ? 'overdue' : 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
   const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
   return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }

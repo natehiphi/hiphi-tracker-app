@@ -33,6 +33,14 @@ const draftOf = b => drafts.get(b.id + ':pub') || {};
 const bases = new Map();
 const rawOf = b => ({ nickname: b.nickname || null, public_summary: b.public_summary || null, public_action: b.public_action || null, public_action_until: b.public_action_until || null,
   is_public: !!b.is_public, recommended: !!b.recommended, talking_points: b.talking_points || null, talking_points_edited_at: b.talking_points_edited_at || null });
+// The ask shows through a date; if that is before the next hearing the ask stops while people can still act on it (R-152 C).
+// A hint, not a block: some asks are meant to end early. Hawaiʻi dates, as everywhere else in the app.
+const untilWarn = (b, ask, until) => {
+  if (!String(ask || '').trim() || !until) return '';
+  const h = hearingAhead(b); if (!h) return '';
+  const day = new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  return until < day ? `This stops showing on ${dayOf(until)}, before the ${h.committee} hearing on ${dayOf(day)}. Pick a later day to keep it up until then.` : '';
+};
 const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_action: 'The ask', public_action_until: 'Show the ask until', is_public: 'On the public page', recommended: 'Recommended', talking_points: 'Talking points' };
 const asText = v => Array.isArray(v) ? v.join('\n') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
@@ -164,7 +172,16 @@ export function renderPublic(b) {
   const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + billRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const lists = S.lists || [];
   const emailOk = b.is_public && b.position !== 'monitor';
-  return `<section class="bw-sec bw-pub" aria-labelledby="bw-pub-h">
+  // On a phone the public's response and the share kit come first: they were 4,277px down a 4,718px page, and a hearing day's
+  // job is to share, not to edit (R-152 C). A laptop keeps them where they were, beside the form's neighbours.
+  const wide = matchMedia('(min-width: 900px)').matches;
+  const respSec = `  <section class="bw-sec" aria-labelledby="bw-resp-h">
+    <h2 id="bw-resp-h">The public's response</h2>
+    <p class="small">${publicWords(b) ? `${icon('users')} ${esc(publicWords(b))}.` : 'No one from the public has followed or acted on this bill yet.'} ${DEMO ? '<span class="muted">(sample numbers in the sandbox)</span>' : '<span class="muted">Counts only, from people with accounts; never who.</span>'}</p>
+    ${listed ? `<p class="small muted">The share kit: the link previews with the bill's name in a text or a post; the message carries the ask and the next deadline.</p>
+    <div class="bw-acts">${btn('Copy share link', { kind: 'secondary', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}</div>` : '<p class="small muted">Make it public to get its share link.</p>'}
+  </section>`;
+  return `${wide ? '' : respSec}<section class="bw-sec bw-pub" aria-labelledby="bw-pub-h">
     <h2 id="bw-pub-h" class="sr">Public page</h2>
     ${notice(live ? 'ok' : warn ? 'warn' : 'info', live ? 'globe' : warn ? 'triangle-alert' : 'eye-off', `<b>Now:</b> ${esc(pubStateText(b))}${pubLink}`)}
     <div class="bw-pubcols">
@@ -179,8 +196,9 @@ export function renderPublic(b) {
       <div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
       <div class="field"><label for="bw-puntil">Show the ask through</label>
-        <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-h">
-        <span class="help" id="bw-puntil-h">An ask shows through this date, then stops. An ask with no date never shows.</span></div>
+        <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-h bw-puntil-w">
+        <span class="help" id="bw-puntil-h">An ask shows through this date, then stops. An ask with no date never shows.</span>
+        <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>
       <div class="field"><label for="bw-ptp">Talking points for testimony</label>
         <textarea id="bw-ptp" rows="5" aria-describedby="bw-ptp-h bw-ptp-n" placeholder="One point per line, up to five.">${esc(valOf(b, 'talking_points'))}</textarea>
         <span class="help" id="bw-ptp-h">One plain sentence per line. People writing testimony tap these into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
@@ -203,12 +221,7 @@ export function renderPublic(b) {
       <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
         return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}
   </section>
-  <section class="bw-sec" aria-labelledby="bw-resp-h">
-    <h2 id="bw-resp-h">The public's response</h2>
-    <p class="small">${publicWords(b) ? `${icon('users')} ${esc(publicWords(b))}.` : 'No one from the public has followed or acted on this bill yet.'} ${DEMO ? '<span class="muted">(sample numbers in the sandbox)</span>' : '<span class="muted">Counts only, from people with accounts; never who.</span>'}</p>
-    ${listed ? `<p class="small muted">The share kit: the link previews with the bill's name in a text or a post; the message carries the ask and the next deadline.</p>
-    <div class="bw-acts">${btn('Copy share link', { kind: 'secondary', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}</div>` : '<p class="small muted">Make it public to get its share link.</p>'}
-  </section>
+  ${wide ? respSec : ''}
   <section class="bw-sec" aria-labelledby="bw-mail-h">
     <h2 id="bw-mail-h">Email supporters</h2>
     <p class="small muted">${emailOk ? 'It goes to the people following this bill who asked for action alerts. Someone else who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first. Only people following a public bill can get its email.'}</p>
@@ -236,6 +249,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   for (const [k, el] of Object.entries(f)) el.addEventListener(BOOL.has(k) ? 'change' : 'input', () => {
     note(); paint(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
+    form.querySelector('#bw-puntil-w').textContent = untilWarn(b, f.public_action.value, f.public_action_until.value);
     if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
     if (k === 'talking_points') { form.querySelector('#bw-ptp-n').textContent = pointsCount(el.value); el.removeAttribute('aria-invalid'); }
   });

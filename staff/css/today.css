@@ -431,8 +431,10 @@
   .td-root .wk-right { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .td-root .wk-right .sv-chip { min-height: 20px; padding: 0 8px; font-size: var(--t13); }
   .td-root .wk-right .sv-chip .ic { width: 14px; height: 14px; }
-  .td-root .wk-b2 { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .td-root .wk-name { flex: 1 1 auto; min-width: 0; font-size: var(--t13); line-height: 18px; color: var(--n700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-root .wk-b2 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; }
+  /* The name gets its own line (two at most) and the public's response goes under it, so a bill is never "State progra…" (R-152 C). */
+  .td-root .wk-name { flex: 1 1 100%; min-width: 0; font-size: var(--t13); line-height: 18px; color: var(--n700); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .td-root .wk-b2 .wk-pub { margin-left: 0; }
   .td-root .wk-mon .wk-name { color: var(--n500); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .td-root .wk-b2 .sv-av { flex: none; }
   .td-root .wk-filed { display: flex; align-items: center; gap: 6px; padding: 2px var(--s8) 0; font-size: var(--t13); line-height: 18px; color: var(--ok-text); }

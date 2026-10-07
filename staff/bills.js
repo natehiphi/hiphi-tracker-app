@@ -199,7 +199,7 @@ const standBtn = (g, cls) => `<button type="button" class="${cls}" data-jump="${
 // job. A desktop gives each deadline two lines (the strip's counts are two rows tall anyway, so it is no taller); a
 // phone gives each one line - the day, the deadline, the work - so the strip is no taller there than it was with one.
 const clockDay = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');   // "Thu 3/19"
-const clockAway = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days away`;
+const clockAway = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days left`;
 // The work, in the words Today uses: the bills racing it with no hearing yet (or that every one of them has one).
 const clockWork = x => { const n = x.noHearing.length;
   return n ? `<b class="bl-nh">${n} with no hearing yet</b>` : x.racing === 1 ? 'it has a hearing' : x.racing === 2 ? 'both have a hearing' : `every one has a hearing`; };

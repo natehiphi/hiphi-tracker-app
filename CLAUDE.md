@@ -446,6 +446,14 @@ the old app still draws with does, until it retires. Its "since your last visit"
   "only what changed". (5) **Hearings are read for tracked bills only** (an inner join on `bills.tracked`, both apps); a bill
   tracked later brings its own (`DB.adoptHearings`). (6) **Staff errors are reported** like the public page's (`staff/errlog.js`
   to `log_public_error`, place "staff/<screen>", never from a test run). Do not undo any of these.
+  **Batch C ("the jobs", same day):** a countdown is rounded DOWN everywhere (`span` in `staff/today.js`, `urgentMark` and
+  `countdown` in `staff/ui.js`; a deadline is never later than it reads, R-022) and time still to run says "left" ("N days
+  left", never "to go" or "away"); a bill with a hearing coming and no draft shows its testimony deadline (`wantsTestimony`);
+  "Sent to ..." names everyone who can approve (`approvers` in `staff/today.js`) and a draft sent back says "changes were asked
+  for" (the draft does not record who did); the Public tab on a phone leads with the public's response and the share kit
+  (`renderPublic`, under 900px), and the ask's date is checked against the next hearing (`untilWarn`, a hint not a block);
+  "This week's asks" is a folded `<details class="td-asks">`, on the Week and on a phone's Today (`weekAsksPhone`); on a hearing
+  day a phone's Today shows the next hearing before the cards; the Week's bill names take two lines (the response line sits under).
 - Current app pitfall: `styles.css` has a global `input,select,textarea{width:100%}`; give new inputs in a
   flex or grid row an explicit width.
 
@@ -456,6 +464,7 @@ Serve first: `python3 -m http.server 8832` in this folder.
 python3 tests/public_journey.py     # public: 482 checks, phone + desktop, the first visit (R-023) and a shared bill, ladder, off-season, the session lesson's label inside its drawing (R-179)
 python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve guards, menus, loading state
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
+python3 tests/staff_r152c.py        # R-152 batch C in the sandbox: one countdown rounded down everywhere, the testimony deadline before a draft, who gets a draft, the phone's Public tab order, the ask's date against the hearing, "This week's asks" folded and on a phone, the next hearing first, bill names not cut; 33 checks. Runs in CI
 python3 tests/staff_live.py         # Staff v2's LIVE path on a fake Supabase (tests/livefake.py, the snapshot's rows, a stored login): the hearings read, a failed read named, refresh on return, save only what changed, a teammate's conflicting save, two sessions' bill numbers, staff error reports (R-152 B); 52 checks. Runs in CI on every push
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel

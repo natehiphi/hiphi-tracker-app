@@ -462,6 +462,8 @@ body.sidenarrow .sv-sync span { display: none; }
 .bw-drrow { flex-wrap: wrap; }
 .bw-drbody { flex: 1 1 240px; min-width: 0; }
 .bw-dracts { flex: 0 1 auto; }
+/* A phone gives the note the whole width and puts its buttons under it, instead of a 240px column beside them (R-152 C). */
+@media (max-width: 30em) { .bw-drbody { flex-basis: 100%; } .bw-dracts { justify-content: flex-start; } }
 /* The note's buttons sit with their own note, not between two (fresh-eyes review 10/4, A-8). */
 .bw-drlist { gap: 20px; }
 .bw-dracts { margin-top: 4px; }
@@ -538,3 +540,17 @@ body.sidenarrow .sv-sync span { display: none; }
 .cf-c + .cf-c { margin-top: var(--s8); }
 .cf-c b { font-size: var(--t14); color: var(--n700); }
 .cf-t { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow: auto; }
+.bw-untilwarn:empty { display: none; }
+.bw-untilwarn { color: var(--warn-text); }
+
+/* "This week's asks" folds to one line (R-152 C): a title, how many bills, a chevron. Open, it is the card it always was. */
+.td-asks { padding-top: 0; padding-bottom: 0; }
+.td-asks[open] { padding-bottom: 14px; }
+.td-asks > summary { display: flex; align-items: center; gap: 8px; min-height: 52px; cursor: pointer; list-style: none; }
+.td-asks > summary::-webkit-details-marker { display: none; }
+.td-asks > summary h2 { margin: 0; font-size: var(--t16, 16px); flex: 1; min-width: 0; }
+.td-asksn { font-size: var(--t14); color: var(--n700); }
+.td-askchev { display: inline-flex; color: var(--n700); transition: transform .2s var(--ease); }
+.td-asks[open] .td-askchev { transform: rotate(180deg); }
+.td-asks > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+@media (prefers-reduced-motion: reduce) { .td-askchev { transition: none; } }

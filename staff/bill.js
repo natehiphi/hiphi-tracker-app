@@ -351,7 +351,7 @@ const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i,
 // Testimony is due at the deadline on the notice, else a day before the hearing (plan 5).
 const dueOf = h => h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
 const reviewerNames = () => listNames(a => a.is_reviewer, ' or ');
-const approverNames = () => listNames(a => a.is_admin || a.can_approve, ' or ');   // admins and approvers (098)
+const approverNames = () => listNames(a => (a.is_admin || a.can_approve) && a.id !== S.me?.id, ' or ');   // admins and approvers (098)
 // Would approving this draft send it to a second approval? Only the bill's first testimony gets one (the database's rule).
 const firstForBill = d => !Object.values(S.drafts).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && ['approved', 'filed'].includes(x.status));
 // Who has the testimony and who is next, in one line. The step bar above it already names the step, so a draft waiting
@@ -418,12 +418,15 @@ function watchLink(h) {
   const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch the hearing';
   return `<a class="btn text bw-watch" data-watch="${esc(h.id)}" href="${esc(v.url)}" target="_blank" rel="noopener"${v.hint ? ` title="${esc(v.hint)}"` : ''}>${icon('video')}<span>${label}</span></a>`;
 }
+// A bill with a hearing coming and no draft yet still has a testimony deadline; the page used to show it only after "Make the
+// draft now" (R-152 C: the bill page said when the hearing starts and left out when testimony is due).
+const wantsTestimony = (b, h) => !!b.position && b.position !== 'monitor' && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now();
 function hearingCard(b, h, i) {
   const d = draftFor(b.id, h.committee), due = dueOf(h), filed = d && d.status === 'filed';
   const meta = [fmtDT(h.scheduled_at), roomOf(h.room), h.committee].filter(Boolean).map(esc).join(' · ');
   const dueLine = d && !filed && d.status !== 'cancelled'
     ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>`
-    : `<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
+    : `${!d && wantsTestimony(b, h) ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>` : ''}<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
   const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load, so this page cannot say whether there is one. Reload, then look again.</p>'
     : b.position && b.position !== 'monitor'
@@ -518,7 +521,7 @@ async function runDraft(b, d, act, el) {
   try {
     if (act === 'submit') {
       await transition(b, d, 'submit'); rerender(`[data-tb="${d.id}"] .bw-acts > *`);
-      toast(`Sent to ${approverNames()} for review.`, { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
+      toast(approverNames() ? `Sent to ${approverNames()} for review.` : 'Sent for review.', { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
     } else if (act === 'approve') {
       // The same safety as review mode (build 3): a leftover second tap never approves the next step (someone who is
       // both admin and reviewer would find Approve in the same spot), and every approval has Undo, which the server

@@ -83,7 +83,9 @@ export function whenLine(iso) {
 export const hearingLine = h => h ? `${esc(h.committee)} ${whenLine(h.scheduled_at)}${h.room ? ' · ' + esc(room(h.room)) : ''}` : '';
 // Written testimony is due 24 hours before the hearing unless the notice says otherwise (Hawaiʻi rule).
 export const testDue = h => h ? new Date(h.testimony_deadline || new Date(h.scheduled_at).getTime() - DAY).getTime() : null;
-const span = ms => { const h = Math.abs(ms) / HR; return h < 1 ? `${Math.max(1, Math.round(Math.abs(ms) / 6e4))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)} days`; };
+// One rounding for every countdown (R-152 C): down, never up, so a deadline is never later than it reads (R-022), and every
+// screen says the same number. It rounded to the nearest here and down in ui.js: the same deadline read "5h left" on Today and "Due in 6 hours" in Review.
+const span = ms => { const h = Math.abs(ms) / HR; return h < 1 ? `${Math.max(1, Math.floor(Math.abs(ms) / 6e4))}m` : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)} days`; };
 // A countdown is always an icon and words (plan 4): normal, amber within 24 hours, red once overdue.
 export function cd(due, how = 'left') {
   if (due == null) return '';
@@ -177,6 +179,8 @@ const reviewers = () => {
 };
 export const reviewerNames = reviewers;
 const admins = (except = null) => S.advocates.filter(a => a.is_admin && a.is_active !== false && a.id !== except).map(a => a.full_name.split(' ')[0]).join(' or ');
+// Everyone who can give the first approval, admins and approvers alike (R-103): "Sent to Nate for review" left out Kris (R-152 C).
+export const approvers = (except = null) => S.advocates.filter(a => (a.is_admin || a.can_approve) && a.is_active !== false && a.id !== except).map(a => a.full_name.split(' ')[0]).join(' or ');
 // Whoever can give a first approval or approve an email (098): admins and approvers (Kris).
 const approverList = (except = null) => S.advocates.filter(a => approves(a) && a.id !== except).map(a => a.full_name.split(' ')[0]).join(' or ');
 export const adminNames = admins;
@@ -313,7 +317,7 @@ export function todayItems(scope = 'mine', who = null) {
     if (mine || open || (k === 'revise' && subMe)) {
       const yours = mine && self ? 'your' : 'the', doc = d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : null;
       // Who sent it back is not stored: an approved_by means it came back from second review, else from an admin.
-      const others = admins(me.id), asked = d.approved_by ? 'a reviewer asked for changes' : others && !others.includes(' or ') ? `${others} asked for changes` : '';
+      const asked = 'changes were asked for';   // the draft does not record who sent it back, so no name (it said "Nate asked" whoever had, R-152 C)
       push({ ...base, kind: k, who: mine ? 'yours' : 'anyone',
         s: k === 'write' ? `Write testimony for the ${c} hearing` : k === 'submit' ? `Submit ${yours} ${c} testimony for review` : `Revise ${yours} ${c} testimony${asked ? ': ' + esc(asked) : ''}`,
         q: k === 'revise' ? esc(d.review_note) : '',
@@ -1222,11 +1226,17 @@ export function weekAsksText(items, kind) {
 function weekAsksHTML(all) {
   const items = weekAsks(all); S.tdAsks = items;
   if (!items.length) return '';
-  return `<section class="td-asks" aria-labelledby="td-asks-h"><div class="td-askhd"><h2 id="td-asks-h">This week’s asks</h2>
+  // Folded to one line (R-152 C): open, it pushed the Week's first day from 348px to 616px down. It is also on a phone's Today,
+  // where there is no Week view, so the same card is reachable there.
+  return `<details class="td-asks"><summary><h2 id="td-asks-h">This week’s asks</h2><span class="td-asksn">${plural(items.length, 'bill')}</span>${icon('chevron-down', { cls: 'td-askchev' })}</summary><div class="td-askhd">
       <p class="small muted">Ready to paste into HIPHI’s newsletter or a post: the ask, the deadline and each bill’s share page. Arrivals from the newsletter and from posts are counted apart.</p></div>
     <ol class="td-asklist">${items.map(x => `<li><b>${esc(billNum(x.b))}</b> <span>${esc(x.b.nickname || blurb(x.b, 80))}</span> <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
     <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>
-  </section>`;
+  </details>`;
+}
+// A phone has no Week view, so its Today carries the same card, folded (R-152 C).
+function weekAsksPhone(scope, who, r) {
+  try { return weekAsksHTML([...weekOf(mondayOf(Date.now()), scope, who, r).values()]); } catch (e) { console.error(e); return ''; }
 }
 
 // ---- Team: the team's work, by person (R-022, wave 3 #15) ----
@@ -1439,7 +1449,7 @@ function render(route) {
   const results = off ? resultsHtml(scope, who) : '', jan = off ? janPanel() : '';
   // A phone has no rail: your own work comes first (it used to sit under "Hearings today", and the first card started
   // 376px down), then what waits on others, then the day's hearings and the deadline, then catching up.
-  if (!desk) return `<div class="td-root">${toolbar(route, !!clock || bare)}${note}${oneNotice()}${startCard()}${body}${scope !== 'team' ? waitingGroup(scope, who) : ''}${results}${jan}${hearingsToday(scope, who, 3)}${clock}${digestHtml}${sugg}${syncFoot()}</div>`;
+  if (!desk) return `<div class="td-root">${toolbar(route, !!clock || bare)}${note}${oneNotice()}${startCard()}${hearingsToday(scope, who, 1)}${weekAsksPhone(scope, who, r)}${body}${scope !== 'team' ? waitingGroup(scope, who) : ''}${results}${jan}${clock}${digestHtml}${sugg}${syncFoot()}</div>`;
   // Two rails: the near one is what is happening now, the far one is the week and the team. Below 1600px today.css
   // flattens them back into one column, so the order down the page is the same. Between sessions there is no week to
   // count, and Team has no "Waiting on others": the list is everyone's already.
@@ -1472,7 +1482,7 @@ async function run(t, act, el) {
   switch (act) {
     case 'submit': return busy(el, async () => {
       await DB.transition(b.id, t.d.id, 'submit'); markNotices(b);
-      const who = admins(S.me.id);
+      const who = approvers(S.me.id);
       toast(who ? `Sent to ${who} for review.` : 'Sent for review. It is waiting in your review queue.', { ok: true, undo: async () => { await DB.transition(b.id, t.d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } });
       redraw(); });
     case 'file': return fileSheet(b, t.d);

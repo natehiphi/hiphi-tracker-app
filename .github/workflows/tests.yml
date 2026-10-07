@@ -66,3 +66,5 @@ jobs:
         run: python3 tests/staff_live.py
       - name: Staff v2's flows in the sandbox (R-152)
         run: python3 tests/staff_flows.py
+      - name: Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)
+        run: python3 tests/staff_r152c.py
