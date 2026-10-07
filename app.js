@@ -151,7 +151,7 @@ const withPriority = p => 'position' in p ? { ...p, priority: priorityOf(p.posit
 const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
     S.supa = lookOnlyClient(createClient(SUPABASE_URL, SUPABASE_KEY));
     const { data } = await S.supa.auth.getSession();
     S.session = data.session;
@@ -3035,7 +3035,7 @@ const legMailto = (l, b) => { const ask = b && (b.public_action || '').trim(); c
 
 // Address lookup for staff too: suggestions from the proxy as you type, then the point -> districts.
 const looksLikeAddress = q => /\d/.test(q) && q.trim().length >= 3;
-async function supaAnon() { if (S.supa) return S.supa; if (!S.supaAnon) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); S.supaAnon = createClient(SUPABASE_URL, SUPABASE_KEY); } return S.supaAnon; }
+async function supaAnon() { if (S.supa) return S.supa; if (!S.supaAnon) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm'); S.supaAnon = createClient(SUPABASE_URL, SUPABASE_KEY); } return S.supaAnon; }
 async function geoSuggest(q) { const { data, error } = await (await supaAnon()).rpc('address_suggest', { q, n: 8 }); if (error) throw error; return data || []; }
 async function geoDistricts(pt) { if (pt.sd && pt.hd) return { found: true, senate: pt.sd, house: pt.hd }; const { data } = await (await supaAnon()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; return { found: !!(d?.sd || d?.hd), senate: d?.sd, house: d?.hd }; }
 function renderLegislators() {

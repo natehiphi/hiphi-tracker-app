@@ -134,12 +134,14 @@ function reachHTML() {
 
 // ---- readiness: every row the server checks, plus the one the current app computes here (public page copy) ----
 // Where each problem is fixed. Rows with no page in the app get a plain sentence instead (most are Claude's job).
-const FIX = { advocates_auth: 'team', team_reach: 'team', advocates_slack: 'team', coalition_owners: 'coalitions', coalition_channels: 'coalitions', keywords: 'coalitions', slack: 'connections', calendar: 'connections', email: 'email', bulk: 'import', session_days: 'sync', template: 'templates' };
+const FIX = { approvers_in: 'team', advocates_auth: 'team', team_reach: 'team', advocates_slack: 'team', coalition_owners: 'coalitions', coalition_channels: 'coalitions', keywords: 'coalitions', slack: 'connections', calendar: 'connections', email: 'email', bulk: 'import', session_days: 'sync', template: 'templates' };
 const FIX_TEXT = {
   deadlines: 'Claude loads the session calendar each December. Ask Claude if this stays red.',
   slots: 'The sync loads committee meeting times. Ask Claude if this stays red.',
   committees: 'The sync loads committees and chairs. Ask Claude if this stays red.',
   advocates_auth: 'Make each person a sign-in link under Team and send it to them.',
+  approvers_in: 'Send each approver their sign-in link under Team and ask them to sign in once: a testimony draft waits on them from the first hearing.',
+  committees_next: 'The sync loads the new session’s committees and chairs once the Legislature names them (December or January, after the 3 November election). Ask Claude to check after 1 December.',
   advocates_slack: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email.',
   team_reach: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email, or turn on Email to the team.',
   breakglass: 'Make a second admin under Team, or keep a sealed admin login in HIPHI’s password manager and try it every 90 days. The steps are in the break-glass guide Claude wrote (docs/BREAK-GLASS.md).',
@@ -160,6 +162,21 @@ function readyRows() {
   const gaps = S.bills.filter(b => b.tracked !== false && ['strongly_support', 'strongly_oppose'].includes(b.position) && !diedish(b) && (!(b.public_summary || '').trim() || !(b.public_action || '').trim()));
   rows.push({ key: 'public_copy', level: 'warn', label: 'Public page copy on the bills we push hardest', ok: !gaps.length, gaps,
     detail: gaps.length ? `${plural(gaps.length, 'strongly supported or opposed bill')} without a one-line summary or an ask. Without an ask, the public page asks people to act on the next hearing in its own words; without a summary it shows the official title.` : 'Every strongly supported or opposed bill has a summary and an ask.' });
+  // Two checks the server cannot make (R-152 D). Everyone who gives an approval has to be able to: a first testimony waits on a
+  // second approval that only two people can give, and neither could sign in. And once this session has ended, the next one's
+  // committees and chairs must be loaded: the chairs change after the November election, and "Committees and chairs current"
+  // only says the old ones are there.
+  const L = st().logins;
+  if (L) {
+    const who = S.advocates.filter(a => a.is_active !== false && (a.is_admin || a.can_approve || a.is_reviewer)), out = who.filter(a => !L[a.id]?.last_sign_in_at);
+    rows.push({ key: 'approvers_in', level: 'warn', label: 'Everyone who approves testimony has signed in once', ok: !out.length,
+      detail: out.length ? `${out.map(a => (a.full_name || '').split(' ')[0]).join(', ')} ${out.length === 1 ? 'has' : 'have'} not signed in yet` : `${plural(who.length, 'approver')}, all signed in` });
+  }
+  if (SESSION_OVER) {
+    const nx = SESSION_YEAR + 1, n = (S.committeeMembers || []).filter(m => +m.session_year === nx).length, jan = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) >= `${nx}-01-01`;
+    rows.push({ key: 'committees_next', level: jan ? 'block' : 'warn', label: `${nx} committees and chairs loaded`, ok: n >= 100,
+      detail: n >= 100 ? `${n} members on ${nx} committees` : `${n ? n + ' members so far' : 'none yet'}; the chairs are named after the November election` });
+  }
   const rank = r => r.ok === true ? 5 : r.level === 'block' ? 0 : r.level === 'warn' ? 1 : r.level === 'manual' ? 2 : 3;
   return rows.sort((a, b) => rank(a) - rank(b));
 }
@@ -244,7 +261,7 @@ function renderIndex() {
 // The desktop page: the list of parts on the left stays in view; the chosen part (or the checklist) is on the right.
 const NAV_DOT = `<span class="st-navd" title="Not saved yet"><span class="sr">Not saved yet</span></span>`;
 function shell(cur, pane) {
-  loadReady();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
+  loadReady(); loadLogins();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
   const s = st(), rows = readyRows();
   const open = rows ? rows.filter(r => (r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok)).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
   const on = PAGES[cur]?.parent || cur;

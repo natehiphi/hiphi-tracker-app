@@ -203,6 +203,31 @@ with sync_playwright() as p:
     pg.evaluate("window.dispatchEvent(new ErrorEvent('error', { message: 'a test run', error: new Error('a test run') }))"); pg.wait_for_timeout(500)
     ok(pg.evaluate('window.__sent.length') == 0 and not [r for r in fake.rpcs if r[0] == 'log_public_error'], 'an automated browser (a test run) sends nothing')
     ctx.close()
+
+    # ---- 11. the small fixes (R-152 D): a big bulk edit, an owner change that half fails, a filing link that is not a web address ----
+    fake = Fake(); ctx, pg = open_page(b, fake)
+    ids = [f'bulk-{i}' for i in range(700)]
+    pg.evaluate("async (ids) => { const m = await import('./staff/data.js'); await m.DB.bulkUpdate(ids, { position: 'support' }); }", ids)
+    pw_ = fake.writes('bills', 'PATCH')
+    ok(len(pw_) == 5 and all(len(json.dumps(w[2])) < 8000 for w in pw_), f'700 bills in one edit go in slices of 150, none too long for the API ({len(pw_)} requests)')
+    ob = next(x for x in fake.t['bills'] if (next((a for a in fake.t['bill_assignments'] if a['bill_id'] == x['id']), None)))
+    old_owner = next(a['advocate_id'] for a in fake.t['bill_assignments'] if a['bill_id'] == ob['id'])
+    new_owner = next(a['id'] for a in fake.t['advocates'] if a['id'] != old_owner)
+    n0 = len(fake.log)
+    pg.evaluate("async ([b, a]) => { const m = await import('./staff/data.js'); await m.DB.setOwner(b, a); }", [ob['id'], new_owner])
+    ws = [(w[0], w[1]) for w in fake.log[n0:]]
+    ok(ws and ws[0] == ('POST', 'bill_assignments') and ws[-1] == ('DELETE', 'bill_assignments'), f'a new owner is added before the old one is taken off, so a failure never leaves none ({ws})')
+    fake.t['bill_assignments'] = [a for a in fake.t['bill_assignments'] if a['bill_id'] != ob['id']] + [{'bill_id': ob['id'], 'advocate_id': old_owner}]
+    pg.evaluate("async ([b, o]) => { const S = (await import('./staff/data.js')).S; S.assignments[b] = [o]; }", [ob['id'], old_owner])
+    fake.fail.add('bill_assignments')
+    err = pg.evaluate("async ([b, a]) => { const m = await import('./staff/data.js'); try { await m.DB.setOwner(b, a); return ''; } catch (e) { return String(e.message || e); } }", [ob['id'], new_owner])
+    ok(err and state(pg, f"S.assignments['{ob['id']}'].join()") == old_owner, f'a failed owner change says so and the screen keeps the old owner ({err[:40]})')
+    fake.fail.clear()
+    dr = next(d for d in fake.t['testimony_drafts'])
+    n1 = len(fake.rpcs)
+    err = pg.evaluate("async ([bid, did]) => { const m = await import('./staff/data.js'); try { await m.DB.transition(bid, did, 'file', null, 'javascript:alert(1)'); return ''; } catch (e) { return String(e.message || e); } }", [dr['bill_id'], dr['id']])
+    ok('https://' in err and len(fake.rpcs) == n1, f'a filing link that is not a web address is refused before anything is sent ({err[:50]})')
+    ctx.close()
     b.close()
 
 errs = [e for e in errors if 'Failed to fetch' not in e and 'ERR_FAILED' not in e and 'boom' not in e and 'rejected promise' not in e and 'on the bill page' not in e and 'on a person page' not in e and 'a test run' not in e]

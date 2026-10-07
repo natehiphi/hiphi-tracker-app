@@ -6,7 +6,7 @@ import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RE
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
-import { exactBill, inboxCount, billRoute, FACTS } from './model.js';
+import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import inbox from './inbox.js';
@@ -35,7 +35,8 @@ import coalition from './coalition.js';
 // ---- routes ----
 const SCREENS = { today, review, inbox, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
-  const dh = decodeURIComponent(h || '');
+  // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
+  let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
   let m;
   if ((m = /^#bill=([A-Za-z]+\s?\d+)/.exec(dh))) return { name: 'bill', num: m[1].replace(/\s/g, '').toUpperCase(), tab: 'overview', legacy: true };
   // The old app's other addresses, still written into Slack and calendar links: approvals, and the calendar connect.
@@ -383,13 +384,30 @@ function sandboxExtras() {
       // Follows are per person: the seeded one is Nate's, so a teammate starts from their own, as live (R-022).
       S.follows = new Set(Object.entries(S.followersBy || {}).filter(([, ids]) => ids.includes(a.id)).map(([id]) => id));
       if (S.buildDemoInbox) S.inbox = S.buildDemoInbox(); } }
+  // One hearing this week with no testimony draft, so the card people will meet in January ("No testimony draft yet ... Make the
+  // draft now") can be practised: the sandbox gave every hearing its draft (R-152 D). The last such hearing in the next week.
+  if (!S.noDraftSeeded && !SESSION_OVER) {
+    S.noDraftSeeded = true;
+    const t0 = Date.now(), c = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) - t0 > 2 * 864e5 && new Date(h.scheduled_at) - t0 < 6 * 864e5)
+      .map(h => ({ h, b: S.bills.find(x => x.id === h.bill_id) })).filter(x => x.b && x.b.position && x.b.position !== 'monitor' && !diedish(x.b) && draftFor(x.b.id, x.h.committee))
+      .sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+    // The signed-in person's own bill when there is one, so Today's "Mine" shows the card (the sandbox opens as the admin).
+    // Not a strongly supported or opposed bill: those also carry the public-ask card, and two cards on one bill hide each other in a short list.
+    const own = c.filter(x => !/^strongly_/.test(x.b.position) && (S.assignments[x.b.id] || []).includes(S.me?.id)), pick = own.slice(-1)[0];
+    if (pick) { const gone = draftFor(pick.b.id, pick.h.committee); S.drafts[pick.b.id] = (S.drafts[pick.b.id] || []).filter(d => d.id !== gone.id); }
+  }
   if (!S.alertsSeeded && !SESSION_OVER) {   // between sessions (&season=off) nothing is waiting for approval
     S.alertsSeeded = true;
     const kev = S.advocates.find(x => /^KV$/i.test(x.initials)) || S.advocates.find(x => !x.is_admin);
     const now = Date.now(), alive = b => !['dead', 'law', 'vetoed'].includes(b.stage) && S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > now);
     const bill1 = S.bills.find(b => b.is_public && /support/.test(b.position || '') && alive(b)) || S.bills.find(b => b.is_public && /support/.test(b.position || ''));
+    // The sample email names the weekday of the bill's real next hearing and of the day testimony closes (it said "Wednesday" and
+    // "Tuesday" whatever the hearing was; R-152 D).
+    const nextH = bill1 && S.hearings.filter(h => h.bill_id === bill1.id && new Date(h.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
+    const wd = ms => new Date(ms).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Pacific/Honolulu' });
+    const hearDay = nextH ? wd(new Date(nextH.scheduled_at)) : 'this week', dueDay = nextH ? wd(+new Date(nextH.testimony_deadline || +new Date(nextH.scheduled_at) - 864e5)) : 'the deadline';
     if (kev && bill1) S.alerts = [
-      { id: -101, status: 'submitted', author_id: kev.id, bill_id: bill1.id, subject: `Testify on ${bill1.bill_number} this week`, body: `The committee hears ${bill1.bill_number} on Wednesday. Can you send testimony? It takes five minutes.`, body_html: `<p>The committee hears ${bill1.bill_number} on Wednesday. Can you send testimony? It takes five minutes.</p>`, ask: 'Send testimony by Tuesday', created_at: new Date(now - 3 * 36e5).toISOString(), submitted_at: new Date(now - 3 * 36e5).toISOString() },
+      { id: -101, status: 'submitted', author_id: kev.id, bill_id: bill1.id, subject: `Testify on ${bill1.bill_number} this week`, body: `The committee hears ${bill1.bill_number} on ${hearDay}. Can you send testimony? It takes five minutes.`, body_html: `<p>The committee hears ${bill1.bill_number} on ${hearDay}. Can you send testimony? It takes five minutes.</p>`, ask: `Send testimony by ${dueDay}`, created_at: new Date(now - 3 * 36e5).toISOString(), submitted_at: new Date(now - 3 * 36e5).toISOString() },
       { id: -102, status: 'sent', author_id: S.me?.id, bill_id: bill1.id, subject: `Mahalo: ${bill1.bill_number} passed its first committee`, body: 'Thanks to everyone who testified.', body_html: '<p>Thanks to everyone who testified.</p>', created_at: new Date(now - 6 * 864e5).toISOString(), sent_at: new Date(now - 5 * 864e5).toISOString(), recipients: 31, opens: 14, clicks: 5, bounces: 0 },
       ...(S.alerts || [])];
   }

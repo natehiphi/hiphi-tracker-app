@@ -136,7 +136,8 @@ const withPriority = p => 'position' in p ? { ...p, priority: priorityOf(p.posit
 export const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    // Pinned to the version the public page uses (pub/kernel.js SUPABASE_JS; R-152 D): "@2" let a new release change the staff app overnight.
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
     S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data } = await S.supa.auth.getSession();
     S.session = data.session;
@@ -390,15 +391,24 @@ export const DB = {
                  : await S.supa.from('hearing_attendance').delete().eq('hearing_id', hearingId).eq('advocate_id', who);
     if (r.error) { S.attend[hearingId] = cur; throw r.error; }
   },
+  // Changing an owner adds the new one first, then takes the others off (R-152 D). It used to delete every owner, ignore the
+  // answer, then add the new one: a failure in between left the bill with no owner and the screen showing the new one.
   async setOwner(billId, advocateId) {
+    const was = S.assignments[billId] || [];
     S.assignments[billId] = advocateId ? [advocateId] : [];
     if (DEMO) return;
-    await S.supa.from('bill_assignments').delete().eq('bill_id', billId);
-    if (advocateId) {
-      const { error } = await S.supa.from('bill_assignments')
-        .insert({ bill_id: billId, advocate_id: advocateId, is_lead: true });
-      if (error) throw error;
-    }
+    let partial = false;
+    try {
+      if (advocateId) {
+        const { error: ie } = await S.supa.from('bill_assignments').upsert({ bill_id: billId, advocate_id: advocateId, is_lead: true }, { onConflict: 'bill_id,advocate_id', ignoreDuplicates: true });
+        if (ie) throw ie;
+        const { error: de } = await S.supa.from('bill_assignments').delete().eq('bill_id', billId).neq('advocate_id', advocateId);
+        if (de) { partial = true; S.assignments[billId] = [...new Set([advocateId, ...was])]; throw new Error('The new owner was added, but the old one could not be taken off. ' + de.message); }
+      } else {
+        const { error } = await S.supa.from('bill_assignments').delete().eq('bill_id', billId);
+        if (error) throw error;
+      }
+    } catch (e) { if (!partial) S.assignments[billId] = was; throw e; }
   },
   async bulkUpdate(ids, patch) {
     patch = withPriority(patch);
@@ -407,11 +417,17 @@ export const DB = {
       const snap = {}; for (const k of Object.keys(patch)) snap[k] = b[k];
       before.set(id, snap); Object.assign(b, patch); });
     if (DEMO) return;
-    const { error } = await S.supa.from('bills').update(patch).in('id', ids);
-    if (error) {                                  // undo every row we touched
-      before.forEach((snap, id) => { const b = S.bills.find(x => x.id === id);
-        if (b) Object.assign(b, snap); });
-      throw error;
+    // In slices of 150: the ids go in the web address, and selecting every bill (about 670 and up) made one address too long
+    // for the API and the whole edit failed (R-152 D). A slice that fails undoes its own rows and the ones after it, and says
+    // how many were saved.
+    let done = 0;
+    for (let i = 0; i < ids.length; i += 150) {
+      const part = ids.slice(i, i + 150), { error } = await S.supa.from('bills').update(patch).in('id', part);
+      if (error) {
+        ids.slice(i).forEach(id => { const b = S.bills.find(x => x.id === id), snap = before.get(id); if (b && snap) Object.assign(b, snap); });
+        throw done ? new Error(`${done} of ${ids.length} bills were saved before a problem: ${error.message}. Try again for the rest.`) : error;
+      }
+      done += part.length;
     }
   },
   async addToCampaign(ids, campaignId) {
@@ -467,6 +483,8 @@ export const DB = {
     const arr = S.drafts[billId] || [];
     const i = arr.findIndex(x => x.id === id);
     if (i < 0) return;
+    // A confirmation link is opened from the filing record, so it must be a web address, never a script or a file (R-152 D).
+    if (url && !/^https:\/\/[^\s]+$/i.test(String(url).trim())) throw new Error('The confirmation link must start with https:// and have no spaces. Paste it again, or leave it empty.');
     if (DEMO) { demoTransition(arr[i], action, note, url); return; }
     const { data, error } = await S.supa.rpc('testimony_transition',
       { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });
@@ -547,7 +565,7 @@ export const DB = {
     if (error) throw error; return data;
   },
   async secretStatus() {
-    if (DEMO) return { slack_bot_token: 57 };
+    if (DEMO) return { slack_bot_token: 57, google_calendar_refresh_token: 57 };   // the real tracker has both connected (R-152 D: the sandbox said the calendar was not)
     const { data, error } = await S.supa.rpc('secret_status');
     if (error) throw error; return data || {};
   },
@@ -559,7 +577,10 @@ export const DB = {
   },
   // ---- opening weeks (migration 021) ----
   async readiness() {
-    if (DEMO) return DEMO_READINESS;
+    // The practice copy's checklist agrees with its Team page (R-152 D): both said who had signed in, in two different ways. Only the
+    // admin has a login here (teamLogins), so the others are the ones without an account, as on the real tracker today.
+    if (DEMO) { const miss = S.advocates.filter(a => a.is_active !== false && !a.is_admin).map(a => a.initials);
+      return DEMO_READINESS.map(r => r.key === 'advocates_auth' ? { ...r, ok: !miss.length, detail: miss.length ? `${miss.length} without an account: ${miss.join(', ')}` : 'everyone can sign in' } : r); }
     const { data, error } = await S.supa.rpc('readiness'); if (error) throw error; return data;
   },
   // The public page's own error reports, the last 7 days (110, R-111): staff only, nothing personal in them.
@@ -1505,8 +1526,13 @@ export async function demoInit() {
   S.todos = {};
   // Strongly supported bills get an email-blast task per scheduled hearing (the database adds it live, migration 027b).
   for (const h of S.hearings) { const b = S.bills.find(x => x.id === h.bill_id); if (!b || b.position !== 'strongly_support' || h.status !== 'scheduled' || new Date(h.scheduled_at) <= Date.now()) continue;
-    const dt = new Date(h.scheduled_at), title = `Send an email blast for the ${h.committee} hearing ${dt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })}`;
-    (S.todos[b.id] ??= []).push({ id: 'eb' + h.id, bill_id: b.id, title, done: false, due_date: new Date(h.testimony_deadline || dt - 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }); }
+    // As the database makes it (email_blast_todo_for_hearing): the words follow the email switch (paused here), and it is due in time
+    // to reach people, the notice day or twelve hours before testimony closes, whichever is earlier, never before today (R-152 D;
+    // the sandbox still used the timing from before R-116: the day before the hearing).
+    const dt = new Date(h.scheduled_at), hd = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), m = dt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' });
+    const title = `${S.emailCfg?.enabled === false ? 'Send the ask to HIPHI’s list and partners for the' : 'Send an email blast for the'} ${h.committee} hearing ${m}`;
+    const early = [hd(+new Date(h.notice_posted_at || Date.now()) + 4 * 36e5), hd(+new Date(h.testimony_deadline || dt - 864e5) - 12 * 36e5)].sort()[0], today = hd(Date.now()), due = early > today ? early : today;
+    (S.todos[b.id] ??= []).push({ id: 'eb' + h.id, bill_id: b.id, title, done: false, due_date: due, assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }); }
   if (anchor) S.todos[anchor.id] = (S.todos[anchor.id] || []).concat([
     { id: 'td1', bill_id: anchor.id, title: 'Draft testimony for the next hearing',
       done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,

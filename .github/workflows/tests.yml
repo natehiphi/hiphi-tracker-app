@@ -68,3 +68,5 @@ jobs:
         run: python3 tests/staff_flows.py
       - name: Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)
         run: python3 tests/staff_r152c.py
+      - name: Staff v2, batch D: the practice copy, readiness, small fixes (R-152)
+        run: python3 tests/staff_r152d.py

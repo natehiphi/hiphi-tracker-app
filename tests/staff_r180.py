@@ -121,6 +121,8 @@ with sync_playwright() as p:
     ok('Write the public ask' in m0, 'Kevin\'s Today asks for HB2121\'s public ask (no ask yet)')
     setask = lambda until: pg.evaluate(f"""async () => {{ const d = await import('./staff/data.js'); const b = d.S.bills.find(x => x.bill_number === 'HB2121');
       b.public_action = 'Tell the committee: pass it this week.'; b.public_action_until = '{until}'; d.hooks.render(); }}""")
+    # The practice copy's email to-do is due as the database dates it (R-152 D), ahead of the ask: tick it so the ask card leads.
+    pg.evaluate("""async () => { const d = await import('./staff/data.js'); const b = d.S.bills.find(x => x.bill_number === 'HB2121'); (d.S.todos[b.id] || []).forEach(t => { if (/^Send (the ask|an email blast)/.test(t.title)) t.done = true; }); }""")
     setask('2026-03-14'); pg.wait_for_timeout(900)
     m = main_text(pg)
     ok('Write the next public ask' in m and 'The last ask showed through' in m, 'an ask whose date has passed: Today asks for the next one')

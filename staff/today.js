@@ -597,7 +597,9 @@ function oneNotice() {
   // Session work first (R-118): in the opening weeks and in session, new bills to sort take the slot; the issue prep
   // notice waits for a quiet day.
   if (sort && (openWeeks() || legislativeDay())) return sort;
-  const prep = todayPrepNotice(); if (prep) return prep;
+  // The practice copy is frozen on a March day, when the 2027 issue prep (due 6 Nov) would long be done: its notice led every Today
+  // there and taught the wrong order of work (R-152 D). Between sessions (&season=off) it is real and stays.
+  const prep = DEMO && !SESSION_OVER ? '' : todayPrepNotice(); if (prep) return prep;
   if (me.is_admin && S.emailCfg?.enabled === false) return notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', btn('Turn on', { kind: 'text', href: '#/setup/email' }));
   return sort;   // Getting started is its own card now (startCard), not this one notice slot (R-106)
 }
