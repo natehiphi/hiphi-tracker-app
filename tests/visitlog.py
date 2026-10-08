@@ -164,6 +164,17 @@ with sync_playwright() as pw:
     stored = page.evaluate("() => sessionStorage.getItem('hiphi_fv')")
     ok(r is False and not sent and stored is None, f'a test run (automated browser, localhost, no opt-in) sends nothing and keeps nothing ({len(sent)} calls)')
     ctx.close()
+
+    # ---- 6. the team's browser and a crawler are not visitors (K1-5) ----
+    for name, init, ua in (('a browser Staff v2 has signed in on', "localStorage.setItem('hiphi_team', '1')", None),
+                           ('a crawler by name', '', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')):
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}, **({'user_agent': ua} if ua else {})); sent = []; rig(ctx, sent)
+        if init: ctx.add_init_script(init)
+        page = ctx.new_page(); page.goto(BASE + '/tests/?via=kokua-kalihi'); page.evaluate(IMPORT)
+        r = page.evaluate("() => VL.logVisit('topics', 'view', { path: 'in' })"); page.wait_for_timeout(500)
+        stored = page.evaluate("() => sessionStorage.getItem('hiphi_fv')")
+        ok(r is False and not [x for x in sent if x.get('p')] and stored is None, f'{name}: nothing is sent and nothing is kept')
+        ctx.close()
     br.close()
 print(f'\n{passed} passed, {failed} failed')
 sys.exit(1 if failed else 0)

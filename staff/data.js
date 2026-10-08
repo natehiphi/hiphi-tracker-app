@@ -297,6 +297,8 @@ export const DB = {
     S.feed = feed.data;
     S.me = S.advocates.find(a => a.id === myId) ||
            S.advocates.find(a => a.email === S.session?.user?.email) || null;
+    // This browser is the team's now: the public page counts nothing from it (K1-5). Same site, same storage; not set in the sandbox.
+    if (S.me) try { localStorage.setItem('hiphi_team', '1'); } catch { /* private window: this visit only */ }
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => S.me && ids.includes(S.me.id)).map(([id]) => id));
     S.mutes = new Set((mut?.data || []).filter(r => S.me && r.advocate_id === S.me.id).map(r => r.bill_id));
     // Nothing owned or followed yet: the empty "My bills" page helps nobody.

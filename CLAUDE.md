@@ -528,7 +528,7 @@ python3 tests/setup_expected.py     # Session setup's dated steps ("Expected fro
 python3 tests/suggest.py            # header search suggestions (R-032), both apps: 190 checks at 1024-1440 and short windows, keys, redraw, live bills
 python3 tests/staff_followed.py     # Sort new bills: the untracked bills the public follows (R-059), 40 checks at four sizes
 python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes
-python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 36 checks, every Supabase request intercepted
+python3 tests/visitlog.py           # the private first-visit counting (pub/visitlog.js): 41 checks, every Supabase request intercepted
 node tests/rank_test.mjs            # the suggested bill's rules (pub/rank.js, R-094; plan and Nate's decisions: ../backend/docs/RECOMMENDATION-PLAN.md): 50 exact checks, no server needed
 python3 tests/recommend.py          # the suggested bill on Home and Find in the sandbox (R-094): 23 checks, related issues included
 python3 tests/staff_related.py      # Staff v2: an issue's Related issues (095, R-094): unlink, Undo, link another, Link again; 22 checks at two sizes
