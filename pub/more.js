@@ -646,6 +646,10 @@ const PRIVACY = [
     'We keep your number, what you follow, when you agreed to texts and the words you agreed to. We use them only to send you those texts.',
     'HIPHI staff never see your text-alert number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. The people who run our database could open the table that holds it, but the team does not look numbers up.',
     'We never sell it or use it for anything else. Once texts begin, the service that sends them for us will hold it to do that.',
+    // R-208: the carriers' reviewers look for these two lines, the first word for word (Twilio error 30908), before texts
+    // can be registered. Both are what the sign-up box already promises; keep the same pair in PRIVACY_CODES below.
+    'We do not share, sell, or provide your mobile phone number or messaging consent data to third parties or affiliates for marketing or promotional purposes.',
+    'We text at most once a day. Message and data rates may apply.',
     'Our first text confirms the number is yours. A number you never confirm is deleted after 30 days.',
     `Reply STOP to any text, or use Alerts in your profile, under More, to end them. You can also email ${MAIL}. After a stop we keep only the number and the day, for 4 years, so we never text it again.`,
     'With only a number, your profile (your name, your titles and your story) stays on this phone and is not sent to us.']],
@@ -713,6 +717,8 @@ const PRIVACY_CODES = {
     'We keep your number, when you agreed to texts and the words you agreed to. We use the number only to sign you in and to send the texts you asked for.',
     'Your profile and what you follow, where you stand and the actions you mark are kept with your account, as described under “If you add your email”. HIPHI staff can see them, but never your number: the tracker never shows it to them, and it is left out of HIPHI’s backup copies. The people who run our database could open the table that holds it, but the team does not look numbers up.',
     'We never sell it or use it for anything else. The services that sign you in and send our texts hold it to do that.',
+    'We do not share, sell, or provide your mobile phone number or messaging consent data to third parties or affiliates for marketing or promotional purposes.',
+    'We text at most once a day. Message and data rates may apply.',
     `A number you never confirm is deleted after 30 days. Reply STOP to any text, or use Alerts in your profile, under More, to end texts. You can also email ${MAIL}. After a stop we keep only the number and the day, for 4 years, so we never text it again.`]],
   users: ['Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email or signed in with their number. They never show a name, and they appear only once 10 people are in them.'],
 };
