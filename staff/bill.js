@@ -20,7 +20,7 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
-import { billRoute, billByNum } from './model.js';
+import { billRoute, billByNum, MEMO_SAYS } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 
@@ -276,17 +276,31 @@ const teamCard = b => { const f = followText(b);
     ${teamPicks(b).map(([l, p]) => `<div class="bw-ctl"><span class="bw-ctll" aria-hidden="true">${l}</span>${p}</div>`).join('')}
     ${f ? `<div class="bw-ctl"><span class="bw-ctll">Following</span><span class="bw-ctlv">${esc(f)}</span></div>` : ''}
   </section>`; };
-async function saveWithUndo(b, patch, focusSel) {
+// A position change says what it did (X10-6, R-180 wave 3): "Saved. The public page now says HIPHI opposes. 1 approved testimony says
+// support: open it." Testimony already approved or waiting for approval was written for the old position and is the one thing the
+// change does not touch; the Doc is not read, so this names the old side and says to look.
+const SIDE = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose' };
+function positionSaid(b, was, now) {
+  const says = MEMO_SAYS[now], listed = b.is_public && b.tracked !== false;
+  const page = says ? (listed ? `The public page now says ${says}.` : 'It is not on the public page, so nothing changed there.') : (listed ? 'The public page no longer shows a HIPHI position.' : '');
+  const old = SIDE[was], fresh = SIDE[now], ds = (S.drafts?.[b.id] || []);
+  const ready = ds.filter(d => d.status === 'approved').length, waiting = ds.filter(d => d.status === 'review' || d.status === 'second_review').length;
+  const parts = old && old !== fresh ? [ready ? `${ready} approved testimony says ${old}` : '', waiting ? `${waiting} testimony waiting for approval says ${old}` : ''].filter(Boolean) : [];
+  const warn = parts.length ? ` ${parts.join(' and ').replace(/^(\d+) approved testimony says/, (m, n) => +n > 1 ? `${n} approved testimonies say` : m)}: open it.` : '';
+  return { msg: `Saved. ${page}${warn}`.replace(/\s+/g, ' ').trim(), act: parts.length };
+}
+async function saveWithUndo(b, patch, focusSel, say) {
   const before = {}; for (const k of Object.keys(patch)) before[k] = b[k] ?? null;
   try {
     await DB.updateBill(b.id, patch); FACTS.clear(); rerender(focusSel);
-    toast('Saved', { undo: async () => { await DB.updateBill(b.id, before); FACTS.clear(); rerender(focusSel); toast('Put back as it was'); } });
+    const said = say ? say(before) : null;
+    toast(said ? said.msg : 'Saved', { undo: async () => { await DB.updateBill(b.id, before); FACTS.clear(); rerender(focusSel); toast('Put back as it was'); }, ...(said?.act ? { action: { label: 'Open', run: () => S.go(billRoute(b, 'testimony')) } } : {}) });
   } catch (e) { toast(e, { err: true }); rerender(focusSel); }
 }
 function pickPosition(b) {
   pickerSheet({ title: `Position on ${b.bill_number}`, value: b.position || '',
     options: POS_ORDER.map(v => [v, POS_WORD[v], POS_ICON[v] || 'circle-dashed', POS_SUB[v] || '']),
-    onPick: v => saveWithUndo(b, { position: v || null }, '[data-bwpick="pos"]') });
+    onPick: v => saveWithUndo(b, { position: v || null }, '[data-bwpick="pos"]', before => positionSaid(b, before.position, v || null)) });
 }
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
@@ -431,7 +445,7 @@ function hearingCard(b, h, i) {
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
   const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load, so this page cannot say whether there is one. Reload, then look again.</p>'
     : b.position && b.position !== 'monitor'
-    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet. The tracker makes one when the hearing notice comes in.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
+    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet. The hearing notice is in: the tracker makes the draft within minutes. If it has not, make it now.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
     : '<p class="small muted bw-nodraft">Monitor bills get no testimony draft.</p>') : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-${i}">${i === 0 ? 'Next up' : 'Also coming up'}</h2><span class="bw-nhacts">${btn('Hearing page', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, cls: 'bw-hpage', attrs: { 'aria-label': `The ${h.committee} hearing's page` } })}${iconBtn('ellipsis', 'More for this hearing', { 'data-hmenu': h.id })}</span></div>
@@ -540,14 +554,17 @@ async function runDraft(b, d, act, el) {
     }
   } catch (e) { if (el?.isConnected) el.removeAttribute('aria-busy'); toast(e, { err: true }); }
 }
+// Words typed in a sheet outlive the sheet (X10-6, R-180 wave 3): Back, Esc or a tap outside closes it, and the note was gone. Kept per
+// draft until it is sent, the way the public walkthrough keeps its words.
+const HELD = new Map();
 function requestChanges(b, d) {
   const who = advocate(d.submitted_by), to = who && who.id !== S.me?.id ? firstName(who) : '';
   openSheet({ title: 'What should change?', size: 'auto',
     body: `<div class="field"><label for="bw-rc">${to ? `Your note for ${esc(to)}` : 'Your note'}</label><textarea id="bw-rc" rows="4" required aria-describedby="bw-rc-e" placeholder="Say what to fix, so the next version is the last one."></textarea><span class="err" id="bw-rc-e" hidden>${icon('circle-alert')}Write what should change first.</span></div>`,
     foot: btn(to ? `Send back to ${esc(to)}` : 'Send it back', { kind: 'primary', icon: 'undo-2', attrs: { 'data-go': '1' } }),
     wire: dlg => {
-      const ta = dlg.querySelector('#bw-rc'), er = dlg.querySelector('#bw-rc-e'); ta.focus();
-      ta.oninput = () => { er.hidden = true; ta.removeAttribute('aria-invalid'); };
+      const ta = dlg.querySelector('#bw-rc'), er = dlg.querySelector('#bw-rc-e'); ta.value = HELD.get('rc:' + d.id) || ''; ta.focus();
+      ta.oninput = () => { er.hidden = true; ta.removeAttribute('aria-invalid'); HELD.set('rc:' + d.id, ta.value); };
       dlg.querySelector('[data-go]').onclick = async e => {
         const note = ta.value.trim();
         if (!note) { er.hidden = false; ta.setAttribute('aria-invalid', 'true'); ta.focus(); return; }
@@ -556,6 +573,7 @@ function requestChanges(b, d) {
         const undo = holdBack({ key: d.id, target: d, patch: { status: 'draft', review_note: note },
           send: () => transition(b, d, 'request_changes', note),
           onFail: () => { FACTS.clear(); if (S.route?.name === 'bill') rerender(); toast(`${b.bill_number} was not sent back. It is still waiting for you; try again.`, { err: true }); } });
+        HELD.delete('rc:' + d.id);
         FACTS.clear(); closeSheet({ silent: true }); rerender();
         toast(to ? `Sent back to ${to} with your note.` : 'Sent back with your note.', { undo: async () => { if (await undo()) { FACTS.clear(); rerender(); toast('Not sent back. It is waiting for you again.'); } } });
       };
@@ -564,14 +582,19 @@ function requestChanges(b, d) {
 function markFiled(b, d) {
   openSheet({ title: `Filed ${esc(b.bill_number)} testimony for ${esc(d.committee)}?`, size: 'auto',
     body: `${field('bw-furl', 'Capitol confirmation link (optional)', '<input id="bw-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}
+      <p class="err" id="bw-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>
       <p class="bw-shlink">${btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' })}</p>`,
     foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-go': '1' } }),
     wire: dlg => {
+      const inp = dlg.querySelector('#bw-furl'), er = dlg.querySelector('#bw-furl-e'); inp.value = HELD.get('fu:' + d.id) || '';
+      inp.oninput = () => { er.hidden = true; inp.removeAttribute('aria-invalid'); HELD.set('fu:' + d.id, inp.value); };
       dlg.querySelector('[data-go]').onclick = async e => {
-        const url = dlg.querySelector('#bw-furl').value.trim();
+        const url = inp.value.trim();
+        // A confirmation link is a web address (the box held any text, and "done" was saved with it).
+        if (url && !/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]{2,}$/i.test(url)) { er.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
         const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
         try {
-          await transition(b, d, 'file', null, url); closeSheet({ silent: true }); rerender();
+          await transition(b, d, 'file', null, url); HELD.delete('fu:' + d.id); closeSheet({ silent: true }); rerender();
           toast(`Filed. ${b.bill_number} is done for ${d.committee}.`, { ok: true, undo: async () => { await transition(b, d, 'unfile'); rerender(); toast('Unmarked. It is approved and ready to file again.'); } });
         } catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
       };

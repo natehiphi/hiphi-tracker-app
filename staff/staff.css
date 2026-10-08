@@ -606,3 +606,7 @@ body.sidenarrow .sv-sync span { display: none; }
 .is-stnote .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
 .is-stnote p { margin: 0; }
 .is-stnote .btn { margin-left: -12px; }
+/* X10-3: where the ask will reach people, on the Public tab, under the ask's date. */
+.bw-reach { margin: var(--s12) 0 var(--s16); padding: var(--s12) var(--s16); border-radius: var(--r12); background: var(--p50); }
+.bw-reach p { margin: 0; line-height: 1.5; }
+.bw-reach .btnrow { margin-top: var(--s8); }

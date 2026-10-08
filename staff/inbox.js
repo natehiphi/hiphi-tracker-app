@@ -8,7 +8,7 @@
 // Keys (a keyboard and mouse; My settings can switch them off): j and k move, Enter opens, e marks read or unread,
 // Shift+A marks the list read. Testimony notices clear themselves once the draft is filed, reminders after the hearing.
 import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
-import { inboxRows, inboxCount, unslack, billById, billNum, blurb, canFirstApprove, canSecondApprove } from './model.js';
+import { inboxRows, inboxCount, unslack, billById, billNum, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
 import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
 import { sandboxInbox, hearingFor } from './today.js';
 import { billRoute } from './model.js';
@@ -41,11 +41,20 @@ function reviewAct(i) {
 const readBtn = (key, unread) => iconBtn(unread ? 'check' : 'circle-dot', unread ? 'Mark read' : 'Mark unread', { 'data-ibtoggle': key }, 'ib-read');
 
 // In a bill's own block (Updates) the block names the bill, so its rows do not say it again (A-14).
+// X10-5 (R-180 wave 3): the Capitol's sentence that a hearing was set, in the words Today uses ("New hearing: PSM/EIG Mon 3/23, 9:30 AM"),
+// with "No testimony draft yet" when the bill's position gets testimony and none exists. Anything else keeps its own words.
+function hearingNews(i, b) {
+  if (i.direct || !b || !/scheduled a public hearing|to be heard by/i.test(i.title || '')) return null;
+  const [said] = plainAction(unslack(i.title)), m = /^Hearing set: (\S+) (.+)$/.exec(said || ''); if (!m) return null;
+  const h = (S.hearings || []).find(x => x.bill_id === b.id && x.status !== 'cancelled' && String(x.committee).replace(/\s+/g, '').replace(/,/g, '/') === m[1] && new Date(x.scheduled_at) > Date.now());
+  const none = h && b.position && b.position !== 'monitor' && !draftFor(b.id, h.committee) && !S.failed?.('testimony drafts');
+  return { t: `New hearing: ${m[1]} ${m[2]}`, sub: none ? 'No testimony draft yet. Open the bill and make it.' : '', tab: none ? 'testimony' : '' };
+}
 function item(i, inBlock = false) {
-  const b = i.bill_id && billById(i.bill_id), href = hrefOf(i);
+  const b = i.bill_id && billById(i.bill_id), news = hearingNews(i, b), href = news?.tab ? `${billRoute(b)}/${news.tab}` : hrefOf(i);
   const inner = `<span class="ib-ic" aria-hidden="true">${icon(KIND_ICON[i.kind] || 'circle')}</span>
-    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `<b class="ib-num">${esc(billNum(b))}</b>${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} ` : ''}<span class="ib-t">${esc(unslack(i.title))}</span></span>
-      ${i.body ? `<span class="ib-sub">${esc(unslack(i.body).slice(0, 220))}</span>` : ''}<span class="ib-when m">${esc(ago(i.at))}</span></span>
+    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `<b class="ib-num">${esc(billNum(b))}</b>${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
+      ${news ? (news.sub ? `<span class="ib-sub">${esc(news.sub)}</span>` : '') : i.body ? `<span class="ib-sub">${esc(unslack(i.body).slice(0, 220))}</span>` : ''}<span class="ib-when m">${esc(ago(i.at))}</span></span>
     <span class="ib-when d" title="${esc(fmtDT(i.at))}">${esc(ago(i.at))}</span>`;
   return `<div class="ib-row${i.unread ? ' unread' : ''}" data-key="${esc(i.key)}">
     ${href ? `<a class="ib-main" href="${esc(href)}" data-ibopen="${esc(i.key)}">${inner}</a>` : `<div class="ib-main">${inner}</div>`}

@@ -83,6 +83,9 @@ export function whenLine(iso) {
 }
 export const hearingLine = h => h ? `${esc(h.committee)} ${whenLine(h.scheduled_at)}${h.room ? ' · ' + esc(room(h.room)) : ''}` : '';
 // Written testimony is due 24 hours before the hearing unless the notice says otherwise (Hawaiʻi rule).
+// "New hearing: PSM/EIG Mon 3/23. Make the draft." (X10-5): where a hearing with no draft is said once, in the words staff use.
+export const hearingDay = h => new Date(h.scheduled_at).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
+const newHearing = (h, c) => `New hearing: ${c} ${hearingDay(h)}. Make the draft.`;
 export const testDue = h => h ? new Date(h.testimony_deadline || new Date(h.scheduled_at).getTime() - DAY).getTime() : null;
 // One rounding for every countdown (R-152 C): down, never up, so a deadline is never later than it reads (R-022), and every
 // screen says the same number. It rounded to the nearest here and down in ui.js: the same deadline read "5h left" on Today and "Due in 6 hours" in Review.
@@ -330,6 +333,14 @@ export function todayItems(scope = 'mine', who = null) {
   // ---- situations: open to anyone, on live bills in scope (app.js 1457) ----
   for (const b of S.bills) {
     if (b.position === 'monitor' || !inScope(b)) continue;
+    // X10-5 (R-180 wave 3): a hearing set for a bill with a position and no draft is work the day it is set, however far off it is
+    // (the list below looks seven days ahead only). Past seven days it is this one card; inside seven days the loop below makes it.
+    for (const h of (idx.get(b.id) || [])) {
+      if (h.status === 'cancelled' || new Date(h.scheduled_at) - now < 7 * DAY || diedish(b)) continue;
+      if (!draftFor(b.id, h.committee) && !S.failed?.('testimony drafts')) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who: isOwner(b) ? 'yours' : 'anyone', s: newHearing(h, esc(h.committee)),
+        note: draftAsking(h) ? 'No testimony draft yet. Asked for it: it shows here within a few minutes.' : 'No testimony draft yet. The tracker makes it from the hearing notice, usually within minutes. If it has not, make it now.',
+        btns: [{ label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' }, { label: 'Open bill', href: `${billRoute(b)}`, text: true }] });
+    }
     const ups = (idx.get(b.id) || []).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * DAY).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
     if (!ups.length && b.priority !== 1) continue;
     if (diedish(b)) continue;
@@ -350,8 +361,8 @@ export function todayItems(scope = 'mine', who = null) {
     for (const h of ups) {
       const dr = draftFor(b.id, h.committee), c = esc(h.committee);
       // The drafts read failed: the notice at the top says so, and no hearing is called draftless (R-152 B).
-      if (!dr && !S.failed?.('testimony drafts')) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: `No testimony draft yet for the ${c} hearing`,
-        note: draftAsking(h) ? 'Asked for it: the draft shows here within a few minutes.' : 'The tracker makes it from the hearing notice. If it has not, make it now.',
+      if (!dr && !S.failed?.('testimony drafts')) push({ kind: 'nodraft', key: `s:${b.id}:nd:${h.id}`, b, h, due: testDue(h), who, s: newHearing(h, c),
+        note: draftAsking(h) ? 'No testimony draft yet. Asked for it: it shows here within a few minutes.' : 'No testimony draft yet. The tracker makes it from the hearing notice, usually within minutes. If it has not, make it now.',
         btns: [{ label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' }, { label: 'Open bill', href: `${billRoute(b)}`, text: true }] });
       else if (dr && dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
         s: `Check ${self && (isOwner(b) || dr.submitted_by === me.id) ? 'your' : 'the'} ${c} testimony: the bill is now ${esc(b.current_version)}`,
@@ -471,12 +482,14 @@ export function todayItems(scope = 'mine', who = null) {
   const cmp = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || eff(x) - eff(y) || x.rank - y.rank;
   const byKey = new Map();
   for (const t of list) { const k = t.b ? 'b:' + t.b.id : t.key; if (!byKey.has(k)) byKey.set(k, { key: k, b: t.b, tasks: [] }); byKey.get(k).tasks.push(t); }
-  const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = groupOf(c.p.due, now); c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
+  const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = groupOf(c.p.due, now); if (c.p.kind === 'nodraft' && !['overdue', 'today'].includes(c.group)) c.group = 'today'; /* a new hearing with no draft is work today, however far off the hearing is (X10-5) */ c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
   if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)); cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: groupOf(Number.isFinite(due) ? due : null, now), tasks: cluster }); }
   // Within a group: the review cluster, then by time; a message already seen sits below the new ones; waiting rows last.
   const ord = (x, y) => !!y.cluster - !!x.cluster || x.wait - y.wait || eff(x.p || x) - eff(y.p || y) || (!!x.seen - !!y.seen) || ((x.b?.priority || 9) - (y.b?.priority || 9)) || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
   const weight = c => c.cluster ? c.cluster.length : c.wait ? 0 : 1;
-  const groups = GROUPS.map(([id, title]) => { const cs = cards.filter(c => c.group === id).sort(ord); return { id, title, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? c.cluster.length : 1), 0) }; }).filter(g => g.cards.length);
+  // "Overdue 5" for one overdue draft in a cluster of five was wrong (X10-6, P-5): in Overdue a review cluster counts only what is overdue.
+  const cn = c => c.cluster ? (c.group === 'overdue' ? c.cluster.filter(t => t.due != null && t.due <= now).length || 1 : c.cluster.length) : 1;
+  const groups = GROUPS.map(([id, title]) => { const cs = cards.filter(c => c.group === id).sort(ord); return { id, title, cards: cs, n: cs.reduce((s, c) => s + cn(c), 0) }; }).filter(g => g.cards.length);
   const dueNow = cards.filter(c => c.group === 'overdue' || c.group === 'today').reduce((s, c) => s + weight(c), 0);
   const late = cards.filter(c => c.group === 'overdue').reduce((s, c) => s + weight(c), 0);
   return { groups, cards, cluster, dueNow, late, tasks };
@@ -658,7 +671,7 @@ function card(c, i, team, o = {}) {
     return `<article class="td-card td-cluster" data-k="cluster" tabindex="-1" aria-labelledby="td-s${i}">
       ${urgBlock(c.due)}
       <p class="td-s" id="td-s${i}">${icon('clipboard-check')}Review ${plural(c.cluster.length, 'testimony draft')}</p>
-      <p class="td-why">${esc([c.due != null ? `First ${lowerFirst(testDueText(c.due))}` : '', 'Earliest first · ' + bills.slice(0, 6).join(', ') + (bills.length > 6 ? ` and ${bills.length - 6} more` : '')].filter(Boolean).join(' · '))}</p>
+      <p class="td-why">${esc([c.due != null ? `First ${lowerFirst(testDueText(c.due))}` : '', (late => late > 0 && late < c.cluster.length ? `${late} of ${c.cluster.length} overdue` : '')(c.cluster.filter(t => t.due != null && t.due <= Date.now()).length), 'Earliest first · ' + bills.slice(0, 6).join(', ') + (bills.length > 6 ? ` and ${bills.length - 6} more` : '')].filter(Boolean).join(' · '))}</p>
       <div class="td-acts">${btn('Start review', { href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</div></article>`;
   }
   const p = c.p, b = c.b, also = c.tasks.slice(1), k = (o.gk ? o.gk + '~' : '') + c.key;
@@ -1199,7 +1212,7 @@ function weekView(route, scope, who, r) {
   return `<div class="td-wnav"><h2 class="td-wtitle">${esc(range)}</h2>
       <div class="td-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-week': off - 1 })}${off ? btn('This week', { kind: 'text', attrs: { 'data-week': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-week': off + 1 })}</div>
       <p class="td-wsum">${esc(sum)}</p>${wk.mon ? monBtn(wk.mon, scope, who, 'td-wmon') : ''}</div>
-    ${weekAsksHTML(all)}
+    ${weekAsksHTML()}
     <div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>`;
 }
 
@@ -1210,13 +1223,18 @@ function weekView(route, scope, who, r) {
 // monitored bill has no ask. Soonest deadline first; one line per bill for a post, a short paragraph for the newsletter.
 const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
   strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
-function weekAsks(all) {
-  const now = Date.now(), seen = new Set(), out = [];
-  for (const c of all) for (const g of c.dl.values()) for (const r of g.rows) {
-    const b = r.b; if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || seen.has(b.id) || !(g.due > now)) continue;
-    seen.add(b.id); out.push({ b, h: g.h, due: g.due });
+// X10-3 (R-180 wave 3): every bill on the public page with a position and a testimony deadline still open this week, whether or not
+// HIPHI has filed its own testimony (the public's deadline does not move when HIPHI files, so the week's best ask was the one dropped),
+// and the same whoever copies it, from Mine or Team (it no longer reads the week grid of one person's open rows).
+function weekAsks() {
+  const now = Date.now(), end = new Date(dayAdd(mondayOf(now), 7) + 'T00:00:00-10:00').getTime(), seen = new Map();
+  for (const h of S.hearings) {
+    if (h.status === 'cancelled') continue;
+    const due = testDue(h), b = S.bills.find(x => x.id === h.bill_id);
+    if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || !(due > now) || due >= end) continue;
+    if (!seen.has(b.id) || due < seen.get(b.id).due) seen.set(b.id, { b, h, due });
   }
-  return out.sort((x, y) => x.due - y.due);
+  return [...seen.values()].sort((x, y) => x.due - y.due);
 }
 const askName = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
 const askLine = b => liveAsk(b).replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;   // an ask past its date is left out (Z1-3)
@@ -1228,8 +1246,8 @@ export function weekAsksText(items, kind) {
   const head = `This week at the Legislature: ${items.length === 1 ? 'one bill on HIPHI’s issues needs' : `${items.length} bills on HIPHI’s issues need`} your voice. Each takes a few minutes.`;
   return head + '\n\n' + items.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askLine(x.b)} Testimony is due ${fmtDT(x.due)}.\n${sharePageUrl(x.b, 'testify')}?via=${via}`).join('\n\n');
 }
-function weekAsksHTML(all) {
-  const items = weekAsks(all); S.tdAsks = items;
+function weekAsksHTML() {
+  const items = weekAsks(); S.tdAsks = items;
   if (!items.length) return '';
   // Folded to one line (R-152 C): open, it pushed the Week's first day from 348px to 616px down. It is also on a phone's Today,
   // where there is no Week view, so the same card is reachable there.
@@ -1241,7 +1259,7 @@ function weekAsksHTML(all) {
 }
 // A phone has no Week view, so its Today carries the same card, folded (R-152 C).
 function weekAsksPhone(scope, who, r) {
-  try { return weekAsksHTML([...weekOf(mondayOf(Date.now()), scope, who, r).values()]); } catch (e) { console.error(e); return ''; }
+  try { return weekAsksHTML(); } catch (e) { console.error(e); return ''; }
 }
 
 // ---- Team: the team's work, by person (R-022, wave 3 #15) ----
@@ -1491,7 +1509,7 @@ function render(route) {
   else {
     // Mine and a teammate's list never hold "waiting" cards (todayItems makes those for Team only): what waits on
     // someone else is "Waiting on others", in the side panel or, on a phone, a folded group under the list.
-    const groups = r.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? c.cluster.length : 1), 0) }; }).filter(g => g.cards.length);
+    const groups = r.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
     const clear = !groups.some(g => g.id === 'overdue' || g.id === 'today');
     const groupHtml = (g, gi) => {
       const fold = g.id === 'later', isOpen = !fold || open.later;

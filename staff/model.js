@@ -277,6 +277,21 @@ export const sharePageUrl = (b, ask = '') => `${PUBLIC_APP().replace(/track\.htm
 // The public's response to a bill (R-117): follows (follower_counts, the public page's own number, Z1-7) and the actions people with accounts marked
 // (public_action_counts). Staff only, counts only, nothing personal. '' when nobody has.
 export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
+// Where the ask written on the Public tab reaches people (X10-3, R-180 wave 3): the public page at once, and by email only inside a
+// follower's hearing alert that has not gone yet (the 4:30 pm daily email, migration 109: the first one after the hearing was set).
+// Once that has gone, the ask reaches people by email only as a supporter email. The ask is never sent anywhere else.
+export function next430(from) { const d = new Date(from - 10 * 36e5); d.setUTCHours(16, 30, 0, 0); let t = d.getTime() + 10 * 36e5; if (t <= from) t += 864e5; return t; }
+export function askReach(b) {
+  const h = hearingAhead(b), n = publicResponse(b)?.followers || 0, now = Date.now(), lines = [];
+  lines.push(b.is_public && b.tracked !== false ? 'On the public page now.' : 'Not on the public page yet: turn on “On the public page” above.');
+  const open = h && (!h.testimony_deadline || new Date(h.testimony_deadline) > now);
+  if (S.emailCfg && S.emailCfg.enabled === false) return { lines: [...lines, 'Email to the public is off for now, so nothing goes out by email yet.'], again: false };
+  if (!h || !open) return { lines: [...lines, 'By email: only as a supporter email, since no hearing alert is coming.'], again: true };
+  const gone = h.created_at ? next430(Date.parse(h.created_at)) <= now : false;
+  if (!gone) { const t = next430(now), same = new Date(t - 10 * 36e5).toISOString().slice(0, 10) === new Date(now - 10 * 36e5).toISOString().slice(0, 10);
+    return { lines: [...lines, `By email: in ${same ? 'tonight’s' : 'tomorrow’s'} hearing alert, to ${n === 1 ? '1 follower' : `${n} followers`}.`], again: false }; }
+  return { lines: [...lines, 'The hearing alert already went. To reach people by email now, send it as a supporter email.'], again: true };
+}
 export function publicWords(b) {
   const c = publicResponse(b); if (!c) return '';
   return [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} going` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean).join(' · ');
@@ -307,7 +322,7 @@ export function inboxRows() {
 // public page and the public ask - and nothing internal (no testimony steps, owners or priorities).
 // "At risk" is riskOf() (RISK_DAYS, 7 days), the same as Bills and Today; it used to mean 14 days here. The bills
 // racing the deadline after it have their own heading, named for its day ("Needs a hearing by Mon 3/30").
-const MEMO_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
+export const MEMO_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
   strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
 const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for a second approval', approved: 'approved, not filed yet', filed: 'filed' };
 const memoDay = d => fmtDate(d, { weekday: 'short' }).replace(',', '');   // "Mon 3/30"

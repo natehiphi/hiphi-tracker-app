@@ -177,7 +177,8 @@ export const DB = {
     // sign-in took on 9/21 (R-034). Each falls back to empty, as before; none of them can fail the load.
     const extras = Promise.all([
       // Freshness indicator data
-      S.supa.from('sync_runs').select('finished_at,ok').order('started_at', { ascending: false }).limit(10),
+      // Bill syncs only (R-180 Z1-4): a draft run or a bulk import finishing is not the bills being fresh.
+      S.supa.from('sync_runs').select('finished_at,ok').not('kind', 'in', '("testimony","bulk:openstates")').order('started_at', { ascending: false }).limit(10),
       // Official actions found since this person's previous visit
       S.supa.from('activity_log').select('bill_id,title,occurred_at,created_at')
         .eq('source', 'auto').gt('created_at', new Date(S.sinceVisit).toISOString())
@@ -704,7 +705,13 @@ export const DB = {
       (S.drafts[h.bill_id] ??= []).push({ id: 'dn' + Date.now(), bill_id: h.bill_id, committee: h.committee, hearing_id: h.id, status: 'draft',
         doc_url: 'https://docs.google.com/document/d/demo-now/edit', created_at: new Date().toISOString(), version: b?.current_version || null });
       return { ok: true, sandbox: true }; }
-    return this.dispatch('draft-now', { hearing_id: h.id });
+    // Recorded first (R-180 Z1-4, backend 166): GitHub keeps one waiting run, so a request that was only a message could be cancelled and
+    // lost. As a row it waits for the next run, whichever starts it; the message below only hurries it. If that cannot be sent the request
+    // still stands, and the page says so.
+    const { data: rec, error: re } = await S.supa.rpc('request_draft', { p_hearing: h.id }); if (re) throw re;
+    if (!rec?.ok) throw new Error(rec?.why === 'not_ahead' ? 'That hearing has already happened, so there is no draft to make.' : 'That hearing is not on file any more.');
+    try { return { ...(await this.dispatch('draft-now', { hearing_id: h.id })), recorded: true }; }
+    catch (e) { return { ok: true, recorded: true, nudged: false, error: String(e.message || e) }; }
   },
   // One bill's drafts again (after "Make the draft now", while the job works).
   async reloadDrafts(billId) {
@@ -1815,5 +1822,5 @@ export function startedFromLine(b, d) {
   if (!src) return `${head}, with this hearing’s committee, names, date and room put in.`;
   if ((src.version || null) === (d.version || null)) return `${head}, with this hearing’s details put in. The bill hasn’t changed since.`;
   const since = changedSince(b, src.version, d.version);
-  return `${head}, written for ${dname(src.version)}. ${since ? `Since then: ${since}` : `The bill is now ${dname(d.version)}; no note yet on what changed.`}`;
+  return `${head}, written for ${dname(src.version)}. ${since ? `Since then: ${since}` : `No note yet on what changed since then.`}`;   // the bill's own version is said once, in the warning under it (X10-6)
 }

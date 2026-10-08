@@ -688,6 +688,15 @@ first visit. All five are working versions in the same frame as today's first vi
   that follows links cannot unsubscribe anyone. It talks to the Edge Function `unsubscribe` v2 (deploys with Nate's yes).
 - **A stopped bill whose same idea became law** (X4-4): "The same idea became law as SB 2175, Act 189." under why it stopped (a named
   companion), or "On “the issue”, SB 2175 became law (Act 189)." when only an issue ties them (the other chamber's bill, same session).
+- **Staff v2, R-180 wave 3 (X10-3, X10-5, X10-6, Z1-4):** a hearing set for a bill with a position and no draft is a Today card the day it is set, however
+  far off ("New hearing: PSM/EIG Mon 3/23. Make the draft."; the Inbox says the same in plain words); "This week's asks" lists every public bill with
+  testimony still open, filed or not, the same from Mine or Team; "Write it" lands at the ask box (a page that scrolls itself claims the scroll
+  with `S.scrollClaimed`, so the popstate restore does not undo it); the Public tab says where the ask reaches people (`askReach` in model.js:
+  the public page now, tonight's hearing alert to N followers, or "already went", with "Send it as a supporter email"); a position change says
+  its effect and the approved testimony it may now contradict; a "Request changes" note and a "Mark filed" link survive Esc and Back and the link must
+  look like a web address; Overdue counts only what is overdue in a review cluster; "Make the draft now" records a request (`request_draft`) before
+  it nudges the job; Today's sync line reads bill syncs only. `tests/journeys.py` is thirteen journeys, some new (notice to draft, the Slack approval,
+  the public ask, Home to testimony with the tour on, the phone's bill search).
 - **`look-options.html`** (X9-3, options only): four looks for the first screen, as pictures; nothing in the tracker uses them yet.
 - **After a first action, the visit ends on the success (X10-2).** A newcomer from a shared link who sends testimony (or the
   quick email) and taps Done goes to Home (`homeAfterAct` in `pub/bill.js`, from `app.newcomerNext` and

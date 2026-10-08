@@ -79,14 +79,16 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   if (takeSheetEntry()) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
   if (replace) history.replaceState({ y: 0, d: depth }, '', path); else history.pushState({ y: 0, d: ++depth }, '', path);
-  render();
+  render(); S.scrollClaimed = false;   // go() puts the page at the top itself; a page's own later scroll still runs
   if (!keepScroll) window.scrollTo(0, 0);
 }
 S.go = go;
 window.addEventListener('popstate', e => {
   if (popSheet()) return;                      // Back closed a sheet: the page underneath stays as it is
   depth = e.state?.d || 0;
-  render(); const y = e.state?.y || 0; requestAnimationFrame(() => window.scrollTo(0, y));
+  render(); const y = e.state?.y || 0;
+  // A page that scrolls to something itself (Today's "Write it" lands at the ask box, X10-3) claims the scroll with S.scrollClaimed; this restore, queued after it, would put the page back at the top.
+  requestAnimationFrame(() => { if (S.scrollClaimed) { S.scrollClaimed = false; return; } window.scrollTo(0, y); });
 });
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 // Crossing a layout width (a rotated tablet, a resized window) redraws the page, so screens that draw differently for
@@ -395,6 +397,11 @@ function sandboxExtras() {
     // Not a strongly supported or opposed bill: those also carry the public-ask card, and two cards on one bill hide each other in a short list.
     const own = c.filter(x => !/^strongly_/.test(x.b.position) && (S.assignments[x.b.id] || []).includes(S.me?.id)), pick = own.slice(-1)[0];
     if (pick) { const gone = draftFor(pick.b.id, pick.h.committee); S.drafts[pick.b.id] = (S.drafts[pick.b.id] || []).filter(d => d.id !== gone.id); }
+    // And one set far ahead (X10-5): a hearing with no draft is work the day it is set, however far off it is.
+    const far = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) - t0 > 9 * 864e5 && new Date(h.scheduled_at) - t0 < 40 * 864e5)
+      .map(h => ({ h, b: S.bills.find(x => x.id === h.bill_id) })).filter(x => x.b && x.b.position && x.b.position !== 'monitor' && !diedish(x.b) && draftFor(x.b.id, x.h.committee) && (!pick || x.b.id !== pick.b.id))
+      .sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at))[0];
+    if (far) { const gone = draftFor(far.b.id, far.h.committee); S.drafts[far.b.id] = (S.drafts[far.b.id] || []).filter(d => d.id !== gone.id); }
   }
   if (!S.alertsSeeded && !SESSION_OVER) {   // between sessions (&season=off) nothing is waiting for approval
     S.alertsSeeded = true;

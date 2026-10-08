@@ -237,7 +237,7 @@ function changes(route) {
     foot: btn(`Send back to ${esc(name)}`, { attrs: { 'data-send': '1' } }),
     wire: dlg => {
       const ta = dlg.querySelector('#td-note'), go = dlg.querySelector('[data-send]'); ta.focus();
-      ta.oninput = () => { ta.removeAttribute('aria-invalid'); dlg.querySelector('#td-note-e')?.remove(); };
+      ta.oninput = () => { ta.removeAttribute('aria-invalid'); dlg.querySelector('#td-note-e')?.remove(); (S.rvNotes ??= {})[it.key] = ta.value; };   // kept if the sheet closes unsent (X10-6)
       go.onclick = async () => {
         const note = ta.value.trim();
         if (!note) { ta.setAttribute('aria-invalid', 'true'); if (!dlg.querySelector('#td-note-e')) ta.insertAdjacentHTML('afterend', `<span class="err" id="td-note-e" role="alert">${icon('circle-alert')}Write what should change first.</span>`); ta.setAttribute('aria-describedby', 'td-note-e td-note-h'); ta.focus(); return; }

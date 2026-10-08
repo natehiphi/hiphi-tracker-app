@@ -112,15 +112,53 @@ JOURNEYS = [
  dict(name='staff: bill page -> position changed and saved', app=STAFF, budget=3, start='#/bill/HB1562', steps=[
    dict(what='open the position control', do=click_text('button,.btn,.sv-pick', 'Position|Support|Oppose|Monitor|No position'),
         reach="(()=>!!document.querySelector('dialog[open],.sv-sheet[open],[role=menu]'))()"),
-   dict(what='choose a position', do=click_text('dialog[open] button,[role=menu] button,.sv-sheet[open] button', 'Support'),
-        reach="(()=>true)()"),
+   # X10-7 (R-180 wave 3): the step used to reach (()=>true)(), so a save that never happened passed. The proof is the toast that says
+   # what the save did (X10-6): "Saved. The public page now says HIPHI opposes."
+   dict(what='choose a position (and it saves)', do=click_text('dialog[open] button,[role=menu] button,.sv-sheet[open] button', '^Oppose'),
+        reach="(()=>/Saved\\. The public page now says HIPHI opposes/i.test(document.getElementById('toast')?.innerText||''))()"),
+ ]),
+ # X10-5: a hearing is set and its draft is not there: Today says "New hearing: ... Make the draft." and one tap asks for it.
+ dict(name='staff: a new hearing -> its draft asked for', app=STAFF, budget=5, start='#/', steps=[
+   dict(what='the new hearing is on Today, with its button', do='true', reach="(()=>/New hearing: [A-Z/]+ \\w{3} \\d+\\/\\d+\\. Make the draft\\./.test(document.querySelector('main').innerText))()"),
+   dict(what='ask for the draft', do=click_text('main .btn,main button', 'Make the draft now'),
+        reach="(()=>/Draft made|Making the draft|Asked for it/i.test(document.getElementById('toast').innerText + document.querySelector('main').innerText))()"),
+   dict(what='write it, then send it for review', do=click_text('main .btn,main button', 'Submit for review'),
+        reach="(()=>/Sent .*for review|Sent for review/i.test(document.getElementById('toast')?.innerText||''))()"),
+ ]),
+ # X10-7 / X10-4: someone who follows a bill and starts on Home opens the bill from there with the bill page's tour ON (a fresh browser
+ # meets it as a person would): it waits to be asked for ("Take the tour"), so "Write my testimony" is there to press. Counted to the
+ # first answer in the walkthrough; the rest of it is the journey above.
+ dict(name='public: Home -> testimony begun (a returning follower, tour on)', app=PUBLIC, budget=3, start='#/', skip_wizard=True, tour=True, steps=[
+   dict(what='open the bill from Home', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a) return false; a.click(); return true;})()",
+        reach="(()=>/#\\/bill\\//.test(location.hash) && !document.querySelector('[data-tour]'))()"),
+   dict(what='choose to testify',        do=click_text('.btn', 'Write my testimony|Send late testimony'), reach=hp_seen('Where do you stand')),
+   dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach=hp_seen('Get to know the bill')),
+ ]),
+ # X10-7: an approver arrives from the Slack link (it opens Review on the draft) and approves it: one tap on Approve.
+ dict(name='staff: from the Slack link -> a draft approved', app=STAFF, budget=2, start='#/review', steps=[
+   dict(what='the draft is in front of them', do='true', reach="(()=>!!document.querySelector('.td-rvcard') && !!document.querySelector('[data-approve]'))()"),
+   dict(what='approve it', do="(()=>{const b=document.querySelector('[data-approve]'); if(!b) return false; b.click(); return true;})()",
+        reach="(()=>/Approved/i.test(document.getElementById('toast')?.innerText||''))()"),
+ ]),
+ # X10-7: the public ask (R-117): Write it lands on the ask box (X10-3); type, pick the last day, Save.
+ dict(name='staff: write the public ask -> saved', app=STAFF, budget=4, start='#/bill/HB1523/public?ask=1', desk=True, steps=[
+   dict(what='type the ask', fill=('#bw-pact', 'Please speak up for kids this week.'), reach="(()=>document.getElementById('bw-pact')?.value.length>10)()"),
+   dict(what='pick the last day it shows', fill=('#bw-puntil', '2099-12-31'), reach="(()=>document.getElementById('bw-puntil')?.value==='2099-12-31')()"),
+   dict(what='save', do="(()=>{const b=[...document.querySelectorAll('.bw-pubsave .btn,[type=submit]')].filter(x=>x.offsetParent&&/Save/i.test(x.innerText))[0]; if(!b) return false; b.click(); return true;})()",
+        reach="(()=>/Public page saved/i.test(document.getElementById('toast')?.innerText||''))()"),
+ ]),
+ # X10-7: the phone's bill search (a bill number in hand, on a phone, which the staff journey above covers only at a desk)
+ dict(name='public: a bill number in hand -> that bill page', app=PUBLIC, budget=2, start='#/find', skip_wizard=True, steps=[
+   dict(what='type the number', fill=('#q', 'HB2121'), reach="(()=>document.getElementById('q')?.value==='HB2121')()"),
+   dict(what='open the bill', do="(()=>{const a=[...document.querySelectorAll('main a[href*=\"#/bill/\"]')].find(x=>/2121/.test(x.getAttribute('href')+x.innerText)); if(!a)return false; a.click(); return true;})()",
+        reach="(()=>/#\\/bill\\/(2026\\/)?HB2121/i.test(location.hash))()"),
  ]),
 ]
 
 def run_one(br, j):
     # A phone unless the journey says it is done at a desk (`desk`: a 1440x900 window with a mouse).
     c = br.new_context(viewport={'width': 1440, 'height': 900}) if j.get('desk') else br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
-    c.add_init_script(TOUR_SEEN)   # past the bill page tour (tests/bill_tour.py)
+    if not j.get('tour'): c.add_init_script(TOUR_SEEN)   # past the bill page tour (tests/bill_tour.py); `tour` journeys meet it as a person would
     p = c.new_page(); errs = []
     p.on('pageerror', lambda e: errs.append(str(e)[:120]))
     p.goto(j['app'] + '#/'); p.wait_for_timeout(4000)

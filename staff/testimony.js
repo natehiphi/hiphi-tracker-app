@@ -200,7 +200,7 @@ export async function makeDraftNow(h) {
   try {
     const r = await DB.draftNow(h);
     if (r?.sandbox) { delete S.draftAsked[h.id]; hooks.render(); return toast('Draft made. In the sandbox it is a practice link; live, it is a new Google Doc.', { ok: true }); }
-    toast('Making the draft. It shows here in about two minutes.', { ok: true });
+    toast(r?.nudged === false ? 'Asked for the draft. The tracker could not wake the draft job just now, so it will make it on its next run; it shows here when it does.' : 'Making the draft. It shows here in about two minutes.', { ok: true });
     let n = 0;
     const tick = async () => {
       n++;

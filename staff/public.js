@@ -13,7 +13,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead, askReach } from './model.js';
 import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
@@ -52,6 +52,11 @@ const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria
 // neither, the first sentence of the Capitol's description. "HIPHI asks" shows only while the ask has a date that
 // has not passed. v holds the form's values as typed, so the card changes with every key.
 const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+// X10-3: where the ask will reach people, under the ask's date, in words (and, once the hearing alert has gone, the way to send it now).
+function reachNote(b) {
+  const r = askReach(b);
+  return `<div class="bw-reach" role="note"><p class="small"><b>Where this ask reaches people:</b> ${r.lines.map(esc).join(' ')}</p>${r.again ? `<div class="btnrow">${btn('Send it as a supporter email', { kind: 'secondary', sm: true, icon: 'mail', href: `#/email/new?bill=${encodeURIComponent(b.id)}` })}</div>` : ''}</div>`;
+}
 function previewInner(b, v) {
   const nick = v.nickname.trim().replace(/\s+/g, ' '), sum = v.public_summary.trim(), ask = v.public_action.trim(), until = v.public_action_until;
   const first = (/^(.{20,220}?[.!?])(\s|$)/.exec(String(b.description || '').trim()) || [])[1];
@@ -199,6 +204,7 @@ export function renderPublic(b) {
         <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-h bw-puntil-w">
         <span class="help" id="bw-puntil-h">An ask shows through this date, then stops. An ask with no date never shows.</span>
         <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>
+      ${reachNote(b)}
       <div class="field"><label for="bw-ptp">Talking points for testimony</label>
         <textarea id="bw-ptp" rows="5" aria-describedby="bw-ptp-h bw-ptp-n" placeholder="One point per line, up to five.">${esc(valOf(b, 'talking_points'))}</textarea>
         <span class="help" id="bw-ptp-h">One plain sentence per line. People writing testimony tap these into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
@@ -295,11 +301,17 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   if (focusAsk) {
     const ta = f.public_action, fld = ta.closest('.field');
     ta.focus({ preventScroll: true }); try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch { /* ignore */ }
-    requestAnimationFrame(() => {
-      const top = fld.getBoundingClientRect().top + window.scrollY, desk = matchMedia('(min-width: 900px)').matches;
+    S.scrollClaimed = true;   // app.js's popstate restore would otherwise scroll back to the top after this (X10-3)
+    // The page draws again once its data is in (the drafts, the counts), so the box measured here may be gone by the next paint:
+    // look it up again each time, and place it three times in the first half second (X10-3: it was left at the top of the page).
+    const place = () => {
+      const el = document.getElementById('bw-pact'), box = el && el.closest('.field'); if (!box || !el.isConnected) return;
+      const top = box.getBoundingClientRect().top + window.scrollY, desk = matchMedia('(min-width: 900px)').matches;
       // Desktop keeps the summary above it in view (the ask is written from it); a phone gives the room to the keyboard.
       window.scrollTo(0, Math.max(0, Math.round(top - underTabs() - (desk ? 176 : 12))));
-    });
+      if (document.activeElement !== el) { try { el.focus({ preventScroll: true }); } catch { /* ignore */ } }
+    };
+    requestAnimationFrame(place); setTimeout(place, 150); setTimeout(place, 450);
   }
   pnl.querySelectorAll('[data-list]').forEach(el => el.onclick = async () => {
     const l = (S.lists || []).find(x => String(x.id) === el.dataset.list); if (!l) return;

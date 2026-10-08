@@ -509,6 +509,7 @@ python3 tests/staff_desktop.py      # Staff v2: 503 checks at 5 sizes, Approve g
 python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer parity
 python3 tests/staff_r152c.py        # R-152 batch C in the sandbox: one countdown rounded down everywhere, the testimony deadline before a draft, who gets a draft, the phone's Public tab order, the ask's date against the hearing, "This week's asks" folded and on a phone, the next hearing first, bill names not cut; 33 checks. Runs in CI
 python3 tests/staff_issue_note.py   # a quiet note on an issue's staff page when one of its bills goes against the issue's stance (R-095): who, what it says, quiet, the picker, Mixed, no note when all agree; 23 checks. Runs in CI
+python3 tests/staff_x10.py   # R-180 wave 3: a new hearing is impossible to miss, the rallying path, saves that say what they did (X10-3/5/6); 39 checks. Runs in CI
 python3 tests/stop_number.py   # a stop asked for by number, from any browser (D1-3): the fold, refusals, the sandbox's answer, the device's own number; 7 checks. Runs in CI
 python3 tests/plans_join.py   # the plans' sign-up: small print above the button at 375x667 and 390x844, Plan 1's calendar card (no reminder), Not now (D1-6, D1-1); 15 checks. Runs in CI
 python3 tests/staff_privacy.py   # Session setup > Privacy and keeping: forget a person (refusals, asks first, counts), the keeping table and the switch (J2-1, J2-2); 31 checks. Runs in CI
