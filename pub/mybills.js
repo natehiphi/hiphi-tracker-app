@@ -117,8 +117,8 @@ function stoppedOn(b) {
 // last official action.
 function newsItem(b, upTo = Infinity) {
   if (stopped(b)) {
-    const label = b.stage === 'vetoed' ? 'vetoed' : /failed to pass/i.test(b.last_action || '') ? 'did not pass a vote' : HELD_RE.test(b.last_action || '') ? 'put on hold' : 'stopped';
-    const day = label === 'stopped' && (stoppedOn(b) || (/sine die/i.test(b.died_deadline || '') && sessionInfo().end + 'T12:00:00-10:00')) || (b.last_action_date ? String(b.last_action_date).slice(0, 10) + 'T12:00:00-10:00' : '');
+    const label = b.stage === 'vetoed' ? 'vetoed' : /failed to pass/i.test(b.last_action || '') ? 'did not pass a vote' : HELD_RE.test(b.last_action || '') ? 'put on hold' : 'did not advance';
+    const day = label === 'did not advance' && (stoppedOn(b) || (/sine die/i.test(b.died_deadline || '') && sessionInfo().end + 'T12:00:00-10:00')) || (b.last_action_date ? String(b.last_action_date).slice(0, 10) + 'T12:00:00-10:00' : '');
     const at = Date.parse(day || '');
     return at <= upTo ? { at, label } : null;
   }
@@ -369,7 +369,7 @@ function render() {
         action: `<div class="btncol mb-emptybtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>` });
   const ownSec = own.length ? `<section class="mb-own" aria-labelledby="mb-own-h"><div class="sechead"><h2 id="mb-own-h">${cats.length ? 'Other bills you follow' : 'Bills you follow'}</h2></div>
       ${ownLive.length ? billList(ownLive, b => ({ fresh: true, ghost: ghostIds.has(b.id) })) : ''}
-      ${ownGone.length ? fold('mb-stopped', `Stopped this session (${ownGone.length})`, billList(ownGone, b => ({ why: true, fresh: true, ghost: ghostIds.has(b.id) })), { open: !ownLive.length }) : ''}</section>` : '';
+      ${ownGone.length ? fold('mb-stopped', `Did not advance (${ownGone.length})`, billList(ownGone, b => ({ why: true, fresh: true, ghost: ghostIds.has(b.id) })), { open: !ownLive.length }) : ''}</section>` : '';
   const listSec = lists.length ? `<section aria-labelledby="mb-lists-h"><div class="sechead"><h2 id="mb-lists-h">Lists you follow</h2></div>
     ${!anything && listLine ? '' : `<p class="small muted mb-sub">${off ? `When HIPHI adds its ${nextYear(si)} bills to one of these lists, they show up here.` : 'When HIPHI adds a bill to one of these lists, it shows up here.'}</p>`}
     ${listCards(lists, { where: 'here', mine: true })}</section>` : '';

@@ -28,7 +28,7 @@ const waiting = { ...heard, id: 'b2', bill_number: 'HB1518', hiphi_nickname: 'SN
 r = run(waiting); c = r.card(r.st.ask);
 ok(r.st.ask === 'ask', `a bill waiting for a hearing asks the chair (${r.st.ask})`);
 ok(c.title === 'Ask for a hearing: SNAP sign-up before prison release (HB 1518)', c.title);
-ok(/It needs a hearing in the Senate Health and Human Services committee by Fri, Mar 27 or it stops for this year\./.test(c.desc), c.desc);
+ok(/It needs a hearing in the Senate Health and Human Services committee by Fri, Mar 27 or it can’t pass this year\./.test(c.desc), c.desc);
 ok(c.hash === '#/bill/2026/HB1518/ask', c.hash);
 const held = { ...waiting, id: 'b3', hiphi_position: 'oppose' };
 r = run(held); c = r.card('ask');
@@ -48,7 +48,7 @@ r = run({ ...base, id: 'b7', bill_number: 'HB1573', stage: 'enacted' }); c = r.c
 ok(r.st.ask === 'follow' && c.title === 'Follow the issue: FDA proof to sell e-cigarettes' && /became law in 2026\./.test(c.desc) && c.hash === '#/issue/fda-proof-to-sell-e-cigarettes', `a law: ${c.title} / ${c.desc}`);
 ok(r.asks.join() === 'follow', `a bill that is over has only its follow page: ${r.asks}`);
 r = run({ ...base, id: 'b8', bill_number: 'HB1523', stage: 'dead' }); c = r.card(r.st.ask);
-ok(/stopped in 2026\. Ideas like this often come back\./.test(c.desc) && !/speak up/i.test(c.title + c.desc), `a stopped bill never says speak up: ${c.desc}`);
+ok(/did not advance in 2026\. Ideas like this often come back\./.test(c.desc) && !/speak up/i.test(c.title + c.desc), `a stopped bill never says speak up: ${c.desc}`);
 
 // 5. A bill HIPHI only watches, with no everyday name: what it does comes first; no chair's email (no side).
 r = run({ ...heard, id: 'b9', bill_number: 'SB2', hiphi_position: 'monitor', hiphi_nickname: null, hiphi_summary: 'Lets counties deny some liquor licence renewals' }, []);

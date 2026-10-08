@@ -44,7 +44,7 @@ function kindWord(num) {
 function ended() {
   const c = txt($('.bl-head .chips'));
   return /Became law|\bAdopted\b/.test(c) ? 'law' : /Goes to the voters/.test(c) ? 'ballot'
-    : /Stopped this session|Not adopted this session/.test(c) ? 'stopped' : '';
+    : /Did not advance|Not adopted/.test(c) ? 'stopped' : '';
 }
 function mainBtn() {
   const inBar = $$('.actionbar .btn.primary').find(shown);
@@ -79,13 +79,13 @@ function tips() {
     const steps = !dots ? '' : res ? 'Each dot is a step to being adopted.'
       : gov ? `Each dot is a step to becoming law: each ${H[0]} committee, then a ${H[0]} vote, the same in the ${H[1]}, then the Governor.` : 'Each dot is a step on its way.';
     const now = lbl.replace(/^Now:\s*/, '');
-    const where = !now ? '' : end ? `This session: <b>${esc(now)}</b>.` : `Now: <b>${esc(now)}</b>.${/committee/i.test(now) ? ' Most bills stop in a committee.' : ''}`;
+    const where = !now ? '' : end ? `This year: <b>${esc(now)}</b>.` : `Now: <b>${esc(now)}</b>.${/committee/i.test(now) ? ' Most bills do not advance past a committee.' : ''}`;
     out.push({ key: 'where', els: () => [$('.bl-status')], h: 'Where it is now', p: `${steps} ${where}`.trim() || 'This card says what happened to it last.' });
   } else if (shown($('.a-track'))) {
     // Version A's bill page (the layout test, R-187): its tracker in the status card's place, "In the Senate step 3 of 6".
-    const now = txt($('.a-track .a-snow')).replace(/\s*·\s*Next:.*$/, '').replace(/^Now:\s*/, '').replace(/^Stopped in:\s*/, '');
+    const now = txt($('.a-track .a-snow')).replace(/\s*·\s*Next:.*$/, '').replace(/^Now:\s*/, '').replace(/^Got as far as:\s*/, '');
     out.push({ key: 'where', els: () => [$('.a-track')], h: 'Where it is now',
-      p: `Each part of the bar is one of six steps to becoming law.${now ? ` ${ended() ? 'This session' : 'Now'}: <b>${esc(now)}</b>.` : ''}` });
+      p: `Each part of the bar is one of six steps to becoming law.${now ? ` ${ended() ? 'This year' : 'Now'}: <b>${esc(now)}</b>.` : ''}` });
   }
   // Asking a friend (R-205 C6, Nate 10/7: sharing a specific ask is "a KEY feature"): taught once, here, on the button itself.
   const share = $('.bl-page .bl-sharebtn');
@@ -108,7 +108,7 @@ function tips() {
   } else if (fol) {
     const on = fol.getAttribute('aria-pressed') === 'true', issue = /issue/i.test(fol.getAttribute('aria-label') || txt(fol)) || fol.hasAttribute('data-bl-followissue') || fol.hasAttribute('data-bl-unfollowissue');
     const it = issue ? 'the issue' : 'it';
-    const lead = end === 'stopped' ? 'This bill stopped for this session, but ideas like it often come back.' : end === 'law' ? 'This bill’s work is done.' : '';
+    const lead = end === 'stopped' ? 'This bill did not advance this year, but ideas like it often come back.' : end === 'law' ? 'This bill’s work is done.' : '';
     out.push({ key: 'follow', live: true, els: () => { const f = followBtn(); return f ? [f] : []; }, button: () => followBtn(),
       h: 'Keep up with it',
       // An issue's next bills come to its followers (R-018); a bill on its own only has its own news.

@@ -163,7 +163,7 @@ function billsBlock(l, key, { take = false } = {}) {
   const mv = byUrgency(bills.filter(moving)), law = bills.filter(becameLaw), gone = bills.filter(stopped);
   return `${mv.length ? `<section aria-labelledby="ul-mv-h">${sechead('ul-mv-h', 'Still moving', plural(mv.length, 'bill'))}${billList(mv, { pos: true, take })}</section>` : ''}
     ${law.length ? `<section aria-labelledby="ul-law-h">${sechead('ul-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true, take })}</section>` : ''}
-    ${gone.length ? fold('ul-g-' + key, `Stopped this session (${gone.length})`, billList(gone, { why: true, take }), { open: take || (!mv.length && !law.length) }) : ''}`;
+    ${gone.length ? fold('ul-g-' + key, `Did not advance (${gone.length})`, billList(gone, { why: true, take }), { open: take || (!mv.length && !law.length) }) : ''}`;
 }
 // The list's own small menu, as the bill page's ⋯ (same popover): what is done once in a while stays out of the way, so
 // the bills start high on a phone (A-1). It sits right beside the main button (A-8); the two that take something away

@@ -317,8 +317,8 @@ function stoppedNext(b, x) {
   const si = sessionInfo(); if (!x.stopped || si.phase === 'in') return '';
   const yr = +b.session_year || si.recapYear, when = si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
   const meets = when ? `when the Legislature meets on ${when}` : 'when the Legislature meets in January';
-  const text = yr % 2 === 0 || b.stage === 'vetoed' ? `Stopped in ${yr}. This bill can’t come back, but its idea can, as a new bill ${meets}.`
-    : `Stopped in ${yr}. It may be taken up again ${meets}.`;
+  const text = yr % 2 === 0 || b.stage === 'vetoed' ? `Did not advance in ${yr}. This bill can’t come back, but its idea can, as a new bill ${meets}.`
+    : `Did not advance in ${yr}. It may be taken up again ${meets}.`;
   const second = followIsMain(b, x) && !myDistricts() ? btn('Find your legislators', { kind: 'text', sm: true, icon: 'map-pin', href: `#/legislators?from=${encodeURIComponent(billRef(b))}` }) : '';
   return `<div class="bl-after"><p>${esc(text)}</p>${second}</div>`;
 }
@@ -471,10 +471,10 @@ function railInfo(b, x) {
   if (x.law) { lead = res ? 'Adopted' : 'Became law'; rest = ''; }
   else if (x.stopped) {
     lead = '';
-    rest = res ? 'Not adopted this session' : b.stage === 'vetoed' ? 'Vetoed by the Governor'
-      : s.kind === 'cmte' ? `Stopped in ${s.name}` : s.kind === 'wait' ? `Stopped in ${C} committees`
-      : ci === 4 && /conference|second_crossover/.test(d) ? 'Stopped before the final vote' : `Stopped before the ${C} vote`;
-    if (rest === `Stopped in ${s.name}`) pic = `Stopped in ${C} committees`;
+    rest = res ? 'Not adopted' : b.stage === 'vetoed' ? 'Vetoed by the Governor'
+      : s.kind === 'cmte' ? `Got as far as ${s.name}` : s.kind === 'wait' ? `Got as far as ${C} committees`
+      : ci === 4 && /conference|second_crossover/.test(d) ? 'Did not reach the final vote' : `Did not reach the ${C} vote`;
+    if (rest === `Got as far as ${s.name}`) pic = `Got as far as ${C} committees`;
   }
   else if (x.ballot) rest = 'The voters decide in November';
   else if (st.phase === 'conference') rest = res ? `Waiting for the ${C} vote` : 'Working out one version';
@@ -492,7 +492,7 @@ function railInfo(b, x) {
 // Protection, 1st of 2 Senate committees". Everything that names no committee is word for word the same.
 export function railBrief(b, x) { const r = railInfo(b, x); return `${r.lead === 'Now: ' ? '' : r.lead}${r.pic}`.trim(); }
 // After a stop, the later steps were never reached; "still ahead" told a screen reader the bill could still get there (B3-3, WCAG 1.3.1).
-const STEP_WORD = { done: 'done', now: 'now', stop: 'stopped here', next: 'still ahead', unreached: 'not reached' };
+const STEP_WORD = { done: 'done', now: 'now', stop: 'got this far', next: 'still ahead', unreached: 'not reached' };
 const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 // A stopped bill: under "Stopped in Senate committees", exactly why (Nate 9/29: "These notes need to be in the steps
 // section"; R-085). The committee, what happened there, and the rule it missed with its date.
@@ -503,9 +503,9 @@ export function railHTML(b, x) {
   const span = Math.min(n, Math.max(5, Math.round(n * 0.72))), i1 = r.idx + 1;
   const [align, from] = r.idx + span <= n ? ['l', i1] : i1 - span >= 0 ? ['r', i1 - span + 1] : ['c', Math.min(Math.max(1, i1 - Math.floor(span / 2)), n - span + 1)];
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.
-  const dots = r.names.map((nm, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Stopped here' : '';
+  const dots = r.names.map((nm, i) => { const s = at(i), tag = s === 'now' ? 'Now' : s === 'stop' ? 'Got this far' : '';
     return `<li class="bl-${s}"><span class="bl-dw"><span class="bl-dot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span></span><span class="bl-dlbl" aria-hidden="true">${tag ? `<b>${tag}</b>` : ''}${esc(nm)}</span><span class="sr">Step ${i + 1} of ${n}, ${esc(nm)}: ${STEP_WORD[s === 'next' && x.stopped ? 'unreached' : s]}.</span></li>`; }).join('');
-  const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Stopped here', next: '' }[s];
+  const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Got this far', next: '' }[s];
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
   return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}${n >= 7 ? ' bl-alt' : ''}" style="--n:${n}">
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
@@ -611,7 +611,7 @@ function newcomer(b, x) {
     : x.kind === 'floor' ? `This bill goes to a vote of the full ${CHAMBER_NAME[x.st.chamber] || 'House or Senate'} soon. You can ask your ${x.st.chamber === 'S' ? 'senator' : 'representative'} to vote ${no ? 'no' : 'yes'}, in about 2 minutes, or follow it and we’ll tell you how it goes.`
     : x.kind === 'conference' ? `The House and Senate are working out one final version. You can ${no ? 'ask lawmakers to let it go' : 'email lawmakers about it'}, in about 2 minutes, or follow it and we’ll tell you what happens.`
     : x.kind === 'governor' ? `This bill passed the Legislature and is on the Governor’s desk. You can ask the Governor to ${no ? 'veto' : 'sign'} it, in about 2 minutes, or follow it and we’ll tell you what happens.`
-    : x.stopped && i ? 'This bill stopped. Follow its issue, and we’ll tell you when a new bill on it comes up.'
+    : x.stopped && i ? 'This bill did not advance. Follow its issue, and we’ll tell you when a new bill on it comes up.'
     : `Follow ${i ? 'its issue' : 'it'}, and we’ll tell you when there’s a hearing or a way to help.`;
   // A partner's link can open on a bill now (Make a link, R-067): their welcome line leads the card, as it does on the
   // first visit's first screen.
@@ -694,7 +694,7 @@ function plainHead(b) {
 function head(b, x) {
   const p = posInfo(b), name = nick(b), mine = myStance(b.id);
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
-  const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted this session' : 'Stopped this session', '', 'archive') : '',
+  const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted' : 'Did not advance', '', 'archive') : '',
     p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
     // The testimony deadline on the first phone screen (R-114): a newcomer from a link should not have to scroll to it.
     x.act?.h?.testimony_deadline && new Date(x.act.h.testimony_deadline) > Date.now() && !dueInfo(x.act.h)?.late ? chip(`Testimony due ${dueWords(x.act.h.testimony_deadline)}`, 'info', 'calendar-clock') : '',
@@ -834,7 +834,7 @@ function doCard(b, x) {
     remind: [`Follow up with the ${x.chairs.length > 1 ? 'chairs' : 'chair'}`, `You asked before, and it still has no hearing. Its deadline is ${x.st.deadline ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : 'near'}: a short follow-up can help.`],
     capitol: ['Have your say', 'You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.'],
     law: ['It became law', x.differs ? 'This bill is now a Hawaiʻi law.' : 'Mahalo to everyone who spoke up. Pass on the good news.'],
-    stopped: ['What you can do now', off ? (followIsMain(b, x) ? 'Follow the issue, and its new bills come to you when the Legislature meets.' : 'The Legislature is between sessions. A good next step is to get ready for the next one.') : 'This bill stopped, but others are still moving and need voices.'],
+    stopped: ['What you can do now', off ? (followIsMain(b, x) ? 'Follow the issue, and its new bills come to you when the Legislature meets.' : 'The Legislature is between sessions. A good next step is to get ready for the next one.') : 'This bill did not advance, but others are still moving and need voices.'],
   }[x.kind] || ['Spread the word', 'More voices carry more weight. Send this bill to someone who cares about it.'];
   return `<section class="card bl-do" aria-labelledby="bl-do-h"><h2 id="bl-do-h">${title}</h2><p class="small">${esc(text)}</p>${main}</section>`;
 }

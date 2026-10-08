@@ -744,7 +744,7 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **profile** | account (for the person's page), settings | "My settings" is the staff app's own page. |
 | **sign in** | log in, login | for HIPHI's own sign-in. The Capitol website's login is called what it calls it. |
 | **put on hold** | deferred (public), tabled | a committee's decision to hold a bill. |
-| **stopped** | dead, died, killed | a bill that did not advance; R-144 settles the label's wording. Staff say "Stopped" too. |
+| **did not advance** | stopped, stops for the year, dead, died, killed | a bill that is out for the year (Nate 10/7, R-144). Reasons end "so it can't pass this year"; a resolution is "Not adopted"; the step bar says "Got as far as ...". "This year", never "this session". `tests/words_test.mjs` 5b. Staff keep "Stopped"/"Died". |
 | **Ready to file** | approved, not filed yet | staff's name for testimony that is approved and waits for the Capitol site. |
 | **the Senate Health and Human Services committee** | HHS, HHS/CPN | a committee's short name in words. Joint: "two Senate committees: Health and Human Services, and Commerce and Consumer Protection". Codes are for staff screens and the Capitol's own page, never a public screen or email. |
 | **SB 1548**, **HB 2121** | SB1548 | a bill number has a space in prose and emails; addresses and ids do not. |

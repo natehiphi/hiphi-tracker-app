@@ -57,12 +57,12 @@ with sync_playwright() as p:
         st = status(pg, num, {'bill_number': 'HR33', 'stage': 'enacted'})
         check(st['short'] == 'Adopted' and st['text'] == 'Adopted.', f'{w} HR33 enacted: "Adopted", not "Became law" ({st})')
         st = status(pg, num, {'bill_number': 'HCR121', 'stage': 'dead', 'died_at_stage': 'second_decking', 'died_deadline': 'Sine die 5/8/26'})
-        check(st['short'] == 'Not adopted this session' and 'not adopted' in st['text'], f'{w} HCR121 not adopted: says so ({st})')
+        check(st['short'] == 'Not adopted' and 'not adopted' in st['text'], f'{w} HCR121 not adopted: says so ({st})')
         # a deferral to a date is not stopped; one with no date is
         num, t = show(pg, '^SB', {'stage': 'first_lateral', 'last_action': 'The committee(s) on WAM deferred the measure until 04-08-26 10:00AM; Conference Room 211 & Videoconference.', 'died_at_stage': None, 'died_deadline': None})
-        check('Stopped this session' not in t and 'Put on hold' not in t, f'{w} {num} "deferred the measure until": not stopped')
+        check('Did not advance' not in t and 'Put on hold' not in t, f'{w} {num} "deferred the measure until": not stopped')
         st = status(pg, num, {'last_action': 'The committee on HHS deferred the measure.'})
-        check(st['short'] == 'Stopped this session' and 'Put on hold' in st['text'], f'{w} "deferred the measure." with no date: put on hold ({st["short"]})')
+        check(st['short'] == 'Did not advance' and 'Put on hold' in st['text'], f'{w} "deferred the measure." with no date: put on hold ({st["short"]})')
         check('put it on hold' in st['detail'] and 'Health and Human Services' in st['detail'], f'{w} put on hold: the step bar note names the committee (R-085; "{st["detail"][:110]}")')
         # stopped at the floor vote
         num, t = show(pg, '^HB', {'stage': 'dead', 'died_at_stage': 'first_floor', 'died_deadline': 'Crossover 3/12/26', 'last_action': 'Reported from FIN, recommending passage on Third Reading.'})
@@ -71,7 +71,7 @@ with sync_playwright() as p:
         why = pg.evaluate("document.querySelector('.bl-rail + .bl-why')?.textContent || ''")
         check('Its House committees passed it' in why and 'Bills had to pass the full House by Mar 12' in why, f'{w} {num} stopped at first_floor: under the step bar, the rule and its date (R-085; "{why[:110]}")')
         cap = pg.evaluate("document.querySelector('.bl-nowlbl')?.textContent || ''")
-        check(cap == 'Stopped before the House vote', f'{w} {num} stopped at first_floor: the step bar stops at the House vote ("{cap}")')
+        check(cap == 'Did not reach the House vote', f'{w} {num} stopped at first_floor: the step bar stops at the House vote ("{cap}")')
         # the Senate's own Triple filing date
         s = status(pg, num, {'bill_number': 'SB9999', 'chamber': 'S', 'stage': 'first_triple', 'referrals': ['HHS', 'CPN', 'WAM'], 'origin_stops': 3, 'last_action': 'Referred to HHS, CPN, WAM.', 'died_at_stage': None, 'died_deadline': None})
         hs = status(pg, num, {'bill_number': 'HB9999', 'chamber': 'H', 'stage': 'first_triple', 'referrals': ['HLT', 'CPC', 'FIN'], 'origin_stops': 3, 'last_action': 'Referred to HLT, CPC, FIN, referral sheet 1', 'died_at_stage': None, 'died_deadline': None})

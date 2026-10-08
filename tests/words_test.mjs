@@ -160,6 +160,13 @@ const DEAD = /(?<![-\w.])(dead|died)(?![-\w])/i;
 const dead = pubWords.filter(x => /\s/.test(x.text.trim()) && DEAD.test(x.text));
 check(!dead.length, `the public page never says a bill is "dead" or "died"${show(dead)}`);
 
+// 5b. A bill that is out for the year "did not advance" (Nate 10/7, R-144): the public page never calls it "stopped" or says it
+// "stops for the year" (the label and every reason now say what happened, and that it can't pass this year). Following and
+// sharing can still "stop" (Stop following, Stop sharing); a text stop is its own word; the STOP reply to a text is not a status.
+const STOPWORD = /\b(stopped (this|here|in|before|at|for)\b|stops (for|this|it)\b|usually stops\b|bills? stop\b|(it|they|bill) stopped\b)/i;
+const stoppedWords = pubWords.filter(x => /\s/.test(x.text.trim()) && STOPWORD.test(x.text) && !/follow|shar|text|reply stop|number|unsubscribe|email/i.test(x.text));
+check(!stoppedWords.length, `the public page says "did not advance", never "stopped" or "stops for the year"${show(stoppedWords)}`);
+
 // 6. The share pictures' words (R-183).
 {
   const looks = JSON.parse(readFileSync(join(ROOT, 'tools/og_looks.json'), 'utf8'));

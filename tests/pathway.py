@@ -18,7 +18,7 @@ CASES = [
     ('HB2049', 10, 'Now: Senate Water, Land, Culture and the Arts with Housing and Hawaiian Affairs, 1st of 2 Senate committees', 8),
     ('HB1926', 10, 'Now: Senate Ways and Means with Judiciary, 2nd of 2 Senate committees', 7),
     ('HB2148', 7, 'Now: Senate Ways and Means, its only Senate committee', 2),
-    ('HB1314', 9, 'Stopped in House Health', 3),
+    ('HB1314', 9, 'Got as far as House Health', 3),
 ]
 OVERLAP = """() => { const box = e => { const r = document.createRange(); r.selectNodeContents(e); const b = r.getBoundingClientRect(); return { t: e.textContent, l: b.left, r: b.right, top: b.top, bot: b.bottom }; };
   const ls = [...document.querySelectorAll('.bl-dlbl')].filter(e => e.offsetParent).map(box), bad = [];

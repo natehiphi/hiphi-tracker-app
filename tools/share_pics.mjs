@@ -141,7 +141,7 @@ const T = {
       sub = `${r.num} · Testimony is due at ${timeWords(r.due)}. It takes a few minutes, and we help you write it.`;
     } else if (r.ask === 'ask' && r.deadline) {
       date = r.deadline; head = `Last Day for a Hearing on ${subj}`;
-      sub = `${r.num} · ${r.dir === 'oppose' ? 'Ask the chair not to hear it.' : 'Without a hearing, it stops for the year.'} A short email takes about 2 minutes.`;
+      sub = `${r.num} · ${r.dir === 'oppose' ? 'Ask the chair not to hear it.' : 'Without a hearing, it can’t pass this year.'} A short email takes about 2 minutes.`;
     } else if (r.ask === 'floor' && r.deadline) {
       date = r.deadline; head = `Last Day for a Vote on ${subj}`;
       sub = `${r.num} · It goes to a vote of the full ${CHAMBER_NAME[r.st.chamber] || 'House or Senate'}. A short email to your own ${whoOf(r.st)} takes about 2 minutes.`;
@@ -181,7 +181,7 @@ const T = {
     if (!r.subject) return null;
     const subj = titleCase(r.subject), no = r.dir === 'oppose';
     const line = r.ask === 'testify' ? (r.due ? `Testimony is due ${dayWords(r.due)}. It takes a few minutes.` : 'There’s a hearing coming. Testimony takes a few minutes.')
-      : r.ask === 'ask' ? (no ? 'It’s waiting for a hearing. A short email can ask the chair not to hear it.' : 'It needs a hearing or it stops this year. A short email takes 2 minutes.')
+      : r.ask === 'ask' ? (no ? 'It’s waiting for a hearing. A short email can ask the chair not to hear it.' : 'It needs a hearing or it can’t pass this year. A short email takes 2 minutes.')
       : r.ask === 'floor' ? 'A vote is coming. A short email to your legislator takes 2 minutes.'
       : r.ask === 'conference' ? 'The final version is being written. A short email takes 2 minutes.'
       : r.ask === 'governor' ? 'It’s on the Governor’s desk. A short message takes 2 minutes.'
@@ -217,7 +217,7 @@ const T = {
     const steps = labels.map((l, i) => ({ label: hearing && i === node ? 'Committee Hearing' : l, at: i < node ? 'done' : i === node ? 'here' : 'todo' }));
     const subj = titleCase(r.subject);
     const sub = r.ask === 'testify' ? `${r.num} · The committee hears it ${r.h ? dayWords(r.h.scheduled_at) : 'soon'}. Testimony takes a few minutes.`
-      : r.ask === 'ask' ? `${r.num} · ${r.dir === 'oppose' ? 'It is waiting for a hearing. Ask the chair not to hear it.' : 'It needs a hearing, or it stops for the year.'}`
+      : r.ask === 'ask' ? `${r.num} · ${r.dir === 'oppose' ? 'It is waiting for a hearing. Ask the chair not to hear it.' : 'It needs a hearing, or it can’t pass this year.'}`
       : r.ask === 'floor' ? `${r.num} · It goes to a vote of the full ${CHAMBER_NAME[r.st.chamber] || 'House or Senate'}. ${LOOK_SHORT[r.look]}`
       : r.ask === 'conference' ? `${r.num} · The House and Senate are writing one final version. ${LOOK_SHORT[r.look]}`
       : r.ask === 'governor' ? `${r.num} · It passed the Legislature and is on the Governor’s desk.`

@@ -338,11 +338,11 @@ export function shareFor(b, h, { acted = false, law = false, differs = false, as
 function askLine(b, a, chamber) {
   const no = /oppose/.test(b.hiphi_position || ''), house = CHAMBER_NAME[chamber] || '';
   if (a === 'ask') return no ? 'It is waiting for a hearing, and a short email can ask the chair not to hear it. It takes about 2 minutes.'
-    : 'It needs a hearing or it stops for this year. A short email can ask the chair for one, and it takes about 2 minutes.';
+    : 'It needs a hearing or it can’t pass this year. A short email can ask the chair for one, and it takes about 2 minutes.';
   if (a === 'floor') return `It goes to a vote of the full ${house || 'House or Senate'} soon. A short email can ask your legislator to vote ${no ? 'no' : 'yes'}, and it takes about 2 minutes.`;
   if (a === 'conference') return 'The House and Senate are working out one final version. A short email can make a difference, and it takes about 2 minutes.';
   if (a === 'governor') return `It is on the Governor’s desk. A short message can ask the Governor to ${no ? 'veto' : 'sign'} it, and it takes about 2 minutes.`;
-  if (a === 'follow') return `${/dead|vetoed/.test(b.stage || '') ? 'It stopped this year, but ideas like this often come back. ' : ''}Follow it with HIPHI and you’ll hear when your voice can count.`;
+  if (a === 'follow') return `${/dead|vetoed/.test(b.stage || '') ? 'It did not advance this year, but ideas like this often come back. ' : ''}Follow it with HIPHI and you’ll hear when your voice can count.`;
   return '';
 }
 // ?via= goes before the address's #/ part (a bill with no share page links straight to the tracker).

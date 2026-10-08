@@ -116,7 +116,7 @@ export function cardFor(b, ask, state, ctx = {}) {
     const where = st.phase === 'committee' && st.committee ? ` in ${committeeWords(st.committee, ctx.committees)}` : '';
     return side === 'oppose'
       ? done(`Ask the chair to hold: ${named}`, `${about}It is waiting for a hearing${where}. A short email asking the chair not to hear it takes about 2 minutes; we write it with you.`, 'ask')
-      : done(`Ask for a hearing: ${named}`, `${about}It needs a hearing${where}${st.phase === 'committee' ? by : ''} or it stops for this year. A short email to the chair takes about 2 minutes; we write it with you.`, 'ask');
+      : done(`Ask for a hearing: ${named}`, `${about}It needs a hearing${where}${st.phase === 'committee' ? by : ''} or it can’t pass this year. A short email to the chair takes about 2 minutes; we write it with you.`, 'ask');
   }
   if (ask === 'floor') {
     const ch = st.phase === 'floor' ? st.chamber : null, who = ch === 'S' ? 'senator' : ch === 'H' ? 'representative' : 'legislators';
@@ -132,7 +132,7 @@ export function cardFor(b, ask, state, ctx = {}) {
   const news = st.phase === 'law' ? `${named} ${isResolution(b) ? 'was adopted' : 'became law'}${yr}.`
     : st.phase === 'vetoed' ? `${named} was vetoed${yr}.`
     : st.phase === 'ballot' ? `${named} passed the Legislature; the voters decide in November.`
-    : st.phase === 'dead' ? `${named} stopped${yr}. Ideas like this often come back.`
+    : st.phase === 'dead' ? `${named} did not advance${yr}. Ideas like this often come back.`
     : `${named}: ${sentence(cut(b.hiphi_summary || b.description || '', 140))}`;
   return { title: i ? `Follow the issue: ${i.name}` : `Follow ${named}`,
     desc: `${news} ${i ? 'Follow the issue' : 'Follow it'} and we’ll tell you when your voice can count.`.replace(/\s+/g, ' ').trim(),

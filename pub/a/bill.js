@@ -42,7 +42,7 @@ export default {
     const trk = root.querySelector('.a-track');
     // Said once (A-14): the tracker says "Stopped this session", so the chip above it goes; and "Part of Disposable e-cigarette
     // ban" under a bill called Disposable e-cigarette ban keeps only its follow toggle.
-    root.querySelectorAll('.bl-head .chip').forEach(c => { if (s0(b).stopped && /Stopped this session/.test(c.textContent)) c.remove(); });
+    root.querySelectorAll('.bl-head .chip').forEach(c => { if (s0(b).stopped && /Did not advance/.test(c.textContent)) c.remove(); });
     const iss = root.querySelector('.bl-issue a'); if (iss && nick(b) && iss.textContent.trim() === nick(b).trim()) iss.closest('.bl-issue').classList.add('a-same');
     if (!WIDE.matches && act && x.act) {
       // What's next, right under where it is: the hearing, the deadline and the button, then More ways to help.

@@ -57,15 +57,15 @@ export const TALKS = [
     turns: [
       { q: 'When does the Legislature meet?', a: ['Once a year, in a stretch called the **session**. It opens on the third Wednesday in January and ends in early May.'], art: 'session' },
       { q: 'When is the next one?', a: 'The next session opens on **{nextOpen}**. Lawmakers bring in new bills in the first week or so.' },
-      { q: 'Why does the timing matter?', a: 'The session is short: 60 working days. Every step has a deadline, and a bill that misses one stops for the year. So when a hearing comes up, act that week.' },
+      { q: 'Why does the timing matter?', a: 'The session is short: 60 working days. Every step has a deadline, and a bill that misses one can’t pass this year. So when a hearing comes up, act that week.' },
     ],
     related: ['session-deadlines', 'between-sessions', 'how-a-bill-becomes-law'] },
 
-  { slug: 'why-bills-stop', group: 'legislature', title: 'Why do most bills stop?',
+  { slug: 'why-bills-stop', group: 'legislature', title: 'Why don’t most bills pass?',
     turns: [
-      { q: 'Why do most bills stop?', a: ['There are thousands of bills and only a few months. More than 2,000 new bills start each year, and about 1 in 10 becomes law.'], art: 'funnel' },
-      { q: 'Where do they stop?', a: 'Mostly in committees. A committee’s chair picks which bills get a hearing, and many never get one. Others are put on hold at their hearing.' },
-      { q: 'Is a stopped bill gone for good?', a: 'Not always. Lawmakers work in two-year terms, so a bill from the first year can come back in the second. Good ideas also return as new bills.' },
+      { q: 'Why don’t most bills pass?', a: ['There are thousands of bills and only a few months. More than 2,000 new bills start each year, and about 1 in 10 becomes law.'], art: 'funnel' },
+      { q: 'Where do they get stuck?', a: 'Mostly in committees. A committee’s chair picks which bills get a hearing, and many never get one. Others are put on hold at their hearing.' },
+      { q: 'Is a bill that did not advance gone for good?', a: 'Not always. Lawmakers work in two-year terms, so a bill from the first year can come back in the second. Good ideas also return as new bills.' },
       { q: 'So is it worth speaking up?', a: 'Yes. With so many bills, committees look for signs that people care. A short note from someone who lives here can help a bill get heard.' },
     ],
     related: ['no-hearing-yet', 'deferred', 'does-testimony-matter'] },
@@ -82,7 +82,7 @@ export const TALKS = [
 
   { slug: 'session-deadlines', group: 'legislature', title: 'What are the session’s big deadlines?',
     turns: [
-      { q: 'What are the session’s big deadlines?', a: ['Every bill has dates to clear each step, and a bill that misses one stops for the year. The big ones have odd names.'], art: 'session' },
+      { q: 'What are the session’s big deadlines?', a: ['Every bill has dates to clear each step, and a bill that misses one can’t pass this year. The big ones have odd names.'], art: 'session' },
       { q: 'What are they, in order?', a: 'On the first side: **Triple filing**, **Lateral**, **Decking** and **Crossover**. Then the other side has its own Triple filing, Lateral and Decking, and bills must pass there too.' },
       { q: 'And at the very end?', a: '**Final decking** is the last day to file the final version of a bill. **Sine die** is the last day of the session.' },
       { q: 'Do I need to remember them?', a: 'No. Each bill’s page shows where it is and what comes next, and each hearing shows when testimony is due.' },
@@ -92,7 +92,7 @@ export const TALKS = [
   { slug: 'conference-committee', group: 'legislature', title: 'What is a conference committee?',
     turns: [
       { q: 'What is a conference committee?', a: ['When the House and Senate pass different versions of a bill, a few members from each side meet to agree on one. That group is the **conference committee**.'], art: 'conference' },
-      { q: 'When does that happen?', a: 'In April, near the end of the session. Conference has its own deadlines, and a bill they can’t agree on by then stops for the year.' },
+      { q: 'When does that happen?', a: 'In April, near the end of the session. Conference has its own deadlines, and a bill they can’t agree on by then can’t pass this year.' },
       { q: 'Can I still help then?', a: 'Yes. A short, polite email to your own legislators, or to the members working on the bill, still helps now.' },
     ],
     related: ['hd1-sd1', 'governor', 'email-a-legislator'] },
@@ -135,7 +135,7 @@ export const TALKS = [
     turns: [
       { q: 'What can I do between sessions?', a: 'Get ready. Follow the issues you care about now, so their new bills reach you when the next session opens on {nextOpen}.' },
       { q: 'Can I talk to lawmakers now?', a: 'Yes. It’s a good time to write to your senator and representative about what matters to you, before the session gets busy.' },
-      { q: 'What about the bills that stopped?', a: 'Ideas that stopped often come back as new bills. If you follow the issue, the new ones come to you.' },
+      { q: 'What about the bills that did not advance?', a: 'Ideas that did not advance often come back as new bills. If you follow the issue, the new ones come to you.' },
     ],
     related: ['when-is-the-session', 'my-legislators', 'what-follow-does'],
     act: { label: 'Find an issue to follow', href: '#/find', icon: 'search' } },
@@ -145,7 +145,7 @@ export const TALKS = [
     turns: [
       { q: 'What is a hearing?', a: ['A public meeting where a committee hears from people about some bills, then decides what to do with each one.'], art: 'hearing' },
       { q: 'How do I know when one is coming?', a: 'The committee posts a notice a few days ahead. When a bill on one of your issues gets a hearing, it shows up on your Home page here.' },
-      { q: 'What can the committee decide?', a: 'Pass it, pass it with changes, or put it on hold (the Capitol says **deferred**). On hold usually stops a bill for the year.' },
+      { q: 'What can the committee decide?', a: 'Pass it, pass it with changes, or put it on hold (the Capitol says **deferred**). On hold usually means a bill won’t pass this year.' },
       { q: 'Can anyone take part?', a: 'Yes. Anyone can send written testimony, and you can ask to speak in person or on Zoom. You don’t need to be an expert.' },
     ],
     related: ['what-is-testimony', 'speak-at-hearing', 'watch-a-hearing'] },
@@ -188,7 +188,7 @@ export const TALKS = [
 
   { slug: 'after-a-hearing', group: 'hearings', title: 'What happens after a hearing?',
     turns: [
-      { q: 'What happens after a hearing?', a: 'The committee decides, at the hearing or on a later day. Then the bill moves on, changes, or stops.' },
+      { q: 'What happens after a hearing?', a: 'The committee decides, at the hearing or on a later day. Then the bill moves on, changes, or does not advance.' },
       { q: 'How do I find out?', a: 'The bill’s page here says what the committee decided, in plain words. If you follow its issue, your Home page shows it too.' },
       { q: 'What does “passed with amendments” mean?', a: 'The committee passed it with changes. The bill gets a new version name, like HD1, and moves to its next step.' },
     ],
@@ -311,7 +311,7 @@ export const TALKS = [
   // ---------------- Words you'll see ----------------
   { slug: 'deferred', group: 'words', title: 'What does “deferred” mean?',
     turns: [
-      { q: 'What does “deferred” mean?', a: ['Put on hold. When a committee defers a bill, it usually stops for the year.'], art: 'deferred' },
+      { q: 'What does “deferred” mean?', a: ['Put on hold. When a committee defers a bill, it usually won’t pass this year.'], art: 'deferred' },
       { q: 'It says “deferred until” a date. Is that different?', a: 'Yes. That only moves the decision to that day. The bill is still alive until then.' },
       { q: 'Can a deferred bill come back?', a: 'Sometimes. The idea can return in a new bill, or in the second year of lawmakers’ two-year term.' },
     ],
@@ -321,7 +321,7 @@ export const TALKS = [
     turns: [
       { q: 'What is Triple filing?', a: ['An early deadline for bills sent to three or more committees. By then, the bill must be through all but its last two.'], art: 'path:triple' },
       { q: 'When is it?', a: 'In mid-February on the first side, and in March on the other. The exact dates change each year.' },
-      { q: 'What if a bill misses it?', a: 'It stops for the year. That’s why an early hearing matters so much for a bill with many committees.' },
+      { q: 'What if a bill misses it?', a: 'It can’t pass this year. That’s why an early hearing matters so much for a bill with many committees.' },
     ],
     related: ['lateral', 'decking', 'session-deadlines'] },
 
@@ -329,7 +329,7 @@ export const TALKS = [
     turns: [
       { q: 'What is Lateral?', a: ['A deadline. By Lateral, a bill must be through every committee on that side except its last one.'], art: 'path:lateral' },
       { q: 'When is it?', a: 'In late February on the first side, and in late March on the other.' },
-      { q: 'What if a bill misses it?', a: 'It stops for the year.' },
+      { q: 'What if a bill misses it?', a: 'It can’t pass this year.' },
     ],
     related: ['triple-filing', 'decking', 'session-deadlines'] },
 
@@ -353,7 +353,7 @@ export const TALKS = [
     turns: [
       { q: 'What does “sine die” mean?', a: 'The last day of the session. It’s Latin for “without a day”: the Legislature ends without setting a day to meet again.' },
       { q: 'When is it?', a: 'In early May. In 2026 it was May 8.' },
-      { q: 'What happens to bills after that?', a: 'Bills that passed both sides go to the Governor. Bills still on the way stop moving for the year.' },
+      { q: 'What happens to bills after that?', a: 'Bills that passed both sides go to the Governor. Bills still on the way do not advance this year.' },
     ],
     related: ['governor', 'when-is-the-session', 'between-sessions'] },
 

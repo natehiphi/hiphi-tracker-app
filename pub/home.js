@@ -110,10 +110,10 @@ function resultFacts(b, hs, testified) {
   const passed = o && /passed/.test(o.outcome || '');
   if (!alive(b)) {
     const held = HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '');
-    if (passed) return ['stop', `Passed ${cmteLabel(h.committee, { short: true })}, then ${held ? 'a later committee put it on hold' : 'stopped at the deadline'}.${kept}`, true];
-    if (o?.outcome === 'deferred') return ['stop', `${who(h.committee)} put it on hold, which usually stops a bill for the year.${kept}`];
+    if (passed) return ['stop', `Passed ${cmteLabel(h.committee, { short: true })}, then ${held ? 'a later committee put it on hold' : 'missed a deadline'}.${kept}`, true];
+    if (o?.outcome === 'deferred') return ['stop', `${who(h.committee)} put it on hold, which usually means it won’t pass this year.${kept}`];
     // The hearing you acted on happened, so "it never got a hearing" would be wrong; say only that it stopped.
-    if (h && new Date(h.scheduled_at) <= now) return ['stop', `It stopped for this session.${kept}`];
+    if (h && new Date(h.scheduled_at) <= now) return ['stop', `It did not advance this year.${kept}`];
     return ['stop', `${whyStopped(b)}${kept}`];
   }
   if (passed) return ['up', `${who(h.committee)} passed it${o.outcome === 'passed_amended' ? ' with changes' : ''}.`, true];
@@ -453,7 +453,7 @@ function askCard({ b, st }, primary) {
     <div class="hm-askrow">${chip(daysLeft(dl.days), dl.days <= 7 ? 'warn' : '', 'hourglass')}${posChip(b)}</div>
     <h3 class="hm-askt" id="hm-ask-${esc(b.id)}">${esc(headline(b, 200))}</h3>
     <p class="meta">${esc(spaced(b.bill_number))}</p>
-    <p class="small hm-askwhy">Waiting for a hearing in ${esc(/^the /.test(where) ? where : 'the ' + where)}. If it is not heard by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}, it stops for this year.</p>
+    <p class="small hm-askwhy">Waiting for a hearing in ${esc(/^the /.test(where) ? where : 'the ' + where)}. If it is not heard by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}, it can’t pass this year.</p>
     <div class="btncol">${btn(`Ask the ${chairs} for a hearing`, { kind: primary ? 'primary' : 'secondary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } })}</div>
   </article>`;
 }
@@ -470,7 +470,7 @@ const actRow = x => { const d = dueInfo(x.h);
 const askRow = ({ b, st }, same = false) => row({ lead: issueOf(b)?.icon || 'hourglass', title: esc(headline(b, 200)), href: billPath(b), attrs: { 'data-hm-act': '1' },
   sub: `${esc(spaced(b.bill_number))}${same ? '' : ` · <span class="hm-due${st.deadline.days <= 7 ? ' warn' : ''}">${esc(daysLeft(st.deadline.days))}</span>`}` });
 const oneCutoff = asks => asks.length > 1 && asks.every(x => x.st.deadline.date === asks[0].st.deadline.date) ? asks[0].st.deadline : null;
-const cutoffLine = (d, n) => `<p class="small hm-cutoff">${icon('hourglass')}<span>${n === 2 ? 'Both' : `All ${n}`} stop ${esc(dateLong(d.date + 'T12:00:00-10:00'))} without a hearing.</span></p>`;
+const cutoffLine = (d, n) => `<p class="small hm-cutoff">${icon('hourglass')}<span>${n === 2 ? 'Both' : `All ${n}`} need a hearing by ${esc(dateLong(d.date + 'T12:00:00-10:00'))} or can’t pass this year.</span></p>`;
 // Past the first two, every other thing to do is one line, all of them shown: nothing to do waits behind a closed toggle
 // (Nate 10/6, R-190: "not hide more actions beneath a collapsed field"). One line each keeps the page short.
 const moreRows = (id, rows) => `<div id="hm-${id}" class="rows hm-more">${rows.join('')}</div>`;
@@ -830,7 +830,7 @@ function recapSaid(acts, acted, followed, yr) {
   return acts.length
     ? `You took ${plural(acts.length, 'action')} on ${plural(acted.length, 'bill')}.${aLaw || aGov || aPassed ? ` ${cap(wins(aLaw, aGov, aPassed))}.` : ''} Mahalo for speaking up.${fLaw ? ` ${plural(fLaw, 'more bill')} on your issues became law.` : ''}`
     : fLaw || fGov ? `${list([fLaw && `${plural(fLaw, 'bill')} on your issues became law`, fGov && `${n(fGov)} ${fLaw ? '' : fGov === 1 ? 'bill on your issues ' : 'bills on your issues '}reached the Governor’s desk`])}.`
-    : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} stopped for this session. Many bills come back the next year.`;
+    : `You followed ${plural(followed.length, 'bill')} in ${yr}. ${followed.length === 1 ? 'It' : 'They'} did not advance this year. Many bills come back the next year.`;
 }
 function offView(si) {
   const yr = si.recapYear, next = si.nextOpen, nextYr = next ? +next.slice(0, 4) : yr + 1, welcome = welcomed();

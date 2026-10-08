@@ -799,7 +799,7 @@ function againMailScreen(x) {
   const dl = x.mode === 'email' && !x.h ? hearingBy(b) : '';
   return `<div class="hp-top">${screenHead(1, esc(againTitle(x)))}
       <p class="hp-sub">${esc(lede)}</p></div>
-    ${x.mode === 'email' && !x.h ? (dl ? `<p class="hp-due hp-why">${icon('hourglass')}<span>If it isn’t heard by ${esc(dl)}, it stops for this year.</span></p>` : '') : whyNow(x)}
+    ${x.mode === 'email' && !x.h ? (dl ? `<p class="hp-due hp-why">${icon('hourglass')}<span>If it isn’t heard by ${esc(dl)}, it can’t pass this year.</span></p>` : '') : whyNow(x)}
     ${changesBox(x)}`;
 }
 
@@ -815,7 +815,7 @@ function whyNow(x) {
   let ic = 'clock', text;
   if (x.mode === 'email') {
     if (h) text = hearingText(h);
-    else { ic = 'hourglass'; text = `Waiting for a hearing in ${cm(x.code)}. The ${x.to.length > 1 ? 'chairs decide' : 'chair decides'} which bills get one.${dl ? ` If it is not heard by ${dl}, it stops for this year.` : ''}`; }
+    else { ic = 'hourglass'; text = `Waiting for a hearing in ${cm(x.code)}. The ${x.to.length > 1 ? 'chairs decide' : 'chair decides'} which bills get one.${dl ? ` If it is not heard by ${dl}, it can’t pass this year.` : ''}`; }
   } else {
     ic = 'user-check';
     const one = andList(who);   // "Rep. Marten, your representative," reads on into its verb

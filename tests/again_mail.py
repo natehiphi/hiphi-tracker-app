@@ -48,7 +48,7 @@ with sync_playwright() as p:
         past_stand(pg, 'the email again ')
         t = body(pg)
         ok('Your email is ready' in t and 'HB 1563 passed the House' in t and 'Feb 25 email to the two Senate chairs who decide on its hearing' in t, f'{tag}: "Your email is ready": why it is back and who decides now')
-        ok('If it isn’t heard by Mon, Mar 30, it stops for this year.' in t and 'Waiting for a hearing' not in t, f'{tag}: then only the deadline')
+        ok('If it isn’t heard by Mon, Mar 30, it can’t pass this year.' in t and 'Waiting for a hearing' not in t, f'{tag}: then only the deadline')
         ok('The bill has changed since you wrote this' in t and 'We haven’t summed up what House draft 2 changed yet. HIPHI strongly supports the bill as it is now.' in t, f'{tag}: a new draft with no note: where HIPHI stands now')
         ok('Part 2 of 4' in pg.locator('#hp-dlg .hp-count').inner_text() and 'Use my email' in pg.locator('#hp-dlg .hp-foot').inner_text(), f'{tag}: 4 parts; "Use my email" leads')
         pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(500)

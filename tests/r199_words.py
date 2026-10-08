@@ -135,7 +135,7 @@ def run(w, h, mobile):
         ctx = ctx_new(skip=who == 'visitor'); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
         go(pg, 'bill/HB2121', '&season=off' + ('&via=share' if who == 'newcomer' else ''))
         t = pg.locator('main').inner_text()
-        ok('Stopped in 2026. This bill can’t come back, but its idea can, as a new bill when the Legislature meets on January 20.' in t,
+        ok('Did not advance in 2026. This bill can’t come back, but its idea can, as a new bill when the Legislature meets on January 20.' in t,
            f'{tag} B3-1 ({who}): the stopped bill says what happens next')
         main = pg.locator('.actionbar .btn.primary, .bl-do .btn.primary').first
         ok(main.count() and main.inner_text().strip() == 'Follow the issue', f'{tag} B3-1 ({who}): the main button is "Follow the issue" ({main.inner_text().strip() if main.count() else ""})')

@@ -415,7 +415,7 @@ function upcoming() {
     // What happened on each issue they follow (R-067: the screen promised "What happened in 2026" and showed only laws):
     // laws first, then the staff-edited outlook, three at most.
     const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
-    for (const { i, x } of fol.slice(0, 3)) out.push({ when: String(yr), title: i.name, line: i.outlook || (x.law ? `Became law in ${yr}` : 'Stopped this session'), kind: x.law ? 'ok' : 'soon' });
+    for (const { i, x } of fol.slice(0, 3)) out.push({ when: String(yr), title: i.name, line: i.outlook || (x.law ? `Became law in ${yr}` : 'Did not advance'), kind: x.law ? 'ok' : 'soon' });
     if (next) out.push({ when: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' }), title: `The ${+next.slice(0, 4)} session opens`,
       line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.`, kind: 'soon' });
     return out;

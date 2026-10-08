@@ -151,7 +151,7 @@ with sync_playwright() as pw:
     # proof is a count of HIPHI's laws when one has loaded, and the sandbox's year before has none.
     ok('Each note tells lawmakers what people here want, and notes add up' in cap3 and not LOW_TURNOUT.search(cap3)
        and ' win:' not in cap3 and 'free school meals' not in cap3
-       and ('Nothing to do now' in cap3 or 'Here is your chance' in cap3 or 'is at moment' in cap3) and 'Most bills stop at one of these moments' in cap3,
+       and ('Nothing to do now' in cap3 or 'Here is your chance' in cap3 or 'is at moment' in cap3) and 'Most bills do not advance at one of these moments' in cap3,
        'stage 3 says why it matters (never that few people write in, R-171), no other bill’s win, and what is (or is not) coming, asking nothing yet')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
@@ -431,7 +431,7 @@ with sync_playwright() as pw:
                 if W == 1440 and who == 'SB 464' and k == 4: p.wait_for_timeout(2500); shot(p, 'd_learn_session_sb464')   # the other bills settled
             ok(not bad, f'#/learn/session ({who}) at {W}x{H}: the label under the bill stays inside the drawing and covers no word, every month {bad or said}')
             if who == 'HB 2121': ok(said[2] == 'HB 2121 In the 1st of 2 Senate committees', f'#/learn/session at {W}x{H}: in March the label names the chamber, not the committee ({said[2]!r})')
-            if who == 'SB 464': ok(said[1:] == ['SB 464 Stopped in Senate committees'] * 3, f'#/learn/session (SB 464) at {W}x{H}: a stopped bill says where, by chamber ({said})')
+            if who == 'SB 464': ok(said[1:] == ['SB 464 Got as far as Senate committees'] * 3, f'#/learn/session (SB 464) at {W}x{H}: a stopped bill says where, by chamber ({said})')
         c.close()
 
     # ---- 4. small and zoomed ----

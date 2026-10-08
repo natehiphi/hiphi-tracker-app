@@ -115,7 +115,7 @@ with sync_playwright() as pw:
         c, p = ctx(b, w, h); fresh(p, '&season=off'); visit(p, '/bill/HB1075', '&season=off')
         ok(tip(p), f'{tag}: a stopped bill between sessions shows the tour')
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(300); s = tipstate(p)
-        ok(s and 'Stopped' in s['text'], f'{tag}: tip 2 says where it stopped')
+        ok(s and 'Got as far as' in s['text'], f'{tag}: tip 2 says how far it got')
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)
         ok(s and s['label'] == 'Ask a friend', f'{tag}: tip 3 is Share')
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)

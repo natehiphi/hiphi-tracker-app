@@ -69,15 +69,15 @@ export function stepsOf(b) {
   else idx = st.leg === 'first' ? 0 : 2;
   if (idx === 3 && st.phase === 'conference') names[3] = 'Final version';
   const ch = idx <= 1 ? N[o] : N[t];
-  const where = law ? (/^(HCR|SCR|HR|SR)\d/.test(b.bill_number || '') ? 'Adopted' : 'Became law') : ballot ? 'The voters decide in November' : stopped ? (b.stage === 'vetoed' ? 'Vetoed' : 'Stopped this session') : idx === 4 ? 'On the Governor’s desk'
+  const where = law ? (/^(HCR|SCR|HR|SR)\d/.test(b.bill_number || '') ? 'Adopted' : 'Became law') : ballot ? 'The voters decide in November' : stopped ? (b.stage === 'vetoed' ? 'Vetoed' : 'Did not advance') : idx === 4 ? 'On the Governor’s desk'
     : st.phase === 'conference' ? 'Working out one version' : st.phase === 'floor' ? `Waiting for the ${ch} vote` : `In the ${ch}`;
   return { names, idx, law, stopped, where };
 }
 export function stepBar(b, { big = false, labels = false } = {}) {
   const s = stepsOf(b), cls = i => s.law || i < s.idx ? 'd' : i === s.idx ? (s.stopped ? 'x' : 'n') : '';
-  const aria = s.law ? 'Became law: all 6 steps done' : s.stopped ? `Stopped at step ${s.idx + 1} of 6, ${s.names[s.idx]}` : `Step ${s.idx + 1} of 6, ${s.names[s.idx]}`;
+  const aria = s.law ? 'Became law: all 6 steps done' : s.stopped ? `Did not advance past step ${s.idx + 1} of 6, ${s.names[s.idx]}` : `Step ${s.idx + 1} of 6, ${s.names[s.idx]}`;
   return `<div class="a-steps${big ? ' big' : ''}" role="img" aria-label="${esc(aria)}">${s.names.map((n, i) => `<i class="${cls(i)}"></i>`).join('')}</div>
-    ${labels ? `<p class="a-snow">${s.law ? 'All six steps done' : s.stopped ? `<b>Stopped in:</b> ${esc(s.names[s.idx])}` : `<b>Now:</b> ${esc(s.names[s.idx])}${s.names[s.idx + 1] ? ` · <b>Next:</b> ${esc(s.names[s.idx + 1])}` : ''}`}</p>` : ''}`;   // six names don't fit under the bar on a phone
+    ${labels ? `<p class="a-snow">${s.law ? 'All six steps done' : s.stopped ? `<b>Got as far as:</b> ${esc(s.names[s.idx])}` : `<b>Now:</b> ${esc(s.names[s.idx])}${s.names[s.idx + 1] ? ` · <b>Next:</b> ${esc(s.names[s.idx + 1])}` : ''}`}</p>` : ''}`;   // six names don't fit under the bar on a phone
 }
 
 // ---------------- 1. Now ----------------
@@ -128,7 +128,7 @@ function askCard(asks) {
   const on = dateLong(date + 'T12:00:00-10:00'), many = same.length > 1;
   return `<section class="a-now" aria-labelledby="a-now-h">
     <div class="a-nowtop"><p class="a-when">${icon('hourglass')}<span>${esc(plural(st.deadline.days, 'day'))} left</span></p></div>
-    <h2 id="a-now-h">${many ? `${same.length} of your bills stop ${esc(on)} unless they get a hearing` : `<a href="${billPath(b)}">${esc(nameOf(b))}</a> stops ${esc(on)} unless it gets a hearing`}</h2>
+    <h2 id="a-now-h">${many ? `${same.length} of your bills need a hearing by ${esc(on)} or can’t pass this year` : `<a href="${billPath(b)}">${esc(nameOf(b))}</a> needs a hearing by ${esc(on)} or can’t pass this year`}</h2>
     <p class="a-nowsay">The committee chair decides which bills get a hearing. A short, polite email asking for one helps.</p>
     <div class="a-nowbtns">${btn(chairContacts(st.committee).length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', { kind: 'primary', icon: 'mail', full: true, cls: 'a-inv', href: billPath(b) })}</div>
     ${many || rest.length ? `<div class="a-then"><p class="a-thenk">${many ? 'The bills' : 'Also waiting'}</p>
@@ -251,7 +251,7 @@ function issueState(i) {
   const state = law ? 'law' : ahead ? 'hearing' : passed.length ? 'moved' : live.length ? 'waiting' : bs.length ? 'stopped' : 'none';
   return { i, bs, lead, state, ahead };
 }
-const STATE = { hearing: ['Hearing this week', 'info'], moved: ['Passed a committee', 'ok'], law: ['Became law', 'ok'], waiting: ['Waiting', ''], stopped: ['Stopped this session', ''], none: ['Nothing yet', ''] };
+const STATE = { hearing: ['Hearing this week', 'info'], moved: ['Passed a committee', 'ok'], law: ['Became law', 'ok'], waiting: ['Waiting', ''], stopped: ['Did not advance', ''], none: ['Nothing yet', ''] };
 // "stops Mon, Mar 30 without a hearing" (review 9/28: "14 days left" did not say left for what).
 const stopsBy = st => st?.deadline && !st.deadline.missed ? `stops ${dateLong(st.deadline.date + 'T12:00:00-10:00')} without a hearing` : '';
 function issueRow(r) {

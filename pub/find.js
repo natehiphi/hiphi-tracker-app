@@ -237,7 +237,7 @@ function resultsBody(q, res) {
   return `${issSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
     ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-q-' + key, `Stopped this session (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+    ${gone.length ? fold('fd-q-' + key, `Did not advance (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
 }
 // Nothing typed yet: the issues first (people follow issues, R-018), then HIPHI's lists, then bills that need voices
 // this week. The page keeps one main button: the first suggestion is a full action card, and the others are plain
@@ -272,7 +272,7 @@ function issuePage(slug) {
   const si = sessionInfo(), off = si.phase !== 'in', ready = Array.isArray(data);
   const mv = ready ? data.filter(moving) : [], law = ready ? data.filter(becameLaw).sort(numCmp) : [], gone = ready ? data.filter(stopped).sort(numCmp) : [];
   // Where the issue stands, in one line (bills, not people, so small numbers are fine). The recap card says it between sessions.
-  const tally = ready && !off ? [mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} stopped this session` : ''].filter(Boolean).join(' · ') : '';
+  const tally = ready && !off ? [mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} did not advance` : ''].filter(Boolean).join(' · ') : '';
   const head = `${back('#/find', 'All issues')}<header class="fd-ihead"><span class="fd-icon">${icon(g.icon)}</span><h1 class="hero">${esc(g.key)}</h1>${g.description ? `<p class="lede">${esc(g.description)}</p>` : ''}${tally ? `<p class="meta">${esc(tally)}</p>` : ''}</header>`;
   if (!ready) return `<div class="fd" data-page="issue">${head}${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load these bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissue': g.key } })}</div>` : skeleton(3)}</div>`;
   // HIPHI's picks are its strongest positions; among them, the one with the soonest hearing or deadline leads.
@@ -296,7 +296,7 @@ function issuePage(slug) {
   }
   const otherSec = othersSorted.length ? `<section aria-labelledby="fd-oth-h">${sechead('fd-oth-h', picks.length ? 'Other bills moving' : 'Bills moving', plural(othersSorted.length, 'bill'))}${capped('i:' + g.key, othersSorted, { pos: true })}</section>` : '';
   const lawSec = law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : '';
-  const goneSec = gone.length ? fold('fd-i-' + g.key, `Stopped this session (${gone.length})`, billList(gone, { why: true })) : '';
+  const goneSec = gone.length ? fold('fd-i-' + g.key, `Did not advance (${gone.length})`, billList(gone, { why: true })) : '';
   return `<div class="fd" data-page="issue">${head}${top}${otherSec}${lawSec}${goneSec}</div>`;
 }
 
@@ -378,7 +378,7 @@ function issuePageNew(i) {
   const actSec = act ? `<section aria-labelledby="fd-iact-h">${sechead('fd-iact-h', 'You can help this week')}${actionCard(act.b, act.h)}</section>` : '';
   const nowSecs = `${actSec}${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', plural(mv.length, 'bill'))}${billList(mv, { pos: true })}</section>` : ''}
     ${law.length ? `<section aria-labelledby="fd-ilaw-h">${sechead('fd-ilaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-ig-' + i.id, `Stopped ${off ? `in ${yr}` : 'this session'} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+    ${gone.length ? fold('fd-ig-' + i.id, `Did not advance${off ? ` in ${yr}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
   const none = !now.length ? `<p class="fd-none">No bills on it ${off ? `in ${yr}` : 'this session'} yet. When HIPHI takes one up, it comes to everyone who follows this issue.</p>` : '';
   return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${none}${nowSecs}${earlier.length ? fold('fd-ie-' + i.id, `Earlier sessions (${earlier.length})`, billList(earlier, { why: true }), { ic: 'history' }) : ''}</div>`;
@@ -405,7 +405,7 @@ function catMatches(q) {
 }
 // Where a bill ended up, when that is settled. A moving bill's step depends on its hearings, which a suggestion does
 // not load, so it shows only the number rather than risk saying "waiting" for a bill that has a hearing set.
-const settled = b => b.stage === 'enacted' || b.stage === 'ballot' ? plainStatus(b).short : b.stage === 'vetoed' ? 'Vetoed' : b.stage === 'governor' ? plainStatus(b).short : moving(b) ? '' : 'Stopped';
+const settled = b => b.stage === 'enacted' || b.stage === 'ballot' ? plainStatus(b).short : b.stage === 'vetoed' ? 'Vetoed' : b.stage === 'governor' ? plainStatus(b).short : moving(b) ? '' : 'Did not advance';
 const sugBill = b => ({ href: billPath(b), title: nick(b) || what(b, 90), sub: [spaced(b.bill_number), settled(b)].filter(Boolean).join(' · '), icon: 'scroll-text', inline: true });
 // Seven rows at most, so the list fits a laptop screen with "See all results" under it (suggest.js drops rows a short
 // window has no room for). A word search names policies: a bill on an issue is represented by that issue, so a House
@@ -522,7 +522,7 @@ function listPage(slug) {
   const mvSec = mv.length ? `<section aria-labelledby="fd-lmv-h">${sechead('fd-lmv-h', 'Still moving', plural(mv.length, 'bill'))}${billList(mv, opt)}</section>`
     : rows.length ? '' : `<p class="fd-none">Nothing on this list yet. HIPHI adds bills as the session goes.</p>`;
   const lawSec = law.length ? `<section aria-labelledby="fd-llaw-h">${sechead('fd-llaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, opt)}</section>` : '';
-  const goneSec = gone.length ? fold('fd-l-' + slug, `Stopped this session (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true })), { open: !mv.length && !law.length }) : '';
+  const goneSec = gone.length ? fold('fd-l-' + slug, `Did not advance (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true })), { open: !mv.length && !law.length }) : '';
   return `<div class="fd" data-page="list">${back('#/find', 'All lists')}<div class="fd-lhead">${header}${cta}</div>${mvSec}${lawSec}${goneSec}</div>`;
 }
 // Following a list. One message at most, and it has to be true: with bills still moving a toast says how many were

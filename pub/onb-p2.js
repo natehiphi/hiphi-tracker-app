@@ -170,7 +170,7 @@ function sceneWords(k, E) {
     ? `Every law starts as an idea. A lawmaker writes it up as a bill. ${num} started in the ${E.start}: ${E.pre} means ${E.start} Bill.`
     : 'Every law starts as an idea. A lawmaker writes it up as a bill. It starts in the House (an HB) or the Senate (an SB).'];
   if (k === 2) return ['The hearing', `First, a ${E.start ? `${E.start} ` : ''}committee holds a hearing on it. Anyone can send a short note, called testimony. The chair and members read them before they vote.`];
-  if (k === 3) return ['Deadlines', `Every stop has a deadline. To keep going, a bill must pass the full ${E.start || 'House or Senate'} in time. A bill that misses a deadline stops for the year.`];
+  if (k === 3) return ['Deadlines', `Every stop has a deadline. To keep going, a bill must pass the full ${E.start || 'House or Senate'} in time. A bill that misses a deadline can’t pass this year.`];
   if (k === 4) return ['The other side', `Next it goes to the ${E.other || 'other side'} and does it all again: a hearing, a deadline and a vote. You can send notes there too.`];
   if (k === 5) return ['The final votes', 'The House and Senate agree on one final version, and both vote on it. A note to your own lawmakers before the vote can help.'];
   return ['The Governor signs', `The Governor signs it, and the bill becomes law.${E.num ? ` ${num} became law in ${E.yr}.` : ''} People who spoke up${E.num ? '' : ' at these moments'} helped get it there.`];
@@ -283,7 +283,7 @@ function barStory() {
 const STOP_OF = { introduced: 0, first_triple: 1, first_lateral: 1, first_decking: 1, first_floor: 2, first_crossover: 3,
   second_triple: 3, second_lateral: 3, second_decking: 3, second_floor: 3, second_crossover: 4, conference: 4, governor: 5, enacted: 5, vetoed: 5, ballot: 5 };
 const AT = ['Just starting', 'At the hearing', 'At the first vote', 'On the other side', 'At the final votes', 'With the Governor'];
-const STOPPED = ['Stopped at the start', 'Stopped at the hearing', 'Stopped at the first vote', 'Stopped on the other side', 'Stopped at the final votes', 'Stopped at the Governor'];
+const STOPPED = ['Got as far as the start', 'Got as far as the hearing', 'Got as far as the first vote', 'Got as far as the other side', 'Got as far as the final votes', 'Got as far as the Governor'];
 // Where a bill is, as a stop on the road and in words: a bold "where on the road", then the page's own plain words for its
 // status (plainStatus, or whyStoppedShort for one that stopped), so the card never contradicts the bill's own page.
 export function placeOf(b, off, yr) {

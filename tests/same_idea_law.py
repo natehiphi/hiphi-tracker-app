@@ -25,7 +25,7 @@ with sync_playwright() as pw:
         p.goto(BASE + '?demo=1&codes=0&fv=full&end=today#/bill/HB2121'); p.wait_for_selector('.bl-page', timeout=30000); p.wait_for_timeout(800)
         r = p.evaluate(SETUP)
         ok(r['hb'] and r['law'] and r['law']['num'] == 'SB2175' and r['law']['act'] == '189', f'{tag}: the bill and its companion are known ({r})')
-        ok(r['short'] == 'Stopped · the same idea became law as SB 2175', f'{tag}: the list label says it ({r["short"]!r})')
+        ok(r['short'] == 'Did not advance · the same idea became law as SB 2175', f'{tag}: the list label says it ({r["short"]!r})')
         p.evaluate("location.hash = '#/more'"); p.wait_for_timeout(500); p.evaluate("location.hash = '#/bill/HB2121'"); p.wait_for_timeout(1200)
         line = p.locator('.bl-sameidea')
         ok(line.count() == 1 and 'The same idea became law as SB 2175, Act 189.' in line.inner_text(), f'{tag}: the line is on the page ({line.inner_text() if line.count() else "none"!r})')
@@ -49,7 +49,7 @@ with sync_playwright() as pw:
           const law = { ...hb, id: 'hb-law', bill_number: 'HB8888', stage: 'enacted' }; S.extra['hb-law'] = law; S.issuesByBill.set('same-chamber', [{ ...iss, bill_ids: ['same-chamber', 'hb-law'], bill_years: [hb.session_year, hb.session_year] }]);
           out.sameChamber = m.sameIdeaLaw(hb2); return out; }""")
         ok(r['via'] and r['via']['num'] == 'SB2175' and r['via']['act'] == '189', f'{tag}: with no companion named, the other chamber\'s law on the same issue is found ({r["via"]})')
-        ok(r['words'] == 'On “Ban disposable e-cigarettes”, SB 2175 became law (Act 189).' and r['short'] == 'Stopped · SB 2175 on the same issue became law', f'{tag}: found through an issue it says "on the same issue", never "the same idea" ({r["words"]!r}, {r["short"]!r})')
+        ok(r['words'] == 'On “Ban disposable e-cigarettes”, SB 2175 became law (Act 189).' and r['short'] == 'Did not advance · SB 2175 on the same issue became law', f'{tag}: found through an issue it says "on the same issue", never "the same idea" ({r["words"]!r}, {r["short"]!r})')
         ok(r['sameChamber'] is None, f'{tag}: a law in the same chamber on the same issue is never the same idea ({r["sameChamber"]})')
         c.close()
     b.close()

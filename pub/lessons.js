@@ -185,7 +185,7 @@ function ledeOf(name, E) {
     : `Every bill takes the same trip. ${E.mine || E.via === 'followed' ? 'Watch one of yours.' : `Watch ${num}.`}`;
   const tail = !H.example && !H.past ? `${num} has one on ${esc(H.when)}.`
     : E.isLaw ? `${num} had ${n ? count(n) : 'several'} on its way to becoming law.`
-    : E.stopped ? (n ? `${num} had ${count(n)} before it stopped.` : `${num} never got one.`)
+    : E.stopped ? (n ? `${num} had ${count(n)}, then did not advance.` : `${num} never got one.`)
     : E.now === 4 ? `${num} had ${n ? count(n) : 'several'} on its way to the Governor.`
     : E.x.st.hearingState === 'held' && E.x.st.hearing ? `${num} had one on ${esc(dateLong(E.x.st.hearing.scheduled_at))}.`
     : E.x.st.phase === 'committee' ? `${num} is waiting for one.`
@@ -218,7 +218,7 @@ function billCaps(E) {
   const what = E.pos ? 'Its name, what it does in plain words, and where HIPHI stands.' : 'Its name, and what it does in plain words.';
   const st = E.x.st, ch = CHAMBER_NAME[st.chamber] || E.start;
   const where = E.isLaw ? (E.signed ? `This one made every step: the Governor signed it on ${esc(E.signed)}.` : 'This one made every step: it became law.')
-    : E.stopped ? (/^vetoed/i.test(E.stat) ? 'This one was vetoed by the Governor.' : `This one ${esc(lcFirst(E.stat || 'Stopped this session'))}.`)
+    : E.stopped ? (/^vetoed/i.test(E.stat) ? 'This one was vetoed by the Governor.' : `This one ${esc(lcFirst(E.stat || 'Did not advance'))}.`)
     : st.phase === 'governor' || E.now === 4 ? 'This one is on the Governor’s desk.'
     : st.phase === 'conference' ? 'This one passed both sides. Now they’re working out one version.'
     : st.phase === 'floor' ? `This one is waiting for the ${ch} vote.`
@@ -232,7 +232,7 @@ function sessionCaps(E) {
   const num = esc(E.num), { start, other, off } = E, n = E.now;
   const march = n === 4 ? (off || E.isLaw ? `${num} moved to the ${other}.` : `${num} did it all again in the ${other}, and passed.`)
     : n === 3 ? (E.stopped ? `${num} moved to the ${other}, and stopped there.` : off ? `${num} moved to the ${other}.` : `${num} is in the ${other} now.`)
-    : E.stopped ? `${num} stopped before it got there.` : `${num} is still in the ${start}.`;
+    : E.stopped ? `${num} did not get that far.` : `${num} is still in the ${start}.`;
   const april = E.isLaw ? (E.signed && E.law ? `Both sides passed the same wording, and the Governor signed it on ${esc(E.signed)}. It became law: ${esc(E.law)}. About 1 in 10 bills gets this far.`
       : `Both sides passed the same wording, and it became law${E.law ? `: ${esc(E.law)}` : ''}. About 1 in 10 bills gets this far.`)
     : 'Both sides must pass the same wording by early May. Then the Governor has until mid-July to sign or veto it. About 1 in 10 bills becomes law.';
@@ -240,7 +240,7 @@ function sessionCaps(E) {
   // had until 15 July to sign or veto, and about 1 in 10 bills becomes law (252 of 2,463 in our data).
   return [
     ['January: bills start', `Lawmakers ${off ? 'introduced' : 'introduce'} more than 2,000 new bills, each in the House or the Senate. ${num} started in the ${start}.`],
-    ['February: committees decide', 'Committees are small groups of lawmakers, each on a topic like health. A bill needs a yes from every one it’s sent to. More than half stop here.'],
+    ['February: committees decide', 'Committees are small groups of lawmakers, each on a topic like health. A bill needs a yes from every one it’s sent to. More than half do not advance past here.'],
     ['March: switch sides (“crossover”)', `A bill that passes one side moves to the other and does it all again. ${march}`],
     ['April to July: final votes, then the Governor', april],
   ];
@@ -252,13 +252,13 @@ function hearCaps(E) {
     const did = H.outcome === 'passed_amended' ? 'passed it with changes' : H.outcome === 'passed' ? 'passed it' : '';
     return [
       ['Before the hearing', `The committee posted a notice a few days ahead. Anyone could send a short note saying what they think (“testimony”), due ${H.ahead} before.`],
-      ['At the hearing', H.outcome === 'deferred' ? 'The committee heard from people, then put it on hold (the Capitol says “deferred”). That usually stops a bill for the year.'
-        : `The committee heard from people, then ${did || 'voted'}. A bill that’s put off (“deferred”) usually stops for the year.`],
+      ['At the hearing', H.outcome === 'deferred' ? 'The committee heard from people, then put it on hold (the Capitol says “deferred”). That usually means it won’t pass this year.'
+        : `The committee heard from people, then ${did || 'voted'}. A bill that’s put off (“deferred”) usually won’t pass this year.`],
     ];
   }
   return [
     ['Before the hearing', `The committee posts a notice a few days ahead. You can send a short note saying what you think (“testimony”), due ${H.ahead} before.`],
-    ['At the hearing', 'The committee hears from people, then decides: pass it, pass it with changes, or put it on hold (the Capitol says “deferred”). That usually stops it for the year.'],
+    ['At the hearing', 'The committee hears from people, then decides: pass it, pass it with changes, or put it on hold (the Capitol says “deferred”). That usually means it won’t pass this year.'],
   ];
 }
 
@@ -349,7 +349,7 @@ function ctaHTML(E) {
     case 'ask': return btn('mail', x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', 'A short email. About 2 minutes.');
     case 'hold': return btn('mail', 'Email the chair · 2 min', '');
     case 'law': return `<span class="lx-mcta lx-done">${icon('circle-check')}<span>Became law</span></span>`;
-    case 'stopped': return `<span class="lx-mcta lx-stop">${icon('archive')}<span>Stopped this session</span></span>`;
+    case 'stopped': return `<span class="lx-mcta lx-stop">${icon('archive')}<span>Did not advance</span></span>`;
     default: return btn('share-2', 'Share', '');
   }
 }
@@ -442,7 +442,7 @@ function journeyHTML(E, toks) {
     </svg>
     <span class="lx-jl lx-jl-gov" style="${pct(GOV[0], 14)}">GOVERNOR</span><span class="lx-jl" style="${pct(HX, 211)}">HOUSE</span><span class="lx-jl" style="${pct(SX, 211)}">SENATE</span>
     <span class="lx-jtag lx-jnew" style="${pct(180, 78)}">2,000+ new bills</span>
-    <span class="lx-jtag lx-jstop" style="${pct(14, 235)}">${icon('x')}Stopped for the year</span>
+    <span class="lx-jtag lx-jstop" style="${pct(14, 235)}">${icon('x')}Did not advance</span>
     <span class="lx-jtag lx-jcross" style="${pct(180, 66)}">Crossover</span>
     <span class="lx-jbill lx-pre" id="lx-jbill" style="${pct(a, 91)}"><b>${esc(E.num)}</b><span class="lx-jst" id="lx-jst"></span></span>`;
 }
@@ -485,7 +485,7 @@ function placeBill(p) {
 // "Senate Health and Human Services with Commerce and Consumer Protection, 1st of 2 Senate committees" ran off both
 // edges of the drawing at every size (R-179).
 function mineLabel(E, k) {
-  if (k > E.now) return E.stopped ? [E.pic || 'Stopped this session', 'stop']
+  if (k > E.now) return E.stopped ? [E.pic || 'Did not advance', 'stop']
     : [k === 2 ? 'Next: committee votes' : k === 3 ? 'Later: the other side' : 'Later: final votes', 'next'];
   if (k === 1) return ['Introduced', ''];
   if (k === 2) return ['Passed its committees', 'ok'];
@@ -761,7 +761,7 @@ function roadSVG(E) {
     const below = y === RB, near = below ? y + 34 : y - 26, far = below ? near + 16 : near - 16;
     const mark = i < at ? `<g class="lx-tick" data-at="${(along([x, y]) / ROADLEN).toFixed(4)}" transform="translate(${x} ${y})"><g class="lx-ticki"><circle r="13" fill="var(--p700)"/><path d="M-6 0 l4 4 8-8" fill="none" stroke="var(--n0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></g>`
       : i > at ? `<circle cx="${x}" cy="${y}" r="12" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/>` : '';
-    const here = i === at ? svgText(x, far, `${num} ${E.stopped ? 'stopped here' : 'is here'}`, { fill: E.stopped ? 'var(--n700)' : 'var(--p800)', cls: 'lx-here' }) : '';
+    const here = i === at ? svgText(x, far, `${num} ${E.stopped ? 'got this far' : 'is here'}`, { fill: E.stopped ? 'var(--n700)' : 'var(--p800)', cls: 'lx-here' }) : '';
     return `${mark}${svgText(x, near, names[i])}${here}`;
   }).join('');
   return `<g class="lx-lay lx-lay2">
@@ -811,7 +811,7 @@ function voiceSVG() {
     </g>
     <g class="lx-c3 lx-c3-quiet">
       <g transform="translate(250 170)"><g class="lx-pop" style="--d:0ms"><circle r="15" fill="var(--n0)" stroke="var(--n500)" stroke-width="2"/><path class="lx-hand" d="M0 0 V-9" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/><path d="M0 0 H6" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/></g></g>
-      <g class="lx-fade" style="--d:850ms"><g transform="translate(250 226)">${smallBill(true)}</g>${svgText(250, 266, 'Stopped', { fill: 'var(--n700)' })}</g>
+      <g class="lx-fade" style="--d:850ms"><g transform="translate(250 226)">${smallBill(true)}</g>${svgText(250, 266, 'Did not advance', { fill: 'var(--n700)' })}</g>
     </g>
   </g>`;
 }
@@ -849,7 +849,7 @@ function storyNow(E) {
   if (E.isLaw) return `${num} made it all the way and became law${E.law ? ` as ${esc(E.law)}` : ''}${E.off ? ` in ${E.year}` : ''}.${again}`;
   if (x.ballot) return `${num} passed the Legislature. The voters decide in November.`;
   if (E.stopped) {
-    const said = at === 4 ? `${num} passed both sides, and the Governor vetoed it` : `${num} ${esc(lcFirst(E.stat || 'Stopped this session'))}`;
+    const said = at === 4 ? `${num} passed both sides, and the Governor vetoed it` : `${num} ${esc(lcFirst(E.stat || 'Did not advance'))}`;
     return `${said}${E.off ? ` in ${E.year}` : ''}.${again || ' The same idea can come back in a later session.'}`;
   }
   if (at === 4) return `Right now ${num} is on the Governor’s desk. The Governor decides whether it becomes law.`;
@@ -910,7 +910,7 @@ function voiceLead(E) {
   const num = esc(E.num), at = momentOf(E);
   const was = E.off ? 'When the session opens, a bill you follow will meet these moments. '
     : E.isLaw ? `${num} became law. Every law passed moments like these. `
-    : E.stopped ? `${num} stopped this time. Moments like these are how a bill gets further. `
+    : E.stopped ? `${num} did not advance this time. Moments like these are how a bill gets further. `
     : E.x.ballot ? `${num} passed moments like these on its way to the voters. `
     : storyAt(E) === 4 ? `${num} passed moments like these on its way to the Governor. `
     : at ? `${num} is at moment ${momentN(at)} of 3 now. ` : '';
@@ -962,7 +962,7 @@ function stageBody(E, k) {
     <div class="lx-choose" role="group" aria-labelledby="lx-out"><div class="lx-chs lx-chs3">${CHOICES.map(([k2, label]) => `<button type="button" class="lx-ch lx-ch-${k2}" data-lx-ch="${k2}" aria-pressed="false" aria-controls="lx-mom"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k2]}</svg><span class="lx-chl"><span class="lx-chn">Moment ${momentN(k2)}</span><span>${esc(label)}</span>${at === k2 ? `<span class="lx-chhere">${icon('map-pin')}${esc(E.num)} is here</span>` : ''}</span><span class="lx-chseen" aria-hidden="true">${icon('check')}</span></button>`).join('')}</div></div>
     <div class="lx-mom" id="lx-mom" aria-live="polite"></div>
     <p class="lx-why" id="lx-wins">${whyWords(E)}</p>
-    <p class="lx-quietnote">Most bills stop at one of these moments, often without anyone asking about them.</p>
+    <p class="lx-quietnote">Most bills do not advance at one of these moments, often without anyone asking about them.</p>
     <p class="lx-calm">${icon('info')}<span>${esc(calm)}</span></p>`;
 }
 const stageHTML = (E, k) => `<p class="lx-count">${k} of 3</p><h2>${esc(stageTitle(E, k))}</h2>${stageBody(E, k)}`;
