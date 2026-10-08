@@ -1742,6 +1742,9 @@ export const DEMO_READINESS = [
   { key: 'email', level: 'info', label: 'Email', ok: null, detail: 'paused — nothing is sent', fix: '' },
   { key: 'template', level: 'manual', label: 'Testimony template Doc has every token', ok: false, detail: '', fix: 'Open the template; tokens are listed under Settings → Slack.' },
   { key: 'rehearsal', level: 'manual', label: 'Full rehearsal done', ok: false, detail: '', fix: 'One afternoon the week of January 4 with a [TEST] hearing.' },
+  // The session-start steps the server dates (migration 167, Z1-6): not problems before their day, so they show as "Expected".
+  { key: 'burst_syncs', level: 'warn', label: 'The opening weeks’ extra syncs are set (4 more a day)', ok: false, expected: '2027-01-10', detail: 'not set', fix: 'Session setup > Session days and sync > "4 more syncs a day until": set it to the middle of February.' },
+  { key: 'notice_received', level: 'warn', label: 'A hearing-notice email has come in lately', ok: false, expected: '2027-01-22', detail: 'no notice email received yet', fix: 'The Capitol page lane covers hearings meanwhile.' },
 ];
 export function bestCampaign(r) {
   if (r.lookalike?.coalition) { const c = S.campaigns.find(x => x.name === r.lookalike.coalition); if (c) return c; }

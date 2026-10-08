@@ -221,8 +221,13 @@ export function toast(msg, opt = {}) {
 export const keysOn = () => { try { return localStorage.getItem('sv_keys') !== 'off'; } catch { return true; } };
 export const setKeys = on => { try { if (on) localStorage.removeItem('sv_keys'); else localStorage.setItem('sv_keys', 'off'); } catch { /* private mode */ } };
 const DESK = () => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+// A refusal the database raised on purpose (RAISE EXCEPTION, SQLSTATE P0001) is a sentence written for people: "Someone else has to
+// approve testimony you sent for review". It is shown as it is, tidied (no "(status is filed)" or "(Jess or Jaylen)", a capital, a full
+// stop), instead of "Check your connection" (X4-7, B-8). Everything else keeps the old rules.
+const tidy = m => { const t = m.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().replace(/^./, c => c.toUpperCase()); return /[.!?]$/.test(t) ? t : t + '.'; };
 export function friendly(e) {
   const m = String(e?.message || e || '');
+  if (e && e.code === 'P0001' && m.length >= 8 && m.length <= 240 && !/(sqlstate|violates|relation |column |function public|jwt)/i.test(m)) return tidy(m);
   if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
   if (/refus|hearing ahead|has a .* hearing/i.test(m)) return m;          // the server's own sentence (e.g. mute refused)
   if (/^[A-Z][^{}<>]{3,160}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token|permission)/i.test(m)) return m;

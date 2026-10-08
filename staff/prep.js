@@ -126,7 +126,7 @@ const pointsCount = v => { const n = pointsIn(v).length; return n < 3 ? `${n} of
 
 export function openStep(i, k) {
   if (k === 'wording') return fieldSheet({ title: 'Name and description', help: 'The public follows the issue by this name. Change anything that no longer fits, or say it looks right.',
-    fields: [{ k: 'name', label: 'Name', value: i.name, max: 60, help: 'A policy people recognise, in everyday words.',
+    fields: [{ k: 'name', label: 'Name', value: i.name, max: 60, help: 'A policy people recognize, in everyday words.',
         check: v => { const nm = v.trim().replace(/\s+/g, ' '), clash = live().find(x => x.id !== i.id && plain(x.name) === plain(nm)); return nm.length < 2 ? 'Give the issue a name.' : clash ? `There is already an issue called “${clash.name}”.` : ''; } },
       { k: 'description', label: 'Description', value: i.description, rows: 3, max: 240, help: 'One sentence on what would change. The public sees it.' }],
     saveLabel: 'Save', unchangedLabel: 'Looks right',

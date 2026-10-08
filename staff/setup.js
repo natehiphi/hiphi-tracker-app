@@ -184,19 +184,23 @@ function readyRows() {
     rows.push({ key: 'committees_next', level: jan ? 'block' : 'warn', label: `${nx} committees and chairs loaded`, ok: n >= 100,
       detail: n >= 100 ? `${n} members on ${nx} committees` : `${n ? n + ' members so far' : 'none yet'}; the chairs are named after the November election` });
   }
-  const rank = r => r.ok === true ? 5 : r.level === 'block' ? 0 : r.level === 'warn' ? 1 : r.level === 'manual' ? 2 : 3;
+  // A session-start step the server dates ("expected" from a day in December or January): before that day it is not a problem,
+  // only a thing coming, so it shows as "Expected from <date>", ranks last among the open rows and is left out of the counts (Z1-6).
+  const hi = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  for (const r of rows) if (r.expected && r.ok !== true && hi < String(r.expected).slice(0, 10)) r.waiting = true;
+  const rank = r => r.ok === true ? 6 : r.waiting ? 4 : r.level === 'block' ? 0 : r.level === 'warn' ? 1 : r.level === 'manual' ? 2 : 3;
   return rows.sort((a, b) => rank(a) - rank(b));
 }
 function readyRowHTML(r) {
-  const [ic, cls, word] = r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To do'] : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['triangle-alert', 'warn', 'Check'];
-  const fixText = r.ok === false || (r.level === 'manual' && !r.ok) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
-  const to = r.ok !== true && FIX[r.key];
-  const act = r.level === 'manual'
+  const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To do'] : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['triangle-alert', 'warn', 'Check'];
+  const fixText = !r.waiting && (r.ok === false || (r.level === 'manual' && !r.ok)) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
+  const to = r.ok !== true && !r.waiting && FIX[r.key];
+  const act = r.waiting ? '' : r.level === 'manual'
     ? btn(r.ok ? 'Undo' : 'Mark done', { kind: r.ok ? 'text' : 'secondary', sm: true, attrs: { 'data-rman': r.key, 'data-on': r.ok ? '' : '1', 'aria-label': `${r.ok ? 'Mark not done' : 'Mark done'}: ${r.label}` } })
     : r.key === 'public_copy' && !r.ok ? btn('See them', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-gaps': '1' } })
     : to ? btn(r.ok === false ? 'Fix' : 'Open', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/setup/' + to, attrs: { 'aria-label': `${r.ok === false ? 'Fix' : 'Open'}: ${r.label}` } }) : '';
   return `<div class="st-rrow ${cls}"><span class="st-ric">${icon(ic)}<span class="sr">${word}:</span></span>
-    <div class="st-rbody"><span class="st-rlab">${esc(r.label)}</span>${r.detail ? `<span class="st-rdet">${esc(tidy(r.detail))}</span>` : ''}${fixText ? `<span class="st-rfix">${esc(fixText)}</span>` : ''}</div>${act ? `<span class="st-ract">${act}</span>` : ''}</div>`;
+    <div class="st-rbody"><span class="st-rlab">${esc(r.label)}</span>${r.waiting ? `<span class="st-rdet">Expected from ${esc(new Date(String(r.expected).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }))}. ${esc(tidy(r.detail || ''))}</span>` : r.detail ? `<span class="st-rdet">${esc(tidy(r.detail))}</span>` : ''}${fixText ? `<span class="st-rfix">${esc(fixText)}</span>` : ''}</div>${act ? `<span class="st-ract">${act}</span>` : ''}</div>`;
 }
 
 // ---- each part's one-line status, shown on the index and at the top of its page ----
@@ -211,7 +215,7 @@ function status(key) {
     case 'coalitions': { const n = S.campaigns.length, own = S.campaigns.filter(c => !c.owner_id).length, kw = S.campaigns.filter(c => !(c.keywords || []).length).length;
       return [plural(n, 'coalition'), own ? `${own} without an owner` : '', kw ? `${kw} without keywords` : ''].filter(Boolean).join(' · '); }
     case 'sync': { const ld = legislativeDay(), yr = sessionYear(), cal = (S.sessionCal || []).find(c => c.session_year === yr), b = (S.syncCfg || {}).burst_until;
-      return `${ld ? ld.text : cal?.opening_day ? `${yr} session days entered` : `${yr} session days not entered`} · ${b && b >= new Date().toISOString().slice(0, 10) ? `hourly sync until ${fmtDate(b)}` : 'syncs 4 times a day'}`; }
+      return `${ld ? ld.text : cal?.opening_day ? `${yr} session days entered` : `${yr} session days not entered`} · ${b && b >= new Date().toISOString().slice(0, 10) ? `4 more syncs a day until ${fmtDate(b)}` : 'syncs 4 times a day'}`; }
     case 'import': return 'Load the session, or replace the tracked list';
     case 'connections': return sec ? `Slack ${sec.slack_bot_token ? 'connected' : 'not connected'} · Calendar ${sec.google_calendar_refresh_token ? 'connected' : 'not connected'} · YouTube ${sec.youtube_api_key ? 'key set' : 'feed only'}` : 'Slack, Google Calendar and YouTube';
     case 'embed': return 'A table of our public bills for hiphi.org';
@@ -231,9 +235,10 @@ function renderIndex() {
   if (!rows) ready = s.readyErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not run the checks. ${esc(s.readyErr)}`)}${btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-recheck': '1' } })}</div>`
     : `<div class="rows st-ready" aria-busy="true">${[0, 1, 2].map(() => '<div class="st-rrow"><div class="skel" style="height:40px;flex:1"></div></div>').join('')}</div>`;
   else {
-    const bad = rows.filter(r => r.level === 'block' && r.ok === false).length, warn = rows.filter(r => r.level === 'warn' && r.ok === false).length,
-      todo = rows.filter(r => r.level === 'manual' && !r.ok).length, open = rows.filter(r => r.ok !== true), pass = rows.filter(r => r.ok === true);
-    const sum = [bad ? plural(bad, 'blocking issue') : 'Nothing is blocking', warn ? `${warn} to check` : '', todo ? `${todo} to tick off` : ''].filter(Boolean).join(', ');
+    const live = rows.filter(r => !r.waiting), soon = rows.length - live.length;
+    const bad = live.filter(r => r.level === 'block' && r.ok === false).length, warn = live.filter(r => r.level === 'warn' && r.ok === false).length,
+      todo = live.filter(r => r.level === 'manual' && !r.ok).length, open = rows.filter(r => r.ok !== true), pass = rows.filter(r => r.ok === true);
+    const sum = [bad ? plural(bad, 'blocking issue') : 'Nothing is blocking', warn ? `${warn} to check` : '', todo ? `${todo} to tick off` : '', soon ? `${soon} not due yet` : ''].filter(Boolean).join(', ');
     ready = `<p class="st-sum">${bad ? chip('Not ready', 'danger', 'circle-x') : chip('Ready', 'ok', 'circle-check')}<span>${sum}.</span></p>
       <div class="rows st-ready">${open.map(readyRowHTML).join('')}
         ${pass.length ? `<button type="button" class="st-fold" data-pass aria-expanded="${s.passOpen}">${icon('circle-check')}<span>${plural(pass.length, 'check passes', 'checks pass')}</span>${icon(s.passOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.passOpen ? pass.map(readyRowHTML).join('') : ''}` : ''}</div>`;
@@ -270,7 +275,7 @@ const NAV_DOT = `<span class="st-navd" title="Not saved yet"><span class="sr">No
 function shell(cur, pane) {
   loadReady(); loadLogins();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
   const s = st(), rows = readyRows();
-  const open = rows ? rows.filter(r => (r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok)).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
+  const open = rows ? rows.filter(r => !r.waiting && ((r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok))).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
   const on = PAGES[cur]?.parent || cur;
   const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${on === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}</span>${s.draft[k] ? NAV_DOT : ''}</a>`;
   return `<div class="st-page st-setup st-duo"><div class="st-cols2">
@@ -942,7 +947,7 @@ const PAGES = {
         <div class="st-grid">${txt('st-sd-open', 'Opening day', String(c.opening_day || '').slice(0, 10), { type: 'date' })}${txt('st-sd-end', 'Adjournment sine die', String(c.sine_die || '').slice(0, 10), { type: 'date' })}</div>
         ${area('st-sd-off', 'Weekdays the chambers do not meet', (c.off_days || []).map(d => String(d).slice(0, 10)).join('\n'), { rows: 5, ph: '2027-02-15\n2027-02-25', help: 'Recess days, holidays and closures, one date per line, like 2027-02-15. Or send the calendar PDF to Claude.' })}</div>
       <h2 class="st-h2">Bill sync</h2>
-      <div class="card st-form">${txt('st-burst', 'Sync every hour until', (S.syncCfg || {}).burst_until || '', { type: 'date', help: 'For the opening weeks, when new bills arrive fast. Leave it blank to sync 4 times a day.' })}</div>`; },
+      <div class="card st-form">${txt('st-burst', '4 more syncs a day until', (S.syncCfg || {}).burst_until || '', { type: 'date', help: 'For the opening weeks, when new bills arrive fast. Leave it blank to sync 4 times a day.' })}</div>`; },
     saveLabel: 'Save session days and sync',
     async save(root) { const yr = sessionYear(), c = (S.sessionCal || []).find(x => x.session_year === yr) || {};
       const open = val(root, 'st-sd-open'), end = val(root, 'st-sd-end') || null, raw = val(root, 'st-sd-off').split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
@@ -953,7 +958,7 @@ const PAGES = {
       if (calChanged) await DB.saveSessionCalendar({ session_year: yr, opening_day: open, sine_die: end, off_days: off });
       const until = val(root, 'st-burst') || null;
       if (until !== ((S.syncCfg || {}).burst_until || null)) await DB.saveSyncSettings({ ...(S.syncCfg || {}), burst_until: until });
-      return calChanged || until !== null ? (until ? `Saved. Hourly sync until ${fmtDate(until)}.` : 'Saved. The bills sync 4 times a day.') : 'Saved.'; },
+      return calChanged || until !== null ? (until ? `Saved. 4 more syncs a day until ${fmtDate(until)}.` : 'Saved. The bills sync 4 times a day.') : 'Saved.'; },
   },
   import: {
     status: () => ['upload', 'Load a new session, or make the team spreadsheet the tracked list.'],

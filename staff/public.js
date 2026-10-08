@@ -138,7 +138,7 @@ function editDraft(b, version) {
   const was = { changes_letters: !!d?.changes_letters, letter_note: d?.letter_note || '' };
   openSheet({ title: `What ${draftName(version)} changed`, size: 'auto',
     body: `${d?.source_url ? `<p class="small"><a class="bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Read the committee report${icon('external-link')}</a></p>` : ''}<div class="field"><label for="bw-drtxt">In plain words</label><textarea id="bw-drtxt" rows="4" maxlength="600" aria-describedby="bw-drtxt-h">${esc(before)}</textarea>
-      <span class="help" id="bw-drtxt-h">One or two sentences a neighbour would understand, from the committee’s report: what this draft added, took out or changed.</span><div id="bw-drerr" role="alert"></div></div>
+      <span class="help" id="bw-drtxt-h">One or two sentences a neighbor would understand, from the committee’s report: what this draft added, took out or changed.</span><div id="bw-drerr" role="alert"></div></div>
       <div class="field bw-drbigf"><label class="check"><input type="checkbox" id="bw-drbig"${was.changes_letters ? ' checked' : ''} aria-describedby="bw-drbig-h"><span>Warn people who wrote on an earlier draft</span></label>
         <span class="help" id="bw-drbig-h">When a letter written for an earlier draft could now be wrong: money taken out, what it does moved to another law, the bill replaced. Sending their letter again, they see “Your letter needs a check”.${d?.changes_suggested && !was.changes_letters ? ' Claude suggests it.' : ''}</span></div>
       <div class="field" id="bw-drlnf"${was.changes_letters ? '' : ' hidden'}><label for="bw-drln">HIPHI’s advice to them <span class="small muted">(optional)</span></label><textarea id="bw-drln" rows="2" maxlength="300" placeholder="If your letter said …, change it to …" aria-describedby="bw-drln-h">${esc(was.letter_note)}</textarea>
@@ -197,7 +197,7 @@ export function renderPublic(b) {
         <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable e-cigarette ban">
         <span class="help" id="bw-nick-h">A short everyday name people can say. It names the bill everywhere on the public page.</span>${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
-        <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbour would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
+        <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       <div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
       <div class="field"><label for="bw-puntil">Show the ask through</label>

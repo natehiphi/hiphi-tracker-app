@@ -70,9 +70,11 @@ const posOf = (t, r) => t.pos[r.id] || 'monitor';
 // staff/suggest_issue.js) is preselected; staff pick another or "No issue". Worked out once per card.
 const sugOf = r => r._sug === undefined ? (r._sug = suggestIssue(r, { issues: S.issues || [], billIssues: S.billIssues || [], lookalikeId: r.lookalike?.id || null })) : r._sug;
 const issOf = (t, r) => { const v = t.iss[r.id]; return v === 'none' ? null : v ? (S.issues || []).find(i => i.id === v) || null : sugOf(r)?.issue || null; };
-// Real suggestions first, then look-alikes, then bills whose keyword only sat inside another word.
-const order = rows => rows.map((r, i) => [r, i]).sort(([a, i], [b, j]) => {
-  const rank = r => realMatches(r).real.length ? 0 : r.lookalike ? 1 : 2; return rank(a) - rank(b) || i - j; }).map(([r]) => r);
+// A bill with a hearing still ahead goes first (Z1-6: in the opening weeks a new bill with a hearing is the one with a clock on it),
+// then real suggestions, then look-alikes, then bills whose keyword only sat inside another word.
+export const order = rows => { const soon = new Set((S.hearings || []).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now()).map(h => h.bill_id));
+  return rows.map((r, i) => [r, i]).sort(([a, i], [b, j]) => {
+    const rank = r => soon.has(r.id) ? -1 : realMatches(r).real.length ? 0 : r.lookalike ? 1 : 2; return rank(a) - rank(b) || i - j; }).map(([r]) => r); };
 
 function load() {
   if (S.st2TriageBusy) return; S.st2TriageBusy = true;

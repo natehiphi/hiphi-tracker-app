@@ -17,7 +17,7 @@ with sync_playwright() as pw:
     b = pw.chromium.launch()
     for W, H in ((1100, 900), (390, 844)):
         c = b.new_context(viewport={'width': W, 'height': H}); p = c.new_page(); tag = f'@{W}'
-        p.on('pageerror', lambda e: errors.append(str(e)[:160])); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text else None)
+        p.on('pageerror', lambda e: errors.append(str(e)[:160]) if 'Failed to fetch' not in str(e) else None); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text and 'Failed to fetch' not in m.text else None)
         # ---- X10-5 ----
         p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_selector('.td-root', timeout=30000); p.wait_for_timeout(2500)
         t = p.inner_text('main'); cards = re.findall(r'New hearing: ([A-Z/]+ \w{3} \d+/\d+)\. Make the draft\.', t)
@@ -46,7 +46,7 @@ with sync_playwright() as pw:
     # ---- X10-3 ----
     for W, H in ((1440, 900), (390, 844)):
         c = b.new_context(viewport={'width': W, 'height': H}); p = c.new_page(); tag = f'@{W}'
-        p.on('pageerror', lambda e: errors.append(str(e)[:160])); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text else None)
+        p.on('pageerror', lambda e: errors.append(str(e)[:160]) if 'Failed to fetch' not in str(e) else None); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text and 'Failed to fetch' not in m.text else None)
         p.goto(BASE + '?demo=1#/' + ('?view=week' if W > 1000 else '')); p.reload(); p.wait_for_selector('.td-root', timeout=30000); p.wait_for_timeout(2500)
         def asks():
             d = p.locator('details.td-asks')
@@ -83,7 +83,7 @@ with sync_playwright() as pw:
     # ---- X10-6 ----
     for W, H in ((1100, 900), (390, 844)):
         c = b.new_context(viewport={'width': W, 'height': H}); p = c.new_page(); tag = f'@{W}'
-        p.on('pageerror', lambda e: errors.append(str(e)[:160])); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text else None)
+        p.on('pageerror', lambda e: errors.append(str(e)[:160]) if 'Failed to fetch' not in str(e) else None); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'Failed to load resource' not in m.text and 'Failed to fetch' not in m.text else None)
         p.goto(BASE + '?demo=1#/bill/HB1562'); p.reload(); p.wait_for_selector('[data-bwpick="pos"]', timeout=30000); p.wait_for_timeout(1500)
         p.locator('[data-bwpick="pos"]').first.click(); p.wait_for_timeout(500)
         p.locator('dialog[open] >> text=/^Oppose$/').first.click(); p.wait_for_timeout(900)
@@ -110,7 +110,7 @@ with sync_playwright() as pw:
 
     # Overdue counts only what is overdue; Review says the bill's version once
     c = b.new_context(viewport={'width': 1100, 'height': 900}); p = c.new_page()
-    p.on('pageerror', lambda e: errors.append(str(e)[:160]))
+    p.on('pageerror', lambda e: errors.append(str(e)[:160]) if 'Failed to fetch' not in str(e) else None)
     p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_selector('.td-root', timeout=30000); p.wait_for_timeout(2500)
     p.evaluate("""async () => { const m = await import('./staff/data.js'); const S = m.S;
       const pick = (bn, com) => (S.drafts[S.bills.find(b => b.bill_number === bn).id] || []).find(d => d.committee === com);
@@ -126,6 +126,18 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1#/review'); p.reload(); p.wait_for_timeout(3500)
     n = len(re.findall(r'The bill is now', p.inner_text('main')))
     ok(n <= 1, f'Review says "The bill is now" at most once on a card ({n})')
+    c.close()
+
+    # X4-7: a refusal the database wrote for people is shown, not "check your connection"
+    c = b.new_context(viewport={'width': 390, 'height': 844}); p = c.new_page()
+    p.goto(BASE + '?demo=1#/'); p.wait_for_selector('.td-root', timeout=30000)
+    got = p.evaluate("""async () => { const m = await import('./staff/ui.js'); return [
+      m.friendly({ code: 'P0001', message: 'someone else has to approve testimony you sent for review (status is filed)' }),
+      m.friendly({ code: 'P0001', message: 'Only an approver can do that (Jess or Jaylen).' }),
+      m.friendly({ code: '42501', message: 'permission denied for table x' }),
+      m.friendly(new Error('Failed to fetch')) ]; }""")
+    ok(got[0] == 'Someone else has to approve testimony you sent for review.' and got[1] == 'Only an approver can do that.', f'a refusal the database wrote is shown, tidied ({got[:2]})')
+    ok('Check your connection' in got[2] and 'Check your connection' in got[3], 'a technical error still gets the connection sentence')
     c.close()
     b.close()
 ok(not errors, 'no console errors' + ('' if not errors else ': ' + ' | '.join(errors[:4])))

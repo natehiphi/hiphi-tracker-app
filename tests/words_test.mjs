@@ -50,6 +50,20 @@ for (const f of files) {
 }
 check(!code.length, `no screen or hint in the code says "vape"${code.length ? `:\n  ${code.join('\n  ')}` : ''}`);
 
+// 2b. The word list (C-15, X4-6): retired words in the quoted text of the code (comments skipped). American spelling is checked here;
+// the other rows are found by the screen tests and by eye ("log in" appears for the Capitol website's own login, which is its word). The
+// classic staff app (app.js) is look-only and keeps what it has.
+const RETIRED = [[/\b(neighbour|favour|recognise|organise|colour)(s|ed|ing|ful)?\b(?!\s*\()/i, 'American spelling (neighbor, favor, recognize, organize)']];
+const retired = [];
+for (const f of files.filter(f => f !== 'app.js')) {
+  let src; try { src = readFileSync(join(ROOT, f), 'utf8'); } catch { continue; }
+  src.split('\n').forEach((line, n) => {
+    const text = line.replace(/^\s*\/\/.*$/, '').replace(/\s\/\/\s.*$/, '').replace(/^\s*\*.*$/, '');
+    for (const [re, why] of RETIRED) if (re.test(text) && !/(http|\/\*|class=|id=)/.test(text.match(re)?.[0] || '')) retired.push(`${f}:${n + 1}: ${why}: ${line.trim().slice(0, 100)}`);
+  });
+}
+check(!retired.length, `no retired word in the apps' quoted text (docs/DESIGN.md C-15)${retired.length ? `:\n  ${retired.join('\n  ')}` : ''}`);
+
 // 3. Reading grade of the content (X4-3). The same arithmetic as tests/checks.py: sentences of three words or more, a word
 // is anything with a letter in it, and syllables are counted by vowel groups.
 const syllables = word => {

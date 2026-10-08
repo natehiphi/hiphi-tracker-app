@@ -733,6 +733,31 @@ finish is a guess until `first_visit_funnel` and the five testers show it; check
 
 ---
 
+### C-15 One name for each thing: the word list (X4-6, R-180 wave 3)
+
+The same thing has one name everywhere it is said: both apps, the emails and the texts. `tests/words_test.mjs` finds the
+retired words in the code's quoted text on every push, so the list does not drift.
+
+| Say | Never | Notes |
+|---|---|---|
+| **alerts** | reminders, notifications, "hearing alerts" for the other kind | the text or email that a bill on someone's issues has a hearing. HIPHI's own emails (asks to speak up) are "HIPHI's updates" until Nate picks a name. |
+| **profile** | account (for the person's page), settings | "My settings" is the staff app's own page. |
+| **sign in** | log in, login | for HIPHI's own sign-in. The Capitol website's login is called what it calls it. |
+| **put on hold** | deferred (public), tabled | a committee's decision to hold a bill. |
+| **stopped** | dead, died, killed | a bill that did not advance; R-144 settles the label's wording. Staff say "Stopped" too. |
+| **Ready to file** | approved, not filed yet | staff's name for testimony that is approved and waits for the Capitol site. |
+| **the Senate Health and Human Services committee** | HHS, HHS/CPN | a committee's short name in words. Joint: "two Senate committees: Health and Human Services, and Commerce and Consumer Protection". Codes are for staff screens and the Capitol's own page, never a public screen or email. |
+| **SB 1548**, **HB 2121** | SB1548 | a bill number has a space in prose and emails; addresses and ids do not. |
+| **About 4 minutes** | five minutes, a few minutes (for the first visit) | the first visit says its time once. A letter is "a few minutes". |
+| **neighbor**, **favor**, **recognize**, **organize** | neighbour, favour, recognise, organise | American spelling; straight apostrophes only in code, curly in words. |
+
+**Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
+the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and
+descriptions stay as written (they say "Hawaii"). Spelling per the Pukui and Elbert dictionary (Wehewehe).
+
+*Reason.* Consistency and standards (NN/g): a person who has learned "alerts" in one place should not meet "reminders" in another. Each
+synonym is a small tax on every reader; for people reading in a second language it can be a wrong turn.
+
 ## The review checklist
 
 `/design-review` walks this. By hand, in this order:

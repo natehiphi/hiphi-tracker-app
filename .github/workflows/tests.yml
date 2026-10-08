@@ -96,3 +96,7 @@ jobs:
         run: python3 tests/staff_x10.py
       - name: The step tests: thirteen journeys within budget and working (X10-7)
         run: python3 tests/journeys.py
+      - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
+        run: python3 tests/setup_expected.py
+      - name: Density and splits across 66 screens against the recorded baseline (X9-6)
+        run: python3 tests/density.py --check

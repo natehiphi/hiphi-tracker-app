@@ -18,6 +18,7 @@ import legislators from './legislators.js';
 import legislator from './legislator.js';
 import search, { headerHits } from './search.js';
 import { suggest } from '../pub/suggest.js';
+import { keepWordsWhole } from '../pub/ui.js';
 import supporters from './supporters.js';
 import person from './person.js';
 import lists from './lists.js';
@@ -31,6 +32,8 @@ import help from './help.js';
 import devui from './devui.js';
 import hearing from './hearing.js';
 import coalition from './coalition.js';
+
+keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
 // ---- routes ----
 const SCREENS = { today, review, inbox, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };

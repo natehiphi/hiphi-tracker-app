@@ -523,6 +523,8 @@ python3 tests/staff_live.py         # Staff v2's LIVE path on a fake Supabase (t
 python3 tests/staff_clock.py        # Staff v2 Today: the Next deadline button, 89 checks (yours, a teammate's list, a quiet day)
 python3 tests/staff_week.py         # Staff v2 Today's Week view (R-025): three kinds in time order, each deadline on its day, counts that agree with the side panel
 python3 tests/density.py            # arrival px, competing controls, sizes, colours - DESIGN.md A-1/A-2/A-4/A-5
+python3 tests/density.py --check    # 66 screens against tests/density_baseline.json + no word split at a hyphen (X9-6, CI); --write-baseline after a change you meant
+python3 tests/setup_expected.py     # Session setup's dated steps ("Expected from Jan 10") and Sort new bills' hearing-first order (Z1-6)
 python3 tests/suggest.py            # header search suggestions (R-032), both apps: 190 checks at 1024-1440 and short windows, keys, redraw, live bills
 python3 tests/staff_followed.py     # Sort new bills: the untracked bills the public follows (R-059), 40 checks at four sizes
 python3 tests/staff_firstvisit.py   # Staff v2's First visit pages and the "Show in the first visit" switch (R-023): 212 checks at four sizes

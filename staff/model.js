@@ -470,11 +470,11 @@ export function htmlToText(html) {
 export const textToHtml = text => String(text || '').trim().split(/\n{2,}/).map(par => `<p>${escT(par).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>').replace(/\n/g, '<br>')}</p>`).join('');
 export function alertTemplate(b, l, sg) {
   const who = S.me?.full_name?.split(' ')[0] || 'HIPHI';
-  if (sg) return { subject: `A quick favour from HIPHI`, body: `Aloha,\n\n[What is happening and what would help, in a few sentences. Say which bill, the deadline, and the one thing to do.]\n\nMahalo,\n${who}` };
+  if (sg) return { subject: `A quick favor from HIPHI`, body: `Aloha,\n\n[What is happening and what would help, in a few sentences. Say which bill, the deadline, and the one thing to do.]\n\nMahalo,\n${who}` };
   if (b) { const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
-    return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favour'}`,
+    return { subject: `${billNum(b).replace(/^(\D+)/, '$1 ')}: ${h ? `hearing ${fmtDT(h.scheduled_at)} — please testify` : 'a quick favor'}`,
       body: `Aloha,\n\nYou follow ${billNum(b).replace(/^(\D+)/, '$1 ')}, ${blurb(b, 160)}\n\n${h ? `It will be heard by ${h.committee} on ${fmtDT(h.scheduled_at)}${h.room ? ' in ' + roomShort(h.room) : ''}.${h.testimony_deadline ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}\n\n` : ''}${(b.public_action || '').trim() ? b.public_action.trim() + '\n\n' : 'Here is what would help: [the ask, in one or two sentences]\n\n'}Two sentences in your own words are enough. The link below opens the bill with a five-minute way to testify.\n\nMahalo,\n${who}` }; }
-  return { subject: `${l.title}: a quick favour from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
+  return { subject: `${l.title}: a quick favor from HIPHI`, body: `Aloha,\n\nYou follow HIPHI’s ${l.title} list.\n\n[What is happening and what would help, in a few sentences.]\n\nMahalo,\n${who}` };
 }
 export const PUBLIC_APP = () => new URL('track.html', location.href).href.split('?')[0];
 export async function loadTriage() {

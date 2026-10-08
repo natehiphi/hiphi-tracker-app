@@ -113,7 +113,7 @@ export function openIssueForm(i = null, { bill = null } = {}) {
   const body = `<div class="le-sheet is-form">
     ${bill ? `<p class="small muted is-for">For ${esc(billNum(bill))}${bill.nickname ? `, ${esc(bill.nickname)}` : ''}. It goes on the new issue.</p>` : ''}
     <div class="field"><label for="is-name">Name</label><input id="is-name" maxlength="60" autocomplete="off" value="${esc(i?.name || '')}" placeholder="Free school meals for every student" aria-describedby="is-name-h is-name-err">
-      <span class="help" id="is-name-h">A policy people recognise, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
+      <span class="help" id="is-name-h">A policy people recognize, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
       <span class="help" id="is-desc-h">One sentence on what would change. The public sees it.</span></div>
     <fieldset class="is-cats is-stance"><legend>HIPHI’s stance</legend><p class="help is-alsoh">The public page says it on the issue.</p>

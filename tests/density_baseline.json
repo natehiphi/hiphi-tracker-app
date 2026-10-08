@@ -1,0 +1,398 @@
+{
+ "publicA|1440|bill-a": {
+  "arrival": 220,
+  "colours": 6,
+  "kinds": 10,
+  "sizes": 6
+ },
+ "publicA|1440|home-a": {
+  "arrival": 190,
+  "colours": 11,
+  "kinds": 3,
+  "sizes": 6
+ },
+ "publicA|390|bill-a": {
+  "arrival": 237,
+  "colours": 6,
+  "kinds": 9,
+  "sizes": 6
+ },
+ "publicA|390|home-a": {
+  "arrival": 166,
+  "colours": 10,
+  "kinds": 3,
+  "sizes": 6
+ },
+ "public|1440|alerts": {
+  "arrival": 187,
+  "colours": 6,
+  "kinds": 7,
+  "sizes": 5
+ },
+ "public|1440|allbills": {
+  "arrival": 446,
+  "colours": 5,
+  "kinds": 5,
+  "sizes": 5
+ },
+ "public|1440|bill": {
+  "arrival": 220,
+  "colours": 6,
+  "kinds": 11,
+  "sizes": 6
+ },
+ "public|1440|category": {
+  "arrival": 397,
+  "colours": 6,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "public|1440|find": {
+  "arrival": 310,
+  "colours": 2,
+  "kinds": 2,
+  "sizes": 5
+ },
+ "public|1440|getalerts": {
+  "arrival": 282,
+  "colours": 5,
+  "kinds": 6,
+  "sizes": 4
+ },
+ "public|1440|home": {
+  "arrival": 219,
+  "colours": 7,
+  "kinds": 7,
+  "sizes": 6
+ },
+ "public|1440|issue": {
+  "arrival": 240,
+  "colours": 7,
+  "kinds": 7,
+  "sizes": 5
+ },
+ "public|1440|legislators": {
+  "arrival": 391,
+  "colours": 3,
+  "kinds": 5,
+  "sizes": 4
+ },
+ "public|1440|more": {
+  "arrival": 198,
+  "colours": 3,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "public|1440|mybills": {
+  "arrival": 250,
+  "colours": 5,
+  "kinds": 2,
+  "sizes": 6
+ },
+ "public|1440|privacy": {
+  "arrival": 239,
+  "colours": 3,
+  "kinds": 1,
+  "sizes": 4
+ },
+ "public|1440|profile": {
+  "arrival": 338,
+  "colours": 5,
+  "kinds": 6,
+  "sizes": 4
+ },
+ "public|1440|signin": {
+  "arrival": 383,
+  "colours": 6,
+  "kinds": 4,
+  "sizes": 4
+ },
+ "public|1440|start": {
+  "arrival": 144,
+  "colours": 6,
+  "kinds": 8,
+  "sizes": 5
+ },
+ "public|390|alerts": {
+  "arrival": 352,
+  "colours": 6,
+  "kinds": 7,
+  "sizes": 4
+ },
+ "public|390|allbills": {
+  "arrival": 375,
+  "colours": 5,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "public|390|bill": {
+  "arrival": 237,
+  "colours": 6,
+  "kinds": 10,
+  "sizes": 6
+ },
+ "public|390|category": {
+  "arrival": 379,
+  "colours": 6,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "public|390|find": {
+  "arrival": 258,
+  "colours": 2,
+  "kinds": 2,
+  "sizes": 5
+ },
+ "public|390|getalerts": {
+  "arrival": 264,
+  "colours": 5,
+  "kinds": 6,
+  "sizes": 4
+ },
+ "public|390|home": {
+  "arrival": 226,
+  "colours": 6,
+  "kinds": 3,
+  "sizes": 6
+ },
+ "public|390|issue": {
+  "arrival": 225,
+  "colours": 6,
+  "kinds": 4,
+  "sizes": 5
+ },
+ "public|390|legislators": {
+  "arrival": 382,
+  "colours": 3,
+  "kinds": 5,
+  "sizes": 4
+ },
+ "public|390|more": {
+  "arrival": 164,
+  "colours": 3,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "public|390|mybills": {
+  "arrival": 208,
+  "colours": 6,
+  "kinds": 2,
+  "sizes": 6
+ },
+ "public|390|privacy": {
+  "arrival": 197,
+  "colours": 3,
+  "kinds": 1,
+  "sizes": 4
+ },
+ "public|390|profile": {
+  "arrival": 320,
+  "colours": 5,
+  "kinds": 6,
+  "sizes": 4
+ },
+ "public|390|signin": {
+  "arrival": 354,
+  "colours": 6,
+  "kinds": 4,
+  "sizes": 4
+ },
+ "public|390|start": {
+  "arrival": 409,
+  "colours": 6,
+  "kinds": 6,
+  "sizes": 4
+ },
+ "staff2|1440|bill": {
+  "arrival": 269,
+  "colours": 7,
+  "kinds": 20,
+  "sizes": 5
+ },
+ "staff2|1440|bills": {
+  "arrival": 364,
+  "colours": 5,
+  "kinds": 15,
+  "sizes": 5
+ },
+ "staff2|1440|coalition": {
+  "arrival": 335,
+  "colours": 5,
+  "kinds": 9,
+  "sizes": 5
+ },
+ "staff2|1440|coalitions": {
+  "arrival": 210,
+  "colours": 4,
+  "kinds": 1,
+  "sizes": 3
+ },
+ "staff2|1440|firstvisit": {
+  "arrival": 381,
+  "colours": 6,
+  "kinds": 6,
+  "sizes": 5
+ },
+ "staff2|1440|hearing": {
+  "arrival": 313,
+  "colours": 5,
+  "kinds": 9,
+  "sizes": 5
+ },
+ "staff2|1440|issue": {
+  "arrival": 663,
+  "colours": 4,
+  "kinds": 7,
+  "sizes": 5
+ },
+ "staff2|1440|issues": {
+  "arrival": 335,
+  "colours": 5,
+  "kinds": 6,
+  "sizes": 5
+ },
+ "staff2|1440|legislators": {
+  "arrival": 295,
+  "colours": 4,
+  "kinds": 7,
+  "sizes": 4
+ },
+ "staff2|1440|makelink": {
+  "arrival": 300,
+  "colours": 5,
+  "kinds": 8,
+  "sizes": 4
+ },
+ "staff2|1440|outreach": {
+  "arrival": 295,
+  "colours": 6,
+  "kinds": 8,
+  "sizes": 4
+ },
+ "staff2|1440|room": {
+  "arrival": 305,
+  "colours": 6,
+  "kinds": 20,
+  "sizes": 5
+ },
+ "staff2|1440|testimony": {
+  "arrival": 486,
+  "colours": 6,
+  "kinds": 15,
+  "sizes": 5
+ },
+ "staff2|1440|tests": {
+  "arrival": 516,
+  "colours": 8,
+  "kinds": 17,
+  "sizes": 5
+ },
+ "staff2|1440|today": {
+  "arrival": 296,
+  "colours": 10,
+  "kinds": 10,
+  "sizes": 5
+ },
+ "staff2|1440|week": {
+  "arrival": 418,
+  "colours": 8,
+  "kinds": 17,
+  "sizes": 5
+ },
+ "staff2|390|bill": {
+  "arrival": 178,
+  "colours": 7,
+  "kinds": 7,
+  "sizes": 4
+ },
+ "staff2|390|bills": {
+  "arrival": 386,
+  "colours": 5,
+  "kinds": 11,
+  "sizes": 4
+ },
+ "staff2|390|coalition": {
+  "arrival": 349,
+  "colours": 5,
+  "kinds": 3,
+  "sizes": 4
+ },
+ "staff2|390|coalitions": {
+  "arrival": 211,
+  "colours": 4,
+  "kinds": 6,
+  "sizes": 2
+ },
+ "staff2|390|firstvisit": {
+  "arrival": 473,
+  "colours": 6,
+  "kinds": 5,
+  "sizes": 4
+ },
+ "staff2|390|hearing": {
+  "arrival": 308,
+  "colours": 5,
+  "kinds": 7,
+  "sizes": 4
+ },
+ "staff2|390|issue": {
+  "arrival": 808,
+  "colours": 4,
+  "kinds": 6,
+  "sizes": 5
+ },
+ "staff2|390|issues": {
+  "arrival": 447,
+  "colours": 6,
+  "kinds": 11,
+  "sizes": 4
+ },
+ "staff2|390|legislators": {
+  "arrival": 244,
+  "colours": 4,
+  "kinds": 6,
+  "sizes": 3
+ },
+ "staff2|390|makelink": {
+  "arrival": 278,
+  "colours": 4,
+  "kinds": 5,
+  "sizes": 4
+ },
+ "staff2|390|outreach": {
+  "arrival": 257,
+  "colours": 4,
+  "kinds": 12,
+  "sizes": 3
+ },
+ "staff2|390|room": {
+  "arrival": 285,
+  "colours": 6,
+  "kinds": 4,
+  "sizes": 4
+ },
+ "staff2|390|testimony": {
+  "arrival": 155,
+  "colours": 6,
+  "kinds": 10,
+  "sizes": 4
+ },
+ "staff2|390|tests": {
+  "arrival": 485,
+  "colours": 6,
+  "kinds": 3,
+  "sizes": 5
+ },
+ "staff2|390|today": {
+  "arrival": 315,
+  "colours": 9,
+  "kinds": 9,
+  "sizes": 5
+ },
+ "staff2|390|week": {
+  "arrival": 599,
+  "colours": 9,
+  "kinds": 9,
+  "sizes": 5
+ }
+}

@@ -1,6 +1,10 @@
 # Density / "is this overwhelming?" measurements behind DESIGN.md rules D-1..D-4.
 #   python3 tests/density.py            both apps, phone + desktop, printed table
 #   python3 tests/density.py --json     machine-readable, for the design-review skill
+#   python3 tests/density.py --check    fails (exit 1) when a screen is worse than its limit AND than its recorded baseline, or
+#                                       a word splits at its hyphen (X9-6, R-180 wave 3). Runs on every push (tests.yml).
+#   python3 tests/density.py --write-baseline   records today's numbers as the baseline (do this only after a deliberate change,
+#                                       and say why in the commit)
 #
 # The one number that matters is ARRIVAL: how far down the screen the thing a person
 # came for actually starts. There is no way to infer that from the DOM, because it is a
@@ -50,6 +54,10 @@ PUB = [
   # R-146: a person comes here to say how to reach them about their issues (the first visit's step 3, and More's page)
   ('alerts',      '/start/3',      'the number box',       '#st-a-phone'),
   ('getalerts',   '/alerts',       'the number box',       '#mr-al-phone'),
+  # X9-6 (R-180 wave 3): the sign-in, the profile and the privacy page were not measured
+  ('signin',      '/signin',       'the email box',        '#mr-email, .mr-form input'),
+  ('profile',     '/profile',      'the invitation',       '.pf-invite .card, .pf-invite form, .pf .card'),
+  ('privacy',     '/privacy',      'what we have on you',  '.mr-facts section'),
 ]
 # R-187: version A (the live test 'layout'), on the same returning visitor: Home and a bill page, the two screens it changes.
 PUB_A = [
@@ -126,6 +134,14 @@ COLOURS_JS = r"""(() => { const c = new Set(), m = document.querySelector('main'
     c.add(getComputedStyle(el).color); }
   return [...c].length; })()"""
 
+# A word that must stay whole splitting at its hyphen ("e-cigarette" broke across two lines on the Week view): any run of text that
+# contains one of these words and spans more than one line box is a split.
+SPLIT_JS = r"""(() => { const out = [], re = /e-cigarettes?/gi, w = document.createTreeWalker(document.querySelector('main') || document.body, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode())) { const el = n.parentElement; if (!el || el.offsetParent === null) continue; let m; re.lastIndex = 0;
+    while ((m = re.exec(n.nodeValue))) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length);
+      const tops = new Set([...r.getClientRects()].filter(x => x.width > 0).map(x => Math.round(x.top))); if (tops.size > 1) out.push(m[0] + ' in ' + (el.className || el.tagName)); } }
+  return out; })()"""
+
 def run(br, base, routes, app, W, H, tag, seed):
     rows = []
     c = br.new_context(viewport={'width': W, 'height': H}, is_mobile=W < 600,
@@ -141,7 +157,8 @@ def run(br, base, routes, app, W, H, tag, seed):
         top = p.evaluate(TOP_JS, sel)
         p.screenshot(path=f'{OUT}/{app}_{tag}_{name}.png')
         ch = p.evaluate(CHOICES_JS)
-        rows.append({'app': app, 'width': W, 'screen': name, 'want': want,
+        splits = p.evaluate(SPLIT_JS)
+        rows.append({'app': app, 'width': W, 'screen': name, 'want': want, 'splits': splits,
                      'arrival': top, 'choices': ch['all'], 'kinds': ch['kinds'], 'nav': ch['nav'],
                      'type_sizes': len(p.evaluate(checks.FONTS_JS)['sizes']),
                      'colours': p.evaluate(COLOURS_JS)})
@@ -159,6 +176,24 @@ def main():
         b.close()
     if '--json' in sys.argv:
         print(json.dumps(out, indent=1)); return
+    BASE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'density_baseline.json')
+    key = lambda r: f"{r['app']}|{r['width']}|{r['screen']}"
+    if '--write-baseline' in sys.argv:
+        json.dump({key(r): {'arrival': r['arrival'], 'kinds': r['kinds'], 'sizes': r['type_sizes'], 'colours': r['colours']} for r in out}, open(BASE_FILE, 'w'), indent=1, sort_keys=True)
+        print(f'baseline written: {len(out)} screens'); return
+    if '--check' in sys.argv:
+        base = json.load(open(BASE_FILE)); bad = []
+        for r in out:
+            b = base.get(key(r)); lim = 320 if r['width'] < 600 else 400
+            if r['splits']: bad.append(f"{key(r)}: a word splits at its hyphen: {r['splits'][:2]}")
+            if b is None: bad.append(f"{key(r)}: not in the baseline (run --write-baseline and say why)"); continue
+            if r['arrival'] is None and b['arrival'] is not None: bad.append(f"{key(r)}: what people came for is NOT FOUND")
+            elif r['arrival'] is not None and r['arrival'] > max(lim, (b['arrival'] or 0) + 40): bad.append(f"{key(r)}: arrival {r['arrival']}px, limit {lim}, recorded {b['arrival']}")
+            if r['type_sizes'] > max(5, b['sizes']): bad.append(f"{key(r)}: {r['type_sizes']} type sizes (A-4: 5, recorded {b['sizes']})")
+            if r['colours'] > max(7, b['colours']): bad.append(f"{key(r)}: {r['colours']} text colours (A-5: 7, recorded {b['colours']})")
+            if r['kinds'] > max(15, b['kinds'] + 2): bad.append(f"{key(r)}: {r['kinds']} kinds of control (A-2: 15, recorded {b['kinds']})")
+        print('\n'.join(bad) if bad else f'density ok: {len(out)} screens within their limits or their recorded baseline, no word split')
+        sys.exit(1 if bad else 0)
     print(f'{"app":8} {"width":7} {"screen":12} {"they came for":22} {"arrival":>8} {"all":>5} {"kinds":>6} {"nav":>4} {"sizes":>6} {"colours":>8}')
     print('-' * 84)
     for r in out:
