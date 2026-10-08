@@ -206,6 +206,10 @@ dialog.sv-sheet.bl-fsheet .sv-sh-head, dialog.sv-sheet.bl-fsheet .sv-sh-grab { u
 .bl-fs .bl-crow .bl-cname { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bl-fs .bl-crow .bl-n { flex: none; font-weight: 700; color: var(--n500); }
 .bl-fs .bl-crow:disabled { cursor: default; color: var(--n500); }
+.bl-fs .bl-crow[hidden] { display: none; }
+.bl-fs .bl-crow .bl-pn { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bl-fs .bl-pq { width: 100%; margin-bottom: var(--s8); }
+.bl-fs .bl-pmore { margin: var(--s8) var(--s8) 0; }
 .bl-fs .bl-crow:disabled b { color: var(--n500); }
 .bl-fs .bl-fhow { margin-top: var(--s16); font-size: var(--t14); color: var(--n500); }
 dialog.sv-sheet .bl-fclear:disabled { background: none; color: var(--n500); }

@@ -1039,3 +1039,19 @@ keep sharing after they've done it", and in alerts sharing is one of the actions
   steps, tagged `?via=alert`; someone who acted is told so; then a mailto: "Ask a friend to speak up" with the share page).
 Tests: `tests/askfriend.py` (new, 27 checks on a phone and a laptop), `share_links.py`, `profile_ask.py`, `action_rank.py`,
 `tests/share_cards_test.mjs` (the two new cards); backend `tools/migration_tests/test_164.js`.
+
+## Power tools (R-210, 10/8)
+
+Nate walked the apps as a power user and said "go for all" on the gaps found.
+- **Bills' Filter has Issue and Sponsor** (`staff/filters.js`). Both are folds under List, each with a box that narrows the
+  list as you type; twelve show until you type or one is on, busiest first, each with the count it would leave. An issue
+  is the team's own (Outreach > Issues, retired ones drop out); a sponsor is anyone the Capitol lists on the bill, lead
+  or not ("LEE, M." is put back together). Both live on the Bills screen's own state (`bl().issues`, `bl().spons`), are
+  remembered with the other filters, saved in a view, and shown as chips. Counts are looked up once per paint (`ISS`,
+  dropped by `freshFacts()`).
+- **Tasks** (`#/tasks`, `staff/tasks.js`, `staff/css/tasks.css`): every open task across the bills, grouped Overdue, Today,
+  This week, Later, No date. Mine is Today's own test (assigned to me, or unassigned on a bill I own); Everyone adds a box
+  for one teammate or "Nobody yet". Ticking is `DB.updateTodo` with Undo; keys `j`, `k`, Space, `o`; `g` then `k`. Sidebar
+  under Today; on a phone the avatar menu. It is not on the Today badge: Today stays the place for what is due soonest.
+- Help's bill-tab keys say 1 to 5 (the Testimony tab was the fifth).
+Tests: `tests/power_tools.py` (35 checks, phone and laptop).

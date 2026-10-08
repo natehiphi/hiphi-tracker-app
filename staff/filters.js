@@ -5,7 +5,7 @@
 // handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
 // function, passAll().
 import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
-import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS } from './model.js';
+import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName } from './model.js';
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
@@ -60,7 +60,7 @@ const okScope = s => s === 'all' || s === 'me' || (s === 'coal' && myCoalitions(
 // read them there; the rest lives on S.bl so nothing else in the app is touched.
 export function bl() {
   if (!S.bl) {
-    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '' };
+    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), issues: new Set(), spons: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '' };
     load();
   }
   // Coalitions can be given up in My settings while the list is on "My coalitions"; it falls back rather than going blank.
@@ -69,11 +69,11 @@ export function bl() {
 }
 // The starting state, and the shape a saved view stores: every filter, and nothing about how the table is drawn
 // (columns and row height are how this person likes to read, not what they are looking at).
-export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [] };
+export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [], issues: [], spons: [] };
 export function viewState() {
   const v = bl();
   return { scope: v.scope, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts],
-    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes] };
+    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], issues: [...v.issues], spons: [...v.spons] };
 }
 // Ids are checked against what exists today, so a deleted coalition or teammate never leaves a filter nobody can see
 // (a saved view made in January is read the same way in April).
@@ -81,7 +81,7 @@ function applyFilters(f) {
   const v = bl();
   S.pris = new Set(); S.poss = new Set(); S.stands = new Set(); S.camps = new Set(); S.lsts = new Set();
   S.hearF = false; S.riskF = false; S.tripleF = false; S.aliveF = false; S.stageF = '';   // "Still alive" is the folded Did not advance group now
-  v.owners = new Set(); v.cmtes = new Set();
+  v.owners = new Set(); v.cmtes = new Set(); v.issues = new Set(); v.spons = new Set();
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.scope = okScope(f.scope) ? f.scope : 'me';
@@ -94,6 +94,8 @@ function applyFilters(f) {
   S.stageF = STAGES.some(([k]) => k === f.stageF) ? f.stageF : '';
   v.owners = new Set(ok(f.owners, ['none', ...S.advocates.map(a => a.id)]));
   v.cmtes = new Set(f.cmtes || []);
+  v.issues = new Set(ok(f.issues, (S.issues || []).filter(i => !i.archived_at).map(i => String(i.id))));   // a retired issue drops out, as a deleted teammate does
+  v.spons = new Set((f.spons || []).filter(x => typeof x === 'string'));
 }
 function load() {
   const v = S.bl;
@@ -114,6 +116,19 @@ export function save() {
 
 // ---- the list ----
 export const cmtesOf = b => [...new Set([...(b.referrals || []), b.committee].flatMap(codesOf))];
+// Issues and sponsors (R-210, Nate 10/8: the Bills filter had neither). An issue is the team's own grouping (Outreach >
+// Issues); a sponsor is anyone the Capitol lists on the bill, lead or not. Both are looked up for every bill several
+// times a paint (every option in the sheet counts the bills it would leave), so each is built once per pass over the
+// list and dropped with freshFacts() when issues, sponsors or the bills change.
+let ISS = null;
+const issuesOf = b => { if (!ISS) { ISS = new Map(); const live = new Set((S.issues || []).filter(i => !i.archived_at).map(i => String(i.id)));
+    for (const x of S.billIssues || []) { const id = String(x.issue_id); if (live.has(id)) (ISS.get(x.bill_id) || ISS.set(x.bill_id, []).get(x.bill_id)).push(id); } }
+  return ISS.get(b.id) || []; };
+// The Capitol lists "LEE, M." as two sponsors (bill.js's sponsorList does the same): the initial goes back on its name.
+export const sponsOf = b => { const out = [];
+  for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).replace(/\(.*?\)/g, '').trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
+  return [...new Set(out.map(n => n.toUpperCase()))]; };
+const issueName = id => (S.issues || []).find(i => String(i.id) === String(id))?.name || 'Issue';
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
   return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
 // Whose bills: Mine = owned or followed and not muted (the current app's isMine); My coalitions = every bill in a
@@ -155,6 +170,8 @@ export function passAll(b, skip) {
   if (!passFacets(b, skip)) return false;
   if (skip !== 'owners' && v.owners.size && ![...v.owners].some(o => ownerHas(b, o))) return false;
   if (skip !== 'cmtes' && v.cmtes.size && !cmtesOf(b).some(c => v.cmtes.has(c))) return false;
+  if (skip !== 'issues' && v.issues.size && !issuesOf(b).some(i => v.issues.has(i))) return false;
+  if (skip !== 'spons' && v.spons.size && !sponsOf(b).some(n => v.spons.has(n))) return false;
   return true;
 }
 export const shownBills = (scope) => baseBills(scope).filter(b => passAll(b));
@@ -166,7 +183,7 @@ const cnt = (list, skip, test) => {
   try { return list.filter(b => passAll(b, skip) && test(factsOf(b), b)).length; } finally { S.stageF = st; }
 };
 export const quickCount = (spec, test) => cnt(baseBills(), spec.split(':')[0], test);
-export const freshFacts = () => FACTS.clear();   // positions, coalitions and lists change under the list; facts are cheap to rebuild
+export const freshFacts = () => { FACTS.clear(); ISS = null; };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
 
 // ---- what is switched on ----
 // The quick chips are three of the same filters, one tap away. Muted is a place, not a filter, so it is a link.
@@ -177,16 +194,18 @@ export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this
 // at risk, so the sheet no longer borrows its name for a bigger number).
 const STAND_WORD = { a: 'Needs a hearing', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
 const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
+// The filters kept on the Bills screen's own state (the rest live on S, where model.js's facets read them).
+const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
 export const isOn = spec => { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (i < 0) return !!S[k];
   if (k === 'stageF') return S.stageF === raw;
-  const set = k === 'owners' || k === 'cmtes' ? bl()[k] : S[k];
+  const set = MINE.has(k) ? bl()[k] : S[k];
   return set.has(k === 'pris' ? Number(raw) : raw); };
 export function toggle(spec) {
   const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (i < 0) S[k] = !S[k];
   else if (k === 'stageF') S.stageF = S.stageF === raw ? '' : raw;
-  else { const set = k === 'owners' || k === 'cmtes' ? bl()[k] : S[k], v = k === 'pris' ? Number(raw) : raw; set.has(v) ? set.delete(v) : set.add(v); }
+  else { const set = MINE.has(k) ? bl()[k] : S[k], v = k === 'pris' ? Number(raw) : raw; set.has(v) ? set.delete(v) : set.add(v); }
   changed();
 }
 export function clearAll() {
@@ -309,6 +328,8 @@ export function activeFilters() {
   for (const c of S.camps) out.push([`camps:${c}`, S.campaigns.find(x => x.id === c)?.name || 'Coalition']);
   for (const l of S.lsts) out.push([`lsts:${l}`, (S.lists || []).find(x => x.id === l)?.title || 'List']);
   for (const c of v.cmtes) out.push([`cmtes:${c}`, c]);
+  for (const i of v.issues) out.push([`issues:${i}`, issueName(i)]);
+  for (const n of v.spons) out.push([`spons:${n}`, sponsorName(n)]);
   return out;
 }
 export const filterCount = () => activeFilters().length;
@@ -342,6 +363,17 @@ function sheetBody() {
   const cms = [...seen.keys()].map(c => [c, cnt(base, 'cmtes', (x, b) => cmtesOf(b).includes(c))]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const cmRows = cms.map(([c, n]) => { const on = v.cmtes.has(c);
     return `<button type="button" class="bl-crow" data-ft="cmtes:${esc(c)}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}>${icon(on ? 'square-check-big' : 'square')}<b>${esc(c)}</b><span class="bl-cname">${esc(cmteName(c))}</span><span class="bl-n">${n}</span></button>`; }).join('');
+  // Issues and sponsors: long lists (an issue per topic, a sponsor per legislator), so each is a fold with a box that
+  // narrows it as you type, busiest first, and shows twelve until you type or one is on (R-210).
+  const pickRows = (kind, items, on, nameOf) => { const all = items.map(([id, n]) => [id, n, on.has(id)]).filter(([, n, o]) => n || o)
+      .sort((a, b) => b[2] - a[2] || b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0]))), shown = all.filter(([, , o], i) => o || i < 12).length;
+    return `<label class="sr" for="bl-pq-${kind}">Narrow the list</label><input id="bl-pq-${kind}" class="input bl-pq" type="search" data-pq="${kind}" placeholder="Type to narrow ${all.length} ${kind === 'issues' ? 'issues' : 'sponsors'}" autocomplete="off">
+      <div class="bl-crows" data-pcrows="${kind}">${all.map(([id, n, o], i) => `<button type="button" class="bl-crow" data-ft="${kind}:${esc(id)}" data-pname="${esc(nameOf(id).toLowerCase())}" aria-pressed="${o}" ${!o && !n ? 'disabled' : ''}${o || i < 12 ? '' : ' hidden'}>${icon(o ? 'square-check-big' : 'square')}<span class="bl-pn">${esc(nameOf(id))}</span><span class="bl-n">${n}</span></button>`).join('')}</div>
+      ${all.length > shown ? `<p class="small muted bl-pmore" data-pmore="${kind}">${shown} of ${all.length} shown. Type to find the rest.</p>` : ''}`; };
+  const issIds = new Set(); for (const b of base) for (const i of issuesOf(b)) issIds.add(i); for (const i of v.issues) issIds.add(i);
+  const issRows = pickRows('issues', [...issIds].map(i => [i, cnt(base, 'issues', (x, b) => issuesOf(b).includes(i))]), v.issues, issueName);
+  const spIds = new Set(); for (const b of base) for (const n of sponsOf(b)) spIds.add(n); for (const n of v.spons) spIds.add(n);
+  const spRows = pickRows('spons', [...spIds].map(n => [n, cnt(base, 'spons', (x, b) => sponsOf(b).includes(n))]), v.spons, sponsorName);
   const fold = (key, title, sub, inner) => { const open = v.fopen.has(key);
     return `<details class="bl-fold" data-fkey="${key}" ${open ? 'open' : ''}><summary><h3>${title}</h3>${sub ? `<span class="bl-fsub">${esc(sub)}</span>` : ''}${icon('chevron-down', { cls: 'chev' })}</summary><div class="bl-fin">${inner}</div></details>`; };
   const cmOn = [...v.cmtes], stOn = S.stageF ? STAGES.find(([k]) => k === S.stageF)?.[1] : '';
@@ -353,6 +385,8 @@ function sheetBody() {
     ${group('Hearing', hear, 'hear')}
     ${camps ? group('Coalition', camps, 'camp') : ''}
     ${lists ? group('List', lists, 'list') : ''}
+    ${issIds.size ? fold('issue', 'Issue', v.issues.size ? [...v.issues].map(issueName).join(', ') : 'Any', issRows) : ''}
+    ${spIds.size ? fold('spons', 'Sponsor', v.spons.size ? [...v.spons].map(sponsorName).join(', ') : 'Sponsor or co-sponsor', spRows) : ''}
     ${fold('cmte', 'Committee', cmOn.length ? cmOn.join(', ') : S.tripleF ? 'Three or more' : 'Referred to', `<div class="chips bl-trip">${opt('tripleF', 'Three or more committees', cnt(base, 'tripleF', x => x.triple), { title: 'Triple-referred in one chamber: it must clear its first committee by the triple filing deadline' })}</div><div class="bl-crows">${cmRows}</div>`)}
     <p class="bl-fhow">Inside a group, a bill needs any one choice. Across groups, it needs all of them.</p>
   </div>`;
@@ -373,6 +407,10 @@ export function openFilters(anchor) {
   };
   const wireSheet = () => {
     d.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggle(el.dataset.ft); hooks.render(); paint(el.dataset.ft); });
+    // The narrowing boxes work on the rows already drawn (no repaint, so the keyboard stays where it is).
+    d.querySelectorAll('[data-pq]').forEach(inp => inp.oninput = () => { const q = plain(inp.value.trim()), rows = [...d.querySelectorAll(`[data-pcrows="${inp.dataset.pq}"] .bl-crow`)];
+      let k = 0; rows.forEach(r => { const hit = q ? plain(r.dataset.pname).includes(q) : (r.getAttribute('aria-pressed') === 'true' || k < 12); if (hit) k++; r.hidden = !hit; });
+      d.querySelector(`[data-pmore="${inp.dataset.pq}"]`)?.toggleAttribute('hidden', !!q); });
     d.querySelectorAll('details[data-fkey]').forEach(el => el.ontoggle = () => { const s = bl().fopen; el.open ? s.add(el.dataset.fkey) : s.delete(el.dataset.fkey); });
     d.querySelector('[data-fclear]').onclick = () => { clearAll(); hooks.render(); paint(); };
     d.querySelector('[data-fdone]').onclick = () => closeSheet();

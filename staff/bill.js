@@ -989,7 +989,7 @@ export default {
   render(route) {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), desk = DESK();
-    // A tab that was just opened fades in, so a key press (1 to 4) is seen to do something. Not on a re-render.
+    // A tab that was just opened fades in, so a key press (1 to 5) is seen to do something. Not on a re-render.
     const pnl = `<div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${panel(b, tab)}</div>`;
     if (!desk) return `<div class="bw-page" data-bw="${esc(b.id)}">${topBar(b, route)}${headHTML(b, { chips: true })}${nextCards(b)}${tabsNav(b, tab)}${pnl}</div>`;
     // The side panel is Next up and Team; its first card stays in view (.sv-stick) while the rest scrolls with the page.

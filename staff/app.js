@@ -10,6 +10,7 @@ import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './mo
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import inbox from './inbox.js';
+import tasks from './tasks.js';
 import bill from './bill.js';
 import bills from './bills.js';
 import triage from './triage.js';
@@ -36,7 +37,7 @@ import coalition from './coalition.js';
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
 // ---- routes ----
-const SCREENS = { today, review, inbox, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, review, inbox, tasks, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -50,6 +51,7 @@ export function parseRoute(h = location.hash) {
     case undefined: return { name: 'today', q };
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', q };
+    case 'tasks': return { name: 'tasks', q };
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
     // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
     case 'bill': { const yr = /^\d{4}$/.test(seg[1] || ''); return { name: 'bill', year: yr ? seg[1] : '', num: String(seg[yr ? 2 : 1] || '').toUpperCase(), tab: seg[yr ? 3 : 2] || 'overview', q }; }
@@ -118,12 +120,12 @@ function header(route, scr, pageH1 = false) {
 // A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
 // away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
 const SIDE = [
-  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox']]],
+  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox'], ['tasks', '#/tasks', 'Tasks']]],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
-const SUB_OF = { review: 'review', inbox: 'inbox', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', inbox: 'inbox', tasks: 'tasks', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
@@ -265,6 +267,7 @@ function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Inbox', icon: 'inbox', sub: (n => n ? `${n} unread that need${n === 1 ? 's' : ''} you` : 'Everything sent to you, read or not')(inboxCount()), run: () => go('#/inbox') },
+    { label: 'Tasks', icon: 'list-checks', sub: 'Every task on your bills, with its due date', run: () => go('#/tasks') },
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
@@ -282,7 +285,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const q = document.getElementById('hq'); if (q && q.offsetParent) q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox', k: '#/tasks' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----
