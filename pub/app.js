@@ -30,20 +30,21 @@ const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'W
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
+const quiz = lazy('quiz', () => import('./quiz.js'), { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
 const bill = lazy('bill', () => layoutA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'wide', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
 // phone zoomed the page out, and a Follow tapped then opened the profile sheet cut off at both edges).
 const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
-  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'] };
+  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor = name => layoutA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
@@ -75,7 +76,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
@@ -124,6 +125,9 @@ export function parseRoute(h = location.hash) {
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
     case 'help': return { name: 'help', slug: seg[1] || '' };   // #/help/<slug> opens one conversation (R-075, pub/talk.js)
+    // R-217: a draft, the practice copy only until Nate says yes. #/quiz the start (or the kept result), #/quiz/1 to #/quiz/5 the questions
+    // (each step its own history entry, so a phone's back gesture steps back through them), #/quiz/result.
+    case 'quiz': return DEMO ? { name: 'quiz', step: seg[1] === 'result' ? 6 : Math.min(5, Math.max(0, +seg[1] || 0)) } : { name: 'home', unknown: true };
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
 }

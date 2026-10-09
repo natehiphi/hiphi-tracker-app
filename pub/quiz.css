@@ -1,0 +1,28 @@
+/* "What kind of advocate are you?" (R-217, a draft for Nate's yes or no). Tokens only; one primary action per screen;
+   every control 44px or taller; orange only for the small celebration (the burst, fx.css). */
+.qz { display: flex; flex-direction: column; gap: var(--s16); padding-bottom: var(--s24); }
+/* The count and the question are one heading, so a screen reader reads "Question 2 of 5" with the question. */
+.qz-h { font-size: var(--t22); line-height: 1.25; margin-top: var(--s8); }
+.qz-count { display: block; font: 400 var(--t14)/1.4 var(--font); letter-spacing: 0; color: var(--n500); margin-bottom: var(--s8); }
+.qz-q { display: block; }
+.qz-h:focus, #qz-h:focus { outline: none; }
+.qz-h:focus-visible, #qz-h:focus-visible { outline: 2px solid var(--p700); outline-offset: 4px; border-radius: 4px; }
+.qz-opts { display: grid; gap: var(--s12); }
+.qz-opt { display: block; width: 100%; min-height: 56px; padding: var(--s12) var(--s16); border-radius: var(--r12); border: 1.5px solid var(--n400);
+  background: var(--n0); color: var(--n900); text-align: left; font-size: var(--t16); line-height: 1.35; box-shadow: var(--sh1);
+  transition: border-color .15s, background-color .15s, transform .15s; }
+/* A cursor left over the first answer after a tap must not look like a choice: hover waits for the pointer to move. */
+.qz-opts:not(.qz-nohover) .qz-opt:hover { border-color: var(--p700); background: var(--p50); }
+.qz-opt:active { transform: scale(.99); }
+.qz-opt.qz-picked { border: 2px solid var(--p700); background: var(--p50); padding: calc(var(--s12) - .5px) calc(var(--s16) - .5px); }
+.qz-nav { margin: 0; }
+/* the result */
+.qz-result { align-items: flex-start; }
+.qz-badge { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--p100); color: var(--p800); margin-top: var(--s8); }
+.qz-rh { font-size: var(--t28); margin-top: 0; }
+.qz-rh .qz-name { display: block; }
+.qz-body { color: var(--n700); max-width: 65ch; }
+.qz-step { align-self: stretch; display: grid; gap: var(--s12); }
+.qz-steph { font-size: var(--t18); }
+.qz-more { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .qz-opt { transition: none; } .qz-opt:active { transform: none; } }

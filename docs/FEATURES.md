@@ -1055,3 +1055,30 @@ Nate walked the apps as a power user and said "go for all" on the gaps found.
   under Today; on a phone the avatar menu. It is not on the Today badge: Today stays the place for what is due soonest.
 - Help's bill-tab keys say 1 to 5 (the Testimony tab was the fifth).
 Tests: `tests/power_tools.py` (35 checks, phone and laptop).
+
+## "What kind of advocate are you?" (R-217, 10/8; a draft for Nate's yes or no)
+
+`pub/quiz.js` (the screen), `pub/quiz-data.js` (the words and the scoring, no imports so `tests/quiz_test.mjs` reads them in node),
+`pub/quiz.css`. Five one-tap questions (four answers each, one for each of the four ways to help the profile already asks about:
+Speak up, Spread the word, Show up, Bring my skills, `pub/myprofile.js` `HELP_GROUPS`), then one of four results and ONE step:
+The Voice, The Connector, The One Who Shows Up, The Skill Sharer. The most picked wins; a tie goes to the tied way picked last.
+Every way is equally likely over all 1,024 possible quizzes (the test checks 25% each). Three steps open Find (the one place that
+needs no account, no text and no live bill: the profile asks for a phone number or an email first, and the Legislature is on
+break); The Connector's step is "Send this to a friend" (the phone's share menu, else the link is copied), tagged `?via=quiz`.
+No score, no timer, no streak (C-7); the result is kept on this device (`hiphi_quiz`, so `hiphi_quiz_demo` in the sandbox) and
+nowhere else; nothing is counted yet (that needs a database change and Nate's yes after he has seen it). Each step has its own address
+(`#/quiz` the start or the kept result, `#/quiz/1` to `#/quiz/5`, `#/quiz/result`) so a phone's back gesture steps back one question and
+the screen's Back does the same; a picked answer stays picked, the answers so far live in `sessionStorage` (`hiphi_quiz_picks`),
+an address with no answers behind it opens the start, a tap in the first 350 ms of a question is ignored (a double tap must not
+answer two), and the hover look waits for the pointer to move. The count and the question are one heading, so a screen reader
+reads "Question 2 of 5" with the question. The friend's message says who is asking ("HIPHI's quiz: how would you help with
+Hawaiʻi's health laws?"). Known and left for Nate: three results end on Find, which knows nothing about the result (in session the
+Voice could go straight to a bill's letter and the One Who Shows Up to a hearing's calendar button; the Skill Sharer's skill is
+not recorded anywhere until the profile's "How would you like to help?" can be filled from the quiz, a sign-up question).
+**A draft: the address works only in the practice copy.** `parseRoute` (`pub/app.js`) answers `#/quiz` with the screen only when
+`DEMO` is true and sends everyone else Home with the usual "That page isn't here" word. To make it live after Nate's yes: remove
+that one condition, add a way in (More, and the Mahalo's "Bring one friend along"), add the screen to `tests/density.py`'s
+list with its B-1 sentence, and turn the words into `t()` calls with the other screens (R-166).
+Tests: `node tests/quiz_test.mjs` (24 checks: the shape, the scoring, the words), `python3 tests/quiz.py` (62 checks on phone and
+laptop: every step, Back and the phone's back gesture, the kept answers and result, Take it again, the share and its confirmation,
+focus, tap size, the double-tap guard, reading grade, no sideways scroll, and that both addresses open Home outside the practice copy). Both run on every push (`.github/workflows/tests.yml`).
