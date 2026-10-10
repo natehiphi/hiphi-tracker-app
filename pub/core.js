@@ -244,7 +244,8 @@ export async function legLookupAddress(q, pt) {
   const byDistrict = (sd, hd) => S.legislators.filter(l => (l.chamber === 'S' && l.district === sd) || (l.chamber === 'H' && l.district === hd)).map(l => l.id);
   if (pt && pt.sd && pt.hd) return { matched: pt.label, ids: byDistrict(pt.sd, pt.hd) };
   if (pt) { const { data } = await (await supa()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; if (d?.sd || d?.hd) return { matched: pt.label, ids: byDistrict(d.sd, d.hd) }; }
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup?address=${encodeURIComponent(q)}`, { headers: { apikey: SUPABASE_KEY } });
+  // The address goes in the request's body, never its web address: the hosting logs keep web addresses (R-151).
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ address: q }) });
   const j = await r.json(); if (!j.found) return { none: true };
   return { matched: j.matched || q, ids: byDistrict(j.senate, j.house) };
 }
