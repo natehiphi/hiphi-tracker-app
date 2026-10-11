@@ -558,7 +558,7 @@ python3 tests/versions.py           # pick which versions of each A/B test are l
 python3 tests/testers.py            # testers' paths from tester-sheet links, what is not recorded, the tester sheet's "What testers did" (R-193); 31 checks
 python3 tests/room.py               # Staff v2's tester sheet (R-185): groups, pickers, the plan rules, QR codes, the printed sheet, live links, Undo, kept; then each link opened as a tester; 108 checks
 python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the next day's full-page ask; 86 checks
-python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the three-day rest; 60 checks
+python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the rest (a week, three weeks, three months), the count's payload; 70 checks
 python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks

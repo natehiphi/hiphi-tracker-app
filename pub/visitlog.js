@@ -17,6 +17,7 @@
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
 //   logAct(kind, {sp})            an action marked done: its kind, where the visit came from, a share's way out (078, R-205)
 //   logTime(act, seconds, first)  how long a letter took, from opening the walkthrough to sending it (143)
+//   logAsk(ask, outcome, rests)   a later visit's full-page ask: shown, done or Not now (170)
 import { DEMO, SUPABASE_URL, SUPABASE_KEY, supa } from './kernel.js';
 import { tlNote, tlStep } from './testerlog.js';   // a tester's path (R-193): the first visit's screens and what they did
 import { variantInfo, setAbSink, abEvent } from './variant.js';
@@ -222,6 +223,18 @@ export function logTime(act, seconds, firstTime) {
     const p = { act, seconds: Math.min(Math.round(seconds), 3600), device: device(), variant: variantInfo().variant };
     if (act === 'testimony' && typeof firstTime === 'boolean') p.first_time = firstTime;
     return supa().then(sb => sb.rpc('log_act_time', { p })).then(r => !r.error, () => false);
+  } catch { return Promise.resolve(false); }
+}
+
+// A later visit's one ask, a full page before Home (R-237, backend migration 170; Nate 10/11: "Yes keep track"): which ask,
+// shown, done or "Not now", and how many Not nows came before (0 to 3), with the device kind and the A/B version: no id, no
+// address, number, email or issue. Nothing under the privacy signal, from a test run, the team's browsers or the sandbox.
+export function logAsk(ask, outcome, rests) {
+  try {
+    if (DEMO || quiet() || !['legs', 'alerts', 'issues', 'learn', 'share', 'phone'].includes(ask) || !['shown', 'done', 'no'].includes(outcome)) return Promise.resolve(false);
+    const p = { ask, outcome, device: device(), variant: variantInfo().variant };
+    if (rests >= 0 && rests <= 3) p.rests = rests;
+    return supa().then(sb => sb.rpc('log_later_ask', { p })).then(r => !r.error, () => false);
   } catch { return Promise.resolve(false); }
 }
 

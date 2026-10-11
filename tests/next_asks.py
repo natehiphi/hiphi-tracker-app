@@ -6,7 +6,7 @@
 # one full page in the first visit's frame (no tabs, "Welcome back", Not now) instead of Home; "Find my legislators" finds
 # them from a street address and Done lands on Home; Home draws none of the old cards; Back from Home does not return to the
 # answered ask; the day after brings the next ask (the profile box); "Not now" goes to Home; a reload the same day asks
-# nothing; arriving on a bill's link asks nothing; testimony due within a day on what they follow: Home first, and the ask
+# nothing; the rest after Not now (a week, three weeks, three months); arriving on a bill's link asks nothing; testimony due within a day on what they follow: Home first, and the ask
 # waits for the next day; version A and a plan get the page too; no page errors.
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -58,6 +58,7 @@ with sync_playwright() as pw:
         p.locator('[data-nxdone]').click(); p.wait_for_timeout(1500)
         ok(p.evaluate('location.hash') == '#/' and p.locator('#main .hm, #main .ah').count() == 1, f'{tag}: Done lands on Home')
         ok(p.locator(OLD_CARDS).count() == 0, f'{tag}: Home draws none of the old ask cards')
+        ok((p.evaluate("JSON.parse(localStorage.getItem('hiphi_asks_rest_demo') || '{}').n") or 0) == 0, f'{tag}: an ask done starts the rest count again')
         # ---- a reload the same day asks nothing ----
         p.reload(); p.wait_for_selector('#main .hm, #main .ah, #main .nx', timeout=30000); p.wait_for_timeout(1000)
         ok(p.locator('#main .nx').count() == 0, f'{tag}: a reload the same day asks nothing')
@@ -69,7 +70,17 @@ with sync_playwright() as pw:
         p.locator('[data-nxno]').click(); p.wait_for_timeout(1200)
         ok(p.evaluate('location.hash') == '#/' and p.locator('#main .hm, #main .ah').count() == 1, f'{tag}: Not now goes to Home')
         ok(p.evaluate("(JSON.parse(localStorage.getItem('hiphi_onb_demo') || '{}').nudgeNo || 0) === 1"), f'{tag}: and quiets the profile ask as everywhere (14 days)')
-        ok(p.evaluate("import('./pub/nextask.js').then(m => m.pickAsk())") == '', f'{tag}: after a Not now, no page for three days, whichever ask is next')
+        # The rest after Not now grows: a week, then three weeks, then three months (Nate 10/11).
+        pick = lambda: p.evaluate("import('./pub/nextask.js').then(m => m.pickAsk())")
+        ago = lambda n, d: p.evaluate(f"localStorage.setItem('hiphi_asks_rest_demo', JSON.stringify({{ n: {n}, at: new Date(Date.now() - {d} * 864e5).toISOString() }}))")
+        ok(p.evaluate("JSON.parse(localStorage.getItem('hiphi_asks_rest_demo') || '{}').n") == 1 and pick() == '', f'{tag}: after a Not now, no page for a week, whichever ask is next')
+        ago(1, 6); r6 = pick(); ago(1, 8); r8 = pick()
+        ok(r6 == '' and r8 != '', f'{tag}: the first rest is a week (6 days: none; 8 days: {r8})')
+        ago(2, 20); r20 = pick(); ago(2, 22); r22 = pick()
+        ok(r20 == '' and r22 != '', f'{tag}: the second, three weeks (20 days: none; 22 days: {r22})')
+        ago(3, 80); r80 = pick(); ago(5, 89); r89 = pick(); ago(3, 92); r92 = pick()
+        ok(r80 == '' and r89 == '' and r92 != '', f'{tag}: the third and after, three months (80 and 89 days: none; 92 days: {r92})')
+        p.evaluate("localStorage.removeItem('hiphi_asks_rest_demo')")
         # ---- arriving on a bill's link asks nothing ----
         p.evaluate("localStorage.setItem('hiphi_askday_demo', 'mon')")
         p.goto(f'{BASE}/track.html?demo=1&day=wed&ab=end.today,act.today,layout.today#/bill/HB2121'); p.wait_for_timeout(5000)
@@ -126,6 +137,16 @@ with sync_playwright() as pw:
         p.locator('[data-nxno]').click(); p.wait_for_timeout(1500)
         ok(p.evaluate('location.hash') == '#/' and p.locator(OLD_CARDS).count() == 0, f'{name}: Not now lands on Home, with no old cards')
         c.close()
+    # ---- the count (backend 170): what leaves the browser, on the live page, intercepted (nothing reaches the database) ----
+    c = b.new_context(); p = c.new_page(); sent = []
+    p.add_init_script('window.__hiphiCountTests = true')
+    p.route('**/rest/v1/rpc/log_later_ask', lambda r: (sent.append(r.request.post_data_json), r.fulfill(status=204, body='')))
+    p.goto(f'{BASE}/track.html'); p.wait_for_timeout(6000)
+    p.evaluate("import('./pub/visitlog.js').then(m => Promise.all([m.logAsk('legs', 'shown', 0), m.logAsk('alerts', 'no', 2), m.logAsk('email', 'shown', 0), m.logAsk('legs', 'maybe', 0)]))"); p.wait_for_timeout(1500)
+    bodies = [x.get('p', {}) for x in sent]
+    ok(len(bodies) == 2 and bodies[0].get('ask') == 'legs' and bodies[0].get('outcome') == 'shown' and bodies[1].get('rests') == 2, f'the count sends which ask, shown/done/no and the rests before, and nothing for a made-up ask ({bodies})')
+    ok(all(set(x) <= {'ask', 'outcome', 'rests', 'device', 'variant'} for x in bodies), 'and nothing else: no id, address, number, email or issue')
+    c.close()
     b.close()
 print('\n'.join(fails) or 'all pass')
 print(f'{len(passes)}/{len(passes) + len(fails)} passed')

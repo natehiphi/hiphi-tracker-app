@@ -1111,13 +1111,18 @@ during onboarding. That should hold for any of the post onboarding asks we have 
 - **Answers:** the bar has "Not now" and the page's button; both land on Home with `replaceState`, so Back never returns to
   an answered ask. "Not now" (outlined, as the first visit's) quiets that ask 14 days, then 60, then for good (`hiphi_asks`;
   the profile ask keeps `nudgeOk`'s own quiet; the old `hiphi_later` answers still count), and after any "Not now" no page
-  comes for three days (`hiphi_asks_rest`).
+  comes for a week, then three weeks after a second, then three months (`hiphi_asks_rest`: Not nows in a row and the last;
+  an ask done starts it again; Nate 10/11).
 - **What left Home:** the later-visit cards (`pub/onb-later.js`, deleted), the "Welcome back" profile card (`welcomeBack()`
   no longer raises it, and on a later visit a follow raises no Home card, kernel `nudge()`), "Keep the tracker on your
   phone" and "A new issue in ...". Both Homes (today's and version A).
 - **Checked by** `python3 tests/next_asks.py` (phone and laptop: the first visit asks nothing more; the next day's page;
   the address finding two legislators; Done and Not now to Home; a same-day reload; a bill link; testimony due within a
   day; each page by its address; version A and a plan).
+- **Counted** (backend 170, Nate 10/11 "Yes keep track"; `pub/visitlog.js` logAsk): each page shown (once a page load),
+  done or Not now, with the Not nows before it (0 to 3), the device kind and the A/B version; no id, address, number, email
+  or issue; nothing from the practice copy, a test run, the team's browsers or under the privacy signal. Staff read
+  `later_asks_weekly(weeks)`.
 - **How we'll know:** from January, how many later visits answer the page rather than "Not now", and whether returns
-  (`log_day`) drop after one. Counting the answers needs a small migration (Nate's yes).
+  (`log_day`) drop after one.
 

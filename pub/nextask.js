@@ -24,6 +24,7 @@ import { declineNudge, doShare } from './actions.js';
 import { newIssues } from './home.js';
 import { burst, later } from './fx.js';
 import { abSeen, armOf } from './variant.js';
+import { logAsk } from './visitlog.js';
 
 // ---------------- what was answered ----------------
 const KEY = 'hiphi_asks';   // { [kind]: { no: n, at: iso } | { done: true } }; the practice copy keeps its own (kernel.js)
@@ -32,10 +33,26 @@ const mark = (k, patch) => { const o = kept(); o[k] = { ...(o[k] || {}), ...patc
 // The cards they answered before R-237 (pub/onb-later.js) stay answered.
 const oldCard = k => { try { return !!(JSON.parse(localStorage.getItem('hiphi_later') || '{}') || {})[k]; } catch { return false; } };
 const QUIET_DAYS = [0, 14, 60];
-// After any "Not now", no page for three days, whichever ask is next (the review of 10/11: someone who checks in every
-// morning and waves each one away would otherwise meet a page on six mornings running). REST_KEY keeps the last one.
-const REST_KEY = 'hiphi_asks_rest', REST_DAYS = 3;
-const resting = () => { try { const t = Date.parse(localStorage.getItem(REST_KEY) || ''); return !!t && Date.now() - t < REST_DAYS * 864e5; } catch { return false; } };
+// After any "Not now", no page for a while, whichever ask is next, and the while grows: a week, then three weeks, then three
+// months (Nate 10/11: "Do a one week rest, then 3 weeks, then 3 months"; the review had found that someone who checks in
+// every morning and waves each one away would otherwise meet a page on six mornings running). An ask done starts the
+// count again. REST_KEY keeps { n: Not nows in a row, at: the last }; the three days of the first build (a date alone)
+// count as one.
+const REST_KEY = 'hiphi_asks_rest', REST_DAYS = [7, 21, 90];
+function rest() {
+  try { const v = localStorage.getItem(REST_KEY) || '';
+    if (/^\d{4}-/.test(v)) return { n: 1, at: v };
+    const o = JSON.parse(v || 'null'); return o && o.n ? o : { n: 0, at: '' };
+  } catch { return { n: 0, at: '' }; }
+}
+const setRest = o => { try { localStorage.setItem(REST_KEY, JSON.stringify(o)); } catch { /* private mode: no rest kept */ } };
+const resting = () => { const r = rest(), t = Date.parse(r.at || ''); return r.n > 0 && !!t && Date.now() - t < REST_DAYS[Math.min(r.n, REST_DAYS.length) - 1] * 864e5; };
+// Counted privately (backend 170, Nate 10/11 "Yes keep track"): which ask, shown or done or Not now, and how many Not nows
+// came before; nothing else (pub/visitlog.js logAsk). A page shown is counted once a page load.
+const count = (k, outcome) => logAsk(k, outcome, Math.min(rest().n, 3));
+const shownNow = new Set();
+// Done: kept as answered, the rest count starts again, counted.
+function did(k) { if (k !== 'alerts') mark(k, { done: true }); count(k, 'done'); setRest({ n: 0, at: '' }); }
 function quiet(k) {
   const s = kept()[k];
   if (oldCard(k) || s?.done) return true;
@@ -81,7 +98,8 @@ function leave(to = '#/') {
   if (to === '#/') { app.render(); window.scrollTo(0, 0); } else app.go(to);
 }
 function notNow(k) {
-  try { localStorage.setItem(REST_KEY, new Date().toISOString()); } catch { /* ignore */ }
+  count(k, 'no');
+  setRest({ n: rest().n + 1, at: new Date().toISOString() });
   if (k === 'alerts') declineNudge();
   else if (k === 'phone') { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } }
   else if (k !== 'issues') { const n = (kept()[k]?.no || 0) + 1; mark(k, { no: n, at: new Date().toISOString() }); }
@@ -145,7 +163,7 @@ function wireLegs() {
       // The districts (never the address) stay on this device, so bill pages can say "your senator" (people.js does the same).
       const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
       try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
-      mark('legs', { done: true });
+      did('legs');
       app.render();
       later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
     } catch { S.nxAddr.finding = false; S.nxAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
@@ -181,7 +199,7 @@ function wireAlerts() {
   // The visit's one profile ask (C-3): nothing else asks again this visit.
   S.nudge = null; S.nudgedThisVisit = true;
   const f = document.getElementById('nx-aform');
-  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; app.render(); later(() => burst(document.getElementById('st-h'), 14, 70), 200); } });
+  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => burst(document.getElementById('st-h'), 14, 70), 200); } });
 }
 
 // ---------------- issues: new issues HIPHI took up, in a topic they follow (R-018; a Home card until R-237) ----------------
@@ -234,6 +252,7 @@ export default {
     const page = PAGES[route.kind];
     if (!page) { setTimeout(() => leave(), 0); return ''; }
     S.nudgedThisVisit = true;   // one ask a visit (C-3): this page is it
+    if (!shownNow.has(route.kind)) { shownNow.add(route.kind); count(route.kind, 'shown'); }
     return page();
   },
   bar(route) {
@@ -251,20 +270,21 @@ export default {
   wire(route) {
     const k = route.kind;
     document.querySelectorAll('[data-nxno]').forEach(el => el.onclick = () => notNow(k));
-    document.querySelectorAll('[data-nxdone]').forEach(el => el.onclick = () => { if (k === 'phone') mark('phone', { done: true }); leave(); });
+    // Done after the page's own action: legs and alerts were counted when it happened; new issues followed and the phone's steps here.
+    document.querySelectorAll('[data-nxdone]').forEach(el => el.onclick = () => { if (k === 'phone' || k === 'issues') did(k); leave(); });
     if (k === 'legs') wireLegs();
     if (k === 'alerts') wireAlerts();
     if (k === 'issues') wireIssues();
     const go = document.querySelector('[data-nxgo]');
     if (!go) return;
-    if (k === 'learn') go.onclick = () => { mark('learn', { done: true }); leave('#/learn/bill'); };
+    if (k === 'learn') go.onclick = () => { did('learn'); leave('#/learn/bill'); };
     if (k === 'share') go.onclick = async () => {
       const how = await doShare({ title: 'HIPHI Bill Tracker', text: SHARE_TEXT, url: `${location.origin}${location.pathname}${DEMO ? '?demo=1' : ''}` }).catch(() => null);
       if (!how) return;
-      mark('share', { done: true });
+      did('share');
       toast(how === 'copied' ? 'Copied. Paste it in a text or email.' : 'Mahalo for bringing a friend along', { yay: how !== 'copied' });
       leave();
     };
-    if (k === 'phone') go.onclick = async () => { const p = S.installPrompt; S.installPrompt = null; mark('phone', { done: true }); try { p?.prompt(); await p?.userChoice; } catch { /* ignore */ } leave(); };
+    if (k === 'phone') go.onclick = async () => { const p = S.installPrompt; S.installPrompt = null; did('phone'); try { p?.prompt(); await p?.userChoice; } catch { /* ignore */ } leave(); };
   },
 };

@@ -787,15 +787,16 @@ arrival of a new day, before Home, in that order, and only when the person opene
 from an alert, an email or a shared link (they came for that page), and never when testimony on something they follow is
 due within a day (Home, with that bill on top, comes first; the ask waits for the next day). "Not now" is an equal choice
 in the bar (outlined, beside the filled button) and lands on Home; it quiets that ask for 14 days, then 60, then for good
-(the profile ask keeps its own quiet, `nudgeOk`), and after any "Not now" no page comes for three days (the review: someone
-who checks in every morning would otherwise meet one six mornings running). "Welcome back · one quick thing, then Home"
+(the profile ask keeps its own quiet, `nudgeOk`), and after any "Not now" no page comes for a while that grows: a week,
+then three weeks, then three months (Nate 10/11; the review had found that someone who checks in every morning would
+otherwise meet one six mornings running); an ask done starts that count again. "Welcome back · one quick thing, then Home"
 over the drawing says why the page is there and where both answers lead. What stays where it is: finish your testimony,
 Meet HIPHI, the asks right after an action (C-3's Mahalo order), and between sessions Home's "Get ready for January".
 
 *Reason.* Nate's decision; a card at the end of Home went unseen (R-232: about 5,700px down on a phone). Whether a page on
 arrival helps more than it annoys is a guess until real use: what settles it from January is how many later visits answer
-the page (done versus Not now; counting that needs a small migration, which waits for Nate's yes) and whether visitors
-who met one come back less (`log_day` already counts returns). A page on arrival costs a tap
+the page (done versus Not now, counted since 10/11: backend 170, `later_asks_weekly` for staff) and whether visitors who
+met one come back less (`log_day` counts returns). A page on arrival costs a tap
 before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
 
 ## The review checklist
