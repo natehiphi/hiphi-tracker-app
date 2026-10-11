@@ -33,7 +33,7 @@
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved, setFollows } from './kernel.js';
+import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
@@ -456,9 +456,10 @@ function wire(route) {
     if (nb) nb.onclick = () => {
       if (!pickedIssues().length) { flash('Pick at least one, or select Skip.'); return; }
       track(name, 'next', { counts: { cats: pickedIssues().length } });
-      // Plan 1 has no issues screen: the topics ticked are followed whole, as its first screen says (B-12: the person
-      // ticked them; R-164's review found "Not now" on its bill otherwise left nothing followed under "we keep watch").
-      if (planOn() === 'p1') { const keys = pickedIssues().map(c => c.topicKey).filter(Boolean); if (keys.length) { setFollows({ catsOn: keys }).catch(e => console.error(e)); wizSet({ followedCats: keys }); welcome(); } }
+      // Plan 1 follows nothing here (R-164, Nate 10/10: one topic tick followed the whole topic, 17 issues and about 60 bills,
+      // "that can't be right"; C-4: nothing beyond what the ask named). In session a topic only narrows the bills offered on
+      // Find a bill, and the one issue behind the bill they choose is followed when they decide (pub/onb.js followBill, or the
+      // walkthrough's own follow). Between sessions there is no bill step (plans.js), so this path follows nothing either.
       goStep(step, planOn() ? step + 1 : stepOf('issues', off));
     };
   }
