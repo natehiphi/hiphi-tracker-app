@@ -266,8 +266,7 @@ const myName = () => { try { return (wiz().name || JSON.parse(localStorage.getIt
 // and remembers it. At most three on a laptop and one on a phone, where three would push today's actions past A-1. The rest
 // wait behind "N more good news", which opens the session page (#/recap). The newest comes first, a law before anything
 // (the biggest). A card gets the small burst once, when it first appears (C-7); a law gets its full-screen moment once.
-// A result on a bill with its own action card below, or a "needs a hearing" card, is that card's reason line instead (A-14),
-// shown once. A bill that needs a hearing as a one-line row keeps its good news card (a row has no reason line).
+// A result on a bill with its own action card below is that card's reason line instead (A-14), shown once.
 // Storage stays in this browser. hiphi_moments_seen holds what the person has dismissed (the store the old strip used, so
 // what they already saw does not come back); hiphi_moments_shown holds what has appeared, so the burst is played once.
 const MSEEN_KEY = 'hiphi_moments_seen', MSHOWN_KEY = 'hiphi_moments_shown';
@@ -509,15 +508,12 @@ const ASK_DAYS = 21;
 const askList = () => waitingBills(S.bills).filter(({ b, st }) => st.deadline.days <= ASK_DAYS && !/oppose/.test(b.hiphi_position || '')
   && agrees(b) !== false && chairContacts(st.committee).length && !askedChair(b, st.committee));
 const daysLeft = d => d <= 0 ? 'Last day' : `${plural(d, 'day')} left`;
-// why: the good news on this bill, when the person has some (goodNewsBlock): its reason line, as on an action card (A-14),
-// so the bill is not also a good news card above it.
-function askCard({ b, st }, primary, why = '') {
+function askCard({ b, st }, primary) {
   const dl = st.deadline, where = cmteLabel(st.committee), chairs = chairContacts(st.committee).length > 1 ? 'chairs' : 'chair';
   return `<article class="card hm-ask" aria-labelledby="hm-ask-${esc(b.id)}">
     <div class="hm-askrow">${chip(daysLeft(dl.days), dl.days <= 7 ? 'warn' : '', 'hourglass')}${posChip(b)}</div>
     <h3 class="hm-askt" id="hm-ask-${esc(b.id)}">${esc(headline(b, 200))}</h3>
     <p class="meta">${esc(spaced(b.bill_number))}</p>
-    ${why ? `<p class="why hm-askgood">${icon('sparkles')}${esc(why)}</p>` : ''}
     <p class="small hm-askwhy">Waiting for a hearing in ${esc(/^the /.test(where) ? where : 'the ' + where)}. If it is not heard by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}, it can’t pass this year.</p>
     <div class="btncol">${btn(`Ask the ${chairs} for a hearing`, { kind: primary ? 'primary' : 'secondary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } })}</div>
   </article>`;
@@ -558,7 +554,7 @@ const asksSec = (cards, asks, arest = asks.slice(2), calm = false, sub = false) 
   const h = sub ? 'h3' : 'h2', cut = oneCutoff(arest);
   return `<section class="hm-sec hm-asks${sub ? ' hm-asks-sub' : ''}" aria-labelledby="hm-asks-t"><${h} id="hm-asks-t">${asks.length === 1 ? 'A bill that needs a hearing' : 'Bills that need a hearing'}</${h}>
       <p class="small hm-asksub">The committee chair decides which bills get a hearing. A short, polite note helps.</p>
-      ${asks.slice(0, 2).map((x, i) => askCard(x, !calm && !cards.length && !i, S.hmCardMoments?.get(x.b.id)?.text)).join('')}
+      ${asks.slice(0, 2).map((x, i) => askCard(x, !calm && !cards.length && !i)).join('')}
       ${arest.length ? `${cut ? cutoffLine(cut, arest.length) : ''}${moreRows('asks', arest.map(x => askRow(x, !!cut)))}` : ''}</section>`; };
 // Home's top grouped by topic: the home test's second version (R-135, variant.js 'home'). By topic, the six the first
 // visit's first screen offers, not by issue: 55 of the 91 issues share their name with one of their bills, so an issue
@@ -656,9 +652,8 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // they were here) or a plan to go, each of which says it already.
   const loop = loopCard(new Set([...cards.map(x => x.h.id), ...plans.map(p => p.h.id)])), inLoop = S.hmLoopB;
   // The good news cards (goodNewsBlock) come under the plan to go and above the rest of what happened; the since rows and
-  // the side column leave out whatever they say (A-14). A bill drawn as a full card, to do or needs a hearing, takes its
-  // good news as the card's reason line instead (the two full asks are the first two asks, asksSec).
-  const gn = goodNewsBlock(new Set([...cards.slice(0, 2), ...asks.slice(0, 2)].map(x => x.b.id))), wide = wideNow();
+  // the side column leave out whatever they say (A-14).
+  const gn = goodNewsBlock(new Set(cards.slice(0, 2).map(x => x.b.id))), wide = wideNow();
   const since = sinceStrip(inCards, gn), inSince = new Set([...S.hmSinceShown, ...inLoop, ...gn.bills]);
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
@@ -737,7 +732,6 @@ function welcomeView(si, { cards, asks, total }) {
   // just done backfires (R-150's research). It replaced "This week", one hearing with a "See how to help" link, and the
   // "Ready now?" fold under everything. A hearing the "What you did" card above already names is left to that card (A-14).
   const todoCards = cards.filter(x => !(S.hmLoopB.has(x.b.id) && settledOn(x.b, x.h)));
-  S.hmCardMoments = new Map();   // no good news is drawn here, so no card gets a reason line left over from another drawing
   const todo = total ? `<h2 class="hm-todot" id="hm-td">${plural(total, 'thing')} you can do this week</h2>${todoBlock(todoCards, asks, { calm: !fin, sub: true })}` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
   const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;

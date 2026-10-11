@@ -41,11 +41,6 @@ def count_reasons(pg):
     return len(pg.evaluate("[...document.querySelectorAll('main .acard .why, main .why')].map(e => e.innerText).filter(t => /, and .+ (passed it|put it on hold)|and it got one|became law/.test(t))"))
 def card_keys(pg):
     return pg.evaluate("[...document.querySelectorAll('.hm-gn')].map(e => e.dataset.gnKey)")
-# R-046 (10/10 fresh-eyes review): a bill that needs a hearing and has good news is one card, the good news its reason line;
-# no bill is both a good news card and a "needs a hearing" card. Returns the bills that are both (should be none).
-def gn_and_ask(pg):
-    return pg.evaluate("""(() => { const g = new Set([...document.querySelectorAll('.hm-gn .hm-gnt')].map(a => a.getAttribute('href')));
-      return [...document.querySelectorAll('.hm-ask')].map(c => c.querySelector('a[href^="#/bill/"]')?.getAttribute('href')).filter(h => h && g.has(h)); })()""")
 def more_n(pg):
     m = pg.locator('.hm-gnmore')
     if not m.count(): return 0
@@ -67,12 +62,8 @@ with sync_playwright() as p:
     # ---- laptop: more than three results, so three cards and the line beneath ----
     ctx, pg, errs = open_home(br, 'laptop', 1280, 800)
     seen0 = card_keys(pg)   # the seed's cards: already shown on the first visit, so they do not burst again
-    ok(not gn_and_ask(pg), f'laptop, seed: no bill is both a good news card and a needs-a-hearing card: {gn_and_ask(pg)}')
-    reason_txt = pg.evaluate("[...document.querySelectorAll('.hm-ask .hm-askgood')].map(e => e.innerText)")
-    ok(len(reason_txt) >= 1 and all(re.search(r', and .+ (passed it|put it on hold)', t) for t in reason_txt), f'laptop, seed: the needs-a-hearing card with good news says it as its reason line: {reason_txt[:1]}')
     added = pg.evaluate(MORE); pg.reload(); ready(pg); pg.wait_for_timeout(400)
     total = pg.evaluate(TOTAL); reasons = count_reasons(pg); keys = card_keys(pg); nmore = more_n(pg)
-    ok(not gn_and_ask(pg), f'laptop, with more results: no bill is both a good news card and a needs-a-hearing card: {gn_and_ask(pg)}')
     ok(len(keys) <= 3, f'laptop: at most three cards at once: {len(keys)}')
     ok(len(keys) == min(3, total - reasons), f'laptop: the cards fill to three while there are more ({len(keys)} of {total} results, {reasons} as reason lines, {added} added)')
     ok(nmore == total - reasons - len(keys), f'laptop: "N more good news" counts the rest: {nmore} (expected {total - reasons - len(keys)})')
@@ -112,7 +103,6 @@ with sync_playwright() as p:
     ctx, pg, errs = open_home(br, 'phone', 390, 844)
     pg.evaluate(MORE); pg.reload(); ready(pg); pg.wait_for_timeout(400)
     total = pg.evaluate(TOTAL); reasons = count_reasons(pg); keys = card_keys(pg); nmore = more_n(pg)
-    ok(not gn_and_ask(pg), f'phone: no bill is both a good news card and a needs-a-hearing card: {gn_and_ask(pg)}')
     ok(len(keys) == 1, f'phone: one card at a time ({len(keys)})')
     ok(nmore == total - reasons - 1, f'phone: the rest sit behind the line: {nmore} more good news')
     box = pg.locator('.hm-gn').first.bounding_box()
