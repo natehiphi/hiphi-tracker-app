@@ -327,6 +327,30 @@ export function issueOrder(list) {
 // become law): a law first, then a hearing set or a vote passed, then the rest by urgency.
 const NEWS_RANK = s => /became law/.test(s) ? 0 : /governor/i.test(s) ? 1 : /hearing|passed/.test(s) ? 2 : 3;
 const issueNews = i => billsOfIssue(i).filter(b => S.watch.has(b.id)).map(b => newsOf(b)).filter(Boolean).sort((a, b) => NEWS_RANK(a) - NEWS_RANK(b))[0] || '';
+// ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
+// Shown once, with a one-tap Follow; never followed for them. On My issues since R-222 (it was a card on Home), where the
+// issues they follow are. "Seen" is what this browser knew last time it came here: the first time knows everything, so
+// only issues HIPHI takes up later ever count as new.
+const ISSUES_SEEN_KEY = DEMO ? 'hiphi_seen_issues_demo' : 'hiphi_seen_issues';   // the same key Home used, so nothing seen counts as new again
+function newIssues() {
+  if (S.mbNew) return S.mbNew;   // worked out once per visit, so the note stays until they act on it or leave
+  let seen = null; try { seen = JSON.parse(localStorage.getItem(ISSUES_SEEN_KEY) || 'null'); } catch { /* private mode */ }
+  const known = new Set(seen || S.issues.map(i => i.id));
+  const partly = new Set(S.issues.filter(i => S.issueFollows.has(i.id)).flatMap(i => i.categories));
+  S.mbNew = seen ? S.issues.filter(i => !known.has(i.id) && !issueFollowed(i) && i.categories.some(c => partly.has(c) && !S.catFollows.has(c))) : [];
+  try { localStorage.setItem(ISSUES_SEEN_KEY, JSON.stringify(S.issues.map(i => i.id))); } catch { /* private mode */ }
+  return S.mbNew;
+}
+function newIssuesCard() {
+  const list = newIssues().filter(i => !issueFollowed(i)).slice(0, 3); if (!list.length || !S.cats.length) return '';
+  const cat = catOf(list[0].categories.find(c => S.issues.some(x => S.issueFollows.has(x.id) && x.categories.includes(c))) || list[0].category);
+  return `<section class="card mb-newiss" aria-labelledby="mb-ni"><h2 id="mb-ni">${list.length === 1 ? 'A new issue' : 'New issues'} in ${esc(cat?.name || 'your issues')}</h2>
+    <p class="muted small">HIPHI just took ${list.length === 1 ? 'it' : 'them'} up. Follow ${list.length === 1 ? 'it' : 'any'} if you like.</p>
+    <ul class="mb-newlist" role="list">${list.map(i => `<li><a class="mb-newname" href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>
+      ${btn('Follow', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-mb-newfollow': i.id, 'aria-label': `Follow ${i.name}` } })}</li>`).join('')}</ul>
+    ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-mb-newdone': '1' } })}</section>`;
+}
+
 function render() {
   // Coming to this screen afresh (not a redraw after a star press): bills unfollowed last time are gone for good.
   const fresh = !document.querySelector('.mb[data-mbroot]');
@@ -374,7 +398,7 @@ function render() {
     ${!anything && listLine ? '' : `<p class="small muted mb-sub">${off ? `When HIPHI adds its ${nextYear(si)} bills to one of these lists, they show up here.` : 'When HIPHI adds a bill to one of these lists, it shows up here.'}</p>`}
     ${listCards(lists, { where: 'here', mine: true })}</section>` : '';
   const onward = anything ? `<p class="mb-onward">${btn('Browse more issues', { kind: 'secondary', icon: 'search', href: '#/find' })}</p>` : '';
-  return `<div class="mb" data-mbroot>${head}${body}${ownSec}${listSec}${myListsSection()}${onward}</div>`;   // people's own lists (R-013)
+  return `<div class="mb" data-mbroot>${head}${anything ? newIssuesCard() : ''}${body}${ownSec}${listSec}${myListsSection()}${onward}</div>`;   // people's own lists (R-013)
 }
 // Letting go of an issue or a whole category, with Undo (B-5): Undo puts back exactly what was followed before.
 async function letGo(change, said) {
@@ -395,6 +419,11 @@ export default {
   wire() {
     stampSeen(mine()); const root = document.querySelector('.mb'); if (!root) return;
     wireRows(root); wireMyLists(root);
+    root.querySelectorAll('[data-mb-newfollow]').forEach(el => el.onclick = async () => {
+      const i = S.issueById.get(el.dataset.mbNewfollow); if (!i) return;
+      if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
+    });
+    root.querySelectorAll('[data-mb-newdone]').forEach(el => el.onclick = () => { S.mbNew = []; app.render(); });
     root.querySelectorAll('[data-unfollowissue]').forEach(el => el.onclick = () => {
       const i = S.issueById.get(el.dataset.unfollowissue); if (!i) return;
       const whole = (i.categories || [i.category]).filter(c => S.catFollows.has(c)).map(c => catOf(c)?.name).filter(Boolean);

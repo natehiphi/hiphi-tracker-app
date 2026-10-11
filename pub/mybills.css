@@ -151,3 +151,10 @@
 /* The "New:" mark on an issue row (R-067: its style only reached bill rows, so on My issues it was plain grey text) */
 .fd-irow .mb-new { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p700); }
 .fd-irow .mb-new::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--p700); flex: none; }
+
+/* A new issue in a category they partly follow (R-018): on My issues since R-222, under the heading. */
+.mb .mb-newiss { display: flex; flex-direction: column; gap: var(--s8); align-items: flex-start; margin-bottom: var(--s24); }
+.mb .mb-newiss h2 { font-size: var(--t18); }
+.mb .mb-newlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); width: 100%; }
+.mb .mb-newlist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.mb .mb-newname { font-weight: 700; color: var(--n900); min-height: 44px; display: flex; align-items: center; }

@@ -616,21 +616,21 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // the side column leave out whatever they say (A-14).
   const gn = goodNewsBlock(new Set(cards.slice(0, 2).map(x => x.b.id))), wide = wideNow();
   const since = sinceStrip(inCards, gn);
-  // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
-  // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
-  // not move when the person finishes their last card in place.
+  // A bill outside their issues that needs voices shows only when nothing of theirs is open: then it is the one thing on
+  // offer and goes where things to do go. Beside a list of their own it was a second ask (R-222; Find has the rest).
+  // Decided by what is drawn, not by the count, so it does not appear when the person finishes their last card in place.
   const sugInMain = !cards.length && !asks.length;   // (the strip, above, also decided which moments are a card's reason line)
   // The home test (R-135): met where its versions differ, two or more things to do.
   if (cards.length >= 2) abSeen('home');
   const byIssue = armOf('home') === 'by-issue';
-  const sugHtml = sug ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">${sugInMain ? 'A bill that still needs voices' : 'Another bill that needs voices'}</h2>
+  const sugHtml = sug && sugInMain ? `<section class="hm-sec" aria-labelledby="hm-sug"><h2 id="hm-sug">A bill that still needs voices</h2>
       ${sugCard(sug.b, sug.h)}
       ${btn('More bills that need voices', { kind: 'text', iconEnd: 'chevron-right', href: '#/find', cls: 'hm-link' })}</section>` : '';
   // A saved letter whose hearing is drawn below as a full card is left to that card: its main button already says "Finish
   // sending your testimony" (R-189, A-14, A-3). Full cards are the first two either way Home's top is drawn, and the
   // suggestion once followed (before that it leads with Follow). A letter for a bill further down, as one line or folded,
   // keeps its own card, so it is never left unmentioned.
-  const drawn = new Set([...cards.slice(0, 2), ...(sug && S.watch.has(sug.b.id) ? [sug] : [])].map(x => x.h?.id));
+  const drawn = new Set([...cards.slice(0, 2), ...(sugHtml && S.watch.has(sug.b.id) ? [sug] : [])].map(x => x.h?.id));
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
@@ -638,11 +638,10 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
       ${byIssue ? issueBlock(cards, asks) : todoBlock(cards, asks)}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
-      ${sugInMain ? sugHtml : ''}
+      ${sugHtml}
       ${profileLine()}
     </div><div class="side hm-side">
-      ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
-      ${sugInMain ? '' : sugHtml}
+      ${wide ? gn.html : ''}${goLater}
     </div></div>
   </div>`;
 }
@@ -915,7 +914,6 @@ function offView(si) {
     </div><div class="hm-col">
       ${v2 || lead ? '' : readyCard}
       ${winsCard(yr)}
-      ${newIssuesCard()}
       ${profileLine()}
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
@@ -990,46 +988,18 @@ function meetLine() {
   return `<p class="hm-meetline">${icon('map-pin')}<span>${title}${when ? `. ${esc(when)}` : ''}</span></p>`;
 }
 
-// ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
-// Shown once, on Home, with a one-tap Follow; never followed for them. "Seen" is what this browser knew last time:
-// the first visit knows everything, so only issues HIPHI takes up later ever count as new.
-const SEEN_KEY = DEMO ? 'hiphi_seen_issues_demo' : 'hiphi_seen_issues';
-function newIssues() {
-  if (S.hmNew) return S.hmNew;   // worked out once per visit, so the note stays until they act on it or leave
-  let seen = null; try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch { /* private mode */ }
-  const known = new Set(seen || S.issues.map(i => i.id));
-  const partly = new Set(S.issues.filter(i => S.issueFollows.has(i.id)).flatMap(i => i.categories));
-  S.hmNew = seen ? S.issues.filter(i => !known.has(i.id) && !issueFollowed(i) && i.categories.some(c => partly.has(c) && !S.catFollows.has(c))) : [];
-  try { localStorage.setItem(SEEN_KEY, JSON.stringify(S.issues.map(i => i.id))); } catch { /* private mode */ }
-  return S.hmNew;
-}
-function newIssuesCard() {
-  const list = newIssues().filter(i => !issueFollowed(i)).slice(0, 3); if (!list.length || !S.cats.length) return '';
-  const cat = catOf(list[0].categories.find(c => S.issues.some(x => S.issueFollows.has(x.id) && x.categories.includes(c))) || list[0].category);
-  return `<section class="card hm-newiss" aria-labelledby="hm-ni"><h2 id="hm-ni">${list.length === 1 ? 'A new issue' : 'New issues'} in ${esc(cat?.name || 'your issues')}</h2>
-    <p class="muted small">HIPHI just took ${list.length === 1 ? 'it' : 'them'} up. Follow ${list.length === 1 ? 'it' : 'any'} if you like.</p>
-    <ul class="hm-newlist" role="list">${list.map(i => `<li><a class="hm-newname" href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>
-      ${btn('Follow', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-hm-newfollow': i.id, 'aria-label': `Follow ${i.name}` } })}</li>`).join('')}</ul>
-    ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-newdone': '1' } })}</section>`;
-}
-
 // ---------------- for version A's Home (the layout test, R-187) ----------------
 // The test compares how Home is arranged, not what it offers: version A (pub/a/home.js) draws these cards from today's
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
-// letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
+// letter and a first-visit plan's next small thing (a new issue in a category they follow is on My issues, R-222). wireExtras wires them
 // and a first-visit plan's next small thing (onb-later.js), on either Home.
-export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), friend: () => friendCard() };
+export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), phone: () => homeScreenCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireProfileLine(root);
   wireLater(root, () => app.render());
   try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
   root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
   root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
-  root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
-    const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
-    if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
-  });
-  root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
   // Ask a friend, on a bill they acted on (R-205 B4): the sheet, with what they did first; "Not now" for that hearing.
   root.querySelectorAll('[data-hm-askf]').forEach(el => el.onclick = async () => {
     const [bid, hid, kind] = el.dataset.hmAskf.split('|'), b = anyBill(bid), h = anyHearing(hid); if (!b || !h) return;
