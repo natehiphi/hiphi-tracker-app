@@ -9,7 +9,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSe
   pickBill, billRef, billPath, yearPrefix, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
-import { draftName, draftRank, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
+import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
 import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing (R-147; one title by default, R-165)
@@ -121,7 +121,8 @@ function loadSocial(b) {
 // each draft changed: drafted from the committee reports (backend tools/apply_draft_notes.js), edited by staff in Staff
 // v2. Asked for once per bill (public_bill_drafts); the practice copy reads demo/drafts.json. Only drafts up to the
 // bill's current one show, so the practice copy, frozen at 16 March, never shows April's.
-// The names, the order and the loader live in letters.js (R-148), which also checks a saved letter against them.
+// The names, the order and the loader live in letters.js (R-148), which also checks a saved letter against them; the
+// committee and date each note is named by come from the bill's own committee reports (letters.js, draftNotes).
 export { draftName, draftRank };
 function loadDrafts(b) {
   if ((S.blDrafts ??= new Map()).has(b.id)) return;
@@ -131,17 +132,16 @@ function loadDrafts(b) {
     if (rows.length && onBill() && numFromHash() === b.bill_number) app.render();
   }).catch(() => { /* decoration: the page stands without it */ });
 }
+// Draft history (Nate 10/5: "less prominent, and only found if those with technical expertise are looking for it"): the
+// last thing on the page, one quiet closed row. Opened, each note names the committee that made the change and when, the
+// newest first (draftLabel), so it is clear which committee changed what. fold() keeps it open through a redraw only.
 function draftsSection(b) {
   const cur = b.current_version ? draftRank(b, b.current_version) : Infinity;
   const list = (S.blDrafts?.get(b.id) || []).filter(d => draftRank(b, d.version) <= cur).sort((x, y) => draftRank(b, y.version) - draftRank(b, x.version));
   if (!list.length) return '';
-  const [last, ...rest] = list;
-  return `<section class="bl-sec bl-drafts" aria-labelledby="bl-dr-h"><div class="sechead"><h2 id="bl-dr-h">How it has changed</h2></div>
-    <p class="meta bl-drwhy">Each time a committee changes a bill, it gets a new draft. What changed, from the committees’ reports:</p>
-    <p class="bl-drlast"><b>${esc(draftName(last.version))}${last.version === b.current_version ? ', the latest' : ''}:</b> ${esc(last.summary)}</p>
-    ${rest.length ? `<details class="bl-drmore"><summary>${icon('chevron-down', { cls: 'bl-chev' })}<span>Earlier drafts (${rest.length})</span></summary>
-      <ul class="bl-drlist" role="list">${rest.map(d => `<li><b>${esc(draftName(d.version))}:</b> ${esc(d.summary)}</li>`).join('')}</ul></details>` : ''}
-  </section>`;
+  return `<details class="bl-drafts" ${fold(b, 'drafts')}><summary><span class="bl-drsum"><span>Draft history</span><span class="bl-drhint">How committees changed this bill’s text</span></span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
+    <p class="meta bl-drwhy">Each time a committee amends a bill, the Legislature issues a new draft of its text. Newest first.</p>
+    <ul class="bl-drlist" role="list">${list.map(d => `<li><p class="bl-drwho">${d.version === b.current_version ? '<span class="bl-drnow">Latest</span>' : ''}<b>${esc(draftLabel(d))}</b></p><p class="bl-drwhat">${esc(d.summary)}</p></li>`).join('')}</ul></details>`;
 }
 // Following another bill reloads the followed set and drops this one's committee reports; keep them so where the bill
 // stands does not change under the reader.
@@ -943,7 +943,7 @@ function page(num, b) {
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}${tourOffer()}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
-    ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${draftsSection(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div>`;
+    ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
   // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
   // height (bill.css .bl-cols), so the page looks as before.
@@ -954,7 +954,7 @@ function page(num, b) {
       ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
     </aside>
-    <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${draftsSection(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}</div></div></div>`;
+    <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div></div></div>`;
 }
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;

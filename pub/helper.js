@@ -52,7 +52,7 @@ import { flower } from './art.js';
 import { profileAsk, alertButton } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184)
 import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
-import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, keepLetter, forgetLetter } from './letters.js';
+import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
 import { pickTitle, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
@@ -740,7 +740,7 @@ const HIPHI_PAST = { strongly_support: 'strongly supported', support: 'supported
 // adviceOnly: beside the letter and on the bill step, only what to do (the draft's own note was on the first screen).
 function bigWords(c, b, { adviceOnly = false } = {}) {
   return c.big.map(r => r.kind === 'tick' ? (adviceOnly && r.note ? `<li><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</li>`
-      : `<li><b>${esc(draftName(r.version))}:</b> ${esc(sentence(r.summary))}${r.note ? `<span class="hp-advice"><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</span>` : ''}</li>`)
+      : `<li><b>${esc(draftLabel(r))}:</b> ${esc(sentence(r.summary))}${r.note ? `<span class="hp-advice"><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</span>` : ''}</li>`)
     : r.kind === 'position' ? `<li>HIPHI’s position changed. It ${esc(HIPHI_PAST[r.from] || 'took no side on')} the bill when you wrote, and ${esc(r.to ? (posInfo(b)?.text || 'HIPHI').replace(/^HIPHI\s*/, '') : 'takes no side on')} it now. Your letter used HIPHI’s earlier words.</li>`
     : r.kind === 'points' ? '<li>HIPHI changed or took out a talking point you used.</li>'
     : `<li>You now ${r.to === 'oppose' ? 'oppose' : r.to === 'support' ? 'support' : 'have comments on'} this bill. Your letter ${r.from === 'oppose' ? 'opposes' : r.from === 'support' ? 'supports' : 'comments on'} it.</li>`).join('');
@@ -751,7 +751,7 @@ function changesBox(x) {
   if (!c) return `<p class="hp-quiet hp-checking" role="status">${icon('loader-circle')}<span>Checking whether the bill has changed…</span></p>`;
   const read = readBill(b, 'Read the bill as it is now');
   const again = btn('Go over the bill and talking points again', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'again-update' } });
-  const notes = list => list.length ? `<ul class="hp-drafts" role="list">${list.map(n => `<li><b>${esc(draftName(n.version))}:</b> ${esc(n.summary)}</li>`).join('')}</ul>` : '';
+  const notes = list => list.length ? `<ul class="hp-drafts" role="list">${list.map(n => `<li><b>${esc(draftLabel(n))}:</b> ${esc(n.summary)}</li>`).join('')}</ul>` : '';
   const missing = c.missing ? `<p>We haven’t summed up what ${esc(draftName(c.now))} changed yet.${posInfo(b) ? ` ${esc(posInfo(b).text)} the bill as it is now.` : ''}</p>` : '';
   if (c.level === 'big') return `<div class="notice warn hp-again-warn" id="hp-again-warn">${icon('triangle-alert')}<div>
       <p class="strong">What changed</p>
@@ -1031,7 +1031,7 @@ function againNotes(x) {
   const c = x.again && x.check, what = isMail(x) ? 'email' : 'letter';
   return !x.again ? '' : [
     c && c.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><p class="strong">Before you send, check your ${what}:</p><ul class="hp-why-list" role="list">${bigWords(c, x.b, { adviceOnly: true })}</ul></div></div>`
-      : c && c.level === 'changed' && c.since.length ? notice('info', 'info', `Check it against the bill as it is now. ${draftName(c.since[c.since.length - 1].version)}: ${c.since[c.since.length - 1].summary}`)
+      : c && c.level === 'changed' && c.since.length ? notice('info', 'info', `Check it against the bill as it is now. ${draftLabel(c.since[c.since.length - 1])}: ${c.since[c.since.length - 1].summary}`)
       : '',
     x.mentions?.length ? notice('info', 'calendar', `Your ${what} mentions “${x.mentions.join('” and “')}”. ${x.h ? `This hearing is on ${dateLong(x.h.scheduled_at)}` : 'That was the earlier step'}: change it if it’s about the earlier one.`) : '',
     x.askMissing ? notice('info', 'info', `Check the end of your email. For this step it should ask: “${x.askMissing}”`) : '',

@@ -58,7 +58,7 @@ with sync_playwright() as p:
         past_stand(pg)
         t = body(pg)
         ok('Your letter needs a check' in t and 'Your letter is ready' not in t and 'Feb 18' in t and 'Fri, Mar 20' in t, f'{tag}: amber: "Your letter needs a check", when they wrote and the next hearing')
-        ok('What changed' in t and 'House draft 2' in t and 'HIPHI’s advice' in t, f'{tag}: the ticked draft turns it amber, with what changed and HIPHI’s advice')
+        ok('What changed' in t and 'draft HD 2 (Mar 6)' in t and 'HIPHI’s advice' in t, f'{tag}: the ticked draft turns it amber, with what changed and HIPHI’s advice')
         ok('Testimony due Wed, Mar 18 at 9:30 AM' in t, f'{tag}: the deadline carries its date, so two weekdays are never side by side')
         ok('Part 2 of 4' in pg.locator('#hp-dlg .hp-count').inner_text(), f'{tag}: four parts: where you stand, ready, the letter, the Capitol (no account step)')
         f = foot(pg)
@@ -87,7 +87,7 @@ with sync_playwright() as p:
         # ---- the calm case: no tick, so a new draft is a blue note; the same draft is a green line ----
         c, pg, errs = ctx_for(plant(), route=no_tick); open_again(pg)
         t = body(pg)
-        ok('The bill has changed since you wrote this' in t and 'House draft 2' in t and 'needs a check' not in t and 'Your letter is ready' in t, f'{tag}: an unticked new draft is a calm note with what changed')
+        ok('The bill has changed since you wrote this' in t and 'draft HD 2 (Mar 6)' in t and 'needs a check' not in t and 'Your letter is ready' in t, f'{tag}: an unticked new draft is a calm note with what changed')
         ok('Use my letter' in foot(pg), f'{tag}: and "Use my letter" leads')
         c.close()
         c, pg, errs = ctx_for(plant(draft='HD2'), route=no_tick); open_again(pg)
