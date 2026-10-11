@@ -321,6 +321,10 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      "You're following ..." over it (the follow's toast comes after the sheet closes); after a letter it sits right under
      the "Mahalo", above "What happens next". No second ask on Home after a skip (Nate). The old "Get alerts" ask is the
      test `save`'s second version, off (backend 148; `?ab=save.alerts` shows it); `tests/profile_ask.py` checks both.
+     Once the first visit's ask is answered or skipped, that screen turns into the **"Mahalo!" page** (`stepThanks` in
+     `pub/start-rest.js`; the plans' sign-up the same in `pub/onb.js`): same address, so Back finds it, the flower opens
+     once, and it waits for **"Next: How a Bill Becomes Law"**. It is a page, not the 1.5 s moment (R-140, Nate 11 Oct:
+     "too quick... a permanent page that a user hits next on"); the first action and a law keep the moment (fx.js celebrate).
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 

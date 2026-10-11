@@ -5,8 +5,8 @@
 #   page; the box says the number will be confirmed by text, never "reply YES" (R-176). The practice copy without &codes=0
 #   shows codes on (R-176, Nate 10/5: "Code everywhere").
 # Part B, the practice copy with codes on (&codes): the first visit's box texts a code, the box becomes the code field
-#   (Confirm; a short code, a new code too soon, a different number), six digits send it, and the "Mahalo!" says alerts
-#   are on and the person is signed in; Back says "You're all set". More's "Sign in" -> "Sign in" by number -> code ->
+#   (Confirm; a short code, a new code too soon, a different number), six digits send it, and the "Mahalo!" page says
+#   alerts are on (R-140, Nate 11 Oct: a page that waits for Next); Back from the story finds it again. More's "Sign in" -> "Sign in" by number -> code ->
 #   "Code accepted". More > Get alerts and the profile's invitation take the code too. Home's card. The privacy page.
 # Part C, the live page with Supabase answered by the test (nothing reaches a phone or the database): Supabase says phone
 #   sign-in is on; the code signs in without restarting the page; the account loads (ensure_public_user, my_profile_v2),
@@ -36,6 +36,9 @@ def until(p, js, t=30000):
     except Exception: return False
 def moment(p):
     return p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
+# The "Mahalo!" page the alerts step turns into (R-140, Nate 11 Oct), its words with plain spaces.
+def thanks(p):
+    return p.evaluate("document.querySelector('.st-thanks')?.innerText || ''").replace('\xa0', ' ')
 def to_alerts(p, extra=''):
     p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=20000); p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
@@ -97,16 +100,16 @@ with sync_playwright() as pw:
     p.click('[data-alnumber]'); p.wait_for_timeout(500)
     ok(p.locator('#st-a-phone').count() == 1 and p.input_value('#st-a-phone') == '(808) 555-0123' and p.locator('#st-send', has_text='Text me a code').count() == 1 and 'Save your profile' in p.inner_text('#st-h'), 'a different number: the number box again, with the number in it')
     p.fill('#st-a-phone', '808 555 0177'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000)
-    p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=6000); p.wait_for_timeout(250)   # R-140: the moment leaves by itself at 1.5 s
-    m = moment(p)
-    ok('Mahalo!' in m and 'Your profile is saved, and text alerts are on for (808)\u00a0555-0177.' in m and 'signed in' not in m, f'six digits send it by themselves; the "Mahalo!" says the profile is saved and alerts are on (R-188): {m[:160]!r}')
+    p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=6000); p.wait_for_timeout(250)   # R-140, Nate 11 Oct: a page that waits for Next
+    m = thanks(p)
+    ok('Mahalo!' in m and 'Your profile is saved.' in m and 'Text alerts are on for (808) 555-0177.' in m and 'signed in' not in m and moment(p) == '', f'six digits send it by themselves; the "Mahalo!" page says the profile is saved and alerts are on (R-188): {m[:160]!r}')
     shot(p, 'B2_mahalo')
     saved = json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or 'null')
     ok(saved and saved.get('phone') == '8085550177' and saved.get('confirmed') is True, 'this browser keeps the number, confirmed (the sandbox copy)')
-    (p.click('#fx-mgo') if p.locator('#fx-mgo').is_visible() else None); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
+    p.click('.actionbar [data-stnext]'); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
     p.click('[data-stback]'); p.wait_for_timeout(1200)
     t = text(p)
-    ok('You’re all set' in t and 'Text alerts are on for (808) 555-0177' in t and 'reply YES' not in t, 'Back: "You’re all set", alerts on, no YES')
+    ok(p.inner_text('#st-h') == 'Mahalo!' and 'Text alerts are on for (808) 555-0177' in t and 'reply YES' not in t, 'Back: the "Mahalo!" page again, alerts on, no YES')
     shot(p, 'B3_back_set')
     c.close()
 
@@ -154,7 +157,7 @@ with sync_playwright() as pw:
     # Home's card after a skipped first visit
     c, p = ctx(b)
     to_alerts(p, '&codes&fv=full&end=today')
-    p.click('[data-stskip]'); p.wait_for_selector('#fx-mgo', timeout=5000); p.click('#fx-mgo'); p.wait_for_timeout(800)
+    p.click('[data-stskip]'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.click('.actionbar [data-stnext]'); p.wait_for_timeout(800)   # the "Mahalo!" page's Next (R-140)
     p.goto(BASE + '?demo=1&codes#/'); p.wait_for_timeout(1500); p.evaluate("localStorage.setItem('hiphi_wiz_demo', JSON.stringify({ ...JSON.parse(localStorage.getItem('hiphi_wiz_demo') || '{}'), finale: true }))")
     p.reload(); p.wait_for_timeout(3000)
     if p.locator('.nudgecard #ng-phone').count():
@@ -236,8 +239,9 @@ with sync_playwright() as pw:
     ok('6-digit code' in text(p), 'live: the box says a code comes first')
     p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000)
     ok(any(k == 'otp' for k, _ in calls) and not any(k.endswith('rpc/text_signup') for k, _ in calls), 'Text me asks for a code; nothing is kept before it')
-    p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=10000); p.wait_for_timeout(800)
-    ok('Your profile is saved, and text alerts are on for (808)\u00a0555-0123.' in moment(p) and p.url.split('#')[1].startswith('/start/'), 'the "Mahalo!" says the profile is saved and alerts are on (R-188), and the visit goes on (no restart)')
+    p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=10000); p.wait_for_timeout(800)
+    m = thanks(p)
+    ok('Your profile is saved.' in m and 'Text alerts are on for (808) 555-0123.' in m and p.url.split('#')[1].startswith('/start/'), f'the "Mahalo!" page says the profile is saved and alerts are on (R-188), and the visit goes on (no restart): {m[:120]!r}')
     sign = [json.loads(d or '{}') for k, d in calls if k == 'POST rpc/text_signup']
     ok(sign and sign[-1].get('p', {}).get('consent') == 't2' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t2 words ({sign[-1] if sign else None})')
     links = [k for k, _ in calls if k == 'POST rpc/text_link']

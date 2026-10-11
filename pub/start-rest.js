@@ -11,10 +11,10 @@ import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, burst, celebrate, later, reduced, petals } from './fx.js';
+import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -335,65 +335,74 @@ function stepYou(step) {
 // ================= Your issues, 3: alerts on them (R-146) =================
 // Nate 10/4: "Let's move the "sign up for alerts" option to right after selecting issues, also include a phone number
 // option which should be more prominent." The visit's one ask is here now, right after the issues are followed and
-// before the "Mahalo!" that celebrates them (his pick), so the moment celebrates both: a mobile number first, email as a
-// link under it (pub/alerts.js, the same box as Home's and More's). Skip, or either kind given, plays the "Mahalo!" and
-// goes on. Back from the next screen shows what was given, with a way to change it. It used to sit on "Coming up on your
+// before the "Mahalo!" that celebrates them (his pick), so the "Mahalo!" celebrates both: a mobile number first, email as
+// a link under it (pub/alerts.js, the same box as Home's and More's). Skip, or either kind given, turns this screen into
+// the "Mahalo!" page (stepThanks), which Back from the next screen finds again, with a way to change what was given. It
+// used to sit on "Coming up on your
 // issues", after the story and the address, where most people never reached it.
 function stepAlerts(step) {
   const off = isOff(), n = followedIssues().length, t = textSaved(), sent = mailSent();
+  if (!S.alertEdit && (S.stThanks || t || sent)) return stepThanks(step);
   // "your 2&nbsp;issues": the heading never breaks with "issues" alone on its line (the review, A-19).
   const what = n ? (n === 1 ? 'your issue' : `your ${n}&nbsp;issues`) : 'your bills';
-  const done = !S.alertEdit && (t || sent);
   // "Save your profile" (R-184): the same box, named for what a number or an email makes; "Get alerts on your issues" is
   // the test 'save''s second version. Met here only while the box shows.
-  const prof = profileAsk(); if (!done) abSeen('save');
-  const body = done
-    ? `<section class="card st-sent st-alertdone" aria-labelledby="st-al-t"><span class="st-ilead">${icon(t ? 'message-square' : 'mail-check')}</span>
-        <div class="st-sentbody" id="st-al-t" tabindex="-1">${alertDoneHTML(t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed, demo: DEMO } : { kind: 'email', email: sent, demo: DEMO, later: true },
-          { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', t ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>`
-    : `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
+  const prof = profileAsk(); abSeen('save');
+  const body = `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
   // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
   // has to make sense on its own (the review, 10/4). In the profile ask (R-188) the code step says what the code does for
-  // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted"), and
-  // Back, once a number or email was given, has no lede: the card under the heading says the rest (it showed the old
-  // alerts reasons, A-14).
-  const lede = !done && codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
-    : prof ? (done ? '' : esc(profileLede('first', { off, n })))
+  // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted").
+  const lede = codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
+    : prof ? esc(profileLede('first', { off, n }))
     : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`;
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
-    <h1 class="hero" id="st-h">${done ? (t?.confirmed ? 'You’re all set' : 'You’re almost set') : codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
+    <h1 class="hero" id="st-h">${codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
     ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     body);
 }
-// The first success: a moment that fills the screen (C-7). It celebrates the issues just followed and, when one was given,
-// how we'll reach them. Once a visit; a shared bill's visit has no "Mahalo!" (its follow got a small burst on "Follow this
-// issue?"). `then` moves the flow on, and it runs FIRST (R-140, fix 10/10): the moment plays over the next screen, once that
-// screen has slid in, so the button under it is that screen's own Next. Played over the old screen, its bottom bar stayed
-// live under the veil, and a tap on "Text me a code" went back to "Save your profile" with its error.
-function mahalo(then, r = null) {
+// The first success: the "Mahalo!" page (C-7). It celebrates the issues just followed and, when one was given, how we'll
+// reach them. It was a moment over the next screen that left on its own in 1.5 s (R-140, 10/10); Nate 11 Oct: "too
+// quick. Maybe it should be a permanent page that a user hits next on." So it is this step's own answer now: a yes, a code
+// or Skip turns the alerts screen into it (same address, so Back from the next screen finds it), the flower opens once
+// as it arrives, and it stays until Next, whose words name the next part (C-6). The card under it is the one Back used
+// to show ("You're all set"): the number or email, its small print, and "Use a different number".
+// A shared bill's visit has no "Mahalo!" (its follow got a small burst on "Follow this issue?"), so it goes straight on.
+function thanksWords(r) {
   const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
-  if (wiz().via || S.mahaloShown) { then(); return; }
-  S.mahaloShown = true;
-  // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it.
-  // The profile ask (R-188): the screen asked "Save your profile", so once the code has proven the number the answer starts
-  // by saying it was saved (as the card on Back does, alerts.js alertDoneHTML); being signed in is what a saved profile
-  // means, so it is not said again. A number not yet confirmed, and an email, keep "Almost set" and "to turn on alerts",
-  // the words every screen uses for them (D1-4). The number never breaks across lines (the review: "(808) / 555-0123").
-  const told = r?.kind === 'phone' && r.confirmed ? (profileAsk() ? `Your profile is saved, and text alerts are on for ${fmtPhone(r.phone).replace(' ', '\u00a0')}.` : `Text alerts are on for ${fmtPhone(r.phone)}${r.demo ? '.' : ', and you’re signed in with it.'}`)
-    // Not confirmed yet: "Almost set", the words every screen uses for it (alerts.js alertStatus, D1-4). It said "Then alerts
-    // start.", which read as done.
-    : r?.kind === 'phone' ? almostLine(fmtPhone(r.phone))
-    : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
-  // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
-  // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
-  const words = { title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
-    small: told || (off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`),
-    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law' };
-  afterMove(then(), () => celebrate(words));
+  return { title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
+    small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`,
+    // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
+    // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
+    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law',
+    // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it. Not confirmed yet,
+    // and an email, keep "Almost set" and "to turn on alerts", the words every screen uses for them (D1-4).
+    given: !!(r && (r.kind === 'phone' || r.kind === 'email')) };
+}
+// What was given: this visit's answer if it was a number or an email, else what the page already holds (Back, a reload).
+function thanksGiven() {
+  const r = S.stThanks, t = textSaved(), sent = mailSent();
+  if (r && (r.kind === 'phone' || r.kind === 'email')) return r;
+  return t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed, demo: DEMO } : sent ? { kind: 'email', email: sent, demo: DEMO } : null;
+}
+function stepThanks(step) {
+  const r = thanksGiven(), W = thanksWords(r);
+  const card = r ? `<section class="card st-sent st-alertdone" aria-label="${r.kind === 'phone' ? 'Your text alerts' : 'Your email'}"><span class="st-ilead">${icon(r.kind === 'phone' ? 'message-square' : 'mail-check')}</span>
+      <div class="st-sentbody">${alertDoneHTML(r.kind === 'phone' ? r : { ...r, later: true },
+        { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>` : '';
+  // The flower opens once, as the page arrives; a redraw of the same page (Back, a hearing landing) shows it open.
+  const fresh = !S.stThanksSeen; S.stThanksSeen = true;
+  return shell(`st4 st-alertspage st-thanks${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}${bloom()}
+    <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(W.title)}</h1>
+    <p class="st-thsub">${esc(W.sub)}</p><p class="lede">${esc(W.small)}</p>`,
+    card);
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false;
-  mahalo(() => goStep(step, step + 1), r);
+  if (wiz().via) { goStep(step, step + 1); return; }
+  S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
+  // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
+  // (the button that had it, "Text me a code" or "Confirm", is gone).
+  afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
 }
 
 // ================= Stay connected, 2: coming up on your issues =================
@@ -812,10 +821,13 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
       await commitIssues(m);
       track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
-      // The alerts ask comes next, and the "Mahalo!" after it (R-146). With nothing to ask (signed in, already told us how
-      // to reach them), the "Mahalo!" plays now and the alerts screen is passed over.
+      // The alerts ask comes next, and the "Mahalo!" page after it (R-146, R-140). With nothing to ask (signed in, already
+      // told us how to reach them), the alerts screen is the "Mahalo!" page at once, with no ask on it (noAsk). A shared
+      // bill's visit has no "Mahalo!" and passes the screen over.
       if (askAlerts()) { goStep(step, step + 1); return; }
-      mahalo(() => goStep(step, step + 2));
+      if (wiz().via) { goStep(step, step + 2); return; }
+      S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+      goStep(step, step + 1);
     };
   }
 
@@ -894,7 +906,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
 
   if (name === 'alerts') {
     // The visit's one alerts ask, so Home will not ask again (C-3); once drawn it stays in the flow (redirectFor).
-    S.nudge = null; S.nudgedThisVisit = true; S.alertsShown = true;
+    // A "Mahalo!" page reached with nothing asked (noAsk, above) does not count as the ask: the email-ask test's later ask
+    // (R-135) must still come.
+    if (!S.stThanks?.noAsk) { S.nudge = null; S.nudgedThisVisit = true; }
+    S.alertsShown = true;
     wireAlertForm($('#st-aform'), { pfx: 'st-a', source: 'first_visit', onDone: r => {
       if (r.kind === 'email') S.stMail = { email: r.email, name: S.stMail.name || '', sent: r.email, demo: !!r.demo };
       track(name, 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
@@ -906,7 +921,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       else { S.alertMode = 'phone'; S.alertDraft.phone = fmtPhone(textSaved().phone); }
       app.render(); requestAnimationFrame(() => { const i = document.getElementById(`st-a-${S.alertMode}`); if (i) { i.focus(); i.select(); } });
     });
-    const nb = $('[data-stnext]'); if (nb && !$('#st-aform')) nb.onclick = () => { track(name, 'next'); leaveAlerts(step); };
+    // The "Mahalo!" page's Next (the answer was counted when it was given; a page drawn on Back counts its Next).
+    const nb = $('[data-stnext]'); if (nb && !$('#st-aform')) nb.onclick = () => { if (back) track(name, 'next'); goStep(step, step + 1); };
   }
 
   if (name === 'done') {
@@ -958,7 +974,7 @@ export function barStep(name, step, off) {
     case 'soon': return endHome() ? bar1(GO_HELP) : waysWaiting()
       ? `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stnext': '1' } })}</div>` : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
-    case 'alerts': { if (!S.alertEdit && (textSaved() || mailSent())) return bar1('Next');
+    case 'alerts': { if (!S.alertEdit && (S.stThanks || textSaved() || mailSent())) return bar1(thanksWords(thanksGiven()).go);
       const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
     case 'done': return bar1(GO_HELP, 'arrow-right', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');

@@ -186,8 +186,9 @@ if (!window.__moFrame) {
     tile.click(); await sleep(200);
     F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
     F.click('[data-stnext]'); await F.wait('.st-alertspage'); await F.quiet();
-    // The "Mahalo!" moment leaves on its own within 1.5 s and moves on (fx.js celebrate), so the walk just waits for it (R-140).
-    F.click('[data-stskip]'); await F.wait('.lx-count'); await F.quiet();
+    // Skip turns the alerts screen into the "Mahalo!" page, which waits for Next (R-140, Nate 11 Oct).
+    F.click('[data-stskip]'); await F.wait('.st-thanks'); await F.quiet();
+    F.click('[data-stnext]'); await F.wait('.lx-count'); await F.quiet();
     for (let k = 2; k <= 3; k++) { F.click('[data-stnext]'); await F.wait(() => (F.$('.lx-count')?.textContent || '').startsWith(String(k))); await F.quiet(); }
     F.click('[data-stnext]'); await F.wait('[data-staddr]'); await F.quiet();
     F.click('[data-stskip]'); await F.wait('.st-soonpage'); await F.quiet();
@@ -206,17 +207,16 @@ if (!window.__moFrame) {
         if (!F.$('.st-tile')) { (await F.mod('./pub/kernel.js')).app.go('#/start/1'); await F.wait('.st-tile[aria-pressed="true"]'); await F.quiet(); }
         F.mark(); F.click('[data-stnext]');
       } },
-    { id: 'mahalo', where: 'First visit, after the first follow', name: '“Mahalo!”', code: 'fx.celebrate()', about: 'up to 1.5 s, then it leaves on its own; no wait',
-      what: 'Fills the screen once the first issues are followed, for up to 1.5 s. A tap, a key or a scroll ends it at once, its button is there from the first frame, and the words stay as a toast. A law passed uses it too.',
+    { id: 'mahalo', where: 'First visit, after the alerts ask', name: '“Mahalo!” page', code: 'fx.bloom() on start-rest.js stepThanks', about: 'the flower opens in about 0.7 s; the page waits for Next',
+      what: 'Once the alerts screen is answered or skipped, it turns into the “Mahalo!” page: the flower opens once and the words rise in, and it stays until Next (Nate 11 Oct: the 1.5 s moment was too quick). The first action sent and a law passed keep the 1.5 s moment (fx.celebrate).',
       link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
       ready: F => F.$('.st-tile'),
       prep: async F => { F.click('.st-tile'); await sleep(200); F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
         F.click('[data-stnext]'); await F.wait('.st-alertspage'); await F.quiet(); },
-      // The alerts screen's own way out (start-rest.js leaveAlerts), so the words are the app's.
+      // The alerts screen's own way out (start-rest.js leaveAlerts), so the words are the app's; again, the page arrives anew.
       play: async F => {
-        const R = await F.mod('./pub/start-rest.js'), K = await F.mod('./pub/kernel.js'), m = F.d.getElementById('fx-moment');
-        if (m) { m.hidden = true; void m.offsetWidth; }
-        K.S.mahaloShown = false; F.mark(); R.leaveAlerts(3);
+        const R = await F.mod('./pub/start-rest.js'), K = await F.mod('./pub/kernel.js');
+        K.S.alertEdit = false; F.mark(); R.leaveAlerts(3);
       } },
     { id: 'road', where: 'First visit, “A bill’s story”', name: 'The bill’s road', code: 'lessons.js (frame by frame)', about: 'up to about 1.2 s',
       what: 'On Next, the person’s own bill travels its real road; each stop ticks as it passes, then “is here”.',

@@ -42,6 +42,8 @@ def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
     for _ in range(30):
         if p.locator('.st-soonpage').count(): return True
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
+        # the "Mahalo!" page after the alerts step waits for its own Next (R-140, Nate 11 Oct); its words are not the story's
+        if p.locator('.st-thanks').count(): p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1200); continue
         if p.locator('#st-addr').count(): ok(False, 'the first visit never asks for an address (R-232)')
         if p.locator('.actionbar [data-stnext]', has_text='Next: ').count(): S['go'] = p.locator('.actionbar [data-stnext]').inner_text().strip()
         loc = p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')

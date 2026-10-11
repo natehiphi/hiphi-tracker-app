@@ -88,17 +88,17 @@ with sync_playwright() as pw:
     ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Save your profile' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
     std(p, 'alerts', axe=True); shot(p, 'p_alerts')
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(250)
-    # The first success: a moment that fills the screen for up to 1.5 s and leaves by itself; nothing waits for a tap (C-7,
-    # A-10; R-140, Nate 10/5). Its words stay as a toast, and its button is there from the first frame.
-    p.wait_for_timeout(200)
-    ok(p.locator('#fx-moment:not([hidden]) [role=status]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
-    ok('We sent a link to leilani@example.com' in p.inner_text('#fx-moment'), 'the "Mahalo!" says where the link went (C-6)')
-    ok(p.locator('#fx-mgo').is_visible(), 'its next button is there at once (R-140)')
-    shot(p, 'p_moment')
-    p.wait_for_timeout(1700); ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'the moment has left on its own (R-140: within 1.5 s)')
-    ok('Mahalo' in p.evaluate("document.querySelector('#toast')?.innerText || ''"), 'its words stay as a toast')
-    p.wait_for_timeout(1500)
+    at = p.evaluate('location.hash'); p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click()
+    # The first success: the alerts screen turns into the "Mahalo!" page, at the same address (C-7). It was a moment that
+    # left by itself in 1.5 s (R-140, 10/5); Nate 11 Oct: "too quick", so it is a page that waits for Next.
+    p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
+    ok(p.inner_text('#st-h') == 'Mahalo!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
+    ok('Link sent to leilani@example.com' in p.inner_text('.st-thanks'), 'the "Mahalo!" says where the link went (C-6)')
+    ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: How a Bill Becomes Law', 'its Next is there at once and names what follows (C-6, R-186)')
+    std(p, 'mahalo', axe=True); shot(p, 'p_mahalo')
+    p.wait_for_timeout(3000)
+    ok(p.locator('.st-thanks #st-h').count() == 1 and p.evaluate('location.hash') == at, 'it is still there after 3 s: it moves on only with Next (R-140, Nate 11 Oct: a page that waits for Next)')
+    p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1500)
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
     # "Where do you stand?" left the first visit (R-053, 9/26): the answer changed nothing the person saw next (C-13).
@@ -395,7 +395,8 @@ with sync_playwright() as pw:
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(3600)   # the moment leaves on its own (R-140)
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_selector('.st-thanks #st-h', timeout=8000)
+    p.wait_for_timeout(400); p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1800)   # the "Mahalo!" page waits for its Next (R-140, Nate 11 Oct)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', f"the first visit on a laptop reaches the story ({p.evaluate('location.hash')})")
     for k in (1, 2, 3):
         if k > 1: p.locator('[data-stnext]').click(); p.wait_for_timeout(1900)
