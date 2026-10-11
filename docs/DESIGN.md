@@ -197,8 +197,13 @@ others do not. That is disharmony with a measurable cause. See `DESIGN-AUDIT.md`
 ### A-10 Motion is short, purposeful and optional
 
 Screen changes take 200-300 ms and slide the way the person is going. Feedback on a tap takes
-150-250 ms. A celebration may play for up to about 2 seconds and waits for the person to continue.
-Teaching scenes move only when the person taps, and each step's movement is over within about 4
+150-250 ms. **A celebration never blocks (R-140, Nate 10/5: "celebratory but also encourage continuing... shouldn't
+be roadblocks"):** the next button stays visible and works during every celebration, and no celebration disables input
+or makes the person wait. A small burst (a step done, a pick) is under 0.7 s, flies up and out just above the thing it
+came from, and never covers the next button. A full-screen moment (C-7 only: the first follow, the first action sent, a
+bill becoming law) leaves on its own within 1.5 s, and a tap, key or scroll leaves it at once; a tap on the button under
+it does that button's job. Its words stay for 4 s as a toast. Under Reduce Motion nothing moves: the words are there and
+the thing that would have burst takes a brief colour change (`fx.js` tint()). Teaching scenes move only when the person taps, and each step's movement is over within about 4
 seconds, in beats that follow its caption. Nothing moves by itself for more than 5 seconds. Under
 Reduce Motion everything still works, with no movement. (Rewritten 9/21 for R-023, Nate's decision 5;
 `pub/fx.js` holds the shared pieces.) **Motion is never the only way something is said:** whatever a
@@ -615,9 +620,12 @@ how to get back here. After: the same information on screen, not only in the ema
 ### C-7 Celebrate each real step, in proportion
 
 A small win gets a small burst on the thing just done: a stance taken, a right answer, an address
-found, an email sent, a part of the first visit finished. The first followed issue and the first
-action sent get a moment that fills the screen and waits for Continue (in the first visit the follow's
-moment plays once the alerts screen right after it is answered or skipped, R-146). The end of the first visit is
+found, an email sent, a part of the first visit finished. The first followed issue, the first action sent
+and a bill becoming law get a moment that fills the screen for at most 1.5 s and never blocks (A-10: any tap, key or
+scroll ends it, its button is there from the first frame, and it leaves on its own; in the first visit the follow's
+moment plays once the alerts screen right after it is answered or skipped, R-146). Anything else that would fill the
+screen is a burst instead (R-140: the session's end on Home is one, with a toast that offers "See your session").
+The end of the first visit is
 the peak: the recap of everything the person did, with the petals and the flowers. Orange is the
 celebration colour and is used for these and almost nowhere else. Never a streak counter, a badge, a
 score, or a progress bar that implies homework. (Rewritten 9/21 for R-023, Nate's decision 4: "add

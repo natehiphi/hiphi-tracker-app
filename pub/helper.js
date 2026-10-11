@@ -1498,11 +1498,13 @@ async function confirmSent() {
   x.askShown = !!S.nudge;
   if (x.first) requestAnimationFrame(burst);
 }
-// First testimony ever: 16 hibiscus burst from behind the title over 900 ms, once, never with reduce-motion.
-// Inside the dialog, because a modal dialog sits above everything else on the page.
+// First testimony ever: 16 hibiscus burst from behind the title over 900 ms, once. Under reduce-motion the title takes a
+// brief colour change instead (R-140: the words and a colour, nothing moves). Inside the dialog, because a modal dialog
+// sits above everything else on the page. The burst takes no tap, so the dialog's buttons work throughout.
 function burst() {
-  if (reduceMotion() || !dlg) return;
+  if (!dlg) return;
   const t = dlg.querySelector('#hp-done-t'); if (!t) return;
+  if (reduceMotion()) { t.classList.add('fx-tint'); setTimeout(() => t.classList.remove('fx-tint'), 600); return; }
   const r = t.getBoundingClientRect(), box = document.createElement('div');
   box.className = 'burst'; box.setAttribute('aria-hidden', 'true');
   box.style.left = `${Math.round(r.left + r.width / 2)}px`; box.style.top = `${Math.round(r.top + r.height / 2)}px`;

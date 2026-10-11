@@ -394,7 +394,7 @@ function wireRoad({ step, $, $$ }) {
     busy(nb, 'Following…');
     try { await setFollows({ issuesOn: ids }); wizSet({ followedIssues: ids }); welcome(); } catch (e) { console.error(e); }
     track('road', 'next', { counts: { issues: ids.length } });
-    burst(nb, 12, 48); later(() => goStep(step, step + 1), 420);
+    burst(nb, 12, 48); goStep(step, step + 1);   // the petals play over the move on: nothing waits for them (R-140)
   };
 }
 function barRoad() {

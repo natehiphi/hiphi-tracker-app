@@ -53,7 +53,7 @@ with sync_playwright() as p:
                 if phone and main.count():
                     pg.fill('#st-a-phone', '(808) 555-0123'); main.click(); pg.wait_for_timeout(1200)
                     # The code (R-155; the practice copy shows it by default since R-176): six digits send themselves.
-                    if pg.locator('#st-a-code').count(): pg.type('#st-a-code', '123456'); pg.wait_for_timeout(1500)
+                    if pg.locator('#st-a-code').count(): pg.type('#st-a-code', '123456'); pg.wait_for_timeout(300)
                     m = pg.locator('#fx-moment:not([hidden])')
                     ST[plan]['set'] = m.count() == 1 and 'Save our number as HIPHI' in m.inner_text() and 'YES' not in m.inner_text()
                 elif skip.count(): skip.click()

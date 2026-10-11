@@ -1097,14 +1097,15 @@ export default {
       try { localStorage.setItem(MSEEN_KEY, JSON.stringify([...m].slice(-500))); } catch { /* private mode: shown again next visit */ }
       if (law) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(law.b) ? 'was adopted' : 'became law'}`, sub: `${nick(law.b) || spaced(law.b.bill_number)}. Mahalo for speaking up.`, go: 'Continue' }), 400);
     }
-    // One full-screen moment a visit: a law first; the session's end waits for the next visit then.
+    // The session's end is said once, between sessions. It is not a full-screen moment (C-7 keeps those for the first follow,
+    // the first action and a law; R-140, 10/10): a small burst on Home's heading and a toast that stays 10 s, with
+    // "See your session" on it. Nothing waits for it, and it never covers the page.
     const rm = S.hmRecapMoment; S.hmRecapMoment = null;
-    // Only its main button opens the session page; Not now, Escape and a tap outside stay on Home (B-4, the review 9/30).
     if (rm && !law) { try { localStorage.setItem(RMOM_KEY, String(rm.yr)); } catch { /* private mode */ }
-      let go = false;
-      setTimeout(() => { celebrate({ title: `The Legislature’s ${rm.yr} session is over`, sub: rm.said, go: 'See your session', alt: { label: 'Not now', act: () => {} } },
-        () => { if (go) app.go('#/recap'); });
-        document.getElementById('fx-mgo')?.addEventListener('click', () => { go = true; }, { capture: true }); }, 400); }
+      setTimeout(() => {
+        burst(root.querySelector('h1'));
+        toast(`The Legislature’s ${rm.yr} session is over. ${rm.said}`, { yay: true, also: { label: 'See your session', action: () => app.go('#/recap') } });
+      }, 400); }
     fitSide();
     const side = root.querySelector('.cols > .hm-side');
     if (side && window.ResizeObserver) { sideWatch?.disconnect(); sideWatch = new ResizeObserver(fitSide); sideWatch.observe(side); }
