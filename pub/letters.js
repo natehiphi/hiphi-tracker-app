@@ -25,7 +25,7 @@ const all = () => readMe().letters || {};
 const yearOf = b => b?.session_year || sessionInfo().yr;
 const ok = L => !!L && L.v === 1 && typeof L.bill === 'string';
 
-// ---- the drafts and their notes (shared with the bill page's "How it has changed") ----
+// ---- the drafts and their notes (shared with the bill page's "Draft history") ----
 const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
 export const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]}` : v; };
 // The order drafts come in: the bill's own chamber first, then the other, then a floor draft, then conference.
@@ -44,6 +44,10 @@ export function draftNotes(b) {
   })().catch(e => { cache.delete(b.id); throw e; }));
   return cache.get(b.id);
 }
+// The name a draft's note goes under, the same on the bill page and in a letter's check: the plain draft name ("Senate
+// draft 2"). The committee and date are not used: the public data does not carry them, so the names stay the same on the
+// live site and in the practice copy.
+export const draftLabel = n => draftName(n.version);
 
 // ---- the letters ----
 // Two kinds, one of each per bill, the newest (R-153, migration 126): 'testimony' (a letter to a committee, kept under the
