@@ -106,9 +106,10 @@ with sync_playwright() as pw:
     ok(re.search(r'where do you stand', text(p), re.I) is None and p.locator('[data-ststance]').count() == 0, f"no stance screen after the issues ({p.evaluate('location.hash')})")
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'the story of a bill comes straight after "Mahalo!"')
     # How a bill becomes law (R-062, Nate 9/29): ONE page in three stages, walked with the page's own Next: the bill itself,
-    # its road to where it is, and why speaking up can help (a choice of four, each showing what CAN happen). The drawing and
-    # the caption change in place; every word of a stage is visible when it shows (C-12); nothing but the four story
-    # choices can be pressed, and they are not the app's buttons (A-12).
+    # its road to where it is, and the road again with "Will you speak up on HB 2121 this week?" and two doors, each showing
+    # what CAN happen (R-219, Nate 10/11: "Go with version 1, the road"). The drawing and the caption change in place; every
+    # word of a stage is visible when it shows (C-12); nothing but the two doors (and, after a pick, the other door to try)
+    # can be pressed, and they are not the app's buttons (A-12).
     STAGE = "document.getElementById('lx-story')?.dataset.stage || ''"
     CAP = "document.getElementById('lx-cap')?.innerText || ''"
     DRAW = "[...document.querySelectorAll('#lx-story .lx-lay' + (document.getElementById('lx-story')?.dataset.stage || '') + ' text')].map(t => t.textContent).join(' | ')"
@@ -137,48 +138,38 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '1' and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Back on stage 2 goes back to stage 1, still on the story')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600); p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     cap3 = p.evaluate(CAP)
-    # R-089 (Nate 10/5, "C, with HEAVY hand holding"): three moments, one drawn neighbor each, tapped through; it opens on this bill's own moment.
-    ok(p.evaluate(STAGE) == '3' and 'Three moments to speak up' in cap3 and 'Tap each one' in cap3, f'stage 3: "Three moments to speak up", and what to do with it ({cap3[:80]})')
-    names = p.evaluate("[...document.querySelectorAll('.lx-ch')].map(b => b.querySelector('.lx-chl').innerText.replace(/\\n/g, ' | '))")
-    ok(len(names) == 3 and names[0].startswith('Moment 1 | Before a hearing') and names[1].startswith('Moment 2 | At the hearing') and names[2].startswith('Moment 3 | Before the full vote'), f'the three moments, in the order a bill meets them ({names})')
-    ok(p.locator('.lx-ch').count() == 3 and p.locator('.lx-l-story :is(.chip, .card)').count() == 0 and p.locator('.lx-l-story .btn:not(.lx-momnav .btn)').count() == 0,
-       'three moments to press, none an app chip or card, and the only buttons are the panel’s next and back (A-12)')
-    ok(p.evaluate("[...document.querySelectorAll('.lx-ch')].every(b => b.getBoundingClientRect().height >= 44 && getComputedStyle(b).borderRadius !== getComputedStyle(document.querySelector('[data-stnext]')).borderRadius)"),
-       'the moments are big, and shaped unlike the app’s pill buttons')
-    here = p.evaluate("[...document.querySelectorAll('.lx-ch')].map(b => [b.dataset.lxCh, b.getAttribute('aria-pressed'), !!b.querySelector('.lx-chhere')])")
-    ok(here == [['chair', 'false', False], ['testimony', 'true', True], ['legislators', 'false', False]], f'it opens on the bill’s own moment, marked "is here" ({here})')
-    mom0 = p.evaluate("document.getElementById('lx-mom')?.innerText || ''")
-    ok('Here is your chance' in mom0 and 'testimony is due' in mom0 and 'You have seen 1 of 3' in mom0 and 'See moment 3' in mom0, f'the panel names the real chance and its date, and how far through ({mom0[:120]!r})')
-    # R-098: when the bill has a real hearing ahead, the last line names it ("HB 2300 is at one of these moments now:
-    # testimony is due Tuesday") instead of "Nothing to do now"; either way nothing is asked here.
-    # R-143 (Nate 10/4): no one-off win from another bill here ("One 2025 win: ..." was clunky and out of place); the
-    # proof is a count of HIPHI's laws when one has loaded, and the sandbox's year before has none.
-    ok('Each note tells lawmakers what people here want, and notes add up' in cap3 and not LOW_TURNOUT.search(cap3)
-       and ' win:' not in cap3 and 'free school meals' not in cap3
-       and ('Nothing to do now' in cap3 or 'Here is your chance' in cap3 or 'is at moment' in cap3) and 'Most bills do not advance at one of these moments' in cap3,
-       'stage 3 says why it matters (never that few people write in, R-171), no other bill’s win, and what is (or is not) coming, asking nothing yet')
+    # R-219 (Nate 10/11): the road again, one question, two doors; HB 2121 has a hearing set, so yes is testimony.
+    ok(p.evaluate(STAGE) == '3' and re.search(r'Will you speak up on HB.2121 this week\?', cap3) is not None, f'stage 3 asks "Will you speak up on HB 2121 this week?" ({cap3[:80]})')
+    ok(re.search(r'Its hearing is \w+ at [\d:]+ [AP]M\. Testimony is due', cap3) is not None and 'Right now' not in cap3, f'under it only the dates, not where the bill is again (A-14) ({cap3[:160]!r})')
+    doors = p.evaluate("[...document.querySelectorAll('.lx-doors .lx-ch')].map(b => [b.dataset.lxCh, b.innerText.trim(), b.getAttribute('aria-pressed')])")
+    ok(doors == [['yes', 'Yes, I’d send testimony', 'false'], ['no', 'Not this week', 'false']], f'two doors, the yes one following the bill’s moment, nothing picked for you ({doors})')
+    ok(p.locator('.lx-l-story :is(.chip, .card)').count() == 0 and p.locator('.lx-l-story .btn').count() == 0, 'two doors to press, none an app chip, card or button (A-12)')
+    ok(p.evaluate("[...document.querySelectorAll('.lx-doors .lx-ch')].every(b => b.getBoundingClientRect().height >= 44 && getComputedStyle(b).borderRadius !== getComputedStyle(document.querySelector('[data-stnext]')).borderRadius)"),
+       'the doors are big, and shaped unlike the app’s pill buttons')
+    ok(p.evaluate("document.querySelector('#lx-story .lx-lay3 .lx-b3') && document.querySelector('#lx-story .lx-lay3').getBoundingClientRect().width > 0"), 'the road from stage 2 is back, with the bill on it')
+    ok(not LOW_TURNOUT.search(cap3), 'stage 3 never says few people write in (R-171)')
     std(p, 'story3', axe=True); shot(p, 'p_story3')
     said = {}
-    for n, (k, must) in enumerate((('chair', 'hearing'), ('testimony', 'read'), ('legislators', 'represent')), 1):
-        p.locator(f'.lx-ch[data-lx-ch="{k}"]').click(); p.wait_for_timeout(1600)
+    for k, must in (('yes', 'read testimony'), ('no', 'can’t pass this year')):
+        p.locator(f'.lx-doors .lx-ch[data-lx-ch="{k}"]').click(); p.wait_for_timeout(1700)
         out = p.evaluate("document.getElementById('lx-mom')?.innerText || ''"); said[k] = out
-        ok(p.evaluate(f"document.getElementById('lx-story').dataset.choice") == k and p.locator(f'.lx-ch[data-lx-ch="{k}"][aria-pressed=true]').count() == 1
-           and p.locator('.lx-ch[aria-pressed=true]').count() == 1, f'"{k}" is shown, and its neighbor’s scene plays')
-        ok(f'Moment {n} of 3' in out and must in out.lower() and ' can ' in f' {out.lower()} ' and 'A neighbor' in out, f'"{k}" says who does what and what can happen ({out[:90]!r})')
-        seen = p.locator('.lx-ch.lx-chdone').count()
-        ok(seen == max(n, 2) if n < 3 else seen == 3, f'the moments seen are ticked ({seen})')
+        ok(p.evaluate("document.getElementById('lx-story').dataset.choice") == k and p.locator(f'.lx-doors .lx-ch[data-lx-ch="{k}"][aria-pressed=true]').count() == 1
+           and p.locator('.lx-doors .lx-ch[aria-pressed=true]').count() == 1, f'"{k}" is picked and its scene plays')
+        ok(must in out and ' can ' in f' {out} ' and p.locator('#lx-mom [data-lx-ch]').count() == 1, f'"{k}" says what can happen, with the other door to try ({out[:100]!r})')
         shot(p, f'p_story3_{k}')
-    ok('That is all three' in said['legislators'] and 'See moment' not in said['legislators'], 'after the third: that is all three, use the button below')
-    ok('Back to moment 2' in said['legislators'] and 'Back to moment' not in said['chair'], 'Back goes one moment; the first has none')
+    ok('Each note tells lawmakers what people here want, and notes add up' in said['yes'] and 'We’ll show you how' in said['yes'], 'yes says why it matters and what comes next, asking nothing yet')
+    ok('DID NOT ADVANCE' in p.inner_html('#lx-story') and 'put HB' in said['no'] and 'on hold' in said['no'], 'no is stark: the bill is stamped "Did not advance" and can be put on hold (C-15)')
+    p.locator('#lx-mom [data-lx-ch="yes"]').click(); p.wait_for_timeout(1500)
+    ok(p.evaluate("document.getElementById('lx-story').dataset.choice") == 'yes', 'the try button switches to the other door')
     allwords = ' '.join(said.values()) + cap1 + cap2 + cap3
     ok(PROMISE.search(allwords) is None, f'no promise words ({PROMISE.search(allwords)})')
     ok('24 hours' not in allwords and 'closes' not in allwords.lower(), 'no "24 hours" and no "closes" anywhere in the story')
     ok(p.locator('main details:not([open]), main [role=tab]').count() == 0, 'the story hides nothing behind a tap (C-12)')
-    # Back on stage 3 steps back to the road, keeping nothing half-done; Next comes forward to the choice afresh.
+    # Back on stage 3 steps back to the road, keeping nothing half-done; Next comes forward to the doors afresh.
     p.locator('[data-stback]').first.click(); p.wait_for_timeout(900)
     ok(p.evaluate(STAGE) == '2', 'Back on stage 3 goes back to stage 2')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
-    ok(p.evaluate(STAGE) == '3' and p.locator('.lx-ch[aria-pressed=true]').count() == 1 and p.locator('.lx-ch.lx-chdone').count() == 1, 'coming forward again, it opens afresh on the bill’s own moment, one seen')
+    ok(p.evaluate(STAGE) == '3' and p.locator('.lx-doors .lx-ch[aria-pressed=true]').count() == 0 and p.evaluate("document.getElementById('lx-mom').innerText.trim()") == '', 'coming forward again, the doors are afresh, nothing picked')
     ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: Coming Up', 'on stage 3 the button names the next screen (R-140, R-232), in title case (R-186)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     # No full-screen moment here: one mid-way read as the end of the first visit (R-140); the part's tick bursts instead.
@@ -276,8 +267,8 @@ with sync_playwright() as pw:
     ok(p.evaluate("document.getElementById('lx-story')?.dataset.stage") == '1' and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Back on the lesson page steps back a stage')
     p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500); p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500)
     ok('Done' in p.inner_text('.actionbar') and p.evaluate("document.getElementById('lx-story')?.dataset.stage") == '3', 'on its last stage the button says Done')
-    p.locator('.lx-ch[data-lx-ch="legislators"]').click(); p.wait_for_timeout(600)
-    ok('represent' in p.evaluate("document.getElementById('lx-mom')?.innerText || ''"), 'the moments work on the lesson page too')
+    p.locator('.lx-doors .lx-ch[data-lx-ch="no"]').click(); p.wait_for_timeout(600)
+    ok('on hold' in p.evaluate("document.getElementById('lx-mom')?.innerText || ''"), 'the doors work on the lesson page too')
     p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1500)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'Your voice counts here', f"Done goes back where the story was opened ({p.evaluate('location.hash')})")
     p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, done:true, skipped:true}))")
@@ -379,8 +370,8 @@ with sync_playwright() as pw:
             hits = p.evaluate(COVERS)
             ok(p.evaluate("document.getElementById('lx-story')?.dataset.stage") == str(k) and not hits, f'#/learn/story at {W}x{H}, stage {k}: no words on the drawing {hits}')
         if W == 1440: shot(p, 'd_learn_story3')
-        p.locator('.lx-ch[data-lx-ch="chair"]').click(); p.wait_for_timeout(900)
-        hits = p.evaluate(COVERS); ok(not hits, f'#/learn/story at {W}x{H}, after a choice: no words on the drawing {hits}')
+        p.locator('.lx-doors .lx-ch[data-lx-ch="yes"]').click(); p.wait_for_timeout(900)
+        hits = p.evaluate(COVERS); ok(not hits, f'#/learn/story at {W}x{H}, after a pick: no words on the drawing {hits}')
         side = p.evaluate("(() => { const a = document.getElementById('lx-story').getBoundingClientRect(), c = document.getElementById('lx-cap').getBoundingClientRect(); return Math.round(c.left - a.right); })()")
         ok(side > 0, f'#/learn/story at {W}x{H}: the words sit beside the drawing, as in the first visit ({side}px apart)')
         if W == 1024:
