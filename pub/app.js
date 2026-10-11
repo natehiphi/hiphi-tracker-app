@@ -198,7 +198,9 @@ let lastRouteKey = '';
 export function render() {
   let route = parseRoute();
   // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
-  if (route.name === 'follow') { restoreFollows(route.slugs); history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
+  // The redraw after the restore (R-187): restoreFollows loads the followed bills after this first draw, so without it Home
+  // could stay on "finished for this session" until the next reload (seen on the practice copy's See it links).
+  if (route.name === 'follow') { restoreFollows(route.slugs).then(() => render()).catch(e => console.error(e)); history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
   // A mistyped or old address lands on Home with one line saying so, then becomes the plain Home address (R-067).
   if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.

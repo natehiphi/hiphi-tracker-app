@@ -432,8 +432,8 @@ async function makeLink(a) {
 // Nate 10/3: "turned on or off by me in my staff settings", "by default at random", "each different test should easily be
 // tracked by effectiveness". One card per test: its switch (on: each new visitor gets A or B at random and keeps it;
 // off: everyone gets one, today's unless a winner was picked), its numbers, one sentence on whether to trust the
-// difference, and two actions (A-20): Pick the winner, and See it (a sheet with a link to each version in the practice
-// copy, and where on it the difference is). A switch saves the moment it is flipped, with Undo, like every switch here;
+// difference, then two rows (A-20; R-135): a link to each version in the practice copy (new tab, the same screen for
+// each), and one Pick button per version. A switch saves the moment it is flipped, with Undo, like every switch here;
 // turning on a test with a note (the email ask, waiting on a lawyer) asks first.
 function loadAb(force) {
   const s = st(); if (s.abBusy || (s.ab && !force)) return;
@@ -472,23 +472,32 @@ const todayTag = (t, a) => a === t.arms[0] && !/today/i.test(armName(t, a)) ? ' 
 // after an action, and the five first-visit plans' sign-up.
 const lawyerFor = (t, on) => (t.key === 'email' && on.includes('after')) || (t.key === 'onb' && on.some(a => a !== 'today'));
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
-// Where each version can be seen in the practice copy, and what to do there to meet the difference.
+// Where each version can be seen in the practice copy (R-135, R-187): every version has its own link, in a new tab, and
+// the links of one test open the same screen, forced to their version, so they compare. [address, what to tap there to
+// meet the difference, the screen's hash]. Every link is a fresh practice visit (&restart). Home and the week view open on
+// Home with three issues followed: #/follow (pub/app.js) follows them and skips the first visit, so no visitor is picked
+// on compare.html. The three are the practice copy's own issues with hearings this week (demo/snapshot.json).
+const HOME_SCENE = '#/follow/safer-walking-near-schools,forgive-medical-debt,disposable-e-cigarette-ban';
 const SEE = {
-  end: ['track.html?demo=1&restart&ab=end.', 'A practice first visit from the start: the difference is at its end.'],
-  fv: ['track.html?demo=1&restart&ab=fv.', 'A practice first visit from the start: the difference is its second part.'],
-  email: ['track.html?demo=1&restart&ab=email.', 'A practice first visit: the difference is on “Coming up on your issues”.'],
-  onb: ['track.html?demo=1&restart&ab=onb.', 'A practice first visit from the start, in that version.'],
-  join: ['track.html?demo=1&restart&ab=onb.p1,join.', 'A practice first visit on Plan 1: the difference is the alerts sign-up, after the email.'],
-  save: ['track.html?demo=1&restart&via=share&ab=save.', 'Follow this issue as a newcomer: the difference is what comes right after (R-184).', '#/issue/fda-proof-to-sell-e-cigarettes'],
-  rank: ['track.html?demo=1&ab=rank.', 'Free school bus passes: write practice testimony and say you sent it. The difference is the card after.', '#/bill/HB1780'],
-  share: ['track.html?demo=1&ab=share.', 'Free school bus passes: press Share. The difference is the message.', '#/bill/HB1780'],
-  home: ['compare.html?ab=home.', 'Pick Leilani (16 issues), then Open today’s version. The difference is the top of Home.'],
-  layout: ['compare.html?ab=layout.', 'Pick who is visiting and the day, then Open it. The difference is Home, every bill page and the tabs (R-187).'],
-  act: ['track.html?demo=1&restart&ab=act.', 'A practice first visit from the start: the difference is “Coming up on your issues”, just before the end (R-150).'],
-  pic: ['track.html?demo=1&ab=pic.', 'Free school bus passes: press Share. The link it makes carries that picture; text it to yourself to see it as a friend does. Every picture on real bills: the gallery.', '#/bill/HB1780'],
+  end: ['track.html?demo=1&restart&ab=end.', 'Both open on “Coming up on your issues”, the last screen before the end. Its main button is the difference: one says Next and ends on “You’re all set”, the other says “See How I Can Help” and ends on Home.', '#/start/6'],
+  fv: ['track.html?demo=1&restart&ab=fv.', 'Both open on the first visit’s second part: a bill’s story, or one page.', '#/start/4'],
+  email: ['track.html?demo=1&restart&ab=email.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow: the first version asks for a text or email next, on “Save your profile”; the other says “Mahalo!” and goes on without asking.', '#/start/1'],
+  onb: ['track.html?demo=1&restart&ab=onb.', 'Both open at the start of a first visit, in that version. Each plan has its own screens after the first.', '#/start/1'],
+  join: ['track.html?demo=1&restart&ab=onb.p1,join.', 'Both open on Plan 1’s alerts sign-up. The difference is how the ask is put: an example text is shown in one, “we watch, you speak” in the other.', '#/start/5'],
+  save: ['track.html?demo=1&restart&via=share&ab=save.', 'Both open on an issue, as a newcomer from a shared link. Press Follow: the difference is what comes right after (R-184).', '#/issue/fda-proof-to-sell-e-cigarettes'],
+  rank: ['track.html?demo=1&restart&ab=rank.', 'Both open on Free school bus passes (HB 1780). Write practice testimony and say you sent it: the card after it is the difference.', '#/bill/HB1780'],
+  share: ['track.html?demo=1&restart&ab=share.', 'Both open on Free school bus passes (HB 1780). Press Share: the message it makes is the difference.', '#/bill/HB1780'],
+  home: ['track.html?demo=1&restart&ab=home.', 'Both open on Home with three issues followed. The difference is the top: one lists the soonest deadline first, the other groups it by topic.', HOME_SCENE],
+  layout: ['track.html?demo=1&restart&ab=layout.', 'Both open on Home with three issues followed. The difference is Home’s week view, day by day; the bill page and the tabs differ too (R-187).', HOME_SCENE],
+  act: ['track.html?demo=1&restart&ab=act.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow, and go on to the page before the end: “Coming up on your issues” in one version, three ways to help in the other (R-150).', '#/start/1'],
+  pic: ['track.html?demo=1&restart&ab=pic.', 'Both open on Free school bus passes (HB 1780). Press Share: the link it makes carries that picture; text it to yourself to see it as a friend does.', '#/bill/HB1780'],
 };
-// &abrest=today: every other test at today's version, whatever the switches (R-192); compare.html adds it itself.
-const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
+// &abrest=today: every test the link does not name stays at today's version, whatever the switches (R-192), so each link
+// shows only its own test's difference.
+const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&restart&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
+// A version's name in its links and buttons: "today’s" for the first version, else its letter and its own name ("B: Grouped
+// by topic..."). A name with a colon of its own goes in brackets, so the two colons do not run together.
+const verLabel = (t, a) => a === t.arms[0] ? 'today’s' : /:/.test(armName(t, a)) ? `${AB(t, a)} (${armName(t, a)})` : `${AB(t, a)}: ${armName(t, a)}`;
 // "Trust it" (R-121; Nate 10/3, the plan's question 5): a two-proportion test on the measure (the share test: friends
 // per share, a rate), only from 100 per version, at 99% while more than one test is on (95% for one). A real difference
 // of 10 points shows at about 600 per version at 99% (400 at 95%); short of that, "no difference" is "no difference yet".
@@ -545,8 +554,13 @@ function abCard(t, x) {
     ${t.arms.map(x => switchRow(`ab-arm-${t.key}-${x}`, `${AB(t, x)}: ${esc(armName(t, x))}${todayTag(t, x)}`, live.includes(x), '', { 'data-abarm-on': `${t.key}|${x}` })).join('')}</fieldset>`;
   const lawyer = lawyerFor(t, live) && !(t.note && !t.is_on) ? notice('warn', 'scale', 'A lawyer should check the consent words of the versions switched on before the public sees them (R-149).') : '';
   const verdict = x.never ? '' : x.ready ? notice('ok', 'circle-check', `<span>${v[1]}</span>`) : `<p class="small ab-verdict">${icon(v[0])}<span>${v[1]}</span></p>`;
-  const pick = x.ready ? btn(`Pick ${AB(t, v[2])}`, { kind: 'primary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': v[2] } })
-    : x.never ? '' : btn(t.winner ? 'Change the pick' : 'Pick the winner', { kind: 'text', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'aria-haspopup': 'dialog' } });
+  // The same two rows on every card (R-135, Nate: "uniform and clear"): each version's own link into the practice copy, then one
+  // pick button per version, always there, so the cards compare line by line. "Trust it" above is the hint of which to pick.
+  const see = `<div class="ab-row"><p class="small ab-lbl" id="ab-see-${esc(t.key)}">See each version, in a new tab</p>
+      <div class="btnrow ab-acts" role="group" aria-labelledby="ab-see-${esc(t.key)}">${t.arms.map(a => btn(`See ${verLabel(t, a)}`, { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, a), target: '_blank', attrs: { 'data-absee': `${t.key}|${a}` } })).join('')}${t.key === 'pic' ? btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` }) : ''}</div>
+      <p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}</p></div>`;
+  const picks = `<div class="ab-row"><p class="small ab-lbl" id="ab-pick-${esc(t.key)}">Pick the winner</p>
+      <div class="btnrow ab-acts" role="group" aria-labelledby="ab-pick-${esc(t.key)}">${t.arms.map(a => btn(`Pick ${verLabel(t, a)}`, { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': a } })).join('')}</div></div>`;
   return `<section class="card ab-card${x.ready ? ' ab-ready' : ''}" aria-labelledby="ab-h-${esc(t.key)}">
     <div class="ab-head"><h2 class="ab-t" id="ab-h-${esc(t.key)}">${esc(t.name)}</h2>${t.winner ? chip(`Picked ${AB(t, t.winner)}`, 'ok', 'trophy') : ''}</div>
     <p class="small ab-q">${esc(t.question)}</p>
@@ -558,7 +572,7 @@ function abCard(t, x) {
       <tbody>${(multi ? all : [a, b]).map(tr).join('')}</tbody></table></div>`}
     ${t.key === 'pic' && !x.never ? picByAsk(t, st().ab?.byAsk || []) : ''}
     ${x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : ''}
-    <div class="btnrow ab-acts">${pick}${btn('See it', { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-absee': t.key, 'aria-haspopup': 'dialog' } })}${t.key === 'pic' ? btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` }) : ''}</div>
+    ${see}${picks}
     ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
   </section>`;
 }
@@ -1135,21 +1149,18 @@ const PAGES = {
         try { await saveAb(key, livePatch(t, next)); document.getElementById(el.id)?.focus({ preventScroll: true });
           toast(`Saved. ${next.length >= 2 ? `“${t.name}” is running: ${andList(next.map(a => vName(t, a)))}, at random.` : `Everyone sees ${vName(t, next[0])} of “${t.name}”, and nothing is counted.`}`, { ok: true, undo: () => saveAb(key, before) }); }
         catch (e) { el.checked = !el.checked; toast(e, { err: true }); } });
-      // See it: the practice copy forced to each version, in a new tab, with where on it the difference is.
-      root.querySelectorAll('[data-absee]').forEach(b => b.onclick = () => { const t = test(b.dataset.absee); if (!t) return;
-        openSheet({ title: `See it: ${t.name}`, pop: true, body: `<p class="small muted ab-seehint">${esc(SEE[t.key]?.[1] || '')} The practice copy opens in a new tab; nothing there is saved or counted.</p>
-          <div class="rows">${t.arms.map(x => row({ lead: 'external-link', title: `See ${AB(t, x)}`, sub: esc(armName(t, x)), href: seeUrl(t, x), chevron: false, attrs: { target: '_blank', rel: 'noopener' } })).join('')}</div>` }); });
-      // Pick: everyone gets that version and the test stops (Undo). A test with a note (the email ask, waiting on a lawyer)
-      // asks first, as turning it on does: picking B gives every visitor that version at once.
+      // See each version: plain links on the card (data-absee names the test and version), each opening the practice copy in
+      // a new tab; nothing to wire.
+      // Pick: one button per version, the same on every card. Everyone gets that version and the test stops (Undo), the way
+      // a switch saves. A test with a note (the email ask, waiting on a lawyer) asks first, as turning it on does: picking B
+      // gives every visitor that version at once.
       const pick = async (t, arm) => { const before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner, arms_on: t.arms_on ?? null };
         if (t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Give everyone ${AB(t, arm)}?`, text: `${esc(t.note)} Every visitor gets “${esc(armName(t, arm))}” at once.`, ok: `Pick ${AB(t, arm)}` })) return;
-        try { await saveAb(t.key, { is_on: false, fallback: arm, winner: arm, arms_on: t.arms.length > 2 ? [arm] : null }); toast(`Picked ${AB(t, arm)} of “${t.name}”. Everyone gets “${armName(t, arm)}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
+        try { await saveAb(t.key, { is_on: false, fallback: arm, winner: arm, arms_on: t.arms.length > 2 ? [arm] : null });
+          document.querySelector(`[data-abpick="${t.key}"][data-abarm="${arm}"]`)?.focus({ preventScroll: true });   // as a switch keeps focus (the redraw would drop it)
+          toast(`Picked ${AB(t, arm)} of “${t.name}”. Everyone gets “${armName(t, arm)}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
         catch (e) { toast(e, { err: true }); } };
-      root.querySelectorAll('[data-abpick]').forEach(b => b.onclick = () => { const t = test(b.dataset.abpick); if (!t) return;
-        if (b.dataset.abarm) { pick(t, b.dataset.abarm); return; }
-        pickerSheet({ title: `Pick the winner: ${t.name}`, value: t.winner || '', help: 'Everyone gets it from now on, and the test stops: only that version stays switched on. The other version is removed within a week. Undo, or switch another version back on, to take it back.',
-          options: t.arms.map(x => [x, `${AB(t, x)}: ${armName(t, x)}`, x === t.winner ? 'trophy' : null, x === t.arms[0] ? 'Today’s version' : '']),
-          onPick: arm => pick(t, arm) }); });
+      root.querySelectorAll('[data-abpick]').forEach(b => b.onclick = () => { const t = test(b.dataset.abpick); if (t && b.dataset.abarm) pick(t, b.dataset.abarm); });
     },
   },
   room: {
