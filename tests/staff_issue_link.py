@@ -1,6 +1,6 @@
 # R-226 (Nate 10/10): "is it abundantly clear how to get from a bill to its issue, and does the issue page say where it stands?"
-# A bill's header and Details name its issues (a chip in the header to the issue, unless the issue is the bill's own
-# nickname, and a line in Details); the issue's page says where it stands (next hearing, at risk, by stage), one line per
+# A bill's header and Details name its issues (a chip in the header to the issue, and a line in
+# Details); the issue's page says where it stands (next hearing, at risk, by stage), one line per
 # bill, and its Back link returns to the bill it came from ("Back to SB2175" on a phone too).
 #   python3 tests/staff_issue_link.py [base]      base defaults to http://localhost:8832
 import sys, os
@@ -18,11 +18,11 @@ with sync_playwright() as pw:
     for name, w, h, mob in (('laptop', 1280, 800, False), ('phone', 390, 844, True)):
         c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=mob); p = c.new_page()
         p.on('pageerror', lambda e: errors.append(str(e)))
-        # 1. The bill page names the issue. Where the issue's name is the bill's own nickname (SB2175: "Disposable e-cigarette
-        #    ban", already the title) the header has no chip, so the title is not said twice; Details still names it. Where
-        #    the names differ (HB1803) the header has a chip, with a chevron-right: a link, not a menu like Position and Owner.
+        # 1. The bill page names the issue. Every bill's header has a chip, SB2175's too (Nate's own example);
+        #    Details names it as well. HB1803 has a chip, with a chevron-right: a link, not a menu like Position and Owner.
         go(p, '/bill/SB2175')
-        ok(p.locator('.bw-page a.bw-ichip').count() == 0, f'{name}: SB2175 has no header chip: its issue is its nickname, already the title')
+        sc = p.locator('.bw-page a.bw-ichip')
+        ok(sc.count() == 1 and sc.first.get_attribute('href') == f'#/issue/{ISSUE}?from=SB2175', f'{name}: SB2175 has its issue chip in the header too, saying it came from SB2175 ({sc.count()})')
         dl = p.locator('.bw-dl a[href^="#/issue/"]')
         ok(p.locator('.bw-page .bw-dt dt', has_text='Issue').count() == 1 and dl.count() == 1 and dl.first.get_attribute('href') == f'#/issue/{ISSUE}?from=SB2175',
            f'{name}: Details (Overview) lists the issue as a link, saying it came from SB2175')
@@ -50,8 +50,7 @@ with sync_playwright() as pw:
                f'{name}: {lone} (on no issue) has no chip and says "None yet" in Details')
         else:
             print('SKIP every tracked bill is on an issue in this snapshot')
-        # 2. Going to the issue from the bill: the Back link returns to that bill. From SB2175 that is the Details link (no
-        #    header chip); its Back says "Back to SB2175" on a phone too, since it fits (the fresh-eyes review, 10/10).
+        # 2. Going to the issue from the bill: the Back link returns to that bill. Here through the Details link; its Back says "Back to SB2175" on a phone too, since it fits (the fresh-eyes review, 10/10).
         go(p, '/bill/SB2175')
         p.locator('.bw-dl a[href^="#/issue/"]').first.click(); p.wait_for_timeout(2200)
         ok(p.evaluate('location.hash') == f'#/issue/{ISSUE}?from=SB2175', f'{name}: the Details link opens the issue ({p.evaluate("location.hash")[:40]})')
