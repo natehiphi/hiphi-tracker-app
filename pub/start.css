@@ -236,6 +236,20 @@ a.st-cu-go:hover { background: var(--p50); }
 .st-sentbody p { margin: 0; }
 .st-break { overflow-wrap: anywhere; }
 
+/* ---- The "Mahalo!" page (R-140, Nate 11 Oct: the 1.5 s moment was "too quick", so it is a page that waits for Next) ----
+   The moment's flower (fx.js bloom, fx.css) opens once as the page arrives; drawn again (Back, a redraw) it is simply
+   open. Orange is the celebration colour (C-7), so the title is the moment's orange. */
+.st-thanks .fx-bloom { width: 96px; height: 96px; margin: 0; }
+.st-thtitle { color: var(--o700); }
+.st-thtitle:focus { outline: none; }
+.st-thsub { margin: 4px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); }
+.st-thanksnew .st-thtitle { animation: fx-rise .3s var(--ease) .05s both; }
+.st-thanksnew .st-thsub { animation: fx-rise .3s var(--ease) .12s both; }
+.st-thanksnew .st-thsub + .lede { animation: fx-rise .3s var(--ease) .2s both; }
+.st-thanks:not(.st-thanksnew) .fx-bloom :is(.fx-petal, .fx-heart) { animation: none; }
+.st-thanks:not(.st-thanksnew) .fx-bloom .fx-spark { display: none; }
+@media (prefers-reduced-motion: reduce) { .st-thanks * { animation-delay: 0ms !important; } }
+
 /* ---- Stay connected, 3: you're all set, the peak (Nate 9/21: end on a high) ----
    Petals fall once and stop, flowers bloom under the Capitol as the sun comes up, and what they did ticks in.
    The words come first (X11-2, R-180; A-10's ~2 s for a celebration): the recap rows tick in from 0.2 s, 80 ms apart;

@@ -1,7 +1,7 @@
 # The first visit's five plans (R-164; pub/plans.js, pub/onb*.js, the test 'onb' in pub/variant.js, backend 136 and 138).
 # Each plan forced by ?ab=onb.pN in the sandbox and walked from its first screen to Home, on a phone and a laptop, in
 # session and between sessions: the steps come in the plan's order, its named parts and words show, the alerts sign-up is
-# in every one with "Not now" as large as its main button, giving a number shows the warm "You're set", the ending
+# in every one with "Not now" as large as its main button, giving a number shows the "Mahalo!" page, the ending
 # names what was done, Home shows the plan's next small thing on a later visit (pub/onb-later.js), no page errors and no
 # sideways scroll. Today's first visit is checked by public_journey.py and abtests.py.
 #   python3 -m http.server 8832   (in this folder, once)
@@ -15,7 +15,9 @@ res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 TITLE = {'What do you care about?': 'topics', 'One bill that needs voices': 'one', 'Find a bill': 'find', 'How this bill can move': 'learn', 'Your choice': 'decide', 'Say aloha to your legislators': 'hello', 'Stay in the loop': 'join',
          'You’re all set': 'wrap', 'A bill’s journey': 'story', 'Your issues on the road': 'road', 'Where do you live?': 'island',
-         'How do you like to help?': 'way', 'Your first step': 'first', 'What’s moving on your issues': 'picks', 'Who speaks for you': 'you'}
+         'How do you like to help?': 'way', 'Your first step': 'first', 'What’s moving on your issues': 'picks', 'Who speaks for you': 'you',
+         # the sign-up turns into the "Mahalo!" page in place, which waits for its Next (R-140, Nate 11 Oct): still the join step
+         'Mahalo!': 'join'}
 WANT = {'p1': ['topics', 'find', 'learn', 'decide', 'join', 'wrap'], 'p2': ['story', 'topics', 'road', 'join', 'wrap'], 'p3': ['island', 'you', 'topics', 'picks', 'join', 'hello', 'wrap'],
         'p4': ['way', 'topics', 'picks', 'join', 'first', 'wrap'], 'p5': ['topics', 'picks', 'join', 'wrap']}
 WANT_OFF = dict(WANT, p1=['topics', 'you', 'hello', 'join', 'wrap'])
@@ -57,8 +59,10 @@ with sync_playwright() as p:
                     pg.fill('#st-a-phone', '(808) 555-0123'); main.click(); pg.wait_for_timeout(1200)
                     # The code (R-155; the practice copy shows it by default since R-176): six digits send themselves.
                     if pg.locator('#st-a-code').count(): pg.type('#st-a-code', '123456'); pg.wait_for_timeout(300)
-                    m = pg.locator('#fx-moment:not([hidden])')
-                    ST[plan]['set'] = m.count() == 1 and 'Save our number as HIPHI' in m.inner_text() and 'YES' not in m.inner_text()
+                    pg.wait_for_selector('.st-thanks #st-h', timeout=8000); pg.wait_for_timeout(300)
+                    m = pg.locator('.st-thanks')
+                    ST[plan]['set'] = m.count() == 1 and pg.locator('#fx-moment:not([hidden])').count() == 0 and 'Save our number as HIPHI' in m.inner_text() \
+                        and 'YES' not in m.inner_text() and pg.locator('.actionbar [data-obon]').inner_text().strip() == 'Next: You’re All Set'
                 elif skip.count(): skip.click()
                 else: pg.click('[data-obon]')
             elif s == 'picks': pg.click('[data-stnext]')
@@ -112,7 +116,7 @@ with sync_playwright() as p:
                     ok(fa.get('n') == 0 and fa.get('cats') == 0, f'p1: a topic tick follows nothing, not even its whole topic ({fa})')
                     fw = st.get('followed_wrap') or {}
                     ok(fw.get('n') == 1 and fw.get('cats') == 0, f'p1: one topic, one bill chosen, "just keep watch" follows exactly one issue ({fw})')
-                if plan == 'p5': ok(st.get('set'), 'p5: a number given goes straight to the Mahalo moment, which says to save our number (one ending, not three)')
+                if plan == 'p5': ok(st.get('set'), 'p5: a number given turns the sign-up into the "Mahalo!" page, which says to save our number and waits for "Next: You’re All Set" (one ending, not three; R-140, Nate 11 Oct)')
                 # a later visit: Home brings the plan's next small thing, once, and "Not now" puts it away for good
                 pg.evaluate("() => sessionStorage.clear()"); pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}#/"); pg.wait_for_timeout(3500)
                 card = pg.locator('.hm-later')

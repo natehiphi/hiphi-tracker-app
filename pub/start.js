@@ -487,6 +487,9 @@ export default {
   // The alerts screen's tab says what its heading says: "Save your profile" unless the old ask is the version shown (the
   // test 'save', R-184; the tab still said "Get alerts on your issues", R-188).
   title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff());
+    // Once answered, the alerts screen is the "Mahalo!" page (start-rest.js stepThanks, R-140) and its tab says so.
+    if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
+    if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {

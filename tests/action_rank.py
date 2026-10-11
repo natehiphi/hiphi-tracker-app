@@ -14,7 +14,7 @@ def check(c, m):
 def setup(pg, url):
     pg.goto(url + '#/start/1'); pg.reload(); pg.wait_for_timeout(3000)
     pg.locator('[data-stissue]').first.click(); pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1800)
-    pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1500); pg.locator('[data-stskip]').click(); pg.wait_for_timeout(600); pg.locator('#fx-mgo').click(); pg.wait_for_timeout(1200)   # the alerts screen (R-146): Skip
+    pg.locator('[data-stnext]').click(); pg.wait_for_timeout(1500); pg.locator('[data-stskip]').click(); pg.wait_for_selector('.st-thanks #st-h'); pg.locator('.actionbar [data-stnext]').click(); pg.wait_for_timeout(1200)   # the alerts screen (R-146): Skip, then the "Mahalo!" page's Next (R-140, Nate 11 Oct: a page that waits for Next)
     pg.evaluate("sessionStorage.clear()"); pg.goto(url + '#/'); pg.reload(); pg.wait_for_timeout(3500)
     if pg.evaluate("location.hash").startswith('#/start'): pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(1500)
     return pg.evaluate("[...document.querySelectorAll('[data-card]')].find(e => !e.closest('.hm-fold'))?.dataset.card")

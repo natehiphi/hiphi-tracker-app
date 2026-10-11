@@ -53,8 +53,11 @@ def story_to_soon(p):
     for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
     # the story hands straight on to Coming up (R-232: the address step left the first visit)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
+# The "Mahalo!" page (R-140, Nate 11 Oct: a page that waits for Next): today's alerts step and the plans' sign-up are drawn
+# again in place as it; its Next is the step's own ([data-stnext] today, [data-obon] in the plans).
 def mahalo_on(p):
-    p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(400); m = moment(p); p.click('#fx-mgo'); return m
+    p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(400); m = text(p, '.st-thanks')
+    p.click('.actionbar [data-stnext], .actionbar [data-obon]'); return m
 def to_end(p):
     story_to_soon(p); p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(2300)
 # A plan (Plan 5: topics, picks, the sign-up, the ending), up to its sign-up.
@@ -78,8 +81,8 @@ def s1(p, w=390, h=844):
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send')
     m = mahalo_on(p)
     if w == 390:
-        ok('Almost set. We’ll text (808) 555-0123 to confirm it’s your number.' in m and not ON.search(m) and 'Then alerts start' not in m,
-           f'1 the "Mahalo!": "Almost set", in the alerts step’s words, never "alerts start": {m[:150]!r}')
+        ok('We’ll text (808) 555-0123 to confirm it’s your number.' in m and not ON.search(m) and 'Then alerts start' not in m,
+           f'1 the "Mahalo!" page: "almost set", in the alerts step’s words, never "on" or "alerts start": {m[:150]!r}')
     to_end(p)
     r = row(p)
     ok(r.startswith('Alerts almost set') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in r and not ON.search(text(p, '.st-did')),
@@ -202,13 +205,14 @@ def s5(p, w=390, h=844):
     ok(r.startswith('Alerts almost set') and not ON.search(text(p, '.st-did')), f'5 {w}: the plans’ ending: "Almost set": {r!r}')
     p.locator('.st-did li:last-child').scroll_into_view_if_needed(); shot(p, f'5_wrap_almost_{w}')
     p.click('[data-stback]'); p.wait_for_selector('.ob-join', timeout=8000); p.wait_for_timeout(800)
-    ok(text(p, '#st-h') == 'Almost set' and not ON.search(text(p, 'main')), f'5 {w}: Back on the sign-up: "Almost set", not "You’re set" ({text(p, "#st-h")!r})')
+    # Back finds the "Mahalo!" page the sign-up turned into (R-140, Nate 11 Oct), its card naming the number, never "on".
+    ok(text(p, '#st-h') == 'Mahalo!' and '(808) 555-0123' in text(p, '.ob-set') and not ON.search(text(p, 'main')), f'5 {w}: Back on the sign-up: the "Mahalo!" page with the number, not "You’re set" ({text(p, "#st-h")!r}, {text(p, ".ob-set")[:80]!r})')
     shot(p, f'5_join_almost_{w}')
 # "Not now" on the plans' sign-up: the ending's "Turn on alerts", with codes on; then signed in with both choices off.
 def s5b(p, w=390, h=844):
     to_join(p)
     p.click('.ob-joinbtns [data-stskip]'); p.wait_for_timeout(900)
-    if moment(p): p.click('#fx-mgo')
+    if p.locator('.st-thanks').count(): p.click('.actionbar [data-obon]')   # the "Mahalo!" page waits for its Next (R-140, Nate 11 Oct)
     p.wait_for_selector('.ob-wrap', timeout=10000); p.wait_for_timeout(2300)
     r = row(p)
     ok(r.startswith('Alerts are off') and p.locator('.st-did li:last-child [data-alsheet]').count() == 1, f'5b {w}: the plans’ ending: "Alerts are off" with "Turn on alerts": {r!r}')
