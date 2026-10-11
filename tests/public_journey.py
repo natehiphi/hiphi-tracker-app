@@ -88,13 +88,17 @@ with sync_playwright() as pw:
     ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Save your profile' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
     std(p, 'alerts', axe=True); shot(p, 'p_alerts')
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1500)
-    # The first success: a moment that fills the screen and waits for Continue (C-7, WCAG 2.2.1).
-    ok(p.locator('#fx-moment:not([hidden]) [role=dialog]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(250)
+    # The first success: a moment that fills the screen for up to 1.5 s and leaves by itself; nothing waits for a tap (C-7,
+    # A-10; R-140, Nate 10/5). Its words stay as a toast, and its button is there from the first frame.
+    p.wait_for_timeout(200)
+    ok(p.locator('#fx-moment:not([hidden]) [role=status]').count() == 1 and 'Mahalo' in p.inner_text('#fx-moment'), 'following shows the "Mahalo!" moment')
     ok('We sent a link to leilani@example.com' in p.inner_text('#fx-moment'), 'the "Mahalo!" says where the link went (C-6)')
-    std(p, 'moment_follow', axe=True); shot(p, 'p_moment')
-    p.wait_for_timeout(2500); ok(p.locator('#fx-moment:not([hidden])').count() == 1, 'the moment waits for Continue')
-    p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
+    ok(p.locator('#fx-mgo').is_visible(), 'its next button is there at once (R-140)')
+    shot(p, 'p_moment')
+    p.wait_for_timeout(1700); ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'the moment has left on its own (R-140: within 1.5 s)')
+    ok('Mahalo' in p.evaluate("document.querySelector('#toast')?.innerText || ''"), 'its words stay as a toast')
+    p.wait_for_timeout(1500)
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
     # "Where do you stand?" left the first visit (R-053, 9/26): the answer changed nothing the person saw next (C-13).
@@ -228,9 +232,9 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') == '#/bill/HB2121' and p.locator('.bl-newbie').count() == 0 and p.locator('[data-bl-tour]').count() == 1, f"Just looking stays on the bill, with the tour one tap away ({p.evaluate('location.hash')})")
     p.locator('[data-bl-tour]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the story, on the bill they opened ({p.evaluate('location.hash')})")
-    fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(1500)
+    fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(300)
     ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable e-cigarette ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
-    p.locator('#fx-mgo').click(); p.wait_for_timeout(2000)
+    p.wait_for_timeout(1800)   # the moment leaves on its own and goes on to the alerts (R-140)
     ok(p.locator('.st-alertspage').count() == 1, f"then the alerts on that issue (R-146) ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'just followed' in text(p), 'following from the card goes on to the story of that bill, without asking again')
@@ -248,15 +252,19 @@ with sync_playwright() as pw:
         p.evaluate("(async no => { const k = await import('./pub/kernel.js'), S = k.S;"
                    " const b = [...S.bills, ...Object.values(S.extra || {})].find(x => x.bill_number === 'HB1732');"
                    " if (no) S.issuesByBill.delete(b.id); await k.app.newcomerActed(b); })(%s)" % ('true' if no_issue else 'false'))
-        p.wait_for_timeout(1500)
+        p.wait_for_timeout(300)
         mo = p.inner_text('#fx-moment') if p.locator('#fx-moment:not([hidden])').count() else ''
         ok('Mahalo' in mo and 'You spoke up on' in mo and not LOW_TURNOUT.search(mo), f'the quick email from a shared link gets its "Mahalo!", which never says few people act ({mo[:120]!r})')
         if no_issue:
             ok('That’s how bills move: committees hear from the people who write.' in mo, 'a bill on no issue: "That’s how bills move: committees hear from the people who write."')
             std(p, 'link_mahalo'); shot(p, 'p_link_mahalo')
         else:
-            ok('We’ll follow' in mo and 'Stop following Pilot to keep homes for local residents' in mo and 'Don’t follow it' not in mo, 'a bill on an issue: the "Mahalo!" follows the issue, with "Stop following <the issue>" (X10-4)')
+            ok('We’ll follow' in mo and 'Don’t follow it' not in mo, 'a bill on an issue: the "Mahalo!" follows the issue (X10-4)')
             ok(p.locator('#fx-mgo').inner_text().strip() == 'See How I Can Help', f'its button says what Home is for (X10-2, R-190) ({p.locator("#fx-mgo").inner_text()!r})')
+            # "Stop following <the issue>" is the Undo for the follow the moment made: it lives in a toast for 10 s (R-140, R-067).
+            p.wait_for_timeout(1700)
+            undo = p.evaluate("document.querySelector('#toast .toastundo')?.innerText || ''")
+            ok(undo == 'Stop following Pilot to keep homes for local residents', f'the Undo ("Stop following <the issue>", X10-4) is a toast once the moment has left ({undo!r})')
     c.close()
     # ---- 1c. the short version (?fv=short) keeps its one page and offers the story; the lessons open on their own (R-062) ----
     c, p = ctx(b); fresh(p, '&fv=short'); p.goto(BASE + '?demo=1&fv=short#/start/1'); p.reload(); p.wait_for_timeout(3000)
@@ -392,8 +400,7 @@ with sync_playwright() as pw:
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(1500)
-    p.locator('#fx-mgo').click(); p.wait_for_timeout(1800)
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_timeout(3600)   # the moment leaves on its own (R-140)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', f"the first visit on a laptop reaches the story ({p.evaluate('location.hash')})")
     for k in (1, 2, 3):
         if k > 1: p.locator('[data-stnext]').click(); p.wait_for_timeout(1900)
@@ -470,7 +477,7 @@ with sync_playwright() as pw:
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     for _ in range(24):
         if p.locator('[data-stdone]').count(): break
-        if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
+        if p.locator('#fx-moment:not([hidden])').count(): p.wait_for_timeout(1700); continue   # a moment leaves on its own (R-140)
         (p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')).first.click(); p.wait_for_timeout(1300)
     ok(p.locator('[data-stdone]').count() == 1, f"between sessions the walk reaches the finale ({p.evaluate('location.hash')})")
     p.locator('[data-stdone]').click(); p.wait_for_timeout(3000); t = text(p)

@@ -73,7 +73,7 @@ with sync_playwright() as pw:
     ok(text(p, '#st-a-err').strip() == '', 'typing clears the message (C-9)')
     p.click('#st-send'); p.wait_for_timeout(300)
     ok('10-digit' in text(p, '#st-a-err') and p.get_attribute('#st-a-phone', 'aria-invalid') == 'true', 'a short number: the 10-digit message, marked invalid')
-    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(1800)   # settled, for the screenshot
+    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(300)   # up, and read before it leaves on its own (R-140)
     m = moment(p)
     ok('Mahalo!' in m and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m, f'the "Mahalo!" celebrates both, and says a text will confirm the number: {m[:140]!r}')
     ok('Next: How a Bill Becomes Law' in m, 'its button names what comes next (C-6), not "Continue", in title case (R-186)')

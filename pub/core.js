@@ -545,7 +545,11 @@ export const POS_WORD = { strongly_support: 'SUPPORT', support: 'SUPPORT', suppo
 export const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 export const MAHALO = { testimony: 'Mahalo for testifying! Your voice is on the record.', email: 'Mahalo! Your email helps the chair see people care.',
   attend: 'Mahalo! See you at the Capitol.', share: 'Mahalo for spreading the word.' };
-export function yay(msg) { toast(msg, { yay: true }); }
+export function yay(msg) {
+  toast(msg, { yay: true });
+  // Under Reduce Motion the words get a brief colour change and nothing moves (R-140, A-10).
+  if (reduceMotion()) { const t = document.querySelector('#toast .toastmsg'); t?.classList.add('fx-tint'); setTimeout(() => t?.classList.remove('fx-tint'), 600); }
+}
 // five-petal hibiscus, in the page's warm colours
 export const flowerSVG = (c, n = 24) => `<svg viewBox="-12 -12 24 24" width="${n}" height="${n}" aria-hidden="true"><g fill="${c}">${[0, 72, 144, 216, 288].map(r => `<ellipse cx="0" cy="-5.6" rx="4.1" ry="5.6" transform="rotate(${r})"/>`).join('')}</g><circle r="2.2" fill="#F9D56E"/></svg>`;
 // The one bigger moment: someone's first testimony ever. Twelve hibiscus drift out and fade in about 0.7 s, once.

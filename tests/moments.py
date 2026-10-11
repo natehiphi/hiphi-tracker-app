@@ -95,18 +95,18 @@ with sync_playwright() as p:
       try { localStorage.setItem('hiphi_moments_seen_demo', JSON.stringify(['law:' + b.id])); localStorage.setItem('hiphi_moments_seen', JSON.stringify(['law:' + b.id])); } catch {}
       c.S.direct.add(b.id); c.recomputeWatch(); c.saveLocal(); return b.bill_number; }""")
     pg.reload(); ready(pg); pg.goto(base + '#/'); ready(pg); pg.wait_for_timeout(800)
-    mo = pg.locator('#fx-moment:not([hidden]) .fx-mtitle')
-    ok(mo.count() == 1 and 'session is over' in mo.inner_text(), f'off season: the end of the session is a full-screen moment ({made}): ' + (mo.inner_text() if mo.count() else 'none'))
+    # R-140 (10/10): the session's end is not a full-screen moment any more; it is a burst on Home's heading and a toast
+    # that stays 10 s with "See your session" on it. Nothing waits for it.
+    tm = pg.locator('#toast .toastmsg')
+    ok(tm.count() == 1 and 'session is over' in tm.inner_text() and pg.locator('#fx-moment:not([hidden])').count() == 0,
+       f'off season: the end of the session is a toast, not a full-screen moment ({made}): ' + (tm.inner_text()[:120] if tm.count() else 'none'))
     pg.screenshot(path=f'{SHOTS}/r046_end_390.png')
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(600)
-    ok(not pg.url.endswith('#/recap'), 'Escape closes it and stays on Home')
-    pg.evaluate("localStorage.removeItem('hiphi_recap_moment')"); pg.reload(); ready(pg); pg.wait_for_timeout(800)
-    mo = pg.locator('#fx-moment:not([hidden]) .fx-mtitle')
-    if mo.count():
-        pg.locator('#fx-mgo').click(); pg.wait_for_timeout(700)
-        ok(pg.url.endswith('#/recap') and 'Your 2026 session' in pg.locator('h1').first.inner_text(), 'See your session opens the session page')
+    pg.wait_for_timeout(400)
+    ok('#/recap' not in pg.url, 'nothing moves it on by itself: Home stays')
+    pg.locator('#toast .toastundo').first.click(); pg.wait_for_timeout(900)
+    ok(pg.url.endswith('#/recap') and 'Your 2026 session' in pg.locator('h1').first.inner_text(), 'See your session (the toast\'s button) opens the session page')
     pg.goto(base + '#/'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
-    ok(pg.locator('#fx-moment:not([hidden]) .fx-mtitle').count() == 0, 'it shows once')
+    ok(pg.locator('#toast .toastmsg').count() == 0 and pg.locator('#fx-moment:not([hidden])').count() == 0, 'it shows once')
     ok(not errs, f'off season: no page errors {errs[:2]}')
     br.close()
 print(f"\n{sum(res)} passed, {len(res) - sum(res)} failed")

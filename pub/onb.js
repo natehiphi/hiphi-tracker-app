@@ -95,7 +95,8 @@ function wirePicks({ step, next, $, $$ }) {
     busy(nb, 'Following…');
     try { await setFollows({ issuesOn: ids }); wizSet({ followedIssues: ids }); welcome(); } catch (e) { console.error(e); }
     track('picks', 'next', { counts: { issues: ids.length } });
-    burst(nb, 12, 48); later(() => goStep(step, step + 1), 420);
+    // The petals (fx.js burst, under 0.7 s) play over the move on: the next screen never waits for them (R-140).
+    burst(nb, 12, 48); goStep(step, step + 1);
   };
 }
 
@@ -214,7 +215,7 @@ function wireDecide({ step, $ }) {
   // D1-1 (R-180 wave 2): nothing sends a reminder yet (Nate 10/5: "not for now, maybe later"), so this card does the one thing that
   // exists, the hearing in their own calendar, and says so. The bill's issue is followed, as with "just keep watch".
   const r = $('[data-obcal]');
-  if (r) r.onclick = async () => { track('decide', 'next'); try { (await import('./actions.js')).downloadIcs(b, h); } catch (e) { console.error(e); } followBill(b); burst(r.querySelector('.ob-wayic'), 10, 34); later(() => goStep(step, step + 1), 380); };
+  if (r) r.onclick = async () => { track('decide', 'next'); try { (await import('./actions.js')).downloadIcs(b, h); } catch (e) { console.error(e); } followBill(b); burst(r.querySelector('.ob-wayic'), 10, 34); goStep(step, step + 1); };
   const n = $('[data-obnot]');
   if (n) n.onclick = () => { track('decide', 'skip'); followBill(b); goStep(step, step + 1); };
   const go = $('[data-obon]'); if (go) go.onclick = () => goStep(step, step + 1);
@@ -337,7 +338,7 @@ function wireJoin({ step, fresh, $ }) {
   // thing worth knowing now: which number we'll text, and to save it.
   wireAlertForm(form, { pfx: 'st-a', source: 'first_visit', onDone: r => {
     S.obJoined = r; track('join', 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
-    burst($('#st-send') || form, 14, 52); later(() => leaveJoin(step, r), 380);
+    burst($('#st-send') || form, 14, 52); leaveJoin(step, r);
   } });
   const ch = $('[data-stalchange]'); if (ch) ch.onclick = () => { S.alertEdit = true; S.obJoined = null; app.render(); };
   // The frame's Skip just moves on; here "Not now" first plays the follow's moment (assigned after the frame's, so it

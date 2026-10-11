@@ -1,30 +1,36 @@
-/* Motion and celebration (pub/fx.js; R-023, DESIGN.md A-10 and C-7). Orange is the celebration colour. Everything
-   here stops under Reduce Motion: bursts are not drawn at all, the moments appear without movement. */
+/* Motion and celebration (pub/fx.js; R-023, DESIGN.md A-10 and C-7; R-140, 10/10). Orange is the celebration colour.
+   Nothing here blocks: the bursts never take a tap, the moment's veil lets taps through and its button is never hidden
+   behind a delay, and the moment leaves on its own within 1.5 s. Under Reduce Motion nothing moves: bursts are not drawn
+   (fx.js tint() gives a colour change instead), the moments appear without movement. */
 :root { --spring: cubic-bezier(.34, 1.4, .64, 1); }
 
-/* ---- a small burst of petals ---- */
+/* ---- a small burst of petals: up to 0.7 s, from just above the thing done ---- */
 .fx-burst { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 95; }
 .fx-burst i { position: absolute; left: -4px; top: -6px; width: 8px; height: 12px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: var(--c); opacity: 0; animation: fx-petalfly .85s var(--ease) forwards; }
+  background: var(--c); opacity: 0; animation: fx-petalfly .6s var(--ease) forwards; }
 @keyframes fx-petalfly { 0% { opacity: 0; transform: translate(0, 0) scale(.4) rotate(0); } 20% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1) rotate(160deg); } }
 
-/* ---- the big moments: a card over a pale veil, waiting for Continue ---- */
-.fx-moment { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(244, 247, 249, .95);
-  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: fx-fadein .2s var(--ease); }
+/* ---- the brief colour change that moves nothing (Reduce Motion's stand-in, fx.js tint()) ---- */
+.fx-tint { color: var(--o700) !important; outline: 3px solid var(--o400) !important; outline-offset: 3px; }
+
+/* ---- the big moments: a card over a veil that lets every tap through (fx.js celebrate). The veil is strong over the
+   top of the screen and clears by the bottom, so the action bar with the next button stays in full view. ---- */
+.fx-moment { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(244, 247, 249, .94) 0, rgba(244, 247, 249, .94) 62%, rgba(244, 247, 249, 0) 84%);
+  animation: fx-fadein .2s var(--ease); }
 .fx-moment[hidden] { display: none; }
 .fx-moment.fx-out { animation: fx-fadeout .24s var(--ease) forwards; }
-.fx-mcard { text-align: center; max-width: 380px; }
-.fx-mtitle { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--o700); letter-spacing: -.02em; animation: fx-rise .35s var(--ease) .35s both; }
-.fx-msub { margin: 8px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .35s var(--ease) .5s both; }
-.fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n700); animation: fx-rise .35s var(--ease) .65s both; }
-.fx-mgo { margin-top: 24px; min-width: 200px; animation: fx-rise .3s var(--ease) .8s both; }
-.fx-malt { display: flex; margin: 4px auto 0; animation: fx-rise .3s var(--ease) .9s both; }   /* the quiet Undo under Continue (R-067) */
+.fx-mcard { pointer-events: auto; text-align: center; max-width: 380px; background: var(--n0); border-radius: var(--r16); box-shadow: var(--sh3); padding: 20px 20px 22px; }
+.fx-mtitle { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--o700); letter-spacing: -.02em; animation: fx-rise .3s var(--ease) .05s both; }
+.fx-msub { margin: 8px 0 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .3s var(--ease) .12s both; }
+.fx-msmall { margin: 8px 0 0; font-size: var(--t14); color: var(--n700); animation: fx-rise .3s var(--ease) .2s both; }
+.fx-mgo { margin-top: 24px; min-width: 200px; }   /* there from the first frame: the moment never makes the button wait */
 .fx-bloom { width: 120px; height: 120px; margin: 0 auto 8px; }
 .fx-bloom svg { width: 100%; height: 100%; overflow: visible; }
-.fx-bloom .fx-petal { transform-box: fill-box; transform-origin: 50% 100%; animation: fx-petal .5s var(--spring) both; }
-.fx-bloom .fx-heart { transform-box: fill-box; transform-origin: center; animation: fx-pop .35s var(--spring) .45s both; }
-.fx-bloom .fx-spark { transform-box: fill-box; transform-origin: center; animation: fx-spark .9s var(--ease) .5s both; }
+.fx-bloom .fx-petal { transform-box: fill-box; transform-origin: 50% 100%; animation: fx-petal .45s var(--spring) both; }
+.fx-bloom .fx-heart { transform-box: fill-box; transform-origin: center; animation: fx-pop .3s var(--spring) .2s both; }
+.fx-bloom .fx-spark { transform-box: fill-box; transform-origin: center; animation: fx-spark .6s var(--ease) .24s both; }
 
 @keyframes fx-fadein { from { opacity: 0; } }
 @keyframes fx-fadeout { to { opacity: 0; } }

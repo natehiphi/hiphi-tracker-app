@@ -186,8 +186,8 @@ if (!window.__moFrame) {
     tile.click(); await sleep(200);
     F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
     F.click('[data-stnext]'); await F.wait('.st-alertspage'); await F.quiet();
-    F.click('[data-stskip]'); await F.wait('#fx-moment:not([hidden]) #fx-mgo'); await F.quiet();
-    F.click('#fx-mgo'); await F.wait('.lx-count'); await F.quiet();
+    // The "Mahalo!" moment leaves on its own within 1.5 s and moves on (fx.js celebrate), so the walk just waits for it (R-140).
+    F.click('[data-stskip]'); await F.wait('.lx-count'); await F.quiet();
     for (let k = 2; k <= 3; k++) { F.click('[data-stnext]'); await F.wait(() => (F.$('.lx-count')?.textContent || '').startsWith(String(k))); await F.quiet(); }
     F.click('[data-stnext]'); await F.wait('[data-staddr]'); await F.quiet();
     F.click('[data-stskip]'); await F.wait('.st-soonpage'); await F.quiet();
@@ -206,8 +206,8 @@ if (!window.__moFrame) {
         if (!F.$('.st-tile')) { (await F.mod('./pub/kernel.js')).app.go('#/start/1'); await F.wait('.st-tile[aria-pressed="true"]'); await F.quiet(); }
         F.mark(); F.click('[data-stnext]');
       } },
-    { id: 'mahalo', where: 'First visit, after the first follow', name: '“Mahalo!”', code: 'fx.celebrate()', about: 'about 1.6 s, then it waits for Continue',
-      what: 'Fills the screen once the first issues are followed, and waits for Continue. A law passed and the session’s end use it too.',
+    { id: 'mahalo', where: 'First visit, after the first follow', name: '“Mahalo!”', code: 'fx.celebrate()', about: 'up to 1.5 s, then it leaves on its own; no wait',
+      what: 'Fills the screen once the first issues are followed, for up to 1.5 s. A tap, a key or a scroll ends it at once, its button is there from the first frame, and the words stay as a toast. A law passed uses it too.',
       link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
       ready: F => F.$('.st-tile'),
       prep: async F => { F.click('.st-tile'); await sleep(200); F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();
@@ -226,7 +226,7 @@ if (!window.__moFrame) {
         if (!(F.$('.lx-count')?.textContent || '').startsWith('1')) { F.click('[data-stlearnback]'); await F.wait(() => (F.$('.lx-count')?.textContent || '').startsWith('1')); await F.quiet(); }
         F.mark(); F.click('[data-stlearnnext]');
       } },
-    { id: 'burst', where: 'First visit, “Who speaks for you”', name: 'Small burst', code: 'fx.burst()', about: 'about 0.9 s, 0.3 s after the names pop in',
+    { id: 'burst', where: 'First visit, “Who speaks for you”', name: 'Small burst', code: 'fx.burst()', about: 'under 0.7 s, 0.3 s after the names pop in',
       what: 'A small burst on the thing just done. Here: an address found, as the legislators pop in. Also a right answer, a part finished, a result seen.',
       link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/5', seed: SEEN,
       ready: async F => F.$('[data-staddr]') && ((await F.mod('./pub/kernel.js')).S.legislators || []).length > 0,

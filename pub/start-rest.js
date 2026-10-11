@@ -879,8 +879,9 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     if (nb) nb.onclick = async () => {
       if (nb.getAttribute('aria-busy') === 'true') return;
       busy(nb, 'Following…'); await followVia(); track(name, 'next');
+      // The petals play over the move on (fx.js burst, under 0.7 s): nothing waits for them (R-140).
       burst(document.querySelector('.actionbar .btn.primary') || nb, 12, 48);
-      later(() => goStep(step, step + 1), 420);
+      goStep(step, step + 1);
     };
   }
 }
