@@ -18,8 +18,11 @@
 #   7. someone who already gave a number is never asked.
 #   8. the backup (?ab=save.alerts): no sheet after an issue's Follow (the toast only), "Get alerts on your issue" on the
 #      first visit's screen, and the letter's ask under "What happens next", as before 6 Oct.
+#  10. the practice copy's direct link ?demo=1&fvstep=save (R-188, pub/fvjump.js): opens "Save your profile" with two sample
+#      issues followed (the sentence says "your 2 issues"), Back and Next walk it, the box texts a code, a reload keeps the
+#      run; without demo=1 or with an unknown name nothing jumps.
 #   No page errors anywhere.
-import json, os, sys, urllib.parse
+import json, os, re, sys, urllib.parse
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'profile_ask'); os.makedirs(OUT, exist_ok=True)
@@ -212,6 +215,57 @@ with sync_playwright() as pw:
     ok(bool(box) and 500 <= box[0] <= 540 and box[1] > 0, f'laptop: the sheet is 520px wide, in the middle ({box})')
     ok(p.evaluate("document.activeElement?.id") == 'al-sh-phone', '1: on a laptop the sheet starts in the box')
     shot(p, '9_laptop')
+    c.close()
+
+    # ---- 10. the practice copy's direct link to "Save your profile" (R-188, pub/fvjump.js; Nate 10/10: "Share a direct link") ----
+    # ?demo=1&fvstep=save opens that screen with two sample issues followed, so its sentence names them; the address drops
+    # fvstep, so a reload keeps the run. Only the practice copy jumps: without demo=1 (and with an unknown name) nothing does.
+    c, p = ctx(br)
+    p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
+    lede = p.evaluate("document.querySelector('p.lede')?.innerText || ''")
+    ok(p.inner_text('#st-h') == 'Save your profile' and p.url.endswith('#/start/3') and 'fvstep' not in p.url, f'10: ?demo=1&fvstep=save opens "Save your profile" directly, and the address drops fvstep ({p.url[-24:]!r})')
+    ok(re.search(r'your 2\s*issues', lede) is not None, f'10: its sentence names the two issues followed ({lede[:72]!r})')
+    ok(p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length") == 2, '10: two sample issues are followed, in the practice copy only')
+    shot(p, '10_jump_phone')
+    # Back: the issues screen, with the two issues ticked as they were followed (its own picks, not HIPHI's defaults).
+    p.click('[data-stback]'); p.wait_for_timeout(1200)
+    ok(p.url.endswith('#/start/2') and p.locator('[data-stpick][aria-pressed="true"]').count() == 2, f'10: Back goes to "Your issues", with the two issues still ticked ({p.url[-10:]!r})')
+    # Next there: the "Mahalo!" names the two kept, and its button goes on to the story. (The alerts screen is not offered
+    # again once it has been drawn in this page life: askAlerts, the first visit's own rule, unchanged here.)
+    p.click('[data-stnext]'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(600)
+    mg = p.evaluate("document.getElementById('fx-moment')?.innerText || ''")
+    ok('You’re following 2 issues.' in mg, f'10: Next after Back celebrates the two issues, and no third one is followed ({mg[:40]!r})')
+    p.click('#fx-mgo'); p.wait_for_timeout(1200)
+    ok(p.url.endswith('#/start/4'), f'10: the visit goes on from the "Mahalo!" to the story ({p.url[-10:]!r})')
+    c.close()
+    # The box, on a fresh jump: a number asks for its code, and six digits end in the "Mahalo!" that says the profile is saved.
+    c, p = ctx(br)
+    p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
+    p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000); p.wait_for_timeout(400)
+    ok('Check your texts' in p.inner_text('#st-h'), 'the box works: a number asks for its code (the practice copy sends nothing)')
+    p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(800)
+    mg = p.evaluate("document.getElementById('fx-moment')?.innerText || ''")
+    ok('Mahalo!' in mg and 'Your profile is saved, and text alerts are on for (808) 555-0123.' in mg, f'10: six digits: the "Mahalo!" says the profile is saved ({mg[:90]!r})')
+    c.close()
+    c, p = ctx(br)
+    p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
+    p.reload(); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
+    lede = p.evaluate("document.querySelector('p.lede')?.innerText || ''")
+    ok(p.url.endswith('#/start/3') and re.search(r'your 2\s*issues', lede) is not None, '10: a reload keeps the run: still on "Save your profile", two issues, no second jump')
+    c.close()
+    # Without demo=1 the address does nothing, and an unknown name does nothing either (no page errors counted: the live page
+    # asks its database, which this sandbox may not answer).
+    for url, label in [(f'{BASE}?fvstep=save#/', 'without demo=1'), (f'{BASE}?demo=1&restart&fvstep=nope#/', 'an unknown name')]:
+        cc = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2)
+        cc.add_init_script(TOUR_SEEN)
+        pp = cc.new_page(); pp.goto(url); pp.wait_for_timeout(4000)
+        hh = pp.inner_text('#st-h') if pp.locator('#st-h').count() else ''
+        ok(not pp.url.endswith('#/start/3') and hh != 'Save your profile', f'10: {label}: no jump to "Save your profile" ({pp.url[-22:]!r})')
+        cc.close()
+    c, p = ctx(br, 1280, 800)
+    p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
+    ok(p.locator('#st-a-phone').is_visible() and p.inner_text('#st-h') == 'Save your profile', 'laptop: the jump opens the same screen, the box shows')
+    shot(p, '10_jump_laptop')
     c.close()
     br.close()
 
