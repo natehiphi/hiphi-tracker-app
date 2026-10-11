@@ -348,3 +348,10 @@
 .hm-askf p { margin: 0; font-size: var(--t14); color: var(--n700); }
 .hm-askf .btnrow { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s8); align-items: center; }
 .hm-askfc { padding: var(--s4) 0 0; }
+
+/* The profile ask on Home: one quiet line, its button opening the sheet (R-222; the form stays on the Mahalo after an action).
+   Not under .hm: version A's Home (.ah) draws it too. */
+.hm-profline { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: var(--s8); margin: var(--s16) 0 0; color: var(--n700); font-size: var(--t14); }
+.hm-profline > .ic { color: var(--n500); }
+/* Under the words, lined up with them; its padding keeps the 44px target (as .ab-cap, base.css). */
+.hm-profline .hm-profbtn { grid-column: 2; justify-self: start; margin-left: -16px; }

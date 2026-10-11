@@ -127,15 +127,18 @@ with sync_playwright() as pw:
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
     ok('Alerts are off' in text(p, '.st-did') and p.locator('.st-did [data-alsheet]', has_text='Turn on alerts').count() == 1, 'the finale: "Alerts are off", with its own "Turn on alerts" (X10-4)')
     p.click('[data-stdone]'); p.wait_for_timeout(1500)
-    # Home on the next load asks once, with the same box.
+    # Home on the next load asks once: one quiet line (R-222), whose button opens the same box in the sheet.
     p.reload(); p.wait_for_timeout(2500)
-    ok(p.locator('.nudgecard #ng-phone').count() == 1 and p.locator('.nudgecard button', has_text='Text me').count() == 1, 'Home, next load: the ask is the phone box')
-    ok('Use email instead' in text(p, '.nudgecard') and 'never see your number' in text(p, '.nudgecard'), 'Home: email is a link under it, and the privacy line is there too')
-    p.locator('.nudgecard').scroll_into_view_if_needed(); shot(p, '3_home_card')
-    p.fill('#ng-phone', '(808) 555-0144'); p.locator('.nudgecard button', has_text='Text me').click(); p.wait_for_timeout(800)
-    ok('We’ll text (808) 555-0144 to confirm it’s your number' in text(p, '.nudgecard'), 'Home: "almost set" in the card')
+    ok(p.locator('.nudgecard form').count() == 0 and p.locator('.hm-profline [data-hm-prof]').count() == 1, 'Home, next load: one quiet line, no form in the page (R-222)')
+    p.locator('.hm-profline').scroll_into_view_if_needed(); shot(p, '3_home_line')
+    p.locator('.hm-profline [data-hm-prof]').click(); p.wait_for_selector('.al-sheet[open] #al-sh-phone', timeout=5000)
+    ok(p.locator('.al-sheet button', has_text='Text me').count() == 1, 'Home: the line opens the phone box in the sheet')
+    ok('Use email instead' in text(p, '.al-sheet') and 'never see your number' in text(p, '.al-sheet'), 'Home: email is a link under it, and the privacy line is there too')
+    shot(p, '3_home_sheet')
+    p.fill('#al-sh-phone', '(808) 555-0144'); p.locator('.al-sheet button', has_text='Text me').click(); p.wait_for_timeout(1000)
+    ok('We’ll text (808) 555-0144 to confirm it’s your number' in text(p, '.nudgecard'), 'Home: "almost set" in the card where the line was')
     p.reload(); p.wait_for_timeout(2500)
-    ok(p.locator('.nudgecard form').count() == 0, 'Home, the load after: no ask (a number was given)')
+    ok(p.locator('.nudgecard form').count() == 0 and p.locator('.hm-profline').count() == 0, 'Home, the load after: no ask (a number was given)')
     c.close()
 
     # ---- 4. between sessions ----

@@ -19,9 +19,9 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet } from './core.js';
 import { burst, celebrate, petals, later } from './fx.js';
-import { alertStatus } from './alerts.js';   // the one status rule for alerts (D1-4)
+import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
-import { actionCard, wireActions, nudgeCard, wireNudge, goingPlans, goingCard } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
 import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
 import { CAPITOL, islands, flower } from './art.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
@@ -215,7 +215,6 @@ function sessionPanel(si, { welcome = false, skip = new Set() } = {}) {
     <ul class="hm-stats">${stat(follows, nIss ? (follows === 1 ? 'issue followed' : 'issues followed') : (follows === 1 ? 'bill followed' : 'bills followed'), '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
     ${mine.length ? weeks(si, mine) : `<p class="muted small">${welcome ? 'Your progress adds up here through the session.' : 'Your first action will show up here, with what happened after it.'}</p>`}
     ${welcome ? '' : chipsHtml(ms.got)}${''/* no "Next:" goal since 9/27: a quiet record, not a badge ladder (C-7; R-067 decision 8b) */}
-    ${!welcome && S.nudge === 'action' ? nudgeCard('action') : ''}
     ${rows.length ? `<h3 class="hm-label">What happened after you acted</h3>${impList(rows.slice(0, 2), 2)}` : ''}${''/* the rest are on the session page, below */}
     ${DEMO && S.demoSeeded ? '<p class="meta">Sandbox: three sample actions are filled in so this panel has something to show.</p>' : ''}
     ${!welcome && (mine.length || follows) ? btn('See your whole session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link' }) : ''}
@@ -515,15 +514,15 @@ const cutoffLine = (d, n) => `<p class="small hm-cutoff">${icon('hourglass')}<sp
 const moreRows = (id, rows) => `<div id="hm-${id}" class="rows hm-more">${rows.join('')}</div>`;
 // Open actions first (two cards, then one line each), then up to two "ask the chair" cards. calm: no card is singled out
 // (Home right after a first action from a shared link, R-190).
-function todoBlock(cards, asks, { nudgeHtml = '', calm = false, sub = false } = {}) {
+function todoBlock(cards, asks, { calm = false, sub = false } = {}) {
   const first = calm ? null : cards.find(x => !settledOn(x.b, x.h)), rest = cards.slice(2), arest = asks.slice(2);
   // The first card says how many are due the same day (Layout A's Now card, R-131): "1 of 3 due today".
   const dayOf = x => x.h.testimony_deadline ? hstDay(x.h.testimony_deadline) : '';
   const ofN = x => { if (x !== first || !dayOf(x)) return ''; const n = cards.filter(y => !settledOn(y.b, y.h) && dayOf(y) === dayOf(x)).length; return n > 1 ? `1 of ${n} due ${dayWord(x.h.testimony_deadline).replace(/ at .*$/, '')}` : ''; };
   const card = x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text, ofN: ofN(x), twin: S.hmTwins?.get(x.b.id) || null });
   return `${cards.length ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Do this now</h2>
-      ${cards.slice(0, 1).map(card).join('')}${nudgeHtml}${cards.slice(1, 2).map(card).join('')}
-      ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : nudgeHtml}
+      ${cards.slice(0, 2).map(card).join('')}
+      ${rest.length ? moreRows('rest', rest.map(actRow)) : ''}</section>` : ''}
     ${asksSec(cards, asks, arest, calm, sub)}`;
 }
 // sub: a part of the list under "N things you can do this week" (Home right after the first visit), so its heading is one
@@ -542,15 +541,15 @@ const asksSec = (cards, asks, arest = asks.slice(2), calm = false, sub = false) 
 // card and a sooner one a line, and three main buttons against two), so the test measures the grouping and nothing else.
 // Every topic with something to do shows (R-190: they folded under "Show N more topics" past the third). The cards under a
 // topic heading leave out their own topic line. The asks for a hearing stay as they are.
-function issueBlock(cards, asks, { nudgeHtml = '' } = {}) {
+function issueBlock(cards, asks) {
   const groups = new Map();
   for (const x of cards) { const t = issueOf(x.b), k = t ? t.key : ''; if (!groups.has(k)) groups.set(k, { t, xs: [] }); groups.get(k).xs.push(x); }
   const list = [...groups.values()].sort((a, b) => (a.t ? 0 : 1) - (b.t ? 0 : 1)), first = cards.find(x => !settledOn(x.b, x.h)), full = new Set(cards.slice(0, 2));
   const sec = (g, n) => { const id = `hm-iss-${n}`, big = g.xs.filter(x => full.has(x)), small = g.xs.filter(x => !full.has(x));
     return `<section class="hm-iss" aria-labelledby="${id}"><h2 class="hm-isst" id="${id}">${icon(g.t ? issueIcon(g.t.icon) : 'landmark')}<span>${esc(g.t ? g.t.key : 'Other bills you follow')}</span></h2>
       ${big.map(x => actionCard(x.b, x.h, { focus: x === first, why: S.hmCardMoments?.get(x.b.id)?.text, twin: S.hmTwins?.get(x.b.id) || null, noTopic: !!g.t })).join('')}
-      ${small.length ? `<div class="rows">${small.map(actRow).join('')}</div>` : ''}</section>${n === 0 ? nudgeHtml : ''}`; };
-  return `${cards.length ? `<div class="hm-now hm-byissue">${list.map(sec).join('')}</div>` : nudgeHtml}
+      ${small.length ? `<div class="rows">${small.map(actRow).join('')}</div>` : ''}</section>`; };
+  return `${cards.length ? `<div class="hm-now hm-byissue">${list.map(sec).join('')}</div>` : ''}
     ${asksSec(cards, asks)}`;
 }
 
@@ -606,6 +605,31 @@ function followView(si) {
   return welcome ? welcomeView(si, { cards, asks, total }) : returnView(si, { cards, asks, open, total, folded, sug, inCards });
 }
 
+// The profile ask on Home is one quiet line (R-222, Nate 10/10 "accept all"): the form sat inside the list of things to do,
+// second block, and first in a quiet week. Its button opens the same box in the sheet (alerts.js openAlertsSheet: the same
+// fields, consent words and saving), so where consent is asked moves, not its words. The full card stays on the Mahalo after
+// an action (bill.js, helper.js), where a yes is likeliest. Core's rules still decide when (nudge(): once a visit, quiet
+// after "Not now"). After a yes, the card's own confirmation shows here once, since it says what to do next (tap the link).
+function profileLine(kind = S.nudge) {
+  if (!kind) return '';
+  if (S.nudgeText || S.nudgeSent) return nudgeCard(kind);
+  if (S.session) return '';
+  abSeen('save');   // where the test's two versions differ on screen: the line's button
+  const prof = profileAsk(), ni = followedIssues().length;
+  const what = ni ? `Your ${ni === 1 ? 'issue is' : `${n(ni)} issues are`}` : S.watch.size ? 'The bills you follow are' : 'What you’ve done is';
+  const text = prof ? `${what} kept in this browser only.` : 'Hearings are set about two days ahead.';
+  return `<p class="hm-profline">${icon(prof ? 'user-round-plus' : 'bell')}<span>${esc(text)}</span>${btn(prof ? PROFILE_H : 'Get alerts', { kind: 'text', sm: true, cls: 'hm-profbtn', attrs: { 'data-hm-prof': kind } })}</p>`;
+}
+function wireProfileLine(root) {
+  root.querySelectorAll('[data-hm-prof]').forEach(el => el.onclick = () => {
+    const kind = el.dataset.hmProf, k = ['action', 'intro', 'back'].includes(kind) ? kind : 'follow', prof = profileAsk();
+    const ni = followedIssues().length, na = myActions().length, nb = S.watch.size;
+    const things = `${ni ? plural(ni, 'issue') : plural(nb, 'bill')}${na ? ` and ${plural(na, 'action')}` : ''}`;
+    openAlertsSheet({ source: kind === 'action' ? 'action' : 'home', profile: prof ? k : '', lede: prof ? profileLede(k, { things, many: ni > 1 }) : '',
+      onNo: () => declineNudge(), onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; }, onClose: () => app.render() });
+  });
+}
+
 // Later visits: the heading counts what can really be done, asks for a hearing included, so a follower is never told
 // "all caught up" while a bill of theirs is running out of time.
 function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
@@ -620,8 +644,6 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
       : live ? `<p class="lede">Nothing needs you right now. When one of the ${live === 1 ? 'bill' : `${n(live)} bills`} on your issues has a hearing, a simple way to help shows up here.</p>`
       : `<div class="hm-quiet"><p class="lede">Their record stays in My issues. Other bills are still moving and need voices.</p>${btn('Find bills still moving', { kind: sug ? 'secondary' : 'primary', icon: 'search', href: '#/find' })}</div>`;
   }
-  // One email ask, under the first card, never above the page's heading (the "welcome back" one used to push it down).
-  const nudgeHtml = S.nudge && S.nudge !== 'action' ? nudgeCard(S.nudge) : '';
   S.hmSinceShown = new Set(); S.hmCardMoments = new Map();
   // Hearings they plan to go to (R-142): today's or tomorrow's at the top, where the day's plan belongs; later ones in the
   // side column. A card already drawn on this page carries its own "How to get there", so it is not said twice (A-14).
@@ -652,10 +674,11 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
     ${accountCards()}
     <div class="cols"><div class="hm-main">
       ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
-      ${byIssue ? issueBlock(cards, asks, { nudgeHtml }) : todoBlock(cards, asks, { nudgeHtml })}
+      ${byIssue ? issueBlock(cards, asks) : todoBlock(cards, asks)}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
+      ${profileLine()}
     </div><div class="side hm-side">
       ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
       ${sessionPanel(si, { skip: inSince })}
@@ -692,7 +715,7 @@ function welcomeView(si, { cards, asks, total }) {
   const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   // Not in the email-ask test's second version, which first asks after an action (R-135, variant.js 'email').
-  const ask = (S.session && !S.nudgeText) || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : nudgeCard(S.nudge);
+  const ask = (S.session && !S.nudgeText) || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : profileLine();
   const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
   // says aloha instead of repeating them (A-14), and opens on the things they can do this week (B-3: the lessons need
@@ -808,7 +831,6 @@ const pickRow = x => { const on = S.watch.has(x.b.id), num = spaced(x.b.bill_num
 function exploreView() {
   const f = S.featured || { bills: [], hearings: [] }, seen = new Set(), skip = dismissed(), calm = welcomed();
   const cards = openActions(f.bills, f.hearings).filter(x => !x.late && !skip.has(x.b.id) && !seen.has(x.b.id) && seen.add(x.b.id)).slice(0, calm ? 5 : 3);
-  const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
   const cats = S.cats, lists = (S.lists || []).filter(l => l.is_published !== false);
   // A hearing they plan to go to, from one of these cards on an earlier visit (R-142): the same plan card as a follower's Home.
   const plans = goingPlans(new Set(calm ? [] : cards.map(x => x.h.id))), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
@@ -821,9 +843,10 @@ function exploreView() {
     ${accountCards()}
     <div class="cols"><div class="hm-main">
       ${goSoon}${loop}<header class="hm-head"><h1 class="hero">This week at the Capitol</h1><p class="lede">${lede}</p></header>
-      ${!cards.length ? nudgeHtml : calm ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2><div class="rows hm-picks">${cards.map(pickRow).join('')}</div>${nudgeHtml}</section>`
+      ${!cards.length ? '' : calm ? `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2><div class="rows hm-picks">${cards.map(pickRow).join('')}</div></section>`
         : `<section class="hm-now" aria-labelledby="hm-now-t"><h2 id="hm-now-t" class="sr">Bills with hearings soon</h2>
-        ${cards.slice(0, 1).map(x => sugCard(x.b, x.h)).join('')}${nudgeHtml}${cards.slice(1).map(x => sugCard(x.b, x.h)).join('')}</section>`}
+        ${cards.map(x => sugCard(x.b, x.h)).join('')}</section>`}
+      ${profileLine()}
     </div><div class="side hm-side">
       ${goLater}${cats.length ? `<section class="hm-sec" aria-labelledby="hm-iss"><h2 id="hm-iss">Browse issues</h2>
         <div class="rows hm-issues">${cats.map(c => row({ lead: c.icon, title: esc(c.name), sub: esc(c.description || ''), href: `#/find/category/${encodeURIComponent(c.key)}` })).join('')}</div></section>` : ''}
@@ -888,7 +911,6 @@ function offView(si) {
   S.hmRecapMoment = acted.length && !welcome && !recapMomentSeen(yr) ? { yr, said } : null;
   const mine = myIssues(yr), lists = (S.lists || []).filter(l => S.listFollows?.has(l.id)), known = districtsKnown();
   const nothingYet = !rows.length && !mine.length && !lists.length;
-  const nudgeHtml = S.nudge ? nudgeCard(S.nudge) : '';
   const askBtn = !S.session && !S.nudge && !S.nudgedThisVisit && !alertsGiven();
   const lede = `${welcome ? `The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}. When it opens,` : `${opens ? `The ${nextYr} session opens ${esc(opens)}. ` : ''}When hearings start,`} HIPHI’s ${nextYr} bills${mine.length ? ' for your issues' : ''} will show up here, with simple ways to help.`;
   // One real thing to do between sessions (R-067): lawmakers shape next session's bills now, and a hello from their
@@ -938,7 +960,7 @@ function offView(si) {
       ${winsCard(yr)}
       ${meetCard()}
       ${newIssuesCard()}
-      ${nudgeHtml}
+      ${profileLine()}
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
     </div></div>
@@ -1046,8 +1068,9 @@ function newIssuesCard() {
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
 // letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
 // and a first-visit plan's next small thing (onb-later.js), on either Home.
-export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard(), friend: () => friendCard() };
+export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard(), friend: () => friendCard() };
 export function wireExtras(root) {
+  wireProfileLine(root);
   wireLater(root, () => app.render());
   try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
   root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });

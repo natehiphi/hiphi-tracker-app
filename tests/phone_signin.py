@@ -157,12 +157,13 @@ with sync_playwright() as pw:
     p.click('[data-stskip]'); p.wait_for_selector('#fx-mgo', timeout=5000); p.click('#fx-mgo'); p.wait_for_timeout(800)
     p.goto(BASE + '?demo=1&codes#/'); p.wait_for_timeout(1500); p.evaluate("localStorage.setItem('hiphi_wiz_demo', JSON.stringify({ ...JSON.parse(localStorage.getItem('hiphi_wiz_demo') || '{}'), finale: true }))")
     p.reload(); p.wait_for_timeout(3000)
-    if p.locator('.nudgecard #ng-phone').count():
-        p.fill('#ng-phone', '(808) 555-0144'); p.locator('.nudgecard button', has_text='Text me a code').click(); p.wait_for_selector('#ng-code', timeout=5000)
-        ok('Check your texts' in text(p, '.nudgecard'), 'Home’s card: "Check your texts"')
-        ok(p.locator('.nudgecard button', has_text='Confirm').count() == 1, 'Home’s card: the code step, Confirm')
-        p.type('#ng-code', '333333'); p.wait_for_timeout(1200)
-        ok('Text alerts are on for (808) 555-0144' in text(p, '.nudgecard'), 'Home’s card: alerts on')
+    if p.locator('.hm-profline [data-hm-prof]').count():   # Home's ask is one line since R-222; its box opens in the sheet
+        p.locator('.hm-profline [data-hm-prof]').click(); p.wait_for_selector('.al-sheet[open] #al-sh-phone', timeout=5000)
+        p.fill('#al-sh-phone', '(808) 555-0144'); p.locator('.al-sheet button', has_text='Text me a code').click(); p.wait_for_selector('#al-sh-code', timeout=5000)
+        ok('Check your texts' in text(p, '.al-sheet'), 'Home’s sheet: "Check your texts"')
+        ok(p.locator('.al-sheet button', has_text='Confirm').count() == 1, 'Home’s sheet: the code step, Confirm')
+        p.type('#al-sh-code', '333333'); p.wait_for_timeout(1500)
+        ok('Text alerts are on for (808) 555-0144' in text(p, '.nudgecard'), 'Home: alerts on, said where the line was')
     else:
         ok(True, 'Home’s card not shown on this load (nothing to check)')
     c.close()

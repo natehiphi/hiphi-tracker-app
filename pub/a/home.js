@@ -25,7 +25,7 @@ import { S, app, esc, icon, toast, blurb, nick, headline, spaced, billPath, aliv
   settledOn, OUTCOME_PLAIN } from '../core.js';
 import { testifyLabel } from '../letters.js';
 import { btn, chip } from '../ui.js';
-import { nudgeCard, wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
+import { wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
 import { laterCard } from '../onb-later.js';
 import today, { extras, wireExtras } from '../home.js';
 
@@ -307,7 +307,7 @@ function view() {
   else if (asks.length) first = askCard(asks) + sinceCard(si);
   else { const news = sinceCard(si, { lead: true }); calm = !news; first = news || calmCard(si); }
   const hasWeek = weekSittings().length;
-  const ask = S.nudge && S.nudge !== 'action' ? `<div class="a-nudge">${nudgeCard(S.nudge)}</div>` : '';
+  const ask = extras.profile() ? `<div class="a-nudge">${extras.profile()}</div>` : '';   // one quiet line (R-222)
   // A plan to go today or tomorrow is the day's plan, so it leads, as on today's Home (R-142); later ones go to the end.
   const plans = goingPlans(), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
   const tail = [goLater, extras.newIssues(), extras.meet(), laterCard()].filter(Boolean).join('');
