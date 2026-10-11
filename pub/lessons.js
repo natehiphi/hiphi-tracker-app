@@ -2,8 +2,8 @@
 // primer for how session works during onboarding") the full first visit teaches ONE lesson, "A bill's story" (story,
 // section 4 below): one page in three stages that the page's own Next walks (Nate 9/29: "First it highlights the bill,
 // then it moves throughout the process, then it shows why speaking up can help"): the bill itself, its road to where it
-// really is, and a choice of what you would do ("Email the chair", "Send testimony", "Tell my legislators", "Stay
-// quiet"), each playing what can happen. The three older lessons, "Reading a bill", "The session, January to May" and "What a
+// really is, and the road again with "Will you speak up on <bill> this week?" and two doors (R-219, 10/11), each playing
+// what can happen. The three older lessons, "Reading a bill", "The session, January to May" and "What a
 // hearing is" (R-023, 9/21), still open on their own at #/learn/<bill|session|hearing>, linked from bill pages and Help. Ported from the prototype Nate approved (backend
 // docs/first-visit-prototype, version 3, after the second review); every behaviour and word is from backend
 // docs/FIRST-VISIT-PLAN.md "The three lessons" and "The second review", with the real bill's values filled in.
@@ -653,29 +653,26 @@ function hearingSet(k, { instant = false, initial = false } = {}) {
 //   2. Its road            one winding road of stops (its first side's committees and vote, the other side's, the
 //                          Governor, the law). The bill travels it up to where it really is, ticking the stops it passed.
 //                          The caption: the road in one sentence, and the bill's own next chance (storyNow).
-//   3. Why speaking up     who can hear you (the committee and its chair, your own legislators) and a bill waiting. A
-//      can help           choice of four, drawn as story choices, not app buttons: "Email the chair", "Send testimony",
-//                          "Tell my legislators", "Stay quiet". Each plays what CAN happen (an email reaches the chair
-//                          and the chair's hearing list gets a bill; notes land on the committee's table; your
-//                          legislators hear from you; nothing is sent, and the bill waits and stops) with one sentence.
-//                          The others stay there to try. Then why it matters (notes tell lawmakers what people want,
-//                          and they add up; a real win).
-// Where the bill is decides what is true: a law or a stopped bill still gets the choices, asked about next time.
-// The drawing is aria-hidden and the words say all of it (A-10: motion is never the only way something is said). Nothing
-// else here can be pressed: the four choices are the only controls, and they look like a story's choices, not the app's
-// buttons (A-12, C-12). Drawn people are one silhouette each, in one flat colour. Testimony is "due", never "closes".
+//   3. Will you speak up?  the road from stage 2 again, with one question and two doors (R-219, Nate 10/11: "Go with version
+//                          1, the road"): "Yes, I'd send testimony" (or "Yes, I'd email the chair" while the bill waits for
+//                          a hearing: the yes door follows the bill's moment) and "Not this week". Yes flies notes to the
+//                          committee stop and slides the bill on to its next stop (or puts a hearing on the list); no greys
+//                          the road ahead and stamps the bill "DID NOT ADVANCE". Each says what it CAN do, never a promise,
+//                          and the other door stays there to try. Nothing is picked for the person and nothing is sent.
+// The job (Nate 10/11): people leave believing speaking up works, from a small choice and a picture of cause and effect.
+// Where the bill is decides what is true: a bill at no committee moment (between sessions: last session's bill; a law, a
+// stopped bill, one past its committees) is asked "Would you speak up on a bill like ...?" at its committee stop.
+// The drawing is aria-hidden and the words say all of it (A-10: motion is never the only way something is said). The
+// two doors look like a story's choices, not the app's buttons (A-12, C-12). Testimony is "due", never "closes".
 // Motion (A-10): each stage's movement is short (about 1.5 seconds at most), plays when the person taps, and ends on the
 // still picture that says the same thing; Back and a redraw show the still picture; under Reduce Motion the still
 // picture shows at once. The drawing sits at the end of the lesson's intro, so on a laptop it stays beside the words.
 const SW = 360, SH = 280;
 const svgText = (x, y, t, { size = 13, fill = 'var(--p900)', anchor = 'middle', cls = '', ls = 0, weight = 700 } = {}) =>
   `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}" font-weight="${weight}"${ls ? ` letter-spacing="${ls}"` : ''} fill="${fill}"${cls ? ` class="${cls}"` : ''}>${esc(t)}</text>`;
-// One person: a single silhouette in one flat colour (head and body overlap; no outline per part).
-const person = (x, y, c, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="${c}"><circle cx="0" cy="-30" r="11"/><path d="M-19 16 C-19 -8 -10 -16 0 -16 C10 -16 19 -8 19 16 Z"/></g>`;
 const PROPS = {
   mail: (x, y, r = -10) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-9" y="-6.5" width="18" height="13" rx="2" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-9 -6.5 L0 1 L9 -6.5" fill="none" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/></g>`,
   note: (x, y, r = 8) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-7.5" y="-9.5" width="15" height="19" rx="1.5" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8"/><path d="M-3.5 -4h7M-3.5 0h7M-3.5 4h4.5" stroke="var(--p400)" stroke-width="1.8" stroke-linecap="round"/></g>`,
-  talk: (x, y) => `<g transform="translate(${x} ${y})"><path d="M-12 -8 Q-12 -11 -9 -11 H9 Q12 -11 12 -8 V3 Q12 6 9 6 H-2 L-8 11 L-7 6 H-9 Q-12 6 -12 3 Z" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.8" stroke-linejoin="round"/><circle cx="-5" cy="-2.5" r="1.7" fill="var(--p700)"/><circle cx="0" cy="-2.5" r="1.7" fill="var(--p700)"/><circle cx="5" cy="-2.5" r="1.7" fill="var(--p700)"/></g>`,
 };
 const smallBill = (stopped = false) => `<g transform="translate(-14 -20)">
   <path d="M0 2 Q0 0 2 0 H22 L28 6 V38 Q28 40 26 40 H2 Q0 40 0 38 Z" fill="${stopped ? 'var(--n100)' : 'var(--n0)'}" stroke="${stopped ? 'var(--n500)' : 'var(--p800)'}" stroke-width="2"/>
@@ -775,57 +772,10 @@ function roadSVG(E) {
   </g>`;
 }
 
-// ---- stage 3: who can hear you, and the four choices ----
-// The committee (its chair in the middle) at the top, your own legislators on the right, you at the bottom left, and a
-// bill waiting. Each choice is its own small scene, drawn where it ends (the still picture) and flown there from you.
+// ---- stage 3: the road again, and two doors (R-219) ----
 const fly = (dx, dy, d, inner) => `<g class="lx-fly" style="--dx:${dx}px;--dy:${dy}px;--d:${d}ms">${inner}</g>`;
-function voiceSVG() {
-  return `<g class="lx-lay lx-lay3">
-    <g class="lx-in3" style="--d:0ms"><g class="lx-cmte">
-      ${person(128, 66, 'var(--p600)', .7)}${person(212, 66, 'var(--p600)', .7)}${person(170, 64, 'var(--p900)', .8)}
-      <rect x="104" y="70" width="132" height="18" rx="4" fill="var(--p800)"/>
-      ${svgText(170, 22, 'Chair', { fill: 'var(--p800)' })}${svgText(170, 108, 'Committee')}
-    </g></g>
-    <g class="lx-c3 lx-c3-legislators"><ellipse class="lx-pop" style="--d:600ms" cx="312" cy="146" rx="36" ry="32" fill="var(--p100)"/></g>
-    <g class="lx-in3" style="--d:120ms">${person(300, 150, 'var(--p500)', .72)}${person(324, 154, 'var(--p700)', .72)}
-      ${svgText(312, 186, 'Your')}${svgText(312, 201, 'legislators')}</g>
-    <g class="lx-in3" style="--d:240ms">${person(54, 238, 'var(--p600)', .85)}${svgText(54, 272, 'A neighbor')}</g>
-    <g class="lx-in3" style="--d:300ms"><g transform="translate(250 226)">${smallBill()}</g><g class="lx-blbl">${svgText(250, 266, 'A bill')}</g></g>
-    <g class="lx-in3 lx-q3" style="--d:450ms"><g transform="translate(94 190)"><circle r="15" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M-11 9 L-18 17 L-5 13" fill="var(--n0)" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/><circle r="13.6" fill="var(--n0)"/>${svgText(0, 6, '?', { size: 18, fill: 'var(--p800)' })}</g></g>
-    <g class="lx-c3 lx-c3-chair">
-      ${fly(-78, 170, 0, PROPS.mail(148, 36, -8))}
-      <circle class="lx-pop" style="--d:550ms" cx="170" cy="40" r="16" fill="none" stroke="var(--p400)" stroke-width="3"/>
-      <g class="lx-pop" style="--d:650ms"><rect x="10" y="30" width="80" height="66" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M10 34 Q10 30 14 30 H86 Q90 30 90 34 V48 H10 Z" fill="var(--p700)"/>
-        ${svgText(50, 44, 'Hearings', { fill: 'var(--n0)' })}<path d="M20 60h46M20 72h40" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
-      <path class="lx-grow" style="--d:950ms" d="M20 84h46" stroke="var(--p600)" stroke-width="4" stroke-linecap="round"/>
-      <g transform="translate(77 84)"><g class="lx-pop" style="--d:1150ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>
-    </g>
-    <g class="lx-c3 lx-c3-testimony">
-      <g class="lx-pop" style="--d:0ms">${person(104, 244, 'var(--p400)', .72)}</g><g class="lx-pop" style="--d:120ms">${person(146, 244, 'var(--p700)', .72)}</g>
-      ${fly(-78, 132, 200, PROPS.note(138, 76, -8))}${fly(-66, 142, 420, PROPS.note(172, 78, 4))}${fly(-58, 146, 640, PROPS.note(206, 76, 10))}
-      <path class="lx-pop" style="--d:1150ms" d="M118 58 q-6 -6 0 -12 M222 58 q6 -6 0 -12" fill="none" stroke="var(--p400)" stroke-width="2.2" stroke-linecap="round"/>
-    </g>
-    <g class="lx-c3 lx-c3-legislators">
-      ${fly(-206, 87, 0, PROPS.mail(276, 118, 8))}
-      <g class="lx-pop" style="--d:750ms">${PROPS.talk(318, 104)}</g>
-    </g>
-    <g class="lx-c3 lx-c3-quiet">
-      <g transform="translate(250 170)"><g class="lx-pop" style="--d:0ms"><circle r="15" fill="var(--n0)" stroke="var(--n500)" stroke-width="2"/><path class="lx-hand" d="M0 0 V-9" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/><path d="M0 0 H6" stroke="var(--n700)" stroke-width="2.2" stroke-linecap="round"/></g></g>
-      <g class="lx-fade" style="--d:850ms"><g transform="translate(250 226)">${smallBill(true)}</g>${svgText(250, 266, 'Did not advance', { fill: 'var(--n700)' })}</g>
-    </g>
-  </g>`;
-}
-// ---- R-219: two new versions of stage 3, for Nate's pick (10/11, "Build 1 and 3") ----
-// Each is on its own link, ?story3=road or ?story3=table; without it the page is today's. Both answer one job (Nate 10/11):
-// people believe speaking up works, from a small choice and a picture of cause and effect. The choices are email the
-// chair to ask for a hearing, send testimony, or do nothing; the one that fits the bill now is marked (timing decides);
-// doing nothing ends stark (the bill greys, "Did not advance"); the other choices stay there to try; nothing is sent.
-// road  (sketch 1, Nate's "Plan 2 + Plan 3"): page 2's road comes back with two doors, "Will you speak up this week?".
-//       The yes door follows the bill's moment: testimony when a hearing is set, the chair's email while it waits for one.
-// table (sketch 3): the committee at its table with the pile of notes they read, You, and the three choices.
-// A bill at no committee moment (between sessions, a law, a stopped bill, one past its committees) gets the same scene as
-// a "say it were" at its committee stop: between sessions that is last session's bill, its past story (Nate 10/11).
-const story3 = () => { try { const v = new URLSearchParams(location.search).get('story3'); return v === 'road' || v === 'table' ? v : ''; } catch { return ''; } };
+// Each scene is drawn where it ends (the still picture) and flown or slid there. Before 10/11 (R-089) this stage was three
+// moments with a drawn neighbor each; Nate's sketches and pick are in backend docs/requests/R-219.md.
 const doorOf = E => { const m = momentOf(E); return m === 'testimony' || m === 'chair' ? { kind: m, live: true } : { kind: 'testimony', live: false }; };
 const sceneAt = E => (storyAt(E) <= 1 ? 0 : 2);   // the committee stop the scene plays at: its first side's, or the other's
 const roadNames = E => [`${E.start} committees`, `${E.start} vote`, `${E.other} committees`, `${E.other} vote`, E.x.ballot ? 'The voters' : 'Governor'];
@@ -859,44 +809,9 @@ function roadDoorsSVG(E) {
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${stamp3(s === 2 ? 214 : 150, 184)}</g>
   </g>`;
 }
-// Sketch 3: the chair and two members at their table, the pile of notes they read in front of them, You with a note,
-// and the bill. Testimony flies your note onto the pile and the pile grows; the chair's email puts a hearing on the
-// list (today's chair scene); doing nothing leaves the pile empty, the committee fades and the bill is stamped.
-function tableSVG(E) {
-  const pile = [[150, 112, -10, 700], [190, 112, 8, 780], [160, 104, 4, 860], [182, 102, -6, 940]];
-  return `<g class="lx-lay lx-lay3 lx-t3">
-    <g class="lx-in3" style="--d:0ms"><g class="lx-cmte">
-      ${person(128, 66, 'var(--p600)', .7)}${person(212, 66, 'var(--p600)', .7)}${person(170, 64, 'var(--p900)', .8)}
-      <rect x="104" y="70" width="132" height="18" rx="4" fill="var(--p800)"/>
-      ${svgText(170, 22, 'Chair', { fill: 'var(--p800)' })}
-    </g></g>
-    <g class="lx-in3" style="--d:150ms"><rect x="122" y="124" width="96" height="10" rx="3" fill="var(--p200)"/>${svgText(170, 156, 'Notes they read')}</g>
-    <g class="lx-in3" style="--d:240ms">${person(60, 238, 'var(--p500)', .85)}${svgText(60, 272, 'You')}<g class="lx-t3note">${PROPS.note(92, 214, 10)}</g></g>
-    <g class="lx-in3" style="--d:300ms"><g transform="translate(292 226)">${smallBill()}</g>${svgText(292, 266, E.num)}</g>
-    <g class="lx-c3 lx-c3-testimony">
-      ${fly(-78, 98, 0, PROPS.note(170, 116, -4))}${fly(-58, 102, 200, PROPS.note(146, 116, -10))}${fly(-98, 98, 400, PROPS.note(194, 116, 8))}
-      ${pile.map(([px, py, r, d]) => `<g class="lx-pop" style="--d:${d}ms">${PROPS.note(px, py, r)}</g>`).join('')}
-      <path class="lx-pop" style="--d:1150ms" d="M118 58 q-6 -6 0 -12 M222 58 q6 -6 0 -12" fill="none" stroke="var(--p400)" stroke-width="2.2" stroke-linecap="round"/>
-      ${tickAt(312, 204, 1300)}
-    </g>
-    <g class="lx-c3 lx-c3-chair">
-      ${fly(-78, 170, 0, PROPS.mail(148, 36, -8))}
-      <circle class="lx-pop" style="--d:550ms" cx="170" cy="40" r="16" fill="none" stroke="var(--p400)" stroke-width="3"/>
-      <g class="lx-pop" style="--d:650ms"><rect x="10" y="30" width="80" height="66" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M10 34 Q10 30 14 30 H86 Q90 30 90 34 V48 H10 Z" fill="var(--p700)"/>
-        ${svgText(50, 44, 'Hearings', { fill: 'var(--n0)' })}<path d="M20 60h46M20 72h40" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
-      <path class="lx-grow" style="--d:950ms" d="M20 84h46" stroke="var(--p600)" stroke-width="4" stroke-linecap="round"/>
-      <g transform="translate(77 84)"><g class="lx-pop" style="--d:1150ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>
-    </g>
-    <g class="lx-c3 lx-c3-quiet">
-      <g class="lx-pop" style="--d:200ms">${svgText(170, 116, 'None', { fill: 'var(--n700)' })}</g>
-      <g class="lx-fade" style="--d:500ms"><g transform="translate(292 226)">${smallBill(true)}</g></g>${stamp3(256, 180, 800)}
-    </g>
-  </g>`;
-}
 function storyPic(E) {
-  const v = story3();
   return `<div class="lx-pic lx-scene lx-story" id="lx-story" data-stage="1" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">
-    ${paperSVG(E)}${roadSVG(E)}${v === 'road' ? roadDoorsSVG(E) : v === 'table' ? tableSVG(E) : voiceSVG()}</svg></div>`;
+    ${paperSVG(E)}${roadSVG(E)}${roadDoorsSVG(E)}</svg></div>`;
 }
 
 // ---- the words ----
@@ -956,25 +871,9 @@ function whyWords(E) {
   const yr = winsYear(E), n = (winsIn(yr) || []).length;
   return `Each note tells lawmakers what people here want, and notes add up.${n ? ` In ${yr}, notes like these helped ${n === 1 ? 'a bill' : `${n} bills`} HIPHI backed become law.` : ''}`;
 }
-// The three moments a bill can be helped (R-089, Nate 10/5: "C, with HEAVY hand holding for the user"): one drawn neighbor each, in the
-// order a bill meets them, tapped through. Each says who does what and what that CAN do (never a promise). "Stay quiet" is no longer
-// a choice that stood beside the other three (they are moments on one road, and doing nothing is not a moment): what it used to teach
-// is the closing line, that most bills stop without anyone asking about them.
-const CHOICES = [
-  ['chair', 'Before a hearing', 'A neighbor emails the chair.', 'A chair decides which bills get a hearing. Notes from the public can move a bill onto the list.'],
-  ['testimony', 'At the hearing', 'A neighbor sends testimony.', 'Committee members read the notes people send before they vote. One note can change a mind.'],
-  ['legislators', 'Before the full vote', 'A neighbor tells their own legislators.', 'Before the full House or Senate votes, a note from someone they represent can sway a vote.'],
-];
-const MINI = {
-  chair: '<rect x="4" y="9" width="28" height="19" rx="3" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M4.5 11 L18 20.5 L31.5 11" fill="none" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/>',
-  testimony: '<rect x="8" y="4" width="20" height="28" rx="2" fill="var(--n0)" stroke="var(--p700)" stroke-width="2"/><path d="M13 12h10M13 17.5h10M13 23h6" stroke="var(--p500)" stroke-width="2.2" stroke-linecap="round"/>',
-  legislators: '<path d="M4 9 Q4 6 7 6 H29 Q32 6 32 9 V21 Q32 24 29 24 H15 L9 30 L10 24 H7 Q4 24 4 21 Z" fill="var(--n0)" stroke="var(--p700)" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="15" r="2" fill="var(--p700)"/><circle cx="18" cy="15" r="2" fill="var(--p700)"/><circle cx="24" cy="15" r="2" fill="var(--p700)"/>',
-  quiet: '<path d="M10 5 H26 M10 31 H26" stroke="var(--n700)" stroke-width="2.5" stroke-linecap="round"/><path d="M12 6 C12 14 16.5 15 16.5 18 C16.5 21 12 22 12 30 H24 C24 22 19.5 21 19.5 18 C19.5 15 24 14 24 6 Z" fill="var(--n0)" stroke="var(--n700)" stroke-width="2" stroke-linejoin="round"/><path d="M14.5 28.5 Q18 24 21.5 28.5 Z" fill="var(--n500)"/>',
-};
-const choiceOf = k => CHOICES.find(c => c[0] === k);
-// Which of the three moments this bill is at now, or null: a bill still waiting for a hearing is at the first, one with a hearing ahead
-// or just held at the second, one waiting for its floor vote (or in conference) at the third. A law, a stopped bill, one on the
-// Governor's desk or the ballot, and any bill between sessions are at none: the page says so rather than pointing at the wrong one.
+// Which moment this bill is at now, or null: a bill still waiting for a hearing is at the chair's (before a hearing), one
+// with a hearing ahead or just held at testimony's, one waiting for its floor vote (or in conference) at its legislators'.
+// A law, a stopped bill, one on the Governor's desk or the ballot, and any bill between sessions are at none.
 function momentOf(E) {
   if (E.off || E.isLaw || E.stopped || E.x.ballot || storyAt(E) === 4) return null;
   const st = E.x.st;
@@ -982,32 +881,7 @@ function momentOf(E) {
   if (st.phase === 'committee') return storyDue(E).kind !== 'none' || (st.hearingState === 'held' && st.hearing) ? 'testimony' : 'chair';
   return null;
 }
-const momentN = k => CHOICES.findIndex(c => c[0] === k) + 1;
-// One line above the three: where this bill is, and what to do with the page. The bill's own moment is named, so the first thing
-// said is the real chance (the page used to bury it in a small grey note below the fold).
-function voiceLead(E) {
-  const num = esc(E.num), at = momentOf(E);
-  const was = E.off ? 'When the session opens, a bill you follow will meet these moments. '
-    : E.isLaw ? `${num} became law. Every law passed moments like these. `
-    : E.stopped ? `${num} did not advance this time. Moments like these are how a bill gets further. `
-    : E.x.ballot ? `${num} passed moments like these on its way to the voters. `
-    : storyAt(E) === 4 ? `${num} passed moments like these on its way to the Governor. `
-    : at ? `${num} is at moment ${momentN(at)} of 3 now. ` : '';
-  return `${was}A bill can be helped at three moments. Tap each one to meet a neighbor who spoke up.`;
-}
-// The panel under the three buttons for the moment chosen: who does what, what that can do, where this bill is, and how far through.
-function momentPanel(E, k, seen) {
-  const c = CHOICES.find(x => x[0] === k), n = momentN(k), at = momentOf(E), here = at === k, i = CHOICES.findIndex(x => x[0] === k);
-  const prev = CHOICES[i - 1], next = CHOICES[i + 1];
-  const where = here ? `<p class="lx-momhere">${icon('map-pin')}<span><b>Here is your chance.</b> ${storyNow(E)}</span></p>`
-    : at ? `<p class="lx-there">${esc(E.num)} is at moment ${momentN(at)} now: ${esc(choiceOf(at)[1].toLowerCase())}.</p>` : '';
-  const done = seen.size >= CHOICES.length;
-  return `<p class="lx-momh">Moment ${n} of 3 · ${esc(c[1])}</p>
-    <p class="lx-momsay"><b>${esc(c[2])}</b> ${esc(c[3])}</p>${where}
-    <div class="lx-momnav">${prev ? `<button type="button" class="btn text sm" data-lx-ch="${prev[0]}">${icon('arrow-left')}<span>Back to moment ${n - 1}</span></button>` : ''}${next ? `<button type="button" class="btn secondary sm" data-lx-ch="${next[0]}"><span>See moment ${n + 1}</span>${icon('arrow-right')}</button>` : ''}</div>
-    <p class="lx-seenline">${done ? 'That is all three. Use the button below to go on.' : `You have seen ${seen.size} of 3.${next ? ' Tap “See moment ' + (n + 1) + '” for the next.' : ' Tap a moment above to see the others.'}`}</p>`;
-}
-// ---- R-219's two versions: the words ----
+// ---- stage 3's words ----
 // What a yes leads to. "Nothing to do now" was said even when this bill's testimony was due the next day (R-098): a real
 // hearing ahead is named. R-099: the version that ends on Home (?end=home) says how, not only when: the moment waits at
 // the top of the home page, with help to act on it. Someone who already spoke up at this hearing (the story opened from
@@ -1054,35 +928,9 @@ function doorPanel(E, k) {
     : `<b>Committee members read testimony before they vote.</b> Notes like yours can carry ${it} on to ${D.live ? `the ${next}` : 'its vote'}.`;
   return `<p class="lx-momsay">${say}</p>${tryBtns([['no', `Try “${noWord}”`]])}<p class="lx-why" id="lx-wins">${whyWords(E)}</p>${D.live && D.kind === 'testimony' ? `<p>${esc(calmWords(E))}</p>` : ''}`;
 }
-const TABLE = [['testimony', 'Send testimony', 'Your note goes on the pile they read'], ['chair', 'Email the chair', 'Ask for a hearing'], ['quiet', 'Do nothing', 'Let it be']];
-const tableSub = (E, k, sub) => k === 'chair' && momentOf(E) === 'testimony' ? `Before a hearing. ${E.num} is past this` : sub;
-function tableTitle(E) {
-  const m = momentOf(E);
-  return m === 'testimony' && storyDue(E).kind !== 'none' ? `The committee hears ${E.num} ${E.hear.when}. What would you do?`
-    : m === 'testimony' ? `The committee is deciding on ${E.num}. What would you do?`
-    : m === 'chair' ? `${E.num} is waiting for a hearing. What would you do?` : `Say a committee were deciding on ${E.num}. What would you do?`;
-}
-function tableBody(E) {
-  const m = momentOf(E), due = storyDue(E), num = esc(E.num);
-  const tag = k => m !== k ? '' : `<span class="lx-chhere">${icon('map-pin')}${k === 'testimony' && due.kind === 'due' ? `Fits ${num} now · due ${esc(due.words)}` : `Fits ${num} now`}</span>`;
-  return `<div class="lx-choose" role="group" aria-label="What would you do?"><div class="lx-chs lx-chs3">${TABLE.map(([k, label, sub]) => `<button type="button" class="lx-ch lx-ch3 lx-ch-${k}" data-lx-ch="${k}" aria-pressed="false" aria-controls="lx-mom"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k]}</svg><span class="lx-chl"><span>${esc(label)}</span><span class="lx-chsub">${esc(tableSub(E, k, sub))}</span>${tag(k)}</span></button>`).join('')}</div></div>
-    <div class="lx-mom" id="lx-mom" aria-live="polite"></div>`;
-}
-// The proof line (wins) and what a yes leads to come only with the pick that fits the bill now, so they are said once.
-function tablePanel(E, k) {
-  const m = momentOf(E), live = m === 'testimony' || m === 'chair', num = esc(E.num);
-  const others = tryBtns(TABLE.filter(c => c[0] !== k).map(([k2, label]) => [k2, `Try “${label}”`]));
-  const more = (live ? m === k : k === 'testimony') ? `<p class="lx-why" id="lx-wins">${whyWords(E)}</p>${m === 'testimony' ? `<p>${esc(calmWords(E))}</p>` : ''}` : '';
-  if (k === 'quiet') return `<p class="lx-momsay"><b>An empty pile tells them no one is asking.</b> ${HELD(E, live, 'The')} Most bills end at a committee.</p>${others}`;
-  if (k === 'chair') return `<p class="lx-momsay"><b>The chair decides which bills get a hearing.</b> Notes like yours can put a bill on the list.${m === 'testimony' ? ` ${num} already has its hearing, so testimony is its chance now.` : ''}</p>${others}${more}`;
-  return `<p class="lx-momsay"><b>Committee members read testimony before they vote.</b> A tall pile shows them people here care, and one note can change a mind.${m === 'chair' ? ` ${num} has no hearing yet, so its chance now is the chair.` : ''}</p>${others}${more}`;
-}
-
 function stageTitle(E, k) {
   if (k === 1) return E.mine || E.via === 'followed' ? 'This is your bill' : 'Meet the bill';
-  if (k === 2) return 'Its road';
-  const v = story3();
-  return v === 'road' ? doorsTitle(E) : v === 'table' ? tableTitle(E) : 'Three moments to speak up';
+  return k === 2 ? 'Its road' : doorsTitle(E);
 }
 function stageBody(E, k) {
   if (k === 1) {
@@ -1096,16 +944,7 @@ function stageBody(E, k) {
     const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then ${E.x.ballot ? 'the voters' : 'the Governor'}.`;
     return `<p>${esc(road)}</p><p class="lx-now">${storyNow(E)}</p>`;
   }
-  const v = story3();
-  if (v) return v === 'road' ? doorsBody(E) : tableBody(E);
-  const calm = calmWords(E);   // R-098, R-099, X10-2: the words are in calmWords, shared with R-219's versions
-  const at = momentOf(E);
-  return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>
-    <div class="lx-choose" role="group" aria-labelledby="lx-out"><div class="lx-chs lx-chs3">${CHOICES.map(([k2, label]) => `<button type="button" class="lx-ch lx-ch-${k2}" data-lx-ch="${k2}" aria-pressed="false" aria-controls="lx-mom"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k2]}</svg><span class="lx-chl"><span class="lx-chn">Moment ${momentN(k2)}</span><span>${esc(label)}</span>${at === k2 ? `<span class="lx-chhere">${icon('map-pin')}${esc(E.num)} is here</span>` : ''}</span><span class="lx-chseen" aria-hidden="true">${icon('check')}</span></button>`).join('')}</div></div>
-    <div class="lx-mom" id="lx-mom" aria-live="polite"></div>
-    <p class="lx-why" id="lx-wins">${whyWords(E)}</p>
-    <p class="lx-quietnote">Most bills do not advance at one of these moments, often without anyone asking about them.</p>
-    <p class="lx-calm">${icon('info')}<span>${esc(calm)}</span></p>`;
+  return doorsBody(E);
 }
 const stageHTML = (E, k) => `<p class="lx-count">${k} of 3</p><h2>${esc(stageTitle(E, k))}</h2>${stageBody(E, k)}`;
 function storyLede(E) {
@@ -1152,26 +991,14 @@ function roadPlay(pic, instant) {
   };
   requestAnimationFrame(step);
 }
+// A pick plays its scene and says what it can do, with the other door to try. Nothing is picked for the person (the
+// choice is theirs), and moving on never waits for one.
 function storyChoose(k, { instant = false } = {}) {
-  if (story3()) { story3Choose(k, { instant }); return; }
-  const root = rootOf('story'), pic = $('#lx-story'), c = choiceOf(k); if (!root || !pic || !c || !L.E) return;
-  const E = L.E, seen = (ST.story.seen ??= new Set());
-  seen.add(k); ST.story.choice = k; pic.dataset.choice = k;
-  $$('[data-lx-ch]', root).forEach(b => { const on = b.dataset.lxCh === k; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('lx-chdone', seen.has(b.dataset.lxCh)); });
-  const mom = $('#lx-mom', root);
-  if (mom) { mom.innerHTML = momentPanel(E, k, seen); mom.classList.add('lx-got'); if (!instant) play(mom, 'lx-swap'); }
-  if (instant) { pic.classList.add('lx-cplay'); settle(pic); }
-  else { play(pic, 'lx-cplay'); reveal(pic, mom); }
-}
-// R-219's versions: a pick plays its scene and says what it can do, with the others to try. Nothing is picked for the
-// person (a small choice is theirs), and moving on never waits for one.
-function story3Choose(k, { instant = false } = {}) {
-  const root = rootOf('story'), pic = $('#lx-story'), v = story3(), E = L.E; if (!root || !pic || !E) return;
-  if (!(v === 'road' ? ['yes', 'no'] : TABLE.map(c => c[0])).includes(k)) return;
+  const root = rootOf('story'), pic = $('#lx-story'), E = L.E; if (!root || !pic || !E || !['yes', 'no'].includes(k)) return;
   ST.story.choice = k; pic.dataset.choice = k;
-  $$('.lx-doors [data-lx-ch], .lx-choose [data-lx-ch]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxCh === k)));
+  $$('.lx-doors [data-lx-ch]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxCh === k)));
   const mom = $('#lx-mom', root);
-  if (mom) { mom.innerHTML = v === 'road' ? doorPanel(E, k) : tablePanel(E, k); mom.classList.add('lx-got'); mom.classList.toggle('lx-gotno', k === 'no' || k === 'quiet'); if (!instant) play(mom, 'lx-swap'); }
+  if (mom) { mom.innerHTML = doorPanel(E, k); mom.classList.add('lx-got'); mom.classList.toggle('lx-gotno', k === 'no'); if (!instant) play(mom, 'lx-swap'); }
   if (instant) { pic.classList.add('lx-cplay'); settle(pic); }
   else { play(pic, 'lx-cplay'); revealSaid(mom); }
 }
@@ -1189,7 +1016,7 @@ function storySet(k, { instant = false, initial = false } = {}) {
   const root = rootOf('story'), pic = $('#lx-story'); if (!root || !pic || !L.E) return;
   const E = L.E, forward = k > ST.story.step && !instant;
   L.run++; ST.story.step = k; pic.dataset.stage = k; root.dataset.stage = k;
-  if (forward && k === 3) { ST.story.choice = null; ST.story.seen = new Set(); }   // coming to the moments afresh: none seen yet
+  if (forward && k === 3) ST.story.choice = null;   // coming to the doors afresh: nothing picked
   pic.classList.remove('lx-play', 'lx-cplay'); delete pic.dataset.choice;
   const cap = $('#lx-cap', root);
   if (cap) { cap.innerHTML = stageHTML(E, k); if (!instant && !initial) play(cap, 'lx-swap'); else cap.classList.remove('lx-swap'); }
@@ -1197,9 +1024,7 @@ function storySet(k, { instant = false, initial = false } = {}) {
   if (k === 2) roadPlay(pic, instant);
   else if (instant) { pic.classList.add('lx-play'); settle(pic); }
   else { void pic.getBoundingClientRect(); play(pic, 'lx-play'); }
-  // It opens on the bill's own moment (the first, when it is at none), so the real chance is the first thing shown (R-089).
-  if (k === 3 && story3()) { if (ST.story.choice) story3Choose(ST.story.choice, { instant: true }); }
-  else if (k === 3) storyChoose(ST.story.choice || momentOf(E) || 'chair', { instant });
+  if (k === 3 && ST.story.choice) storyChoose(ST.story.choice, { instant: true });   // Back or a redraw keeps the pick
   fitStory();
   if (!initial && !instant) reveal(pic, cap);
   // The wins may not be loaded yet (in session they are the session before this one's; between sessions a link straight

@@ -47,17 +47,13 @@ Home's card, the one after a first action and More > Get alerts at `#/alerts`; a
 version in `text_signups`, backend 121, nothing is sent until texts are set up; passed over when there is nothing to ask,
 `askAlerts()` in `pub/start.js`) -> the "Mahalo!" moment (naming the number or the email when one was given) -> ONE
 lesson, "A bill's story" (R-062, 9/29, rebuilt twice that day: one page in three stages walked with the primary button,
-the drawing changing in place: the bill, its road to where it really is, then "Three moments to speak up" (R-089, 10/6, Nate: direction C
-with heavy hand-holding): three buttons in the order a bill meets them (before a hearing: email the chair; at the hearing: send testimony; before the full
-vote: tell my legislators), each a drawn neighbor doing it and what CAN happen, tapped through (`CHOICES`, `momentOf`, `momentPanel`, `storyChoose` in
-`pub/lessons.js`); it opens on the bill's own moment, marked "is here", with its real date ("testimony is due Wednesday at 9:30 AM"), says how many of
-the three have been seen, and "Stay quiet" is gone as a choice (its point is the closing line: most bills stop at one of these moments, often without
-anyone asking about them); a law, a stopped bill, one on the Governor's desk and any bill between sessions are at none and the page says so. Two new
-versions of this stage wait for Nate's pick (R-219, 10/11), each on its own link and nowhere else until he picks: `?story3=road` (page 2's road comes back,
-"Will you speak up on HB 2121 this week?", two doors whose yes follows the bill's moment: testimony with a hearing set, the chair's email while it waits)
-and `?story3=table` (the committee at its table with the pile of notes they read, You, and three choices, the one that fits now marked); in both doing
-nothing ends stark ("DID NOT ADVANCE"), the others stay to try, nothing is picked for you (`story3`, `roadDoorsSVG`, `tableSVG`, `story3Choose`; checked
-by `tests/story3.py`); Back steps
+the drawing changing in place: the bill, its road to where it really is, then the road again with "Will you speak up on HB 2121 this
+week?" and two doors (R-219, Nate 10/11: "Go with version 1, the road"; before it, R-089's three moments): "Yes, I'd send testimony" (or
+"Yes, I'd email the chair" while the bill waits for a hearing: the yes door follows `momentOf`) flies notes to the committee stop and slides
+the bill on (or puts a hearing on the list); "Not this week" greys the road ahead and stamps the bill "DID NOT ADVANCE" (the committee can
+put it on hold, and then it can't pass this year); each says what it CAN do, the other door stays to try, nothing is picked for you and
+nothing is sent; between sessions, or for a bill past its committees, it asks "Would you speak up on a bill like ...?" at its committee
+stop (`roadDoorsSVG`, `doorsBody`, `doorPanel`, `storyChoose` in `pub/lessons.js`; checked by `tests/story3.py` and `public_journey.py`); Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
 laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)
