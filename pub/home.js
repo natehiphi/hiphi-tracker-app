@@ -178,9 +178,10 @@ function milestoneState(acts) {
 const chipsHtml = got => got.length ? `<ul class="chips hm-chips" aria-label="Milestones you have reached">${got.map(([, t, d]) => `<li class="chip yay" title="${esc(cap(d))}">${flower(16)}${esc(t)}</li>`).join('')}</ul>` : '';
 
 // The session's record, its counts, milestones and what happened after each action, is its own page (#/recap, R-046).
-// Home links to it once, from the greeting (R-222, Nate 10/10: the "Your session" panel under the list was a second
+// Home links to it once: in session at the end of the list, so the first card keeps its place on a phone (A-1); between
+// sessions under the greeting, where the session that ended is the news (R-222, Nate 10/10: the "Your session" panel under the list was a second
 // record of the same actions, and the weeks' dots a streak nobody owes; the session page has the rest).
-const sessionLink = si => btn(`See your ${si.yr} session`, { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link hm-seslink' });
+const sessionLink = yr => btn(`See your ${yr} session`, { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link hm-seslink' });
 
 // What’s new (the last 7 days on my bills) left Home 10/10 (R-222 step 1): status was told five ways there; My issues
 // keeps each bill’s latest news, and the new Home says what changed as one word on the issue’s row.
@@ -634,12 +635,12 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}${sessionLink(si)}</header>
+      ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${byIssue ? issueBlock(cards, asks) : todoBlock(cards, asks)}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugHtml}
-      ${profileLine()}
+      ${sessionLink(si.yr)}${profileLine()}
     </div><div class="side hm-side">
       ${wide ? gn.html : ''}${goLater}
     </div></div>
@@ -670,11 +671,9 @@ function welcomeView(si, { cards, asks, total }) {
   const iss = followedIssues(), stands = iss.length ? iss.filter(i => issueBills(i).some(took)).length : S.bills.filter(b => took(b.id)).length;
   const ms = milestoneState(myActions());
   const stood = !stands ? '' : ` and said where you stand on ${stands === 1 ? 'one of them' : n(stands)}`;
-  const soon = cards.filter(x => !settledOn(x.b, x.h)).length;
   // The guided start's email step was skipped: one ask here, in the flow of the page (core's nudge rules still apply).
   // Not in the email-ask test's second version, which first asks after an action (R-135, variant.js 'email').
   const ask = (S.session && !S.nudgeText) || (alertsGiven() && !S.nudgeSent && !S.nudgeText) || !S.nudge || armOf('email') === 'after' ? '' : profileLine();
-  const step = (ic, title, text) => `<li><span class="hm-stepic">${icon(ic)}</span><span><b>${title}</b> ${text}</span></li>`;
   // After the new first visit's last screen (R-023: "You're all set" and "What happens next" were just said there), Home
   // says aloha instead of repeating them (A-14), and opens on the things they can do this week (B-3: the lessons need
   // somewhere to go; R-190, below).
@@ -691,7 +690,10 @@ function welcomeView(si, { cards, asks, total }) {
   const todoCards = cards.filter(x => !(S.hmLoopB.has(x.b.id) && settledOn(x.b, x.h)));
   const todo = total ? `<h2 class="hm-todot" id="hm-td">${plural(total, 'thing')} you can do this week</h2>${todoBlock(todoCards, asks, { calm: !fin, sub: true })}` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
-  const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.` : `You follow ${esc(said)}${stood}. That’s all you need to do today.`;
+  // Without the first visit's last screen, the lede says what "What happens next" used to, in one sentence (R-222: the
+  // three steps were a fourth block on the first-day Home; "That’s all you need to do today" sat over a list of things to do).
+  const lede = fin ? `You follow ${esc(said)}${stood}. Here’s what’s happening on them this week.`
+    : `You follow ${esc(said)}${stood}. ${total ? 'Here’s what you can do this week.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}`;
   return `<div class="hm hm-follow hm-welcome${fin ? ' hm-fin' : ''}">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
@@ -700,12 +702,6 @@ function welcomeView(si, { cards, asks, total }) {
         ${fin ? '' : chipsHtml(ms.got)}
         ${fin ? '' : btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
       ${loop}${todo ? `<section class="hm-todo" aria-labelledby="hm-td">${todo}</section>` : ''}${fin ? yourIssues() : ''}
-      ${fin ? '' : `<section class="card hm-nextup" aria-labelledby="hm-nu"><h2 id="hm-nu">What happens next</h2>
-        <ul class="hm-steps">
-          ${step('eye', 'We keep watch.', 'We check every bill on your issues each day, so you don’t have to.')}
-          ${step('calendar-clock', 'When a bill has a hearing, you can help.', `${soon ? `${soon === 1 ? 'One bill on your issues has' : `${n(soon)} bills on your issues have`} one coming up. ` : ''}We’ll show one simple way to help, right here. Most take a couple of minutes.`)}
-          ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My issues.')}
-        </ul></section>`}
       ${ask}
     </div></div>
   </div>`;
@@ -874,8 +870,8 @@ function offView(si) {
   const ready = known ? [`Say aloha before ${nextYr}`, `Lawmakers are writing their ${nextYr} bills now. A short hello from someone in their district tells them what you care about. It takes about 2 minutes.`]
     : ['Get ready for January', known ? 'Get a text or email when a bill on your issues has a hearing.'
       : askBtn ? 'Know who represents you, and get a text or email when a bill on your issues has a hearing. Each takes under a minute.' : 'Know who represents you before the first hearing. It takes 30 seconds.'];
-  // The saved issues and followed lists, named, with a way to change them. They sit under the recap's neighbour when
-  // there is a recap (so the two columns stay even), else they lead the page: they are what the person just set up.
+  // The saved issues and followed lists, named, with a way to change them: what the person set up. The session that ended
+  // is its own page now, one link under the greeting (R-222: the recap card was a second record of it on Home).
   const setup = `${mine.length ? `<section class="hm-sec" aria-labelledby="hm-mi"><div class="hm-sechead"><h2 id="hm-mi">Your issues</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', href: '#/start/1', attrs: { 'aria-label': 'Edit your issues' } })}</div>
       <div class="rows">${mine.map(issueRow).join('')}</div></section>` : ''}
     ${lists.length ? `<section class="hm-sec" aria-labelledby="hm-ml"><h2 id="hm-ml">Lists you follow</h2>
@@ -900,14 +896,10 @@ function offView(si) {
     : `<header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
       <div class="hm-breakt"><h1 class="hero">${welcome ? `${wiz().finale ? 'Aloha' : `You’re all set for ${nextYr}`}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
         <p class="lede">${lede}</p>
-        ${daysChip}${meetLine()}</div></header>`}
+        ${daysChip}${meetLine()}${rows.length ? sessionLink(yr) : ''}</div></header>`}
     <div class="cols even"><div class="hm-col">
       ${v2 ? `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>${readyCard}</section>` : lead ? readyCard : ''}
-      ${rows.length ? `<section class="card hm-recap" aria-labelledby="hm-rc"><div class="hm-recaphead"><h2 id="hm-rc">Your ${yr} session</h2><div class="hm-isl">${islands(myIsland())}</div></div>
-        <p>${esc(said)}</p>
-        ${chipsHtml(milestoneState(acts).got)}
-        <h3 class="hm-label">What happened</h3>${impList(rows, 3)}
-        ${btn(`See your whole ${yr} session`, { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link' })}</section>` : setup}
+      ${setup}
       ${nothingYet ? `<section class="card hm-ready" aria-labelledby="hm-st"><h2 id="hm-st">Start with what you care about</h2>
         <p class="muted">Pick a few health issues now. When the session opens, HIPHI’s bills for them will be waiting here.</p>
         <div class="btncol">${btn('Pick the issues I care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}</div></section>` : ''}
@@ -915,8 +907,6 @@ function offView(si) {
       ${v2 || lead ? '' : readyCard}
       ${winsCard(yr)}
       ${profileLine()}
-      ${rows.length ? setup : ''}
-      ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
     </div></div>
   </div>`;
 }
