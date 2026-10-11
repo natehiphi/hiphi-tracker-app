@@ -52,6 +52,26 @@
 .is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
 .is-page > .sv-notice { margin: var(--s12) 0 0; }
 .is-page .le-brow .iconbtn { flex: none; }
+/* Where it stands (R-226): three facts, kept short above the bills. A phone reads them as three lines, the label
+   before its value, so the bills stay near the top; a desktop sets them side by side in one box. Quiet: text colours
+   already on the page only (A-5). */
+.is-page .is-sdl { margin: var(--s4) 0 0; }
+.is-page .is-sr { padding: 2px 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); overflow-wrap: anywhere; }
+.is-page .is-sr dt { display: inline; font-size: var(--t13); font-weight: 700; color: var(--n500); margin-right: 4px; }
+.is-page .is-sr dt::after { content: ':'; }
+.is-page .is-sr dd { display: inline; margin: 0; }
+.is-page .is-sr dd a { color: var(--p700); font-weight: 700; }
+.is-page .is-sone { margin: 0; }
+@media (min-width: 900px) {
+  .is-page .is-sdl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
+  .is-page .is-sr { padding: var(--s12) var(--s16); }
+  .is-page .is-sr + .is-sr { border-left: 1px solid var(--n100); }
+  .is-page .is-sr dt { display: block; margin: 0 0 2px; }
+  .is-page .is-sr dt::after { content: none; }
+  .is-page .is-sr dd { display: block; }
+}
+/* A bill's one line on the issue page (R-226): where it stands, in the same size as the rest of the row. */
+.is-page .is-bstat { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); overflow-wrap: anywhere; }
 
 /* ---- the issue form and the picker (sheets) ---- */
 .is-form .is-for, .is-picker .is-for { margin: 0 0 var(--s12); }

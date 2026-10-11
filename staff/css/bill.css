@@ -41,6 +41,14 @@
 .bw-chips .sv-pick .sv-av { margin-left: -6px; }
 /* Initials in the five type sizes (the shared avatar scales its letters with the circle). */
 .bw-chips .sv-av, .bw-msg .sv-av, .bw-mention .sv-av { font-size: var(--t13); }
+/* An issue the bill is on (R-226): a link, so it is drawn as one (A-12): outlined in the link blue, not the grey of the
+   referral chips beside it, which cannot be pressed. A touch target (A-6), and it may wrap a long name. */
+.bw-chips a.bw-ichip { text-decoration: none; max-width: 100%; white-space: normal; text-align: left; min-height: 44px; padding: 6px 14px; background: var(--n0); border: 1px solid var(--p700); color: var(--p700); font-weight: 700; }
+.bw-chips a.bw-ichip:hover { background: var(--p50); color: var(--p800); }
+.bw-chips a.bw-ichip .ic { flex: none; }
+@media (min-width: 900px) { .bw-chips a.bw-ichip { min-height: 32px; padding: 4px 12px; } }
+.bw-numrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
+.bw-numrow .bw-ichips { margin-top: 0; justify-content: flex-end; flex: 1 1 auto; }
 
 /* ---- Next up ---- */
 .bw-page .bw-next { margin-top: var(--s16); }

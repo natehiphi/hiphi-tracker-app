@@ -84,7 +84,7 @@ with sync_playwright() as pw:
           out.focus = document.activeElement?.dataset?.isstance === btn.dataset.isstance;
           out.change = document.querySelector('[data-ispick]').innerText.trim();
           return out; })()""")
-        ok(res['name'] == 'Higher liquor taxes' and res['href'] == '#/issue/' + LIQ['id'], f'{tag}: the bill page lists its issue by name, linked to the issue ({res["name"]})')
+        ok(res['name'] == 'Higher liquor taxes' and res['href'] == '#/issue/' + LIQ['id'] + '?from=HB1991', f'{tag}: the bill page lists its issue by name, linked to the issue, which says it came from HB1991 ({res["name"]})')
         ok(res['chip'] == 'Oppose' and 'stance on Higher liquor taxes' in res['label'], f'{tag}: each issue carries its stance chip, named for the issue ({res["chip"]}; {res["label"]!r})')
         ok('stance on the issue as a whole' in res['help'], f'{tag}: the section says the chip is the issue\'s stance, not the bill\'s position ({res["help"][-60:]!r})')
         ok(res['x'] == 'Take it off Higher liquor taxes' and res['xWithName'], f'{tag}: × takes it off, beside the issue name')

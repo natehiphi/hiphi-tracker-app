@@ -107,7 +107,7 @@ function header(route, scr, pageH1 = false) {
   const bd = badge();
   const pill = bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
   return `<header class="sv-hdr">
-    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${b.label.length > 12 ? ` aria-label="Back to ${esc(b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(b.label.length > 12 ? 'Back' : b.label)}</span></a>` : ''}
+    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${b.label.length > 12 ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(b.label.length > 12 ? 'Back' : b.label)}</span></a>` : ''}
     <a class="sv-brand" href="#/" aria-label="Today">${MARK}<span>Bill Tracker</span></a>
     ${pageH1 ? `<span class="sv-title" aria-hidden="true">${esc(b ? '' : title)}</span>` : `<h1 class="sv-title">${esc(title)}</h1>`}
     <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>

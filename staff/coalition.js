@@ -22,39 +22,21 @@ import { sittingOf, goersOf, goingWords, testimonyOf, dueOf, dueTone } from './h
 import { billSub, wireLinks } from './pathway.js';
 import { rerender } from './bill.js';
 import { billRoute } from './model.js';
+import { isPos, byPri, dayOf, dueWhen, waitingOfBills } from './standing.js';
 
 const WEEK = 7 * 864e5, FOLD = 6, HST = { timeZone: 'Pacific/Honolulu' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id)) || null;
-const isPos = b => !!b.position && b.position !== 'monitor';
 const first = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
-const byPri = (a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
-const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');   // "Thu 3/19"
 const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
-const hstDay = t => new Date(t).toLocaleDateString('en-CA', HST);
-// "9:30 AM today", "9:30 AM tomorrow", "Mon 9:30 AM": when testimony is due, from a row that already shows the hearing's day.
-function dueWhen(iso) {
-  const t = new Date(iso).getTime(), time = new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
-  const d = hstDay(t), now = Date.now();
-  return d === hstDay(now) ? `${time} today` : d === hstDay(now + 864e5) ? `${time} tomorrow` : `${new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ${time}`;
-}
 
 // ---- the numbers, the same on the index and on the page (A-14) ----
 const billsOf = c => S.bills.filter(b => b.tracked !== false && (S.billCampaigns[b.id] || []).includes(c.id));
 // Live bills with a position: the ones the coalition is working on now (Monitor is a decided position, not work; R-022 decision 5).
 const liveOf = c => billsOf(c).filter(b => isPos(b) && !diedish(b));
-// Its bills still waiting for a hearing, split the way the weekly memo splits them (model.js memoData): at risk (the app's
-// one meaning, a deadline a week away or less; A-14), then the bills racing the next deadline after that week. The pool
-// is Today's for a coalition (today.js coalSection runs sessionClock over the same bills: Monitor out, dead bills out),
-// so every bill Today counts as "still needs a hearing" is in one of the two lists.
-function waitingOf(c) {
-  if (SESSION_OVER) return { risk: [], next: null, race: [] };
-  const w = billsOf(c).filter(b => b.position !== 'monitor' && !diedish(b)).map(b => ({ b, st: stopOf(b) }))
-    .filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed);
-  const risk = w.filter(x => riskOf(x.b)).map(x => ({ b: x.b, st: riskOf(x.b) })).sort((x, y) => x.st.deadline.days - y.st.deadline.days || byPri(x.b, y.b));
-  const later = w.filter(x => !riskOf(x.b)), next = later.map(x => x.st.deadline.date).sort()[0] || null;
-  return { risk, next, race: later.filter(x => x.st.deadline.date === next).sort((x, y) => byPri(x.b, y.b)) };
-}
+// Its bills still waiting for a hearing: at risk, then the bills racing the next deadline (standing.js, shared with an
+// issue's page).
+const waitingOf = c => waitingOfBills(billsOf(c));
 const unownedOf = c => liveOf(c).filter(b => !(S.assignments[b.id] || []).length).sort(byPri);
 const openTodosOf = c => billsOf(c).flatMap(b => (S.todos[b.id] || []).filter(t => !t.done && !t.assignee_id).map(t => ({ t, b })))
   .sort((x, y) => String(x.t.due_date || '9999').localeCompare(String(y.t.due_date || '9999')) || byPri(x.b, y.b));
