@@ -21,6 +21,9 @@ WANT = {'p1': ['topics', 'find', 'learn', 'decide', 'join', 'wrap'], 'p2': ['sto
 WANT_OFF = dict(WANT, p1=['topics', 'you', 'hello', 'join', 'wrap'])
 
 ST = {}   # what each plan's phone walk saw, checked after it
+# What is followed right now: the issues (followedIssues: an issue followed by itself, or through its whole topic) and the
+# topics followed whole (S.catFollows). R-164 (Nate 10/10): one topic tick followed all of its issues.
+FOLLOWED = "async () => { const k = await import('./pub/kernel.js'); return { n: k.followedIssues().length, cats: k.S.catFollows.size }; }"
 def step_of(pg):
     t = pg.title().split(' · ')[0]
     return TITLE.get(t, t)
@@ -61,6 +64,8 @@ with sync_playwright() as p:
             elif s == 'picks': pg.click('[data-stnext]')
             elif s == 'find':
                 # Plan 1's gradual build-up (R-164): nothing is asked until a bill is chosen; Next without one says so.
+                # The topic tick alone follows nothing (it only narrows the bills on this screen).
+                if plan == 'p1' and mobile: ST.setdefault(plan, {})['followed_at_find'] = pg.evaluate(FOLLOWED)
                 pg.click('[data-stnext]'); pg.wait_for_timeout(300)
                 ST.setdefault(plan, {})['find_flash'] = 'Pick one' in pg.locator('#st-alert').inner_text()
                 pg.locator('[data-obfind]').first.click(); pg.click('[data-stnext]')
@@ -69,6 +74,7 @@ with sync_playwright() as p:
                 pg.click('[data-obnot]')
             elif s == 'wrap':
                 ST[plan]['wrap'] = pg.locator('.st-did li').count() >= 1
+                if plan == 'p1' and mobile: ST[plan]['followed_wrap_off' if off else 'followed_wrap'] = pg.evaluate(FOLLOWED)
                 if mobile and not off: pg.screenshot(path=os.path.join(OUT, f'plans_{plan}_wrap.png'))
                 pg.click('[data-stdone]')
             elif pg.locator('[data-obnot]').count(): pg.click('[data-obnot]')
@@ -86,6 +92,11 @@ with sync_playwright() as p:
             ctx, pg, errs, seen, wide, home = walk(plan, mobile, off, phone=(plan == 'p5' and mobile and not off))
             want = (WANT_OFF if off else WANT)[plan]
             ok(seen == want, f'{where}: the steps in order {seen}')
+            if plan == 'p1' and mobile and off:
+                # Between sessions Plan 1 has no bill step, so its topic tick follows no topic, and at most one issue (see
+                # pub/start.js; what the between-sessions path should follow is Nate's decision).
+                fo = ST.get(plan, {}).get('followed_wrap_off') or {}
+                ok(fo.get('cats') == 0 and fo.get('n', 9) <= 1, f'p1 between sessions: the topic tick follows no whole topic ({fo})')
             ok(home, f'{where}: ends on Home')
             ok(wide, f'{where}: no sideways scroll on any step')
             ok(not errs, f'{where}: no page errors ' + '; '.join(errs[:2]))
@@ -97,6 +108,10 @@ with sync_playwright() as p:
                 if plan == 'p1':
                     ok(st.get('find_flash'), 'p1: "Learn about it" without a bill picked asks for one, never jumps ahead')
                     ok(st.get('decide_ways') == 3, f'p1: the choice offers three equal ways (write now, add the hearing to my calendar, just keep watch) ({st.get("decide_ways")})')
+                    fa = st.get('followed_at_find') or {}
+                    ok(fa.get('n') == 0 and fa.get('cats') == 0, f'p1: a topic tick follows nothing, not even its whole topic ({fa})')
+                    fw = st.get('followed_wrap') or {}
+                    ok(fw.get('n') == 1 and fw.get('cats') == 0, f'p1: one topic, one bill chosen, "just keep watch" follows exactly one issue ({fw})')
                 if plan == 'p5': ok(st.get('set'), 'p5: a number given goes straight to the Mahalo moment, which says to save our number (one ending, not three)')
                 # a later visit: Home brings the plan's next small thing, once, and "Not now" puts it away for good
                 pg.evaluate("() => sessionStorage.clear()"); pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}#/"); pg.wait_for_timeout(3500)
