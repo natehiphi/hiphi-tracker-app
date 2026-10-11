@@ -121,8 +121,7 @@ function loadSocial(b) {
 // each draft changed: drafted from the committee reports (backend tools/apply_draft_notes.js), edited by staff in Staff
 // v2. Asked for once per bill (public_bill_drafts); the practice copy reads demo/drafts.json. Only drafts up to the
 // bill's current one show, so the practice copy, frozen at 16 March, never shows April's.
-// The names, the order and the loader live in letters.js (R-148), which also checks a saved letter against them; the
-// committee and date each note is named by come from the bill's own committee reports (letters.js, draftNotes).
+// The names, the order and the loader live in letters.js (R-148), which also checks a saved letter against them.
 export { draftName, draftRank };
 function loadDrafts(b) {
   if ((S.blDrafts ??= new Map()).has(b.id)) return;
@@ -133,14 +132,14 @@ function loadDrafts(b) {
   }).catch(() => { /* decoration: the page stands without it */ });
 }
 // Draft history (Nate 10/5: "less prominent, and only found if those with technical expertise are looking for it"): the
-// last thing on the page, one quiet closed row. Opened, each note names the committee that made the change and when, the
-// newest first (draftLabel), so it is clear which committee changed what. fold() keeps it open through a redraw only.
+// last thing on the page, one quiet closed row. Opened, each draft's note says what that draft changed, the newest first,
+// under its plain name (draftLabel). fold() keeps it open through a redraw only.
 function draftsSection(b) {
   const cur = b.current_version ? draftRank(b, b.current_version) : Infinity;
   const list = (S.blDrafts?.get(b.id) || []).filter(d => draftRank(b, d.version) <= cur).sort((x, y) => draftRank(b, y.version) - draftRank(b, x.version));
   if (!list.length) return '';
   return `<details class="bl-drafts" ${fold(b, 'drafts')}><summary><span class="bl-drsum"><span>Draft history</span><span class="bl-drhint">How committees changed this bill’s text</span></span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
-    <p class="meta bl-drwhy">Each time a committee amends a bill, the Legislature issues a new draft of its text. Newest first.</p>
+    <p class="meta bl-drwhy">Each note says what one draft of the bill changed, newest first.</p>
     <ul class="bl-drlist" role="list">${list.map(d => `<li><p class="bl-drwho">${d.version === b.current_version ? '<span class="bl-drnow">Latest</span>' : ''}<b>${esc(draftLabel(d))}</b></p><p class="bl-drwhat">${esc(d.summary)}</p></li>`).join('')}</ul></details>`;
 }
 // Following another bill reloads the followed set and drops this one's committee reports; keep them so where the bill

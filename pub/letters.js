@@ -16,7 +16,7 @@
 // R-153 (Nate 10/4: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?"; "all
 // of the above"): the emails too, every kind the walkthrough writes, kept beside the letter (one of each per bill), offered
 // again at the bill's next step with the same check; and each one can start from the other's answers.
-import { S, D, DEMO, HST, supa, companionsOf, sessionInfo, myStance, nick, testimonyDraft, didKind, esc, icon, spaced, cmteLabel, codesOf } from './core.js';
+import { S, DEMO, supa, companionsOf, sessionInfo, myStance, nick, testimonyDraft, didKind, esc, icon, spaced } from './core.js';
 
 const ME = 'hiphi_me';
 const readMe = () => { try { return JSON.parse(localStorage.getItem(ME) || '{}') || {}; } catch { return {}; } };
@@ -33,46 +33,21 @@ export const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || 
   return ({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) * 100 + (+m[2] || 0); };
 // "As introduced" comes before every draft.
 const rankOf = (b, v) => v ? draftRank(b, v) + 100 : 0;
-// Asked for once per bill; the practice copy reads demo/drafts.json. Each note also gets the committee and date of the
-// report that made its draft (committee, reported), read from the bill's own Capitol actions: the notes carry neither.
+// Asked for once per bill; the practice copy reads demo/drafts.json.
 export function draftNotes(b) {
   const cache = (S.draftNotes ??= new Map());
   if (!cache.has(b.id)) cache.set(b.id, (async () => {
-    if (DEMO) {
-      S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []);
-      return withReports((await S.demoDrafts).filter(d => d.bill_id === b.id), (D.activity || []).filter(a => a.bill_id === b.id));
-    }
-    const sb = await supa();
-    const [r, a] = await Promise.all([
-      sb.from('public_bill_drafts').select('version,summary,changes_letters,letter_note').eq('bill_id', b.id),
-      sb.from('public_activity').select('title,occurred_at').eq('bill_id', b.id).ilike('title', 'Reported from %')]);
+    if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); return (await S.demoDrafts).filter(d => d.bill_id === b.id); }
+    const r = await (await supa()).from('public_bill_drafts').select('version,summary,changes_letters,letter_note').eq('bill_id', b.id);
     if (r.error) throw r.error;
-    // The committee and date are decoration: without them the notes still show, each named by its draft alone.
-    return withReports(r.data || [], a.error ? [] : (a.data || []));
+    return r.data || [];
   })().catch(e => { cache.delete(b.id); throw e; }));
   return cache.get(b.id);
 }
-// "Reported from HHS/CPN (Stand. Com. Rep. No. 2555) with recommendation of passage on Second Reading, as amended (SD 1)"
-// and "... as amended in HD 1, recommending passage": the committee that amended a draft and the day it reported. A draft
-// that more than one committee reported, or that no report names, keeps no committee: it is never guessed.
-const AMENDED = /^Reported from ([A-Z]{2,4}(?:\/[A-Z]{2,4})*)\b.*?\bas amended (?:in )?\(?(HD|SD|CD|FD) *(\d+)\)?/;
-function withReports(notes, acts) {
-  const by = {};
-  for (const a of acts) { const m = AMENDED.exec(a.title || ''); if (m) (by[m[2] + m[3]] ??= []).push({ committee: m[1], at: a.occurred_at }); }
-  return notes.map(n => {
-    const rs = by[n.version] || [];
-    return rs.length && rs.every(r => r.committee === rs[0].committee)
-      ? { ...n, committee: rs[0].committee, reported: rs.map(r => r.at).sort()[0] } : n;
-  });
-}
-// The name a draft's note goes under, the same on the bill page and in a letter's check (Nate 10/5: the committee that made
-// the change, and when, first): "Senate Judiciary Committee, draft SD 2 (Mar 6)". "Draft SD 2" alone when no report names
-// a committee this app knows.
-export const draftLabel = n => {
-  const code = String(n.version || '').replace(/^([A-Z]+)(\d+)$/, '$1 $2');
-  const known = n.committee && n.reported && codesOf(n.committee).every(c => S.committees?.[c]);
-  return known ? `${cmteLabel(n.committee)}, draft ${code} (${new Date(n.reported).toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' })})` : `Draft ${code}`;
-};
+// The name a draft's note goes under, the same on the bill page and in a letter's check: the plain draft name ("Senate
+// draft 2"). The committee and date are not used: the public data does not carry them, so the names stay the same on the
+// live site and in the practice copy.
+export const draftLabel = n => draftName(n.version);
 
 // ---- the letters ----
 // Two kinds, one of each per bill, the newest (R-153, migration 126): 'testimony' (a letter to a committee, kept under the
@@ -143,14 +118,14 @@ export async function syncLetters() {
 }
 
 // ---- what changed since the letter was written ----
-// { level: 'same' | 'changed' | 'big', since: [notes of each draft after the letter's, up to now, each with its committee and
-//   date for draftLabel], missing: the current draft has no note yet, big: [{ kind: 'tick' | 'position' | 'points' | 'stance', ... }], twin }
+// { level: 'same' | 'changed' | 'big', since: [notes of each draft after the letter's, up to now], missing: the current
+//   draft has no note yet, big: [{ kind: 'tick' | 'position' | 'points' | 'stance', ... }], twin }
 // stance: the answer given on "Where do you stand?" in this walkthrough (R-167), else their stance on the bill page.
 export function letterCheck(b, rec, notes = [], stance = null) {
   const twin = rec.bill !== b.id, now = b.current_version || '', then = twin ? '' : rec.draft || '';
   const since = twin ? [] : notes.filter(n => rankOf(b, n.version) > rankOf(b, then) && rankOf(b, n.version) <= rankOf(b, now))
     .sort((x, y) => rankOf(b, x.version) - rankOf(b, y.version));
-  const big = since.filter(n => n.changes_letters).map(n => ({ kind: 'tick', version: n.version, summary: n.summary, note: n.letter_note || '', committee: n.committee, reported: n.reported }));
+  const big = since.filter(n => n.changes_letters).map(n => ({ kind: 'tick', version: n.version, summary: n.summary, note: n.letter_note || '' }));
   const mine = stance || myStance(b.id);
   if (['support', 'oppose', 'comments'].includes(mine) && rec.stance && mine !== rec.stance) big.push({ kind: 'stance', from: rec.stance, to: mine });
   if (rec.ours && (b.hiphi_position || '') !== (rec.pos || '')) big.push({ kind: 'position', from: rec.pos, to: b.hiphi_position || '' });
