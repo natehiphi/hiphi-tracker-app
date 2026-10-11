@@ -493,7 +493,7 @@ const SEE = {
   rank: ['track.html?demo=1&restart&ab=rank.', 'Both open on Free school bus passes (HB 1780). Write practice testimony and say you sent it: the card after it is the difference.', '#/bill/HB1780'],
   share: ['track.html?demo=1&restart&ab=share.', 'Both open on Free school bus passes (HB 1780). Press Share: the message it makes is the difference.', '#/bill/HB1780'],
   home: ['track.html?demo=1&restart&ab=home.', 'Both open on Home with three issues followed. The difference is the top: one lists the soonest deadline first, the other groups it by topic.', HOME_SCENE],
-  layout: ['track.html?demo=1&restart&ab=layout.', 'Both open on Home with three issues followed. The difference is Home: the calm one shows one thing to do, then one line per issue (R-222).', HOME_SCENE],
+  layout: ['track.html?demo=1&restart&ab=layout.', 'Each opens on Home with three issues followed. The difference is Home: the calm one (everyone’s since 11 Oct) shows one thing to do, then the issues by where they stand; the one before shows everything at once; September’s version A shows the week day by day (R-222).', HOME_SCENE],
   act: ['track.html?demo=1&restart&ab=act.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow, and go on to the page before the end: “Coming up on your issues” in one version, three ways to help in the other (R-150).', '#/start/1'],
   pic: ['track.html?demo=1&restart&ab=pic.', 'Both open on Free school bus passes (HB 1780). Press Share: the link it makes carries that picture; text it to yourself to see it as a friend does.', '#/bill/HB1780'],
 };
@@ -649,11 +649,12 @@ const roomTests = () => (st().ab?.tests || []).filter(t => Array.isArray(t.arms)
 const roomTest = k => roomTests().find(t => t.key === k);
 const armIn = (g, t) => t.arms.includes(g.v?.[t.key]) ? g.v[t.key] : t.arms[0];
 const onPlan = g => { const t = roomTest('onb'); return !!t && armIn(g, t) !== t.arms[0]; };
-// Version A of the layout test replaces the Home that Home's-top test compares (pub/variant.js, R-187).
+// Every layout version but the Home before 11 Oct replaces the Home that Home's-top test compares (pub/variant.js, R-187,
+// R-222: the calm Home and September's version A).
 const ROOM_A_REPLACES = ['home'];
-const onA = g => { const t = roomTest('layout'); return !!t && armIn(g, t) === 'a'; };
+const onA = g => { const t = roomTest('layout'); return !!t && armIn(g, t) !== 'today'; };
 const applies = (g, t) => !(ROOM_INSIDE.includes(t.key) && onPlan(g)) && !(ROOM_PLAN_ONLY.includes(t.key) && !onPlan(g)) && !(ROOM_A_REPLACES.includes(t.key) && onA(g));
-const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the calm Home' : 'Replaced by the plan';
+const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the new Home' : 'Replaced by the plan';
 // The screens other than the first visit where a group differs from today's.
 const roomDiffs = g => roomTests().filter(t => t.key !== 'onb' && applies(g, t) && armIn(g, t) !== t.arms[0]);
 // The screens any group changed: every card shows each of them, in the same order, so the cards compare line by line.
@@ -1222,7 +1223,7 @@ const PAGES = {
         const gone = drop.filter(k => k in g.v).map(k => roomTest(k)?.name || k);
         for (const k of drop) delete g.v[k];
         // A choice that no longer shows is taken off with a word and Undo (the fresh-eyes review, A-16).
-        if (gone.length) setTimeout(() => toast(`${t.key === 'layout' ? 'The calm Home replaces' : onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
+        if (gone.length) setTimeout(() => toast(`${t.key === 'layout' ? (armIn(g, t) === 'a' ? 'Version A replaces' : 'The calm Home replaces') : onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
           { undo: () => { g.v = before; roomKeep(); hooks.render(); } }));
       };
       const versions = (g, i, t) => pickerSheet({ title: `Group ${i + 1}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),

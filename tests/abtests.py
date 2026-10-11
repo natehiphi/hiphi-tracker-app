@@ -17,7 +17,9 @@ snap = json.load(open(os.path.join(ROOT, 'demo', 'snapshot.json')))
 by = lambda n: next(b for b in snap['bills'] if b['bill_number'] == n)
 ROWS = [{'key': 'end', 'arms': ['today', 'home'], 'is_on': True, 'fallback': 'today'}, {'key': 'fv', 'arms': ['full', 'short'], 'is_on': True, 'fallback': 'full'},
         {'key': 'rank', 'arms': ['today', 'ranked'], 'is_on': True, 'fallback': 'today'}, {'key': 'email', 'arms': ['finale', 'after'], 'is_on': False, 'fallback': 'finale'},
-        {'key': 'share', 'arms': ['summary', 'deadline'], 'is_on': True, 'fallback': 'summary'}, {'key': 'home', 'arms': ['by-day', 'by-issue'], 'is_on': True, 'fallback': 'by-day'}]
+        {'key': 'share', 'arms': ['summary', 'deadline'], 'is_on': True, 'fallback': 'summary'}, {'key': 'home', 'arms': ['by-day', 'by-issue'], 'is_on': True, 'fallback': 'by-day'},
+        # Home's-top test is met only on the Home before 11 Oct, the layout test's 'today' (R-222): these rows put everyone there.
+        {'key': 'layout', 'arms': ['calm', 'today', 'a'], 'is_on': False, 'fallback': 'today'}]
 
 with sync_playwright() as p:
     br = p.chromium.launch()
@@ -74,7 +76,7 @@ with sync_playwright() as p:
         for mobile in (True, False):
             ctx, pg, errs = sandbox(f'home.{arm}', '#/', mobile=mobile)
             pg.evaluate("async ids => { const c = await import('./pub/core.js'); for (const id of ids) c.S.direct.add(id); c.recomputeWatch(); c.saveLocal(); }", [by(n)['id'] for n in nums])
-            pg.goto(f"{BASE}/track.html?demo=1&ab=home.{arm}#/"); pg.reload(); ready(pg)
+            pg.goto(f"{BASE}/track.html?demo=1&ab=home.{arm},layout.today#/"); pg.reload(); ready(pg)
             secs = pg.locator('.hm-byissue .hm-iss'); n = secs.count(); cards = pg.locator('.hm-now .acard').count()
             heads = [secs.nth(i).locator('.hm-isst').inner_text() for i in range(min(n, 4))]
             if arm == 'by-day': ok(n == 0 and cards >= 2, f'home.by-day ({"phone" if mobile else "laptop"}): two full cards, no issue sections ({cards} cards)')
@@ -108,7 +110,7 @@ with sync_playwright() as p:
     # the page's own copies: visitlog.js hands variant.js its sender, as on the real page
     pg.evaluate("async () => { await import('/pub/visitlog.js'); window.V = await import('/pub/variant.js'); await V.abReady; }")
     st = pg.evaluate("() => JSON.parse(localStorage.getItem('hiphi_ab'))")
-    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home', 'join', 'save', 'layout', 'act'} and not st['forced'], f'a new browser has a version of every two-version test, none forced ({st["arms"]})')
+    ok(set(st['arms']) == {'end', 'fv', 'rank', 'email', 'share', 'home', 'join', 'save', 'act'} and not st['forced'], f'a new browser has a version of every two-version test, none forced ({st["arms"]})')
     ok(0 <= (st.get('u') or {}).get('onb', -1) < 1, f'the six-version first-visit test keeps a number from the toss, not a version (R-164) ({st.get("u")})')
     eff = pg.evaluate("() => Object.fromEntries(Object.keys(V.TESTS).map(k => [k, V.armOf(k)]))")
     ok(eff['email'] == 'finale', f'the email test is off: everyone gets A whatever the toss ({st["arms"]["email"]} tossed, finale shown)')

@@ -26,6 +26,10 @@
 //          opens on where the bill is; tabs Home · My issues · Find · You (pub/a/). Met the first time the two differ on
 //          screen: a bill page, or Home in session with something followed after the first visit (app.js). While a browser
 //          is on version A, the Home's-top test is not met or counted: version A replaces the Home it compares.
+//          Since 11 Oct (R-222, Nate: "This becomes the default home, while the other home screens become other testable
+//          home pages"): three versions, the calm Home first (pub/calm/home.js: the fallback, so everyone's Home while the
+//          test is off, and the bots') | today's Home as it was before | September's version A. Three, so it spreads new
+//          visitors the way the first-visit test does (multi); neither the calm Home nor version A meets Home's-top test.
 //   pic    the picture a shared link shows (R-183, backend 155; Nate 10/6: "make every template"): today's | the issue up front |
 //          the twelve ideas (sign, calendar, letter, text, neighbors, islands, before, here, ticket, crowd, stand, postcard).
 //          Fourteen versions, a switch for each (arms_on); a rate test like 'share': met at every share, its two measures are
@@ -73,7 +77,7 @@ export const TESTS = {
   onb: { arms: ['today', 'p1', 'p2', 'p3', 'p4', 'p5'], first: 'keep', goal: ['acted', 14], goal2: ['back', 14], multi: true },
   join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
   save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
-  layout: { arms: ['today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true },
+  layout: { arms: ['calm', 'today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true, multi: true },
   act: { arms: ['today', 'three'], first: 'keep', goal: ['acted', 1], goal2: ['back', 7] },
   pic: { arms: ['today', 'issue', 'sign', 'calendar', 'letter', 'text', 'neighbors', 'islands', 'before', 'here', 'ticket', 'crowd', 'stand', 'postcard'], rate: true, multi: true },
 };
@@ -157,7 +161,7 @@ function arm0(key, t) {
 }
 // Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
 // today's first visit while the browser is on a plan (R-164).
-const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') === 'a') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') !== 'today') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
 // The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
 function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
 export const plan = onPlan;

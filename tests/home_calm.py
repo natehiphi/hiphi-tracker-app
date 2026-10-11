@@ -1,10 +1,12 @@
-# The calm Home's budget (R-222 Direction 1, pub/calm/home.js; docs/DESIGN.md A-23), on the practice copy, version A of the
-# layout test forced, phone (390x844) and laptop (1366x900), for the people compare.html sets up:
+# The calm Home's budget (R-222 Direction 1, pub/calm/home.js; docs/DESIGN.md A-23), on the practice copy, the layout
+# test's 'calm' forced (everyone's Home since 11 Oct), phone (390x844) and laptop (1366x900), for the people compare.html sets up:
 #   Kai (3 issues) Monday and Tuesday, Malia (3 issues, a quiet week), Kai right after the first visit, Kai between
 #   sessions, Leilani (16 issues) Monday, Tuesday and between sessions.
 # In each: at most 4 blocks, of at most 2 shapes (a card, rows); one filled button; each bill named once; on a phone under
 # 2 screens for 3 issues and 3 for 16; one row per issue followed; amber only for what is due inside 24 hours (A-5); nothing
-# "New" right after the first visit; no sideways scroll; no page errors.
+# "New" right after the first visit; no sideways scroll; no page errors. Over 8 issues in session (Nate 10/11: "Option number
+# 2, but still grouped by status"): the issues under status headings in their order, the first 8 shown, "Show all N" opens
+# the rest in place, still grouped, and nothing due is ever below a quiet issue.
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/home_calm.py [base]     base defaults to http://localhost:8832
 import sys, os, re
@@ -58,7 +60,9 @@ MEASURE = """async () => {
     return n.length > 8 && t.includes(n); }).map(r => r.querySelector('.cm-rname').firstChild.textContent.trim());
   return { blocks: blocks.length, kinds: blocks.map(e => e.className.split(' ')[0]).join(','), shapes: [...shapes], filled, twice,
     h: Math.round(main.scrollHeight), rows: root.querySelectorAll('.cm-rows .cm-row').length, fresh: root.querySelectorAll('.cm-new').length,
-    warn, selfnamed, wide: document.documentElement.scrollWidth > window.innerWidth + 1 };
+    warn, selfnamed, wide: document.documentElement.scrollWidth > window.innerWidth + 1,
+    groups: [...root.querySelectorAll('.cm-gh')].map(e => e.firstChild.textContent.trim()), shown: [...root.querySelectorAll('.cm-rows .cm-row')].filter(vis).length,
+    showall: [...root.querySelectorAll('[data-cm-showall]')].map(e => e.innerText.trim()) };
 }"""
 with sync_playwright() as pw:
     br = pw.chromium.launch()
@@ -69,7 +73,7 @@ with sync_playwright() as pw:
             ctx.add_init_script(scene(who, day, o.get('welcome', False)))
             pg = ctx.new_page(); errs = []
             pg.on('pageerror', lambda e: errs.append(str(e)))
-            pg.goto(f"{BASE}/track.html?demo=1{'' if day == 'mon' else '&day=' + day}&abrest=today&ab=layout.a{'&season=off' if o.get('off') else ''}#/")
+            pg.goto(f"{BASE}/track.html?demo=1{'' if day == 'mon' else '&day=' + day}&abrest=today&ab=layout.calm{'&season=off' if o.get('off') else ''}#/")
             pg.wait_for_function("() => !!document.querySelector('#main .cm, #main .hm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
             m = pg.evaluate(MEASURE); tag = f'{size} {label}'
             ok(m is not None, f'{tag}: the calm Home is drawn')
@@ -84,6 +88,20 @@ with sync_playwright() as pw:
             ok(all(re.match(r'^(Testimony due|Your letter is started · due) (today|tomorrow)|^Needs a hearing by', t) for t in m['warn']), f"{tag}: amber only for what is due within a day {m['warn'][:3]}")
             if o.get('welcome'): ok(m['fresh'] == 0, f"{tag}: nothing marked New right after the first visit ({m['fresh']})")
             ok(not m['wide'], f'{tag}: no sideways scroll')
+            ORDER = ['Due this week', 'Hearing coming up', 'Needs a hearing', 'Passed recently', 'Waiting', 'Became law', 'Did not advance']
+            if n > 8 and not o.get('off'):
+                ok(m['groups'] and m['groups'] == sorted(m['groups'], key=ORDER.index), f"{tag}: grouped by where they stand, in order {m['groups']}")
+                hidden_due = pg.evaluate("() => [...document.querySelectorAll('#main [data-cm-more] .cm-rstat, #main li[data-cm-more] .cm-rstat')].filter(e => /^(Testimony due|Your letter is started · due)/.test(e.innerText) || e.closest('.cm-group')?.querySelector('.cm-gh')?.firstChild.textContent.trim() === 'Due this week').length")
+                want = f'Show all {n} issues' + (f' · {hidden_due} more due this week' if hidden_due else '')
+                ok(m['shown'] == 8 and m['showall'] == [want], f"{tag}: the first 8 shown, then “{want}” ({m['shown']}, {m['showall']})")
+                pg.screenshot(path=os.path.join(OUT, f"{size}_{who}_{day}_folded.png"), full_page=True)
+                pg.click('[data-cm-showall]'); pg.wait_for_timeout(300)
+                m2 = pg.evaluate(MEASURE)
+                ok(m2['shown'] == n and not m2['showall'] and m2['groups'] == m['groups'], f"{tag}: Show all opens all {n}, still grouped ({m2['shown']})")
+                ok(pg.evaluate("document.activeElement?.classList.contains('cm-row')"), f'{tag}: the first row it opened takes the focus')
+                due = pg.evaluate("() => [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => /^(Testimony due|Your letter is started · due)/.test(r.querySelector('.cm-rstat').innerText))")
+                ok(due == sorted(due, reverse=True), f'{tag}: nothing due this week is below an issue with nothing due {due}')
+            elif not o.get('off'): ok(not m['groups'] and not m['showall'], f"{tag}: up to 8 issues, no headings and no Show all")
             ok(not errs, f'{tag}: no page errors {errs[:2]}')
             pg.screenshot(path=os.path.join(OUT, f"{size}_{who}_{day}{'_welcome' if o.get('welcome') else ''}{'_off' if o.get('off') else ''}.png"), full_page=True)
             ctx.close()

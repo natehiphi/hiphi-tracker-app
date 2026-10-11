@@ -21,7 +21,7 @@ with sync_playwright() as p:
         ctx.add_init_script(f"({SKIP})()")   # the first visit is done before any page loads
         ctx.add_init_script(BURSTS)
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        base = ROOT + 'track.html?demo=1&seed=1'
+        base = ROOT + 'track.html?demo=1&seed=1&ab=layout.today'
         pg.goto(base + '#/'); ready(pg)
         # follow the seeded bills so Home is the in-session "follow" Home, then Home's first look at their results
         pg.evaluate("async () => { const c = await import('./pub/core.js'); for (const a of c.myActions()) c.S.direct.add(a.bill_id); c.recomputeWatch(); c.saveLocal(); }")
@@ -94,7 +94,7 @@ with sync_playwright() as p:
     # between sessions: the end-of-session moment, once
     ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-    base = ROOT + 'track.html?demo=1&season=off'
+    base = ROOT + 'track.html?demo=1&season=off&ab=layout.today'
     pg.goto(base + '#/'); ready(pg); pg.evaluate(SKIP)   # after load: the sandbox keeps its own copy of these keys
     made = pg.evaluate("""async () => { const c = await import('./pub/core.js');
       const b = c.D.bills.find(x => x.stage === 'enacted' && x.hiphi_position && x.hiphi_position !== 'monitor'); if (!b) return null;

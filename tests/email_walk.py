@@ -17,6 +17,7 @@ import json, os, sys, urllib.parse
 from playwright.sync_api import sync_playwright
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
+# The Home before 11 Oct (the layout test's 'today'): since R-222 automated browsers get the calm Home, which this test does not read.
 SHOTS = os.environ.get('SHOTS', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'email'))
 os.makedirs(SHOTS, exist_ok=True)
 snap = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'snapshot.json')))
@@ -45,11 +46,11 @@ def ctx(br, wide):
     p.on('pageerror', lambda e: p.errs.append(str(e)[:160]))
     return c, p
 def follower(p, extra='', follow=FOLLOW, pre=''):
-    p.goto(BASE + '?demo=1' + extra + '#/'); p.wait_for_timeout(600)
+    p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#/'); p.wait_for_timeout(600)
     p.evaluate(f"""localStorage.clear(); sessionStorage.clear(); localStorage.setItem('hiphi_watch_ids_demo', JSON.stringify({json.dumps(follow)}));
       localStorage.setItem('hiphi_wiz', JSON.stringify({{step:1,done:true,skipped:true}})); {pre}""")
 def visit(p, h, extra='', wait=2800):
-    p.goto(BASE + '?demo=1' + extra + '#' + h); p.reload(); p.wait_for_timeout(wait)
+    p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#' + h); p.reload(); p.wait_for_timeout(wait)
 dlg = lambda p: p.evaluate("document.getElementById('hp-dlg')?.innerText || ''")
 def tap(p, rx, sel='#hp-dlg button, #hp-dlg a'):
     return p.evaluate("""([sel, rx]) => { const e = [...document.querySelectorAll(sel)].filter(x => x.offsetParent !== null).find(x => new RegExp(rx, 'i').test((x.innerText || '').trim()));

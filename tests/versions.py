@@ -25,7 +25,7 @@ snap = json.load(open(os.path.join(ROOT, 'demo', 'snapshot.json')))
 HB1780 = next(b for b in snap['bills'] if b['bill_number'] == 'HB1780')['id']
 ROWS = lambda **over: [dict({'key': k, 'arms': a, 'is_on': False, 'fallback': a[0], 'arms_on': None}, **over.get(k, {})) for k, a in
   [('end', ['today', 'home']), ('fv', ['full', 'short']), ('rank', ['today', 'ranked']), ('email', ['finale', 'after']), ('share', ['summary', 'deadline']),
-   ('home', ['by-day', 'by-issue']), ('onb', ['today', 'p1', 'p2', 'p3', 'p4', 'p5']), ('join', ['shown', 'watch']), ('save', ['profile', 'alerts']), ('layout', ['today', 'a'])]]
+   ('home', ['by-day', 'by-issue']), ('onb', ['today', 'p1', 'p2', 'p3', 'p4', 'p5']), ('join', ['shown', 'watch']), ('save', ['profile', 'alerts']), ('layout', ['calm', 'today', 'a'])]]
 
 def card(pg, key): return pg.locator('.ab-card', has=pg.locator(f'#ab-h-{key}'))
 def live(pg, key): return card(pg, key).locator('legend.ab-live').inner_text()
@@ -126,7 +126,7 @@ with sync_playwright() as p:
     # only B of the share message: the practice copy shows B
     ctx, pg, sent, leak, errs = practice(ROWS(share={'fallback': 'deadline', 'arms_on': None}))
     ok(arms(pg, 'share') == 'deadline' and share(pg).startswith('Testimony on'), f'only B on: the practice copy’s share message is B ({share(pg)[:40]}…)')
-    ok(arms(pg, 'end') == 'today' and arms(pg, 'layout') == 'today', 'and every test left at A shows A')
+    ok(arms(pg, 'end') == 'today' and arms(pg, 'layout') == 'calm', 'and every test left at its first version shows it')
     ok(not sent and not leak and not errs, f'nothing counted or sent, no page errors {leak[:1]} {errs[:1]}'); ctx.close()
     # only A
     ctx, pg, sent, leak, errs = practice(ROWS())
@@ -152,7 +152,7 @@ with sync_playwright() as p:
     ok(arms(pg, 'layout') == 'a', 'only the week view on: the practice copy is on it'); ctx.close()
     # a link: &abrest=today keeps what it does not name at today's; what it names wins
     ctx, pg, sent, leak, errs = practice(ROWS(share={'fallback': 'deadline'}, layout={'fallback': 'a'}), q='&abrest=today&ab=end.home')
-    ok(arms(pg, 'share') == 'summary' and arms(pg, 'layout') == 'today' and arms(pg, 'end') == 'home', '&abrest=today: the link’s own version, today’s for the rest, whatever the switches'); ctx.close()
+    ok(arms(pg, 'share') == 'summary' and arms(pg, 'layout') == 'calm' and arms(pg, 'end') == 'home', '&abrest=today: the link’s own version, today’s for the rest, whatever the switches'); ctx.close()
     ctx, pg, sent, leak, errs = practice(ROWS(share={'fallback': 'deadline'}), q='&ab=share.summary')
     ok(arms(pg, 'share') == 'summary', 'a link naming a version still wins over the switches'); ctx.close()
     # an automated browser keeps today's (the other suites stay steady)

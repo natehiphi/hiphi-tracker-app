@@ -29,7 +29,7 @@ COUNT = """() => { const t = document.querySelector('#main').innerText, n = re =
 UNDRAWN = """async () => { const c = await import('./pub/core.js'), on = new Set([...document.querySelectorAll('#main [data-helper]')].map(e => e.dataset.helper));
   const x = c.openActions(c.S.bills, c.S.hearings).find(x => !on.has(x.h.id) && new Date(x.h.scheduled_at) > Date.now());
   return x ? { id: x.h.id, name: c.nick(x.b) || c.spaced(x.b.bill_number) } : null; }"""
-# today's Home's full cards, version A's Now card
+# the Home before 11 Oct's full cards, the calm Home's card ('a' here: the layout test's 'calm' since 11 Oct)
 FULL = { 'today': '#main .hm-now .acard [data-helper]', 'by-issue': '#main .hm-byissue .acard [data-helper]', 'a': '#main .cm-card .acard [data-helper]' }
 
 with sync_playwright() as p:
@@ -38,7 +38,7 @@ with sync_playwright() as p:
         size = 'phone' if mobile else 'laptop'
         for arm in ('today', 'by-issue', 'a'):
             if arm == 'by-issue' and not mobile: continue
-            ab = 'layout.a' if arm == 'a' else 'layout.today,home.by-issue' if arm == 'by-issue' else 'layout.today'
+            ab = 'layout.calm' if arm == 'a' else 'layout.today,home.by-issue' if arm == 'by-issue' else 'layout.today'
             ctx = br.new_context(viewport={'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 800}, is_mobile=mobile, has_touch=mobile)
             ctx.add_init_script(f"({KAI})()")
             pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))

@@ -528,8 +528,10 @@ which is A-1 again.
 On Home, every thing a person can do this week is on the page: the soonest as a full card, the rest one line each, none
 behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
 names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
-week"), and "Show the next one" brings each up as the card; a row is never silent about something due. Folds stay for what is done ("Done this week"), for results, and for
-detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
+week"), and "Show the next one" brings each up as the card; a row is never silent about something due. **One exception, at
+Nate's word (10/11):** a follower of more than 8 issues sees them grouped by where they stand ("Due this week" first) and
+the first 8, then "Show all N" in place; so something due is folded only when more than 8 issues have something due.
+Folds stay for what is done ("Done this week"), for results, and for detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
 first visit ends on **"See How I Can Help"**, and Home opens on exactly that (C-6: the next screen keeps the button's
 promise).
 
@@ -541,7 +543,8 @@ what they will find; one that names the outcome lets them decide (NN/g's informa
 its destination, and a broken promise costs trust). One line per thing keeps the page short (the 9/19 assessment found
 fourteen full cards made Home a 7,000px wall). Evidence **moderate** for the fold (NN/g studies), **mixed** for the exact
 words (first-person "my" won by 90% on one page and lost 25% on another, both run by the same copywriter); whether
-more people act from Home is a guess until January's counts.
+more people act from Home is a guess until January's counts. The exception: Nate, 10/11 (R-222), for Leilani's sixteen and more: "Option number 2, but still grouped by status";
+a list of dozens on one screen hides the urgent among the quiet more than a fold after the first 8 does.
 
 ---
 

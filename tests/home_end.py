@@ -28,7 +28,8 @@ def click_text(p, sel, t):
 # Walk the first visit from a restart to "Coming up". The alerts come right after the issues (R-146): an email given there
 # when email is passed, else Skip. Returns what the screens said on the way.
 def walk_to_soon(p, extra, email=None):
-    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
+    # the Home before 11 Oct (layout 'today'): automated browsers get the calm Home since R-222, which these checks do not read
+    p.goto(BASE + '?demo=1&restart&ab=layout.today' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
     seen = {'first': text(p)}
     click_text(p, '.st-tile', 'Food'); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)

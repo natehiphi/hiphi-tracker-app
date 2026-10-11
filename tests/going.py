@@ -7,7 +7,8 @@
 #   python3 tests/going.py [base]     base defaults to http://localhost:8832/track.html?demo=1
 import sys, os, json, re
 from playwright.sync_api import sync_playwright
-BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1'
+BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1') + '&ab=layout.today'
+# The Home before 11 Oct (the layout test's 'today'): since R-222 automated browsers get the calm Home, which this test does not read.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'tests', 'out', 'going'); os.makedirs(OUT, exist_ok=True)
 res = []

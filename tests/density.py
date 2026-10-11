@@ -59,8 +59,8 @@ PUB = [
   ('profile',     '/profile',      'the invitation',       '.pf-invite .card, .pf-invite form, .pf .card'),
   ('privacy',     '/privacy',      'what we have on you',  '.mr-facts section'),
 ]
-# R-187: version A of the live test 'layout', on the same returning visitor. Since R-222 it is the calm Home and changes
-# Home only; the bill page is measured once more as a check that it is today's.
+# R-187: the live test 'layout', on the same returning visitor. Since R-222 (11 Oct) its first version, the calm Home, is
+# everyone's Home and changes Home only; the bill page is measured once more as a check that it is today's.
 PUB_A = [
   ('home-a',      '/',             'what needs you',       '.cm-card, .cm-issues'),
   ('bill-a',      '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
@@ -172,8 +172,9 @@ def main():
     with sync_playwright() as pw:
         b = pw.chromium.launch()
         for W, H, tag in ((390, 844, 'phone'), (1440, 900, 'desktop')):
-            out += run(b, f'{HOST}/track.html?demo=1', PUB, 'public', W, H, tag, True)
-            out += run(b, f'{HOST}/track.html?demo=1&ab=layout.a', PUB_A, 'publicA', W, H, tag, True)
+            # the Home before 11 Oct for the long list (its baseline), the calm Home (everyone's since 11 Oct) on its own
+            out += run(b, f'{HOST}/track.html?demo=1&ab=layout.today', PUB, 'public', W, H, tag, True)
+            out += run(b, f'{HOST}/track.html?demo=1&ab=layout.calm', PUB_A, 'publicA', W, H, tag, True)
             out += run(b, f'{HOST}/staff.html?demo=1', SV, 'staff2', W, H, tag, False)
         b.close()
     if '--json' in sys.argv:

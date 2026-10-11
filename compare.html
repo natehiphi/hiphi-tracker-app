@@ -15,8 +15,9 @@
      Everything is the sandbox: this page writes only the sandbox's own storage (hiphi_*_demo) in this browser. Each
      Open button sets the scenario again, so both versions start from the same place (a visit changes "last visit").
      Since R-187 (10/6) version A is the live A/B test 'layout' on track.html itself: the buttons open track.html with
-     ?ab=layout.today or ?ab=layout.a. Session setup > Tests opens this page with ?ab=layout.a (or .today) to show one
-     version: then only that version's button shows. -->
+     ?ab=layout.calm, .today or .a. Session setup > Tests opens this page with ?ab=layout.calm (or .today, .a) to show
+     one version: then only that version's button shows. Since 11 Oct (R-222) the calm Home is the first version, and
+     everyone's Home while the test is off. -->
 <style>
 body { background: var(--n50); }
 .cw { max-width: 640px; margin: 0 auto; padding: 24px var(--gutter) 64px; display: flex; flex-direction: column; gap: var(--s24); }
@@ -66,12 +67,12 @@ legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bott
   </fieldset>
 
   <div class="go">
-    <button type="button" class="btn secondary" data-open="track.html" data-layout="today">Open today’s version</button>
-    <button type="button" class="btn primary" data-open="track.html" data-layout="a">Open the new Home</button>
-    <button type="button" class="btn secondary" data-open="track.html" data-layout="olda">Open version A (September)</button>
+    <button type="button" class="btn primary" data-open="track.html" data-layout="calm">Open the calm Home</button>
+    <button type="button" class="btn secondary" data-open="track.html" data-layout="today">Open the Home before 11 Oct</button>
+    <button type="button" class="btn secondary" data-open="track.html" data-layout="a">Open version A (September)</button>
   </div>
   <p class="note" id="err" tabindex="-1" role="alert" hidden style="color:var(--bad-text);font-weight:700">This browser is blocking storage, so the scene can’t be set. Try a normal window, not a private one.</p>
-  <p class="note">Always open from here, so every version starts from the same moment. Swap the order between testers: half see today’s version first, half see the new Home first. The new Home (R-222) is the one being tested; version A (September) is kept to compare with.</p>
+  <p class="note">Always open from here, so every version starts from the same moment. Swap the order between testers: half see the calm Home first, half the one before. The calm Home (R-222) is everyone’s Home now; the Home before 11 Oct and version A (September) are kept to compare with.</p>
 
   <section class="tasks" aria-labelledby="tk-h"><h2 id="tk-h">What to ask, in each version</h2>
     <ol>
@@ -120,13 +121,12 @@ function setScene() {
 // layout it names (R-187) leaves only that version's button.
 const abIn = (new URLSearchParams(location.search).get('ab') || '').split(',').filter(x => /^[a-z0-9-]{1,20}\.[a-z0-9-]{1,20}$/.test(x));
 const fixed = (abIn.find(x => x.startsWith('layout.')) || '').slice(7);
-// The new Home is the test's version A since R-222; R-071's version A (September) opens with &olda, on this page only.
 if (fixed) document.querySelectorAll('[data-layout]').forEach(b => { if (b.dataset.layout !== fixed) b.remove(); else { b.textContent = 'Open it'; b.className = 'btn primary'; } });
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
   const day = setScene(); if (!day) return;
-  const old = b.dataset.layout === 'olda', ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + (old ? 'a' : b.dataset.layout)].join(',');
+  const ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + b.dataset.layout].join(',');
   // &abrest=today: every other test at today's version, whatever the switches, so the two differ only in what is compared (R-192).
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}${old ? '&olda' : ''}#/`;
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}#/`;
 }));
 </script>
 </body>
