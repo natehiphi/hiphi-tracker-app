@@ -517,7 +517,8 @@ async function archive(i, on) {
 export const issuePage = {
   tab: 'outreach',
   title: route => issueById(route.id)?.name || 'Issue',
-  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}` } : { href: '#/outreach/issues', label: 'Issues' }; },
+  // "Back to SB2175" fits on a phone too (R-226, the fresh-eyes review 10/10), so it keeps its words there: full.
+  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : { href: '#/outreach/issues', label: 'Issues' }; },
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;

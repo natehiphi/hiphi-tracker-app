@@ -270,7 +270,11 @@ const followText = b => andList(followers(b).map(a => a.id === S.me?.id ? 'You' 
 const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
 // The issues a bill is on (R-226, Nate 10/10): a quiet chip each, to the issue's page. The link says which bill it came
 // from, so the issue's Back link returns here. The Overview's Details names them again in words (issuesRow).
-const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>Issue: ${esc(i.name)}</span></a>`).join('');
+// An issue named as the bill's own nickname is left out of the header: the title already says it, twice otherwise (the
+// fresh-eyes review, 10/10). Details still names it. The arrow is a chevron-right: a link, where Position and Owner open a menu.
+const sameAsNickname = (i, b) => { const n = String(b.nickname || '').trim().toLowerCase(); return !!n && String(i.name || '').trim().toLowerCase() === n; };
+const issueChips = b => issuesOfBill(b.id).filter(i => !sameAsNickname(i, b))
+  .map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>Issue: ${esc(i.name)}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
 // Phones: a row of chips under the status sentence, the pickers first and then the issues.
 const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who

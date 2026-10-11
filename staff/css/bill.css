@@ -46,6 +46,7 @@
 .bw-chips a.bw-ichip { text-decoration: none; max-width: 100%; white-space: normal; text-align: left; min-height: 44px; padding: 6px 14px; background: var(--n0); border: 1px solid var(--p700); color: var(--p700); font-weight: 700; }
 .bw-chips a.bw-ichip:hover { background: var(--p50); color: var(--p800); }
 .bw-chips a.bw-ichip .ic { flex: none; }
+.bw-chips a.bw-ichip .chev { width: 16px; height: 16px; }
 @media (min-width: 900px) { .bw-chips a.bw-ichip { min-height: 32px; padding: 4px 12px; } }
 .bw-numrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
 .bw-numrow .bw-ichips { margin-top: 0; justify-content: flex-end; flex: 1 1 auto; }

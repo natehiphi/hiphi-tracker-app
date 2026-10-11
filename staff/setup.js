@@ -432,9 +432,10 @@ async function makeLink(a) {
 // Nate 10/3: "turned on or off by me in my staff settings", "by default at random", "each different test should easily be
 // tracked by effectiveness". One card per test: its switch (on: each new visitor gets A or B at random and keeps it;
 // off: everyone gets one, today's unless a winner was picked), its numbers, one sentence on whether to trust the
-// difference, then two rows (A-20; R-135): a link to each version in the practice copy (new tab, the same screen for
-// each), and one Pick button per version. A switch saves the moment it is flipped, with Undo, like every switch here;
-// turning on a test with a note (the email ask, waiting on a lawyer) asks first.
+// difference, then its table (A-20; R-135): one row per version, with its See link into the practice copy (a new tab, the
+// same screen for each) and its Pick button on the same row (the fresh-eyes review, 10/10: each version's full name is said
+// once in its row, the buttons say the short name). A switch saves the moment it is flipped, with Undo, like every switch
+// here; turning on a test with a note (the email ask, waiting on a lawyer) asks first.
 function loadAb(force) {
   const s = st(); if (s.abBusy || (s.ab && !force)) return;
   s.abBusy = true; s.abErr = '';
@@ -471,6 +472,10 @@ const todayTag = (t, a) => a === t.arms[0] && !/today/i.test(armName(t, a)) ? ' 
 // A version whose consent words differ from today's waits on a lawyer before the public sees it (R-149): the email ask
 // after an action, and the five first-visit plans' sign-up.
 const lawyerFor = (t, on) => (t.key === 'email' && on.includes('after')) || (t.key === 'onb' && on.some(a => a !== 'today'));
+// Held for the lawyer (the plan's answer 3, R-149): a test that has never run and is off, while one of its versions changes
+// the consent words. Its Pick would give every visitor that version at once, so its card offers none. It stops being held
+// once it is switched on (Nate's switch, after the lawyer's check); a test that has run can be picked as before.
+const heldForLawyer = t => !t.is_on && !t.started && t.arms.some(a => lawyerFor(t, [a]));
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 // Where each version can be seen in the practice copy (R-135, R-187): every version has its own link, in a new tab, and
 // the links of one test open the same screen, forced to their version, so they compare. [address, what to tap there to
@@ -495,9 +500,10 @@ const SEE = {
 // &abrest=today: every test the link does not name stays at today's version, whatever the switches (R-192), so each link
 // shows only its own test's difference.
 const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&restart&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
-// A version's name in its links and buttons: "today’s" for the first version, else its letter and its own name ("B: Grouped
-// by topic..."). A name with a colon of its own goes in brackets, so the two colons do not run together.
-const verLabel = (t, a) => a === t.arms[0] ? 'today’s' : /:/.test(armName(t, a)) ? `${AB(t, a)} (${armName(t, a)})` : `${AB(t, a)}: ${armName(t, a)}`;
+// A version's short name on its See and Pick buttons: "today’s" for the first version, else its letter ("See B"; the first
+// visit's plans say "Plan 2", and the share picture its number). The full name is said once, in the version's own row, and
+// is the buttons' accessible name, so a screen reader hears the same words a sighted person reads in the row.
+const shortName = (t, a) => a === t.arms[0] ? 'today’s' : t.key === 'onb' ? vName(t, a) : AB(t, a);
 // "Trust it" (R-121; Nate 10/3, the plan's question 5): a two-proportion test on the measure (the share test: friends
 // per share, a rate), only from 100 per version, at 99% while more than one test is on (95% for one). A real difference
 // of 10 points shows at about 600 per version at 99% (400 at 95%); short of that, "no difference" is "no difference yet".
@@ -542,37 +548,47 @@ function picByAsk(t, rows) {
     <tbody>${by[k].sort((p, q) => t.arms.indexOf(p.arm) - t.arms.indexOf(q.arm)).map(r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span>${esc(armName(t, r.arm))}</th><td class="num">${r.seen}</td><td class="num">${Math.round(100 * r.goal / r.seen)}</td><td class="num">${Math.round(100 * r.goal2 / r.seen)}</td></tr>`).join('')}</tbody></table>`).join('')}</details>`;
 }
 function abCard(t, x) {
-  const { a, b, v, all } = x, multi = t.arms.length > 2, live = liveOf(t);
+  const { v, all } = x, live = liveOf(t);
   const m = (r, k) => t.rate ? (r.seen ? String(Math.round(100 * r[k] / r.seen)) : '–') : pct(r[k], r.seen);
+  // One row per version. When the numbers say "Trust it", the version they trust is listed first; the rest keep their order.
+  const trusted = v[2], rows = all.slice().sort((p, q) => (q.arm === trusted) - (p.arm === trusted));
+  // Who can be picked: nobody while the test is held for the lawyer, and nobody before anyone has met it (A-14: there is
+  // nothing to pick from yet). The words where the buttons would be say which.
+  const held = heldForLawyer(t), noVisitors = all.every(r => !r.seen), canPick = !held && !noVisitors;
+  // Each version's See link (into the practice copy, a new tab, the same screen for each) and, where picks are open, its
+  // Pick button: on the version's own row, in the same place on every card (R-135, Nate: "uniform and clear"). The buttons
+  // say the short name; their accessible names keep the full one.
+  const acts = r => { const s = shortName(t, r.arm), full = armName(t, r.arm);
+    return `<td class="ab-rowacts"><div class="ab-rowacts-in">${btn(`See ${s}`, { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, r.arm), target: '_blank', attrs: { 'data-absee': `${t.key}|${r.arm}`, 'aria-label': `See ${s}: ${full} (in a new tab)` } })}${canPick ? btn(`Pick ${s}`, { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': r.arm, 'aria-label': `Pick ${s}: ${full}` } }) : ''}</div></td>`; };
   // On a phone each version's numbers are one line under its name ("640 visitors · 41% finished the first visit"): the
-  // cells carry their words in data-l (staff.css).
+  // cells carry their words in data-l (staff.css). A test nobody has run shows its versions and their links only.
   const tr = r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span><span class="sr">${AB(t, r.arm)}: </span>${esc(armName(t, r.arm))}${todayTag(t, r.arm)}</th>`
-    + `<td class="num" data-l="${t.rate ? 'shares' : 'visitors'}">${r.seen}</td><td class="num" data-l="${esc(t.measure.toLowerCase())}">${m(r, 'goal')}</td><td class="num" data-l="${esc(t.measure2.toLowerCase())}">${m(r, 'goal2')}</td></tr>`;
+    + (x.never ? '' : `<td class="num" data-l="${t.rate ? 'shares' : 'visitors'}">${r.seen}</td><td class="num" data-l="${esc(t.measure.toLowerCase())}">${m(r, 'goal')}</td><td class="num" data-l="${esc(t.measure2.toLowerCase())}">${m(r, 'goal2')}</td>`)
+    + `${acts(r)}</tr>`;
   // A switch for every version of every test (R-192; the first-visit test had them since R-164): the ones on are the ones
   // new visitors get. At least one stays on: the last one says so and refuses to go off.
   const switches = `<fieldset class="ab-arms"><legend class="small ab-live">${liveLine(t, live)}</legend>
     ${t.arms.map(x => switchRow(`ab-arm-${t.key}-${x}`, `${AB(t, x)}: ${esc(armName(t, x))}${todayTag(t, x)}`, live.includes(x), '', { 'data-abarm-on': `${t.key}|${x}` })).join('')}</fieldset>`;
   const lawyer = lawyerFor(t, live) && !(t.note && !t.is_on) ? notice('warn', 'scale', 'A lawyer should check the consent words of the versions switched on before the public sees them (R-149).') : '';
   const verdict = x.never ? '' : x.ready ? notice('ok', 'circle-check', `<span>${v[1]}</span>`) : `<p class="small ab-verdict">${icon(v[0])}<span>${v[1]}</span></p>`;
-  // The same two rows on every card (R-135, Nate: "uniform and clear"): each version's own link into the practice copy, then one
-  // pick button per version, always there, so the cards compare line by line. "Trust it" above is the hint of which to pick.
-  const see = `<div class="ab-row"><p class="small ab-lbl" id="ab-see-${esc(t.key)}">See each version, in a new tab</p>
-      <div class="btnrow ab-acts" role="group" aria-labelledby="ab-see-${esc(t.key)}">${t.arms.map(a => btn(`See ${verLabel(t, a)}`, { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, a), target: '_blank', attrs: { 'data-absee': `${t.key}|${a}` } })).join('')}${t.key === 'pic' ? btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` }) : ''}</div>
-      <p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}</p></div>`;
-  const picks = `<div class="ab-row"><p class="small ab-lbl" id="ab-pick-${esc(t.key)}">Pick the winner</p>
-      <div class="btnrow ab-acts" role="group" aria-labelledby="ab-pick-${esc(t.key)}">${t.arms.map(a => btn(`Pick ${verLabel(t, a)}`, { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': a } })).join('')}</div></div>`;
+  const table = `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: ${x.never ? 'the versions' : `the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}`}</caption>
+      <thead><tr><th scope="col">Version</th>${x.never ? '' : `<th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th>`}<th scope="col"><span class="sr">See and pick</span></th></tr></thead>
+      <tbody>${rows.map(tr).join('')}</tbody></table></div>`;
+  const why = canPick ? '' : `<p class="small ab-verdict ab-why">${icon(held ? 'scale' : 'hourglass')}<span>${held ? 'Waits for the lawyer’s check' : 'Pick once people have seen it'}</span></p>`;
+  const forced = x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : '';
+  const hint = `<p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}</p>`;
+  const more = t.key === 'pic' ? `<div class="ab-more">${btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` })}</div>` : '';
   return `<section class="card ab-card${x.ready ? ' ab-ready' : ''}" aria-labelledby="ab-h-${esc(t.key)}">
     <div class="ab-head"><h2 class="ab-t" id="ab-h-${esc(t.key)}">${esc(t.name)}</h2>${t.winner ? chip(`Picked ${AB(t, t.winner)}`, 'ok', 'trophy') : ''}</div>
     <p class="small ab-q">${esc(t.question)}</p>
     ${t.note && !t.is_on ? notice('warn', 'info', esc(t.note)) : ''}
     ${switches}${lawyer}
     ${verdict}
-    ${x.never ? '' : `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}</caption>
-      <thead><tr><th scope="col">Version</th><th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th></tr></thead>
-      <tbody>${(multi ? all : [a, b]).map(tr).join('')}</tbody></table></div>`}
+    ${table}
+    ${why}
+    ${forced}
+    ${hint}${more}
     ${t.key === 'pic' && !x.never ? picByAsk(t, st().ab?.byAsk || []) : ''}
-    ${x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : ''}
-    ${see}${picks}
     ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
   </section>`;
 }
@@ -1149,10 +1165,10 @@ const PAGES = {
         try { await saveAb(key, livePatch(t, next)); document.getElementById(el.id)?.focus({ preventScroll: true });
           toast(`Saved. ${next.length >= 2 ? `“${t.name}” is running: ${andList(next.map(a => vName(t, a)))}, at random.` : `Everyone sees ${vName(t, next[0])} of “${t.name}”, and nothing is counted.`}`, { ok: true, undo: () => saveAb(key, before) }); }
         catch (e) { el.checked = !el.checked; toast(e, { err: true }); } });
-      // See each version: plain links on the card (data-absee names the test and version), each opening the practice copy in
-      // a new tab; nothing to wire.
-      // Pick: one button per version, the same on every card. Everyone gets that version and the test stops (Undo), the way
-      // a switch saves. A test with a note (the email ask, waiting on a lawyer) asks first, as turning it on does: picking B
+      // See each version: a plain link on the version's row (data-absee names the test and version), each opening the practice
+      // copy in a new tab; nothing to wire.
+      // Pick: one button per version, on its row, where a test can be picked (abCard). Everyone gets that version and the test
+      // stops (Undo), the way a switch saves. A test with a note (the email ask, waiting on a lawyer) asks first, as turning it on does: picking B
       // gives every visitor that version at once.
       const pick = async (t, arm) => { const before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner, arms_on: t.arms_on ?? null };
         if (t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Give everyone ${AB(t, arm)}?`, text: `${esc(t.note)} Every visitor gets “${esc(armName(t, arm))}” at once.`, ok: `Pick ${AB(t, arm)}` })) return;
