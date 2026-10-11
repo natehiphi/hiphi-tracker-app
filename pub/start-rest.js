@@ -228,7 +228,9 @@ function example() {
 // write in and theirs joins them, not that lawmakers hear from "far fewer people than you'd think": telling people few
 // others act makes not acting sound normal, and messages saying many take part do better (R-171, R-164's research).
 function stepVoice(step) {
-  const E = example(), off = isOff(), b = exampleBill();
+  // No example bill is named on this page (R-203: a bill's title under the three points read as clutter, and nobody could
+  // tell what it was for). The story link below still needs the bill the lesson would teach, so only its id is taken.
+  const off = isOff(), b = exampleBill();
   const pts = [
     ['mail', 'They read what you send', 'Before a committee votes on a bill, its members read the notes people send.'],
     ['message-circle', 'You don’t need to be an expert', 'Say who you are and why it matters to you. That’s enough.'],
@@ -241,7 +243,6 @@ function stepVoice(step) {
     <h1 class="hero" id="st-h">Your voice counts here</h1>
     <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs, and a friend’s can too.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
-    ${E && E.name ? `<p class="st-voiceex">${icon('file-text')}<span>Like <b>${esc(E.name)}</b>, one of the bills on your issues.</span></p>` : ''}
     <p class="small muted st-voicelearn">Want the details? ${story}, about a minute.</p>`);
 }
 
