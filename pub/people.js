@@ -11,10 +11,12 @@
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
 import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
-  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay, followedIssues } from './core.js';
+  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
+import { helloFacts, helloLetter, helloSubject, districtWords } from './hello.js';   // the hello letter, the same one helper.js writes (R-172)
+import { myName, myTitles } from './myprofile.js';
 
 const KEY = 'hiphi_districts';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
@@ -215,25 +217,29 @@ function sugHTML() {
 // ---------------- the email ----------------
 const me = () => { try { return JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { return {}; } };
 const surname = l => (l.sort_name || l.name).split(',')[0].trim();
+// The hello to one legislator (R-172): the same letter helper.js writes to both (hello.js), with the name and the "I'm a..."
+// title they saved, the issue they picked there (else the default), their reason and sign-off. No blank or placeholder.
+function helloDraft(l) {
+  const m = me(), own = mine(l), to = [{ greet: `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${surname(l)}`, leg: l }];
+  return { subject: helloSubject(to, own), body: helloLetter({ to, name: myName(), titles: myTitles().slice(0, 1), own, where: own ? districtWords(to) : '',
+    reason: m.introWhy || '', closing: m.closing || '', facts: helloFacts(m.introIssue || '') }) };
+}
 // Ported from legDraft in track.js: the person's own name and town when the testimony helper has them, a bill in
 // plain words when they came from one, and a blank line for their own reason (the part lawmakers read closely).
 function draft(l, b, where) {
-  const m = me(), p = b && posInfo(b), town = m.town || where || '';
+  if (!b) return helloDraft(l);
+  const m = me(), p = posInfo(b), town = m.town || where || '';
   const verb = !p ? 'consider' : p.verb === 'comment on' ? 'consider' : p.verb;
   const lines = [`Aloha ${legTitle(l)} ${surname(l)},`,
     `My name is ${m.name || '[your name]'} and I live in ${town || '[your town]'}${mine(l) ? ', in your district' : ''}.`];
   // core's blurb() drops the Capitol's drafting notes ("Effective 3/22/2075. (SD1)") and ends at a sentence. Summaries
   // start with a verb ("Requires free school bus passes…"), so they read on after the bill number: "HB 1780, which requires…".
-  const about = b && blurb(b, 320).split(/(?<=\.)\s+(?=[A-Z])/)[0].replace(/[.…\s]+$/, '');
+  const about = blurb(b, 320).split(/(?<=\.)\s+(?=[A-Z])/)[0].replace(/[.…\s]+$/, '');
   const says = !about ? '' : /^[A-Z][a-z]+s\b/.test(about) && !/^(This|These|The|A|An)\b/.test(about) ? `, which ${about.charAt(0).toLowerCase()}${about.slice(1)}.` : `. ${about}.`;
-  if (b) lines.push(`I am writing about ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
-  // R-172: one issue and one question that invites a reply, not "I am writing to introduce myself".
-  else { const top = (followedIssues()[0] || {}).name; lines.push(top ? `The health issue that matters most to me: ${top}. Where do you stand on it? I’d be grateful to hear back.`
-    : 'The health issue that matters most to me: [the one that matters most to you]. Where do you stand on it? I’d be grateful to hear back.'); }
+  lines.push(`I am writing about ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
   lines.push((m.why || '').trim() ? m.why.trim().replace(/([^.!?])$/, '$1.') : '[Why this matters to you, in a sentence or two.]');
   lines.push(`Mahalo,\n${m.name || '[your name]'}`);
-  const subject = b ? `${spaced(b.bill_number)}: please ${verb} it` : `A question from ${town ? 'a neighbor in ' + town : 'your constituent'}`;
-  return { subject, body: lines.join('\n\n') };
+  return { subject: `${spaced(b.bill_number)}: please ${verb} it`, body: lines.join('\n\n') };
 }
 const mailto = (l, subject, body) => `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 function composer(l, b, k, where) {

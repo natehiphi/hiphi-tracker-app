@@ -336,7 +336,7 @@ export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], c
 // The profile at sign-in (R-156, the review): two pure steps, tested in tests/profile.py. pr: the account's profile
 // (S.profile's shape); me: this device's hiphi_me; dist: its hiphi_districts; uid: the account.
 // The device's profile, as kept in hiphi_me; another account's leftovers are cleared (pub/myprofile.js has the same list).
-export const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'titles', 'story', 'stories', 'quote', 'interests', 'helpNote', 'drafts', 'mail', 'letters', 'capitolAcct'];
+export const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'introIssue', 'titles', 'story', 'stories', 'quote', 'interests', 'helpNote', 'drafts', 'mail', 'letters', 'capitolAcct'];
 const QUOTE_KEY = /^quote(-|$)/;
 const quoteKeys = q => !q ? [] : q === 'media' ? ['quote', 'quote-media'] : q === 'name' ? ['quote', 'quote-name'] : ['quote'];
 // What a profile made on this device while signed out (no acct mark) adds to the account: only what the account lacks.
