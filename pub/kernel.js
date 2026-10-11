@@ -21,7 +21,10 @@ export const LOCAL_KEY = DEMO ? 'hiphi_watch_ids_demo' : 'hiphi_watch_ids';
 // 9:00 HST, from demo/snapshot.json. Same file the staff sandbox uses; no
 // account, no network writes, the watchlist lives in this browser only.
 export const SEASON_OFF = DEMO && new URLSearchParams(location.search).get('season') === 'off';
-export const DEMO_ASOF = SEASON_OFF ? '2026-09-18T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
+// &season=opening (R-118): the clock on 22 January, inside the opening weeks. This file's clock wins over staff/data.js's
+// (Staff v2 imports it), so the two must agree; the staff sandbox reads the same value.
+const SEASON_OPENING = DEMO && new URLSearchParams(location.search).get('season') === 'opening';
+export const DEMO_ASOF = SEASON_OFF ? '2026-09-18T09:00:00-10:00' : SEASON_OPENING ? '2026-01-22T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
 if (DEMO) {
   const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
