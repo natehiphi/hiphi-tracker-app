@@ -1,12 +1,14 @@
 # R-226 (Nate 10/10): "is it abundantly clear how to get from a bill to its issue, and does the issue page say where it stands?"
-# A bill's header and Details name its issues (a chip each, to the issue); the issue's page says where it stands (next
-# hearing, at risk, by stage), one line per bill, and its Back link returns to the bill it came from.
+# A bill's header and Details name its issues (a chip in the header to the issue, unless the issue is the bill's own
+# nickname, and a line in Details); the issue's page says where it stands (next hearing, at risk, by stage), one line per
+# bill, and its Back link returns to the bill it came from ("Back to SB2175" on a phone too).
 #   python3 tests/staff_issue_link.py [base]      base defaults to http://localhost:8832
 import sys, os
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/') + '/staff.html?demo=1'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'issue_link'); os.makedirs(OUT, exist_ok=True)
-ISSUE = '66a32660-b0a7-4a90-a71f-231963619b44'   # "Disposable e-cigarette ban": SB2175 and HB2121 are on it
+ISSUE = '66a32660-b0a7-4a90-a71f-231963619b44'   # "Disposable e-cigarette ban": SB2175 and HB2121 are on it (their nickname is the same)
+HEAT = 'a15e28e9-3112-4bb1-8e60-1d0d93b558da'    # "Protect students from extreme heat": HB1803 is on it; its nickname says it differently
 res, errors = [], []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 def go(p, hash, wait=2800): p.goto(BASE + '#' + hash.lstrip('#')); p.reload(); p.wait_for_timeout(wait)
@@ -16,14 +18,23 @@ with sync_playwright() as pw:
     for name, w, h, mob in (('laptop', 1280, 800, False), ('phone', 390, 844, True)):
         c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=mob); p = c.new_page()
         p.on('pageerror', lambda e: errors.append(str(e)))
-        # 1. The bill page names the issue: a chip in the header, and a line in Details.
+        # 1. The bill page names the issue. Where the issue's name is the bill's own nickname (SB2175: "Disposable e-cigarette
+        #    ban", already the title) the header has no chip, so the title is not said twice; Details still names it. Where
+        #    the names differ (HB1803) the header has a chip, with a chevron-right: a link, not a menu like Position and Owner.
         go(p, '/bill/SB2175')
+        ok(p.locator('.bw-page a.bw-ichip').count() == 0, f'{name}: SB2175 has no header chip: its issue is its nickname, already the title')
+        dl = p.locator('.bw-dl a[href^="#/issue/"]')
+        ok(p.locator('.bw-page .bw-dt dt', has_text='Issue').count() == 1 and dl.count() == 1 and dl.first.get_attribute('href') == f'#/issue/{ISSUE}?from=SB2175',
+           f'{name}: Details (Overview) lists the issue as a link, saying it came from SB2175')
+        go(p, '/bill/HB1803')
         chip = p.locator('.bw-page a.bw-ichip')
-        ok(chip.count() == 1 and chip.first.get_attribute('href') == f'#/issue/{ISSUE}?from=SB2175',
-           f'{name}: SB2175 has one issue chip in its header, to the issue, saying it came from SB2175 ({chip.count()})')
-        ok('Disposable e-cigarette ban' in (chip.first.inner_text() if chip.count() else ''), f'{name}: the chip names the issue')
-        ok(p.locator('.bw-page .bw-dt dt', has_text='Issue').count() == 1 and p.locator('.bw-dl a[href^="#/issue/"]').count() == 1,
-           f'{name}: Details (Overview) lists the issue as a link too')
+        ok(chip.count() == 1 and chip.first.get_attribute('href') == f'#/issue/{HEAT}?from=HB1803',
+           f'{name}: HB1803 has one issue chip in its header, to the issue, saying it came from HB1803 ({chip.count()})')
+        ok('Protect students from extreme heat' in (chip.first.inner_text() if chip.count() else ''), f'{name}: the chip names the issue')
+        arrow = p.evaluate("""async () => { const u = await import('./staff/ui.js'), ch = document.querySelector('.bw-page a.bw-ichip .chev');
+          const t = document.createElement('span'); t.innerHTML = u.icon('chevron-right', { cls: 'chev' });
+          return !!ch && ch.outerHTML === t.firstElementChild.outerHTML; }""")
+        ok(arrow, f'{name}: the chip ends in a chevron-right, so it reads as a link')
         ok(p.locator('.bw-page .bw-chips a.bw-ichip').first.bounding_box()['height'] >= (44 if mob else 32) - 0.5,
            f'{name}: the chip is a touch target of at least {44 if mob else 32}px')
         # The Public tab's issue link says the bill it came from as well (the same link, one copy of the rule).
@@ -39,16 +50,14 @@ with sync_playwright() as pw:
                f'{name}: {lone} (on no issue) has no chip and says "None yet" in Details')
         else:
             print('SKIP every tracked bill is on an issue in this snapshot')
-        # 2. Going to the issue from the bill: the Back link returns to that bill.
+        # 2. Going to the issue from the bill: the Back link returns to that bill. From SB2175 that is the Details link (no
+        #    header chip); its Back says "Back to SB2175" on a phone too, since it fits (the fresh-eyes review, 10/10).
         go(p, '/bill/SB2175')
-        p.locator('.bw-page a.bw-ichip').first.click(); p.wait_for_timeout(2200)
-        ok(p.evaluate('location.hash') == f'#/issue/{ISSUE}?from=SB2175', f'{name}: the chip opens the issue ({p.evaluate("location.hash")[:40]})')
+        p.locator('.bw-dl a[href^="#/issue/"]').first.click(); p.wait_for_timeout(2200)
+        ok(p.evaluate('location.hash') == f'#/issue/{ISSUE}?from=SB2175', f'{name}: the Details link opens the issue ({p.evaluate("location.hash")[:40]})')
         back = p.locator('.le-deskback') if not mob else p.locator('.sv-hdr .sv-back')
-        if mob:
-            ok(back.count() == 1 and back.get_attribute('aria-label') == 'Back to SB2175' and back.inner_text().strip() == 'Back',
-               f'{name}: the phone header Back is "Back" to SB2175 (aria "Back to SB2175")')
-        else:
-            ok(back.count() == 1 and back.inner_text().strip() == 'Back to SB2175', f'{name}: the page Back link reads "Back to SB2175"')
+        ok(back.count() == 1 and back.inner_text().strip() == 'Back to SB2175' and back.get_attribute('aria-label') in (None, 'Back to SB2175'),
+           f'{name}: the Back link reads "Back to SB2175"' + (' on the phone header too' if mob else ''))
         # 3. The issue page says where it stands: a status line per bill, and the Where it stands block above the bills.
         stand = p.locator('.is-stand')
         ok(stand.count() == 1 and all(k in stand.inner_text() for k in ('Where it stands', 'Next hearing', 'At risk', 'By stage')),

@@ -43,6 +43,18 @@ with sync_playwright() as p:
         n_sw = pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('[data-abarm-on]').length >= 2)")
         ok(n_cards >= 9 and n_sw and pg.locator('[data-abon]').count() == 0 and 'Test it on new visitors' not in pg.locator('main').inner_text(), f'{tag}: every card ({n_cards}) has a switch per version, and no “Test it on new visitors”')
         ok('practice copy' in pg.locator('.ab-intro').inner_text().lower() and 'samples' in pg.locator('.ab-intro').inner_text(), f'{tag}: the practice copy says its switches are samples, with the way to the real ones')
+        # Picks (fresh-eyes review, 10/10, Nate: "uniform and clear"): no Pick on a test nobody has met, and none on the email
+        # ask while it is held for the lawyer; the words say which, where the buttons would be.
+        why = lambda k: card(pg, k).locator('.ab-why').inner_text() if card(pg, k).locator('.ab-why').count() else ''
+        picks = lambda k: card(pg, k).locator('[data-abpick]').count()
+        ok(picks('join') == 0 and 'Pick once people have seen it' in why('join'), f'{tag}: the sign-up test nobody has met offers no Pick ({why("join")!r})')
+        pick_words = card(pg, 'email').locator('a, button').filter(has_text=re.compile(r'^\s*Pick ')).count()
+        ok(picks('email') == 0 and pick_words == 0 and re.search(r'Waits for the lawyer.s check', why('email')) is not None,
+           f'{tag}: the email ask, held for the lawyer, has no Pick and says “Waits for the lawyer’s check” ({why("email")!r})')
+        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].filter(c => c.querySelector('.ab-why')).every(c => c.querySelectorAll('[data-abpick]').length === 0)"), f'{tag}: every card that says why has no Pick buttons')
+        # Trust it lists the version it trusts first: the end test’s Home version (52% against 41%, 640 each)
+        first_row = pg.evaluate("[...document.querySelectorAll('.ab-card')].find(c => c.querySelector('#ab-h-end')).querySelector('.ab-table tbody tr th').textContent")
+        ok('Ends on Home' in first_row, f'{tag}: Trust it lists the version it trusts first ({first_row[:40]!r})')
         ok(live(pg, 'share').startswith('Running: A against B'), f'{tag}: the share message says what runs ({live(pg, "share")})')
         # one off: the other for everyone, nothing counted; Undo
         flip(pg, 'share', 'deadline')
@@ -78,7 +90,7 @@ with sync_playwright() as p:
         ok(pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)') == order, f'{tag}: the cards keep their order while switches are flipped')
         ok(pg.evaluate("document.activeElement?.id || ''").startswith('ab-arm-share-'), f'{tag}: focus stays on the switch just flipped ({pg.evaluate("document.activeElement?.id || null")})')
         # Pick: one button per version on every card; the picked one leaves only it on (R-135)
-        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('[data-abpick]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a pick button per version, the same as its switches')
+        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelector('.ab-why') ? c.querySelectorAll('[data-abpick]').length === 0 : c.querySelectorAll('[data-abpick]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a pick button per version, the same as its switches, or none and the words that say why')
         ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('a[target=\"_blank\"][href*=\"track.html\"]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a link per version, into the practice copy')
         card(pg, 'fv').locator('[data-abpick][data-abarm="short"]').click(); pg.wait_for_timeout(800)
         ok(live(pg, 'fv').startswith('Not testing: everyone sees B') and card(pg, 'fv').locator('#ab-arm-fv-short').is_checked() and not card(pg, 'fv').locator('#ab-arm-fv-full').is_checked(), f'{tag}: Pick B leaves only B on')
