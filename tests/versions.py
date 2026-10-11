@@ -77,18 +77,20 @@ with sync_playwright() as p:
         flip(pg, 'share', 'summary'); flip(pg, 'share', 'deadline')
         ok(pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)') == order, f'{tag}: the cards keep their order while switches are flipped')
         ok(pg.evaluate("document.activeElement?.id || ''").startswith('ab-arm-share-'), f'{tag}: focus stays on the switch just flipped ({pg.evaluate("document.activeElement?.id || null")})')
-        # Pick the winner: only the winner on
-        card(pg, 'fv').locator('[data-abpick]').click(); pg.wait_for_timeout(400)
-        pg.locator('dialog [data-pv="short"]').click(); pg.wait_for_timeout(800)
-        ok(live(pg, 'fv').startswith('Not testing: everyone sees B') and card(pg, 'fv').locator('#ab-arm-fv-short').is_checked() and not card(pg, 'fv').locator('#ab-arm-fv-full').is_checked(), f'{tag}: Pick the winner leaves only the winner on')
-        ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{tag}: nothing wider than the screen')
+        # Pick: one button per version on every card; the picked one leaves only it on (R-135)
+        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('[data-abpick]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a pick button per version, the same as its switches')
+        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('a[target=\"_blank\"][href*=\"track.html\"]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a link per version, into the practice copy')
+        card(pg, 'fv').locator('[data-abpick][data-abarm="short"]').click(); pg.wait_for_timeout(800)
+        ok(live(pg, 'fv').startswith('Not testing: everyone sees B') and card(pg, 'fv').locator('#ab-arm-fv-short').is_checked() and not card(pg, 'fv').locator('#ab-arm-fv-full').is_checked(), f'{tag}: Pick B leaves only B on')
+        ok(pg.locator('dialog[open]').count() == 0, f'{tag}: a pick needs no sheet (the switch’s way: saved, with Undo)')
+        # Against the device’s own width, not window.innerWidth alone: a page wider than the phone grows innerWidth too, so
+        # the old check passed on a page 195px too wide (R-135, 10/10).
+        ok(pg.evaluate(f"window.innerWidth <= {w} + 1 && document.documentElement.scrollWidth <= {w} + 1"), f'{tag}: nothing wider than the screen')
         pg.locator('#ab-h-share').scroll_into_view_if_needed(); pg.screenshot(path=os.path.join(OUT, f'versions_tests_{tag}.png'))
         ok('running' in pg.locator('main').inner_text(), f'{tag}: the page counts the tests running')
-        # See it: the practice copy with every other test at today's
-        card(pg, 'share').locator('[data-absee]').click(); pg.wait_for_timeout(400)
-        links = pg.eval_on_selector_all('dialog a[href]', 'as => as.map(a => a.getAttribute("href"))')
-        ok(links and all('abrest=today' in l for l in links), f'{tag}: See it keeps every other test at today’s ({links[0] if links else None})')
-        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+        # See each version: a link per version in a new tab, each keeping every other test at today's (R-135)
+        links = card(pg, 'share').locator('a[target="_blank"]').evaluate_all("as => as.map(a => a.getAttribute('href'))")
+        ok(len(links) == 2 and all('abrest=today' in l for l in links), f'{tag}: each version has a link, and every other test stays at today’s ({links[:1]})')
         # the tester sheet's links
         pg.goto(f'{BASE}/staff.html?demo=1#/setup/room'); pg.wait_for_selector('.rm-group', timeout=60000); pg.wait_for_timeout(600)
         u = pg.eval_on_selector_all('[data-rmqr]', 'bs => bs.map(b => b.dataset.url)')

@@ -420,6 +420,14 @@ body.sidenarrow .sv-sync span { display: none; }
 .ab-verdict { display: flex; gap: 8px; align-items: flex-start; }
 .ab-verdict .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .ab-acts { flex-wrap: wrap; gap: 8px; }
+/* The two rows every card has (R-135): the links to each version, then the pick buttons. A label names each row. */
+.ab-row { display: flex; flex-direction: column; gap: 6px; }
+.ab-lbl { margin: 0; font-weight: 700; color: var(--n700); }
+.ab-hint { margin: 0; }
+/* A version's own name can be long (the email ask's, 80 characters): its link and pick button wrap inside the card, where
+   the base button would not (white-space nowrap), so a phone never scrolls sideways (R-135). */
+.ab-acts .btn { white-space: normal; max-width: 100%; text-align: left; height: auto; padding-top: 8px; padding-bottom: 8px; }
+.ab-acts .btn > span { min-width: 0; }
 .ab-table td.num { white-space: nowrap; }
 .ab-dec { display: block; font-size: 13px; font-weight: 600; color: var(--p700); }
 .ab-ready { border-color: var(--ok-text, #1F7A4D); }

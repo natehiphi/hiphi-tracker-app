@@ -188,9 +188,9 @@ with sync_playwright() as p:
         ok(card.count() == 1 and pg.locator('#ab-arm-layout-a').is_checked() and pg.locator('#ab-arm-layout-today').is_checked(), f'{tag}: Tests has the version A card, both versions on (R-192’s switches)')
         homec = pg.locator('.ab-card', has=pg.locator('#ab-h-home')).inner_text()
         ok(not pg.locator('#ab-arm-home-by-issue').is_checked() and 'Not testing' in homec and 'week view' in homec and 'Keep it running' not in homec and 'paused' in homec.lower(), f'{tag}: Home’s top is off, saying why, and not told to keep running')
-        card.locator('[data-absee]').click(); pg.wait_for_timeout(500)
-        links = pg.eval_on_selector_all('dialog a[href]', 'as => as.map(a => a.getAttribute("href"))')
-        ok(any('compare.html?ab=layout.today' in l for l in links) and any('compare.html?ab=layout.a' in l for l in links), f'{tag}: See it opens each version through the compare page {links}')
+        # Each version’s link opens Home (track.html, forced to that version, three issues followed), not the compare page (R-187)
+        links = card.locator('a[target="_blank"]').evaluate_all("as => as.map(a => a.getAttribute('href'))")
+        ok(any('track.html' in l and 'ab=layout.today' in l and '#/follow/' in l for l in links) and any('track.html' in l and 'ab=layout.a' in l and '#/follow/' in l for l in links) and not any('compare.html' in l for l in links), f'{tag}: each version’s link opens Home on its own version, not the compare page {links}')
         pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
         # the tester sheet: Group 2 on version A
         pg.goto(f'{BASE}/staff.html?demo=1#/setup/room'); pg.wait_for_selector('.rm-group', timeout=60000); pg.wait_for_timeout(600)
