@@ -13,7 +13,7 @@ LEDE_MAX = 30
 # What may be 14px: the three named parts, chips, a card's bill number and count, a tile's count, a lesson's "1 of 3",
 # a time or a day label, and the text alerts' fine print. Anything else at 14px is a sentence someone has to read.
 LABELS = ('.st-chapters, .chip, .st-pmeta, .st-icount, .st-catnote, .lx-count, .ob2-count, .ob2-trytag, .ob2-rbill, '
-          '.ob2-where, .ob4-time, .st-when, .al-fine, .sr')
+          '.ob2-where, .ob4-time, .al-fine, .sr')
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 

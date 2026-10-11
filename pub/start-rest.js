@@ -4,7 +4,7 @@
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
-  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, billPath } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
@@ -397,7 +397,8 @@ export function leaveAlerts(step, r = null) {
 // alerts ask that followed the list (Nate 9/21: ask after the value) moved to right after the issues on 10/4 (R-146,
 // stepAlerts); someone who skipped it gets one quiet line here. S.stMail is the email given in this visit (mailSent).
 S.stMail ??= { email: '', name: '', sent: '', demo: false };
-const WEEKDAY = d => new Date(d).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' });
+// A date in words, its day and its time: "Wednesday, March 18 at 10:30 AM" (R-098: every date says what it is).
+const whenWords = iso => `${new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' })} at ${timeWord(iso)}`;
 // A committee named briefly enough for one line on a phone: "Senate Health and Commerce committees". A long name keeps
 // its first part ("Health and Human Services" -> "Health"); a short one stays whole ("Ways and Means").
 function briefCmte(code) {
@@ -407,28 +408,29 @@ function briefCmte(code) {
   const short = n => { const words = n.split(/\s+/); return words.length <= 3 ? n : n.split(/\s+(?:and|&)\s+|,\s*/)[0]; };
   return `${ch} ${andList(cs.map(c => short(c.name)))} ${cs.length > 1 ? 'committees' : 'Committee'}`;
 }
-const WEEKDAY_LONG = d => new Date(d).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' });
 function upcoming() {
   const off = isOff(), R = ranker(), out = [];
   if (off) {
     const si = sessionInfo(), yr = si.recapYear, next = si.nextOpen;
+    // The day the session opens comes first: it is the one thing coming up between sessions (R-098, 10/5).
+    if (next) out.push({ kind: 'soon', title: `The ${+next.slice(0, 4)} session`, label: 'Opens',
+      value: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' }),
+      line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.` });
     // What happened on each issue they follow (R-067: the screen promised "What happened in 2026" and showed only laws):
     // laws first, then the staff-edited outlook, three at most.
     const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
-    for (const { i, x } of fol.slice(0, 3)) out.push({ when: String(yr), title: i.name, line: i.outlook || (x.law ? `Became law in ${yr}` : 'Did not advance'), kind: x.law ? 'ok' : 'soon' });
-    if (next) out.push({ when: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' }), title: `The ${+next.slice(0, 4)} session opens`,
-      line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.`, kind: 'soon' });
+    for (const { i, x } of fol.slice(0, 3)) out.push({ kind: x.law ? 'ok' : 'soon', title: i.name, label: `In ${yr}`,
+      value: i.outlook || (x.law ? 'Became law' : 'Did not advance'), to: `#/issue/${i.slug}` });
     return out;
   }
-  // One row per followed issue: its soonest hearing in the next 7 days.
-  const seen = new Set(), E = example();
-  const rows = [];
+  // One row per followed issue: its soonest hearing in the next 7 days (the card names the bill, the committee and both dates).
+  const seen = new Set(), rows = [];
   for (const i of followedIssues().filter(shown)) {
     const x = issueInfo(i, R), bs = x.live.map(b => ({ b, h: R.soon.get(b.id) })).filter(y => y.h && new Date(y.h.scheduled_at) - Date.now() < 7 * 864e5)
       .sort((p, q) => p.h.scheduled_at.localeCompare(q.h.scheduled_at));
     if (!bs.length || seen.has(i.id)) continue; seen.add(i.id);
-    const { b, h } = bs[0], due = h.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(h.testimony_deadline)} at ${timeWord(h.testimony_deadline)}.` : '';
-    rows.push({ at: h.scheduled_at, when: WEEKDAY(h.scheduled_at), title: `${i.name}`, line: `${spaced(b.bill_number)}: ${briefCmte(h.committee)} hearing, ${timeWord(h.scheduled_at)}. ${due}`.trim(), kind: 'hear', b, h });
+    const { b, h } = bs[0];
+    rows.push({ at: h.scheduled_at, kind: 'hear', issue: i.name, b, h, to: billPath(b) });
   }
   rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
   if (!out.length) {
@@ -436,10 +438,7 @@ function upcoming() {
     // after being shown this bill's hearing (R-067). The bill they came for leads when it has one.
     const vb = wiz().via ? exampleBill() : null;
     const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
-    if (vh) {
-      const due = vh.testimony_deadline ? `Testimony due ${WEEKDAY_LONG(vh.testimony_deadline)} at ${timeWord(vh.testimony_deadline)}.` : '';
-      out.push({ when: WEEKDAY(vh.scheduled_at), title: nick(vb) || spaced(vb.bill_number), line: `${spaced(vb.bill_number)}: ${briefCmte(vh.committee)} hearing, ${timeWord(vh.scheduled_at)}. ${due}`.trim(), kind: 'hear', b: vb, h: vh });
-    } else if (E) out.push({ when: 'Soon', title: E.name, line: followedIssues().length ? (endHome() ? 'No hearing on your issues this week yet. When one is set, your home page shows what to do.' : 'No hearing on your issues this week yet. We’ll tell you when one is set.') : 'No hearing set on it this week yet.', kind: 'soon' });
+    if (vh) out.push({ kind: 'hear', issue: '', b: vb, h: vh, to: billPath(vb) });
   }
   return out;
 }
@@ -447,23 +446,44 @@ function upcoming() {
 // action should be testimony"): the first row whose testimony is due within 48 hours offers the walkthrough. Everything
 // else still waits for Home.
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
+// One coming-up item as a card (R-098, Nate 10/5: "not prominent and looks like it should be skipped"). The bill's name
+// is in the heading face (A-19); its number and committee say which bill; each date is labelled and says its day in words
+// (R-135: "Testimony due" beside an unlabelled "Fri" was read as one date); the whole card opens the bill. The one button
+// sits only on a testimony deadline that cannot wait, and is a clear secondary button, not a link (A-3, A-12).
+function cuCard(it, k, now) {
+  const hear = it.kind === 'hear', name = hear ? (nick(it.b) || spaced(it.b.bill_number)) : it.title;
+  const meta = hear ? [nick(it.b) ? spaced(it.b.bill_number) : '', it.h.committee ? briefCmte(it.h.committee) : ''].filter(Boolean).join(' · ') : '';
+  // Testimony first when it has one: its deadline comes before the hearing it is for.
+  const dates = hear ? [...(it.h.testimony_deadline ? [['Testimony due', whenWords(it.h.testimony_deadline)]] : []), ['Hearing', whenWords(it.h.scheduled_at)]] : [[it.label, it.value]];
+  const inner = `<span class="st-cu-name">${esc(name)}</span>${meta ? `<span class="st-cu-meta">${esc(meta)}</span>` : ''}${hear && it.issue ? `<span class="st-cu-meta">Your issue: ${esc(it.issue)}</span>` : ''}
+    <dl class="st-cu-dates">${dates.map(([t, v]) => `<div><dt>${esc(t)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${it.line ? `<span class="st-cu-meta">${esc(it.line)}</span>` : ''}`;
+  const card = it.to ? `<a class="st-cu-go" href="${esc(it.to)}">${inner}${icon('chevron-right', { cls: 'st-cu-chev' })}</a>` : `<div class="st-cu-go">${inner}</div>`;
+  const act = hear && it === now ? `<div class="st-cu-act">${btn('Write testimony', { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${name}, due soon` } })}</div>` : '';
+  return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
+}
+// The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
+const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
+function nothingWords() {
+  if (!followedIssues().length) return 'No hearing is set this week yet. When one is, we’ll show it here.';
+  return endHome() ? 'Nothing is set on your issues this week yet. When one is, your home page shows what to do.' : 'Nothing is set on your issues this week yet. When a hearing is set, it shows up here.';
+}
 function stepSoon(step) {
   if (armOf('act') === 'three') { const ways = waysFor(); if (ways) return stepWays(step, ways); }
   const off = isOff(), all = upcoming(), now = off ? null : all.find(dueSoon);
   // No way to reach them yet (they skipped the alerts screen, or the email-ask test's second version, R-135): one quiet
   // line under the list, never a second ask (C-3: once a visit).
   const quiet = !S.session && !mailSent() && !textSaved();
-  // Each item is one compact row (day, bill, "Testimony due Thu"), three at most, the rest under "More coming up"; the one
-  // due soonest always first (R-078, when the reminder box shared this screen).
-  const fit = 3;
-  const lead = now ? [now, ...all.filter(x => x !== now)] : all, items = lead.slice(0, fit), more = lead.slice(fit);
-  const short = it => it.h?.testimony_deadline ? `Testimony due ${WEEKDAY(it.h.testimony_deadline)}` : it.kind === 'hear' ? 'Hearing' : it.line;
-  const row = (it, k) => `<li class="st-srow" style="--k:${k}"><span class="st-when st-when-${it.kind}">${esc(it.when)}</span><div><b>${esc(it.title)}</b><span>${esc(short(it))}</span>
-    ${it === now ? `<span class="st-now">${btn('Write it now', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${it.title}, due soon` } })}</span>` : ''}</div></li>`;
-  const list = `<ol class="st-soon" role="list">${items.map(row).join('')}</ol>${more.length ? `<details class="st-soonmore"><summary>${icon('chevron-down')}<span>More coming up (${more.length})</span></summary><ol class="st-soon" role="list">${more.map((it, k) => row(it, k + fit)).join('')}</ol></details>` : ''}`;
+  // The one due soonest leads, then the rest in date order (R-078).
+  const items = now ? [now, ...all.filter(x => x !== now)] : all;
+  const cards = items.map((it, k) => cuCard(it, k, now)).join('');
+  const list = off
+    ? `${nothingCard('Nothing is scheduled yet on your issues. Hearings start in late January; we’ll show them here.')}${cards ? `<ol class="st-soon" role="list">${cards}</ol>` : ''}`
+    : cards ? `<ol class="st-soon" role="list">${cards}</ol>` : nothingCard(nothingWords());
+  // Between sessions the sentence says what the history below is; in session the cards start at once (A-1).
+  const lede = off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : '';
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
-    ${off || !items.length ? `<p class="lede">${off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : 'Nothing is set yet this week.'}</p>` : ''}`,
+    ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     `${list}${quiet ? quietAsk() : nameCard()}`);
 }
 // ================= The test 'act', its second version: three ways to help (R-150) =================

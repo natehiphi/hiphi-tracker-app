@@ -174,15 +174,26 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-info-small .ic { flex: none; color: var(--p700); }
 
 /* ---- Stay connected, 2: coming up on your issues (the value), then the one ask ---- */
-.st-soon { list-style: none; margin: var(--s4) 0 0; padding: 0; display: grid; gap: 10px; }
-.st-soon li { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; padding: 12px; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12);
+/* Coming up on your issues (R-098, 10/10; Nate 10/5: "not prominent and looks like it should be skipped"): one card per item
+   that the eye reads first. The bill's name is in the heading face (A-19, 22px in the first visit), each date is labelled and
+   says its day in words, and the whole card opens the bill. One clear button only where testimony cannot wait (A-3). */
+.st-soon { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s12); }
+.st-cu { background: var(--n0); border: 1.5px solid var(--p200); border-radius: var(--r12); box-shadow: var(--sh2);
   animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 120ms); }
-.st-when { display: grid; place-items: center; min-height: 44px; border-radius: 10px; font-weight: 700; font-size: var(--t14); text-align: center; line-height: 1.2; padding: 4px; }
-.st-when-hear { background: var(--p50); color: var(--p800); box-shadow: inset 0 0 0 1px var(--p200); }   /* a date, not a button (A-12) */
-.st-when-ok { background: var(--ok-wash); color: var(--ok-text); }
-.st-when-soon { background: var(--p50); color: var(--p800); }
-.st-soon b { display: block; color: var(--n900); }
-.st-soon li > div > span { display: block; font-size: var(--t14); }
+.st-cu-go { display: grid; gap: 6px; position: relative; padding: var(--s16) 44px var(--s16) var(--s16); color: var(--n700); text-decoration: none; border-radius: var(--r12); }
+a.st-cu-go:hover { background: var(--p50); }
+.st-cu-name { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.st-cu-meta { font-size: var(--t14); color: var(--n700); }
+.st-cu-dates { margin: var(--s4) 0 0; display: grid; gap: 4px; }
+.st-cu-dates > div { display: grid; gap: 0; }
+.st-cu-dates dt { font-size: var(--t14); font-weight: 700; color: var(--p800); }
+.st-cu-dates dd { margin: 0; font-size: var(--t16); color: var(--n900); }
+.st-cu-chev { position: absolute; top: var(--s16); right: var(--s12); width: 22px; height: 22px; color: var(--p700); }
+.st-cu-act { padding: 0 var(--s16) var(--s16); }
+.st-cu-act .btn { width: 100%; }
+/* The one honest line where nothing is coming up: the place of the list, not an empty block. */
+.st-nothing { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16); border-radius: var(--r12); background: var(--p50); border: 1px solid var(--p200); }
+.st-nothing p { margin: 0; font-size: var(--t16); color: var(--n900); }
 .st-form { display: flex; flex-direction: column; gap: var(--s16); }
 .st-form .err:empty { display: none; }
 .st-form .meta { max-width: 65ch; }
@@ -192,15 +203,6 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 /* The email ask's one line (R-078, 9/29: it shared .st-promise with the first screen's three-column list, so on a phone it
    was squeezed into one narrow column and pushed the email box off the first screen). Full width, under the box. */
 .st-askline { margin: 0; font-size: var(--t14); color: var(--n700); }
-.st-soonmore { margin-top: 10px; }
-.st-soonmore > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p700); }
-.st-soonmore > .st-soon { margin-top: 0; }
-/* Compact rows (R-078, 9/29): one line of title, one short line, the day on the left; three fit above the reminder box. */
-.st-soon li.st-srow { grid-template-columns: 52px 1fr; align-items: center; padding: 8px 12px; gap: 10px; }
-.st-srow .st-when { min-height: 36px; font-size: var(--t13); }
-.st-srow b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.st-srow > div { min-width: 0; }
-.st-srow .st-now { margin: 2px 0 0 -12px; }   /* the text button's padding lines its label up with the words above */
 /* Three equal ways to help (Plan 1's choice, R-164; the test 'act', R-150): equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
 .ob-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
 .ob-way { display: flex; width: 100%; gap: var(--s12); align-items: center; padding: var(--s16); text-align: left; min-height: 64px;
@@ -400,7 +402,6 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-voicelearn { margin-top: var(--s16); }
 .st-voicelearn a { font-weight: 700; }
 @media (max-width: 37.5em) { .st1.st-voicepage .st-art { display: none; } }   /* brief on a phone: the three points lead */
-.st-soon .st-now { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: var(--s8); }   /* one action, when it cannot wait (R-067 #12) */
 
 /* The quiet line in place of the email box on "Coming up" (R-114, R-135): an icon line like the reassurances, under the
    list it follows. */
