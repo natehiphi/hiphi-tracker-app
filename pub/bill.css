@@ -387,16 +387,15 @@
 /* Open, it can run 900px on a phone: a quiet rule down its left shows where it starts and ends without another card (A-8). */
 .bl-page .bl-about .ab { border-left: 2px solid var(--n200); padding-left: var(--s16); }
 
-/* ---- draft history (R-060, Nate 10/5): the last thing on the page, one quiet grey closed row under More details; its
-   notes open beneath it. A plain row, not a card: it is for the people who want the technical history ---- */
-.bl-page .bl-drafts { margin-top: var(--s16); border-top: 1px solid var(--n100); }
-.bl-page .bl-drafts > summary { color: var(--n700); font-size: var(--t14); padding-top: var(--s4); padding-bottom: var(--s4); }
+/* ---- draft history (R-060, Nate 10/5; 10/10): the last thing on the page, a closed card of the same look as More details
+   above it (same card, same 56px summary), the heading at 16px like its entries. Its notes open inside the card. ---- */
+.bl-page .bl-drafts { margin-top: var(--s32); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
+.bl-page .bl-drafts > summary { min-height: 56px; color: var(--n900); justify-content: space-between; }
 .bl-page .bl-drafts > summary:hover { background: var(--n50); }
 .bl-page .bl-drafts > summary .bl-chev { color: var(--n500); margin-left: auto; }
 .bl-page .bl-drafts .bl-drsum { display: flex; flex-direction: column; min-width: 0; }
-.bl-page .bl-drafts .bl-drhint { font-size: var(--t13); font-weight: 400; color: var(--n500); line-height: 1.35; }
-.bl-page .bl-drafts .bl-drwhy { margin: var(--s4) 0 var(--s8); }
-.bl-page .bl-drafts .bl-drlist { margin: 0 0 var(--s8); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s16); }
+.bl-page .bl-drafts .bl-drhint { font-size: var(--t14); font-weight: 400; color: var(--n700); line-height: 1.35; }
+.bl-page .bl-drafts .bl-drlist { margin: 0; padding: var(--s16) 0 var(--s8); border-top: 1px solid var(--n100); list-style: none; display: flex; flex-direction: column; gap: var(--s16); }
 .bl-page .bl-drafts .bl-drlist li { margin: 0; }
 /* who made the change and when, on its own line above what it did (Nate 10/5: the committee and date first) */
 .bl-page .bl-drafts .bl-drwho { margin: 0 0 var(--s4); color: var(--n900); line-height: 1.35; }

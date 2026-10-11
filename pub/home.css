@@ -49,6 +49,9 @@
 .hm .hm-askrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); flex-wrap: wrap; }
 .hm .hm-askt { font-size: var(--t18); line-height: 1.3; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .hm .hm-askwhy { color: var(--n700); }
+/* the good news on this bill, as an action card's reason line (actions.css .acard .why, same look) (R-046, A-14) */
+.hm .hm-askgood { display: flex; gap: 6px; align-items: center; margin: 0; font-size: var(--t14); color: var(--p800); }
+.hm .hm-askgood .ic { width: 16px; height: 16px; flex: none; }
 .hm .hm-ask .btncol { margin-top: var(--s4); }
 
 /* Done this week: a quiet fold, the cards inside keep their done look */

@@ -8,7 +8,8 @@
 # the page has one primary button (Next); the card is in the top of the phone screen (A-1). With nothing set this week
 # (the topic "Getting Around" in the practice copy), one honest line in the place of the list, no cards.
 # Between sessions (&season=off): the honest line in the place of the list ("Nothing is scheduled yet ...", late January),
-# the day the session opens labelled "Opens", and last session's issues below, each linking to its issue.
+# the day the session opens labelled "Opens" on a plain card (not a link), and last session's issues below, each linking to
+# its issue, labelled "What happened"; the session date said once (R-098, 10/10).
 # No console errors.
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -66,6 +67,8 @@ with sync_playwright() as pw:
     ok(p.locator('.st-bar .btn.primary').count() == 1, 'the page has one primary button, in the bar')
     first_top = p.locator('.st-cu').first.evaluate('e => e.getBoundingClientRect().top')
     ok(first_top < 844 * 0.7, f'the first card is in the top of the phone screen ({int(first_top)}px, A-1)')
+    ok(p.eval_on_selector_all('.st-cu-dates dt', 'ds => ds.every(d => getComputedStyle(d).color === getComputedStyle(d.closest(".st-cu").querySelector(".st-cu-go")).color)'),
+       'in session: the date labels are neutral text, not blue (A-5)')
     ok(p.locator('.st-nothing').count() == 0, 'with items, no honest line')
     p.screenshot(path=os.path.join(OUT, 'phone_today.png'))
     # The card's bill opens; the walkthrough's button opens the testimony walkthrough.
@@ -96,7 +99,15 @@ with sync_playwright() as pw:
     off_dates = p.eval_on_selector_all('.st-cu-dates > div dt', 'ds => ds.map(d => d.innerText)')
     ok('Opens' in off_dates, f'between sessions: the day the session opens is labelled ({off_dates})')
     ok(p.locator('.st-cu-go[href^="#/issue/"]').count() >= 1, 'between sessions: last session\'s issues open their issue')
-    ok(all(lbl.startswith('In 20') or lbl == 'Opens' for lbl in off_dates), 'between sessions: each date is labelled')
+    ok(all(lbl in ('Opens', 'What happened') for lbl in off_dates), f'between sessions: each date is labelled "Opens" or "What happened" ({off_dates})')
+    # R-098 (10/10): the label is not the year above a sentence that starts with the year (it read "In 2026" / "In 2026 it...")
+    pairs = p.eval_on_selector_all('.st-cu-dates > div', 'ds => ds.map(d => [d.querySelector("dt").innerText, d.querySelector("dd").innerText])')
+    ok(not any(l.startswith('In 20') and v.startswith('In 20') for l, v in pairs), 'between sessions: no "In 2026" label above a sentence that starts "In 2026"')
+    ok(all('January 20' not in v for l, v in pairs if l != 'Opens') and text(p).count('January 20') == 1, 'between sessions: the session date is said once, on the session card, not on every card')
+    ok(p.locator('li.st-cu-plain').count() == 1 and p.locator('li.st-cu-plain a').count() == 0, 'between sessions: the session card opens nothing, so it is a plain card, not a link')
+    ok(p.locator('li.st-cu-plain').evaluate('e => getComputedStyle(e).boxShadow') == 'none', 'between sessions: the plain card has no shadow of a tappable card')
+    ok(p.eval_on_selector_all('.st-cu-dates dt', 'ds => ds.every(d => getComputedStyle(d).color === getComputedStyle(d.closest(".st-cu").querySelector(".st-cu-go")).color)'),
+       'between sessions: the date labels are neutral text, not blue inside a card that is a link (A-5)')
     p.screenshot(path=os.path.join(OUT, 'phone_off.png'))
     c.close()
 
