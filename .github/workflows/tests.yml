@@ -18,7 +18,9 @@ on:
   workflow_dispatch:
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  # A run in progress finishes and only the newest push waits behind it: with builds pushing every ~10 minutes and a
+  # ~20-minute run, cancelling meant no run ever finished on 10/11 (R-240).
+  cancel-in-progress: false
 jobs:
   tests:
     runs-on: ubuntu-latest
