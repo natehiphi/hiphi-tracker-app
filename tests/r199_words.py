@@ -7,9 +7,13 @@
 #   B3-3  "Anyone can send testimony", the late line, "not reached" after a stop, one "Follow the issue" per screen
 #   C5-2  every share link carries the year
 #   python3 tests/r199_words.py [base]     base defaults to http://localhost:8832/
-import sys, os, re
+import sys, os, re, posixpath
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright
-BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/').rstrip('/') + '/'
+# The base is the site's folder; a page address (…/track.html, …/track.html?demo=1) is cut back to its folder, since
+# go() adds track.html?demo=1 itself (R-243: …/track.html/track.html was a 404 and the test timed out)
+_u = urlsplit(sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/')
+BASE = f'{_u.scheme}://{_u.netloc}' + (posixpath.dirname(_u.path) if _u.path.endswith('.html') else _u.path).rstrip('/') + '/'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'tests', 'out', 'r199'); os.makedirs(OUT, exist_ok=True)
 res = []
