@@ -329,3 +329,35 @@
 .hm .hm-seslink { align-self: flex-start; margin-left: -12px; }   /* lines up with the words; its padding keeps the 44px target */
 .hm .hm-meetline { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 0; color: var(--n700); }
 .hm .hm-meetline > .ic { flex: none; margin-top: 3px; color: var(--p700); }
+/* Bill and issue names on Home in one face, the cards' (A-19; the review of R-222 found three: Poppins on the cards, Lato on
+   the rows and the issue list). */
+.hm .rows .row .title, .hm .hm-ylist .hm-yname b { font-family: var(--font-h); font-weight: 600; letter-spacing: -.01em; }
+
+/* ---------------- the calm Home (R-222 Direction 1, pub/calm/home.js; the layout test's version A) ----------------
+   One column, phone first: the greeting, one card, Your issues as rows, two quiet lines. Four blocks (A-23). On a laptop
+   the same column, centred at a reading width, so the one card stays the one focal point (A-13). */
+.cm { display: flex; flex-direction: column; gap: var(--s24); max-width: 640px; margin: 0 auto; }
+.cm .cm-head { display: flex; flex-direction: column; gap: var(--s8); padding-top: var(--s8); }
+.cm .cm-head .eyebrow { font-weight: 400; }
+.cm .cm-head .lede { margin: 0; color: var(--n700); }
+.cm .cm-head .lede b { color: var(--n900); }
+.cm .cm-head .hm-seslink, .cm .cm-head .hm-meetline { margin-top: 0; }
+.cm .cm-card { display: flex; flex-direction: column; gap: var(--s8); }
+.cm .cm-next { margin: 0; display: flex; justify-content: flex-end; }
+.cm .cm-seen { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0; color: var(--n700); }
+.cm .cm-seen > .ic { color: var(--n500); }
+.cm .cm-h { font-size: var(--t22); margin-bottom: var(--s8); }
+.cm .cm-rows { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n100); border-radius: var(--r16, 16px); overflow: hidden; }
+.cm .cm-rows li + li { border-top: 1px solid var(--n100); }
+.cm .cm-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; padding: var(--s12) var(--s12) var(--s12) var(--s16); color: inherit; text-decoration: none; transition: background .12s; }
+.cm .cm-row:hover { background: var(--n50); }
+.cm .cm-rtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* An issue's name is a heading wherever it stands (A-19). */
+.cm .cm-rname { font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.cm .cm-rstat { font-size: var(--t14); color: var(--n700); }
+.cm .cm-rstat.warn { color: var(--warn-text); font-weight: 700; }   /* amber only inside 24 hours (A-5) */
+.cm .cm-new { color: var(--p700); font-weight: 700; }
+.cm .cm-chev { flex: none; color: var(--n400); }
+.cm .cm-all { margin: var(--s4) 0 0 -12px; }
+.cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
+.cm .cm-lines .hm-profline { margin: 0; }

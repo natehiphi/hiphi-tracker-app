@@ -25,13 +25,17 @@ const lazy = (key, load, o = {}) => {
 // The layout test (R-187, pub/variant.js 'layout'): a browser on version A gets its Home and its bill page (pub/a/), which
 // draw today's screens wherever version A has nothing of its own; every other screen is the same in both. The version is
 // read as the module loads and kept for the page load (variant.js pins it), so the two never mix on one page.
+// The layout test's version A is the calm Home since 10/10 (R-222 Direction 1, pub/calm/home.js); it compares Home only, so
+// the bill page and the tabs are today's on both versions. R-071's Layout A (pub/a/: its Home, its bill page, "You") stays
+// reachable on the practice copy with &olda, for the compare page beside the two.
 const layoutA = () => armOf('layout') === 'a';
-const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => layoutA() ? import('./a/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
+const oldA = () => layoutA() && DEMO && /[?&]olda\b/.test(location.search);
+const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : layoutA() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
 const quiz = lazy('quiz', () => import('./quiz.js'), { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
-const bill = lazy('bill', () => layoutA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
+const bill = lazy('bill', () => oldA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
@@ -47,7 +51,7 @@ const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: 
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
-const cssFor = name => layoutA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+const cssFor = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
 const FIRST_VISIT = ['start', 'learn'];
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
@@ -81,9 +85,9 @@ const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, 
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
 const TABS_A = [...TABS.slice(0, 3), ['more', '#/more', 'circle-user', 'You']];
-const tabsNow = () => layoutA() ? TABS_A : TABS;
+const tabsNow = () => oldA() ? TABS_A : TABS;
 // Version A keeps My issues lit on an issue the person follows (R-070 problem 8: it lit Find).
-const tabOf = (route, scr) => layoutA() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
+const tabOf = (route, scr) => oldA() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
 
 // ---- routes ----
 // New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563 (#/bill/2026/HB1563 for an earlier session's bill), #/legislators,
@@ -208,7 +212,7 @@ export function render() {
   const scr = SCREENS[route.name] || SCREENS.home;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
-  document.body.classList.toggle('va', layoutA() && !FIRST_VISIT.includes(route.name));
+  document.body.classList.toggle('va', oldA() && !FIRST_VISIT.includes(route.name));
   document.body.classList.toggle('notabs', !tabs);
   document.body.classList.toggle('withtabs', tabs);
   document.body.classList.toggle('hasbar', !!bar);
@@ -229,10 +233,10 @@ export function render() {
   try { draw.wire && draw.wire(route); } catch (e) { console.error(e); }
   helperMod?.wire();
   wireFrame();
-  // The layout test (R-187) is met where its two versions differ on screen: a bill page, or Home in session with something
-  // followed once the first visit is behind them (version A's own Home, or today's everyday one; both keep today's
-  // welcome shape right after the first visit, and today's Home between sessions or for someone following nothing).
-  if (styled && ((route.name === 'bill' && $app().querySelector('#main .bl-head')) || (route.name === 'home' && $app().querySelector('#main .ah, #main .hm-follow:not(.hm-welcome)')))) abSeen('layout');
+  // The layout test (R-187) is met where its two versions differ on screen: since R-222 only Home, in session with something
+  // followed once the first visit is behind them (the calm Home's .cm-met, or today's everyday one; the bill page is the
+  // same on both now).
+  if (styled && route.name === 'home' && $app().querySelector('#main .cm-met, #main .ah, #main .hm-follow:not(.hm-welcome)')) abSeen('layout');
   if (keep && !document.querySelector('dialog[open]')) { const el = findByKey(keep); if (el && el !== document.activeElement) el.focus({ preventScroll: true }); }
   // Screen changes move focus to the page for screen readers (not on re-renders of the same screen).
   const key = location.hash;

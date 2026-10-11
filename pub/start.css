@@ -70,7 +70,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-ilead .ic-loader-circle { animation: spin 1s linear infinite; }
 .st-issue[aria-pressed="true"] .st-ilead { background: var(--p700); color: var(--n0); }
 .st-issue .st-tick { position: absolute; top: 10px; right: 10px; }
-.st-iname { font-weight: 700; color: var(--n900); line-height: 1.25; padding-right: 26px; }
+.st-iname { font-family: var(--font-h); font-weight: 600; letter-spacing: -.01em; color: var(--n900); line-height: 1.25; padding-right: 26px; }   /* an issue's name is a heading wherever it stands (A-19) */
 .st-idesc { font-size: var(--t14); line-height: 1.35; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* "9 issues moving" is a fact about the tile, not something to tap: dark text, never the link blue (A-5, A-12; X9-1, R-180). */
 .st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--n700); }

@@ -16,7 +16,7 @@
 .acard .due.danger { color: var(--bad-text); } .acard .due.danger .ic { color: var(--bad-text); }
 .acard .hearing { margin-top: -4px; }
 .acard .proof { display: flex; gap: 6px; align-items: center; font-size: var(--t14); color: var(--n500); }
-.acard .proof .ic { width: 16px; height: 16px; color: var(--o600); }
+.acard .proof .ic { width: 16px; height: 16px; color: var(--n500); }   /* grey: orange is for a moment worth marking, not a count (A-5; the review of R-222) */
 .acard .btncol { margin-top: var(--s8); }
 .acard.focus { border-color: var(--p300); box-shadow: var(--sh2); }   /* lifted, not ringed: a 2px blue border read as keyboard focus */
 .acard.done { background: var(--ok-wash); border-color: #BFE8C8; }

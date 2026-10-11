@@ -301,7 +301,10 @@ function sinceStrip(inCards = new Set(), gn = { liveBills: new Set(), goodShown:
     if (gn.goodShown) return '';   // the good news cards say what there is; "nothing new" beside them would contradict them
     const next = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && S.bills.some(b => b.id === h.bill_id) && !loopB.has(h.bill_id)).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
     const nb = next && S.bills.find(b => b.id === next.bill_id);
-    return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>${hi}</b> Nothing new on your issues since ${esc(when)}.${nb ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
+    // "Next:" only when no card below already says what is next: on a Tuesday it named the soonest hearing while the first
+    // card was the soonest deadline, a different bill (the review of R-222, A-14).
+    const say = nb && !inCards.size;
+    return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>${hi}</b> Nothing new on your issues since ${esc(when)}.${say ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
   }
   // On a phone one row, so the day's actions stay near the top (A-1). The others are in What's new below, which skips only
   // the bills shown here.
@@ -446,6 +449,17 @@ function homeScreenCard() {
 const ASK_DAYS = 21;
 const askList = () => waitingBills(S.bills).filter(({ b, st }) => st.deadline.days <= ASK_DAYS && !/oppose/.test(b.hiphi_position || '')
   && agrees(b) !== false && chairContacts(st.committee).length && !askedChair(b, st.committee));
+// One idea once, for the calm Home's card (pub/calm/home.js; A-14; the review of R-222: "Disposable e-cigarette ban" was a
+// card for HB 2121 and, a few lines down, a hearing ask for its Senate twin SB 2175, with opposite news). Twins by the
+// companion link or by the same nickname in the other chamber, as the twin cards (R-131). Today's Home keeps every ask:
+// there the twin's ask was the only way from Home to that bill (x10_close_loop); the calm Home says it on the issue's row.
+export const sameIdea = (a, b) => a.id !== b.id && (companionsOf(a).includes(b.bill_number) || companionsOf(b).includes(a.bill_number)
+  || (!!nick(a) && nick(a) === nick(b) && (a.bill_number || '')[0] !== (b.bill_number || '')[0]));
+export function oneIdeaAsks(cards = []) {
+  const out = [];
+  for (const x of askList()) if (!cards.some(c => sameIdea(c.b, x.b)) && !out.some(y => sameIdea(y.b, x.b))) out.push(x);
+  return out;
+}
 const daysLeft = d => d <= 0 ? 'Last day' : `${plural(d, 'day')} left`;
 function askCard({ b, st }, primary) {
   const dl = st.deadline, where = cmteLabel(st.committee), chairs = chairContacts(st.committee).length > 1 ? 'chairs' : 'chair';
@@ -548,15 +562,7 @@ function followView(si) {
   // Twin bills as one card (R-131, the assessment's P7): a House bill and its Senate twin both open are one card, the
   // sooner deadline leading and the twin named on it (the review 9/28: the two "Disposable e-cigarette ban" bills got two cards
   // with opposite asks on one Home). actionCard reads the twin from S.hmTwins.
-  S.hmTwins = new Map();
-  for (const x of cards) {
-    if ([...S.hmTwins.values()].includes(x) || S.hmTwins.has(x.b.id)) continue;
-    // Twins by the companion link, or by the same nickname in the other chamber (the links are often not set yet).
-    const nums = companionsOf(x.b), ch = b => (b.bill_number || '')[0];
-    const t = cards.find(y => y !== x && !S.hmTwins.has(y.b.id) && (nums.includes(y.b.bill_number) || (nick(x.b) && nick(x.b) === nick(y.b) && ch(x.b) !== ch(y.b))));
-    if (t) S.hmTwins.set(x.b.id, t);
-  }
-  const folded2 = new Set([...S.hmTwins.values()]); cards = cards.filter(x => !folded2.has(x));
+  cards = twinCards(cards);
   const open = cards.filter(x => !settledOn(x.b, x.h)), asks = askList(), total = open.length + asks.length;
   const inCards = new Set(all.map(x => x.b.id));
   if (!welcome) {
@@ -565,6 +571,20 @@ function followView(si) {
     if (sug) inCards.add(sug.b.id);
   }
   return welcome ? welcomeView(si, { cards, asks, total }) : returnView(si, { cards, asks, open, total, folded, sug, inCards });
+}
+
+// Twins by the companion link, or by the same nickname in the other chamber (the links are often not set yet). Sets
+// S.hmTwins (the leading card's bill id -> its twin) and returns the cards without the twins.
+function twinCards(cards) {
+  S.hmTwins = new Map();
+  for (const x of cards) {
+    if ([...S.hmTwins.values()].includes(x) || S.hmTwins.has(x.b.id)) continue;
+    const nums = companionsOf(x.b), ch = b => (b.bill_number || '')[0];
+    const t = cards.find(y => y !== x && !S.hmTwins.has(y.b.id) && (nums.includes(y.b.bill_number) || (nick(x.b) && nick(x.b) === nick(y.b) && ch(x.b) !== ch(y.b))));
+    if (t) S.hmTwins.set(x.b.id, t);
+  }
+  const folded = new Set([...S.hmTwins.values()]);
+  return cards.filter(x => !folded.has(x));
 }
 
 // The profile ask on Home is one quiet line (R-222, Nate 10/10 "accept all"): the form sat inside the list of things to do,
@@ -584,7 +604,8 @@ function profileLine(kind = S.nudge) {
 }
 function wireProfileLine(root) {
   root.querySelectorAll('[data-hm-prof]').forEach(el => el.onclick = () => {
-    const kind = el.dataset.hmProf, k = ['action', 'intro', 'back'].includes(kind) ? kind : 'follow', prof = profileAsk();
+    // "Welcome back" seconds after the first visit read wrong (the review of R-222): on the first-day Home it is the follow's words.
+    const kind = el.dataset.hmProf, k = kind === 'back' && welcomed() ? 'follow' : ['action', 'intro', 'back'].includes(kind) ? kind : 'follow', prof = profileAsk();
     const ni = followedIssues().length, na = myActions().length, nb = S.watch.size;
     const things = `${ni ? plural(ni, 'issue') : plural(nb, 'bill')}${na ? ` and ${plural(na, 'action')}` : ''}`;
     openAlertsSheet({ source: kind === 'action' ? 'action' : 'home', profile: prof ? k : '', lede: prof ? profileLede(k, { things, many: ni > 1 }) : '',
@@ -983,6 +1004,16 @@ function meetLine() {
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
 // letter and a first-visit plan's next small thing (a new issue in a category they follow is on My issues, R-222). wireExtras wires them
 // and a first-visit plan's next small thing (onb-later.js), on either Home.
+// For the calm Home (R-222 Direction 1, pub/calm/home.js, the layout test's version A since 10/10): the parts it shares with
+// this Home, so each rule (what is good news, what a twin is, which asks show) lives in one place.
+function seeMoment(x) {
+  const seen = momentsSeen(), shown = momentsShown(), fresh = !shown.has(x.key);
+  seen.add(x.key); shown.add(x.key); S.hmKeep.add(x.key); putIds(MSEEN_KEY, seen); putIds(MSHOWN_KEY, shown);
+  if (fresh) logAct('moment');   // counted privately, kind only (migration 106)
+  return fresh;
+}
+export const calmParts = { goodNews, momentText, seeMoment, sinceItems, askCard, oneIdeaAsks, twinCards, sessionLink, meetLine, profileLine,
+  myName, who, myIssues, districtsKnown, welcomed, laterCard, endHome, alertsGiven };
 export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), phone: () => homeScreenCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireProfileLine(root);
