@@ -42,9 +42,9 @@ def walk_to_soon(p, extra, email=None):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
     seen['story'] = text(p, '.lx-calm'); seen['mom'] = text(p, '#lx-cap')
-    p.click('[data-stnext]')   # finishing the story goes straight on to who speaks for you (R-140)
-    p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(600)
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
+    p.click('[data-stnext]')   # finishing the story goes straight on (R-140)
+    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
     seen['soon'] = text(p)
     return seen
 

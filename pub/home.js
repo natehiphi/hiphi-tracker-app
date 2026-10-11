@@ -1126,11 +1126,17 @@ export default {
     S.hmLoopB = new Set();   // the bills "What you did" names on this drawing (loopCard); none until it is drawn
     S.hmGnDraw = null; S.hmBurst = null;   // what the good news and the since rows drew last time (wire() reads them)
     const html = mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);
-    // A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js): at the top between sessions, when
-    // nothing is due; in session under Home's own content, so it never pushes a live deadline down (A-1, A-13).
-    const later = laterCard();
+    // A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js; since R-232 also today's first visit's
+    // "Find my legislators"): at the top between sessions, when nothing is due; in session under Home's own content, so it
+    // never pushes a live deadline down (A-1, A-13): at the end of the side column when there is one (the review of R-232:
+    // full width under both columns it read as a footer banner on a laptop), which on a phone stacks after the main column.
+    const later = laterCard({ off: si.phase !== 'in' });
     if (!later) return html;
-    return si.phase !== 'in' ? html.replace(/^(\s*<div class="hm[^"]*">)/, `$1${later}`) : html.replace(/<\/div>\s*$/, `${later}</div>`);
+    if (si.phase !== 'in') return html.replace(/^(\s*<div class="hm[^"]*">)/, `$1${later}`);
+    const tpl = document.createElement('template'); tpl.innerHTML = html;
+    const side = tpl.content.querySelector('.cols > .hm-side');
+    if (!side) return html.replace(/<\/div>\s*$/, `${later}</div>`);
+    side.insertAdjacentHTML('beforeend', later); return tpl.innerHTML;
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;

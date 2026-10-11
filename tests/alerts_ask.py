@@ -38,12 +38,12 @@ def to_alerts(p, extra=''):
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
-# From the story's first page to Coming up (skipping the address).
+# From the story's first page to Coming up.
 def story_to_soon(p):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
     for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
-    p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(500)
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
+    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()

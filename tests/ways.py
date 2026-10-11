@@ -3,11 +3,14 @@
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/ways.py [base]   base defaults to http://localhost:8832
 # Checks, on a phone and a laptop, in the practice copy (Monday 16 March 2026, and between sessions):
+#   (R-232, 10/11: finding the legislators left the first visit; "with an address" now means districts saved on an earlier
+#   visit, from the Legislators page)
 #   in session, following a topic with hearings: "Three ways to help this week", three cards on three different bills:
 #   Write testimony (opens the testimony walkthrough), an email to the chair (Email the committee chair, or Ask the chair for
 #   a hearing; opens the email walkthrough), Send it to a friend (shares, then says Done); between sessions with an address:
 #   Say aloha to your two legislators (opens the hello letter), Send it to a friend, Why this matters to you (kept, then
-#   says so); without an address the first card is Find your legislators, which goes back a step; today's version keeps
+#   says so); without an address there is no hello card and no way back to look them up: "Two ways to help before January",
+#   send to a friend and why it matters; the story's last button names the page ("Next: Ways to Help"); today's version keeps
 #   "Coming up on your issues"; the test is met on that page; Next still goes on; first-visit type sizes (C-14); no
 #   sideways scroll; no page errors.
 import os, sys
@@ -26,6 +29,8 @@ def ctx(b, w=390, h=844):
 
 def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
     p.goto(f'{BASE}/track.html?demo=1&restart&ab={ab},end.{end},onb.today{extra}'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
+    if addr:   # districts kept from an earlier visit's Legislators page (the first visit no longer asks, R-232)
+        p.evaluate("for (const k of ['hiphi_districts', 'hiphi_districts_demo']) localStorage.setItem(k, JSON.stringify({ senate: 13, house: 26 }))")
     p.locator('.st-tile', has_text=topic).first.click(); p.wait_for_timeout(300)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=15000); p.wait_for_timeout(800)
     if every:   # every issue the topic offers, so it has hearings to act on
@@ -36,15 +41,14 @@ def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
     for _ in range(30):
         if p.locator('.st-soonpage').count(): return True
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
-        if addr and p.locator('#st-addr').count():
-            box = p.locator('#st-addr'); box.click(); box.type('415 S Beretania', delay=30); p.wait_for_timeout(1500)
-            pick = p.locator('[data-staddrpick]').first
-            (pick if pick.count() else p.locator('[data-staddrtyped]').first).click(); p.wait_for_timeout(2500); addr = False; continue
+        if p.locator('#st-addr').count(): ok(False, 'the first visit never asks for an address (R-232)')
+        if p.locator('.actionbar [data-stnext]', has_text='Next: ').count(): S['go'] = p.locator('.actionbar [data-stnext]').inner_text().strip()
         loc = p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')
         if loc.count(): loc.first.click()
         p.wait_for_timeout(1300)
     return False
 
+S = {}
 cards = lambda p: p.eval_on_selector_all('.st-way', 'els => els.map(e => e.innerText.split("\\n").filter(Boolean))')
 def back_to_page(p):
     # Close a walkthrough (Escape, else the browser's Back) and come back to the page.
@@ -122,17 +126,18 @@ with sync_playwright() as pw:
         # ---- between sessions, no address ----
         c, p = ctx(b, w, h)
         walk(p, 'act.three', '&season=off')
-        ok(cards(p)[0][0] == 'Find your legislators', f'{tag}: without an address the first card finds the legislators')
+        titles = [x[0] for x in cards(p)]
+        ok(p.inner_text('#st-h') == 'Two ways to help before January' and len(titles) == 2 and titles[0].startswith('Ask a friend to follow it') and titles[1] == 'Say why it matters to you',
+           f'{tag}: without an address, two ways and no hello or "Find your legislators" ({p.inner_text("#st-h")}: {titles})')
+        ok(S.get('go') == 'Next: Ways to Help', f'{tag}: the story\'s last button names the page that follows ({S.get("go")})')
+        p.screenshot(path=os.path.join(OUT, f'{tag}_off_noaddr.png'))
         ok('Pick one if you like' in p.inner_text('.st-wayspage .lede'), f'{tag}: between sessions too, it says none is needed (P-5)')
         if w < 600:
             # A sentence typed and not kept is kept on Next (C-9).
-            p.locator('[data-stway="2"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')
+            p.locator('[data-stway="1"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')
             p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
             kept = p.evaluate("Object.values((JSON.parse(localStorage.getItem('hiphi_me_demo') || localStorage.getItem('hiphi_me') || '{}').stories) || {})")
             ok(any('keiki' in x for x in kept), f'{tag}: a sentence typed and not kept is kept on Next (C-9) ({kept})')
-            p.go_back(); p.wait_for_timeout(1500)
-            p.locator('[data-stway="0"]').click(); p.wait_for_timeout(1500)
-            ok(p.locator('#st-addr').count() == 1, f'{tag}: and goes back a step to "Who speaks for you"')
         c.close()
     print('\n'.join(fails) or 'all pass')
     print(f'{len(passes)}/{len(passes) + len(fails)} passed')

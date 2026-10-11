@@ -509,10 +509,12 @@ function stepSoon(step) {
 // a third (else their first issue). Between sessions, and in session with nothing on their issues: a hello to their two
 // legislators (or finding them first, the step just before), Send to a friend, and one sentence on why it matters, kept for
 // January. Following nothing (Skip): today's page.
+// The hello is offered only when their legislators are already known (R-232): finding them left the first visit, so with
+// none known the page has the other ways, and a hello card never sends anyone back to look them up.
 const SOON_MS = 7 * 864e5;
 function waysFor() {
   const iss = followedIssues().filter(shown); if (!iss.length) return null;
-  const i0 = iss[0], ways = [], used = new Set(), now = Date.now();
+  const i0 = iss[0], ways = [], used = new Set(), now = Date.now(), hello = helloLegs().length ? { kind: 'hello' } : null;
   // Hearings in the next 7 days on their bills, testimony still open first; one whose written deadline has passed still
   // takes an email to the chair, the quick way to be heard (core.js openActions).
   const hear = isOff() ? [] : openActions(S.bills, S.hearings).filter(x => new Date(x.h.scheduled_at) - now < SOON_MS);
@@ -526,14 +528,14 @@ function waysFor() {
     // Never two cards of one kind (the review): with no hearing for an email to the chair, and the first card already a
     // hearing ask, the second is the hello to their legislators, another kind of email.
     const e = take(hear, x => agrees(x.b) !== false);
-    ways.push(e ? { kind: 'email', ...e } : ways[0]?.kind === 'ask' ? { kind: 'hello' } : ask());
+    ways.push(e ? { kind: 'email', ...e } : ways[0]?.kind === 'ask' ? hello : ask());
     const sh = take(hear) || take(waits.map(w => ({ b: w.b, h: null })));
     ways.push(sh ? { kind: 'share', b: sh.b, h: sh.h } : { kind: 'shareissue', i: i0 });
     const out = ways.filter(Boolean);
     if (out.length === 3) return out;
   }
   // Between sessions, or nothing to act on this week in session.
-  return [{ kind: 'hello' }, { kind: 'shareissue', i: i0 }, { kind: 'story', i: iss[1] || i0 }];
+  return [hello, { kind: 'shareissue', i: i0 }, { kind: 'story', i: iss[1] || i0 }].filter(Boolean);
 }
 const helloLegs = () => myLegs().filter(l => l.email);
 const wayDone = w => w.kind === 'testimony' ? didKind(w.b, w.h, 'testimony') : w.kind === 'email' ? didKind(w.b, w.h, 'email')
@@ -550,9 +552,7 @@ function wayWords(w) {
     case 'share': return ['share-2', 'Ask a friend to speak up', `${name}: more voices carry more weight`, '1 min'];   // one name for it (R-205 S3)
     // Issue names are often sentences ("Let counties regulate tobacco sales"), so they lead the line rather than sit inside one.
     case 'shareissue': return ['share-2', 'Ask a friend to follow it', `${w.i.name}: know someone who cares?`, '1 min'];
-    case 'hello': { const legs = helloLegs();
-      return legs.length ? ['hand-heart', 'Say aloha to your legislators', `${legs.map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ')} are writing next year’s bills now`, '2 min']
-        : ['landmark', 'Find your legislators', 'About 30 seconds. Then say aloha before January.']; }
+    case 'hello': return ['hand-heart', 'Say aloha to your legislators', `${helloLegs().map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ')} are writing next year’s bills now`, '2 min'];
     case 'story': return ['message-square-heart', 'Say why it matters to you', `${w.i.name}: one sentence, kept for your letters in January`];
     default: return ['circle', '', ''];
   }
@@ -561,7 +561,8 @@ const lastOf = l => (l.sort_name || l.name || '').split(',')[0];
 // "Email the committee chair · 2 min", the time never left alone on a line (the review).
 const title = (t, m) => `${esc(t)}${m ? ` <span class="nobr">· ${esc(m)}</span>` : ''}`;
 function stepWays(step, ways) {
-  const off = isOff() || ways[0].kind === 'hello', quiet = !S.session && !mailSent() && !textSaved();
+  // "before January" between sessions, and in session when nothing on their issues is due (the between-sessions ways).
+  const off = isOff() || !ways.some(w => ['testimony', 'email', 'ask'].includes(w.kind)), quiet = !S.session && !mailSent() && !textSaved();
   const card = (w, k) => {
     const [ic, t, sub, m] = wayWords(w), done = wayDone(w);
     // A share that only copied the link says so, and what to do with it (the review: "Done" when nothing was sent yet).
@@ -576,7 +577,7 @@ function stepWays(step, ways) {
   };
   S.stWays = ways;
   return shell('st4 st-soonpage st-wayspage', `${topRow('soon', step)}
-    <h1 class="hero" id="st-h">${off ? 'Three ways to help before January' : 'Three ways to help this week'}</h1>
+    <h1 class="hero" id="st-h">${ways.length === 2 ? 'Two' : 'Three'} ways to help ${off ? 'before January' : 'this week'}</h1>
     <p class="lede">${off ? 'The Legislature is back in January. Pick one if you like.' : 'Pick one if you like. We help you with each.'}</p>`,
     `<ul class="ob-ways st-ways" role="list">${ways.map(card).join('')}</ul>${quiet ? quietAsk() : nameCard()}`);
 }
@@ -588,7 +589,7 @@ function wireWays({ step }) {
     if (w.kind === 'testimony') return app.openHelper(w.b.id, w.h.id);
     if (w.kind === 'email') return app.openMail?.({ mode: 'email', bill: w.b.id, hearing: w.h.id });
     if (w.kind === 'ask') return app.openMail?.({ mode: 'email', bill: w.b.id, code: w.code });
-    if (w.kind === 'hello') { const legs = helloLegs(); return legs.length ? app.openMail?.({ mode: 'intro', legs: legs.map(l => l.id) }) : goStep(step, step - 1); }
+    if (w.kind === 'hello') return app.openMail?.({ mode: 'intro', legs: helloLegs().map(l => l.id) });
     if (w.kind === 'story') { S.stWayStory = w.i.id; app.render(); requestAnimationFrame(() => document.getElementById('st-story')?.focus()); return; }
     // Share: the bill (its hearing's message), else their first issue's page; the same helpers as the bill and issue pages.
     const A = await import('./actions.js');   // with the bill page's helpers, on first use (R-122)
@@ -813,7 +814,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     const nb = $('[data-stnext]');
     // On the story's last stage the button names the next screen (C-6), so finishing it reads as a step on, not the end.
     const label = () => { if (!nb) return; const last = lessons().lessonStep('story') >= 3;
-      nb.querySelector('span').textContent = last ? GO_YOU : 'Next'; };
+      nb.querySelector('span').textContent = last ? GO_YOU() : 'Next'; };
     label();
     // A stage can change without Next: Back, or a tap on the story's own stage dots.
     $('.st')?.addEventListener('click', () => requestAnimationFrame(label));
@@ -914,9 +915,12 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   }
 }
 
-// The teaching part always hands on to "Who speaks for you", and its last button says so (R-140, C-6).
-// "Next:" keeps it the button that moves on: under "What would you do?", "Find my legislators" read as a fifth answer.
-const GO_YOU = 'Next: Your Legislators';   // the next part's name in title case (Nate 10/6, R-186)
+// The teaching part hands on to the next screen, and its last button names it (R-140, C-6), in title case (Nate 10/6,
+// R-186). "Next:" keeps it the button that moves on: under "What would you do?" a bare name read as a fifth answer. It was
+// "Next: Your Legislators" until that step left the first visit (R-232); now it names the page that follows, which the
+// test 'act' draws as three ways to help or as today's "Coming up on your issues" ("Your issues, this year and next" between sessions).
+// Between sessions not "Your Issues" (the review): the bar above already ticks "Your issues" as done.
+const GO_YOU = () => armOf('act') === 'three' && waysFor() ? 'Next: Ways to Help' : isOff() ? 'Next: This Year and Next' : 'Next: Coming Up';
 // The action bar of the steps after the topics (start-rest.js).
 export function barStep(name, step, off) {
   switch (name) {
@@ -926,11 +930,11 @@ export function barStep(name, step, off) {
       if (m.loading || m.none) return barBusy();
       return bar2(followLabel(m.count), { icon: 'star' });
     }
-    case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU (wireStep)
+    case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU() (wireStep)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
     case 'voice': return wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
-      : bar2(GO_YOU, { iconEnd: 'arrow-right' });
+      : bar2(GO_YOU(), { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
     // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's

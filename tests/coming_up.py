@@ -38,8 +38,8 @@ def walk_to_soon(p, extra, topic='Food'):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
     p.click('[data-stnext]')
-    p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(600)
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(1000)
+    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(1000)
 
 DATE_LABELS = ('Testimony due', 'Hearing')
 

@@ -51,8 +51,8 @@ def to_alerts(p, extra=''):
 def story_to_soon(p):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
     for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
-    p.wait_for_selector('[data-staddr]', timeout=10000); p.wait_for_timeout(500)
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
+    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 def mahalo_on(p):
     p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(400); m = moment(p); p.click('#fx-mgo'); return m
 def to_end(p):

@@ -56,9 +56,14 @@ anyone asking about them); a law, a stopped bill, one on the Governor's desk and
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
 laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)
--> (its last button, "Next: Your Legislators"; no full-screen moment there since R-140) -> who speaks for you (street address only) -> "Coming up on your
+-> (its last button names the next page, "Next: Coming Up", or "Next: Ways to Help" / "Next: Your Issues"; no full-screen moment there since R-140)
+-> "Coming up on your
 issues" (with the optional first name once a way to reach them was given) -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
-the week's first hearing with "See how to help". A newcomer who opens a shared bill gets a "New here?" card on the bill
+the week's first hearing with "See how to help". **Who speaks for you** (the street address, step 'you') left the first visit
+on 10/11 (R-232, Nate: "needs to move to an activity after onboarding for future visits"): from the next visit, Home in
+session has a "Who speaks for you?" card with **Find my legislators** (`pub/onb-later.js` 'legs', under Home's own content,
+put away by "No thanks" or once districts are known); between sessions Home's "Get ready for January" card already leads with
+it, so the later card does not repeat it. The screen itself stays for Plans 1 (between sessions) and 3. A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
 shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
@@ -636,7 +641,8 @@ first visit. All five are working versions in the same frame as today's first vi
   are `pub/alerts.js`'s, unchanged (C-4).
 - **Later visits** (`pub/onb-later.js`, drawn at the top of Home by `home.js`): one card per visit with the plan's next
   small thing (find your legislators, the three moments to help, bring a friend), in each plan's order, each put away
-  for good by "Not now" or by doing it (`hiphi_later`).
+  for good by "Not now" or by doing it (`hiphi_later`). Today's first visit (no plan) uses it too since R-232: the one card
+  is find your legislators, in session only (between sessions the "Get ready for January" card has it).
 - **Checked by** `python3 tests/plans.py` (every plan walked to Home on a phone, a laptop and between sessions, the
   sign-up's equal buttons and words, "You're set", the later-visit card) and `python3 tests/abtests.py` (the spread over
   switched-on versions, the plans never counted in today's tests, tester links, the test off). Design exceptions for
@@ -969,7 +975,8 @@ from `onb.css` to `start.css`), no main button among them, Next unchanged:
   third with one). With no second hearing, the email is **Ask the chair for a hearing** on a bill waiting for one
   (`waitingBills`, `app.openMail` with the committee's code).
 - Between sessions, or nothing on their issues this week: **Say aloha to your legislators** (the hello letter, mode
-  `intro`; without an address, **Find your legislators** goes back to "Who speaks for you"), **Send it to a friend** (their
+  `intro`; only when their districts are already known from an earlier visit; otherwise the page is "Two ways to help",
+  R-232), **Send it to a friend** (their
   first issue's page, `shareIssue`), **Why this matters to you** (one sentence in the card, kept as the profile's story for
   that issue, `saveProfile({ stories })`).
 - A card done keeps its place with a tick ("Done. Mahalo!", "Kept for January"). Following nothing: today's page.

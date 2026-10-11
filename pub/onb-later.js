@@ -4,7 +4,10 @@
 // ("a light start, then one small thing each time you come back"); the other plans use the same cards for what their
 // first visit did not cover. Only for a browser whose first visit was a plan (wiz().plan, set by start.js finish()), and
 // not during that first visit's own Home (the welcome there is the finale's).
-// Each card disappears once it is done (legislators found) or opened, or when "Not now" is pressed; the next visit
+// Today's first visit (no plan) leaves one thing for later since R-232 (Nate 10/11): finding their legislators, which
+// left the first visit. Between sessions Home's own "Get ready for January" card already leads with "Find my
+// legislators", so the 'legs' card is not shown there too (one ask for one thing, C-3).
+// Each card disappears once it is done (legislators found) or opened, or when "No thanks" is pressed; the next visit
 // shows the next one.
 import { S, DEMO, esc, icon, wiz } from './core.js';
 import { btn } from './ui.js';
@@ -25,15 +28,15 @@ const CARDS = {
     label: 'Share', act: 'share' },
 };
 // Each plan's order: what its first visit left out comes first.
-const ORDER = { p1: ['legs', 'learn', 'share'], p2: ['legs', 'share'], p3: ['learn', 'share'], p4: ['legs', 'learn'], p5: ['legs', 'learn', 'share'] };
+const ORDER = { today: ['legs'], p1: ['legs', 'learn', 'share'], p2: ['legs', 'share'], p3: ['learn', 'share'], p4: ['legs', 'learn'], p5: ['legs', 'learn', 'share'] };
 
-export function laterKey() {
-  const p = wiz().plan; if (!p || !ORDER[p] || !wiz().done || welcomed()) return '';
+export function laterKey({ off = false } = {}) {
+  const p = wiz().plan || 'today'; if (!ORDER[p] || !wiz().done || welcomed()) return '';
   const k = kept();
-  return ORDER[p].find(c => !k[c] && !(CARDS[c].done && CARDS[c].done())) || '';
+  return ORDER[p].find(c => !k[c] && !(off && c === 'legs') && !(CARDS[c].done && CARDS[c].done())) || '';
 }
-export function laterCard() {
-  const c = laterKey(); if (!c) return '';
+export function laterCard(opts) {
+  const c = laterKey(opts); if (!c) return '';
   const C = CARDS[c];
   // An outline button, so it never competes with a bill card's filled one (A-3); the icon sits in the title's line; "No
   // thanks" because it does not come back (the review, 10/5).
