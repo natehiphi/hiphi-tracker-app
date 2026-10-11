@@ -273,7 +273,7 @@ function barHello() {
   if (S.obActed && S.obActed.kind === 'intro') return bar1('Next', 'arrow-right', { 'data-obon': '1' });
   const legs = myLegs();
   if (!legs.length) return `<div class="st-bar"><div class="st-btns">${btn('Not now', { kind: 'text', attrs: { 'data-obnot': '1' } })}${stepOf('you', isOff()) ? btn('Find my legislators', { kind: 'primary', icon: 'landmark', attrs: { 'data-obfind': '1' } }) : ''}</div></div>`;
-  return `<div class="st-bar"><div class="st-btns ob-joinbtns">${btn('Not now', { kind: 'secondary', attrs: { 'data-obnot': '1' } })}${btn('Write my hello · 2 min', { kind: 'primary', icon: 'mail', attrs: { 'data-obhello': '1' } })}</div></div>`;
+  return `<div class="st-bar"><div class="st-btns ob-joinbtns">${btn('Not now', { kind: 'secondary', attrs: { 'data-obnot': '1' } })}${btn('Write my hello', { kind: 'primary', icon: 'mail', attrs: { 'data-obhello': '1' } })}</div></div>`;
 }
 
 // ================= join: the alerts sign-up (every plan) =================

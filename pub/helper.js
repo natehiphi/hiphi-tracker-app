@@ -937,7 +937,7 @@ function knowScreen() {
     return `<li class="hp-ptrow${on ? ' on' : ''}"><p class="hp-ptt" id="hp-pt-${i}">${esc(s)}</p>
       <button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}" aria-label="Add this point" aria-describedby="hp-pt-${i}">${icon(on ? 'check' : 'plus')}<span>${on ? 'Added' : 'Add'}</span></button></li>`; };
   return `<div class="hp-top">${screenHead(0, x.again ? 'Update your letter' : 'Get to know the bill')}
-      <p class="hp-sub">${x.again ? 'What changed, the bill as it is now, and your points. Your letter keeps your words until you change them.' : 'A minute with what it does, then we’ll help you write.'}</p></div>
+      <p class="hp-sub">${x.again ? 'What changed, the bill as it is now, and your points. Your letter keeps your words until you change them.' : `What the bill does, and points you can add to your ${isMail(x) ? 'email' : 'letter'} below.`}</p></div>
     ${due?.late ? lateBanner(h) : ''}
     ${forgotNote(x)}
     ${x.again && x.check?.level === 'big' ? `<div class="notice warn">${icon('triangle-alert')}<div><ul class="hp-why-list" role="list">${bigWords(x.check, b, { adviceOnly: true })}</ul></div></div>` : ''}
@@ -1494,13 +1494,12 @@ function refreshPoints() {
   });
 }
 // A point tapped in goes into the box under the list (R-141: "an editable box that they can see"). On a phone the box is
-// often below the fold, so the list moves up just enough to show it, never so far that the point just tapped goes off the top.
+// often below the fold, so the first Add in a visit brings the whole box into view, so the person sees the words land in it
+// (R-141 review, 10/10). Later Adds don't scroll: by then they know where the box is.
+let boxShown = false;
 function showBox() {
-  const body = dlg?.querySelector('.hp-body'), box = dlg?.querySelector('.hp-ptbox'); if (!body || !box) return;
-  const vb = body.getBoundingClientRect(), need = box.getBoundingClientRect().bottom + 8 - vb.bottom; if (need <= 0) return;
-  const tapped = document.activeElement?.closest?.('.hp-pt'), room = tapped ? tapped.getBoundingClientRect().top - vb.top - 8 : need;
-  const by = Math.min(need, Math.max(0, room));
-  if (by > 0) body.scrollBy({ top: by, behavior: reduceMotion() ? 'auto' : 'smooth' });
+  if (boxShown) return; boxShown = true;
+  dlg?.querySelector('.hp-ptbox')?.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
 }
 function announce(text) { const live = dlg?.querySelector('#hp-live'); if (!live) return; live.textContent = ''; setTimeout(() => { live.textContent = text; }, 40); }
 

@@ -28,6 +28,20 @@ export const helloSubject = (to, own) => own ? `A question from your constituent
 // A bill in the letter: "HB 1523 (Disposable e-cigarette ban)".
 const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
 
+// An issue name read inside a sentence ("The health issue I care about most is a fee on sugary drinks."): its first letter
+// goes lower-case, because the names are written as chip labels (Nate 10/10, fresh-eyes review). A name whose first word is a
+// proper noun, a place, a program or an acronym keeps its capital. KEEP_CAPS is the explicit list; an all-capitals first word
+// (SNAP, FDA, WIC, DUI) is kept too, so a new acronym issue is never written "sNAP". The 91 issue names were checked against
+// both (demo/snapshot.json, 10/10): only SNAP (3 names), FDA (1), "Farm to Families food program" and "Summer Streets
+// car-free road pilot" begin with a name or acronym; every other name starts with an ordinary word.
+const KEEP_CAPS = new Set(['Hawaiʻi', 'Kauaʻi', 'Maui', 'Oʻahu', 'Molokaʻi', 'Lānaʻi', 'Medicaid', 'Medicare',
+  'Farm to Families food program', 'Summer Streets car-free road pilot']);
+const inSentence = name => {
+  const s = String(name || '').trim(), first = s.split(/\s+/)[0] || '';
+  if (!s || KEEP_CAPS.has(first) || KEEP_CAPS.has(s) || /^[A-Z][A-Z0-9]+$/.test(first)) return s;
+  return s[0].toLowerCase() + s.slice(1);
+};
+
 // What the letter can say about this person, the same for the walkthrough and the legislators page. pick: the issue id
 // the person chose ('' for the default). issues: the issues they follow (the chips to pick from; one or none means no
 // picking step). top: the issue the letter names. bill: at most one bill they took a stand on that is under that issue.
@@ -57,12 +71,15 @@ export function helloLetter({ to = [], name = '', titles = [], own = false, wher
   const live = own ? `in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}` : '';
   const who = n && live ? `I’m ${n}${titlePart}, and I live ${live}.` : n ? `I’m ${n}${titlePart}.` : live ? `I live ${live}.` : '';
   const bill = facts.bill ? (facts.billSupport ? `${billWords(facts.bill)} would help, and I support it.` : `I oppose ${billWords(facts.bill)}.`) : '';
-  const focus = top ? `The health issue that matters most to me: ${top}. ${bill}`.trim()
-    : 'I care about the health of our community, and I follow the health bills that come before you.';
+  // With nothing followed the letter makes no claim about bills it has not followed (Nate 10/10): it only says the person cares.
+  const focus = top ? `The health issue I care about most is ${inSentence(top)}. ${bill}`.trim()
+    : 'I care about the health of our community.';
   const off = facts.off ? ' before the session opens in January' : '';
   const ask = top ? `Where do you stand on it? I’d be grateful to hear back${off}.`
     : `What health issues are you working on${facts.off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`;
-  const others = facts.others.length ? `I also follow ${andList(facts.others)}.` : '';
+  // "I also follow" sits above the question, so the letter ends on its ask and the sign-off (the other issues are context for the
+  // one it names, not a second request).
+  const others = facts.others.length ? `I also follow ${andList(facts.others.map(inSentence))}.` : '';
   const sign = closingOf(closing) || THANKS;
-  return [greet, who, focus, sentence(reason), ask, others, [sign, n].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
+  return [greet, who, focus, others, sentence(reason), ask, [sign, n].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }

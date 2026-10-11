@@ -21,6 +21,12 @@ SHOTS = os.environ.get('SHOTS', os.path.join(os.path.dirname(os.path.abspath(__f
 os.makedirs(SHOTS, exist_ok=True)
 snap = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'snapshot.json')))
 ID = {b['bill_number']: b['id'] for b in snap['bills']}
+# An issue name inside a sentence (pub/hello.js inSentence, its KEEP_CAPS list mirrored): the first letter goes lower-case
+# unless the first word is an acronym (all capitals) or one of the names that keep their capital (R-172, 10/10).
+KEEP_CAPS = {'Hawaiʻi', 'Kauaʻi', 'Maui', 'Oʻahu', 'Molokaʻi', 'Lānaʻi', 'Medicaid', 'Medicare', 'Farm to Families food program', 'Summer Streets car-free road pilot'}
+def low(n):
+    w = n.split()[0]
+    return n if (w in KEEP_CAPS or n in KEEP_CAPS or (len(w) > 1 and w.isupper())) else n[0].lower() + n[1:]
 FOLLOW = [ID['HB1562'], ID['HB2121']]
 TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 # Links that would leave the page (the mail app, a Gmail tab) are recorded, not followed.
@@ -255,8 +261,8 @@ with sync_playwright() as pw:
         check('Introduce yourself' in dlg(p) and p.locator('#hp-name').count() == 1, f'{tag}: it starts with About you (no bill)')
         p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'I am a nurse on Oʻahu.'); shot(p, f'{tag}_1_about')
         tap(p, 'See my email'); p.wait_for_timeout(600)
-        letter = p.input_value('#hp-letter'); iname = snap['issues'][0]['name']
-        check(letter.startswith('Aloha Senator') and 'Representative' in letter and ('matters most to me' in letter or 'I also follow' in letter) and iname in letter and 'Where do you stand' in letter, f'{tag}: to both, the issue they care about most and one question (R-172)')
+        letter = p.input_value('#hp-letter'); iname = low(snap['issues'][0]['name'])
+        check(letter.startswith('Aloha Senator') and 'Representative' in letter and ('I care about most is' in letter or 'I also follow' in letter) and f'I care about most is {iname}.' in letter and 'Where do you stand' in letter, f'{tag}: to both, the issue they care about most and one question (R-172)')
         check('I am a nurse on Oʻahu.' in letter and 'Kai Ho' in letter, f'{tag}: their own words and name')
         shot(p, f'{tag}_2_letter')
         tos = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-toaddr')].map(e => e.innerText.trim())")
@@ -291,9 +297,13 @@ with sync_playwright() as pw:
         p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'My mom pays too much for her medicine.')
         p.locator('#hp-topic-l').scroll_into_view_if_needed(); shot(p, f'{tag}_hello_0_pick')
         see(p); letter = p.input_value('#hp-letter')
-        check(f'The health issue that matters most to me: {other[2]}.' in letter and f'matters most to me: {ch[0][2]}' not in letter and ch[0][2] in letter.split('I also follow')[-1],
-              f'{tag}: the letter names only the picked issue, the others in one line')
+        others_line = letter.split('I also follow')[1].split('\n')[0]
+        check(f'The health issue I care about most is {low(other[2])}.' in letter and f'care about most is {low(ch[0][2])}' not in letter and low(ch[0][2]) in others_line and low(other[2]) not in others_line,
+              f'{tag}: the letter names only the picked issue, the others in one line above the question')
         check('My mom pays too much for her medicine.' in letter and 'Where do you stand on it?' in letter, f'{tag}: their reason and the one question are in it')
+        paras = letter.split('\n\n')
+        check(letter.index('I also follow') < letter.index('Where do you stand') and paras[-2].startswith('Where do you stand') and paras[-1].startswith('Mahalo'),
+              f'{tag}: "I also follow" is above the question, and the letter ends on its ask and the sign-off')
         shot(p, f'{tag}_hello_1_letter_reason'); c.close()
         # no reason: nothing blank, nothing in brackets, the thank-you line closes it, and the question is still asked
         c, p = hello(wide, many); p.fill('#hp-name', 'Kai Ho'); see(p); letter = p.input_value('#hp-letter')
@@ -308,8 +318,16 @@ with sync_playwright() as pw:
         c, p = hello(wide, [many[0]])
         check(chips(p) == [] and 'The issue that matters most to you' not in dlg(p), f'{tag}: one issue followed, no picking step')
         p.fill('#hp-name', 'Kai Ho'); see(p); letter = p.input_value('#hp-letter')
-        check(f'The health issue that matters most to me: {snap["issues"][0]["name"]}.' in letter and 'I also follow' not in letter, f'{tag}: one issue is named, no other line')
+        check(f'The health issue I care about most is {low(snap["issues"][0]["name"])}.' in letter and 'I also follow' not in letter, f'{tag}: one issue is named, no other line')
         c.close()
+        # nothing followed: the letter claims no bills it has not followed (Nate 10/10), and it still asks its one question.
+        # The intro card is offered only once an issue is followed, so this reads the legislators page's letter (the same builder).
+        c, p = ctx(br, wide); follower(p, pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}")
+        p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
+        nl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
+        check('I care about the health of our community.' in nl and 'I follow' not in nl and 'The health issue' not in nl and 'What health issues are you working on' in nl and not any(t in nl for t in BAD),
+              f'{tag}: nothing followed, the letter says the person cares and makes no claim of following ({nl.splitlines()[2:3]})')
+        shot(p, f'{tag}_hello_3_letter_nothing_followed'); c.close()
         # six issues: four show (the one picked among them), "Show all" opens the rest, and a pick made among the hidden ones stays shown
         six = [i['id'] for i in snap['issues'][0:6]]
         c, p = hello(wide, six); n0 = len(chips(p))
@@ -352,13 +370,18 @@ with sync_playwright() as pw:
         check(pressed(p) == [False] * len(P) and p.locator('#hp-dlg .hp-pt').first.get_attribute('aria-label') == 'Add this point', f'{tag}: each point has an "Add this point" button, none added yet')
         check('In your email' in dlg(p) and p.locator('label[for="hp-letter"]').count() == 1, f'{tag}: the box is labelled "In your email"')
         shot(p, f'{tag}_0_arrive')
-        p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(500)
+        check('What the bill does, and points you can add to your email below.' in dlg(p), f'{tag}: the lead line says what the points are for')
+        # the first Add in a visit brings the box into view (plain clicks, so Playwright does not scroll for them)
+        p.evaluate("document.querySelectorAll('#hp-dlg .hp-pt')[0].click()"); p.wait_for_timeout(900)
+        in_view = p.evaluate("(() => { const b = document.querySelector('#hp-dlg .hp-body'), x = document.querySelector('#hp-dlg .hp-ptbox'); if (!b || !x) return null; const r = x.getBoundingClientRect(), v = b.getBoundingClientRect(); return r.top >= v.top - 1 && r.bottom <= v.bottom + 1; })()")
+        check(in_view is True, f'{tag}: the first Add brings the box into view, so the words land where they can be seen ({in_view})')
         B1 = box(p)
         check(P[0] in B1 and B1.index('My name is Kai Ho.') < B1.index(P[0]) < B1.index('I respectfully ask'), f'{tag}: a plus puts the point in the email after the opening and before the ask')
         check(pressed(p)[0] is True and p.locator('#hp-dlg .hp-pt').nth(0).inner_text().strip().endswith('Added'), f'{tag}: its button shows Added')
-        p.locator('#hp-dlg .hp-pt').nth(2).click(); p.wait_for_timeout(400)
+        p.evaluate("document.querySelector('#hp-dlg .hp-body').scrollTop = 0"); p.evaluate("document.querySelectorAll('#hp-dlg .hp-pt')[2].click()"); p.wait_for_timeout(400)
         B2 = box(p)
         check(B2.index(P[0]) < B2.index(P[2]) < B2.index('I respectfully ask'), f'{tag}: a second point joins the first, in the order the bill lists them')
+        check(p.evaluate("document.querySelector('#hp-dlg .hp-body').scrollTop") == 0, f'{tag}: a later Add does not scroll the walkthrough')
         shot(p, f'{tag}_1_two_added')
         p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)
         check(P[0] not in box(p) and P[2] in box(p) and pressed(p)[:3] == [False, False, True], f'{tag}: a second press takes that point out, and only that one')
