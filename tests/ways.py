@@ -12,7 +12,8 @@
 #   says so); without an address there is no hello card and no way back to look them up: "Two ways to help before January",
 #   send to a friend and why it matters; the story's last button names the page ("Next: Ways to Help"); today's version keeps
 #   "Coming up on your issues"; the test is met on that page; Next still goes on; first-visit type sizes (C-14); no
-#   sideways scroll; no page errors.
+#   sideways scroll; no page errors. R-235 (10/11): each card is a label with its time, the bill or issue as a heading and
+#   one date; the bar is a quiet Skip until a way is done, then Next.
 import os, sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
@@ -72,9 +73,12 @@ with sync_playwright() as pw:
            f'{tag}: testimony, an email to the chair, send to a friend ({titles})')
         bills = [x[1].split(':')[0].split(' needs a hearing')[0] for x in cs]
         ok(len(set(bills)) == 3, f'{tag}: three different bills ({bills})')
-        ok(p.locator('.st-way .btn.primary').count() == 0 and p.locator('.st-bar [data-stnext]').count() == 1, f'{tag}: the cards are equal, and Next still goes on (A-3, P-5)')
+        ok(p.locator('.st-way .btn.primary').count() == 0 and p.locator('.st-bar [data-stnext]').count() == 1, f'{tag}: the cards are equal, and the bar still goes on (A-3, P-5)')
+        ok(p.locator('.st-bar .btn.primary').count() == 0 and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: before any is done the bar is a quiet Skip, so the cards lead (R-235, A-13)')
+        ok(p.locator('.st-way-when').count() >= 2 and not p.locator('.st-way-act .nobr').evaluate_all("els => els.some(e => e.getBoundingClientRect().left < e.parentElement.getBoundingClientRect().left + 30)"),
+           f'{tag}: each card says its date on a line of its own, and the time never sits alone at the start of a line (R-235)')
         ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{tag}: no sideways scroll')
-        fs = p.evaluate("[...document.querySelectorAll('.st-way b, .st-way > span:nth-child(2) > span')].map(e => parseFloat(getComputedStyle(e).fontSize))")
+        fs = p.evaluate("[...document.querySelectorAll('.st-way-act, .st-way-name, .st-way-when')].map(e => parseFloat(getComputedStyle(e).fontSize))")
         ok(min(fs) >= 16, f'{tag}: the cards read at 16px or more (C-14) ({sorted(set(fs))})')
         ok((p.evaluate("JSON.parse(localStorage.getItem('hiphi_ab') || '{}').seen || {}") or {}).get('act', {}).get('arm') == 'three', f'{tag}: the test is met on this page, as "three"')
         p.screenshot(path=os.path.join(OUT, f'{tag}_in.png'))
@@ -89,6 +93,7 @@ with sync_playwright() as pw:
             p.locator('[data-stway="2"]').click(); p.wait_for_selector('dialog.af-sheet[open]', timeout=8000); p.wait_for_timeout(600)
             p.locator('dialog.af-sheet [data-af="copy"]').click(); p.wait_for_timeout(500); p.locator('dialog.af-sheet [data-af="close"]').first.click(); p.wait_for_timeout(900)
             ok(p.locator('.st-way.done').count() == 1 and 'Copied. Paste it in a text or email.' in p.inner_text('.st-way.done'), f'{tag}: Ask a friend opens the share sheet; a copy there marks the card, and it says Copied, not "Sent"')
+            ok(p.locator('.st-bar .btn.primary[data-stnext]', has_text='Next').count() == 1, f'{tag}: once one is done, the bar is Next, the main button (R-235)')
             p.locator('[data-stnext]').click(); p.wait_for_timeout(2500)
             ok(p.locator('[data-stdone]').count() == 1, f'{tag}: Next goes on to "You\'re all set!"')
             ok('You sent it to a friend' in p.inner_text('.st-did'), f'{tag}: and "Here\'s what you did today" lists it (C-7)')
@@ -109,7 +114,7 @@ with sync_playwright() as pw:
         walk(p, 'act.three', '&season=off', addr=True)
         cs = cards(p); titles = [x[0] for x in cs]
         ok(p.inner_text('#st-h') == 'Three ways to help before January', f'{tag}: between sessions, "Three ways to help before January"')
-        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Ask a friend to follow it') and titles[2] == 'Say why it matters to you',
+        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Ask a friend to follow it') and titles[2].startswith('Say why it matters to you'),
            f'{tag}: a hello to their two legislators, send to a friend, why it matters ({cs})')
         p.screenshot(path=os.path.join(OUT, f'{tag}_off.png'))
         if w < 600:
@@ -127,11 +132,11 @@ with sync_playwright() as pw:
         c, p = ctx(b, w, h)
         walk(p, 'act.three', '&season=off')
         titles = [x[0] for x in cards(p)]
-        ok(p.inner_text('#st-h') == 'Two ways to help before January' and len(titles) == 2 and titles[0].startswith('Ask a friend to follow it') and titles[1] == 'Say why it matters to you',
+        ok(p.inner_text('#st-h') == 'Two ways to help before January' and len(titles) == 2 and titles[0].startswith('Ask a friend to follow it') and titles[1].startswith('Say why it matters to you'),
            f'{tag}: without an address, two ways and no hello or "Find your legislators" ({p.inner_text("#st-h")}: {titles})')
         ok(S.get('go') == 'Next: Ways to Help', f'{tag}: the story\'s last button names the page that follows ({S.get("go")})')
         p.screenshot(path=os.path.join(OUT, f'{tag}_off_noaddr.png'))
-        ok('Pick one if you like' in p.inner_text('.st-wayspage .lede'), f'{tag}: between sessions too, it says none is needed (P-5)')
+        ok('walk you through it' in p.inner_text('.st-wayspage .lede') and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: between sessions too, it says what a tap does, and Skip says none is needed (P-5)')
         if w < 600:
             # A sentence typed and not kept is kept on Next (C-9).
             p.locator('[data-stway="1"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')

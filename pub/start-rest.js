@@ -543,44 +543,57 @@ const wayDone = w => w.kind === 'testimony' ? didKind(w.b, w.h, 'testimony') : w
   : w.kind === 'shareissue' ? !!S.chips['share:' + w.i.id] : w.kind === 'hello' ? !!introState() : w.kind === 'story' ? !!myStories()[w.i.id] : false;
 // "today", "tomorrow", else the weekday: a hearing in the next 7 days needs no date.
 const dayOf = iso => { const d = hstDay(iso), t = hstDay(Date.now()); return d === t ? 'today' : d === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }); };
+// One card's words, in three short parts (R-235, Nate 10/11: "too much to read", "unclear what to do", "looks bad"): what
+// you do (a label with its time, A-18), what it is about (the bill or issue as a heading, A-19), and the one date that
+// matters, if any. It was a title and one long sentence joining the name to the date, which wrapped "· 2 min" onto a line of
+// its own and made each card a paragraph. Labelled dates say what they are (R-098), amber within 24 hours (A-5).
 function wayWords(w) {
-  const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '';
+  const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '', soon = iso => new Date(iso) - Date.now() < 864e5;
   switch (w.kind) {
-    case 'testimony': return ['notebook-pen', 'Write testimony', `${name}: due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, 'a few min'];
-    case 'email': return ['mail', 'Email the committee chair', `${name}: hearing ${dayOf(w.h.scheduled_at)}`, '2 min'];
-    case 'ask': return ['mail', `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, `${name} needs a hearing by ${dateLong(w.st.deadline.date + 'T12:00:00-10:00')}`, '2 min'];
-    case 'share': return ['share-2', 'Ask a friend to speak up', `${name}: more voices carry more weight`, '1 min'];   // one name for it (R-205 S3)
-    // Issue names are often sentences ("Let counties regulate tobacco sales"), so they lead the line rather than sit inside one.
-    case 'shareissue': return ['share-2', 'Ask a friend to follow it', `${w.i.name}: know someone who cares?`, '1 min'];
-    case 'hello': return ['hand-heart', 'Say aloha to your legislators', `${helloLegs().map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ')} are writing next year’s bills now`, '2 min'];
-    case 'story': return ['message-square-heart', 'Say why it matters to you', `${w.i.name}: one sentence, kept for your letters in January`];
-    default: return ['circle', '', ''];
+    case 'testimony': return { ic: 'notebook-pen', act: 'Write testimony', min: 'a few min', name,
+      when: `Due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, urgent: soon(w.h.testimony_deadline) };
+    case 'email': return { ic: 'mail', act: 'Email the committee chair', min: '2 min', name, when: `Hearing ${dayOf(w.h.scheduled_at)} at ${timeWord(w.h.scheduled_at)}` };
+    case 'ask': return { ic: 'mail', act: `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, min: '2 min', name,
+      when: `Needs a hearing by ${dateLong(w.st.deadline.date + 'T12:00:00-10:00')}` };
+    case 'share': return { ic: 'share-2', act: 'Ask a friend to speak up', min: '1 min', name };   // one name for it (R-205 S3)
+    case 'shareissue': return { ic: 'share-2', act: 'Ask a friend to follow it', min: '1 min', name: w.i.name };
+    case 'hello': return { ic: 'hand-heart', act: 'Say aloha to your legislators', min: '2 min', name: helloLegs().map(l => `${legTitle(l)} ${lastOf(l)}`).join(' and ') };
+    case 'story': return { ic: 'message-square-heart', act: 'Say why it matters to you', min: '1 min', name: w.i.name };
+    default: return { ic: 'circle', act: '', name: '' };
   }
 }
 const lastOf = l => (l.sort_name || l.name || '').split(',')[0];
-// "Email the committee chair · 2 min", the time never left alone on a line (the review).
-const title = (t, m) => `${esc(t)}${m ? ` <span class="nobr">· ${esc(m)}</span>` : ''}`;
+// "Write testimony · a few min": the time stays with its words (the review: never alone on a line).
+const actLine = (ic, t, m) => `<span class="st-way-act">${icon(ic)}<span>${esc(t)}${m ? ` <span class="st-way-min nobr">· ${esc(m)}</span>` : ''}</span></span>`;
 function stepWays(step, ways) {
   // "before January" between sessions, and in session when nothing on their issues is due (the between-sessions ways).
-  const off = isOff() || !ways.some(w => ['testimony', 'email', 'ask'].includes(w.kind)), quiet = !S.session && !mailSent() && !textSaved();
+  // No "Want alerts…?" line here (the review, R-235): it repeated an ask they had just declined, sat half under the bar on a
+  // phone, and the finale's alerts row offers "Turn on alerts" a step later (X10-4).
+  const off = isOff() || !ways.some(w => ['testimony', 'email', 'ask'].includes(w.kind));
   const card = (w, k) => {
-    const [ic, t, sub, m] = wayWords(w), done = wayDone(w);
+    const { ic, act, min, name, when, urgent } = wayWords(w), done = wayDone(w);
     // A share that only copied the link says so, and what to do with it (the review: "Done" when nothing was sent yet).
     const how = w.kind === 'share' ? S.chips['way:' + w.b.id] : w.kind === 'shareissue' ? (S.chips['share:' + w.i.id] === true ? 'copied' : S.chips['share:' + w.i.id]) : '';
     const said = w.kind === 'story' ? 'Kept for January. Mahalo!' : how === 'copied' ? 'Copied. Paste it in a text or email.' : how === 'shared' ? 'Sent. Mahalo!' : 'Done. Mahalo!';
-    if (done) return `<li style="--k:${k}"><div class="card ob-way st-way done"><span class="ob-wayic" aria-hidden="true">${icon('check')}</span><span><b>${title(t, m)}</b><span>${said}</span></span></div></li>`;
-    if (w.kind === 'story' && S.stWayStory === w.i.id) return `<li style="--k:${k}"><div class="card ob-way st-way st-waystory"><p class="st-wayiss">${esc(w.i.name)}</p><label for="st-story"><b>${esc(storyAsk(w.i.id))}</b></label>
+    if (done) return `<li style="--k:${k}"><div class="st-way done">${actLine('check', act)}<span class="st-way-name">${esc(name)}</span><span class="st-way-when">${esc(said)}</span></div></li>`;
+    if (w.kind === 'story' && S.stWayStory === w.i.id) return `<li style="--k:${k}"><div class="st-way st-waystory">${actLine(ic, act)}<span class="st-way-name">${esc(w.i.name)}</span><label for="st-story">${esc(storyAsk(w.i.id))}</label>
       <textarea id="st-story" rows="3" maxlength="600" placeholder="When my kids started school…">${esc(S.stWayDraft || '')}</textarea>
       <div class="btnrow">${btn('Keep it for January', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-stway-save': w.i.id } })}</div>
       <p class="small muted">Kept on this device and in your profile. You can change it any time.</p></div></li>`;
-    return `<li style="--k:${k}"><button type="button" class="card ob-way st-way" data-stway="${k}"><span class="ob-wayic" aria-hidden="true">${icon(ic)}</span><span><b>${title(t, m)}</b><span>${esc(sub)}</span></span>${icon('chevron-right')}</button></li>`;
+    return `<li style="--k:${k}"><button type="button" class="st-way" data-stway="${k}">${actLine(ic, act, min)}<span class="st-way-name">${esc(name)}</span>${when
+      ? `<span class="st-way-when${urgent ? ' urgent' : ''}">${icon(urgent ? 'hourglass' : 'calendar-clock')}<span>${esc(when)}</span></span>` : ''}${icon('chevron-right', { cls: 'st-way-chev' })}</button></li>`;
   };
   S.stWays = ways;
+  // What to do, said once (R-235): pick one card, and each opens a walkthrough. The bar's quiet Skip until one is done
+  // says none is needed (P-5), so the lede no longer has to. Between sessions the heading already says "before January" (A-14).
   return shell('st4 st-soonpage st-wayspage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${ways.length === 2 ? 'Two' : 'Three'} ways to help ${off ? 'before January' : 'this week'}</h1>
-    <p class="lede">${off ? 'The Legislature is back in January. Pick one if you like.' : 'Pick one if you like. We help you with each.'}</p>`,
-    `<ul class="ob-ways st-ways" role="list">${ways.map(card).join('')}</ul>${quiet ? quietAsk() : nameCard()}`);
+    <p class="lede">Pick one and we’ll walk you through it.</p>`,
+    `<ul class="st-ways" role="list">${ways.map(card).join('')}</ul>${nameCard()}`);
 }
+// The three ways are on the page and none is done yet (the bar's Skip, R-235). The bar is drawn before the page, so this
+// asks waysFor() as stepSoon does, not the page.
+const waysWaiting = () => { if (armOf('act') !== 'three') return false; const ways = waysFor(); return !!ways && !ways.some(wayDone); };
 function wireWays({ step }) {
   const ways = S.stWays || [];
   document.querySelectorAll('[data-stway]').forEach(el => el.onclick = async () => {
@@ -939,7 +952,11 @@ export function barStep(name, step, off) {
     // The version that ends on Home (R-098): this is the last step, and its button says where it goes.
     // The button follows what the page shows: no email box there (already asked this visit, R-114; or the email-ask test's
     // second version, R-135) means Next, never a "Remind me" that submits a form that is not on the page.
-    case 'soon': return endHome() ? bar1(GO_HELP) : bar1('Next');
+    // The three ways (R-235): until one is done the cards are the thing to do, so the bar is a quiet Skip (barSkip's look, A-3,
+    // A-13: a filled Next drew the eye away from them, "unclear what to do"); it is Next once one is done. data-stnext either
+    // way, so a typed name or sentence is kept on the way out (C-9).
+    case 'soon': return endHome() ? bar1(GO_HELP) : waysWaiting()
+      ? `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stnext': '1' } })}</div>` : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
     case 'alerts': { if (!S.alertEdit && (textSaved() || mailSent())) return bar1('Next');
       const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
