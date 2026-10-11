@@ -117,6 +117,13 @@ export const abSettled = (ms = 300) => settled || cached() ? Promise.resolve() :
 
 // ---- which version ----
 export function isForced(key) { try { return !!st().forced?.[key] && TESTS[key]?.arms.includes(st().arms?.[key]); } catch { return false; } }
+// The practice copy's direct link to one step (R-188, pub/fvjump.js): the versions that step shows are pinned in this
+// browser the way a tester's link pins them (forced, so a switch never changes them and the sandbox counts nothing).
+export function pinArms(pins) {
+  try { const s = st(); s.arms ??= {}; s.forced ??= {};
+    for (const [k, a] of Object.entries(pins)) if (TESTS[k]?.arms.includes(a)) { s.arms[k] = a; s.forced[k] = true; }
+    save(s); } catch { /* storage blocked: the switches decide */ }
+}
 const firstOpen = () => { const w = wiz(); return !(w.done || w.skipped); };
 // A test that swaps whole screens (page: true, the layout test) keeps one version for the rest of the page load from the
 // first time it is asked with switches it can trust (the ones kept from the last visit, or the database's answer), so a

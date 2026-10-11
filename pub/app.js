@@ -335,6 +335,9 @@ async function boot() {
     // The practice copy follows the real A/B switches (R-192): its first screen waits for them (they come in a moment,
     // long before the practice copy's one big file), so a version never changes under the person.
     if (DEMO) await abSettled(5000);
+    // The practice copy's direct link to one step of the first visit (R-188): ?demo=1&fvstep=save (pub/fvjump.js). Before the
+    // route is read, so the page opens on that step; the live page never loads that file.
+    if (DEMO && /[?&]fvstep=/.test(location.search)) await (await import('./fvjump.js')).fvJumpFromAddress().catch(e => console.error(e));
     await ensureScreen(parseRoute());
     welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
