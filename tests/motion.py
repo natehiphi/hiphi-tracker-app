@@ -1,11 +1,14 @@
 # R-140 (Nate 10/5: "celebratory but also encourage continuing... shouldn't be roadblocks"): the celebrations never block.
 # On the practice copy, phone size unless said otherwise:
 #   - the first follow's "Mahalo!" moment: its button is there from the first frame and works mid-animation (a click at
-#     0.25 s moves on); the moment is gone within 1.6 s by itself, and its words stay for a while as a toast;
+#     0.25 s closes it, the page is already the next one); the moment is gone within 1.6 s by itself, and its words stay for
+#     a while as a toast;
 #   - a tap on the text under the veil, a scroll and Escape each close a moment; the tap and Escape move the flow on once,
 #     a scroll does not; a tap on the button under the veil does that button's job once (no second step);
 #   - a small burst flies up from the thing it came from, is gone within 0.8 s, and leaves the button under it clickable;
-#   - Reduce Motion: no petals, no movement; the words stay and the thing gets a brief colour change.
+#   - Reduce Motion: no petals, no movement; the words stay and the thing gets a brief colour change;
+#   - R-140 fix (10/10): the flow moves on first, so the moment plays over the NEXT screen. After Skip on "Save your
+#     profile" the visible bottom bar is the next screen's, and its primary never brings "Save your profile" back (section 5).
 #   python3 tests/motion.py [base_url]     base defaults to http://localhost:8832/track.html (run_test.sh rewrites the port)
 import sys, os
 from playwright.sync_api import sync_playwright
@@ -55,10 +58,10 @@ with sync_playwright() as pw:
     ok(r['ok'], f'the moment\'s button is there and tappable from the first frame, mid-animation ({r})')
     p.screenshot(path=os.path.join(OUT, 'motion_follow_250.png'))
     bar = p.evaluate(REACH + "('.st-bar .btn, .st-bar button')")
-    ok(bar['ok'], f'the page\'s own action bar is not covered by the moment ({bar})')
+    ok(bar['ok'], f'the bar under the moment (the next screen\'s own) is not covered ({bar})')
     p.locator('#fx-mgo').click(); p.wait_for_timeout(900)
     h1 = p.evaluate("document.querySelector('main h1')?.innerText || ''")
-    ok(h1 == 'A bill’s story', f'a click on the button at 0.25 s moves on at once: "{h1}"')
+    ok(h1 == 'A bill’s story', f'a click on the button at 0.25 s closes it; the page under it is already the next one: "{h1}"')
     ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'the moment is gone after its button')
     # the same moment, left alone: gone within 1.6 s, the words kept as a toast
     ctx.close()
@@ -141,6 +144,64 @@ with sync_playwright() as pw:
       fx.burst(b, 12, 48); return { petals: document.querySelectorAll('.fx-burst').length, tinted: b.classList.contains('fx-tint') }; }""")
     ok(bu['petals'] == 0 and bu['tinted'], f'reduced motion: a burst draws no petals and tints its thing instead ({bu})')
     ok(not errs2, f'reduced motion: no page errors {errs2[:2]}')
+    ctx.close()
+    # ---- 5. Skip on "Save your profile" (the alerts ask, the short first visit): the moment plays over the NEXT screen ----
+    # R-140 fix (10/10): the skipped screen's bottom bar ("Text me a code") stayed live under the veil, so a tap there went
+    # back to "Save your profile" with its error. Now the next screen is drawn first, and its own button is the one a tap reaches.
+    H1 = "(document.querySelector('#st-h') || document.querySelector('main h1') || {}).innerText || ''"
+    BARS = "[...document.querySelectorAll('.st-bar button')].filter(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).map(b => b.innerText.trim())"
+    ERR = "document.body.innerText.includes('Add your mobile number, or skip this for now.')"
+    def step_of(h): s = h.rsplit('/', 1)[-1]; return int(s) if s.isdigit() else -1
+    def walk_to_profile(p):
+        for _ in range(12):
+            if p.evaluate(H1) == 'Save your profile': return True
+            if p.locator('[data-stissue]').count() and not p.locator('[data-stissue][aria-pressed=true]').count(): p.locator('[data-stissue]').first.click()
+            elif p.locator('[data-stpick]').count() and not p.locator('[data-stpick][aria-pressed=true]').count(): p.locator('[data-stpick]').first.click()
+            if p.locator('[data-stnext]').count(): p.locator('[data-stnext]').first.click(); p.wait_for_timeout(1500)
+            else: p.wait_for_timeout(800)
+        return False
+    def short_visit(br):
+        c = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2)
+        c.add_init_script(INIT)
+        pg = c.new_page(); e = []; pg.on('pageerror', lambda x: e.append(str(x)))
+        pg.goto(BASE + '?demo=1&restart&abrest=today&ab=fv.short'); pg.wait_for_timeout(2500)
+        pg.evaluate("localStorage.clear(); sessionStorage.clear()"); pg.reload(); pg.wait_for_timeout(3000)
+        return c, pg, e
+    # 5a: a tap on the next screen's own button while the moment is up (mid-animation): one step on, never back
+    ctx, p, errs5 = short_visit(br)
+    ok(walk_to_profile(p), '5: the short first visit reaches "Save your profile"')
+    p.locator('[data-stskip]').first.click(); p.wait_for_selector('#fx-moment:not([hidden]) #fx-mgo', timeout=4000); p.wait_for_timeout(300)
+    h = p.evaluate(H1); bars = p.evaluate(BARS)
+    ok(h != 'Save your profile' and any(b.startswith('Next') for b in bars) and not any('Text me a code' in b for b in bars),
+       f'5: Skip: the moment is over the next screen ("{h}"), and the bar under it is that screen’s own ({bars})')
+    p.screenshot(path=os.path.join(OUT, 'motion_skip_profile_mid_390.png'))
+    r = p.evaluate(REACH + "('.st-bar [data-stnext]')")
+    ok(r['ok'], f'5: its Next is there and tappable under the veil ({r})')
+    before = p.evaluate("location.hash")
+    p.locator('[data-stnext]:visible').first.click(); p.wait_for_timeout(900)
+    after = p.evaluate("location.hash")
+    ok(p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate(H1) != 'Save your profile' and not p.evaluate(ERR)
+       and step_of(after) == step_of(before) + 1, f'5: a tap on that Next closes the moment and goes on one step, never back to "Save your profile" ({before} -> {after})')
+    p.wait_for_timeout(1500)
+    ok(p.evaluate(H1) != 'Save your profile' and not p.evaluate(ERR), '5: the skipped screen does not come back after the moment has gone')
+    ok(not errs5, f'5: no page errors {errs5[:2]}')
+    ctx.close()
+    # 5b: left alone: the moment leaves by itself, the next screen is there the whole time, and its Next goes on once
+    ctx, p, errs5b = short_visit(br)
+    walk_to_profile(p)
+    p.locator('[data-stskip]').first.click(); p.wait_for_selector('#fx-moment:not([hidden]) #fx-mgo', timeout=4000)
+    seen = []
+    for _ in range(16): seen.append(p.evaluate(H1)); p.wait_for_timeout(150)
+    ok(p.locator('#fx-moment:not([hidden])').count() == 0 and 'Save your profile' not in seen,
+       f'5: left alone, the moment leaves on its own and "Save your profile" never shows under it or after ({sorted(set(seen))})')
+    toast = p.evaluate("document.querySelector('#toast .toastmsg')?.innerText || ''")
+    ok('Mahalo!' in toast, f'5: its words stay as a toast after it leaves ("{toast[:60]}")')
+    before = p.evaluate("location.hash")
+    p.locator('[data-stnext]:visible').first.click(); p.wait_for_timeout(900)
+    after = p.evaluate("location.hash")
+    ok(p.evaluate(H1) != 'Save your profile' and not p.evaluate(ERR) and step_of(after) == step_of(before) + 1,
+       f'5: its Next goes on one step ({before} -> {after})')
+    ok(not errs5b, f'5: no page errors {errs5b[:2]}')
     ctx.close()
     br.close()
 print(f"\n{len(passes)} passed, {len(fails)} failed")

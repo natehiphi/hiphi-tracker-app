@@ -667,10 +667,12 @@ app.newcomerActed = async b => {
   // action of a first visit that began on this bill's card.
   if (!b || !S.blNew.has(b.id) || followsAnything() || myActions().length > 1 || wiz().done || wiz().skipped) return false;
   const i = issuesOf(b)[0], follow = !!i && !issueFollowed(i) && await setFollows({ issuesOn: [i.id] }) !== false;
+  // Home first, then the moment over it (R-140, fix 10/10): the bill's own page, with its live action bar, is not left
+  // under the veil. The moment's button is Home's, and it only closes the moment.
+  homeAfterAct(b);
   moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
     small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move: committees hear from the people who write.',
-    go: GO_HELP, alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null },
-    () => homeAfterAct(b));
+    go: GO_HELP, alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null });
   return true;
 };
 // After testimony or an email sent from the walkthrough (helper.js), its Done: a first visit that began on this bill ends
@@ -1130,8 +1132,11 @@ export default {
       if (!ok) { el.removeAttribute('aria-busy'); return; }
       logVisit('arrive', 'next', { path: 'link' });
       const moving = i ? (i.bill_ids || []).filter(id => S.watch.has(id)).map(id => S.bills.find(y => y.id === id)).filter(y => y && alive(y)).length : 1;
+      // The walkthrough's first screen first, then the moment over it (R-140, fix 10/10): the bill's own page with its live
+      // bar is not left under the veil.
+      viaStart(b);
       moment({ title: 'Mahalo!', sub: `You’re following ${i ? i.name : nick(b) || spaced(b.bill_number)}.`,
-        small: moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.' }, () => viaStart(b));
+        small: moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.' });
     }));
     sideWatch?.disconnect();
     const side = root.querySelector('.bl-side');

@@ -202,7 +202,9 @@ be roadblocks"):** the next button stays visible and works during every celebrat
 or makes the person wait. A small burst (a step done, a pick) is under 0.7 s, flies up and out just above the thing it
 came from, and never covers the next button. A full-screen moment (C-7 only: the first follow, the first action sent, a
 bill becoming law) leaves on its own within 1.5 s, and a tap, key or scroll leaves it at once; a tap on the button under
-it does that button's job. Its words stay for 4 s as a toast. Under Reduce Motion nothing moves: the words are there and
+it does that button's job. The screen moves on first and the moment plays over the next screen once its slide has ended
+(R-140 fix, 10/10), so the button under it is that screen's own Next and the old screen's bar is never live under the veil.
+Its words stay for 4 s as a toast. Under Reduce Motion nothing moves: the words are there and
 the thing that would have burst takes a brief colour change (`fx.js` tint()). Teaching scenes move only when the person taps, and each step's movement is over within about 4
 seconds, in beats that follow its caption. Nothing moves by itself for more than 5 seconds. Under
 Reduce Motion everything still works, with no movement. (Rewritten 9/21 for R-023, Nate's decision 5;

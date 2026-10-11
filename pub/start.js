@@ -123,11 +123,12 @@ export const track = (step, event, extra = {}) => { try {
 window.addEventListener('pagehide', () => { if (document.body.dataset.screen === 'start' && viewKey) track(viewKey.split('|')[1], 'leave'); });
 
 // ---------- moving between screens: forward steps are tagged, so the on-screen Back can use the real Back ----------
+// Returns the slide's promise (fx.js afterMove): a moment that plays over the new screen waits for the slide to end.
 export function goStep(from, to) {
   LZ?.lessonStop();
   // Past the last step: Home (only the version that ends on Home gets here; today's last screen calls finish() itself).
   if (to > total(isOff())) { finish(); return; }
-  swap(() => {
+  return swap(() => {
     app.go('#/start/' + to);
     try { history.replaceState({ ...(history.state || {}), stFrom: from }, ''); } catch { /* ignore */ }
   }, 'fwd');

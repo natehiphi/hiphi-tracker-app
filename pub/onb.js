@@ -15,7 +15,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, sessionInfo, wiz, wizSet,
 import { shell, topRow, artFor, bar1, bar2, sayRow, sureWide, skel, loadErr, isOff, planOn, goStep, finish, track, pickedIssues, issueInfo, ranker, byScore, mailSent, welcome, flash, clearFlash, plural, andList, shortDay, shown, poolBills, busy, stepOf } from './start.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, flower } from './art.js';
-import { burst, celebrate, later, reduced, petals } from './fx.js';
+import { afterMove, burst, celebrate, later, reduced, petals } from './fx.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow } from './alerts.js';
 import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
@@ -325,8 +325,11 @@ function leaveJoin(step, r = null) {
   S.obMoment = true;
   const n = followedIssues().length, D = r && r.kind !== 'given' ? joinDone(r, followedIssues(), alertStatus()) : null;
   if (!n && !D) { go(); return; }
-  celebrate({ title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
-    small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: You’re All Set' }, go);
+  // The next screen first, then the moment over it once it has slid in (R-140, fix 10/10; start-rest.js mahalo): the button
+  // under the moment is the next screen's own, not this sign-up's live "Text me a code".
+  const words = { title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
+    small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: You’re All Set' };
+  afterMove(go(), () => celebrate(words));
 }
 function wireJoin({ step, fresh, $ }) {
   // The visit's one alerts ask, so Home will not ask again after "Not now" (C-3; today's step does the same in start-rest.js; D1-6).
