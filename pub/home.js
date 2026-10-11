@@ -222,32 +222,8 @@ function sessionPanel(si, { welcome = false, skip = new Set() } = {}) {
   </section>`;
 }
 
-// ---------------- what's new on my bills (last 7 days) ----------------
-// Only facts a newcomer can read at a glance: a hearing was set, or a committee decided. Bills already shown in a
-// card are left out, so a bill appears on Home at most twice. A row leads with the bill's everyday name when it has
-// one (the fact, with the number, goes under it); without one the fact leads and the plain summary goes under it.
-function whatsNew(skip) {
-  const now = Date.now(), since = now - 7 * 864e5, per = new Map();
-  const add = (b, at, lead, text) => { const t = at ? +new Date(at) : NaN; if (!(t >= since && t <= now)) return; const x = per.get(b.id); if (!x || x.t < t) per.set(b.id, { b, t, at, lead, text }); };
-  for (const h of S.hearings) {
-    const b = S.bills.find(x => x.id === h.bill_id); if (!b || skip.has(b.id)) continue;
-    const num = spaced(b.bill_number), held = new Date(h.scheduled_at) <= now, o = held ? outcomeOf(h) : null;
-    if (o?.outcome) {
-      const said = { passed: `passed ${num}`, passed_amended: `passed ${num} with changes`, deferred: `put ${num} on hold`, recommitted: `sent ${num} back for more work` }[o.outcome];
-      if (said) add(b, o.reported_at || h.scheduled_at, /passed/.test(o.outcome) ? 'circle-check' : 'archive', `${who(h.committee)} ${said}`);
-    }
-    // A new hearing reads "HB 1975 has a hearing on Thu": the committee's full name (often two joined) is on the bill
-    // page. Never for a bill that has stopped (a hearing left on the calendar for a dead bill is not news).
-    if (!held && h.status === 'scheduled' && h.notice_posted_at && alive(b)) { const d = dayWord(h.scheduled_at);
-      add(b, h.notice_posted_at, 'calendar', `${num} has a hearing ${/^(today|tomorrow)/.test(d) ? d : 'on ' + d}`); }
-  }
-  const items = [...per.values()].sort((p, q) => q.t - p.t).slice(0, 3);
-  if (!items.length) return '';
-  const day = at => hstDay(at) === hstDay(now) ? 'Today' : new Date(at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' });
-  return `<section class="hm-sec" aria-labelledby="hm-new"><h2 id="hm-new">What’s new</h2>
-    <div class="rows">${items.map(x => row({ lead: x.lead, title: esc(nick(x.b) || x.text), sub: esc(nick(x.b) ? x.text : blurb(x.b, 160)), end: `<span class="hm-day">${day(x.at)}</span>`, href: billPath(x.b) })).join('')}</div>
-    ${btn('See all my bills', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</section>`;
-}
+// What’s new (the last 7 days on my bills) left Home 10/10 (R-222 step 1): status was told five ways there; My issues
+// keeps each bill’s latest news, and the new Home says what changed as one word on the issue’s row.
 
 // ---------------- since you were here (R-067: Nate's first goal is that people come back) ----------------
 // The first thing on Home when someone comes back, under the good news cards: what happened on their issues since their
@@ -486,6 +462,8 @@ function loopCard(skip = new Set()) {
 // iPhone the two taps it takes, and the honest catch: the home-screen app keeps its own copy, so they add their email
 // there to bring their issues along. A home-screen app is also what keeps an iPhone from clearing their issues after a
 // week away.
+// Off Home since 10/10 (R-222 step 1: Home is the one thing to do, then the issues). Kept, with its wiring below, for a
+// later one-time sheet after an action; nothing draws it today.
 function homeScreenCard() {
   let no = false; try { no = localStorage.getItem('hiphi_hs_no') === '1'; } catch { /* private mode */ }
   const standalone = (() => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } })();
@@ -681,8 +659,6 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
     </div><div class="side hm-side">
       ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
       ${sessionPanel(si, { skip: inSince })}
-      ${whatsNew(new Set([...inCards, ...inSince]))}
-      ${homeScreenCard()}
       ${meetCard()}
       ${sugInMain ? '' : sugHtml}
     </div></div>
@@ -752,7 +728,6 @@ function welcomeView(si, { cards, asks, total }) {
       ${ask}
     </div>${fin ? '' : `<div class="side hm-side">
       ${sessionPanel(si, { welcome: true, skip: S.hmLoopB })}
-      ${whatsNew(new Set(S.hmLoopB))}
     </div>`}</div>
   </div>`;
 }
