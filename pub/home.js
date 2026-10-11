@@ -642,7 +642,6 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
       ${profileLine()}
     </div><div class="side hm-side">
       ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
-      ${meetCard()}
       ${sugInMain ? '' : sugHtml}
     </div></div>
   </div>`;
@@ -902,7 +901,7 @@ function offView(si) {
     : `<header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
       <div class="hm-breakt"><h1 class="hero">${welcome ? `${wiz().finale ? 'Aloha' : `You’re all set for ${nextYr}`}${(wiz().name || '').trim() ? `, ${esc(wiz().name.trim())}` : ''}` : 'The Legislature is on break'}</h1>
         <p class="lede">${lede}</p>
-        ${daysChip}</div></header>`}
+        ${daysChip}${meetLine()}</div></header>`}
     <div class="cols even"><div class="hm-col">
       ${v2 ? `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>${readyCard}</section>` : lead ? readyCard : ''}
       ${rows.length ? `<section class="card hm-recap" aria-labelledby="hm-rc"><div class="hm-recaphead"><h2 id="hm-rc">Your ${yr} session</h2><div class="hm-isl">${islands(myIsland())}</div></div>
@@ -916,7 +915,6 @@ function offView(si) {
     </div><div class="hm-col">
       ${v2 || lead ? '' : readyCard}
       ${winsCard(yr)}
-      ${meetCard()}
       ${newIssuesCard()}
       ${profileLine()}
       ${rows.length ? setup : ''}
@@ -982,20 +980,14 @@ function winsCard(yr) {
 }
 
 // ---------------- Meet HIPHI (R-067; staff post it in Staff v2, Make a link) ----------------
-// The next HIPHI event or training, when staff have posted one: people who meet the team come back. Asked once per
-// visit; nothing shows when there is none or the request fails. The sandbox shows a sample, labelled.
-function meetCard() {
-  if (S.meetCard === undefined) {
-    S.meetCard = null;
-    (DEMO ? Promise.resolve([{ kind: 'meet', title: 'Meet HIPHI at the Keiki Health Fair (sample)', body: 'Saturday, Oct 18, 9 to 1, at Kapiʻolani Park. Come say aloha and learn how to speak up in January.', link_url: 'https://www.hiphi.org', link_label: 'See the event' }])
-      : supa().then(sb => sb.from('public_site_cards').select('*')).then(r => r.data || []))
-      .then(rows => { S.meetCard = rows.find(r => r.kind === 'meet') || false; if (S.meetCard) app.render(); }).catch(() => { S.meetCard = false; });
-    return '';
-  }
-  const c = S.meetCard; if (!c) return '';
-  return `<section class="card hm-meet" aria-labelledby="hm-meet-h"><h2 id="hm-meet-h">${icon('calendar-days')}<span>${esc(c.title)}</span></h2>
-    ${c.body ? `<p class="small">${esc(c.body)}</p>` : ''}
-    ${c.link_url ? btn(esc(c.link_label || 'Learn more'), { kind: 'text', sm: true, iconEnd: 'external-link', href: c.link_url, attrs: { target: '_blank', rel: 'noopener' } }) : ''}</section>`;
+// The event itself lives on More since R-222 (more.js meetEvent: a row at the top of "From HIPHI"). Home keeps it only
+// between sessions, as one line under the greeting, when it is the one thing happening (Nate 10/10, "accept all").
+function meetLine() {
+  if (!more) { moreLoad().catch(e => console.error(e)); return ''; }
+  const c = more.meetEvent?.(); if (!c) return '';
+  const when = (String(c.body || '').match(/^[^.]*\./) || [''])[0];   // its first sentence: the day and the place (no lookbehind: older iPhones)
+  const title = c.link_url ? `<a href="${esc(c.link_url)}" target="_blank" rel="noopener">${esc(c.title)}<span class="sr"> (opens in a new tab)</span></a>` : esc(c.title);
+  return `<p class="hm-meetline">${icon('map-pin')}<span>${title}${when ? `. ${esc(when)}` : ''}</span></p>`;
 }
 
 // ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
@@ -1026,7 +1018,7 @@ function newIssuesCard() {
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
 // letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
 // and a first-visit plan's next small thing (onb-later.js), on either Home.
-export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard(), friend: () => friendCard() };
+export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireProfileLine(root);
   wireLater(root, () => app.render());

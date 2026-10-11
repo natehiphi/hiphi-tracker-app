@@ -76,6 +76,23 @@ export const focusField = inp => { inp.focus({ preventScroll: true }); inp.close
 const extRow = (lead, title, sub, href, leadHtml) => row({ lead, leadHtml, title, sub, href, chevron: false,
   end: `${icon('external-link', { cls: 'chev' })}<span class="sr">(opens hiphi.org)</span>`, attrs: { target: '_blank', rel: 'noopener' } });
 
+// ---------------- Meet HIPHI (R-067; staff post it in Staff v2, Make a link) ----------------
+// The next HIPHI event or training, when staff have posted one: people who meet the team come back. On More since R-222
+// (it was a card on Home); Home's between-sessions greeting names it in one line (home.js meetLine). Asked once per visit;
+// nothing shows when there is none or the request fails. The sandbox shows a sample, labelled.
+export function meetEvent() {
+  if (S.meetCard === undefined) {
+    S.meetCard = null;
+    (DEMO ? Promise.resolve([{ kind: 'meet', title: 'Meet HIPHI at the Keiki Health Fair (sample)', body: 'Saturday, Oct 18, 9 to 1, at Kapiʻolani Park. Come say aloha and learn how to speak up in January.', link_url: 'https://www.hiphi.org', link_label: 'See the event' }])
+      : supa().then(sb => sb.from('public_site_cards').select('*')).then(r => r.data || []))
+      .then(rows => { S.meetCard = rows.find(r => r.kind === 'meet') || false; if (S.meetCard) app.render(); }).catch(() => { S.meetCard = false; });
+  }
+  return S.meetCard || null;
+}
+const meetRow = () => { const c = meetEvent(); if (!c) return '';
+  return row({ lead: 'calendar-days', title: esc(c.title), sub: esc(c.body || ''), ...(c.link_url ? { href: c.link_url, chevron: false,
+    end: `${icon('external-link', { cls: 'chev' })}<span class="sr">(opens in a new tab)</span>`, attrs: { target: '_blank', rel: 'noopener' } } : {}) }); };
+
 // ---------------- your legislators, from the districts saved on this device or the account ----------------
 export function seat(ch, d) {
   if (!d) return null;
@@ -285,7 +302,7 @@ function moreView() {
     </nav>
     <h2 class="mr-grouphead" id="mr-g-hiphi">${t('From HIPHI')}</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-hiphi">
-      ${about}
+      ${meetRow()}${about}
       ${WIDE?.matches ? hiphi : `<details class="mr-fold"${S.mrFold ? ' open' : ''}>
         <summary class="row"><span class="lead">${icon('ellipsis')}</span><span class="body"><span class="title">${t('More from HIPHI')}</span></span><span class="end">${icon('chevron-down', { cls: 'chev mr-foldc' })}</span></summary>
         <div class="mr-foldb">

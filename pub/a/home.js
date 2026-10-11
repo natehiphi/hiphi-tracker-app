@@ -310,7 +310,7 @@ function view() {
   const ask = extras.profile() ? `<div class="a-nudge">${extras.profile()}</div>` : '';   // one quiet line (R-222)
   // A plan to go today or tomorrow is the day's plan, so it leads, as on today's Home (R-142); later ones go to the end.
   const plans = goingPlans(), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
-  const tail = [goLater, extras.newIssues(), extras.meet(), laterCard()].filter(Boolean).join('');
+  const tail = [goLater, extras.newIssues(), laterCard()].filter(Boolean).join('');
   // A saved letter is left to the Now card only when it is the Now card's hearing, whose button then says "Finish sending
   // your testimony" (R-187); one for another hearing due this week, a row under "Also due" or in the week, keeps its own
   // card, or nothing on the page would mention it (R-189).

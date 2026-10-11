@@ -273,10 +273,6 @@
 .hm .hm-wins .small { margin-top: var(--s12); }
 
 /* Meet HIPHI (R-067) */
-:is(.hm, .ah) .hm-meet h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t16); }
-:is(.hm, .ah) .hm-meet h2 .ic { flex: none; color: var(--p700); margin-top: 2px; }
-:is(.hm, .ah) .hm-meet .small { margin: var(--s8) 0 0; }
-:is(.hm, .ah) .hm-meet > .btn.text { margin-left: -16px; }   /* "See the event" on the text edge above it; its padding stays tap area (X9-1, A-8) */
 :is(.hm, .ah) .hm-draft { display: flex; flex-direction: column; gap: var(--s8); margin-bottom: var(--s12); border: 1.5px solid var(--p300); }
 :is(.hm, .ah) .hm-draft h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
 
@@ -346,3 +342,5 @@
 /* Under the words, lined up with them; its padding keeps the 44px target (as .ab-cap, base.css). */
 .hm-profline .hm-profbtn { grid-column: 2; justify-self: start; margin-left: -16px; }
 .hm .hm-seslink { align-self: flex-start; margin-left: -12px; }   /* lines up with the heading; its padding keeps the 44px target */
+.hm .hm-meetline { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 0; color: var(--n700); }
+.hm .hm-meetline > .ic { flex: none; margin-top: 3px; color: var(--p700); }
