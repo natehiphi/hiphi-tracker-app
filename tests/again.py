@@ -73,7 +73,7 @@ with sync_playwright() as p:
         pg.click('[data-hp="again-update"]'); pg.wait_for_timeout(500)
         t = body(pg)
         ok('Update your letter' in t and 'HIPHI’s advice' in t, f'{tag}: going over it again walks the bill step with HIPHI’s advice at the top')
-        ok('Disposable e-cigarettes are easy' in pg.locator('#hp-pts').input_value(), f'{tag}: their points are in the box')
+        ok('Disposable e-cigarettes are easy' in pg.locator('#hp-letter').input_value(), f'{tag}: their points are in the box (R-141: the box is the letter)')
         pg.click('[data-hp="next"]'); pg.wait_for_timeout(400)
         ok('As a parent of two teenagers' in pg.locator('#hp-why').input_value(), f'{tag}: their reason is filled in')
         pg.locator('#hp-form button[type=submit], .hp-foot button[type=submit]').first.click(); pg.wait_for_timeout(500)
@@ -131,7 +131,7 @@ with sync_playwright() as p:
         ok('Where do you stand' in body(pg) and pg.locator('#hp-dlg [data-hp="stance"][data-v="support"]').get_attribute('aria-pressed') == 'true',
            f'{tag}: "Start a new letter" asks where they stand, the kept letter\'s "I support it" chosen')
         pg.click('#hp-dlg .hp-foot [data-hp="next"]'); pg.wait_for_timeout(500)
-        ok('Get to know the bill' in body(pg) and pg.locator('#hp-pts').count() == 0, f'{tag}: and Next goes on to the bill with nothing picked')
+        ok('Get to know the bill' in body(pg) and pg.locator('#hp-dlg .hp-pt[aria-pressed="true"]').count() == 0 and 'Disposable e-cigarettes are easy' not in pg.locator('#hp-letter').input_value(), f'{tag}: and Next goes on to the bill with nothing picked (the box holds the letter without points)')
         ok(HB2121 in stored(pg), f'{tag}: and keeps the saved letter')
         c.close()
         c, pg, errs = ctx_for(plant(), route=no_tick); open_again(pg)

@@ -150,20 +150,22 @@
 .hp-dlg .hp-ptsec { margin-top: var(--s24); }
 .hp-dlg .hp-ptsec .help { display: block; margin: 0 0 var(--s12); color: var(--n700); font-size: var(--t14); }
 .hp-dlg .hp-pts { display: grid; gap: var(--s8); margin: 0; padding: 0; list-style: none; }
-.hp-dlg .hp-pt { display: flex; align-items: flex-start; gap: var(--s12); width: 100%; min-height: 56px; padding: 12px 14px; border-radius: var(--r12);
-  border: 1px solid var(--n300); background: var(--n0); color: var(--n900); font: 400 var(--t16)/1.4 var(--font); text-align: left; cursor: pointer; }
-.hp-dlg .hp-pt:hover { border-color: var(--p700); }
-.hp-dlg .hp-pti { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--p700); color: var(--p700); }
-.hp-dlg .hp-pti svg { width: 16px; height: 16px; }
-.hp-dlg .hp-ptt { flex: 1; }
-.hp-dlg .hp-pta { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); padding-top: 3px; }
-.hp-dlg .hp-pt[aria-pressed="true"] { border: 2px solid var(--p700); padding: 11px 13px; background: var(--p50); }
-.hp-dlg .hp-pt[aria-pressed="true"] .hp-pti { background: var(--p700); color: #fff; }
+/* R-141 (rework 10/10): each point is a row with its words and one plus button, "Add this point" (a toggle: Added when it is
+   in the box). The button is the only control in the row: a 44px pill (A-6, A-12). */
+.hp-dlg .hp-ptrow { display: flex; align-items: center; gap: var(--s12); padding: 8px 8px 8px 14px; border-radius: var(--r12);
+  border: 1px solid var(--n300); background: var(--n0); }
+.hp-dlg .hp-ptrow.on { border-color: var(--p700); background: var(--p50); }
+.hp-dlg .hp-ptt { flex: 1; min-width: 0; margin: 0; color: var(--n900); font: 400 var(--t16)/1.4 var(--font); }
+.hp-dlg .hp-pt { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--p700); background: var(--n0); color: var(--p700); font: 700 var(--t14)/1 var(--font); cursor: pointer; }
+.hp-dlg .hp-pt svg { width: 16px; height: 16px; flex: none; }
+.hp-dlg .hp-pt[aria-pressed="true"] { background: var(--p700); color: #fff; }
 .hp-dlg .hp-own { display: flex; gap: var(--s8); margin-top: var(--s16); color: var(--n700); }
-/* R-141 (10/4): the points tapped show in a box under the list, in the letter's own words, ready to change. It grows with
-   its text like the letter does, so there is never a box scrolling inside the dialog's own scroll. */
+/* R-141 (10/4, rework 10/10): the email or letter itself, under the points, in the box on this step. It is there from the
+   start, prefilled; its own scroll (hp-ptsta, see grow) keeps it to about a third of the screen, so the points above stay. */
 .hp-dlg .hp-ptbox { margin-top: var(--s24); }   /* set apart from the cards, which sit 8px apart (A-8) */
-.hp-dlg .hp-ptbox textarea { min-height: 72px; resize: none; overflow: hidden; }
+.hp-dlg .hp-ptbox textarea { resize: none; }
+.hp-dlg .hp-ptsta { min-height: 150px; }
 .hp-dlg .hp-sugs { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s8); }
 .hp-dlg .hp-sug { min-height: 44px; cursor: pointer; }
 .hp-dlg .hp-sug[aria-pressed="true"] { background: var(--p700); color: #fff; border-color: var(--p700); }

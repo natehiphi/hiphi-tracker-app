@@ -27,7 +27,10 @@
 // mail app first on a phone and Gmail first on a laptop. Then "Did you send it?" and the same Mahalo screen.
 // 10/4 (R-141, Nate: "selecting talking points should show up in an editable box that they can see. It shouldn't be on a
 // different page."): the points tapped on "Get to know the bill" appear right there, in a box under them, in the words
-// that go into the letter, and the person can change them. The box (x.pointsText) is what the letter says.
+// that go into the letter, and the person can change them. 10/10 (R-141 rework, Nate: "The box should already be prefilled
+// in with the other info and be visible already. Clicking the plus button will add the text to the rest of the text."):
+// the box holds the whole email or letter from the start, prefilled by the same builder the letter screen uses, and each
+// point's plus button writes its words into it. The box is x.letter, so what it says is what is sent (syncLetter).
 // 10/4 (R-148, Nate: "their previous testimony should be ready to submit easily. A potential alert should occur if the
 // bill draft has significantly changed"): a letter sent is kept (letters.js: on the device and with the account). When the
 // same bill, or its twin, has another hearing, the walkthrough opens on "Your letter is ready" ('again'): the letter
@@ -163,23 +166,26 @@ function liveLine(h) {
   const town = townOf(), where = ls.length === 1 ? `${legWord(ls[0])}’s district` : `the districts of ${andList(ls.map(legWord))}`;
   return `I live in ${town ? `${town}, in ` : ''}${where}.`;
 }
-function letterFor(b, h, o) {
-  const { name, why, closing = '', stance = hiphiStance(b) } = o;
+// The testimony letter in pieces (R-141, rework 10/10). The box on "Get to know the bill" holds the whole letter, so each
+// piece is kept apart: syncLetter changes a detail by swapping the piece the text still has word for word, and never
+// overwrites what the person typed. A detail not given yet (no name) leaves its words out, never "My name is .".
+const PARTS = ['head', 'dear', 'open', 'pts', 'why', 'ask', 'close'];
+function letterParts(x) {
+  const { b, h } = x, stance = x.stance || hiphiStance(b), n = spaced(b.bill_number), ours = sameAsHiphi(b, stance), nm = String(x.name || '').trim();
   // What goes out is theirs to choose (R-156 B2): noLive leaves out where they live, noWhy their reason.
-  const n = spaced(b.bill_number), ours = sameAsHiphi(b, stance), live = o.noLive ? '' : liveLine(h);
-  return [
-    headBlock(b, h, stance),
-    greeting(h),
-    `${withTitles(twoFor({ ...o, b }), openingLine(b, n, stance))} My name is ${String(name).trim()}.${live ? ` ${live}` : ''}`,
+  const live = x.noLive ? '' : liveLine(h);
+  return {
+    head: headBlock(b, h, stance),
+    dear: greeting(h),
+    open: [withTitles(twoFor(x), openingLine(b, n, stance)), nm ? `My name is ${nm}.` : '', live].filter(Boolean).join(' '),
     // The points they picked, as the box on "Get to know the bill" has them (R-141), then their own reason. The
     // committee already has the bill's text, so the letter does not repeat what it does (Nate 9/28).
-    ownPoints(o),
-    o.noWhy && !own2For(b, stance) ? '' : sentence(why),
-    [ours ? sentence(b.hiphi_action) : '', askLine(b, n, stance)].filter(Boolean).join(' '),
-    [closingOf(closing), String(name).trim()].filter(Boolean).join('\n'),
-  ].filter(Boolean).join('\n\n');
+    pts: ownPoints(x),
+    why: x.noWhy && !own2For(b, stance) ? '' : sentence(x.why),
+    ask: [ours ? sentence(b.hiphi_action) : '', askLine(b, n, stance)].filter(Boolean).join(' '),
+    close: [closingOf(x.closing), nm].filter(Boolean).join('\n'),
+  };
 }
-const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), ownPoints(x), (x.closing || '').trim(), x.stance || '', twoFor(x), !!x.noLive, !!x.noWhy]);
 
 // ---------------- the emails (R-079, R-080) ----------------
 // Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
@@ -255,41 +261,111 @@ export function introFacts() {
   const following = all.filter(b => S.watch.has(b.id) && !st(b.id) && alive(b) && posInfo(b));
   return { issues: followedIssues().map(i => i.name), support, oppose, following: following.slice(0, 5), moreFollowing: Math.max(0, following.length - 5) };
 }
-function mailLetter(x) {
-  const { b, to } = x, name = String(x.name).trim(), why = x.noWhy && !(b && own2For(b, x.stance || hiphiStance(b))) ? '' : sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
-  const dear = `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`, where = districtWords(to), two = twoFor(x);
+// The quick email in pieces (R-079, R-080, R-141 rework): the same parts as the testimony letter, for the box and the
+// letter alike. The introduction (mode 'intro') has no bill and is written whole, in mailLetter.
+function emailParts(x) {
+  const { b, to } = x, nm = String(x.name || '').trim(), stance = x.stance || hiphiStance(b), n = spaced(b.bill_number), ours = sameAsHiphi(b, stance);
+  const where = districtWords(to), two = twoFor(x);
   // Their own lawmakers hear where they live (R-147): always in 'legislators' and 'intro', and in an email to a chair who
   // happens to be their own senator or representative; anyone else does not.
   const d = myDistricts(), isMine = l => !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
   const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
+  const mine = x.mode === 'legislators' || own, ownWhere = x.mode === 'legislators' ? where : districtWords(ownTo);
+  const me = nm ? `My name is ${nm}${mine ? `, and I live in your district${ownWhere ? ` (${ownWhere})` : ''}` : ''}.`
+    : mine ? `I live in your district${ownWhere ? ` (${ownWhere})` : ''}.` : '';
+  return {
+    dear: `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`,
+    open: [withTitles(two, openingLine(b, n, stance)), me].filter(Boolean).join(' '),
+    pts: ownPoints(x),
+    why: x.noWhy && !own2For(b, stance) ? '' : sentence(x.why),
+    ask: [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '),
+    close: [closingOf(x.closing), nm].filter(Boolean).join('\n'),
+  };
+}
+function mailLetter(x) {
+  if (x.mode !== 'intro') return joinParts(emailParts(x));
+  const { to } = x, name = String(x.name).trim(), why = x.noWhy ? '' : sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
+  const dear = `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`, where = districtWords(to), two = twoFor(x);
   // R-172 (Nate 10/5: "too stiff. It serves no serious benefit. Rethink that language"): a short, warm note from a
   // constituent with one purpose an office acts on. It names the one issue the person cares about most (the issue of a bill
   // they took a stand on, else the first they follow), their reason in their own words, at most one bill, and one plain
   // question that invites a reply. Lists of bill numbers read as a form letter and were dropped; the other issues they
   // follow get one short line.
-  if (x.mode === 'intro') {
-    const f = introFacts(), off = sessionInfo().phase !== 'in';
-    const stood = f.support[0] || f.oppose[0] || null, issueOfStood = stood ? issuesOf(stood).find(i => f.issues.includes(i.name)) || issuesOf(stood)[0] : null;
-    const top = issueOfStood ? issueOfStood.name : f.issues[0] || '';
-    const others = f.issues.filter(n => n !== top).slice(0, 2);
-    const billLine = stood ? (f.support.includes(stood) ? `${billWords(stood)} would help, and I support it.` : `I oppose ${billWords(stood)}.`) : '';
-    return [dear.replace(/^Dear /, 'Aloha '),
-      `I’m ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''},` : ','} and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}.`,
-      top ? `The health issue that matters most to me: ${top}. ${billLine}`.trim() : 'I care about the health of our community, and I follow the health bills that come before you.',
-      why,
-      top ? `Where do you stand on it? I’d be grateful to hear back${off ? ' before the session opens in January' : ''}.` : `What health issues are you working on${off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`,
-      others.length ? `I also follow ${andList(others)}.` : '',
-      close].filter(Boolean).join('\n\n');
-  }
-  const n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), ours = sameAsHiphi(b, stance);
-  const mine = x.mode === 'legislators' || own, ownWhere = x.mode === 'legislators' ? where : districtWords(ownTo);
-  const me = mine ? `My name is ${name}, and I live in your district${ownWhere ? ` (${ownWhere})` : ''}.` : `My name is ${name}.`;
-  return [dear, `${withTitles(two, openingLine(b, n, stance))} ${me}`, ownPoints(x), why,
-    [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '), close].filter(Boolean).join('\n\n');
+  const f = introFacts(), off = sessionInfo().phase !== 'in';
+  const stood = f.support[0] || f.oppose[0] || null, issueOfStood = stood ? issuesOf(stood).find(i => f.issues.includes(i.name)) || issuesOf(stood)[0] : null;
+  const top = issueOfStood ? issueOfStood.name : f.issues[0] || '';
+  const others = f.issues.filter(n => n !== top).slice(0, 2);
+  const billLine = stood ? (f.support.includes(stood) ? `${billWords(stood)} would help, and I support it.` : `I oppose ${billWords(stood)}.`) : '';
+  return [dear.replace(/^Dear /, 'Aloha '),
+    `I’m ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''},` : ','} and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}.`,
+    top ? `The health issue that matters most to me: ${top}. ${billLine}`.trim() : 'I care about the health of our community, and I follow the health bills that come before you.',
+    why,
+    top ? `Where do you stand on it? I’d be grateful to hear back${off ? ' before the session opens in January' : ''}.` : `What health issues are you working on${off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`,
+    others.length ? `I also follow ${andList(others)}.` : '',
+    close].filter(Boolean).join('\n\n');
 }
-// The letter for whichever mode is open.
-const letterOf = x => x.mode === 'testimony' ? letterFor(x.b, x.h, x) : x.remind ? reminderLetter(x) : mailLetter(x);
+// The letter for whichever mode is open. Testimony and the quick emails are written from their pieces (PARTS), the
+// reminder and the introduction whole.
 const isMail = x => !!x && x.mode !== 'testimony';
+const boxed = x => x.mode === 'testimony' || (isMail(x) && !x.remind && x.mode !== 'intro');
+const joinParts = p => 'all' in p ? p.all : PARTS.map(k => p[k]).filter(Boolean).join('\n\n');
+const letterOf = x => x.mode === 'testimony' ? joinParts(letterParts(x)) : x.remind ? reminderLetter(x) : mailLetter(x);
+// The text as the walkthrough writes it now, in pieces where the box has pieces; {all} for the rest.
+const partsOf = x => !boxed(x) ? { all: letterOf(x) } : x.mode === 'testimony' ? letterParts(x) : emailParts(x);
+// Brings the text up to date with the person's details (R-141). Until they type in the box it is simply the letter as it
+// is written from their answers. Once they have, a change of detail changes only the pieces the text still has word for
+// word (their name, reason, sign-off, or the ask for their stance): what they typed is theirs and stays. A piece they
+// rewrote is never overwritten; x.stale says so, and "Use my new details" writes the letter again.
+function syncLetter(x) {
+  if (x.b && !x.edited) {   // the points the box was written with are the ones this stance can still make
+    const ok = pointsOf(x);
+    if (x.points.some(p => !ok.includes(p))) { x.points = x.points.filter(p => ok.includes(p)); x.pointsText = pointsLine(x.points); }
+  }
+  const now = partsOf(x);
+  if (!x.edited) { x.letter = joinParts(now); x.built = now; x.stale = false; return; }
+  const old = x.built || now, order = 'all' in now ? ['all'] : PARTS, built = { ...old };
+  let text = x.letter, bad = false;
+  for (const k of order) {
+    if (k === 'pts') continue;   // the points' words are added and cut by the taps, never by a detail changing
+    const a = old[k] || '', b = now[k] || '';
+    if (a === b) continue;
+    if (a) { if (text.includes(a)) { text = swapPiece(text, a, b); built[k] = b; } else bad = true; continue; }
+    // A piece the letter did not have (a reason, now written) goes in before the next piece the text still has; the
+    // sign-off's name, the last piece, goes at the end.
+    const at = nextPieceAt(text, order.slice(order.indexOf(k) + 1), now, old);
+    if (at < 0) bad = true;
+    else if (at >= text.length) { text = `${text.replace(/\s+$/, '')}\n\n${b}`; built[k] = b; }
+    else { text = `${text.slice(0, at)}${b}\n\n${text.slice(at)}`; built[k] = b; }
+  }
+  // HIPHI's points argue the other side for someone who has taken it: HIPHI's own sentences go, words they wrote stay.
+  if (x.b && !pointsOf(x).length && !x.keepPts) for (const s of (x.b.hiphi_points || []).filter(Boolean)) if (text.includes(sentence(s))) text = cutPoint(text, sentence(s));
+  x.letter = text; x.built = { ...built, pts: now.pts || '' }; x.stale = bad;
+  if (x.b) { x.points = pickedIn(x, text); x.pointsText = spansOf(x, text); }
+}
+// A piece put where the old one was, with its blank line; an empty new piece takes the old one out with its blank line.
+function swapPiece(text, a, b) {
+  const i = text.indexOf(a); let s = i, e = i + a.length;
+  if (!b) { if (text.slice(e, e + 2) === '\n\n') e += 2; else if (s >= 2 && text.slice(s - 2, s) === '\n\n') s -= 2; return text.slice(0, s) + text.slice(e); }
+  return text.slice(0, i) + b + text.slice(e);
+}
+// Where a new piece goes: before the first later piece the text still has (the points come before the reason, so a reason
+// is written in after them), or -1.
+function nextPieceAt(text, later, now, old) {
+  for (const k of later) {
+    if (k === 'pts') continue;
+    for (const s of [now[k], old[k]]) { const i = s ? text.indexOf(s) : -1; if (i >= 0) return i; }
+  }
+  return later.length ? -1 : text.length;   // the last piece (the sign-off's name) goes after the text
+}
+// The points as the box has them, in the box's order: the words the letter carries for them (x.pointsText).
+const spansOf = (x, text) => pickedIn(x, text).map(p => pointSpan(x, text, p)).filter(Boolean).sort((p, q) => p[0] - q[0]).map(([s, e]) => text.slice(s, e)).join(' ');
+// A new point that has no paragraph yet: after the opening, so before the reason, the ask or the sign-off, whichever the
+// text still has.
+function insertPiece(x, sent) {
+  const text = x.letter, built = x.built || {};
+  for (const k of ['why', 'ask', 'close']) { const i = built[k] ? text.indexOf(built[k]) : -1; if (i >= 0) return `${text.slice(0, i)}${sent}\n\n${text.slice(i)}`; }
+  return `${text.trimEnd()}\n\n${sent}`;
+}
 
 // The three ways to open a new email that is already filled in. Links have a length limit (a mail app on Windows cuts a
 // mailto near 2,000 characters; Gmail's and Outlook's addresses near 8,000), so a longer message leaves its body out and
@@ -353,9 +429,11 @@ function sendLink(x, { again = false } = {}) {
 }
 
 // ---------------- state ----------------
-// S.helper = { b, h, screen: 'stand' | 'know' | 1 | 2 | 'acct' | 3 | 'done', name, email, why, points, pointsText, closing, letter, edited, basis, stale, copied,
+// S.helper = { b, h, screen: 'stand' | 'know' | 1 | 2 | 'acct' | 3 | 'done', name, email, why, points, pointsText, closing, letter, edited, built, stale, copied,
 //   copyChip, copyFail, saved, away, back, busy, resumed, errs, first, before, followedNow, friended, scrollTop,
 //   focusId, opener, link: '' | 'sending' | 'sent' | 'failed', linkTo, linkErr, linkDemo }
+// letter is the box's text (on "Get to know the bill") and the letter's, one text. built is the pieces it was last
+// brought up to date with (syncLetter); edited says the person typed in it.
 // screen 'own' is the short screen for someone whose stance differs from HIPHI's: the Capitol's steps, no letter.
 let dlg = null;          // the live <dialog>; kept across app re-renders so typing, scroll and focus survive
 // What the dialog shows from outside the helper (the email ask). When it changes under us, the dialog is re-drawn.
@@ -393,7 +471,7 @@ function openMail(o = {}) {
     why: mineWhy || saved?.text || '', points: [], pointsText: '',
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: false,
     whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
-    letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
+    letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
   const d = (me.mail || {})[mailKey(x)];
   // Every email about a bill begins with where they stand (R-167), their answer on the bill page already chosen.
@@ -403,12 +481,12 @@ function openMail(o = {}) {
   // testimony letter's answers) comes first, re-addressed. A draft for this step wins (picked up below).
   if (o.remind && b) remindFrom(x, me, d);
   else if (b && mode !== 'intro' && !d) { const r = readyMail(b, stepKey(x)); if (r) againFrom(x, r, me); }
-  else if (b && d?.again) { const r = readyMail(b, stepKey(x)); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = true; loadCheck(x); } }
-  if (d && d.points) { x.points = d.points; x.pointsText = d.pointsText ?? pointsLine(d.points); }
+  else if (b && d?.again) { const r = readyMail(b, stepKey(x)); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = !!d.edited || d.screen === 2 || d.screen === 'mail'; loadCheck(x); } }
+  if (d && (d.points || d.edited)) { x.points = d.points || []; x.pointsText = d.pointsText ?? pointsLine(x.points); restoreBox(x, d); }
   if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
     // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
-    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter); x.noLive = !!d.noLive; x.noWhy = !!d.noWhy;
-    x.letter = x.edited ? d.letter : letterOf(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
+    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!d.edited; x.noLive = !!d.noLive; x.noWhy = !!d.noWhy;
+    x.letter = x.edited ? String(d.letter ?? '') : letterOf(x); x.built = x.edited ? d.built || partsOf(x) : partsOf(x);
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
@@ -436,7 +514,7 @@ function open(billId, hearingId) {
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
     whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy,
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false,
-    letter: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
+    letter: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
   // the confirmation says where to finish instead of asking again.
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
@@ -453,11 +531,12 @@ function open(billId, hearingId) {
   // R-148: a letter kept from this bill's earlier hearing, or its twin's, comes first. A draft already started for this
   // hearing wins (picked up below), and remembers that it began as a letter sent again.
   if (!d) { const r = readyLetter(b, h, didKind(b, h, 'testimony')); if (r) againFrom(x, r, me); }
-  else if (d.again) { const r = readyLetter(b, h, false); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = true; x.acctStep = false; loadCheck(x); } }
-  if (d && x.stance && x.name.trim() && !didKind(b, h, 'testimony')) {
+  else if (d.again) { const r = readyLetter(b, h, false); if (r) { x.again = r; x.update = !!d.update; x.keepPts = r.rec.stance === x.stance; x.letterReady = !!d.edited || d.screen === 2 || d.screen === 3 || d.screen === 'acct'; x.acctStep = false; loadCheck(x); } }
+  if (d && (d.points || d.edited)) { x.points = d.points || []; x.pointsText = d.pointsText ?? pointsLine(x.points); restoreBox(x, d); }
+  if (d && (d.screen === 2 || d.screen === 3 || d.screen === 'acct') && x.stance && x.name.trim() && !didKind(b, h, 'testimony')) {
     // Pick up where they left off. Someone who left for the Capitol site and came back is ready to confirm.
-    x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!(d.edited && d.letter);
-    x.letter = x.edited ? d.letter : letterFor(b, h, x); x.basis = x.edited ? d.basis || '' : basisOf(x);
+    x.screen = d.screen === 3 || d.screen === 'acct' ? d.screen : 2; x.resumed = true; x.edited = !!d.edited;
+    x.letter = x.edited ? String(d.letter ?? '') : letterOf(x); x.built = x.edited ? d.built || partsOf(x) : partsOf(x);
     x.back = x.screen === 3 && !!(d.away || d.back); x.leftAt = d.left || 0;
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
@@ -562,7 +641,7 @@ function againLetter(x) {
   if (isMail(x)) return againMail(x);
   const { b, h } = x, L = x.again.rec;
   x.mentions = [];
-  if (L.kind === 'email' || !L.edited || !L.letter) { x.edited = false; return letterFor(b, h, x); }   // an email's answers, never its words
+  if (L.kind === 'email' || !L.edited || !L.letter) { x.edited = false; return letterOf(x); }   // an email's answers, never its words
   let text = String(L.letter).replace(/\r\n/g, '\n');
   if (x.again.twin && L.num) text = text.split(spaced(L.num)).join(spaced(b.bill_number));
   const paras = text.split(/\n[ \t]*\n/);
@@ -625,26 +704,39 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { if (S.helper) { if (S.helper.screen === 3) S.helper.away = true; saveDraft(); } });
 
-// The draft lives in hiphi_me.drafts, one per hearing, and goes away once the testimony is sent.
+// The draft lives in hiphi_me.drafts, one per hearing, and goes away once the testimony is sent. Emails keep one per
+// step in hiphi_me.mail (mailKey). A record is made at the bill step only when there is something to keep: a point
+// picked or a word typed in the box (R-141), so a plain visit leaves nothing behind.
+const draftOf = x => ({ screen: x.screen, stance: x.stance, why: x.why, subject: x.subject || '', opened: x.opened || '', away: !!x.away, back: !!x.back,
+  left: x.leftAt || 0, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, ...boxOf(x) });
+// What changes while they type or tap at the bill step: the box, its points and titles (R-141).
+const boxOf = x => ({ points: x.points, pointsText: x.pointsText, use: x.use || null, letter: x.edited ? x.letter : '', edited: !!x.edited,
+  built: x.edited ? x.built || null : null, at: new Date().toISOString() });
+// The box as they left it: the words they typed come back as typed; a box still as the taps made it is written again from
+// their answers (syncLetter). A draft from before the box held the whole letter kept its points' words in pointsText.
+function restoreBox(x, d) {
+  if (d.edited) { x.edited = true; x.letter = String(d.letter ?? ''); x.built = d.built || partsOf(x); }
+  else if (x.pointsText !== pointsLine(x.points)) { x.edited = true; x.built = partsOf(x); x.letter = joinParts(x.built); }
+}
 function saveDraft() {
   const x = S.helper; if (!x) return;
+  const later = x.screen === 2 || x.screen === 3 || x.screen === 'acct' || x.screen === 'mail';   // past the bill step
+  const kept = later || x.edited || x.points.length > 0;
   if (isMail(x)) {
     const mail = { ...(loadMe().mail || {}) }, k = mailKey(x);
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
-    else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
-    else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
+    else if (later) mail[k] = draftOf(x);
+    else if (kept || mail[k]) mail[k] = { ...(mail[k] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, ...boxOf(x) };
     saveMe({ mail });
     return;
   }
   const drafts = { ...(loadMe().drafts || {}) };
   for (const [k, v] of Object.entries(drafts)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete drafts[k];
   if (x.screen === 'done') delete drafts[x.h.id];
-  // Back on the bill step with a letter already saved: the points they changed go with it.
-  else if ((x.screen === 'know' || x.screen === 1) && drafts[x.h.id]) drafts[x.h.id] = { ...drafts[x.h.id], points: x.points, pointsText: x.pointsText, use: x.use || null, at: new Date().toISOString() };
-  else if (x.screen === 2 || x.screen === 3 || x.screen === 'acct') drafts[x.h.id] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why, points: x.points, pointsText: x.pointsText,
-    away: !!x.away, back: !!x.back, left: x.leftAt || 0, again: !!x.again, update: !!x.update, use: x.use || null, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
+  else if (later) drafts[x.h.id] = draftOf(x);
+  // Back on the bill step: the record keeps where they got to before (a letter they had reached), and takes the box.
+  else if (kept || drafts[x.h.id]) drafts[x.h.id] = { ...(drafts[x.h.id] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, ...boxOf(x) };
   saveMe({ drafts });
 }
 
@@ -661,13 +753,12 @@ const seqOf = x => x.mode === 'intro' ? [1, 2, 'mail'] : x.remind ? ['stand', x.
 const stepNo = x => Math.max(1, seqOf(x).indexOf(x.screen) + 1);
 function goTo(screen) {
   const x = S.helper; if (!x) return;
-  if (screen === 2 && x.screen === 'again' && !x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; x.stale = false;
+  if (screen === 2 && x.screen === 'again' && !x.letterReady) { x.letter = againLetter(x); x.built = partsOf(x); x.letterReady = true; x.stale = false;
     if (isMail(x)) { x.subject = mailSubject(x); x.subjectEdited = false; } }
-  if (screen === 2 && (x.screen === 1 || (x.remind && x.screen === 'stand'))) {
-    const basis = basisOf(x);
-    if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; }
-    else x.stale = basis !== x.basis;
-    if (isMail(x) && !x.subjectEdited) x.subject = mailSubject(x);
+  // The bill step's box and the letter are one text (R-141), brought up to date with the answers each time either is shown.
+  else if (screen === 'know' || (screen === 2 && (x.screen === 1 || (x.remind && x.screen === 'stand')))) {
+    syncLetter(x);
+    if (screen === 2 && isMail(x) && !x.subjectEdited) x.subject = mailSubject(x);
   }
   if (screen === 'mail') {
     // The safety net (R-079): the message is on the clipboard before any button is chosen, in this same tap (a phone
@@ -847,25 +938,32 @@ const pickedIn = (x, text) => { const all = pointsOf(x), hs = heads(all); return
 // Where a point the person has rewritten sits in the box: from its opening words to the end of that sentence.
 function pointSpan(x, text, s) {
   const all = pointsOf(x), m = headRx(heads(all)[all.indexOf(s)] || wordsOf(s)).exec(text); if (!m) return null;
-  const end = /[.!?…]["”’)]*(?=\s|$)/.exec(text.slice(m.index + m[0].length));
-  return [m.index, end ? m.index + m[0].length + end.index + end[0].length : text.length];
+  // The point ends at its own full stop, never past its line: the box holds the whole letter now, so a point they rewrote
+  // with no full stop must not run on into the sentence after it.
+  const from = m.index + m[0].length, nl = text.indexOf('\n', from), lim = nl < 0 ? text.length : nl;
+  const end = /[.!?…]["”’)]*(?=\s|$)/.exec(text.slice(from, lim));
+  return [m.index, end ? from + end.index + end[0].length : lim];
 }
+// Takes one point's sentence out of the text. A point that was a paragraph of its own takes its blank lines with it.
 function cutPoint(text, s) {
   const i = text.indexOf(s); if (i < 0) return text;
   const before = text.slice(0, i).replace(/[ \t]+$/, ''), after = text.slice(i + s.length).replace(/^[ \t]+/, '');
-  return (before + (before.trim() && after.trim() && !/\n$/.test(before) && !/^\n/.test(after) ? ' ' : '') + after).trim();
+  return (before + (before.trim() && after.trim() && !/\n$/.test(before) && !/^\n/.test(after) ? ' ' : '') + after).replace(/\n{3,}/g, '\n\n').trim();
 }
 // What the letter says for the points: the box, but only while points are offered (someone who changed their stance to
 // one HIPHI's points argue against never sends them).
 // A letter sent again keeps the person's own words for the points (x.keepPts) even if HIPHI has since changed the list,
 // unless they changed sides (then HIPHI's points would argue against them).
 const ownPoints = x => x.b && (pointsOf(x).length || x.keepPts) ? String(x.pointsText || '').trim() : '';
+// This step's job (B-1, R-141 rework): "A person comes here to choose the points they will make in their email or letter."
+// Its box is the whole text they will send, so the points, the greeting and the ask are all visible before they go on.
 function knowScreen() {
   const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = isMail(x) ? null : dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
-  const act = sentence(b.hiphi_action);
+  const act = sentence(b.hiphi_action), word = isMail(x) ? 'email' : 'letter';
+  // One row per point: its words, and a plus button, "Add this point", that says whether the point is in the box (R-141).
   const pt = (s, i) => { const on = x.points.includes(s);
-    return `<li><button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}"><span class="hp-pti" aria-hidden="true">${icon(on ? 'check' : 'plus')}</span>
-      <span class="hp-ptt">${esc(s)}</span><span class="hp-pta" aria-hidden="true">${on ? 'Added' : 'Add'}</span></button></li>`; };
+    return `<li class="hp-ptrow${on ? ' on' : ''}"><p class="hp-ptt" id="hp-pt-${i}">${esc(s)}</p>
+      <button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}" aria-label="Add this point" aria-describedby="hp-pt-${i}">${icon(on ? 'check' : 'plus')}<span>${on ? 'Added' : 'Add'}</span></button></li>`; };
   return `<div class="hp-top">${screenHead(0, x.again ? 'Update your letter' : 'Get to know the bill')}
       <p class="hp-sub">${x.again ? 'What changed, the bill as it is now, and your points. Your letter keeps your words until you change them.' : 'A minute with what it does, then we’ll help you write.'}</p></div>
     ${due?.late ? lateBanner(h) : ''}
@@ -880,11 +978,11 @@ function knowScreen() {
       ${isMail(x) ? whyNow(x) : ''}
     </div>
     ${pts.length ? `<section class="hp-ptsec" aria-labelledby="hp-pth"><h4 class="hp-knh" id="hp-pth">Points you can make</h4>
-        <p class="help" id="hp-pthelp">Tap any to add it to your ${isMail(x) ? 'email' : 'letter'}, or skip them.</p>
+        <p class="help" id="hp-pthelp">Tap Add to put a point in your ${word}, or skip them.</p>
         <ul class="hp-pts" role="list" aria-describedby="hp-pthelp">${pts.map(pt).join('')}</ul>
-        ${x.points.length || x.pointsText.trim() ? `<div class="field hp-ptbox"><label for="hp-pts">In your ${isMail(x) ? 'email' : 'letter'}</label>
-          <textarea id="hp-pts" class="hp-ptsta" rows="2" aria-describedby="hp-pts-help" spellcheck="true" autocapitalize="sentences">${esc(x.pointsText)}</textarea>
-          <span class="help" id="hp-pts-help">Change any words you like. Next, you’ll add your name and why it matters to you.</span></div>` : ''}</section>`
+        <div class="field hp-ptbox"><label for="hp-letter">In your ${word}</label>
+          <textarea id="hp-letter" class="hp-letter hp-ptsta" rows="6" aria-describedby="hp-pts-help" spellcheck="true" autocapitalize="sentences">${esc(x.letter)}</textarea>
+          <span class="help" id="hp-pts-help">Change any words you like. Next, you’ll check your name and why it matters to you.</span></div></section>`
       : `<p class="hp-own">${icon('pencil')}<span>${x.stance && x.stance !== hiphiStance(b) ? `Next, you’ll say what you think in your own words. That is what ${x.mode === 'legislators' ? 'your legislator' : 'the committee'} wants to hear.` : 'Next, you’ll add why it matters to you, in a sentence or two.'}</span></p>`}`;
 }
 
@@ -1381,11 +1479,28 @@ function paintFoot() {
   if (had) f.querySelector('.hp-main')?.focus({ preventScroll: true });
 }
 function afterPaint() {
-  grow(dlg.querySelector('#hp-letter')); grow(dlg.querySelector('#hp-pts'));
+  grow(dlg.querySelector('#hp-letter'));
   wireTitles();
   if (dlg.querySelector('.nudgecard')) wireNudge(dlg, { pfx: 'hp-ng', redraw: () => paint() });
 }
-function grow(t) { if (!t) return; t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; }
+// A box grows with its text, so it never scrolls inside the dialog's own scroll. The box under the points (R-141, rework
+// 10/10) is the exception: it is capped at about a third of the screen and scrolls inside itself, so on a phone the points
+// above it stay on screen.
+function grow(t) {
+  if (!t) return;
+  const cap = t.classList.contains('hp-ptsta') ? Math.max(150, Math.round(innerHeight * 0.36)) : Infinity;
+  t.style.height = 'auto'; const h = t.scrollHeight + 2;
+  t.style.height = `${Math.min(h, cap)}px`; t.style.overflowY = h > cap ? 'auto' : 'hidden';
+}
+// Each point's Add or Added, redrawn in place while they type, so their focus and place stay.
+function refreshPoints() {
+  const x = S.helper, all = pointsOf(x);
+  dlg?.querySelectorAll('[data-hp="point"]').forEach(b => {
+    const on = x.points.includes(all[+b.dataset.i]); if (b.getAttribute('aria-pressed') === String(on)) return;
+    b.setAttribute('aria-pressed', String(on)); b.innerHTML = `${icon(on ? 'check' : 'plus')}<span>${on ? 'Added' : 'Add'}</span>`;
+    b.closest('.hp-ptrow')?.classList.toggle('on', on);
+  });
+}
 // A point tapped in goes into the box under the list (R-141: "an editable box that they can see"). On a phone the box is
 // often below the fold, so the list moves up just enough to show it, never so far that the point just tapped goes off the top.
 function showBox() {
@@ -1602,8 +1717,7 @@ function onClick(e) {
     if (v === 'titles') x.use = was ? [] : null;
     else if (v === 'live') x.noLive = was;
     else if (v === 'why') x.noWhy = was;
-    const basis = basisOf(x);
-    if (!x.edited) { x.letter = letterOf(x); x.basis = basis; x.stale = false; } else x.stale = basis !== x.basis;
+    syncLetter(x);
     x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-says-' + v });
     announce(was ? 'Left out.' : 'Put back in.');
   }
@@ -1635,20 +1749,31 @@ function onClick(e) {
   else if (a === 'back') goBack();
   else if (a === 'stance') { const was = S.helper.stance; S.helper.stance = t.dataset.v; if (S.helper.again && was !== t.dataset.v) restance(S.helper); if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
   else if (a === 'point') {
-    // Add or take out one talking point. While the box is as the taps made it, it keeps the order the bill lists them,
-    // so the letter reads the same way; once the person has written in it, a tap adds at the end or cuts just that point.
+    // Add or take out one talking point (R-141). The box holds the whole letter, so a tap writes the point's words into it:
+    // after the points it has, or as a paragraph before the reason and the ask when it has none. Until the person types in
+    // the box, it is written again from the taps, in the order the bill lists them. Once they have, a tap takes out just
+    // the sentence it put in; a point they rewrote is never cut: it is selected in the box, so one Delete takes it out.
     const x = S.helper, all = pointsOf(x), s = all[+t.dataset.i]; if (!s) return;
-    const on = !x.points.includes(s);
-    if (!on && x.pointsText.trim() !== pointsLine(x.points) && !x.pointsText.includes(sentence(s))) {
+    const on = !x.points.includes(s), sent = sentence(s);
+    if (!x.edited) {
+      const set = new Set(on ? [...x.points, s] : x.points.filter(p => p !== s));
+      x.points = all.filter(p => set.has(p)); x.pointsText = pointsLine(x.points);
+      syncLetter(x);
+    } else if (on) {
+      const last = pickedIn(x, x.letter).map(p => pointSpan(x, x.letter, p)).filter(Boolean).sort((p, q) => q[1] - p[1])[0];
+      x.letter = last ? `${x.letter.slice(0, last[1])} ${sent}${x.letter.slice(last[1])}` : insertPiece(x, sent);
+      x.points = pickedIn(x, x.letter); x.pointsText = spansOf(x, x.letter);
+    } else if (x.letter.includes(sent)) {
+      x.letter = cutPoint(x.letter, sent);
+      x.points = pickedIn(x, x.letter); x.pointsText = spansOf(x, x.letter);
+    } else {
       // They rewrote this point: never cut their writing. Select it in the box, so one press of Delete takes it out.
-      const box = dlg?.querySelector('#hp-pts'), span = box && pointSpan(x, box.value, s); if (!span) return;
+      const box = dlg?.querySelector('#hp-letter'), span = box && pointSpan(x, box.value, s); if (!span) return;
       box.focus(); box.setSelectionRange(span[0], span[1]);
       announce('Selected in the box. Press Delete to take it out.');
       return;
     }
-    if (x.pointsText.trim() === pointsLine(x.points)) { const set = new Set(on ? [...x.points, s] : x.points.filter(p => p !== s)); x.pointsText = pointsLine(all.filter(p => set.has(p))); }
-    else x.pointsText = on ? `${x.pointsText.trimEnd()} ${sentence(s)}`.trim() : cutPoint(x.pointsText, sentence(s));
-    x.points = pickedIn(x, x.pointsText); saveDraft();
+    x.copied = x.saved = false; saveDraft();
     paint({ focus: undefined }); dlg?.querySelector(`[data-hp="point"][data-i="${t.dataset.i}"]`)?.focus({ preventScroll: true });
     if (on) showBox();
     announce(on ? `Added to your ${isMail(x) ? 'email' : 'letter'}` : `Taken out of your ${isMail(x) ? 'email' : 'letter'}`);
@@ -1679,7 +1804,7 @@ function onClick(e) {
     // Walk the bill step and About you again with their words in place; a hand-written letter stays theirs (the letter
     // screen offers "Use my new details" if they change an answer).
     const x = S.helper; x.update = true;
-    if (!x.letterReady) { x.letter = againLetter(x); x.basis = basisOf(x); x.letterReady = true; }
+    if (!x.letterReady) { x.letter = againLetter(x); x.built = partsOf(x); x.letterReady = true; }
     if (x.check?.level !== 'big') app.onAct?.('again_fixed'); goTo('know');
   }
   else if (a === 'again-new' || a === 'again-forget') {
@@ -1690,7 +1815,7 @@ function onClick(e) {
     // A new letter asks where they stand (R-167), the answer already chosen: their stance on the bill page, else the
     // kept letter's.
     const mine = myStance(x.b.id);
-    Object.assign(x, { again: null, update: false, check: null, letterReady: false, keepPts: false, mentions: [], points: [], pointsText: '', letter: '', edited: false, basis: '', stale: false });
+    Object.assign(x, { again: null, update: false, check: null, letterReady: false, keepPts: false, mentions: [], points: [], pointsText: '', letter: '', edited: false, built: null, stale: false });
     x.stance = mine === 'support' || mine === 'oppose' ? mine : x.stance || null; x.fromBill = x.stance === mine ? mine : null;
     goTo('stand');
     if (a === 'again-forget') announce('Your saved letter is deleted.');
@@ -1700,7 +1825,7 @@ function onClick(e) {
     const x = S.helper, r = x.forgotten; if (!r) return;
     x.forgotten = null; keepLetter(r.rec); againFrom(x, r, loadMe()); x.screen = 'again'; paint({ focus: 'hp-sh', top: true }); announce('Your letter is back.');
   }
-  else if (a === 'rewrite') { const x = S.helper; x.letter = letterOf(x); x.basis = basisOf(x); x.edited = false; x.stale = false; x.copied = x.saved = false; paint({ focus: 'hp-letter' }); }
+  else if (a === 'rewrite') { const x = S.helper; x.edited = false; syncLetter(x); x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-letter' }); }
   // 'capitol' is a plain link to the Capitol site in a new tab.
 }
 function onInput(e) {
@@ -1720,18 +1845,13 @@ function onInput(e) {
     // leaving the field or choosing See my letter) clears as soon as the address looks right, or the box is empty.
     const v = t.value.trim(); x.email = t.value; saveMe({ email: v });
     if (x.errs.email && (!v || validEmail(v))) setErr('email', false);
-  } else if (t.id === 'hp-pts') {
-    // Their own words for the points (R-141). A point whose words are no longer all there shows Add again.
-    x.pointsText = t.value; x.points = pickedIn(x, t.value); grow(t); saveDraft();
-    const all = pointsOf(x);
-    dlg.querySelectorAll('[data-hp="point"]').forEach(b => {
-      const on = x.points.includes(all[+b.dataset.i]); if (b.getAttribute('aria-pressed') === String(on)) return;
-      b.setAttribute('aria-pressed', String(on)); b.querySelector('.hp-pti').innerHTML = icon(on ? 'check' : 'plus'); b.querySelector('.hp-pta').textContent = on ? 'Added' : 'Add';
-    });
   } else if (t.id === 'hp-subject') {
     x.subject = t.value; x.subjectEdited = true;
   } else if (t.id === 'hp-letter') {
+    // The box and the letter are one text (R-141): what they type is what is sent. A point whose words are no longer all
+    // there shows Add again, and one that is there shows Added.
     x.letter = t.value; x.edited = true; x.typed = true; grow(t);
+    if (x.b) { x.points = pickedIn(x, t.value); x.pointsText = spansOf(x, t.value); refreshPoints(); }
     const sm = dlg.querySelector('[data-hp="selfmail"]'); if (sm) sm.href = selfMail(x);   // the copy to themselves carries their edits
     if (x.copied || x.saved || x.copyFail) { x.copied = x.saved = x.copyFail = false; paintFoot(); dlg.querySelector('.hp-under .okmsg')?.remove(); }
   }
