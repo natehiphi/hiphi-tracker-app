@@ -177,49 +177,10 @@ function milestoneState(acts) {
 }
 const chipsHtml = got => got.length ? `<ul class="chips hm-chips" aria-label="Milestones you have reached">${got.map(([, t, d]) => `<li class="chip yay" title="${esc(cap(d))}">${flower(16)}${esc(t)}</li>`).join('')}</ul>` : '';
 
-// One dot per week of the session, filled when you acted that week. Empty weeks simply stay empty: hearings come
-// in bursts and nobody owes the Legislature a streak. Weeks run Monday to Sunday, Hawaiʻi time.
-// Fix (walkthrough 9/18): the old dots compared against Monday noon, so an action on Monday morning left the
-// current week "ahead" and grey. A week is ahead only when it is not the current week and starts after now.
-function weeks(si, mine) {
-  const monday = t => { const d = hstDay(t), dow = new Date(d + 'T12:00:00-10:00').getUTCDay(); return hiT(d) - ((dow + 6) % 7) * 864e5; };
-  const now = Date.now(), H12 = 12 * 36e5, W = 7 * 864e5, dots = [];
-  let k = 0;
-  // From the week of their first action, not the session's first week: someone who joined in March saw nine empty
-  // dots, which read as "missed" (R-067).
-  const first = mine.map(a => a.at).filter(Boolean).sort()[0], start = Math.max(monday(hiT(si.open)), first ? monday(+new Date(first)) : 0);
-  for (let w = start; w <= hiT(si.end); w += W) {
-    const from = w - H12, to = w + W - H12;   // Monday 00:00 to the next Monday 00:00 in Honolulu
-    const acted = mine.some(a => a.at && +new Date(a.at) >= from && +new Date(a.at) < to), cur = now >= from && now < to, ahead = !cur && from > now;
-    if (acted) k++;
-    dots.push(`<i class="${[ahead && 'ahead', cur && 'now', acted && 'on'].filter(Boolean).join(' ')}"></i>`);
-  }
-  return `<div class="hm-weekbox"><div class="hm-weeks" role="img" aria-label="You took action in ${plural(k, 'week')} of the session so far">${dots.join('')}</div>
-    <p class="meta">Each dot is a week. Filled means you took action.</p></div>`;
-}
-
-// ---------------- Your session: the person's own progress ----------------
-// Counts of what they have done (zeros are left out: nobody needs "0 actions" read back to them), the weeks, the
-// milestones earned, how far the next one is, and what happened after they acted. On the first visit the chips sit
-// in the page heading instead (they were just earned), and no action milestone is dangled as "next".
-// skip: bills already in the "Since you were here" strip above, so a result is not said twice on one Home (A-14).
-function sessionPanel(si, { welcome = false, skip = new Set() } = {}) {
-  const all = myActions(), mine = all.filter(a => !a.year || a.year === si.yr);
-  const thisYear = b => !b || !b.session_year || b.session_year === si.yr;
-  // Issues first (R-018): what the person follows is issues; a follower of single bills only still sees their bills.
-  const nIss = followedIssues().length, follows = nIss || S.bills.filter(thisYear).length;
-  const stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && thisYear(anyBill(id))).length;
-  const ms = milestoneState(all), rows = impacts(mine).filter(x => !skip.has(x.b.id));
-  const stat = (k, label, href) => !k ? '' : href ? `<li><a class="hm-stat" href="${href}" data-hm-stat="bills"><b>${n(k)}</b><span>${label}${icon('chevron-right')}</span></a></li>` : `<li><span class="hm-stat"><b>${n(k)}</b><span>${label}</span></span></li>`;
-  return `<section class="card hm-panel" aria-labelledby="hm-ys"><h2 id="hm-ys" class="hm-ptitle">${flower(24)}<span>Your ${si.yr} session</span></h2>
-    <ul class="hm-stats">${stat(follows, nIss ? (follows === 1 ? 'issue followed' : 'issues followed') : (follows === 1 ? 'bill followed' : 'bills followed'), '#/bills')}${stat(stands, stands === 1 ? 'stand taken' : 'stands taken')}${stat(mine.length, mine.length === 1 ? 'action' : 'actions')}</ul>
-    ${mine.length ? weeks(si, mine) : `<p class="muted small">${welcome ? 'Your progress adds up here through the session.' : 'Your first action will show up here, with what happened after it.'}</p>`}
-    ${welcome ? '' : chipsHtml(ms.got)}${''/* no "Next:" goal since 9/27: a quiet record, not a badge ladder (C-7; R-067 decision 8b) */}
-    ${rows.length ? `<h3 class="hm-label">What happened after you acted</h3>${impList(rows.slice(0, 2), 2)}` : ''}${''/* the rest are on the session page, below */}
-    ${DEMO && S.demoSeeded ? '<p class="meta">Sandbox: three sample actions are filled in so this panel has something to show.</p>' : ''}
-    ${!welcome && (mine.length || follows) ? btn('See your whole session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link' }) : ''}
-  </section>`;
-}
+// The session's record, its counts, milestones and what happened after each action, is its own page (#/recap, R-046).
+// Home links to it once, from the greeting (R-222, Nate 10/10: the "Your session" panel under the list was a second
+// record of the same actions, and the weeks' dots a streak nobody owes; the session page has the rest).
+const sessionLink = si => btn(`See your ${si.yr} session`, { kind: 'text', iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-link hm-seslink' });
 
 // What’s new (the last 7 days on my bills) left Home 10/10 (R-222 step 1): status was told five ways there; My issues
 // keeps each bill’s latest news, and the new Home says what changed as one word on the issue’s row.
@@ -650,11 +611,11 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   const plans = goingPlans(new Set(cards.map(x => x.h.id))), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
   // What they did and when the committee hears it (X10-2), but not for a card still drawn in place below (one done while
   // they were here) or a plan to go, each of which says it already.
-  const loop = loopCard(new Set([...cards.map(x => x.h.id), ...plans.map(p => p.h.id)])), inLoop = S.hmLoopB;
+  const loop = loopCard(new Set([...cards.map(x => x.h.id), ...plans.map(p => p.h.id)]));
   // The good news cards (goodNewsBlock) come under the plan to go and above the rest of what happened; the since rows and
   // the side column leave out whatever they say (A-14).
   const gn = goodNewsBlock(new Set(cards.slice(0, 2).map(x => x.b.id))), wide = wideNow();
-  const since = sinceStrip(inCards, gn), inSince = new Set([...S.hmSinceShown, ...inLoop, ...gn.bills]);
+  const since = sinceStrip(inCards, gn);
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
@@ -673,7 +634,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}${sessionLink(si)}</header>
       ${byIssue ? issueBlock(cards, asks) : todoBlock(cards, asks)}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
@@ -681,7 +642,6 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
       ${profileLine()}
     </div><div class="side hm-side">
       ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
-      ${sessionPanel(si, { skip: inSince })}
       ${meetCard()}
       ${sugInMain ? '' : sugHtml}
     </div></div>
@@ -749,9 +709,7 @@ function welcomeView(si, { cards, asks, total }) {
           ${step('circle-check', 'You see what happened.', 'When a committee decides, the result shows up here and in My issues.')}
         </ul></section>`}
       ${ask}
-    </div>${fin ? '' : `<div class="side hm-side">
-      ${sessionPanel(si, { welcome: true, skip: S.hmLoopB })}
-    </div>`}</div>
+    </div></div>
   </div>`;
 }
 
