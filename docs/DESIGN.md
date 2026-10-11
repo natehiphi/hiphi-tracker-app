@@ -345,6 +345,21 @@ island drawings in `pub/art.js` are the house example and should be reached for 
 *Reason.* A flat overlay ruins the image and still under-serves the text. Real graphics are also the
 single biggest lever on whether a first-time visitor trusts what they are looking at (C-11).
 
+### A-23 Home has a budget
+
+Home is the screen people come back to, so it has a budget measured on the whole page, not only the first screen:
+**at most four blocks, of at most two shapes** (a card, rows); **one filled button**; **each bill named once**; on a
+phone **under two screens for someone following 3 issues and three screens for 16**; one row per issue followed. A new
+thing for Home replaces something already there, or goes elsewhere (the issue's page, My issues, More, the Mahalo after
+an action). Checked on every push by `tests/home_calm.py` on the calm Home (R-222), in eight moments for three people,
+at phone and laptop size.
+
+*Reason.* A-1 measures the first screen, and Home passed it while the page under it grew a block for nearly every
+request about coming back: 3,126px, 10 blocks of 9 shapes and 3 filled buttons for a follower of three issues, 5,206px
+for sixteen (the review of 10 Oct 2026, R-222). People came back to a page that was different every time and said the
+same bill up to four ways. A budget on the whole page is what stops it growing back (A-8: prefer removing a card to
+adding one; A-13: one focal point).
+
 ---
 
 ## Part B — Flow
@@ -511,7 +526,9 @@ which is A-1 again.
 ### B-14 Things to do are never folded away, and the button that leads to them says so
 
 On Home, every thing a person can do this week is on the page: the soonest as a full card, the rest one line each, none
-behind "Show more", "Ready now?" or a closed fold. Folds stay for what is done ("Done this week"), for results, and for
+behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
+names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
+week"), and "Show the next one" brings each up as the card; a row is never silent about something due. Folds stay for what is done ("Done this week"), for results, and for
 detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
 first visit ends on **"See How I Can Help"**, and Home opens on exactly that (C-6: the next screen keeps the button's
 promise).
@@ -812,6 +829,7 @@ synonym is a small tax on every reader; for people reading in a second language 
 | First visit: reading text / lead sentence (C-14) | 16px+ (14px labels only) / 30 words | as budget | `tests/fv_type.py` |
 | Distinct text colours in view (A-5) | 7 | — | `tests/density.py` |
 | Touch target (A-6) | 44px | 44px | `tests/checks.py` |
+| Home, the whole page (A-23) | 4 blocks of 2 shapes, 1 filled button, each bill once | 2 phone screens for 3 issues, 3 for 16 | `tests/home_calm.py` |
 | Text contrast (A-7) | 4.5:1 | 4.5:1 | `DESIGN-AUDIT.md` |
 | Breakpoints (A-9) | 360/900/1100 | — | grep |
 | Journey steps (B-2) | per table | — | by hand (gap G-1) |

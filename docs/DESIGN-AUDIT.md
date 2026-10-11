@@ -190,6 +190,16 @@ is over the budget of 15 and well inside the limit of 25: a backlog item, not a 
   and 32px on start, Home, bill, My issues, Find and More: no page wider than 375px, no clipped button.
   Unchanged at the normal text size (the em values equal the old px).
 
+### Closed on 2026-10-10 on the build branch (R-222, the calm Home; with Home's whole-page budget, A-23)
+- **Home was a stack of every request's block.** Measured on the practice copy, phone: Kai (3 issues) 3,126px, 10 blocks
+  of 9 shapes, 3 filled buttons; Leilani (16 issues) 5,206px. The calm Home (the layout test's version A, `pub/calm/home.js`):
+  Kai 1,209px, Leilani 2,165px Monday and 2,208px Tuesday, between sessions 1,052px and 2,266px; 4 blocks of 2 shapes and
+  one filled button in every moment (`tests/home_calm.py`, 154 checks). Today's Home lost its nine extra blocks too (the
+  profile form to one line, Your session and the recap to one link, What's new, the phone card, Meet HIPHI, the
+  suggestion beside a list, new issues, What happens next, the Legislative Recap link). Live after Nate's look (26 Oct).
+- **Bill names in three faces on Home** (A-19): the rows and the issue list are Poppins now, as the cards are.
+- **An orange icon on a count** (A-5): "N people have acted" is grey.
+
 ### Still open
 **G-3 — 23 breakpoints, two colliding at 360px.** The apps use 280, 340, 359, 360, 379, 380, 399,
 420, 599, 600, 640, 700, 720, 760, 899, 900, 999, 1000, 1099, 1100, 1359, 1400 and 1600. Three of

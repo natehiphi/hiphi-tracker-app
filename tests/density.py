@@ -59,9 +59,10 @@ PUB = [
   ('profile',     '/profile',      'the invitation',       '.pf-invite .card, .pf-invite form, .pf .card'),
   ('privacy',     '/privacy',      'what we have on you',  '.mr-facts section'),
 ]
-# R-187: version A (the live test 'layout'), on the same returning visitor: Home and a bill page, the two screens it changes.
+# R-187: version A of the live test 'layout', on the same returning visitor. Since R-222 it is the calm Home and changes
+# Home only; the bill page is measured once more as a check that it is today's.
 PUB_A = [
-  ('home-a',      '/',             'what needs you',       '.a-now, .a-calm, .a-news.lead, .ah .a-sec'),
+  ('home-a',      '/',             'what needs you',       '.cm-card, .cm-issues'),
   ('bill-a',      '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
 ]
 SV = [

@@ -59,7 +59,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-alert:empty, .st-alerting .st-sure, .st-surewide { display: none; }
 
 /* ---- Your issues, 1: six tiles, most important first; the whole tile is the toggle ---- */
-.st-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.st-tiles { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }   /* minmax: a long name in Poppins (A-19) wraps instead of widening the tile at 320px */
 .st-issue { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; min-height: 0; padding: 14px 12px 12px; text-align: left;
   background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1);
   transition: background .15s, border-color .15s, box-shadow .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
@@ -70,7 +70,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-ilead .ic-loader-circle { animation: spin 1s linear infinite; }
 .st-issue[aria-pressed="true"] .st-ilead { background: var(--p700); color: var(--n0); }
 .st-issue .st-tick { position: absolute; top: 10px; right: 10px; }
-.st-iname { font-family: var(--font-h); font-weight: 600; letter-spacing: -.01em; color: var(--n900); line-height: 1.25; padding-right: 26px; }   /* an issue's name is a heading wherever it stands (A-19) */
+.st-iname { font-family: var(--font-h); font-weight: 600; letter-spacing: -.01em; color: var(--n900); line-height: 1.25; padding-right: 26px; overflow-wrap: break-word; max-width: 100%; }   /* an issue's name is a heading wherever it stands (A-19) */
 .st-idesc { font-size: var(--t14); line-height: 1.35; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* "9 issues moving" is a fact about the tile, not something to tap: dark text, never the link blue (A-5, A-12; X9-1, R-180). */
 .st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--n700); }

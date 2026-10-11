@@ -341,7 +341,8 @@
 .cm .cm-head .eyebrow { font-weight: 400; }
 .cm .cm-head .lede { margin: 0; color: var(--n700); }
 .cm .cm-head .lede b { color: var(--n900); }
-.cm .cm-head .hm-seslink, .cm .cm-head .hm-meetline { margin-top: 0; }
+.cm .cm-head .hm-seslink { margin-top: 0; }
+.cm .cm-lines .hm-meetline { margin: 0; }
 .cm .cm-card { display: flex; flex-direction: column; gap: var(--s8); }
 .cm .cm-next { margin: 0; display: flex; justify-content: flex-end; }
 .cm .cm-seen { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0; color: var(--n700); }
@@ -353,10 +354,10 @@
 .cm .cm-row:hover { background: var(--n50); }
 .cm .cm-rtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 /* An issue's name is a heading wherever it stands (A-19). */
-.cm .cm-rname { font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.cm .cm-rname { font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
 .cm .cm-rstat { font-size: var(--t14); color: var(--n700); }
 .cm .cm-rstat.warn { color: var(--warn-text); font-weight: 700; }   /* amber only inside 24 hours (A-5) */
-.cm .cm-new { color: var(--p700); font-weight: 700; }
+.cm .cm-new { display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 1px 8px; border-radius: var(--pill); background: var(--p50); color: var(--p800); font: 700 var(--t13)/1.4 var(--font); letter-spacing: 0; }   /* a label, not a link: a wash, after the name (A-5) */
 .cm .cm-chev { flex: none; color: var(--n400); }
 .cm .cm-all { margin: var(--s4) 0 0 -12px; }
 .cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }

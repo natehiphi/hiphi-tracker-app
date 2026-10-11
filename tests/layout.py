@@ -1,10 +1,11 @@
-# Version A as a live A/B test (R-187, Nate 10/6: "Put version A on the tester sheet and put it on the A/B testing now";
-# pub/variant.js 'layout', pub/a/, backend migration 149).
+# The layout test (R-187, pub/variant.js 'layout', backend migration 149). Since R-222 (10/10) its version A is the calm
+# Home (pub/calm/home.js, Direction 1) and the test compares Home only: the bill page and the tabs are today's on both;
+# R-071's Layout A stays on the practice copy with &olda, for the compare page.
 #   1. the practice copy, both versions forced, a returning follower (Kai, as compare.html sets him up) on a phone and a
-#      laptop: version A's Home, tabs and bill page against today's; Your session stays today's; the old address and the
-#      compare page lead to it; nothing wider than the screen; no page errors
+#      laptop: the calm Home against today's, the same bill page and tabs; Your session stays today's; the old address and
+#      the compare page (three buttons) lead to it; nothing wider than the screen; no page errors
 #   2. "Next day": right after the first visit Home keeps its welcome shape in both versions; Next day is Tuesday, with
-#      version A's own Home, and the layout test is met there and on a bill page, never on the welcome Home
+#      the calm Home's everyday shape, and the layout test is met there, never on the welcome Home or a bill page
 #   3. the counting, every database request intercepted: the toss gives a version of 'layout', the switch off gives
 #      today's, a page-swapping test keeps its version for the page load, and Home's-top test is never counted on version A
 #   4. Staff v2: the Tests card, its See it links, and the tester sheet: a group on version A, Home's top replaced by it,
@@ -42,51 +43,47 @@ with sync_playwright() as p:
             pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
             if arm == 'a':
-                ok(pg.locator('#main .ah').count() == 1 and 'Aloha, Kai' in pg.locator('h1').first.inner_text(), f'{size} A: Home is version A’s (“Aloha, Kai”)')
-                ok(pg.locator('.a-now').count() == 1 and 'Write my testimony' in pg.locator('.a-now').inner_text(), f'{size} A: the Now card leads with the soonest testimony deadline')
-                ok(pg.locator('#a-wk-h').count() == 1 and pg.locator('#a-st-h').count() == 1, f'{size} A: This week on your issues, then Where your issues stand')
-                ok(pg.evaluate("document.body.classList.contains('va')") and pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')?.sheet"), f'{size} A: its look is on (body.va, pub/a/a.css)')
-                if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'You'], f'{size} A: the tabs are Home, My issues, Find, You {tabs(pg)}')
-                else: ok('You' in pg.locator('.hnav').inner_text() and 'More' not in pg.locator('.hnav').inner_text(), f'{size} A: the header’s tabs end with You')
+                ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and 'Aloha, Kai' in pg.locator('h1').first.inner_text(), f'{size} A: Home is the calm Home (“Aloha, Kai”)')
+                ok(pg.locator('.cm-card .acard').count() == 1 and 'Write my testimony' in pg.locator('.cm-card').inner_text(), f'{size} A: one card, the soonest testimony deadline')
+                ok(pg.locator('#cm-iss-h').count() == 1 and pg.locator('.cm-rows .cm-row').count() == 3, f'{size} A: then Your issues, one row each ({pg.locator(".cm-rows .cm-row").count()})')
+                ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} A: Layout A’s look is not loaded')
+                if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} A: today’s tabs {tabs(pg)}')
+                else: ok('More' in pg.locator('.hnav').inner_text(), f'{size} A: the header’s tabs are today’s')
             else:
                 ok(pg.locator('#main .ah').count() == 0 and pg.locator('#main .hm-follow').count() == 1, f'{size} today: Home is today’s')
                 ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} today: version A’s look is never loaded')
                 if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} today: the tabs end with More {tabs(pg)}')
             ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{size} {arm}: Home has no sideways scroll')
+            ok(seen(pg).get('layout', {}).get('arm') == arm, f'{size} {arm}: Home meets the layout test, as {arm} ({seen(pg).get("layout")})')
             pg.screenshot(path=os.path.join(OUT, f'layout_home_{arm}_{size}.png'))
             # the bill page
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
             trk, stat = pg.locator('.a-track').count(), pg.locator('.bl-status').count()
-            if arm == 'a': ok(trk == 1 and stat == 0 and 'step 3 of 6' in pg.locator('.a-track').inner_text(), f'{size} A: the bill page opens on where it is (“In the Senate, step 3 of 6”)')
-            else: ok(trk == 0 and stat == 1, f'{size} today: the bill page has today’s status card')
+            ok(trk == 0 and stat == 1, f'{size} {arm}: the bill page is today’s, with its status card (the test compares Home only)')
             ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{size} {arm}: the bill page has no sideways scroll')
             pg.screenshot(path=os.path.join(OUT, f'layout_bill_{arm}_{size}.png'))
-            ok(seen(pg).get('layout', {}).get('arm') == arm, f'{size} {arm}: a bill page meets the layout test, as {arm} ({seen(pg).get("layout")})')
             if mobile:
                 # a saved letter for the hearing the first card offers: one button for it, not two (the fresh-eyes review)
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); pg.reload(); ready(pg)
-                hid = pg.get_attribute('.a-now [data-helper]' if arm == 'a' else '#main .acard [data-helper]', 'data-helper')
+                hid = pg.get_attribute('#main .acard [data-helper]', 'data-helper')
                 pg.evaluate("hid => { const m = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); m.drafts = { [hid]: { body: 'Aloha', at: new Date().toISOString() } }; localStorage.setItem('hiphi_me', JSON.stringify(m)); }", hid)
                 pg.reload(); ready(pg)
                 if arm == 'a':
-                    ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.a-now').inner_text(), 'A: a saved letter shows once, as the Now card’s “Finish sending your testimony”')
+                    ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.cm-card .acard').inner_text(), 'A: a saved letter shows once, as the card’s “Finish sending your testimony”')
                 else:
                     ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('#main .hm-now .acard').first.inner_text(), 'today: a saved letter shows once, as the first card’s “Finish sending your testimony” (R-189)')
                 pg.evaluate("() => { const m = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); delete m.drafts; localStorage.setItem('hiphi_me', JSON.stringify(m)); }")
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
             if arm == 'a' and mobile:
-                # the bill page's tour finds version A's tracker and its main button (in the "what's next" card on a phone)
-                pg.evaluate("localStorage.removeItem('hiphi_tour_bill')"); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
-                tips = pg.evaluate("""async () => { document.querySelector('[data-bl-billtour]')?.click(); await new Promise(r => setTimeout(r, 1500)); const out = [];
-                  for (let i = 0; i < 5; i++) { const t = document.querySelector('.tr-tip'); if (!t) break; out.push(t.querySelector('h2, h3, strong, b')?.innerText || t.innerText.split('\\n')[2]);
-                    const n = [...t.querySelectorAll('button')].find(x => x.innerText.trim() === 'Next'); if (!n) break; n.click(); await new Promise(r => setTimeout(r, 900)); } return out.join(' / '); }""")
-                ok('Where it is now' in tips and 'How you can help' in tips, f'A: the bill page’s tour shows where it is and how to help ({tips})')
-                # Your session stays today's (version A's Home sends it there)
+                # Your session stays today's
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.a#/recap'); pg.reload(); ready(pg)
-                ok(pg.locator('#main .ah').count() == 0 and pg.locator('#main .hm').count() == 1, 'A: Your session (#/recap) is today’s page, not version A’s Home')
+                ok(pg.locator('#main .cm').count() == 0 and pg.locator('#main .hm').count() == 1, 'A: Your session (#/recap) is today’s page, not the calm Home')
                 # Home's top test: never met on version A
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.a,home.by-issue#/'); pg.reload(); ready(pg)
-                ok(pg.locator('.hm-byissue').count() == 0 and pg.locator('#main .ah').count() == 1 and 'home' not in seen(pg), 'A: Home’s-top test is neither drawn nor met on version A')
+                ok(pg.locator('.hm-byissue').count() == 0 and pg.locator('#main .cm').count() == 1 and 'home' not in seen(pg), 'A: Home’s-top test is neither drawn nor met on version A')
+                # R-071's Layout A, kept for the compare page on the practice copy only
+                pg.goto(f'{BASE}/track.html?demo=1&ab=layout.a&olda#/'); pg.reload(); ready(pg)
+                ok(pg.locator('#main .ah').count() == 1 and pg.evaluate("document.body.classList.contains('va')") and tabs(pg)[-1] == 'You', f'A: &olda still opens R-071’s Layout A, its look and its tabs ({tabs(pg)})')
             ok(not errs, f'{size} {arm}: no page errors {errs[:2]}'); ctx.close()
 
     # the old address and the compare page lead to the test
@@ -96,7 +93,9 @@ with sync_playwright() as p:
     q = pg.evaluate("location.search + location.hash")
     ok('ab=layout.a' in q.replace('%2C', ',').replace('%2E', '.') and 'day=tue' in q and 'demo=1' in q and q.endswith('#/bill/HB1780'), f'track-a.html opens track.html on version A, keeping the day and the page: {q}')
     pg.goto(f'{BASE}/compare.html'); pg.locator('[data-layout="a"]').click(); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
-    ok('ab=layout.a' in pg.url and pg.locator('#main .ah').count() == 1, f'compare.html: Open version A opens it: {pg.url}')
+    ok('ab=layout.a' in pg.url and 'olda' not in pg.url and pg.locator('#main .cm').count() == 1, f'compare.html: Open the new Home opens the calm Home: {pg.url}')
+    pg.goto(f'{BASE}/compare.html'); pg.locator('[data-layout="olda"]').click(); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
+    ok('olda' in pg.url and pg.locator('#main .ah').count() == 1, f'compare.html: Open version A (Sept) opens R-071’s Layout A: {pg.url}')
     pg.goto(f'{BASE}/compare.html'); pg.locator('[data-layout="today"]').click(); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
     ok('ab=layout.today' in pg.url and pg.locator('#main .hm-follow').count() == 1, f'compare.html: Open today’s version opens today’s: {pg.url}')
     pg.goto(f'{BASE}/compare.html?ab=layout.a')
@@ -111,14 +110,14 @@ with sync_playwright() as p:
         pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
         # just finished the first visit: the welcome lasts the rest of the visit (start.js welcome())
         pg.evaluate("sessionStorage.setItem('hiphi_welcome', '1'); localStorage.removeItem('hiphi_ab_demo')"); pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); pg.reload(); ready(pg)
-        ok(pg.locator('#main .hm-welcome').count() == 1 and pg.locator('#main .ah').count() == 0, f'{arm}: right after the first visit, Home keeps its welcome shape')
+        ok((pg.locator('#main .hm-welcome').count() == 1 if arm == 'today' else pg.locator('#main .cm:not(.cm-met)').count() == 1) and pg.locator('#main .ah').count() == 0, f'{arm}: right after the first visit, Home keeps its welcome shape')
         ok('layout' not in seen(pg), f'{arm}: the welcome Home does not meet the layout test')
         nd = pg.locator('.band [data-nextday]')
         ok(nd.count() == 1 and 'day=tue' in nd.get_attribute('href') and 'later=1' in nd.get_attribute('href'), f'{arm}: the band offers Next day ({nd.get_attribute("href") if nd.count() else None})')
         box = nd.bounding_box(); ok(box and box['height'] >= 24, f'{arm}: Next day is at least 24px tall ({box and round(box["height"])})')
         nd.click(); pg.wait_for_url(re.compile(r'day=tue'), timeout=15000); ready(pg)
         ok('later' not in pg.url and 'Tue, Mar 17, 2026' in pg.locator('.band').inner_text(), f'{arm}: Next day is Tuesday 17 March, and “later” leaves the address ({pg.url[-40:]})')
-        if arm == 'a': ok(pg.locator('#main .ah').count() == 1 and 'Tuesday, March 17' in pg.locator('.a-date').inner_text(), 'a: on Tuesday, version A’s own Home')
+        if arm == 'a': ok(pg.locator('#main .cm.cm-met').count() == 1 and 'Tuesday, March 17' in pg.locator('.cm-head .eyebrow').inner_text(), 'a: on Tuesday, the calm Home’s everyday shape')
         else: ok(pg.locator('#main .hm-follow').count() == 1 and pg.locator('#main .hm-welcome').count() == 0, 'today: on Tuesday, today’s everyday Home')
         ok(seen(pg).get('layout', {}).get('arm') == arm, f'{arm}: that Home meets the layout test ({seen(pg).get("layout")})')
         ok(pg.locator('.band [data-nextday]').count() == 1 and 'day=wed' in pg.locator('.band [data-nextday]').get_attribute('href'), f'{arm}: then Next day is Wednesday')
@@ -203,15 +202,15 @@ with sync_playwright() as p:
         u = pg.eval_on_selector_all('[data-rmqr]', 'bs => bs.map(b => b.dataset.url)')
         ok(u[1].endswith('ab=onb.p1,layout.a'), f'{tag}: Group 2’s link opens version A: {u[1]}')
         g1 = pg.locator('.rm-group').nth(0).inner_text()
-        ok('Home and the bill page' in g1 and '(today’s)' in g1, f'{tag}: Group 1 shows the same row, at today’s version')
+        ok('Home: the calm Home' in g1 and '(today’s)' in g1, f'{tag}: Group 1 shows the same row, at today’s version')
         # Home's top on version A: replaced, and taken off with a word when version A is picked after it
         pg.locator('[data-rmscreen="0"]').click(); pg.wait_for_timeout(350); pg.locator('dialog [data-pv="home"]').click(); pg.wait_for_timeout(600)
         pg.locator('dialog [data-pv="by-issue"]').click(); pg.wait_for_timeout(600)
-        ok('Replaced by the week view' in pg.locator('.rm-group').nth(1).inner_text(), f'{tag}: on version A, Home’s top says “Replaced by the week view”')
+        ok('Replaced by the calm Home' in pg.locator('.rm-group').nth(1).inner_text(), f'{tag}: on version A, Home’s top says “Replaced by the calm Home”')
         pg.locator('[data-rmpick="0|layout"]').click(); pg.wait_for_timeout(350); pg.locator('dialog [data-pv="a"]').click(); pg.wait_for_timeout(900)
         t = pg.locator('#toast').inner_text()
         u = pg.eval_on_selector_all('[data-rmqr]', 'bs => bs.map(b => b.dataset.url)')
-        ok('The week view replaces' in t and 'home.' not in u[0] and 'layout.a' in u[0], f'{tag}: picking version A takes Home’s top off, with a word and Undo ({t[:70]}; {u[0][-40:]})')
+        ok('The calm Home replaces' in t and 'home.' not in u[0] and 'layout.a' in u[0], f'{tag}: picking version A takes Home’s top off, with a word and Undo ({t[:70]}; {u[0][-40:]})')
         # the printed sheet tells every group how to reach the next day
         pg.evaluate("""() => { window.__printed = null; new MutationObserver((ms, o) => { for (const m of ms) for (const n of m.addedNodes)
           if (n.tagName === 'IFRAME') { n.contentWindow.print = () => { window.__printed = n.contentDocument.documentElement.outerHTML; }; o.disconnect(); } })
@@ -220,7 +219,7 @@ with sync_playwright() as p:
         pg.wait_for_function("() => !!window.__printed", timeout=20000)
         html = pg.evaluate("window.__printed")
         ok(html.count('press “Next day” at the very top') >= 3, f'{tag}: the sheet and each group’s page say to press Next day ({html.count("Next day")})')
-        ok('Home, every bill page and the tabs' in html, f'{tag}: the comparison page says where version A shows')
+        ok('Home, from the visit after the first one' in html, f'{tag}: the comparison page says where version A shows')
         pg.screenshot(path=os.path.join(OUT, f'layout_room_{tag}.png'))
         ok(not errs, f'{tag} staff: no page errors {errs[:2]}'); ctx.close()
     br.close()

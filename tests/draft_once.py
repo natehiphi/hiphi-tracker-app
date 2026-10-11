@@ -3,7 +3,7 @@
 #   1. a letter saved for the hearing on one of Home's full cards: no "Finish your testimony" card; that card's main button
 #      is the one "Finish sending your testimony" on the page (today's Home, by topic, and version A's Now card)
 #   2. a letter saved for a hearing with no full card on Home: the "Finish your testimony" card still names it, with its
-#      own "Finish sending it"
+#      own "Finish sending it" (on the calm Home, version A since R-222: its issue's row says "Your letter is started")
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/draft_once.py [base]     base defaults to http://localhost:8832
 import sys, os
@@ -30,7 +30,7 @@ UNDRAWN = """async () => { const c = await import('./pub/core.js'), on = new Set
   const x = c.openActions(c.S.bills, c.S.hearings).find(x => !on.has(x.h.id) && new Date(x.h.scheduled_at) > Date.now());
   return x ? { id: x.h.id, name: c.nick(x.b) || c.spaced(x.b.bill_number) } : null; }"""
 # today's Home's full cards, version A's Now card
-FULL = { 'today': '#main .hm-now .acard [data-helper]', 'by-issue': '#main .hm-byissue .acard [data-helper]', 'a': '#main .a-now [data-helper]' }
+FULL = { 'today': '#main .hm-now .acard [data-helper]', 'by-issue': '#main .hm-byissue .acard [data-helper]', 'a': '#main .cm-card .acard [data-helper]' }
 
 with sync_playwright() as p:
     br = p.chromium.launch()
@@ -61,9 +61,15 @@ with sync_playwright() as p:
             if u:
                 pg.evaluate(SAVE, u['id']); pg.reload(); ready(pg)
                 c = pg.evaluate(COUNT)
-                card = pg.locator('#main .hm-draft')
-                ok(c['draft'] == 1 and u['name'] in card.inner_text() and card.locator(f'[data-helper="{u["id"]}"]').count() == 1, f'{size} {arm}: the “Finish your testimony” card names {u["name"]} with its own button ({c})')
-                ok(c['finish'] == 0 and c['it'] == 1, f'{size} {arm}: and nothing else offers to finish it ({c})')
+                if arm == 'a':
+                    # the calm Home says it on the issue's row, once (R-222: the letter's card merged into the row)
+                    rows = pg.locator('#main .cm-rstat', has_text='Your letter is started')
+                    ok(c['draft'] == 0 and rows.count() == 1, f'{size} a: the letter for {u["name"]} is on its issue’s row, once ({c}, {rows.count()} rows)')
+                    ok(c['finish'] == 0 and c['it'] == 0, f'{size} a: and nothing else offers to finish it ({c})')
+                else:
+                    card = pg.locator('#main .hm-draft')
+                    ok(c['draft'] == 1 and u['name'] in card.inner_text() and card.locator(f'[data-helper="{u["id"]}"]').count() == 1, f'{size} {arm}: the “Finish your testimony” card names {u["name"]} with its own button ({c})')
+                    ok(c['finish'] == 0 and c['it'] == 1, f'{size} {arm}: and nothing else offers to finish it ({c})')
                 pg.screenshot(path=os.path.join(OUT, f'draft_once_{arm}_nocard_{size}.png'))
                 pg.evaluate(CLEAR)
             ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{size} {arm}: no sideways scroll')

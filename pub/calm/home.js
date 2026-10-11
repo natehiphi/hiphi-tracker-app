@@ -1,3 +1,4 @@
+// A person comes here to see the one thing to do next and where each of their issues stands (B-1).
 // The calm Home (R-222 Direction 1, "one thing, then your issues"; Nate 10/10: "accept all"). Since 10/10 it is the layout
 // test's version A ('layout', backend 149, off on the live site): it replaced R-071's Layout A inside the same test, and the
 // test now compares Home only, so today's bill page and tabs stay (app.js). One shape for every moment, phone first:
@@ -17,7 +18,7 @@
 // celebration happens there).
 import { S, app, esc, icon, toast, nick, headline, billPath, alive, openActions, dayWord, timeWord, dateLong, hstDay, hiT, HST,
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
-  followSummary, winsIn, ensureRecapPool, isResolution, nudge } from '../core.js';
+  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
 import { actionCard, wireActions, wireNudge, goingPlans, goingCard } from '../actions.js';
 import { celebrate } from '../fx.js';
@@ -26,7 +27,7 @@ import today, { calmParts as P, wireExtras } from '../home.js';
 S.aSkip ??= new Set();   // cards passed over with "Show the next one", for this visit
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const nameOf = b => nick(b) || headline(b, 70);
-const time = iso => timeWord(iso).replace(':00', '').replace(' AM', ' am').replace(' PM', ' pm');
+const time = iso => timeWord(iso);   // as the card writes it ("1:00 PM"), so a row and the card read the same
 // "today", "tomorrow", "Wed" within the week; "Mar 30" further out, where a weekday alone would be ambiguous.
 function dayShort(iso) {
   const d = dayWord(iso);
@@ -57,9 +58,12 @@ function theCard(c) {
   const focus = !(c.welcome && !c.fin);
   if (k.kind === 'due') {
     const x = k.items[0], day = hstDay(x.h.testimony_deadline), same = k.items.filter(y => hstDay(y.h.testimony_deadline) === day).length;
-    const ofN = same > 1 ? `1 of ${same} that day` : '';   // the line already says the day ("Testimony due tomorrow (Tue) at 1:00 PM · 1 of 2 that day")
+    const ofN = same > 1 ? `1 of ${same} due ${dayShort(x.h.testimony_deadline)}` : '';   // Nate's answer 4: "1 of 4 due today"
     const next = k.items.length > 1 ? `<p class="cm-next">${btn('Show the next one', { kind: 'text', sm: true, iconEnd: 'arrow-right', attrs: { 'data-cm-skip': skipKey(x), 'data-cm-name': nameOf(x.b) } })}</p>` : '';
-    return `${actionCard(x.b, x.h, { focus, why: c.why, ofN, twin: S.hmTwins?.get(x.b.id) || null, heading: 'h2' })}${next}`;
+    // The label names the issue the row below calls it, unless the issue has the bill's own name (55 of 91 do): then the
+    // title already says it, and the label keeps the topic, so the name is said once (A-14).
+    const own = followedIssues().find(i => issueBills(i).includes(x.b.id)), mine = own && own.name !== nameOf(x.b) && own.name !== headline(x.b, 200) ? own : null, cat = mine && catOf(mine.category);
+    return `${actionCard(x.b, x.h, { focus, why: c.why, ofN, twin: S.hmTwins?.get(x.b.id) || null, heading: 'h2', topic: mine ? { key: mine.name, icon: cat?.icon || issueOf(x.b)?.icon } : null })}${next}`;
   }
   if (k.kind === 'seen') return `<p class="cm-seen">${icon('eye')}<span>You’ve seen everything due this week.</span>${btn(`Show the ${k.n === 1 ? 'one' : k.n} you skipped`, { kind: 'text', sm: true, attrs: { 'data-cm-unskip': '1' } })}</p>`;
   if (k.kind === 'ask') return P.askCard(k.ask, focus);
@@ -86,9 +90,15 @@ function pickCard(due, asks, plans) {
 const RESULT = { passed: 'Passed a committee', passed_amended: 'Passed a committee with changes', deferred: 'Put on hold', recommitted: 'Sent back for more work' };
 function issueState(i, c) {
   const ids = new Set(issueBills(i)), bs = S.bills.filter(b => ids.has(b.id)), has = b => ids.has(b.id), now = Date.now();
-  const d = c.due.find(x => has(x.b));
-  if (d) { const t = Date.parse(d.h.testimony_deadline);
-    return { t, warn: t - now < 864e5, fresh: isNew(Date.parse(d.h.notice_posted_at || 0)), text: `${testimonyDraft(d.h) ? 'Your letter is started · due' : 'Testimony due'} ${when(d.h.testimony_deadline)}` }; }
+  // A letter they started, for a hearing still ahead, is said on its issue's row unless the card is that hearing (whose
+  // button then says "Finish sending your testimony"), so a saved letter is never left unmentioned (R-189).
+  const dr = c.open.find(x => has(x.b) && testimonyDraft(x.h) && Date.parse(x.h.scheduled_at) > now && x.h.id !== c.card.items?.[0]?.h.id);
+  if (dr) { const dl = dr.h.testimony_deadline && Date.parse(dr.h.testimony_deadline) > now ? dr.h.testimony_deadline : '', t = Date.parse(dl || dr.h.scheduled_at);
+    return { t, warn: !!dl && t - now < 864e5, text: `Your letter is started · ${dl ? `due ${when(dl)}` : `hearing ${when(dr.h.scheduled_at)}`}` }; }
+  const ds = c.due.filter(x => has(x.b)), d = ds[0];
+  // A second bill due this week on the same issue is said on the row, so nothing to do is left off the page (B-14).
+  if (d) { const t = Date.parse(d.h.testimony_deadline), more = ds.length > 1 ? `, and ${ds.length - 1} more this week` : '';
+    return { t, warn: t - now < 864e5, fresh: ds.some(x => isNew(Date.parse(x.h.notice_posted_at || 0))), text: `${testimonyDraft(d.h) ? 'Your letter is started · due' : 'Testimony due'} ${when(d.h.testimony_deadline)}${more}` }; }
   const h = S.hearings.filter(x => ids.has(x.bill_id) && x.status !== 'cancelled' && Date.parse(x.scheduled_at) > now && alive(S.bills.find(b => b.id === x.bill_id) || {}))
     .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
   if (h) { const b = bs.find(x => x.id === h.bill_id), plan = c.plans.some(p => p.h.id === h.id);
@@ -111,13 +121,13 @@ function issueState(i, c) {
   if (live.length) return { rank: 3, text: plainStatus(live[0]).short };
   return { rank: 4, text: bs.length ? 'Did not advance this year' : 'No bills on it yet' };
 }
-const rowHtml = r => `<li><a class="cm-row" href="${esc(r.href)}"><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}</span>
-    <span class="cm-rstat${r.warn ? ' warn' : ''}">${r.fresh ? '<b class="cm-new">New</b> ' : ''}${esc(r.text)}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
+const rowHtml = r => `<li><a class="cm-row" href="${esc(r.href)}"><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? ' <span class="cm-new">New<span class="sr"> since your last visit</span></span>' : ''}</span>
+    <span class="cm-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 function issuesBlock(rows, n) {
   if (!rows.length) return '';
   return `<section class="cm-issues" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">Your issues</h2>
     <ul class="cm-rows" role="list">${rows.map(rowHtml).join('')}</ul>
-    ${btn(n > rows.length ? `See all ${n} in My issues` : 'See all my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all' })}</section>`;
+    ${btn(n > rows.length ? `See all ${n} in My issues` : 'See the bills on my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all' })}</section>`;
 }
 
 // ---------------- 1. the greeting ----------------
@@ -156,7 +166,7 @@ function greeting(c) {
 function inSession(si, { welcome, fin }) {
   const due = dueAll(), asksAll = P.oneIdeaAsks(due), plans = goingPlans();
   const card = pickCard(due, asksAll, plans);
-  const c = { si, welcome, fin, due, asksAll, plans, card, why: undefined, moments: [] };
+  const c = { si, welcome, fin, due, asksAll, plans, card, why: undefined, moments: [], open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)) };
   const iss = followedIssues();
   const rows = iss.map(i => ({ i, ...issueState(i, c) })).sort((x, y) => (x.t ?? Infinity) - (y.t ?? Infinity) || (x.rank ?? 0) - (y.rank ?? 0) || x.i.name.localeCompare(y.i.name))
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
@@ -191,14 +201,19 @@ function offSession(si, { welcome }) {
   // Each issue's outlook (staff write it in Staff v2) to its first sentence: one phrase a row, as in session; the whole
   // outlook is on the issue's page (Leilani's sixteen ran to 2,600px whole).
   const first = t => (String(t || '').match(/^.*?[.!?](?=\s|$)/) || [String(t || '')])[0];
-  const rows = P.myIssues(yr).map(r => ({ name: r.title, text: first(r.sub), href: r.href }));
+  // "Disposable e-cigarette ban (SB 2175) became law in 2026." under the heading "Disposable e-cigarette ban" says the name
+  // twice (the review of R-222): "Became law in 2026 (SB 2175)."
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const unname = (name, t) => { if (!t.startsWith(name + ' ')) return t; const rest = t.slice(name.length + 1), m = /^\(([A-Z]+ ?\d+)\) (.*?)\.?$/.exec(rest);
+    return m ? `${cap(m[2])} (${m[1]}).` : cap(rest); };
+  const rows = P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href }));
   return `<div class="hm cm cm-off">
     <header class="cm-head"><h1 class="hero">Aloha${name ? `, ${esc(name)}` : ''}</h1><p class="lede">${lede}</p>
-      ${welcome ? '' : P.sessionLink(yr)}${P.meetLine()}</header>
+      ${welcome ? '' : P.sessionLink(yr)}</header>
     <section class="cm-card" aria-label="The thing you can do now">${card}</section>
     ${P.laterCard()}
     ${issuesBlock(rows, followedIssues().length)}
-    ${P.profileLine() ? `<div class="cm-lines">${P.profileLine()}</div>` : ''}
+    ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;
 }
 

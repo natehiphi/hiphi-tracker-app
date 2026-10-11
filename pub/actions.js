@@ -50,9 +50,11 @@ function wantsInPerson() {
   return Array.isArray(ints) && ints.includes('testify');
 }
 // noTopic: the card sits under its topic's heading (Home by topic, R-135), so its own topic line would say it twice.
-export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false } = {}) {
+// topic: { key, icon } to name in the card's small label instead of the bill's topic: the calm Home names the issue its row
+// below calls it, so the card and the row are seen to be the same thing (the review of R-222).
+export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false, topic = null } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
-  const k = key(b, h), iss = issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
+  const k = key(b, h), iss = topic || issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
   if (due && settledOn(b, h)) due.tone = '';   // settled: the deadline is no longer a warning (going or sharing alone keeps it, R-142)
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';

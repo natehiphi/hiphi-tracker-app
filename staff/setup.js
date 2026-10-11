@@ -479,7 +479,7 @@ const heldForLawyer = t => !t.is_on && !t.started && t.arms.some(a => lawyerFor(
 const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 // Where each version can be seen in the practice copy (R-135, R-187): every version has its own link, in a new tab, and
 // the links of one test open the same screen, forced to their version, so they compare. [address, what to tap there to
-// meet the difference, the screen's hash]. Every link is a fresh practice visit (&restart). Home and the week view open on
+// meet the difference, the screen's hash]. Every link is a fresh practice visit (&restart). Home and the calm Home open on
 // Home with three issues followed: #/follow (pub/app.js) follows them and skips the first visit, so no visitor is picked
 // on compare.html. The three are the practice copy's own issues with hearings this week (demo/snapshot.json).
 const HOME_SCENE = '#/follow/safer-walking-near-schools,forgive-medical-debt,disposable-e-cigarette-ban';
@@ -493,7 +493,7 @@ const SEE = {
   rank: ['track.html?demo=1&restart&ab=rank.', 'Both open on Free school bus passes (HB 1780). Write practice testimony and say you sent it: the card after it is the difference.', '#/bill/HB1780'],
   share: ['track.html?demo=1&restart&ab=share.', 'Both open on Free school bus passes (HB 1780). Press Share: the message it makes is the difference.', '#/bill/HB1780'],
   home: ['track.html?demo=1&restart&ab=home.', 'Both open on Home with three issues followed. The difference is the top: one lists the soonest deadline first, the other groups it by topic.', HOME_SCENE],
-  layout: ['track.html?demo=1&restart&ab=layout.', 'Both open on Home with three issues followed. The difference is Home’s week view, day by day; the bill page and the tabs differ too (R-187).', HOME_SCENE],
+  layout: ['track.html?demo=1&restart&ab=layout.', 'Both open on Home with three issues followed. The difference is Home: the calm one shows one thing to do, then one line per issue (R-222).', HOME_SCENE],
   act: ['track.html?demo=1&restart&ab=act.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow, and go on to the page before the end: “Coming up on your issues” in one version, three ways to help in the other (R-150).', '#/start/1'],
   pic: ['track.html?demo=1&restart&ab=pic.', 'Both open on Free school bus passes (HB 1780). Press Share: the link it makes carries that picture; text it to yourself to see it as a friend does.', '#/bill/HB1780'],
 };
@@ -623,7 +623,7 @@ const ROOM_WHERE = { onb: 'The whole first visit.', end: 'The last screen of the
   email: 'Near the end of the first visit, on “Coming up on your issues”.', join: 'The alerts sign-up, after their first step.',
   rank: 'After they send testimony on a bill: the card that comes next.', share: 'The message when they press Share on a bill.',
   home: 'The top of Home, once they have two or more things to do.',
-  layout: 'Home, every bill page and the tabs, from the visit after the first one.',
+  layout: 'Home, from the visit after the first one.',
   act: 'The page just before the end of the first visit: “Coming up on your issues”, or three ways to help.',
   pic: 'The picture in the text message a friend gets when they share a bill or an issue.' };
 // What every group is asked to do, beyond going through the first visit, to meet a screen outside it (the fresh-eyes
@@ -635,11 +635,11 @@ const ROOM_TASK = {
   demo: { rank: 'Find the bill “Free school bus passes” (HB 1780), write practice testimony and say you sent it.',
     share: 'Find the bill “Free school bus passes” (HB 1780) and press Share.',
     home: 'Follow two or more issues. After the first visit, press “Next day” at the very top, then look at the top of Home.',
-    layout: 'After the first visit, press “Next day” at the very top, then look at Home and open one bill.',
+    layout: 'After the first visit, press “Next day” at the very top, then look at Home.',
     pic: 'Find the bill “Free school bus passes” (HB 1780), press Share, and text yourself the link.' },
   live: { rank: 'Send testimony on a bill with a hearing coming up (in session only).', share: 'Open a bill and press Share.',
     home: 'Follow two or more issues, then come back another day and look at the top of Home.',
-    layout: 'Come back another day, then look at Home and open one bill.', pic: 'Open a bill and press Share, then text yourself the link.' } };
+    layout: 'Come back another day, then look at Home.', pic: 'Open a bill and press Share, then text yourself the link.' } };
 // One line on each plan, so "Plan 4" still means something in January (from R-164's doc; change it with the plans).
 const ROOM_PLAN_SUB = { p1: 'Follow your issues, then a 2-minute email on one bill', p2: 'A real law’s road in six scenes, then your issues’ bills',
   p3: 'Your island and your two legislators first', p4: 'Four ways to help, then a first step sized to yours', p5: 'Under a minute, then one card per later visit' };
@@ -653,7 +653,7 @@ const onPlan = g => { const t = roomTest('onb'); return !!t && armIn(g, t) !== t
 const ROOM_A_REPLACES = ['home'];
 const onA = g => { const t = roomTest('layout'); return !!t && armIn(g, t) === 'a'; };
 const applies = (g, t) => !(ROOM_INSIDE.includes(t.key) && onPlan(g)) && !(ROOM_PLAN_ONLY.includes(t.key) && !onPlan(g)) && !(ROOM_A_REPLACES.includes(t.key) && onA(g));
-const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the week view' : 'Replaced by the plan';
+const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the calm Home' : 'Replaced by the plan';
 // The screens other than the first visit where a group differs from today's.
 const roomDiffs = g => roomTests().filter(t => t.key !== 'onb' && applies(g, t) && armIn(g, t) !== t.arms[0]);
 // The screens any group changed: every card shows each of them, in the same order, so the cards compare line by line.
@@ -1222,7 +1222,7 @@ const PAGES = {
         const gone = drop.filter(k => k in g.v).map(k => roomTest(k)?.name || k);
         for (const k of drop) delete g.v[k];
         // A choice that no longer shows is taken off with a word and Undo (the fresh-eyes review, A-16).
-        if (gone.length) setTimeout(() => toast(`${t.key === 'layout' ? 'The week view replaces' : onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
+        if (gone.length) setTimeout(() => toast(`${t.key === 'layout' ? 'The calm Home replaces' : onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
           { undo: () => { g.v = before; roomKeep(); hooks.render(); } }));
       };
       const versions = (g, i, t) => pickerSheet({ title: `Group ${i + 1}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),

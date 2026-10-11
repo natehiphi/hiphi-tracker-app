@@ -2,25 +2,25 @@
  "publicA|1440|bill-a": {
   "arrival": 220,
   "colours": 6,
-  "kinds": 10,
+  "kinds": 11,
   "sizes": 6
  },
  "publicA|1440|home-a": {
-  "arrival": 190,
-  "colours": 11,
-  "kinds": 3,
+  "arrival": 259,
+  "colours": 6,
+  "kinds": 6,
   "sizes": 6
  },
  "publicA|390|bill-a": {
   "arrival": 237,
   "colours": 6,
-  "kinds": 9,
+  "kinds": 10,
   "sizes": 6
  },
  "publicA|390|home-a": {
-  "arrival": 166,
-  "colours": 10,
-  "kinds": 3,
+  "arrival": 225,
+  "colours": 6,
+  "kinds": 5,
   "sizes": 6
  },
  "public|1440|alerts": {
@@ -61,8 +61,8 @@
  },
  "public|1440|home": {
   "arrival": 219,
-  "colours": 7,
-  "kinds": 7,
+  "colours": 6,
+  "kinds": 4,
   "sizes": 6
  },
  "public|1440|issue": {
@@ -175,7 +175,7 @@
  },
  "public|390|mybills": {
   "arrival": 208,
-  "colours": 6,
+  "colours": 5,
   "kinds": 2,
   "sizes": 6
  },
@@ -204,9 +204,9 @@
   "sizes": 4
  },
  "staff2|1440|bill": {
-  "arrival": 269,
+  "arrival": 276,
   "colours": 7,
-  "kinds": 20,
+  "kinds": 22,
   "sizes": 5
  },
  "staff2|1440|bills": {
@@ -240,9 +240,9 @@
   "sizes": 5
  },
  "staff2|1440|issue": {
-  "arrival": 663,
+  "arrival": 402,
   "colours": 4,
-  "kinds": 7,
+  "kinds": 5,
   "sizes": 5
  },
  "staff2|1440|issues": {
@@ -276,9 +276,9 @@
   "sizes": 5
  },
  "staff2|1440|testimony": {
-  "arrival": 486,
+  "arrival": 493,
   "colours": 6,
-  "kinds": 15,
+  "kinds": 16,
   "sizes": 5
  },
  "staff2|1440|tests": {
@@ -302,7 +302,7 @@
  "staff2|390|bill": {
   "arrival": 178,
   "colours": 7,
-  "kinds": 7,
+  "kinds": 8,
   "sizes": 4
  },
  "staff2|390|bills": {
@@ -336,9 +336,9 @@
   "sizes": 4
  },
  "staff2|390|issue": {
-  "arrival": 808,
-  "colours": 4,
-  "kinds": 6,
+  "arrival": 486,
+  "colours": 3,
+  "kinds": 4,
   "sizes": 5
  },
  "staff2|390|issues": {

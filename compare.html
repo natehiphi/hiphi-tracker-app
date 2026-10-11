@@ -30,7 +30,7 @@ legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bott
 .opt b { display: block; color: var(--n900); font-size: var(--t16); }
 .opt span span { font-size: var(--t14); color: var(--n500); line-height: 1.4; }
 .opt:has(input:checked) { box-shadow: inset 0 0 0 2px var(--p700); }
-.go { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s12); }
+.go { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s12); }
 @media (max-width: 30em) { .go { grid-template-columns: 1fr; } }
 .go .btn { min-width: 0; }
 .go .btn { width: 100%; }
@@ -44,8 +44,8 @@ legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bott
 <main class="cw" id="main">
   <header style="display:flex;flex-direction:column;gap:10px">
     <p class="eyebrow" style="margin:0;font-weight:700;color:var(--p700);font-size:var(--t13);letter-spacing:.08em;text-transform:uppercase">For the person running the test</p>
-    <h1>Compare the two trackers</h1>
-    <p class="lede2">Pick who the tester is pretending to be and which day it is, then open either version. Both use the real 2026 session, the week of 16 March, with that day’s real committee decisions. Nothing is saved or counted, and no email is sent.</p>
+    <h1>Compare the trackers</h1>
+    <p class="lede2">Pick who the tester is pretending to be and which day it is, then open a version. Both use the real 2026 session, the week of 16 March, with that day’s real committee decisions. Nothing is saved or counted, and no email is sent.</p>
   </header>
 
   <fieldset><legend>Who is visiting</legend>
@@ -67,10 +67,11 @@ legend { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); margin-bott
 
   <div class="go">
     <button type="button" class="btn secondary" data-open="track.html" data-layout="today">Open today’s version</button>
-    <button type="button" class="btn primary" data-open="track.html" data-layout="a">Open version A</button>
+    <button type="button" class="btn primary" data-open="track.html" data-layout="a">Open the new Home</button>
+    <button type="button" class="btn secondary" data-open="track.html" data-layout="olda">Open version A (September)</button>
   </div>
   <p class="note" id="err" tabindex="-1" role="alert" hidden style="color:var(--bad-text);font-weight:700">This browser is blocking storage, so the scene can’t be set. Try a normal window, not a private one.</p>
-  <p class="note">Always open from here, so both versions start from the same moment. Swap the order between testers: half see today’s version first, half see version A first.</p>
+  <p class="note">Always open from here, so every version starts from the same moment. Swap the order between testers: half see today’s version first, half see the new Home first. The new Home (R-222) is the one being tested; version A (September) is kept to compare with.</p>
 
   <section class="tasks" aria-labelledby="tk-h"><h2 id="tk-h">What to ask, in each version</h2>
     <ol>
@@ -119,12 +120,13 @@ function setScene() {
 // layout it names (R-187) leaves only that version's button.
 const abIn = (new URLSearchParams(location.search).get('ab') || '').split(',').filter(x => /^[a-z0-9-]{1,20}\.[a-z0-9-]{1,20}$/.test(x));
 const fixed = (abIn.find(x => x.startsWith('layout.')) || '').slice(7);
+// The new Home is the test's version A since R-222; R-071's version A (September) opens with &olda, on this page only.
 if (fixed) document.querySelectorAll('[data-layout]').forEach(b => { if (b.dataset.layout !== fixed) b.remove(); else { b.textContent = 'Open it'; b.className = 'btn primary'; } });
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => {
   const day = setScene(); if (!day) return;
-  const ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + b.dataset.layout].join(',');
+  const old = b.dataset.layout === 'olda', ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + (old ? 'a' : b.dataset.layout)].join(',');
   // &abrest=today: every other test at today's version, whatever the switches, so the two differ only in what is compared (R-192).
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}#/`;
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}${old ? '&olda' : ''}#/`;
 }));
 </script>
 </body>

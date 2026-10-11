@@ -461,13 +461,22 @@ export function oneIdeaAsks(cards = []) {
   return out;
 }
 const daysLeft = d => d <= 0 ? 'Last day' : `${plural(d, 'day')} left`;
+// A bill waiting on several committees at once, in the word list's words (C-15): "three Senate committees: Agriculture and
+// Environment; Health and Human Services; and Economic Development and Tourism". Joined with "and" alone, three names that
+// each hold an "and" could not be told apart (the review of R-222). '' for one committee.
+const NUM = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
+function jointWhere(code) {
+  const cs = codesOf(code).map(c => S.committees[c]).filter(Boolean); if (cs.length < 2) return '';
+  const names = cs.map(c => c.name), last = names.pop();
+  return `${NUM[cs.length + 0] || cs.length} ${CHAMBER_NAME[cs[0].chamber] || ''} committees: ${names.length === 1 ? `${names[0]}, and ${last}` : `${names.join('; ')}; and ${last}`}`.replace(/\s+/g, ' ');
+}
 function askCard({ b, st }, primary) {
   const dl = st.deadline, where = cmteLabel(st.committee), chairs = chairContacts(st.committee).length > 1 ? 'chairs' : 'chair';
   return `<article class="card hm-ask" aria-labelledby="hm-ask-${esc(b.id)}">
     <div class="hm-askrow">${chip(daysLeft(dl.days), dl.days <= 7 ? 'warn' : '', 'hourglass')}${posChip(b)}</div>
     <h3 class="hm-askt" id="hm-ask-${esc(b.id)}">${esc(headline(b, 200))}</h3>
     <p class="meta">${esc(spaced(b.bill_number))}</p>
-    <p class="small hm-askwhy">Waiting for a hearing in ${esc(/^the /.test(where) ? where : 'the ' + where)}. If it is not heard by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}, it can’t pass this year.</p>
+    <p class="small hm-askwhy">Waiting for a hearing in ${esc(jointWhere(st.committee) || (/^the /.test(where) ? where : 'the ' + where))}. If it is not heard by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}, it can’t pass this year.</p>
     <div class="btncol">${btn(`Ask the ${chairs} for a hearing`, { kind: primary ? 'primary' : 'secondary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } })}</div>
   </article>`;
 }
