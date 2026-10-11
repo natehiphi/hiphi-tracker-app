@@ -21,10 +21,12 @@ const out = `// Interface icons: Lucide v${VER} (https://lucide.dev), ISC licenc
 // copyright (c) for Lucide are held by Lucide Contributors 2022. Permission to use, copy, modify, and/or distribute this
 // software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this
 // permission notice appear in all copies.
+import { shareMarkup } from './share-icon.js';
 export const ICONS = ${JSON.stringify(paths, null, 0).replace(/","/g, '",\n"')};
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
-  const p = ICONS[name] || ICONS['circle'] || '';
+  // Both share names draw the device's own share icon (share-icon.js, R-205), so no share icon is a copy of another.
+  const p = (name === 'share-2' || name === 'share') ? shareMarkup() : (ICONS[name] || ICONS['circle'] || '');
   return \`<svg class="ic ic-\${name}\${cls ? ' ' + cls : ''}" width="\${size}" height="\${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" \${label ? \`role="img" aria-label="\${label.replace(/"/g, '&quot;')}"\` : 'aria-hidden="true" focusable="false"'}>\${p}</svg>\`;
 }
 `;

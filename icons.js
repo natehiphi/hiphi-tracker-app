@@ -4,6 +4,7 @@
 // copyright (c) for Lucide are held by Lucide Contributors 2022. Permission to use, copy, modify, and/or distribute this
 // software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this
 // permission notice appear in all copies.
+import { shareMarkup } from './share-icon.js';
 export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "house":"<path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/> <path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/>",
 "search":"<path d=\"m21 21-4.34-4.34\"/> <circle cx=\"11\" cy=\"11\" r=\"8\"/>",
@@ -186,6 +187,7 @@ export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "message-square-heart":"<path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\"/> <path d=\"M7.5 9.5c0 .687.265 1.383.697 1.844l3.009 3.264a1.14 1.14 0 0 0 .407.314 1 1 0 0 0 .783-.004 1.14 1.14 0 0 0 .398-.31l3.008-3.264A2.77 2.77 0 0 0 16.5 9.5 2.5 2.5 0 0 0 12 8a2.5 2.5 0 0 0-4.5 1.5\"/>"};
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
-  const p = ICONS[name] || ICONS['circle'] || '';
+  // Both share names draw the device's own share icon (share-icon.js, R-205), so no share icon is a copy of another.
+  const p = (name === 'share-2' || name === 'share') ? shareMarkup() : (ICONS[name] || ICONS['circle'] || '');
   return `<svg class="ic ic-${name}${cls ? ' ' + cls : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${label ? `role="img" aria-label="${label.replace(/"/g, '&quot;')}"` : 'aria-hidden="true" focusable="false"'}>${p}</svg>`;
 }
