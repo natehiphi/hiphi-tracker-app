@@ -94,7 +94,10 @@ JOURNEYS = [
    dict(what='type the number', fill=('#st-a-phone', '(808) 555-0123'),
         reach="(()=>document.getElementById('st-a-phone')?.value==='(808) 555-0123')()"),
    dict(what='ask for the code', do=click_text('.st-bar #st-send', 'Text me a code'), reach="(()=>{const i=document.getElementById('st-a-code'); return !!i && i.offsetParent!==null;})()"),
-   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(()=>{const m=document.getElementById('fx-moment'); return !!m && !m.hidden && /text alerts are on/i.test(m.innerText);})()"),
+   # Arrived when the "Mahalo!" says alerts are on, or the code step is gone and the next screen is up (R-140 fix, 10/10:
+   # the moment plays over the next screen after its slide, and leaves on its own at 1.5 s; its words are not kept in the
+   # toast). Polls for up to 4 s, since the save takes a moment after the code is typed.
+   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(async()=>{const w=/text alerts are on/i; for(let i=0;i<40;i++){const m=document.getElementById('fx-moment'); if(m&&!m.hidden&&w.test(m.innerText)) return true; if(document.querySelector('.st')&&!document.getElementById('st-a-code')&&!document.getElementById('st-aform')) return true; await new Promise(r=>setTimeout(r,100));} return false;})()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',

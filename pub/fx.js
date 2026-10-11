@@ -13,6 +13,7 @@
 //   travel(...)    moves one SVG group along a curve (the bill's trip through the Capitol, a letter to the committee).
 //   swap(fn, dir)  a screen change that slides the way the person is going (a View Transition where the browser has
 //                  one; otherwise the change simply happens).
+//   afterMove(m, show) plays a moment once that slide is over (a moment on the next screen waits for the slide).
 //   petals()       the finale's falling petals, the peak at the end of the first visit (C-7).
 // Every moment plays side by side, at full speed or slowed, on the private motion page (motion.html, X11-4).
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
@@ -72,6 +73,7 @@ export function travel(el, pts, ms, done, onFrame) {
 export const stopTravel = el => { if (el) trips.set(el, (trips.get(el) || 0) + 1); };
 
 // ---- a screen change that slides the way the person is going ----
+// Returns the slide's `finished` promise when a slide started, else nothing (afterMove waits on it).
 export function swap(fn, dir = 'fwd') {
   document.documentElement.dataset.fxdir = dir;
   if (document.startViewTransition && !reduced()) {
@@ -80,11 +82,16 @@ export function swap(fn, dir = 'fwd') {
       // rather than reported as errors ("Transition was aborted because of invalid state").
       const t = document.startViewTransition(fn);
       [t.ready, t.finished, t.updateCallbackDone].forEach(pr => pr && pr.catch(() => {}));
-      return;
+      return t.finished;
     } catch { /* fall through */ }
   }
   fn();
 }
+// Plays `show` once the screen change `moved` (what swap returned) is over. A moment that plays over the next screen waits
+// for that screen's slide: until the slide ends, the slide's own picture covers the page and the moment's card and button
+// (the browser does not take a tap there), and the card would slide under the page. Under Reduce Motion, or where the
+// browser has no slide, there is nothing to wait for and `show` runs at once (R-140, fix 10/10).
+export const afterMove = (moved, show) => (moved && typeof moved.then === 'function') ? moved.then(show, show) : show();
 
 // ---- the big moments ----
 // A flower that opens, with a few sparks: the first follow and the first action. Done within about 0.7 s.
@@ -98,10 +105,13 @@ export function bloom() {
 
 // A moment that fills the screen for a short while, then gets out of the way (A-10, C-7; R-140, 10/10). It never blocks:
 // the veil lets taps through, the page stays live, and its button is there from the first frame. It closes at once on a
-// tap, a key (not Tab) or a scroll, and on its own at MOMENT_MS. `then` moves the flow on when the person continues:
-// Continue, a tap on the veil, a key, or the timer (the words then stay for 4 s as a toast). A tap through to a control
-// under the veil does not run `then`: that control moves on itself, so one tap is never two steps. A scroll does not either,
-// since the person is reading the page.
+// tap, a key (not Tab) or a scroll, and on its own at MOMENT_MS. The flow moves on BEFORE the moment is called (R-140, fix
+// 10/10; start-rest.js mahalo, onb.js leaveJoin, bill.js): the screen under the veil is then the next one, so the button a
+// tap reaches is that screen's own, and the old screen's bar is never live under the moment. `then` is an optional hook
+// for a caller that must run something when the person continues (Continue, a tap on the veil, a key, or the timer; the
+// words then stay for 4 s as a toast). No caller needs it now. A tap through to a control under the veil does not run
+// `then`: that control does its own job, so one tap is never two steps. A scroll does not either, since the person is
+// reading the page.
 // `alt` ({ label, act }) is an Undo for something the moment did on the person's behalf (R-067). It lives in a toast with
 // its own 10 s clock, not on the moment, which is gone in 1.5 s.
 let live = null;

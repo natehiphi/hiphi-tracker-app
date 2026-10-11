@@ -11,7 +11,7 @@ import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { burst, celebrate, later, reduced, petals } from './fx.js';
+import { afterMove, burst, celebrate, later, reduced, petals } from './fx.js';
 import { shareLine, keepLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, almostLine, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
@@ -365,9 +365,11 @@ function stepAlerts(step) {
     ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     body);
 }
-// The first success: a moment that fills the screen and waits for Continue (C-7). It celebrates the issues just
-// followed and, when one was given, how we'll reach them. Once a visit; a shared bill's visit has no "Mahalo!" (its
-// follow got a small burst on "Follow this issue?").
+// The first success: a moment that fills the screen (C-7). It celebrates the issues just followed and, when one was given,
+// how we'll reach them. Once a visit; a shared bill's visit has no "Mahalo!" (its follow got a small burst on "Follow this
+// issue?"). `then` moves the flow on, and it runs FIRST (R-140, fix 10/10): the moment plays over the next screen, once that
+// screen has slid in, so the button under it is that screen's own Next. Played over the old screen, its bottom bar stayed
+// live under the veil, and a tap on "Text me a code" went back to "Save your profile" with its error.
 function mahalo(then, r = null) {
   const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
   if (wiz().via || S.mahaloShown) { then(); return; }
@@ -384,9 +386,10 @@ function mahalo(then, r = null) {
     : r?.kind === 'email' ? `We sent a link to ${r.email}. Tap it when you finish here to turn on alerts.` : '';
   // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
   // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
-  celebrate({ title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
+  const words = { title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
     small: told || (off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`),
-    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law' }, then);
+    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law' };
+  afterMove(then(), () => celebrate(words));
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false;
