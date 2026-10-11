@@ -1,5 +1,7 @@
-# R-046 in the public sandbox: result moments on Home (once, with the burst), the honest countdown, the session page
-# (#/recap), More's "Your session", "you asked for a hearing and it got one", and the end-of-session moment (once).
+# R-046 in the public sandbox: result moments on Home as good news cards (once each, with the burst; the rework of 10/10:
+# at most three, one on a phone, "Got it" removes one), the honest countdown, the session page (#/recap), More's "Your
+# session", "you asked for a hearing and it got one", and the end-of-session moment (once).
+# moments_cards.py checks the cards themselves (the cap, the dismissal, "N more good news").
 #   python3 tests/moments.py [root] [shots]      root defaults to http://localhost:8832/ (the sandbox with ?seed=1)
 import sys, re, os
 from playwright.sync_api import sync_playwright
@@ -9,12 +11,15 @@ res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 def ready(pg):
     pg.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(700)
+# Counts the small bursts this page load plays (fx.js appends one .fx-burst to the body per burst).
+BURSTS = "document.addEventListener('DOMContentLoaded', () => { window.__bursts = 0; new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('fx-burst')) window.__bursts++; }).observe(document.body, { childList: true }); });"
 SKIP = "() => { try { const w = JSON.parse(localStorage.getItem('hiphi_wiz') || '{}'); localStorage.setItem('hiphi_wiz', JSON.stringify({ ...w, done: true, step: 99 })); localStorage.setItem('hiphi_tour_bill', '{\"how\":\"test\"}'); localStorage.setItem('hiphi_tour_home', '{\"how\":\"test\"}'); } catch {} }"
 with sync_playwright() as p:
     br = p.chromium.launch()
     for w, h, tag in [(1280, 900, 'laptop'), (390, 844, 'phone')]:
         ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 500, has_touch=w < 500)
         ctx.add_init_script(f"({SKIP})()")   # the first visit is done before any page loads
+        ctx.add_init_script(BURSTS)
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         base = ROOT + 'track.html?demo=1&seed=1'
         pg.goto(base + '#/'); ready(pg)
@@ -22,22 +27,24 @@ with sync_playwright() as p:
         pg.evaluate("async () => { const c = await import('./pub/core.js'); for (const a of c.myActions()) c.S.direct.add(a.bill_id); c.recomputeWatch(); c.saveLocal(); }")
         pg.reload(); ready(pg)
         txt = pg.locator('main').inner_text()
-        since = pg.locator('.hm-since')
-        ok(since.count() == 1 and re.search(r'You (testified|emailed the chair), and .+ passed it', since.inner_text()), f'{tag}: Home leads with the moment: ' + (since.inner_text().replace('\n', ' | ')[:160] if since.count() else 'none'))
-        ok(pg.locator('.hm-youburst').count() == 1, f'{tag}: the first moment gets the small burst')
-        nrows, more = pg.locator('.hm-since .row').count(), pg.locator('.hm-since .hm-sincemore')
+        gnsec = pg.locator('.hm-gnsec')
+        cards = pg.locator('.hm-gn'); ncards = cards.count()
+        facts = pg.evaluate("[...document.querySelectorAll('.hm-gn .hm-gnf')].map(e => e.innerText)")
+        ok(gnsec.count() == 1 and ncards >= 1 and all(re.search(r'(testified|emailed the chair|asked for a hearing|wrote to your legislators), and|and it got one|became law', f) for f in facts), f'{tag}: Home leads with good news cards: ' + (gnsec.inner_text().replace('\n', ' | ')[:200] if gnsec.count() else 'none'))
+        ok(pg.evaluate("window.__bursts || 0") == ncards, f'{tag}: each card that first appears gets the small burst once ({ncards} cards, {pg.evaluate("window.__bursts || 0")} bursts)')
         whys = pg.evaluate("[...document.querySelectorAll('main .acard .why, main .why')].map(e => e.innerText).filter(t => /, and .+ (passed it|put it on hold)|and it got one/.test(t))")
-        if tag == 'phone': ok(nrows == 1 and (more.count() == 1 and 'more on your session page' in more.inner_text() or nrows + len(whys) >= 2), f'{tag}: one moment row (link: {more.inner_text() if more.count() else "none"}; in cards: {len(whys)})')
-        else: ok(nrows + len(whys) == 3 and more.count() == 0, f'{tag}: a laptop says all three once: {nrows} in the strip, {len(whys)} as a card\'s reason')
-        ok(not any(pg.locator('.hm-since .row').nth(i).inner_text().split('\n')[0] in ' '.join(whys) for i in range(nrows)), f'{tag}: no moment is said twice (strip and card)')
+        more = pg.locator('.hm-gnmore')
+        if tag == 'phone': ok(ncards == 1 and more.count() == 1 and 'more good news' in more.inner_text(), f'{tag}: one card on a phone, and the rest behind a line: {more.inner_text() if more.count() else "none"} (reason lines: {len(whys)})')
+        else: ok(ncards + len(whys) == 3 and more.count() == 0, f'{tag}: a laptop says all three once: {ncards} cards, {len(whys)} as a card\'s reason')
+        ok(not any(f in ' '.join(whys) for f in facts), f'{tag}: no moment is said twice (card and reason line)')
         if whys: print(f'INFO {tag}: a card says why: {whys[0]}')
         card = pg.evaluate("(() => { const c = document.querySelector('main .card.ac, main article.card, main .hm-main .card'); return c ? Math.round(c.getBoundingClientRect().top) : null; })()")
         print(f'INFO {tag}: first card below the strip at {card}px')
-        seen = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_moments_seen_demo') || localStorage.getItem('hiphi_moments_seen') || '[]')")
-        ok(len(seen) >= 1, f'{tag}: the moments shown are remembered ({len(seen)})')
+        shown = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_moments_shown') || '[]')")
+        ok(len(shown) >= ncards >= 1, f'{tag}: the moments shown are remembered ({len(shown)})')
         pg.screenshot(path=f'{SHOTS}/r046_home_{tag}.png')
         pg.reload(); ready(pg)
-        ok(pg.locator('.hm-youburst').count() == 0, f'{tag}: after a reload the moment does not burst again')
+        ok(pg.evaluate("window.__bursts || 0") == 0, f'{tag}: after a reload the moment does not burst again')
         # the honest countdown: a bill whose testimony is due within two days of the sandbox clock
         num = pg.evaluate("async () => { const c = await import('./pub/core.js'); const now = Date.now(); const h = c.D.hearings.find(x => x.testimony_deadline && new Date(x.testimony_deadline) - now > 2 * 36e5 && new Date(x.testimony_deadline) - now < 20 * 36e5 && c.D.bills.some(b => b.id === x.bill_id && c.alive(b))); return h ? c.D.bills.find(b => b.id === h.bill_id).bill_number : null; }")
         pg.goto(base + f'#/bill/{num}'); ready(pg)
@@ -74,7 +81,7 @@ with sync_playwright() as p:
           const r = c.results().some(x => x.b.id === h.bill_id); c.S.done.delete(k); delete c.S.doneAt[k]; return r; }""")
         ok(held is False or held == 'none', f'{tag}: asking the chair to hold a bill HIPHI opposes is no "got a hearing" moment ({held})')
         pg.goto(base + '#/'); ready(pg)
-        ok('You asked for a hearing, and it got one' in pg.locator('main').inner_text(), f'{tag}: Home says so: ' + (pg.locator('.hm-since').inner_text().replace('\n', ' | ')[:200] if pg.locator('.hm-since').count() else ''))
+        ok('You asked for a hearing, and it got one' in pg.locator('main').inner_text(), f'{tag}: Home says so: ' + (pg.locator('.hm-gnsec').inner_text().replace('\n', ' | ')[:200] if pg.locator('.hm-gnsec').count() else ''))
         # someone against a bill: a committee passing it is no good news (sideOf)
         if tag == 'laptop':
             r = pg.evaluate("""async () => { const c = await import('./pub/core.js'); const p = c.results().find(x => x.kind === 'passed'); if (!p) return null;

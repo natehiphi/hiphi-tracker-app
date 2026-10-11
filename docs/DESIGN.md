@@ -641,7 +641,11 @@ until `first_visit_funnel` shows it. Progress belongs to the person (Nate's rule
 bill or hearing, and only from 10 people. **No full-screen moment part-way through the first visit after the first
 follow (added 10/4, R-140):** one after the lessons, three green ticks over the Capitol, made the visit feel finished with
 Stay connected still to come (Nate: "makes it feel like everything is done"). A finished part gets its small burst on its
-tick at the top, and the button that leaves it names what comes next (C-6).
+tick at the top, and the button that leaves it names what comes next (C-6). **Good news cards (added 10/10, R-046 rework, Nate's
+answer of 10/5):** each result that went the person's way is its own card at the top of Home, with its small burst once when it
+first appears and "Got it" to remove that one card. At most three: on a laptop at the top of the right column, so the first thing
+to do stays high in the main column (with three stacked above it, that started near 550px, A-1 budget 400); on a phone one card, with
+"N more good news" beneath, because three stacked cards put today's actions near 635px at 390 wide. Orange is the wash, edge and icon only.
 
 ### C-8 A returning person is never made to start again
 

@@ -18,7 +18,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet } from './core.js';
-import { burst, celebrate, petals } from './fx.js';
+import { burst, celebrate, petals, later } from './fx.js';
 import { alertStatus } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, goingPlans, goingCard } from './actions.js';
@@ -250,22 +250,37 @@ function whatsNew(skip) {
 }
 
 // ---------------- since you were here (R-067: Nate's first goal is that people come back) ----------------
-// The first thing on Home when someone comes back: what happened on their issues since their last visit (S.prevVisit,
-// kept by app.js before it notes this one), greeted by name. A committee's decision on a hearing they acted on leads,
-// and the first time they see it, it gets the small burst the address uses (C-7: a result, in proportion). With
-// nothing new it says what comes next. Rows open the bill. At most three, one per bill; up to 30 days back.
+// The first thing on Home when someone comes back, under the good news cards: what happened on their issues since their
+// last visit (S.prevVisit, kept by app.js before it notes this one). A committee's decision on a hearing they acted on
+// leads, and the first time they see it, it gets the small burst the address uses (C-7: a result, in proportion). With
+// nothing new it says what comes next. Rows open the bill. At most three, one per bill; up to 30 days back. A result that
+// went the person's way is a good news card instead (goodNewsBlock), and a bill with a live card is left out of these
+// rows, so nothing is said twice (A-14).
 const RSEEN_KEY = 'hiphi_results_seen';
 const resultsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(RSEEN_KEY) || '[]')); } catch { return new Set(); } };
 const myName = () => { try { return (wiz().name || JSON.parse(localStorage.getItem('hiphi_me') || '{}').name || '').trim().split(/\s+/)[0]; } catch { return ''; } };
-// Moments (R-046, Nate 9/30: "You helped a bill get a hearing. You helped a bill pass a hearing."): a result on a bill the
-// person spoke up for, shown on Home once, the first time Home sees it (a month back at most), whatever their last
-// visit was. Sized to what happened (C-7): a hearing set or a committee's yes is a row with the small burst; a law is
-// the full-screen moment. Seen ones stay for the rest of the visit, so no row vanishes under a finger, and then live in
-// "What happened after you acted" and on the session page (#/recap). Counted privately, kind only ('moment', 106).
-const MSEEN_KEY = 'hiphi_moments_seen';
-const momentsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(MSEEN_KEY) || '[]')); } catch { return new Set(); } };
-S.hmShown ??= new Set();
-const MOMENT_ICON = { heard: 'calendar-check', passed: 'circle-check', held: 'circle-check', law: 'party-popper' };
+
+// ---------------- good news (R-046; the cards, reworked 10/10 from Nate's answer of 10/5) ----------------
+// A result on a bill the person spoke up for (results() in core.js: for or against, and what happened) is a card at the top
+// of Home, each one its own: the bill's everyday name, the fact in a line or two, and "Got it", which removes that one card
+// and remembers it. At most three on a laptop and one on a phone, where three would push today's actions past A-1. The rest
+// wait behind "N more good news", which opens the session page (#/recap). The newest comes first, a law before anything
+// (the biggest). A card gets the small burst once, when it first appears (C-7); a law gets its full-screen moment once.
+// A result on a bill with its own action card below is that card's reason line instead (A-14), shown once.
+// Storage stays in this browser. hiphi_moments_seen holds what the person has dismissed (the store the old strip used, so
+// what they already saw does not come back); hiphi_moments_shown holds what has appeared, so the burst is played once.
+const MSEEN_KEY = 'hiphi_moments_seen', MSHOWN_KEY = 'hiphi_moments_shown';
+const GN_MAX = 3, GN_PHONE = 1;
+const idSet = key => { try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); } };
+const putIds = (key, set) => { try { localStorage.setItem(key, JSON.stringify([...set].slice(-500))); } catch { /* private mode: shown again next visit */ } };
+const momentsSeen = () => idSet(MSEEN_KEY), momentsShown = () => idSet(MSHOWN_KEY);
+const phoneNow = () => { try { return matchMedia('(max-width: 719px)').matches; } catch { return false; } };
+// On a laptop (wide.css's two columns, 1100px and up) the good news sits at the top of the right column, so the first thing to
+// do stays high in the main column (A-1: with three stacked cards it started at about 550px). Chosen when Home is drawn.
+const wideNow = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
+S.hmKeep ??= new Set();   // reason lines drawn this visit: kept for the visit, though remembered as seen (wireGood)
+S.hmBurst ??= null;
+// The result's sentence, said as facts: what they did, then what happened (never "you caused it").
 function momentText(r) {
   const h = r.h, ahead = h && new Date(h.scheduled_at) > Date.now();
   if (r.kind === 'heard') return `${r.did === 'You asked for a hearing' ? 'You asked for a hearing, and it got one' : 'You wrote to your legislators about it, and it got a hearing'}${ahead ? `: ${who(h.committee)} hears it ${dayWord(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : ` on ${dateLong(h.scheduled_at)}`}.`;
@@ -273,19 +288,50 @@ function momentText(r) {
   if (r.kind === 'held') return `${r.did}, and ${who(h.committee)} put it on hold.`;
   return `You spoke up for it, and it ${isResolution(r.b) ? 'was adopted' : 'became law'}.`;
 }
-function sinceItems() {
+// The live good news: results from the last 30 days the person has not dismissed, a law first, then the newest. A reason
+// line drawn earlier this visit stays for the visit (S.hmKeep). A committee's yes that burst under the 9/30 rule stays out.
+function goodNews() {
+  const month = Date.now() - 30 * 864e5, gone = momentsSeen(), rseen = resultsSeen();
+  return results().filter(r => r.at && +new Date(r.at) > month && (!gone.has(r.key) || S.hmKeep.has(r.key))
+    && !(r.kind === 'passed' && rseen.has(r.h.id)))
+    .sort((p, q) => (q.kind === 'law') - (p.kind === 'law') || String(q.at).localeCompare(String(p.at)));
+}
+// What this drawing says: the cards (GN_MAX, or GN_PHONE on a phone), the reason lines on the action cards, the bills they
+// name and the live good news bills (the since rows leave those out). fullCards: the bills drawn as full action cards below.
+// wire() remembers what is drawn; nothing is stored here.
+function goodNewsBlock(fullCards = new Set()) {
+  const live = goodNews(), reason = [], onBill = new Set();
+  for (const x of live) if (fullCards.has(x.b.id) && !onBill.has(x.b.id)) { onBill.add(x.b.id); reason.push(x); }
+  const cards = live.filter(x => !reason.includes(x)), shown = cards.slice(0, phoneNow() ? GN_PHONE : GN_MAX), waiting = cards.length - shown.length;
+  const before = momentsShown(), fresh = [...reason, ...shown].filter(x => !before.has(x.key)).map(x => x.key);
+  S.hmGnDraw = { cards: shown, reason, fresh };
+  S.hmCardMoments = new Map(reason.map(x => [x.b.id, { text: momentText(x) }]));   // the action card's reason line (actions.js why)
+  const bills = new Set([...reason, ...shown].map(x => x.b.id)), liveBills = new Set(live.map(x => x.b.id));
+  if (!shown.length) return { html: '', bills, liveBills, goodShown: false };
+  const name = myName(), isNew = new Set(fresh);
+  const card = x => {
+    const b = x.b, num = spaced(b.bill_number), nm = nick(b), label = nm || num;
+    return `<li class="hm-gn${x.kind === 'law' ? ' law' : ''}${isNew.has(x.key) ? ' gn-new' : ''}" data-gn-key="${esc(x.key)}">
+      <span class="hm-gnic" aria-hidden="true">${flower(22)}</span>
+      <a class="hm-gnt" href="${billPath(b)}">${esc(label)}</a>
+      ${btn('Got it', { kind: 'text', sm: true, cls: 'hm-gngot', attrs: { 'data-gn-got': x.key, 'aria-label': `Got it: ${label}` } })}
+      <p class="hm-gnf">${nm ? `<b>${esc(num)}</b> · ` : ''}${esc(momentText(x))}</p></li>`;
+  };
+  const more = waiting ? btn(`${n(waiting)} more good news`, { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-gnmore' }) : '';
+  return { html: `<section class="hm-gnsec" aria-labelledby="hm-gn-h"><h2 id="hm-gn-h" class="hm-gnh">${name ? `<span>Aloha, ${esc(name)}.</span> ` : ''}Good news:</h2>
+    <ul class="hm-gnlist" role="list">${shown.map(card).join('')}</ul>${more}</section>`, bills, liveBills, goodShown: true };
+}
+// The rows of "since your last visit": a hearing set or a decision on a bill they follow, a bill that became law. goodBills:
+// the bills a good news card names, which say it in their card. Null when there is no last visit to compare with.
+function sinceItems(goodBills = new Set()) {
   const prev = S.prevVisit ? +new Date(S.prevVisit) : 0, now = Date.now(), month = now - 30 * 864e5;
   const news = !!prev && now - prev >= 3 * 36e5;   // a visit a few hours ago is the same visit, for this
-  const mseen = momentsSeen(), rseen = resultsSeen();
-  const moments = results().filter(r => r.at && +new Date(r.at) > month
-    && (S.hmShown.has(r.key) || (!mseen.has(r.key) && !(r.kind === 'passed' && rseen.has(r.h.id)))));   // a committee's yes already burst before 9/30
-  if (!news && !moments.length) return null;
-  const since = news ? Math.max(prev, month) : now, acted = new Map(myActions().filter(a => a.hearing_id).map(a => [a.hearing_id, a.kind]));
+  if (!news) return null;
+  const since = Math.max(prev, month), acted = new Map(myActions().filter(a => a.hearing_id).map(a => [a.hearing_id, a.kind]));
   const DID = { email: 'you emailed the chair', testimony: 'you testified', attend: 'you went', share: 'you shared it' }, per = new Map();
-  const add = x => { const o = per.get(x.b.id); if (!o || (x.moment && !o.moment) || (!o.moment && x.you && !o.you) || (!!x.moment === !!o.moment && x.you === o.you && x.t > o.t)) per.set(x.b.id, x); };
-  for (const r of moments) add({ b: r.b, t: +new Date(r.at), h: r.h, good: true, you: true, moment: r.key, law: r.kind === 'law', lead: MOMENT_ICON[r.kind], text: momentText(r) });
+  const add = x => { const o = per.get(x.b.id); if (!o || (x.you && !o.you) || (x.you === o.you && x.t > o.t)) per.set(x.b.id, x); };
   for (const h of S.hearings) {
-    const b = S.bills.find(x => x.id === h.bill_id); if (!b) continue;
+    const b = S.bills.find(x => x.id === h.bill_id); if (!b || goodBills.has(b.id)) continue;
     const num = spaced(b.bill_number), held = new Date(h.scheduled_at) <= now, o = held ? outcomeOf(h) : null, t = o && +new Date(o.reported_at || h.scheduled_at);
     if (o?.outcome && t > since) {
       const said = { passed: 'passed it', passed_amended: 'passed it with changes', deferred: 'put it on hold', recommitted: 'sent it back for more work' }[o.outcome];
@@ -296,48 +342,63 @@ function sinceItems() {
       const d = dayWord(h.scheduled_at); add({ b, t: +new Date(h.notice_posted_at), lead: 'calendar', text: `${num} has a hearing ${/^(today|tomorrow)/.test(d) ? d : 'on ' + d}.` });
     }
   }
-  for (const b of S.bills) if ((b.stage === 'enacted' || b.stage === 'governor') && b.last_action_date && hiT(b.last_action_date) > since)
+  for (const b of S.bills) if (!goodBills.has(b.id) && (b.stage === 'enacted' || b.stage === 'governor') && b.last_action_date && hiT(b.last_action_date) > since)
     add({ b, t: hiT(b.last_action_date), good: sideOf(b) !== 'against', you: myActions().some(a => a.bill_id === b.id), lead: sideOf(b) !== 'against' ? 'circle-check' : 'arrow-right', text: b.stage === 'enacted' ? 'It became law.' : 'It passed the House and Senate and is on the Governor’s desk.' });
-  return [...per.values()].sort((p, q) => (!!q.moment - !!p.moment) || (q.you - p.you) || (q.t - p.t)).slice(0, 3);
+  return [...per.values()].sort((p, q) => (q.you - p.you) || (q.t - p.t)).slice(0, 3);
 }
-// fullCards: the bills drawn as full action cards below (the first two), whose reason line can carry a moment.
-function sinceStrip(inCards = new Set(), fullCards = new Set()) {
-  // A hearing set on a bill the person already acted on is the row at the top that says so (loopCard): not again here.
-  const loopB = S.hmLoopB || new Set(), all = sinceItems()?.filter(x => !(x.lead === 'calendar' && loopB.has(x.b.id))); if (!all) return '';
+// gn: what goodNewsBlock drew this time. inCards: the bills drawn as action cards below (their new hearings are said there).
+function sinceStrip(inCards = new Set(), gn = { liveBills: new Set(), goodShown: false }) {
+  const loopB = S.hmLoopB || new Set(), all = sinceItems(gn.liveBills)?.filter(x => !(x.lead === 'calendar' && loopB.has(x.b.id))); if (!all) return '';
   // A hearing already drawn as a card below is counted in one line, not repeated as a row.
-  let items = all.filter(x => !(x.lead === 'calendar' && inCards.has(x.b.id)));
-  const carded = all.length - items.length;
-  const news = !!S.prevVisit && Date.now() - +new Date(S.prevVisit) >= 3 * 36e5;   // else only moments are listed
+  const items = all.filter(x => !(x.lead === 'calendar' && inCards.has(x.b.id))), carded = all.length - items.length;
   const d = new Date(S.prevVisit || Date.now()), days = Math.round((hiT(hstDay(Date.now())) - hiT(hstDay(d))) / 864e5);
   const when = days <= 1 ? 'yesterday' : days < 7 ? d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) : `your last visit`;
-  const name = myName(), seen = resultsSeen(), mseen = momentsSeen();
-  // The small burst goes to the first moment Home has not shown before; else, as before, a committee's yes on a hearing
-  // they acted on. wire() marks the new moments seen, counts them and gives a law its full-screen moment.
-  // A moment on a bill that also has an action card below is said once, as that card's reason line (A-14, the review
-  // 9/30: HB 1870's "House Finance passed it" sat right above its own Senate card).
-  S.hmCardMoments = new Map(items.filter(x => x.moment && fullCards.has(x.b.id)).map(x => [x.b.id, x]));
-  S.hmMoments = items.filter(x => x.moment && !mseen.has(x.moment));
-  items = items.filter(x => !(x.moment && fullCards.has(x.b.id)));
-  S.hmBurst = items.find(x => x.moment && !mseen.has(x.moment))?.moment || (items.some(x => x.moment) ? null : items.find(x => x.you && x.good && x.h && !seen.has(x.h.id))?.h.id) || null;
-  // The row that burst keeps its mark for the rest of the visit (a redraw must not drop it, nor burst it again).
-  const bursts = x => x.moment ? x.moment === S.hmBurst || x.moment === S.hmBursted : !!x.h && x.h.id === S.hmBurst;
-  if (!items.length && carded) return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Since ${esc(when)}, ${carded === 1 ? 'a hearing was' : `${carded} hearings were`} set on your issues. ${carded === 1 ? 'It’s' : 'They’re'} below.</p></section>`;
+  const name = myName(), seen = resultsSeen();
+  // The good news cards above greet the person when they are there, so the greeting is said once (A-14).
+  const hi = gn.goodShown ? '' : `Aloha${name ? `, ${esc(name)}` : ''}.`;
+  // A committee's yes on a hearing they acted on, seen for the first time, gets the small burst (the rows' own; the good news
+  // cards burst instead, so two bursts do not land at once).
+  S.hmBurst = gn.goodShown ? null : items.find(x => x.you && x.good && x.h && !seen.has(x.h.id))?.h.id || null;
+  if (!items.length && carded) return `<section class="hm-since quiet" aria-label="Since your last visit"><p>${hi ? `<b>${hi}</b> ` : ''}Since ${esc(when)}, ${carded === 1 ? 'a hearing was' : `${carded} hearings were`} set on your issues. ${carded === 1 ? 'It’s' : 'They’re'} below.</p></section>`;
   if (!items.length) {
+    if (gn.goodShown) return '';   // the good news cards say what there is; "nothing new" beside them would contradict them
     const next = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && S.bills.some(b => b.id === h.bill_id) && !loopB.has(h.bill_id)).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
     const nb = next && S.bills.find(b => b.id === next.bill_id);
-    return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> Nothing new on your issues since ${esc(when)}.${nb ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
+    return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>${hi}</b> Nothing new on your issues since ${esc(when)}.${nb ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
   }
-  // On a phone one row, so the day's actions stay near the top (A-1; three moments put the first card at 588px). The other
-  // moments are on the session page, which the link beside the heading opens (so they count as shown); other news left out
-  // here still shows in What's new (S.hmSinceShown is what this strip said).
-  const narrow = (() => { try { return matchMedia('(max-width: 719px)').matches; } catch { return false; } })();
-  const shown = narrow ? items.slice(0, 1) : items, more = items.slice(shown.length).filter(x => x.moment).length;
-  S.hmSinceShown = new Set([...shown.map(x => x.b.id), ...S.hmCardMoments.keys()]);
-  if (!shown.length) return '';
-  return `<section class="hm-since" aria-labelledby="hm-since-h"><div class="hm-sincehead"><h2 id="hm-since-h"><span>Aloha${name ? `, ${esc(name)}` : ''}.</span> ${news ? `Since ${esc(when)}:` : 'Good news:'}</h2>
-      ${more ? btn(`${more} more on your session page`, { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/recap', cls: 'hm-sincemore' }) : ''}</div>
-    <div class="rows">${shown.map(x => row({ lead: x.lead, title: esc(nick(x.b) || spaced(x.b.bill_number)), sub: esc(x.text), href: billPath(x.b), cls: x.you && x.good ? 'hm-you' + (bursts(x) ? ' hm-youburst' : '') : '' })).join('')}</div>
+  // On a phone one row, so the day's actions stay near the top (A-1). The others are in What's new below, which skips only
+  // the bills shown here.
+  const shown = phoneNow() ? items.slice(0, 1) : items;
+  S.hmSinceShown = new Set(shown.map(x => x.b.id));
+  return `<section class="hm-since" aria-labelledby="hm-since-h"><h2 id="hm-since-h">${hi ? `<span>${hi}</span> ` : ''}Since ${esc(when)}:</h2>
+    <div class="rows">${shown.map(x => row({ lead: x.lead, title: esc(nick(x.b) || spaced(x.b.bill_number)), sub: esc(x.text), href: billPath(x.b), cls: x.you && x.good ? 'hm-you' + (x.h && x.h.id === S.hmBurst ? ' hm-youburst' : '') : '' })).join('')}</div>
     ${carded ? `<p class="meta">${carded === 1 ? 'A new hearing is' : `${carded} new hearings are`} in your list below.</p>` : ''}</section>`;
+}
+// wire() for the good news. A card that has just appeared gets the small burst, once, staggered so two do not land on one
+// another (C-7); a law gets its full-screen moment instead, once. What was drawn is remembered here, not when drawn, so a
+// redraw never bursts it again. A reason line is remembered as seen and kept for this visit. Returns the law shown, if any.
+function wireGood() {
+  const gd = S.hmGnDraw; S.hmGnDraw = null;
+  if (!gd) return null;
+  const isNew = new Set(gd.fresh), seen = momentsSeen(), shown = momentsShown();
+  if (gd.reason.length) { gd.reason.forEach(x => { seen.add(x.key); S.hmKeep.add(x.key); }); putIds(MSEEN_KEY, seen); }
+  if (gd.cards.length || gd.reason.length) { [...gd.cards, ...gd.reason].forEach(x => shown.add(x.key)); putIds(MSHOWN_KEY, shown); }
+  gd.fresh.forEach(() => logAct('moment'));   // counted privately, kind only (migration 106)
+  // The card is looked up when the burst is due, in the page as it is then: a redraw in between must not burst the old copy.
+  gd.cards.filter(x => isNew.has(x.key) && x.kind !== 'law').forEach((x, i) => later(() => {
+    const el = document.querySelector(`#main [data-gn-key="${CSS.escape(x.key)}"] .hm-gnic`); if (el) burst(el); }, i * 350));
+  return [...gd.cards, ...gd.reason].find(x => x.kind === 'law' && isNew.has(x.key)) || null;
+}
+// "Got it" removes one card: it fades, the page is drawn again, and the next waiting card takes its place (it bursts as it
+// appears). The focus goes to the next card's button, so a keyboard or screen-reader user does not land at the top.
+function wireGotIt(root) {
+  root.querySelectorAll('[data-gn-got]').forEach(el => el.onclick = () => {
+    if (el.disabled) return; el.disabled = true;
+    const k = el.dataset.gnGot, gone = momentsSeen(); gone.add(k); putIds(MSEEN_KEY, gone); S.hmKeep.delete(k);
+    const li = el.closest('.hm-gn'); li?.classList.add('gn-out');
+    later(() => { if (li?.isConnected) { S.hmGnFocus = true; app.render(); } }, 220);
+  });
+  if (S.hmGnFocus) { S.hmGnFocus = false; (root.querySelector('[data-gn-got]') || document.getElementById('main'))?.focus({ preventScroll: true }); }
 }
 
 // ---------------- an unfinished testimony (R-068) ----------------
@@ -590,7 +651,10 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   // What they did and when the committee hears it (X10-2), but not for a card still drawn in place below (one done while
   // they were here) or a plan to go, each of which says it already.
   const loop = loopCard(new Set([...cards.map(x => x.h.id), ...plans.map(p => p.h.id)])), inLoop = S.hmLoopB;
-  const since = sinceStrip(inCards, new Set(cards.slice(0, 2).map(x => x.b.id))), inSince = new Set([...S.hmSinceShown, ...inLoop]);
+  // The good news cards (goodNewsBlock) come under the plan to go and above the rest of what happened; the since rows and
+  // the side column leave out whatever they say (A-14).
+  const gn = goodNewsBlock(new Set(cards.slice(0, 2).map(x => x.b.id))), wide = wideNow();
+  const since = sinceStrip(inCards, gn), inSince = new Set([...S.hmSinceShown, ...inLoop, ...gn.bills]);
   // The suggestion sits in the side column, unless the main column would otherwise be empty (nothing to do): then it
   // is the one thing on offer and goes where things to do go. Decided by what is drawn, not by the count, so it does
   // not move when the person finishes their last card in place.
@@ -609,13 +673,13 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   return `<div class="hm hm-follow">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      ${draftsCard(drawn)}${goSoon}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
+      ${draftsCard(drawn)}${goSoon}${wide ? '' : gn.html}${since}${loop}<header class="hm-head"><p class="eyebrow">${esc(today)}</p><h1 class="hero">${esc(h1)}</h1>${quiet}</header>
       ${byIssue ? issueBlock(cards, asks, { nudgeHtml }) : todoBlock(cards, asks, { nudgeHtml })}
       ${folded.length ? `<details class="hm-fold"${S.hmOpen.fold ? ' open' : ''}><summary><h2 class="hm-foldt">${icon('circle-check')}Done this week (${folded.length})</h2>${icon('chevron-down', { cls: 'hm-foldc' })}</summary>
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
     </div><div class="side hm-side">
-      ${goLater}${newIssuesCard()}
+      ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
       ${sessionPanel(si, { skip: inSince })}
       ${whatsNew(new Set([...inCards, ...inSince]))}
       ${homeScreenCard()}
@@ -834,6 +898,7 @@ function recapSaid(acts, acted, followed, yr) {
 }
 function offView(si) {
   const yr = si.recapYear, next = si.nextOpen, nextYr = next ? +next.slice(0, 4) : yr + 1, welcome = welcomed();
+  const gn = welcome ? null : goodNewsBlock(new Set());   // no action cards between sessions, so no reason lines
   const opens = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : '';
   const days = next ? Math.max(0, Math.round((hiT(next) - hiT(hstDay(Date.now()))) / 864e5)) : 0;
   const acts = myActions().filter(a => a.year === yr || (!a.year && anyBill(a.bill_id)?.session_year === yr));
@@ -876,7 +941,7 @@ function offView(si) {
   const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
   const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
   return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}${lead ? ' hm-lead' : ''}">
-    ${accountCards()}${welcome ? '' : sinceStrip()}
+    ${accountCards()}${welcome ? '' : `${gn.html}${sinceStrip(new Set(), gn)}`}
     ${v2 ? `<header class="hm-head hm-break hm-finhead"><div class="hm-art">${anim ? CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>') : CAPITOL}</div>
       <div class="hm-breakt">${finHead({ off: true, lede: v2lede })}${daysChip}</div></header>`
     : `<header class="hm-head hm-break"><div class="hm-art">${CAPITOL}</div>
@@ -1059,6 +1124,7 @@ export default {
     }
     const mode = si.phase !== 'in' ? 'off' : S.hmMode === 'explore' || !S.watch.size ? 'explore' : 'follow';
     S.hmLoopB = new Set();   // the bills "What you did" names on this drawing (loopCard); none until it is drawn
+    S.hmGnDraw = null; S.hmBurst = null;   // what the good news and the since rows drew last time (wire() reads them)
     const html = mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);
     // A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js): at the top between sessions, when
     // nothing is due; in session under Home's own content, so it never pushes a live deadline down (A-1, A-13).
@@ -1084,22 +1150,17 @@ export default {
     // The story of the bill, offered once to someone who acted from a link and came straight here (X10-2): opened, it goes.
     root.querySelector('[data-hm-learn]')?.addEventListener('click', () => wizSet({ viaLearned: true }));
     finFx();
-    // A result on a hearing they acted on, seen for the first time: the small burst, once (sinceStrip).
+    // A committee's yes on a hearing they acted on, seen for the first time: the small burst, once (sinceStrip).
     const yb = S.hmBurst && root.querySelector('.hm-youburst .lead');
-    if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ }
-      if (String(S.hmBurst).includes(':')) S.hmBursted = S.hmBurst; S.hmBurst = null; }
-    // New moments (R-046): seen from now on (they stay on Home for this visit), counted privately by kind only, and a law
-    // gets the full-screen moment, the biggest there is (C-7).
-    const ms = S.hmMoments || []; S.hmMoments = null;
-    const law = ms.find(x => x.law);
-    if (ms.length) {
-      const m = momentsSeen(); ms.forEach(x => { m.add(x.moment); S.hmShown.add(x.moment); logAct('moment'); });
-      try { localStorage.setItem(MSEEN_KEY, JSON.stringify([...m].slice(-500))); } catch { /* private mode: shown again next visit */ }
-      if (law) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(law.b) ? 'was adopted' : 'became law'}`, sub: `${nick(law.b) || spaced(law.b.bill_number)}. Mahalo for speaking up.`, go: 'Continue' }), 400);
-    }
+    if (yb) { burst(yb); const seen = resultsSeen(); seen.add(S.hmBurst); try { localStorage.setItem(RSEEN_KEY, JSON.stringify([...seen].slice(-300))); } catch { /* private mode */ } S.hmBurst = null; }
+    // The good news cards (R-046): each new one bursts once, a law gets its full-screen moment once (C-7, the biggest there is),
+    // and "Got it" removes one card at a time (wireGood, wireGotIt).
+    const law = wireGood();
+    wireGotIt(root);
+    if (law) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(law.b) ? 'was adopted' : 'became law'}`, sub: `${nick(law.b) || spaced(law.b.bill_number)}. Mahalo for speaking up.`, go: 'Continue' }), 400);
     // The session's end is said once, between sessions. It is not a full-screen moment (C-7 keeps those for the first follow,
     // the first action and a law; R-140, 10/10): a small burst on Home's heading and a toast that stays 10 s, with
-    // "See your session" on it. Nothing waits for it, and it never covers the page.
+    // "See your session" on it. Nothing waits for it, and it never covers the page. A law's moment comes first; the session's end then waits for the next visit.
     const rm = S.hmRecapMoment; S.hmRecapMoment = null;
     if (rm && !law) { try { localStorage.setItem(RMOM_KEY, String(rm.yr)); } catch { /* private mode */ }
       setTimeout(() => {

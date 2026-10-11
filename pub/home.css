@@ -87,10 +87,6 @@
 .hm .rows .row .sub { color: var(--n700); }
 /* "Since you were here": the news is the sentence itself, so it is never cut short (the review 9/30 lost the day and time) */
 .hm .hm-since .rows .row .sub { display: block; -webkit-line-clamp: none; overflow: visible; }
-/* the heading, with "2 more on your session page" beside it on a phone (the line under it left a 70px gap, A-1) */
-.hm .hm-since .hm-sincehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); margin-bottom: var(--s8); }
-.hm .hm-since .hm-sincehead h2 { margin-bottom: 0; }
-.hm .hm-since .hm-sincemore { min-height: 44px; padding-left: 0; padding-right: 0; }
 .hm .rows a.row:hover .title { text-decoration: underline; }
 
 /* Your session: the person's own numbers, weeks, milestones and results */
@@ -228,6 +224,34 @@
 .hm .hm-ylist .chip { flex: none; }
 .hm .hm-yours .hm-link { align-self: flex-start; margin-left: -12px; }
 @media (min-width: 900px) { .hm.hm-fin .cols { grid-template-columns: minmax(0, 720px); } }   /* one calm column after the first visit */
+
+/* Good news (R-046, reworked 10/10 from Nate's answer of 10/5): one card per result, each dismissed on its own with "Got it",
+   at most three (one on a phone, DESIGN A-1). Orange is the celebration colour (C-7), so it is the card's wash, edge and icon
+   only; the words stay ink (A-5). Compact on purpose: the title line holds the button, the fact runs under it in two lines. */
+.hm .hm-gnsec { margin-bottom: 0; }   /* the page head's own top padding spaces it (A-1: the actions stay high) */
+.hm .hm-gnh { font-size: var(--t16); margin: 0 0 var(--s8); }
+.hm .hm-gnh span { color: var(--p800); }
+.hm .hm-gnlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.hm .hm-gn { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: "ic t got" "ic f f";
+  column-gap: var(--s8); align-items: center; padding: var(--s4) var(--s4) var(--s4) var(--s12); background: var(--o50);
+  border: 1px solid var(--o200); border-radius: var(--r16); transition: opacity .2s ease; }
+.hm .hm-gn.law { border-color: var(--o400); }
+.hm .hm-gn.gn-out { opacity: 0; }
+.hm .hm-gnic { grid-area: ic; align-self: start; width: 32px; height: 32px; margin-top: var(--s8); border-radius: 50%; background: var(--n0);
+  display: flex; align-items: center; justify-content: center; }
+.hm .hm-gnt { grid-area: t; min-width: 0; font-weight: 700; color: var(--n900); text-decoration: none; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* a long name wraps, never cut short */
+.hm .hm-gnt:hover { text-decoration: underline; }
+/* the whole card is the link to its bill (the stretched link); "Got it" sits above it so it still takes its own tap */
+.hm .hm-gnt::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.hm .hm-gngot { grid-area: got; position: relative; z-index: 1; padding: 0 var(--s8); }
+.hm .hm-gnf { grid-area: f; margin: 0; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+.hm .hm-gnf b { color: var(--n900); }
+.hm .hm-gnmore { min-height: 44px; padding-left: 0; padding-right: 0; }
+/* on a phone the line's 44px tap height hangs under the cards, not above what follows: the first action starts higher (A-1) */
+@media (max-width: 1099px) { .hm .hm-gnmore { margin-bottom: -12px; } }
+
+@media (prefers-reduced-motion: reduce) { .hm .hm-gn { transition: none; } }
 
 /* Since you were here (R-067): the first thing on Home when someone comes back. */
 .hm .hm-since { margin-bottom: var(--s8); }
