@@ -321,6 +321,25 @@
 .lx-scap p.lx-calm { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
 .lx-calm .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 
+/* R-219's two versions of stage 3, each on its own link for Nate's pick (?story3=road, ?story3=table; lessons.js story3).
+   road: page 2's road comes back with two doors. "Yes" flies the notes in, ticks the stop and slides the bill on to its
+   next stop (the road between fills in); "Not this week" greys the road ahead and stamps the bill. table: the committee's
+   table; its scenes reuse today's chair, testimony and quiet groups. Both end on the still picture that says the same. */
+.lx-story[data-choice="yes"] .lx-c3-yes, .lx-story[data-choice="no"] .lx-c3-no { display: inline; }
+.lx-story[data-choice="yes"] .lx-r3t .lx-b3 { display: none; }
+.lx-story[data-choice="testimony"] .lx-t3note, .lx-story[data-choice="chair"] .lx-t3note { opacity: 0; }
+.lx-story :is(.lx-slide, .lx-draw) { transform-box: fill-box; }
+.lx-story .lx-draw { stroke-dasharray: var(--len) var(--len); }
+.lx-story.lx-cplay .lx-draw { animation: lx-draw .5s var(--ease) var(--d, 0ms) both; }
+.lx-story.lx-cplay .lx-slide { animation: lx-slide .6s var(--ease) var(--d, 0ms) both; }
+.lx-doors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); margin-top: var(--s12); }
+.lx-door { justify-content: center; text-align: center; font-size: var(--t16); padding: 10px 12px; }
+.lx-mom.lx-got.lx-gotno { background: var(--n100); border-left-color: var(--n700); }
+.lx-try { justify-content: flex-start; }
+.lx-ch3 { font-size: var(--t16); }   /* C-14: what someone reads to choose is 16px */
+.lx-chsub { font-weight: 400; color: var(--n700); }
+.lx-chsub + .lx-chhere { margin-top: 2px; }
+
 /* ---- the smallest phones ---- */
 @media (max-width: 22.4375em) {
   .lx-jl:not(.lx-jl-gov) { transform: translate(-50%, -25%); }
@@ -353,6 +372,8 @@
 @keyframes lx-fly { 0% { transform: translate(var(--dx), var(--dy)); opacity: 0; } 15% { opacity: 1; } 100% { transform: none; opacity: 1; } }
 @keyframes lx-grow { from { transform: scaleX(0); } to { transform: none; } }
 @keyframes lx-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes lx-draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes lx-slide { from { transform: translate(var(--mx), 0); } to { transform: none; } }
 
 /* Reduce Motion: the same states, with no movement (A-10). base.css zeroes durations but not delays, and some states
    here wait on a delay, so both go. The JS side (fx.reduced) skips the timers, the trips and the bursts. */

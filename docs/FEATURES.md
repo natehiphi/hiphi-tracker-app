@@ -52,7 +52,12 @@ with heavy hand-holding): three buttons in the order a bill meets them (before a
 vote: tell my legislators), each a drawn neighbor doing it and what CAN happen, tapped through (`CHOICES`, `momentOf`, `momentPanel`, `storyChoose` in
 `pub/lessons.js`); it opens on the bill's own moment, marked "is here", with its real date ("testimony is due Wednesday at 9:30 AM"), says how many of
 the three have been seen, and "Stay quiet" is gone as a choice (its point is the closing line: most bills stop at one of these moments, often without
-anyone asking about them); a law, a stopped bill, one on the Governor's desk and any bill between sessions are at none and the page says so; Back steps
+anyone asking about them); a law, a stopped bill, one on the Governor's desk and any bill between sessions are at none and the page says so. Two new
+versions of this stage wait for Nate's pick (R-219, 10/11), each on its own link and nowhere else until he picks: `?story3=road` (page 2's road comes back,
+"Will you speak up on HB 2121 this week?", two doors whose yes follows the bill's moment: testimony with a hearing set, the chair's email while it waits)
+and `?story3=table` (the committee at its table with the pile of notes they read, You, and three choices, the one that fits now marked); in both doing
+nothing ends stark ("DID NOT ADVANCE"), the others stay to try, nothing is picked for you (`story3`, `roadDoorsSVG`, `tableSVG`, `story3Choose`; checked
+by `tests/story3.py`); Back steps
 back through the stages; counted as step 'bill'; `pub/lessons.js` section 4, `lessonStep()`, also at
 `#/learn/story`; the older three lessons stay at `#/learn/bill|session|hearing` for links from bill pages and Help; on a
 laptop that page has the first visit's two columns, the drawing and heading on the left and the words on the right, R-173)
