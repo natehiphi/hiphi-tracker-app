@@ -47,7 +47,10 @@ export function profileLede(kind, { off = false, things = '', many = false, n = 
   const anywhere = codesOn() ? ' on any phone or computer' : '';
   if (kind === 'action') return 'Bills often get more than one hearing. Your profile keeps what you wrote, so you can send it again next time.';
   if (kind === 'intro') return 'Your profile keeps your name and what you wrote, ready for the next time you write.';
-  if (kind === 'back') return `Welcome back. ${things ? `Your ${things} live` : 'What you follow lives'} only in this browser for now. Save ${things ? 'them' : 'it'} to your profile to keep ${things ? 'them' : 'it'}${anywhere || ' safe'}.`;
+  // 'back': a later visit's full page since R-237 (pub/nextask.js), whose "Welcome back" is over the heading, so the line no
+  // longer starts with it (A-14); "Your 1 issue lives", "Your 2 issues live".
+  if (kind === 'back') { const one = /^1 \w+$/.test(things);
+    return `${things ? `Your ${things} ${one ? 'lives' : 'live'}` : 'What you follow lives'} only in this browser for now. Save ${things && !one ? 'them' : 'it'} to your profile to keep ${things && !one ? 'them' : 'it'}${anywhere || ' safe'}.`; }
   // The first visit's screen (n: the issues just followed). Nate 10/6 (R-188): its words "need to significantly improve".
   // They were two facts that didn't meet ("keeps your issues with you on any phone or computer", then what a hearing is),
   // so the reason to save was left for the reader to put together with the box's words. Now one sentence: what a profile

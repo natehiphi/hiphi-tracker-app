@@ -179,24 +179,19 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '2', 'Back on stage 3 goes back to stage 2')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     ok(p.evaluate(STAGE) == '3' and p.locator('.lx-ch[aria-pressed=true]').count() == 1 and p.locator('.lx-ch.lx-chdone').count() == 1, 'coming forward again, it opens afresh on the bill’s own moment, one seen')
-    ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: Your Legislators', 'on stage 3 the button names the next screen (R-140), in title case (R-186)')
+    ok(p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next: Coming Up', 'on stage 3 the button names the next screen (R-140, R-232), in title case (R-186)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     # No full-screen moment here: one mid-way read as the end of the first visit (R-140); the part's tick bursts instead.
     ok(p.locator('#fx-moment:not([hidden])').count() == 0, 'finishing the story goes straight on, with no full-screen moment (R-140)')
     seen = [p.evaluate("document.querySelector('main h1')?.innerText || ''")]
-    ok(seen == ['Who speaks for you'], f'one lesson, then who speaks for you ({seen})')
+    # Finding the legislators left the first visit (R-232, Nate 10/11): Home offers it on the next visits.
+    ok(seen == ['Coming up on your issues'] and p.locator('#st-addr').count() == 0, f'one lesson, then coming up, with no address asked ({seen})')
     std(p, 'after_story', axe=True)
     # Back from the next screen comes back to the story (Back on the story itself is checked with Skip, below).
     p.locator('[data-stback]').first.click(); p.wait_for_timeout(1500)
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.evaluate(STAGE) == '3', 'Back from who speaks for you returns to the story, on its last stage')
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.evaluate(STAGE) == '3', 'Back from coming up returns to the story, on its last stage')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
-    seen = [p.evaluate("document.querySelector('main h1')?.innerText || ''")]
-    # Stay connected: a street address only; nothing is pushed before one is found.
-    ok('Who speaks for you' in seen and p.locator('#st-addr').count() == 1 and p.locator('#st-town').count() == 0, 'who speaks for you asks for a street address only')
-    ok(p.locator('.actionbar .btn.primary').count() == 0 and p.locator('[data-stskip]').count() == 1, 'before an address there is only Skip')
-    std(p, 'you', axe=True); shot(p, 'p_you')
-    p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     # Coming up: the value, and no ask any more (R-146 moved it up to right after the issues).
     ts = text(p); ok('Coming up on your issues' in ts, f"then coming up on your issues ({p.evaluate('location.hash')})")
     ok(p.locator('.st-soon li').count() >= 1 and p.locator('#st-a-phone, #st-a-email, #st-eform').count() == 0, 'coming up lists what is ahead and asks for nothing more')

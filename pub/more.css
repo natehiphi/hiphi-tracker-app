@@ -183,3 +183,4 @@
 /* The privacy page's short lists (J2-3): one fact a line, so a person can find their answer. */
 .mr .mr-factlist { margin: 0; padding-left: var(--s20); display: grid; gap: var(--s8); }
 .mr .mr-factlist li { line-height: 1.5; }
+.mr .mr-facts p + p { margin-top: var(--s8); }

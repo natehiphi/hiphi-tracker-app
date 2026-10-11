@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, nudge, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, CONSENT_KEY, restoreFollows, issueFollowed } from './kernel.js';
+import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
@@ -34,6 +34,7 @@ const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'W
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
+const nextask = lazy('next', () => import('./nextask.js'), { tabs: false, title: 'Welcome back' });   // R-237
 const quiz = lazy('quiz', () => import('./quiz.js'), { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
 const bill = lazy('bill', () => oldA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
@@ -41,18 +42,18 @@ const committees = lazy('committees', () => import('./committees.js')), allbills
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
 // phone zoomed the page out, and a Follow tapped then opened the profile sheet cut off at both edges).
-const SCREEN_CSS = { start: ['start'], learn: ['start'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
+const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
-const FIRST_VISIT = ['start', 'learn'];
+const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
 const cssOne = n => cssP[n] ??= new Promise(res => {
@@ -80,7 +81,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
@@ -111,6 +112,8 @@ export function parseRoute(h = location.hash) {
     // One lesson on its own, in the moment it is needed (R-067 #11): #/learn/hearing, or #/learn/hearing/<bill id> to
     // teach it on that bill.
     case 'learn': return { name: 'learn', lesson: seg[1] || 'bill', bill: seg[2] || '' };
+    // A later visit's one ask, as a full page (R-237, pub/nextask.js): boot() puts it here on a new day's first arrival.
+    case 'next': return { name: 'next', kind: seg[1] || '' };
     case 'bills': return { name: 'bills' };
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
     case 'issue': return { name: 'issue', slug: seg[1] || '' };
@@ -306,15 +309,19 @@ document.addEventListener('keydown', e => {
 // Since R-067 it is the second visit, not the thirtieth day: an iPhone clears a site's storage after a week away, so
 // the ask for an email ("so your issues are still here in January") comes the first time they are back on another day.
 // nudge() keeps its own spacing after "Not now". The last visit is kept for Home's "Since you were here".
+// Since R-237 (Nate 10/11) that ask is not a card on Home: it is one of the later visit's full pages (pub/nextask.js), and
+// this says whether this is a new day's first arrival, when that page may come. The practice copy's days are its own
+// ("Next day", ?day=), kept in hiphi_askday (the practice copy's copy, kernel.js), so a tester's next day counts.
 function welcomeBack() {
   const o = onb(), last = o.lastVisit ? Date.parse(o.lastVisit) : 0;
   S.prevVisit = o.lastVisit || null;
-  // Not when this browser already sent a sign-in link (R-098): they gave their email, and were asked for it again.
-  let gave = false; try { gave = !!(sessionStorage.getItem('hiphi_link_sent') || localStorage.getItem(CONSENT_KEY)); } catch { /* ignore */ }
-  if (last && hstDay(last) !== hstDay(Date.now()) && (followsAnything() || S.done.size) && !S.session && !gave) nudge('back');
+  let fresh = !!last && hstDay(last) !== hstDay(Date.now());
+  if (DEMO) { const day = new URLSearchParams(location.search).get('day') || 'mon';
+    try { const was = localStorage.getItem('hiphi_askday'); fresh = !!was && was !== day; localStorage.setItem('hiphi_askday', day); } catch { fresh = false; } }
   onbSet({ lastVisit: new Date().toISOString() });
   // No navigator.storage.persist() here: some browsers answer it with a "store data in persistent storage?" prompt,
-  // a permission box a visitor should never meet (Nate, 9/29). The email ask above is how saved issues are kept.
+  // a permission box a visitor should never meet (Nate, 9/29). The profile ask (pub/nextask.js) is how saved issues are kept.
+  return fresh;
 }
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
@@ -344,7 +351,7 @@ async function boot() {
     // route is read, so the page opens on that step; the live page never loads that file.
     if (DEMO && /[?&]fvstep=/.test(location.search)) await (await import('./fvjump.js')).fvJumpFromAddress().catch(e => console.error(e));
     await ensureScreen(parseRoute());
-    welcomeBack();
+    const fresh = welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
     logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
     // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets the
@@ -354,6 +361,12 @@ async function boot() {
     let place = null, lists = null;
     if (S.user) { lists = await import('./mylists.js'); place = lists.takePlace(); if (place) history.replaceState({ y: 0 }, '', place.hash); }
     const r = parseRoute();
+    // A later visit's one ask (R-237): only when they opened the tracker itself (plain Home), never on arrival from an alert,
+    // an email or a shared link (those open their own address), and only on a new day's first arrival. pickAsk says which,
+    // if any (none with testimony due within a day on what they follow).
+    if (fresh && r.name === 'home' && !r.unknown && !place) {
+      try { const k = (await import('./nextask.js')).pickAsk(); if (k) { history.replaceState({ y: 0 }, '', `#/next/${k}`); await ensureScreen(parseRoute()); } } catch (e) { console.error(e); }
+    }
     if (r.legacy) {
       if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/start/1'); history.pushState({ y: 0, arrived: true }, '', toHash(r)); }
       else history.replaceState({ y: 0 }, '', toHash(r));

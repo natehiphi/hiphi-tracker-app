@@ -815,9 +815,88 @@ function voiceSVG() {
     </g>
   </g>`;
 }
+// ---- R-219: two new versions of stage 3, for Nate's pick (10/11, "Build 1 and 3") ----
+// Each is on its own link, ?story3=road or ?story3=table; without it the page is today's. Both answer one job (Nate 10/11):
+// people believe speaking up works, from a small choice and a picture of cause and effect. The choices are email the
+// chair to ask for a hearing, send testimony, or do nothing; the one that fits the bill now is marked (timing decides);
+// doing nothing ends stark (the bill greys, "Did not advance"); the other choices stay there to try; nothing is sent.
+// road  (sketch 1, Nate's "Plan 2 + Plan 3"): page 2's road comes back with two doors, "Will you speak up this week?".
+//       The yes door follows the bill's moment: testimony when a hearing is set, the chair's email while it waits for one.
+// table (sketch 3): the committee at its table with the pile of notes they read, You, and the three choices.
+// A bill at no committee moment (between sessions, a law, a stopped bill, one past its committees) gets the same scene as
+// a "say it were" at its committee stop: between sessions that is last session's bill, its past story (Nate 10/11).
+const story3 = () => { try { const v = new URLSearchParams(location.search).get('story3'); return v === 'road' || v === 'table' ? v : ''; } catch { return ''; } };
+const doorOf = E => { const m = momentOf(E); return m === 'testimony' || m === 'chair' ? { kind: m, live: true } : { kind: 'testimony', live: false }; };
+const sceneAt = E => (storyAt(E) <= 1 ? 0 : 2);   // the committee stop the scene plays at: its first side's, or the other's
+const roadNames = E => [`${E.start} committees`, `${E.start} vote`, `${E.other} committees`, `${E.other} vote`, E.x.ballot ? 'The voters' : 'Governor'];
+const tickAt = (x, y, pop = -1) => `<g transform="translate(${x} ${y})"><g class="lx-ticki${pop >= 0 ? ' lx-pop' : ''}"${pop >= 0 ? ` style="--d:${pop}ms"` : ''}><circle r="13" fill="var(--p700)"/><path d="M-6 0 l4 4 8-8" fill="none" stroke="var(--n0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
+// The stark ending, as a rubber stamp in the page's darkest ink (red is for danger only, base.css).
+const stamp3 = (x, y, d = 650) => `<g transform="translate(${x} ${y}) rotate(-9)"><g class="lx-pop" style="--d:${d}ms"><rect x="-80" y="-15" width="160" height="30" rx="4" fill="var(--n0)" stroke="var(--n900)" stroke-width="3"/>${svgText(0, 5, 'DID NOT ADVANCE', { size: 13, fill: 'var(--n900)', ls: 1 })}</g></g>`;
+function roadDoorsSVG(E) {
+  const s = sceneAt(E), [x, y] = STOPS[s], [nx] = STOPS[s + 1], end = along([x, y]), names = roadNames(E), D = doorOf(E), below = y === RB;
+  const stops = STOPS.map(([sx, sy], i) => `${i < s ? tickAt(sx, sy) : i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/>` : ''}${svgText(sx, sy === RB ? sy + 34 : sy - 26, names[i])}`).join('');
+  const greyStops = STOPS.map(([sx, sy], i) => i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n100)" stroke="var(--n300)" stroke-width="3"/>` : '').join('');
+  const ny = below ? y - 30 : y + 30;   // notes land beside the stop, on the side away from its name
+  const yes = D.kind === 'testimony'
+    ? `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28, ny, 10))}
+       <path class="lx-draw" style="--len:${Math.abs(nx - x)}px;--d:850ms" d="M${x} ${y} H${nx}" fill="none" stroke="var(--p600)" stroke-width="3.5"/>
+       ${tickAt(x, y, 750)}
+       <g class="lx-slide" style="--mx:${x - nx}px;--d:900ms"><g transform="translate(${nx} ${y})">${smallBill()}</g></g>`
+    : (() => { const cx = below ? x + 20 : x - 76, cy = below ? y - 66 : y + 18;   // in the open space beside the bill, off the road
+      return `${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}
+       <g class="lx-pop" style="--d:600ms"><rect x="${cx}" y="${cy}" width="56" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 52} Q${cx + 56} ${cy} ${cx + 56} ${cy + 4} V${cy + 16} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 28, cy + 12, 'Hearing', { size: 11, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 31} h22" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
+       <g transform="translate(${cx + 44} ${cy + 31})"><g class="lx-pop" style="--d:950ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`; })();
+  return `<g class="lx-lay lx-lay3 lx-r3${D.kind === 'testimony' ? ' lx-r3t' : ''}">
+    <path d="${ROAD}" fill="none" stroke="var(--n0)" stroke-width="22" stroke-linecap="round"/>
+    <path d="${ROAD}" fill="none" stroke="var(--p200)" stroke-width="2.5" stroke-dasharray="7 9"/>
+    <path d="${ROAD}" fill="none" stroke="var(--p600)" stroke-width="3.5" style="stroke-dasharray:${end.toFixed(1)} ${Math.ceil(ROADLEN + 40)}"/>
+    <g transform="translate(292 ${RT - 16})"><rect x="0" y="0" width="42" height="26" fill="var(--p300)"/><path d="M-5 0 L21 -16 L47 0 Z" fill="var(--p800)"/><rect x="17" y="12" width="9" height="14" fill="var(--p800)"/></g>
+    ${svgText(313, RT + 30, E.x.ballot ? 'Constitution' : 'Law')}
+    ${stops}
+    <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:0ms"><path d="${ROAD}" fill="none" stroke="var(--n200)" stroke-width="22" stroke-linecap="round" style="stroke-dasharray:0 ${end.toFixed(1)} ${Math.ceil(ROADLEN + 60)}"/>${greyStops}</g></g>
+    <g class="lx-b3" transform="translate(${x} ${y})">${smallBill()}</g>
+    <g class="lx-c3 lx-c3-yes">${yes}</g>
+    <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${stamp3(s === 2 ? 214 : 150, 184)}</g>
+  </g>`;
+}
+// Sketch 3: the chair and two members at their table, the pile of notes they read in front of them, You with a note,
+// and the bill. Testimony flies your note onto the pile and the pile grows; the chair's email puts a hearing on the
+// list (today's chair scene); doing nothing leaves the pile empty, the committee fades and the bill is stamped.
+function tableSVG(E) {
+  const pile = [[150, 112, -10, 700], [190, 112, 8, 780], [160, 104, 4, 860], [182, 102, -6, 940]];
+  return `<g class="lx-lay lx-lay3 lx-t3">
+    <g class="lx-in3" style="--d:0ms"><g class="lx-cmte">
+      ${person(128, 66, 'var(--p600)', .7)}${person(212, 66, 'var(--p600)', .7)}${person(170, 64, 'var(--p900)', .8)}
+      <rect x="104" y="70" width="132" height="18" rx="4" fill="var(--p800)"/>
+      ${svgText(170, 22, 'Chair', { fill: 'var(--p800)' })}
+    </g></g>
+    <g class="lx-in3" style="--d:150ms"><rect x="122" y="124" width="96" height="10" rx="3" fill="var(--p200)"/>${svgText(170, 156, 'Notes they read')}</g>
+    <g class="lx-in3" style="--d:240ms">${person(60, 238, 'var(--p500)', .85)}${svgText(60, 272, 'You')}<g class="lx-t3note">${PROPS.note(92, 214, 10)}</g></g>
+    <g class="lx-in3" style="--d:300ms"><g transform="translate(292 226)">${smallBill()}</g>${svgText(292, 266, E.num)}</g>
+    <g class="lx-c3 lx-c3-testimony">
+      ${fly(-78, 98, 0, PROPS.note(170, 116, -4))}${fly(-58, 102, 200, PROPS.note(146, 116, -10))}${fly(-98, 98, 400, PROPS.note(194, 116, 8))}
+      ${pile.map(([px, py, r, d]) => `<g class="lx-pop" style="--d:${d}ms">${PROPS.note(px, py, r)}</g>`).join('')}
+      <path class="lx-pop" style="--d:1150ms" d="M118 58 q-6 -6 0 -12 M222 58 q6 -6 0 -12" fill="none" stroke="var(--p400)" stroke-width="2.2" stroke-linecap="round"/>
+      ${tickAt(312, 204, 1300)}
+    </g>
+    <g class="lx-c3 lx-c3-chair">
+      ${fly(-78, 170, 0, PROPS.mail(148, 36, -8))}
+      <circle class="lx-pop" style="--d:550ms" cx="170" cy="40" r="16" fill="none" stroke="var(--p400)" stroke-width="3"/>
+      <g class="lx-pop" style="--d:650ms"><rect x="10" y="30" width="80" height="66" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M10 34 Q10 30 14 30 H86 Q90 30 90 34 V48 H10 Z" fill="var(--p700)"/>
+        ${svgText(50, 44, 'Hearings', { fill: 'var(--n0)' })}<path d="M20 60h46M20 72h40" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
+      <path class="lx-grow" style="--d:950ms" d="M20 84h46" stroke="var(--p600)" stroke-width="4" stroke-linecap="round"/>
+      <g transform="translate(77 84)"><g class="lx-pop" style="--d:1150ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+    </g>
+    <g class="lx-c3 lx-c3-quiet">
+      <g class="lx-pop" style="--d:200ms">${svgText(170, 116, 'None', { fill: 'var(--n700)' })}</g>
+      <g class="lx-fade" style="--d:500ms"><g transform="translate(292 226)">${smallBill(true)}</g></g>${stamp3(256, 180, 800)}
+    </g>
+  </g>`;
+}
 function storyPic(E) {
+  const v = story3();
   return `<div class="lx-pic lx-scene lx-story" id="lx-story" data-stage="1" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">
-    ${paperSVG(E)}${roadSVG(E)}${voiceSVG()}</svg></div>`;
+    ${paperSVG(E)}${roadSVG(E)}${v === 'road' ? roadDoorsSVG(E) : v === 'table' ? tableSVG(E) : voiceSVG()}</svg></div>`;
 }
 
 // ---- the words ----
@@ -928,9 +1007,82 @@ function momentPanel(E, k, seen) {
     <div class="lx-momnav">${prev ? `<button type="button" class="btn text sm" data-lx-ch="${prev[0]}">${icon('arrow-left')}<span>Back to moment ${n - 1}</span></button>` : ''}${next ? `<button type="button" class="btn secondary sm" data-lx-ch="${next[0]}"><span>See moment ${n + 1}</span>${icon('arrow-right')}</button>` : ''}</div>
     <p class="lx-seenline">${done ? 'That is all three. Use the button below to go on.' : `You have seen ${seen.size} of 3.${next ? ' Tap “See moment ' + (n + 1) + '” for the next.' : ' Tap a moment above to see the others.'}`}</p>`;
 }
+// ---- R-219's two versions: the words ----
+// What a yes leads to. "Nothing to do now" was said even when this bill's testimony was due the next day (R-098): a real
+// hearing ahead is named. R-099: the version that ends on Home (?end=home) says how, not only when: the moment waits at
+// the top of the home page, with help to act on it. Someone who already spoke up at this hearing (the story opened from
+// Home after acting, X10-2) is not offered help to do what they have done: they are told what comes next.
+function calmWords(E) {
+  const H = E.hear, home = endHome();
+  const now = !E.off && H && !H.example && !H.past && !E.stopped && !E.isLaw;
+  const acted = !!H?.id && myActions().some(a => a.hearing_id === H.id && (a.kind === 'testimony' || a.kind === 'email'));
+  return now ? `${acted ? 'You already sent your note. We’ll show you what they decide.' : home ? 'It’ll be waiting at the top of your home page, and we’ll help you write your note.' : 'We’ll show you how.'}`
+    : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do by when, and we help you write it.`
+    : E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
+    : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';
+}
+const tryBtns = list => `<div class="lx-momnav lx-try">${list.map(([k, label]) => `<button type="button" class="btn secondary sm" data-lx-ch="${k}"><span>${esc(label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
+// What each pick can do, in words that say "can", never a promise. Doing nothing is said plainly: most bills end at a
+// committee, and a bill put on hold there can't pass that year (R-144's words; C-15's "put on hold").
+const HELD = (E, live, lead = 'With no one asking, the') => live ? `${lead} committee can put ${esc(E.num)} on hold, and then it can’t pass this year.` : `${lead === 'The' ? 'A' : 'With no one asking, a'} committee can put a bill on hold, and then it can’t pass that year.`;
+const doorWords = E => { const D = doorOf(E); return [D.kind === 'chair' ? 'Yes, I’d email the chair' : 'Yes, I’d send testimony', D.live ? 'Not this week' : 'No, I’d sit it out']; };
+const doorsTitle = E => doorOf(E).live ? `Will you speak up on ${E.num} this week?` : `Would you speak up on a bill like ${E.num}?`;
+function doorsBody(E) {
+  const D = doorOf(E);
+  // Page 2 has just said where the bill is (storyNow), so this says only what decides the doors: its dates, or who decides
+  // whether it gets a hearing (A-14, C-14).
+  const H = E.hear, due = storyDue(E), ch = CHAMBER_NAME[E.x.st.chamber] || E.other, chair = chairWords(E, ch);
+  const lead = !D.live ? `Say ${esc(E.num)} were at a committee, with a hearing coming up.`
+    : D.kind === 'chair' ? `It has no hearing yet. ${esc(chair[0].toUpperCase() + chair.slice(1))} whether it gets one.`
+    : due.kind === 'due' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}. Testimony is due ${esc(due.words)}.`
+    : due.kind === 'late' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}. The deadline has passed, but late notes are still taken.`
+    : due.kind === 'hearing' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}.`
+    : `It had its hearing ${esc(dateLong(E.x.st.hearing.scheduled_at))}, and the committee is deciding.`;
+  return `<p class="lx-now">${lead}</p>
+    <div class="lx-doors" role="group" aria-label="Your answer">
+      <button type="button" class="lx-ch lx-door" data-lx-ch="yes" aria-pressed="false" aria-controls="lx-mom">${doorWords(E)[0]}</button>
+      <button type="button" class="lx-ch lx-door lx-ch-quiet" data-lx-ch="no" aria-pressed="false" aria-controls="lx-mom">${doorWords(E)[1]}</button>
+    </div>
+    <div class="lx-mom" id="lx-mom" aria-live="polite"></div>`;
+}
+function doorPanel(E, k) {
+  const D = doorOf(E), next = esc(roadNames(E)[sceneAt(E) + 1]), it = D.live ? esc(E.num) : 'a bill';
+  const [yesWord, noWord] = doorWords(E);
+  if (k === 'no') return `<p class="lx-momsay"><b>${HELD(E, D.live)}</b> Most bills end at a committee.</p>${tryBtns([['yes', `Try “${yesWord}”`]])}`;
+  const say = D.kind === 'chair'
+    ? `<b>A chair decides which bills get a hearing.</b> Notes like yours can put ${it} on the list.`
+    : `<b>Committee members read testimony before they vote.</b> Notes like yours can carry ${it} on to ${D.live ? `the ${next}` : 'its vote'}.`;
+  return `<p class="lx-momsay">${say}</p>${tryBtns([['no', `Try “${noWord}”`]])}<p class="lx-why" id="lx-wins">${whyWords(E)}</p>${D.live && D.kind === 'testimony' ? `<p>${esc(calmWords(E))}</p>` : ''}`;
+}
+const TABLE = [['testimony', 'Send testimony', 'Your note goes on the pile they read'], ['chair', 'Email the chair', 'Ask for a hearing'], ['quiet', 'Do nothing', 'Let it be']];
+const tableSub = (E, k, sub) => k === 'chair' && momentOf(E) === 'testimony' ? `Before a hearing. ${E.num} is past this` : sub;
+function tableTitle(E) {
+  const m = momentOf(E);
+  return m === 'testimony' && storyDue(E).kind !== 'none' ? `The committee hears ${E.num} ${E.hear.when}. What would you do?`
+    : m === 'testimony' ? `The committee is deciding on ${E.num}. What would you do?`
+    : m === 'chair' ? `${E.num} is waiting for a hearing. What would you do?` : `Say a committee were deciding on ${E.num}. What would you do?`;
+}
+function tableBody(E) {
+  const m = momentOf(E), due = storyDue(E), num = esc(E.num);
+  const tag = k => m !== k ? '' : `<span class="lx-chhere">${icon('map-pin')}${k === 'testimony' && due.kind === 'due' ? `Fits ${num} now · due ${esc(due.words)}` : `Fits ${num} now`}</span>`;
+  return `<div class="lx-choose" role="group" aria-label="What would you do?"><div class="lx-chs lx-chs3">${TABLE.map(([k, label, sub]) => `<button type="button" class="lx-ch lx-ch3 lx-ch-${k}" data-lx-ch="${k}" aria-pressed="false" aria-controls="lx-mom"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k]}</svg><span class="lx-chl"><span>${esc(label)}</span><span class="lx-chsub">${esc(tableSub(E, k, sub))}</span>${tag(k)}</span></button>`).join('')}</div></div>
+    <div class="lx-mom" id="lx-mom" aria-live="polite"></div>`;
+}
+// The proof line (wins) and what a yes leads to come only with the pick that fits the bill now, so they are said once.
+function tablePanel(E, k) {
+  const m = momentOf(E), live = m === 'testimony' || m === 'chair', num = esc(E.num);
+  const others = tryBtns(TABLE.filter(c => c[0] !== k).map(([k2, label]) => [k2, `Try “${label}”`]));
+  const more = (live ? m === k : k === 'testimony') ? `<p class="lx-why" id="lx-wins">${whyWords(E)}</p>${m === 'testimony' ? `<p>${esc(calmWords(E))}</p>` : ''}` : '';
+  if (k === 'quiet') return `<p class="lx-momsay"><b>An empty pile tells them no one is asking.</b> ${HELD(E, live, 'The')} Most bills end at a committee.</p>${others}`;
+  if (k === 'chair') return `<p class="lx-momsay"><b>The chair decides which bills get a hearing.</b> Notes like yours can put a bill on the list.${m === 'testimony' ? ` ${num} already has its hearing, so testimony is its chance now.` : ''}</p>${others}${more}`;
+  return `<p class="lx-momsay"><b>Committee members read testimony before they vote.</b> A tall pile shows them people here care, and one note can change a mind.${m === 'chair' ? ` ${num} has no hearing yet, so its chance now is the chair.` : ''}</p>${others}${more}`;
+}
+
 function stageTitle(E, k) {
   if (k === 1) return E.mine || E.via === 'followed' ? 'This is your bill' : 'Meet the bill';
-  return k === 2 ? 'Its road' : 'Three moments to speak up';
+  if (k === 2) return 'Its road';
+  const v = story3();
+  return v === 'road' ? doorsTitle(E) : v === 'table' ? tableTitle(E) : 'Three moments to speak up';
 }
 function stageBody(E, k) {
   if (k === 1) {
@@ -944,19 +1096,9 @@ function stageBody(E, k) {
     const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then ${E.x.ballot ? 'the voters' : 'the Governor'}.`;
     return `<p>${esc(road)}</p><p class="lx-now">${storyNow(E)}</p>`;
   }
-  // "Nothing to do now" was said even when this bill's testimony was due the next day (R-098): a real hearing ahead is
-  // named. The version that ends on Home (?end=home) says where the moment will be waiting: the top of the home page.
-  const H = E.hear, home = endHome();
-  const now = !E.off && H && !H.example && !H.past && !E.stopped && !E.isLaw
-    ? `${E.num.replace(NBSP, ' ')} is at one of these moments now: ${H.dueReal && new Date(H.due) > Date.now() ? `testimony is due ${H.dueDay}` : `it has a hearing ${H.when}`}.` : '';
-  // R-099: the version that ends on Home says how, not only when: the moment waits on Home, with help to act on it.
-  // Someone who already spoke up at this hearing (the story opened from Home after acting, X10-2) is not offered help to
-  // do what they have done: they are told what comes next.
-  const acted = !!H?.id && myActions().some(a => a.hearing_id === H.id && (a.kind === 'testimony' || a.kind === 'email'));
-  const calm = now ? `${acted ? 'You already sent your note. We’ll show you what they decide.' : home ? 'It’ll be waiting at the top of your home page, and we’ll help you write your note.' : 'We’ll show you how.'}`
-    : home ? `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page, with what to do by when, and we help you write it.`
-    : E.off ? 'Nothing to do now. When the session opens and a bill you follow reaches one of these moments, we tell you what to do and by when.'
-    : 'Nothing to do now. When a bill you follow reaches one of these moments, we tell you what to do and by when.';
+  const v = story3();
+  if (v) return v === 'road' ? doorsBody(E) : tableBody(E);
+  const calm = calmWords(E);   // R-098, R-099, X10-2: the words are in calmWords, shared with R-219's versions
   const at = momentOf(E);
   return `<p class="lx-out" id="lx-out">${voiceLead(E)}</p>
     <div class="lx-choose" role="group" aria-labelledby="lx-out"><div class="lx-chs lx-chs3">${CHOICES.map(([k2, label]) => `<button type="button" class="lx-ch lx-ch-${k2}" data-lx-ch="${k2}" aria-pressed="false" aria-controls="lx-mom"><svg class="lx-chart" viewBox="0 0 36 36" aria-hidden="true" focusable="false">${MINI[k2]}</svg><span class="lx-chl"><span class="lx-chn">Moment ${momentN(k2)}</span><span>${esc(label)}</span>${at === k2 ? `<span class="lx-chhere">${icon('map-pin')}${esc(E.num)} is here</span>` : ''}</span><span class="lx-chseen" aria-hidden="true">${icon('check')}</span></button>`).join('')}</div></div>
@@ -1011,6 +1153,7 @@ function roadPlay(pic, instant) {
   requestAnimationFrame(step);
 }
 function storyChoose(k, { instant = false } = {}) {
+  if (story3()) { story3Choose(k, { instant }); return; }
   const root = rootOf('story'), pic = $('#lx-story'), c = choiceOf(k); if (!root || !pic || !c || !L.E) return;
   const E = L.E, seen = (ST.story.seen ??= new Set());
   seen.add(k); ST.story.choice = k; pic.dataset.choice = k;
@@ -1019,6 +1162,28 @@ function storyChoose(k, { instant = false } = {}) {
   if (mom) { mom.innerHTML = momentPanel(E, k, seen); mom.classList.add('lx-got'); if (!instant) play(mom, 'lx-swap'); }
   if (instant) { pic.classList.add('lx-cplay'); settle(pic); }
   else { play(pic, 'lx-cplay'); reveal(pic, mom); }
+}
+// R-219's versions: a pick plays its scene and says what it can do, with the others to try. Nothing is picked for the
+// person (a small choice is theirs), and moving on never waits for one.
+function story3Choose(k, { instant = false } = {}) {
+  const root = rootOf('story'), pic = $('#lx-story'), v = story3(), E = L.E; if (!root || !pic || !E) return;
+  if (!(v === 'road' ? ['yes', 'no'] : TABLE.map(c => c[0])).includes(k)) return;
+  ST.story.choice = k; pic.dataset.choice = k;
+  $$('.lx-doors [data-lx-ch], .lx-choose [data-lx-ch]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxCh === k)));
+  const mom = $('#lx-mom', root);
+  if (mom) { mom.innerHTML = v === 'road' ? doorPanel(E, k) : tablePanel(E, k); mom.classList.add('lx-got'); mom.classList.toggle('lx-gotno', k === 'no' || k === 'quiet'); if (!instant) play(mom, 'lx-swap'); }
+  if (instant) { pic.classList.add('lx-cplay'); settle(pic); }
+  else { play(pic, 'lx-cplay'); revealSaid(mom); }
+}
+// After a pick: the pick's sentence and its try button (the panel's first part) come into view above the bar; on a
+// laptop they already are. The drawing's top may scroll under the header on a phone: the words say all it shows (A-10).
+function revealSaid(mom) {
+  requestAnimationFrame(() => {
+    if (!mom || !mom.isConnected) return;
+    const { top, bottom } = bounds(), m = mom.getBoundingClientRect(), nav = $('.lx-try', mom), end = nav ? nav.getBoundingClientRect().bottom + 8 : m.bottom;
+    const dy = m.top < top ? m.top - top : end > bottom ? Math.min(end - bottom, m.top - top) : 0;
+    if (Math.abs(dy) > 4) scrollBy({ top: dy, behavior: reduced() ? 'auto' : 'smooth' });
+  });
 }
 function storySet(k, { instant = false, initial = false } = {}) {
   const root = rootOf('story'), pic = $('#lx-story'); if (!root || !pic || !L.E) return;
@@ -1033,7 +1198,8 @@ function storySet(k, { instant = false, initial = false } = {}) {
   else if (instant) { pic.classList.add('lx-play'); settle(pic); }
   else { void pic.getBoundingClientRect(); play(pic, 'lx-play'); }
   // It opens on the bill's own moment (the first, when it is at none), so the real chance is the first thing shown (R-089).
-  if (k === 3) storyChoose(ST.story.choice || momentOf(E) || 'chair', { instant });
+  if (k === 3 && story3()) { if (ST.story.choice) story3Choose(ST.story.choice, { instant: true }); }
+  else if (k === 3) storyChoose(ST.story.choice || momentOf(E) || 'chair', { instant });
   fitStory();
   if (!initial && !instant) reveal(pic, cap);
   // The wins may not be loaded yet (in session they are the session before this one's; between sessions a link straight

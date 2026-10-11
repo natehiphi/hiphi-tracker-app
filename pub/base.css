@@ -38,7 +38,7 @@
    (A-4): the tokens are redefined on the first visit's <main> (its bar included), its lessons opened on their own and its
    moments, so no screen sets a size of its own and every plan and step follows. Literal values, not var(): a token
    defined from another token on the same element would read the new value. */
-body:is([data-screen="start"], [data-screen="learn"]) main,
+body:is([data-screen="start"], [data-screen="learn"], [data-screen="next"]) main,
 body[data-screen="start"] :is(.fx-moment, .al-sheet) { --t13: .875rem; --t14: 1rem; --t16: 1.125rem; --t18: 1.375rem; font-size: var(--t16); }
 
 /* ---- base ---- */

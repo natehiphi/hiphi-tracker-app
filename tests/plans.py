@@ -113,14 +113,13 @@ with sync_playwright() as p:
                     fw = st.get('followed_wrap') or {}
                     ok(fw.get('n') == 1 and fw.get('cats') == 0, f'p1: one topic, one bill chosen, "just keep watch" follows exactly one issue ({fw})')
                 if plan == 'p5': ok(st.get('set'), 'p5: a number given goes straight to the Mahalo moment, which says to save our number (one ending, not three)')
-                # a later visit: Home brings the plan's next small thing, once, and "Not now" puts it away for good
-                pg.evaluate("() => sessionStorage.clear()"); pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}#/"); pg.wait_for_timeout(3500)
-                card = pg.locator('.hm-later')
-                ok(card.count() == 1, f'{plan}: a later visit shows one next-step card at the top of Home')
-                if card.count():
-                    first = card.locator('h2').inner_text(); card.locator('[data-laterno]').click(); pg.wait_for_timeout(600)
-                    again = pg.locator('.hm-later h2')
-                    ok(not again.count() or again.inner_text() != first, f'{plan}: "Not now" puts that card away ({first})')
+                # the next day: the plan's next small thing is one full page before Home (R-237, tests/next_asks.py has the
+                # rest), unless testimony on what they follow is due within a day; Home draws no ask cards either way
+                pg.goto(f"{BASE}/track.html?demo=1&ab=onb.{plan}&day=tue&later=1#/"); pg.wait_for_timeout(4000)
+                if pg.evaluate('location.hash').startswith('#/next/'):
+                    ok(pg.locator('#main .nx').count() == 1 and pg.locator('nav.tabs').count() == 0, f'{plan}: the next day opens on one full-page ask ({pg.evaluate("location.hash")})')
+                    pg.locator('[data-nxno]').click(); pg.wait_for_timeout(1200)
+                ok(pg.evaluate('location.hash') == '#/' and pg.locator('[data-later], .hm-later, .hm-hs, .hm-newiss').count() == 0, f'{plan}: then Home, with no ask cards')
             ctx.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

@@ -25,8 +25,7 @@ import { S, app, esc, icon, toast, blurb, nick, headline, spaced, billPath, aliv
   settledOn, OUTCOME_PLAIN } from '../core.js';
 import { testifyLabel } from '../letters.js';
 import { btn, chip } from '../ui.js';
-import { wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
-import { laterCard } from '../onb-later.js';
+import { nudgeCard, wireNudge, wireActions, goingPlans, goingCard } from '../actions.js';
 import today, { extras, wireExtras } from '../home.js';
 
 S.aSkip ??= new Set();   // Now items passed over with "Not now", for this visit
@@ -310,7 +309,7 @@ function view() {
   const ask = extras.profile() ? `<div class="a-nudge">${extras.profile()}</div>` : '';   // one quiet line (R-222)
   // A plan to go today or tomorrow is the day's plan, so it leads, as on today's Home (R-142); later ones go to the end.
   const plans = goingPlans(), goSoon = goingCard(plans.filter(p => p.soon)), goLater = goingCard(plans.filter(p => !p.soon));
-  const tail = [goLater, laterCard()].filter(Boolean).join('');
+  const tail = [goLater, extras.meet()].filter(Boolean).join('');   // a new issue, the phone and the first visit's next things: full pages since R-237 (pub/nextask.js)
   // A saved letter is left to the Now card only when it is the Now card's hearing, whose button then says "Finish sending
   // your testimony" (R-187); one for another hearing due this week, a row under "Also due" or in the week, keeps its own
   // card, or nothing on the page would mention it (R-189).

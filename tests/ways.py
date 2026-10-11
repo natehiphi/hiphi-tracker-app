@@ -3,13 +3,17 @@
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/ways.py [base]   base defaults to http://localhost:8832
 # Checks, on a phone and a laptop, in the practice copy (Monday 16 March 2026, and between sessions):
+#   (R-232, 10/11: finding the legislators left the first visit; "with an address" now means districts saved on an earlier
+#   visit, from the Legislators page)
 #   in session, following a topic with hearings: "Three ways to help this week", three cards on three different bills:
 #   Write testimony (opens the testimony walkthrough), an email to the chair (Email the committee chair, or Ask the chair for
 #   a hearing; opens the email walkthrough), Send it to a friend (shares, then says Done); between sessions with an address:
 #   Say aloha to your two legislators (opens the hello letter), Send it to a friend, Why this matters to you (kept, then
-#   says so); without an address the first card is Find your legislators, which goes back a step; today's version keeps
+#   says so); without an address there is no hello card and no way back to look them up: "Two ways to help before January",
+#   send to a friend and why it matters; the story's last button names the page ("Next: Ways to Help"); today's version keeps
 #   "Coming up on your issues"; the test is met on that page; Next still goes on; first-visit type sizes (C-14); no
-#   sideways scroll; no page errors.
+#   sideways scroll; no page errors. R-235 (10/11): each card is a label with its time, the bill or issue as a heading and
+#   one date; the bar is a quiet Skip until a way is done, then Next.
 import os, sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
@@ -26,6 +30,8 @@ def ctx(b, w=390, h=844):
 
 def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
     p.goto(f'{BASE}/track.html?demo=1&restart&ab={ab},end.{end},onb.today{extra}'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
+    if addr:   # districts kept from an earlier visit's Legislators page (the first visit no longer asks, R-232)
+        p.evaluate("for (const k of ['hiphi_districts', 'hiphi_districts_demo']) localStorage.setItem(k, JSON.stringify({ senate: 13, house: 26 }))")
     p.locator('.st-tile', has_text=topic).first.click(); p.wait_for_timeout(300)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=15000); p.wait_for_timeout(800)
     if every:   # every issue the topic offers, so it has hearings to act on
@@ -36,15 +42,14 @@ def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
     for _ in range(30):
         if p.locator('.st-soonpage').count(): return True
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1200); continue
-        if addr and p.locator('#st-addr').count():
-            box = p.locator('#st-addr'); box.click(); box.type('415 S Beretania', delay=30); p.wait_for_timeout(1500)
-            pick = p.locator('[data-staddrpick]').first
-            (pick if pick.count() else p.locator('[data-staddrtyped]').first).click(); p.wait_for_timeout(2500); addr = False; continue
+        if p.locator('#st-addr').count(): ok(False, 'the first visit never asks for an address (R-232)')
+        if p.locator('.actionbar [data-stnext]', has_text='Next: ').count(): S['go'] = p.locator('.actionbar [data-stnext]').inner_text().strip()
         loc = p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')
         if loc.count(): loc.first.click()
         p.wait_for_timeout(1300)
     return False
 
+S = {}
 cards = lambda p: p.eval_on_selector_all('.st-way', 'els => els.map(e => e.innerText.split("\\n").filter(Boolean))')
 def back_to_page(p):
     # Close a walkthrough (Escape, else the browser's Back) and come back to the page.
@@ -68,9 +73,12 @@ with sync_playwright() as pw:
            f'{tag}: testimony, an email to the chair, send to a friend ({titles})')
         bills = [x[1].split(':')[0].split(' needs a hearing')[0] for x in cs]
         ok(len(set(bills)) == 3, f'{tag}: three different bills ({bills})')
-        ok(p.locator('.st-way .btn.primary').count() == 0 and p.locator('.st-bar [data-stnext]').count() == 1, f'{tag}: the cards are equal, and Next still goes on (A-3, P-5)')
+        ok(p.locator('.st-way .btn.primary').count() == 0 and p.locator('.st-bar [data-stnext]').count() == 1, f'{tag}: the cards are equal, and the bar still goes on (A-3, P-5)')
+        ok(p.locator('.st-bar .btn.primary').count() == 0 and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: before any is done the bar is a quiet Skip, so the cards lead (R-235, A-13)')
+        ok(p.locator('.st-way-when').count() >= 2 and not p.locator('.st-way-act .nobr').evaluate_all("els => els.some(e => e.getBoundingClientRect().left < e.parentElement.getBoundingClientRect().left + 30)"),
+           f'{tag}: each card says its date on a line of its own, and the time never sits alone at the start of a line (R-235)')
         ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{tag}: no sideways scroll')
-        fs = p.evaluate("[...document.querySelectorAll('.st-way b, .st-way > span:nth-child(2) > span')].map(e => parseFloat(getComputedStyle(e).fontSize))")
+        fs = p.evaluate("[...document.querySelectorAll('.st-way-act, .st-way-name, .st-way-when')].map(e => parseFloat(getComputedStyle(e).fontSize))")
         ok(min(fs) >= 16, f'{tag}: the cards read at 16px or more (C-14) ({sorted(set(fs))})')
         ok((p.evaluate("JSON.parse(localStorage.getItem('hiphi_ab') || '{}').seen || {}") or {}).get('act', {}).get('arm') == 'three', f'{tag}: the test is met on this page, as "three"')
         p.screenshot(path=os.path.join(OUT, f'{tag}_in.png'))
@@ -85,6 +93,7 @@ with sync_playwright() as pw:
             p.locator('[data-stway="2"]').click(); p.wait_for_selector('dialog.af-sheet[open]', timeout=8000); p.wait_for_timeout(600)
             p.locator('dialog.af-sheet [data-af="copy"]').click(); p.wait_for_timeout(500); p.locator('dialog.af-sheet [data-af="close"]').first.click(); p.wait_for_timeout(900)
             ok(p.locator('.st-way.done').count() == 1 and 'Copied. Paste it in a text or email.' in p.inner_text('.st-way.done'), f'{tag}: Ask a friend opens the share sheet; a copy there marks the card, and it says Copied, not "Sent"')
+            ok(p.locator('.st-bar .btn.primary[data-stnext]', has_text='Next').count() == 1, f'{tag}: once one is done, the bar is Next, the main button (R-235)')
             p.locator('[data-stnext]').click(); p.wait_for_timeout(2500)
             ok(p.locator('[data-stdone]').count() == 1, f'{tag}: Next goes on to "You\'re all set!"')
             ok('You sent it to a friend' in p.inner_text('.st-did'), f'{tag}: and "Here\'s what you did today" lists it (C-7)')
@@ -105,7 +114,7 @@ with sync_playwright() as pw:
         walk(p, 'act.three', '&season=off', addr=True)
         cs = cards(p); titles = [x[0] for x in cs]
         ok(p.inner_text('#st-h') == 'Three ways to help before January', f'{tag}: between sessions, "Three ways to help before January"')
-        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Ask a friend to follow it') and titles[2] == 'Say why it matters to you',
+        ok(titles[0].startswith('Say aloha to your legislators') and 'Sen.' in cs[0][1] and 'Rep.' in cs[0][1] and titles[1].startswith('Ask a friend to follow it') and titles[2].startswith('Say why it matters to you'),
            f'{tag}: a hello to their two legislators, send to a friend, why it matters ({cs})')
         p.screenshot(path=os.path.join(OUT, f'{tag}_off.png'))
         if w < 600:
@@ -122,17 +131,18 @@ with sync_playwright() as pw:
         # ---- between sessions, no address ----
         c, p = ctx(b, w, h)
         walk(p, 'act.three', '&season=off')
-        ok(cards(p)[0][0] == 'Find your legislators', f'{tag}: without an address the first card finds the legislators')
-        ok('Pick one if you like' in p.inner_text('.st-wayspage .lede'), f'{tag}: between sessions too, it says none is needed (P-5)')
+        titles = [x[0] for x in cards(p)]
+        ok(p.inner_text('#st-h') == 'Two ways to help before January' and len(titles) == 2 and titles[0].startswith('Ask a friend to follow it') and titles[1].startswith('Say why it matters to you'),
+           f'{tag}: without an address, two ways and no hello or "Find your legislators" ({p.inner_text("#st-h")}: {titles})')
+        ok(S.get('go') == 'Next: Ways to Help', f'{tag}: the story\'s last button names the page that follows ({S.get("go")})')
+        p.screenshot(path=os.path.join(OUT, f'{tag}_off_noaddr.png'))
+        ok('walk you through it' in p.inner_text('.st-wayspage .lede') and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: between sessions too, it says what a tap does, and Skip says none is needed (P-5)')
         if w < 600:
             # A sentence typed and not kept is kept on Next (C-9).
-            p.locator('[data-stway="2"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')
+            p.locator('[data-stway="1"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')
             p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
             kept = p.evaluate("Object.values((JSON.parse(localStorage.getItem('hiphi_me_demo') || localStorage.getItem('hiphi_me') || '{}').stories) || {})")
             ok(any('keiki' in x for x in kept), f'{tag}: a sentence typed and not kept is kept on Next (C-9) ({kept})')
-            p.go_back(); p.wait_for_timeout(1500)
-            p.locator('[data-stway="0"]').click(); p.wait_for_timeout(1500)
-            ok(p.locator('#st-addr').count() == 1, f'{tag}: and goes back a step to "Who speaks for you"')
         c.close()
     print('\n'.join(fails) or 'all pass')
     print(f'{len(passes)}/{len(passes) + len(fails)} passed')

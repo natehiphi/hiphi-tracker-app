@@ -30,7 +30,9 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
 - **Staff v2 is the staff app at the main address** (`index.html` and `staff.html`); the old app stays at `classic.html`
   until Nate's walk-through (R-010), and until then a data-layer change goes into both (`node staff/tools/parity.mjs`).
 - **The public tracker** (`track.html`, `pub/`): people follow issues (R-018); the first visit is R-023's, with two endings
-  under A/B test (R-098, R-121); every bill link carries its session year when it is not the current one (R-110); the page
+  under A/B test (R-098, R-121), and since R-232 (10/11) no address step; **after the first visit each ask is one
+  full page before Home** on a new day's first arrival (R-237, `pub/nextask.js`, DESIGN C-16: find my legislators, save
+  your profile, new issues, the three moments, bring a friend, keep it on your phone), not a card on Home; every bill link carries its session year when it is not the current one (R-110); the page
   reports its own errors (R-111); one share everywhere and a link newcomer left to finish (R-113, R-114); the My issues
   link, the walkthrough link, "What's next" and the calendar feeds (R-123 to R-126); the first screen loads first and every
   other screen on first use (R-122; "How the page loads" below); Home's first card counts the day's deadlines and twin bills
@@ -62,7 +64,7 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   tested against today's: test `onb` in `pub/variant.js` (six versions, a switch per version in Staff v2 > Tests, backend
   136), shapes in `pub/plans.js`, screens in `pub/onb.js` (shared: picks, one, hello, join, wrap) and `pub/onb-p2.js`,
   `onb-p3.js`, `onb-p4.js`; the sign-up's words and its own test `join` (backend 138) in `pub/onb-join.js`; later visits'
-  one card on Home in `pub/onb-later.js`. While a browser is on a plan, `end`, `fv` and `email` are never met. Force one
+  asks are full pages in `pub/nextask.js` (R-237). While a browser is on a plan, `end`, `fv` and `email` are never met. Force one
   with `?ab=onb.p1` (to `p5`); `python3 tests/plans.py` walks them all. `docs/FEATURES.md` has the details.
 - **How each feature is built, file by file: `docs/FEATURES.md`.** Read the paragraph for a feature before changing it.
 - **Email to the public is off** until Nate says so; the words describe it as working (R-101).
@@ -152,8 +154,8 @@ session is dark (until January 2027).
   one, and asks for an email on the second day someone comes back (not the thirtieth). Home's `sinceStrip()` says what
   happened on their issues since then (results first; a hearing already drawn as a card is one summary line), and the
   first time someone sees a committee's decision on a hearing they acted on it gets the small `burst` once
-  (`hiphi_results_seen`). Past hearing rows on a bill page keep "You emailed the chair" etc. `homeScreenCard()` offers
-  Add to Home Screen on phones after a first action (Android's prompt is kept in `S.installPrompt`).
+  (`hiphi_results_seen`). Past hearing rows on a bill page keep "You emailed the chair" etc. Add to Home Screen on phones after a first action
+  is a later visit's page since R-237 (`pub/nextask.js` 'phone'; Android's prompt is kept in `S.installPrompt`).
 - **Between sessions** (R-067): `winsCard()` and the first screen lead with the bills HIPHI backed that became law
   (`winsIn(yr)` in core.js) plus `EARLIER_WINS` (2025, from Nate; add lines there). The bill's story's last page uses
   the count only, never a hand-listed win (`whyWords` in lessons.js; another bill's 2025 win read as out of place, R-143). Each issue's `outlook` (migration
@@ -555,7 +557,8 @@ python3 tests/layout.py             # version A as the live test 'layout' (R-187
 python3 tests/versions.py           # pick which versions of each A/B test are live; the practice copy follows the switches (R-192); 52 checks
 python3 tests/testers.py            # testers' paths from tester-sheet links, what is not recorded, the tester sheet's "What testers did" (R-193); 31 checks
 python3 tests/room.py               # Staff v2's tester sheet (R-185): groups, pickers, the plan rules, QR codes, the printed sheet, live links, Undo, kept; then each link opened as a tester; 108 checks
-python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the later-visit card; 86 checks
+python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the next day's full-page ask; 86 checks
+python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the three-day rest; 60 checks
 python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks

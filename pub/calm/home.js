@@ -200,12 +200,10 @@ function inSession(si, { welcome, fin }) {
   c.freshN = rows.filter(r => r.fresh).length;
   const head = greeting(c);   // before the card: it decides the card's reason line (c.why)
   S.cmMoments = c.moments;
-  const later = P.laterCard();
   const lines = [welcome ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
   return `<div class="hm cm${welcome ? '' : ' cm-met'}">
     ${head}
     ${card.kind ? `<section class="cm-card" aria-label="${card.kind === 'go' ? 'Your plan' : 'The next thing you can do'}">${theCard(c)}</section>` : ''}
-    ${later}
     ${issuesBlock(rows, iss.length)}
     ${lines ? `<div class="cm-lines">${lines}</div>` : ''}
   </div>`;
@@ -237,7 +235,6 @@ function offSession(si, { welcome }) {
     <header class="cm-head"><h1 class="hero">Aloha${name ? `, ${esc(name)}` : ''}</h1><p class="lede">${lede}</p>
       ${welcome ? '' : P.sessionLink(yr)}</header>
     <section class="cm-card" aria-label="The thing you can do now">${card}</section>
-    ${P.laterCard()}
     ${issuesBlock(rows, followedIssues().length)}
     ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;

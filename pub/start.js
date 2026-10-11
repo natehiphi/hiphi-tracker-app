@@ -6,9 +6,10 @@
 //   How it works    one drawn page on the person's own bill, "A bill's story" (pub/lessons.js, R-062, 9/29), in three
 //                   stages walked with Next: the bill itself, its road to where it is now and its next chance, and why
 //                   speaking up can help (pick what you'd do: email the chair, send testimony, tell your legislators or
-//                   stay quiet, and see what can happen); its last button says "Next: your legislators" (R-140)
-//   Stay connected  who speaks for you (street address only) -> coming up on your issues -> you're all set (the peak,
-//                   then Home). The alerts ask was here, after the value (Nate 9/21), until R-146 moved it up.
+//                   stay quiet, and see what can happen); its last button names the next screen (R-140)
+//   Stay connected  coming up on your issues -> you're all set (the peak, then Home). The alerts ask was here, after the
+//                   value (Nate 9/21), until R-146 moved it up; "who speaks for you" (the street address) stood first
+//                   here until R-232 (10/11) moved it to Home on the next visits.
 // Someone who arrives on a shared bill starts on the bill page itself (pub/bill.js: the easiest action first); from
 // there the flow is "follow this issue?", alerts on it, the story of that bill, then the last part.
 // People follow ISSUES, not bills (R-018). No action is pushed here; the asks to act come on later visits. The alerts ask
@@ -79,9 +80,12 @@ const onbAsk = () => { if (!ONB) onbLoad().then(() => app.render()).catch(e => c
 // needed, and 'session' and 'hearing' are simply no longer recorded. Those three lessons still open on their own at
 // #/learn/<bill|session|hearing>.
 // 'alerts' (R-146) stands right after the issues are picked; it is passed over when there is nothing to ask (askAlerts).
-const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'you', 'soon', 'done'];
-const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'you', 'soon', 'done'];
-const FLOW_LINK = ['followask', 'alerts', 'bill', 'you', 'soon', 'done'];
+// 'you' (find your two legislators from a street address) left the first visit (R-232, Nate 10/11: "needs to move to an
+// activity after onboarding for future visits"): a later visit offers it as a full page (pub/nextask.js 'legs', R-237; between
+// sessions Home's "Get ready for January" card too). The screen stays in start-rest.js for Plans 1 and 3 (plans.js).
+const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
+const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
+const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
 // very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
 // they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
@@ -160,7 +164,7 @@ export function finish() {
     S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent() || textSaved()), sent: mailSent() };
   }
   track(planOn() ? 'wrap' : 'done', 'done');
-  // A plan's later visits bring its next small things on Home (R-164, pub/onb-later.js), so the plan is remembered.
+  // The plan is remembered: a later visit's asks (pub/nextask.js, R-237) know whether its first visit told the story.
   wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}), ...(planOn() ? { plan: planOn() } : {}) });
   welcome();
   app.go('#/', { replace: true });

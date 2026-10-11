@@ -23,7 +23,7 @@
 //   p4  How you like to help  way (four ways, any number) -> topics -> picks -> join -> first (a first step sized to
 //                             the way) -> wrap.
 //   p5  A light start         topics -> picks (three issues followed for you, each with an untick) -> join -> wrap; the
-//                             rest comes one card per later visit on Home (onb.js laterCard).
+//                             rest comes one full page per later visit (pub/nextask.js, R-237).
 export const PLAN_FLOWS = {
   p1: { in: ['topics', 'find', 'learn', 'decide', 'join', 'wrap'], off: ['topics', 'you', 'hello', 'join', 'wrap'] },
   p2: { in: ['story', 'topics', 'road', 'join', 'wrap'] },
