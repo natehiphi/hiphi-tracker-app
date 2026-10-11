@@ -185,7 +185,8 @@ with sync_playwright() as p:
     ctx, pg, sent, leak = rig([dict(ROWS[1], is_on=False)])
     r = pg.evaluate("""async () => { localStorage.clear(); localStorage.setItem('hiphi_ab', JSON.stringify({ v: 1, arms: {}, u: { layout: 0.9 }, forced: {} }));
       localStorage.setItem('hiphi_ab_cfg', JSON.stringify({ layout: { on: true, fallback: 'calm', arms: null } }));
-      await import('/pub/visitlog.js'); const V = await import('/pub/variant.js'); const first = V.armOf('layout'); await V.abReady; const after = V.armOf('layout'); V.abSeen('layout');
+      // variant.js first: visitlog.js imports it too, and the database's answer could land before the first look (a race)
+      const V = await import('/pub/variant.js'); const first = V.armOf('layout'); await import('/pub/visitlog.js'); await V.abReady; const after = V.armOf('layout'); V.abSeen('layout');
       return [first, after, JSON.parse(localStorage.getItem('hiphi_ab_cfg')).layout.on]; }""")
     pg.wait_for_timeout(1900)
     ok(r == ['a', 'a', False] and not [e for e in sent if e['t'] == 'layout' and e['k'] == 'seen'], f'kept for the page load, not counted once the switch is off, and the next load has it ({r})')
