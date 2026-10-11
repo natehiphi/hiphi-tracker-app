@@ -493,7 +493,11 @@ export function nudgeOk() {
   const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
   return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
 }
-export function nudge(kind) { if (nudgeOk()) { S.nudge = kind; S.nudgedThisVisit = true; } }
+// After the first visit, Home draws no profile card (R-237, Nate 10/11): that ask is a later visit's full page
+// (pub/nextask.js). So a follow on a later visit raises nothing, and does not spend the visit's one ask; during the first
+// visit and on its own Home (hiphi_welcome) a follow still asks, as before. The asks after an action are unchanged.
+const laterVisit = () => { try { return !!wiz().done && sessionStorage.getItem('hiphi_welcome') !== '1'; } catch { return false; } };
+export function nudge(kind) { if ((kind === 'follow' || kind === 'back') && laterVisit()) return; if (nudgeOk()) { S.nudge = kind; S.nudgedThisVisit = true; } }
 // ---- the session calendar: opens the third Wednesday of January, ends at sine die ----
 export const thirdWed = y => { const dow = new Date(Date.UTC(y, 0, 1)).getUTCDay(); return `${y}-01-${String(1 + ((3 - dow + 7) % 7) + 14).padStart(2, '0')}`; };
 export const hiT = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').getTime();

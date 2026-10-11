@@ -81,8 +81,8 @@ const onbAsk = () => { if (!ONB) onbLoad().then(() => app.render()).catch(e => c
 // #/learn/<bill|session|hearing>.
 // 'alerts' (R-146) stands right after the issues are picked; it is passed over when there is nothing to ask (askAlerts).
 // 'you' (find your two legislators from a street address) left the first visit (R-232, Nate 10/11: "needs to move to an
-// activity after onboarding for future visits"): Home offers it on the next visits (pub/onb-later.js 'legs'; between
-// sessions Home's "Get ready for January" card). The screen stays in start-rest.js for Plans 1 and 3 (plans.js).
+// activity after onboarding for future visits"): a later visit offers it as a full page (pub/nextask.js 'legs', R-237; between
+// sessions Home's "Get ready for January" card too). The screen stays in start-rest.js for Plans 1 and 3 (plans.js).
 const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
@@ -164,7 +164,7 @@ export function finish() {
     S.hmFinale = { at: Date.now(), learned: !!S.stLearned, legs: !!S.stAddr.pick, told: !!(S.session || mailSent() || textSaved()), sent: mailSent() };
   }
   track(planOn() ? 'wrap' : 'done', 'done');
-  // A plan's later visits bring its next small things on Home (R-164, pub/onb-later.js), so the plan is remembered.
+  // The plan is remembered: a later visit's asks (pub/nextask.js, R-237) know whether its first visit told the story.
   wizSet({ done: true, step: 1, ...(endHome() ? { finale: true } : {}), ...(si.phase !== 'in' ? { ready: si.nextOpen } : {}), ...(planOn() ? { plan: planOn() } : {}) });
   welcome();
   app.go('#/', { replace: true });

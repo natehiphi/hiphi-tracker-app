@@ -60,10 +60,9 @@ laptop that page has the first visit's two columns, the drawing and heading on t
 -> "Coming up on your
 issues" (with the optional first name once a way to reach them was given) -> "You're all set" (the peak) -> Home, which says "Aloha" and shows
 the week's first hearing with "See how to help". **Who speaks for you** (the street address, step 'you') left the first visit
-on 10/11 (R-232, Nate: "needs to move to an activity after onboarding for future visits"): from the next visit, Home in
-session has a "Who speaks for you?" card with **Find my legislators** (`pub/onb-later.js` 'legs', under Home's own content,
-put away by "No thanks" or once districts are known); between sessions Home's "Get ready for January" card already leads with
-it, so the later card does not repeat it. The screen itself stays for Plans 1 (between sessions) and 3. A newcomer who opens a shared bill gets a "New here?" card on the bill
+on 10/11 (R-232, Nate: "needs to move to an activity after onboarding for future visits"): it is a later visit's full page
+(R-237, "Later visits' asks" below); between sessions Home's "Get ready for January" card also offers it. The screen itself
+stays for Plans 1 (between sessions) and 3. A newcomer who opens a shared bill gets a "New here?" card on the bill
 page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
 shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
@@ -639,12 +638,10 @@ first visit. All five are working versions in the same frame as today's first vi
   warm "You're set" after a yes. Two versions under their own test, `join` (backend 138): `shown` (the example) and
   `watch` (three steps: a hearing is set, we tell you, you send a note). The box, its consent words and the small print
   are `pub/alerts.js`'s, unchanged (C-4).
-- **Later visits** (`pub/onb-later.js`, drawn at the top of Home by `home.js`): one card per visit with the plan's next
-  small thing (find your legislators, the three moments to help, bring a friend), in each plan's order, each put away
-  for good by "Not now" or by doing it (`hiphi_later`). Today's first visit (no plan) uses it too since R-232: the one card
-  is find your legislators, in session only (between sessions the "Get ready for January" card has it).
+- **Later visits**: a plan's next small things (find your legislators, the three moments, bring a friend) are later
+  visits' full pages since R-237 ("Later visits' asks" below); a plan that told the story (Plan 2) is not offered the lesson.
 - **Checked by** `python3 tests/plans.py` (every plan walked to Home on a phone, a laptop and between sessions, the
-  sign-up's equal buttons and words, "You're set", the later-visit card) and `python3 tests/abtests.py` (the spread over
+  sign-up's equal buttons and words, "You're set", the next day's full-page ask) and `python3 tests/abtests.py` (the spread over
   switched-on versions, the plans never counted in today's tests, tester links, the test off). Design exceptions for
   Plan 1 (an action in the first visit) and Plan 3 (the address before the bills): `docs/DESIGN-AUDIT.md` section 4.
 - **The hello letter** (R-172, Nate 10/5: "too stiff. It serves no serious benefit"): `helper.js` mode `intro` and the
@@ -1089,3 +1086,33 @@ list with its B-1 sentence, and turn the words into `t()` calls with the other s
 Tests: `node tests/quiz_test.mjs` (24 checks: the shape, the scoring, the words), `python3 tests/quiz.py` (62 checks on phone and
 laptop: every step, Back and the phone's back gesture, the kept answers and result, Take it again, the share and its confirmation,
 focus, tap size, the double-tap guard, reading grade, no sideways scroll, and that both addresses open Home outside the practice copy). Both run on every push (`.github/workflows/tests.yml`).
+
+## Later visits' asks: one full page, before Home (R-237, 10/11)
+
+Nate 10/11: "Instead of cards on the home page, it should be a full page similar to what someone would have experienced
+during onboarding. That should hold for any of the post onboarding asks we have of people." DESIGN C-16.
+
+- **When:** the first arrival of a new day (the practice copy: its "Next day", kept in `hiphi_askday`), when the tracker
+  itself was opened (plain Home): `boot()` in `pub/app.js` asks `pickAsk()` and swaps the address for `#/next/<kind>`.
+  Never on arrival from an alert, an email or a shared link; never during or right after the first visit
+  (`hiphi_welcome`); never when testimony on a followed bill is due within a day and not yet acted on (Home first; the
+  ask waits for the next day). One a visit: the page marks the visit's one ask (`S.nudgedThisVisit`, C-3).
+- **Which, in order** (`pub/nextask.js` ASKS): `legs` find my legislators (the address box of the first visit's old step;
+  the districts, never the address, kept in `hiphi_districts`); `alerts` save your profile (the box of `pub/alerts.js`,
+  its consent words unchanged, C-4; the test `save`'s heading); `issues` new issues HIPHI took up in a topic they follow
+  (`newIssues()` in `pub/home.js`); `learn` the three moments, "Show Me" opens `#/learn/bill` (not for anyone whose first
+  visit told the story); `share` bring a friend along (the share sheet); `phone` keep the tracker on your phone (phones
+  only, after a first action; Android's own prompt, or the iPhone's two taps).
+- **Answers:** the bar has "Not now" and the page's button; both land on Home with `replaceState`, so Back never returns to
+  an answered ask. "Not now" (outlined, as the first visit's) quiets that ask 14 days, then 60, then for good (`hiphi_asks`;
+  the profile ask keeps `nudgeOk`'s own quiet; the old `hiphi_later` answers still count), and after any "Not now" no page
+  comes for three days (`hiphi_asks_rest`).
+- **What left Home:** the later-visit cards (`pub/onb-later.js`, deleted), the "Welcome back" profile card (`welcomeBack()`
+  no longer raises it, and on a later visit a follow raises no Home card, kernel `nudge()`), "Keep the tracker on your
+  phone" and "A new issue in ...". Both Homes (today's and version A).
+- **Checked by** `python3 tests/next_asks.py` (phone and laptop: the first visit asks nothing more; the next day's page;
+  the address finding two legislators; Done and Not now to Home; a same-day reload; a bill link; testimony due within a
+  day; each page by its address; version A and a plan).
+- **How we'll know:** from January, how many later visits answer the page rather than "Not now", and whether returns
+  (`log_day`) drop after one. Counting the answers needs a small migration (Nate's yes).
+

@@ -550,7 +550,8 @@ One question, visible without scrolling, with a skip that costs nothing and is n
 
 ### C-3 The alerts ask comes after a success, once per visit, always skippable
 
-Never on arrival. It follows something that just worked — an issue followed, an action sent — and it says
+Never on arrival (one exception since 10/11, C-16: a later visit's one full-page ask). It follows something that just
+worked — an issue followed, an action sent — and it says
 plainly what will arrive and how often. Skipping is a plain, equal-weight choice, never a greyed-out
 afterthought and never a dark pattern ("No thanks, I don't care about my community").
 
@@ -775,6 +776,27 @@ descriptions stay as written (they say "Hawaii"). Spelling per the Pukui and Elb
 
 *Reason.* Consistency and standards (NN/g): a person who has learned "alerts" in one place should not meet "reminders" in another. Each
 synonym is a small tax on every reader; for people reading in a second language it can be a wrong turn.
+
+### C-16 After the first visit, an ask is a full page, one a visit (R-237, Nate 10/11)
+
+Nate: "Instead of cards on the home page, it should be a full page similar to what someone would have experienced during
+onboarding. That should hold for any of the post onboarding asks we have of people." Home's asks to give or join (find
+my legislators, save your profile, new issues in a followed topic, the three moments, bring a friend, keep the tracker on
+your phone) are pages in the first visit's frame (`pub/nextask.js`), not Home cards. Exactly one may open on the first
+arrival of a new day, before Home, in that order, and only when the person opened the tracker itself: never on arrival
+from an alert, an email or a shared link (they came for that page), and never when testimony on something they follow is
+due within a day (Home, with that bill on top, comes first; the ask waits for the next day). "Not now" is an equal choice
+in the bar (outlined, beside the filled button) and lands on Home; it quiets that ask for 14 days, then 60, then for good
+(the profile ask keeps its own quiet, `nudgeOk`), and after any "Not now" no page comes for three days (the review: someone
+who checks in every morning would otherwise meet one six mornings running). "Welcome back · one quick thing, then Home"
+over the drawing says why the page is there and where both answers lead. What stays where it is: finish your testimony,
+Meet HIPHI, the asks right after an action (C-3's Mahalo order), and between sessions Home's "Get ready for January".
+
+*Reason.* Nate's decision; a card at the end of Home went unseen (R-232: about 5,700px down on a phone). Whether a page on
+arrival helps more than it annoys is a guess until real use: what settles it from January is how many later visits answer
+the page (done versus Not now; counting that needs a small migration, which waits for Nate's yes) and whether visitors
+who met one come back less (`log_day` already counts returns). A page on arrival costs a tap
+before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
 
 ## The review checklist
 

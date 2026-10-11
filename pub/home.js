@@ -29,7 +29,6 @@ import { CAPITOL, islands, flower } from './art.js';
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
 import { endHome, armOf, abSeen } from './variant.js';
 import { logVisit, logAct } from './visitlog.js';
-import { laterCard, wireLater } from './onb-later.js';
 
 S.hmOpen ??= {};   // which in-place lists are open ("Show 12 more", "See all"); kept for the visit so Back returns to the same page
 
@@ -481,23 +480,7 @@ function loopCard(skip = new Set()) {
 }
 
 // ---------------- keep it on your phone (R-067) ----------------
-// Offered once someone has acted, on a phone, when the tracker is not already on their home screen; "No thanks" hides
-// it for good in this browser. Android's own install prompt when the browser offers one (app.js keeps it); on an
-// iPhone the two taps it takes, and the honest catch: the home-screen app keeps its own copy, so they add their email
-// there to bring their issues along. A home-screen app is also what keeps an iPhone from clearing their issues after a
-// week away.
-function homeScreenCard() {
-  let no = false; try { no = localStorage.getItem('hiphi_hs_no') === '1'; } catch { /* private mode */ }
-  const standalone = (() => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } })();
-  if (no || standalone || !myActions().length || (window.innerWidth || 0) >= 900) return '';
-  const ios = /iP(hone|ad|od)/.test(navigator.userAgent || '');
-  const how = S.installPrompt ? btn('Add to home screen', { kind: 'primary', sm: true, icon: 'smartphone', attrs: { 'data-hm-hsgo': '1' } })
-    : ios ? `<p class="small">In Safari, tap ${icon('share')} <b>Share</b>, then <b>Add to Home Screen</b>. The app there starts fresh: add your email in it to bring your issues along.</p>`
-    : `<p class="small">In your browser’s menu, choose <b>Add to Home screen</b> or <b>Install app</b>.</p>`;
-  return `<section class="card hm-hs" aria-labelledby="hm-hs-t"><h2 id="hm-hs-t">${icon('smartphone')}Keep the tracker on your phone</h2>
-    <p class="small muted">One tap to your issues next time, like any app.</p>${how}
-    <div class="btnrow">${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hm-hsno': '1' } })}</div></section>`;
-}
+// A later visit's full page since R-237 (pub/nextask.js 'phone'), no longer a card here.
 
 // ---------------- things to do ----------------
 // Bills the person follows that are waiting for a hearing and running out of time (three weeks or less). The ask
@@ -679,10 +662,9 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
         <div class="hm-foldb">${folded.map(x => actionCard(x.b, x.h)).join('')}</div></details>` : ''}
       ${sugInMain ? sugHtml : ''}
     </div><div class="side hm-side">
-      ${wide ? gn.html : ''}${goLater}${newIssuesCard()}
+      ${wide ? gn.html : ''}${goLater}
       ${sessionPanel(si, { skip: inSince })}
       ${whatsNew(new Set([...inCards, ...inSince]))}
-      ${homeScreenCard()}
       ${meetCard()}
       ${sugInMain ? '' : sugHtml}
     </div></div>
@@ -962,7 +944,6 @@ function offView(si) {
       ${v2 || lead ? '' : readyCard}
       ${winsCard(yr)}
       ${meetCard()}
-      ${newIssuesCard()}
       ${nudgeHtml}
       ${rows.length ? setup : ''}
       ${btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
@@ -1044,10 +1025,11 @@ function meetCard() {
 }
 
 // ---------------- a new issue in a category they partly follow (R-018, Nate's answer 3, 9/21) ----------------
-// Shown once, on Home, with a one-tap Follow; never followed for them. "Seen" is what this browser knew last time:
-// the first visit knows everything, so only issues HIPHI takes up later ever count as new.
+// Offered once, with a one-tap Follow; never followed for them. Since R-237 it is a later visit's full page (pub/nextask.js
+// 'issues'), not a card here. "Seen" is what this browser knew last time: the first visit knows everything, so only issues
+// HIPHI takes up later ever count as new.
 const SEEN_KEY = DEMO ? 'hiphi_seen_issues_demo' : 'hiphi_seen_issues';
-function newIssues() {
+export function newIssues() {
   if (S.hmNew) return S.hmNew;   // worked out once per visit, so the note stays until they act on it or leave
   let seen = null; try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch { /* private mode */ }
   const known = new Set(seen || S.issues.map(i => i.id));
@@ -1056,32 +1038,14 @@ function newIssues() {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(S.issues.map(i => i.id))); } catch { /* private mode */ }
   return S.hmNew;
 }
-function newIssuesCard() {
-  const list = newIssues().filter(i => !issueFollowed(i)).slice(0, 3); if (!list.length || !S.cats.length) return '';
-  const cat = catOf(list[0].categories.find(c => S.issues.some(x => S.issueFollows.has(x.id) && x.categories.includes(c))) || list[0].category);
-  return `<section class="card hm-newiss" aria-labelledby="hm-ni"><h2 id="hm-ni">${list.length === 1 ? 'A new issue' : 'New issues'} in ${esc(cat?.name || 'your issues')}</h2>
-    <p class="muted small">HIPHI just took ${list.length === 1 ? 'it' : 'them'} up. Follow ${list.length === 1 ? 'it' : 'any'} if you like.</p>
-    <ul class="hm-newlist" role="list">${list.map(i => `<li><a class="hm-newname" href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>
-      ${btn('Follow', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-hm-newfollow': i.id, 'aria-label': `Follow ${i.name}` } })}</li>`).join('')}</ul>
-    ${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-newdone': '1' } })}</section>`;
-}
-
 // ---------------- for version A's Home (the layout test, R-187) ----------------
 // The test compares how Home is arranged, not what it offers: version A (pub/a/home.js) draws these cards from today's
 // Home too, so a person on it still gets the account cards after a sign-in (the email choices, the address), a saved
-// letter, a new issue in a category they follow, keeping the tracker on their phone and Meet HIPHI. wireExtras wires them
-// and a first-visit plan's next small thing (onb-later.js), on either Home.
-export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), newIssues: () => newIssuesCard(), phone: () => homeScreenCard(), meet: () => meetCard(), friend: () => friendCard() };
+// letter and Meet HIPHI. wireExtras wires them on either Home. (A new issue, keeping the tracker on the phone and a first
+// visit's next small thing are later visits' full pages since R-237, pub/nextask.js.)
+export const extras = { account: () => accountCards(), draft: skip => draftsCard(skip), meet: () => meetCard(), friend: () => friendCard() };
 export function wireExtras(root) {
-  wireLater(root, () => app.render());
   try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
-  root.querySelector('[data-hm-hsno]')?.addEventListener('click', () => { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } app.render(); });
-  root.querySelector('[data-hm-hsgo]')?.addEventListener('click', async () => { const p = S.installPrompt; if (!p) return; S.installPrompt = null; try { p.prompt(); await p.userChoice; } catch { /* ignore */ } app.render(); });
-  root.querySelectorAll('[data-hm-newfollow]').forEach(el => el.onclick = async () => {
-    const i = S.issueById.get(el.dataset.hmNewfollow); if (!i) return;
-    if (await setFollows({ issuesOn: [i.id] })) { toast(`Following ${i.name}`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } }); app.render(); }
-  });
-  root.querySelectorAll('[data-hm-newdone]').forEach(el => el.onclick = () => { S.hmNew = []; app.render(); });
   // Ask a friend, on a bill they acted on (R-205 B4): the sheet, with what they did first; "Not now" for that hearing.
   root.querySelectorAll('[data-hm-askf]').forEach(el => el.onclick = async () => {
     const [bid, hid, kind] = el.dataset.hmAskf.split('|'), b = anyBill(bid), h = anyHearing(hid); if (!b || !h) return;
@@ -1126,17 +1090,8 @@ export default {
     S.hmLoopB = new Set();   // the bills "What you did" names on this drawing (loopCard); none until it is drawn
     S.hmGnDraw = null; S.hmBurst = null;   // what the good news and the since rows drew last time (wire() reads them)
     const html = mode === 'off' ? offView(si) : mode === 'explore' ? exploreView() : followView(si);
-    // A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js; since R-232 also today's first visit's
-    // "Find my legislators"): at the top between sessions, when nothing is due; in session under Home's own content, so it
-    // never pushes a live deadline down (A-1, A-13): at the end of the side column when there is one (the review of R-232:
-    // full width under both columns it read as a footer banner on a laptop), which on a phone stacks after the main column.
-    const later = laterCard({ off: si.phase !== 'in' });
-    if (!later) return html;
-    if (si.phase !== 'in') return html.replace(/^(\s*<div class="hm[^"]*">)/, `$1${later}`);
-    const tpl = document.createElement('template'); tpl.innerHTML = html;
-    const side = tpl.content.querySelector('.cols > .hm-side');
-    if (!side) return html.replace(/<\/div>\s*$/, `${later}</div>`);
-    side.insertAdjacentHTML('beforeend', later); return tpl.innerHTML;
+    // A first visit's next small things are later visits' full pages since R-237 (pub/nextask.js), not cards here.
+    return html;
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;

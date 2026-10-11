@@ -31,7 +31,6 @@
 .hm .hm-steps b { color: var(--n900); }
 .hm .hm-stepic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: flex; align-items: center; justify-content: center; flex: none; }
 .hm .hm-stepic .ic { width: 20px; height: 20px; }
-.hm .hm-later { display: flex; flex-direction: column; gap: var(--s16); }
 
 /* Do this now: cards, the email ask under card 1, then one line each behind "Show 12 more" */
 .hm .hm-now { display: flex; flex-direction: column; gap: var(--s16); }
@@ -75,13 +74,6 @@
 .hm .hm-sec h2, .hm .hm-ready h2, .hm .hm-recap h2 { font-size: var(--t22); }
 .hm .hm-sechead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
 .hm .hm-sechead .btn { margin-right: calc(-1 * var(--s12)); }
-/* R-018: a new issue in a category the person partly follows, shown once (Nate, 9/21, answer 3) */
-/* :is(.hm, .ah): version A's Home (pub/a/home.js) draws these cards too (R-187). */
-:is(.hm, .ah) .hm-newiss { display: flex; flex-direction: column; gap: var(--s8); align-items: flex-start; }
-:is(.hm, .ah) .hm-newiss h2 { font-size: var(--t18); }
-:is(.hm, .ah) .hm-newlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); width: 100%; }
-:is(.hm, .ah) .hm-newlist li { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
-.hm .hm-newname { font-weight: 700; color: var(--n900); min-height: 44px; display: flex; align-items: center; }
 .hm .hm-day { font-size: var(--t13); font-weight: 700; color: var(--n500); white-space: nowrap; }
 .hm .rows .row .title, .hm .rows .row .sub, .hm .hm-pick .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hm .rows .row .sub { color: var(--n700); }
@@ -270,10 +262,6 @@
 .hm .hm-loop .hm-looplearn { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
 .hm .hm-loop .hm-looplearn > .ic { flex: none; color: var(--p700); }
 .hm .hm-loop .hm-looplearn a { color: var(--p700); font-weight: 700; }
-/* Keep the tracker on your phone (R-067) */
-:is(.hm, .ah) .hm-hs { display: flex; flex-direction: column; gap: var(--s8); }
-:is(.hm, .ah) .hm-hs h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t16); }
-:is(.hm, .ah) .hm-hs .small .ic { width: 16px; height: 16px; vertical-align: -3px; }
 
 /* What HIPHI helped pass (R-067) */
 .hm .hm-wins h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
@@ -336,11 +324,6 @@
 .hm-rcp .hm-sec > h2 { margin: 0 0 var(--s12); }
 .hm-rcp .card.hm-sec > h2 { font-size: var(--t18); }
 
-/* A first-visit plan's next small thing, one per visit (R-164, pub/onb-later.js). */
-.hm-later { display: grid; gap: var(--s8); padding: var(--s16); margin: var(--s16) 0; }
-.hm-latert { display: flex; gap: var(--s8); align-items: center; font-size: var(--t18); }
-.hm-laterlead { display: grid; place-items: center; color: var(--p700); flex: none; }
-.hm-laterlead .ic { width: 20px; height: 20px; }
 
 /* Ask a friend, under what you did (R-205 B4): one quiet line with its two answers, never a second card on today's Home;
    on version A's Home it is a small card of its own (friendCard). The share icon only on its button (A-14). */

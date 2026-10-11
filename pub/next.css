@@ -1,0 +1,30 @@
+/* A later visit's one ask, as a full page (R-237, pub/nextask.js). It is drawn in the first visit's frame: start.css comes
+   with it (the .st story-and-choices markup), and these are start.css's own screen-scoped rules repeated for
+   body[data-screen="next"] (the two columns on a laptop, the bar under the choices), so the first visit's file is not
+   touched by this screen. Keep them in step with start.css's "@media (min-width: 900px)" block. */
+body[data-screen="next"] .field .help { color: var(--n700); }   /* the privacy lines under a number or an address (R-174, C-14) */
+@media (min-width: 900px) {
+  body[data-screen="next"] main { max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--s48); align-items: start; padding-top: 40px; }
+  body[data-screen="next"].hasbar main { padding-bottom: var(--s48); }
+  body[data-screen="next"] main > .empty { grid-column: 1 / -1; }
+  body[data-screen="next"] .actionbar { position: sticky; bottom: 0; grid-column: 2; grid-row: 3; z-index: 5; border: 0; box-shadow: none; padding: var(--s24) 0 var(--s16);
+  body[data-screen="next"] .actionbar .inner { max-width: none; margin: 0; }
+  body[data-screen="next"] .actionbar .btn { flex: 0 0 auto; }
+}
+@media (min-width: 1100px) {
+  body[data-screen="next"] main { column-gap: 64px; }
+}
+
+/* A later visit's one ask, as a full page (R-237, pub/nextask.js): the first visit's frame (the rules above), with a quiet "Welcome back" over the drawing so the page says why it is here (P-4). */
+.nx-eyebrow { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.nx-eyebrow .ic { width: 16px; height: 16px; flex: none; }
+.nx-moments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.nx-moments li { display: flex; gap: var(--s12); align-items: flex-start; animation: fx-pop .4s var(--spring) both; animation-delay: calc(var(--k, 0) * .1s); }
+.nx-moments li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.nx-moments li span span { color: var(--n700); }
+.nx-mic { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); }
+.nx-mic .ic { width: 20px; height: 20px; }
+.nx-quotel { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.nx-quote { margin: 0; padding: var(--s16); color: var(--n700); border-left: 4px solid var(--p300); }   /* not italic: the face has no italic ʻokina */
+.nx-iss { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+@media (prefers-reduced-motion: reduce) { .nx-moments li { animation: none; } }
