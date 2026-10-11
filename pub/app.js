@@ -25,12 +25,12 @@ const lazy = (key, load, o = {}) => {
 // The layout test (R-187, pub/variant.js 'layout'): a browser on version A gets its Home and its bill page (pub/a/), which
 // draw today's screens wherever version A has nothing of its own; every other screen is the same in both. The version is
 // read as the module loads and kept for the page load (variant.js pins it), so the two never mix on one page.
-// The layout test's version A is the calm Home since 10/10 (R-222 Direction 1, pub/calm/home.js); it compares Home only, so
-// the bill page and the tabs are today's on both versions. R-071's Layout A (pub/a/: its Home, its bill page, "You") stays
-// reachable on the practice copy with &olda, for the compare page beside the two.
-const layoutA = () => armOf('layout') === 'a';
-const oldA = () => layoutA() && DEMO && /[?&]olda\b/.test(location.search);
-const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : layoutA() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
+// Since 11 Oct (R-222) the test has three versions and the calm Home is the first, everyone's Home while the test is off
+// (pub/calm/home.js, Direction 1: today's bill page and tabs); 'today' is the Home as it was before, and 'a' is R-071's
+// Layout A from September (pub/a/: its Home, its bill page, "You").
+const oldA = () => armOf('layout') === 'a';
+const calmHome = () => armOf('layout') === 'calm';
+const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
@@ -233,9 +233,8 @@ export function render() {
   try { draw.wire && draw.wire(route); } catch (e) { console.error(e); }
   helperMod?.wire();
   wireFrame();
-  // The layout test (R-187) is met where its two versions differ on screen: since R-222 only Home, in session with something
-  // followed once the first visit is behind them (the calm Home's .cm-met, or today's everyday one; the bill page is the
-  // same on both now).
+  // The layout test (R-187) is met where its versions differ on screen: Home, in session with something followed once the
+  // first visit is behind them (the calm Home's .cm-met, version A's .ah, or today's everyday one).
   if (styled && route.name === 'home' && $app().querySelector('#main .cm-met, #main .ah, #main .hm-follow:not(.hm-welcome)')) abSeen('layout');
   if (keep && !document.querySelector('dialog[open]')) { const el = findByKey(keep); if (el && el !== document.activeElement) el.focus({ preventScroll: true }); }
   // Screen changes move focus to the page for screen readers (not on re-renders of the same screen).
