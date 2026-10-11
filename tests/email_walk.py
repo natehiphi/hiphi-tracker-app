@@ -267,6 +267,70 @@ with sync_playwright() as pw:
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()
 
+    # ---- 7b. R-172 (Nate 10/10: "The blank 'why these issues matter to you' is difficult because someone picked many issues.
+    #      Rethink this part. The email should autofill a 'mahalo' or 'thank you' if nothing is picked."): the hello names ONE
+    #      issue, picked from the ones they follow (the first picked to start); the reason is optional and a thank-you line
+    #      closes the letter when it is blank; one issue leaves nothing to pick; the legislators page writes the same letter ----
+    many = [snap['issues'][0]['id'], snap['issues'][20]['id'], snap['issues'][50]['id']]
+    def hello(wide, follow, extra=''):
+        c, p = ctx(br, wide); follower(p, pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(follow)}));" + extra); visit(p, '/')
+        p.evaluate("localStorage.removeItem('hiphi_intro')"); visit(p, '/')
+        p.locator('[data-sp="intro"] [data-speak-intro]').click(); p.wait_for_timeout(900)
+        return c, p
+    chips = lambda p: p.evaluate("[...document.querySelectorAll('#hp-dlg [data-hp=\"topic\"]')].map(b => [b.dataset.v, b.getAttribute('aria-pressed'), b.innerText.trim()])")
+    see = lambda p: (p.evaluate("[...document.querySelectorAll('#hp-dlg button')].find(b => /See my email/.test(b.innerText)).click()"), p.wait_for_timeout(600))
+    BAD = ['[', 'undefined', 'null', '\n\n\n', '  ']
+    for wide in (False, True):
+        tag = 'hello_' + ('laptop' if wide else 'phone')
+        # many issues: a chip each, the first one picked; one tap picks another, and the letter names only that one
+        c, p = hello(wide, many); ch = chips(p)
+        check(len(ch) == 3 and ch[0][1] == 'true' and sum(x[1] == 'true' for x in ch) == 1, f'{tag}: many issues, a chip each, one picked to start ({[x[2][:16] for x in ch]})')
+        other = ch[2]
+        p.locator(f'#hp-dlg [data-hp="topic"][data-v="{other[0]}"]').click(); p.wait_for_timeout(300)
+        check(chips(p)[2][1] == 'true' and chips(p)[0][1] == 'false', f'{tag}: one tap changes the pick')
+        p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'My mom pays too much for her medicine.')
+        p.locator('#hp-topic-l').scroll_into_view_if_needed(); shot(p, f'{tag}_hello_0_pick')
+        see(p); letter = p.input_value('#hp-letter')
+        check(f'The health issue that matters most to me: {other[2]}.' in letter and f'matters most to me: {ch[0][2]}' not in letter and ch[0][2] in letter.split('I also follow')[-1],
+              f'{tag}: the letter names only the picked issue, the others in one line')
+        check('My mom pays too much for her medicine.' in letter and 'Where do you stand on it?' in letter, f'{tag}: their reason and the one question are in it')
+        shot(p, f'{tag}_hello_1_letter_reason'); c.close()
+        # no reason: nothing blank, nothing in brackets, the thank-you line closes it, and the question is still asked
+        c, p = hello(wide, many); p.fill('#hp-name', 'Kai Ho'); see(p); letter = p.input_value('#hp-letter')
+        check('Mahalo for your work for our district.\nKai Ho' in letter and 'My mom' not in letter, f'{tag}: no reason, the letter closes with the thank-you line')
+        check(not any(t in letter for t in BAD) and 'Where do you stand on it?' in letter, f'{tag}: no reason, no blank or placeholder, the question still asked')
+        shot(p, f'{tag}_hello_2_letter_noreason'); c.close()
+        # a sign-off of their own replaces the thank-you line
+        c, p = hello(wide, many); p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-closing', 'Sincerely'); see(p); letter = p.input_value('#hp-letter')
+        check('Sincerely,\nKai Ho' in letter and 'Mahalo for your work' not in letter, f'{tag}: their own sign-off is used instead of the thank-you line')
+        c.close()
+        # one issue followed: nothing to pick, the letter names that one issue
+        c, p = hello(wide, [many[0]])
+        check(chips(p) == [] and 'The issue that matters most to you' not in dlg(p), f'{tag}: one issue followed, no picking step')
+        p.fill('#hp-name', 'Kai Ho'); see(p); letter = p.input_value('#hp-letter')
+        check(f'The health issue that matters most to me: {snap["issues"][0]["name"]}.' in letter and 'I also follow' not in letter, f'{tag}: one issue is named, no other line')
+        c.close()
+        # six issues: four show (the one picked among them), "Show all" opens the rest, and a pick made among the hidden ones stays shown
+        six = [i['id'] for i in snap['issues'][0:6]]
+        c, p = hello(wide, six); n0 = len(chips(p))
+        check(n0 == 4 and p.locator('#hp-topic-all').count() == 1 and 'Show all 6 issues' in dlg(p), f'{tag}: six issues, four show and "Show all 6 issues" opens the rest ({n0})')
+        p.locator('#hp-topic-all').click(); p.wait_for_timeout(300)
+        allc = chips(p); check(len(allc) == 6, f'{tag}: Show all lists all six ({len(allc)})')
+        hidden = allc[-1]; p.locator(f'#hp-dlg [data-hp="topic"][data-v="{hidden[0]}"]').click(); p.wait_for_timeout(300)
+        p.locator('#hp-topic-all').click(); p.wait_for_timeout(300)
+        vis = chips(p)
+        check(len(vis) == 4 and any(x[0] == hidden[0] and x[1] == 'true' for x in vis), f'{tag}: a pick made among the hidden ones stays shown when the list closes')
+        c.close()
+        # the legislators page writes the same letter, with the reason and sign-off given in the walkthrough (people.js, hello.js)
+        c, p = ctx(br, wide); follower(p, pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(many)}));"
+          + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho', introWhy: 'My mom pays too much for her medicine.' }));"); visit(p, f"/legislator/{sen['id']}")
+        p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
+        pl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
+        check(pl.startswith(f'Aloha Senator {sen["last"]}') and 'My mom pays too much for her medicine.' in pl and 'Mahalo for your work for our district.' in pl and not any(t in pl for t in BAD),
+              f'{tag}: the legislators page writes the same letter, with the reason, and no placeholder')
+        check(not p.errs, f'{tag}: no page errors {p.errs}')
+        c.close()
+
     # ---- 8. R-141: the points box (Nate 10/4: "selecting talking points should show up in an editable box that they can
     # see. It shouldn't be on a different page.") ----
     pts_text = lambda p: p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-pt .hp-ptt')].map(e => e.innerText.trim())")

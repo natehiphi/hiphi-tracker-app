@@ -45,7 +45,7 @@
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
-  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, followedIssues, alive, CHAMBER_NAME, dayWord } from './core.js';
+  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
@@ -58,6 +58,7 @@ import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor
 import { pickTitle, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
+import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, THANKS } from './hello.js';   // the hello letter, shared with people.js (R-172)
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -73,8 +74,8 @@ const openMark = {
 
 // ---------------- the letter ----------------
 // Public Access Room order (lrb.hawaii.gov/par, tips on testimony): address the chair, vice chair and members;
-// position first; who you are; what the bill does; your own reason; the ask; mahalo. Short on purpose.
-const sentence = s => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t && !/[.!?…"”)]$/.test(t) ? t + '.' : t; };
+// position first; who you are; what the bill does; your own reason; the ask; mahalo. Short on purpose. (sentence and
+// closingOf live in hello.js, next to the hello letter, and are imported above.)
 // HIPHI's plain summary; else the first sentence of the official description. Never the "Relating to" title.
 // Both go through core's cleanDesc, so a drafting note ("Effective 7/1/3000. (SD1)") can never reach a letter that
 // someone sends to the Legislature under their own name.
@@ -126,8 +127,7 @@ const headingFor = (word, n) => word === 'COMMENTS' ? `Comments on ${n}` : word 
 // HIPHI's own position as the person's default when they have said nothing either way.
 const hiphiStance = b => /oppose/.test(b.hiphi_position || '') ? 'oppose' : /support/.test(b.hiphi_position || '') ? 'support' : 'comments';
 // The sign-off is the person's own (Nate 9/28: "the closing shouldn't be automatically generated"): whatever they wrote,
-// with a comma, and their name under it. Nothing written: just the name.
-const closingOf = c => { const t = String(c || '').replace(/\s+/g, ' ').trim(); return t && !/[,.!]$/.test(t) ? t + ',' : t; };
+// with a comma, and their name under it. Nothing written: just the name (the hello letter has its own thank-you line; hello.js).
 // The letter's top: what it is, to which committee, for which hearing. A letter sent again gets a new one (R-148).
 function headBlock(b, h, stance) {
   const n = spaced(b.bill_number), room = roomLabel(h.room), ours = sameAsHiphi(b, stance);
@@ -179,7 +179,9 @@ function letterFor(b, h, o) {
     [closingOf(closing), String(name).trim()].filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n');
 }
-const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), ownPoints(x), (x.closing || '').trim(), x.stance || '', twoFor(x), !!x.noLive, !!x.noWhy]);
+// The hello's issue (x.topic) is part of what the letter says, so a changed pick makes an edited letter "stale" like the rest.
+const basisOf = x => JSON.stringify([x.name.trim(), x.why.trim(), ownPoints(x), (x.closing || '').trim(), x.stance || '', twoFor(x), !!x.noLive, !!x.noWhy,
+  ...(x.mode === 'intro' ? [x.topic || ''] : [])]);
 
 // ---------------- the emails (R-079, R-080) ----------------
 // Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
@@ -189,13 +191,7 @@ const chairsTo = code => chairContacts(code).map(c => ({ greet: `Chair ${c.last}
 const legSurname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
 export const legTo = (l, role = '') => ({ greet: `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${legSurname(l)}`, label: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`,
   role: role || `Your ${l.chamber === 'S' ? 'senator' : 'representative'}, ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, email: l.email || '', url: l.capitol_url || '', leg: l, phone: l.phone || '' });
-const andList = xs => xs.length <= 1 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-// "House District 22", or "Senate District 11 and House District 22": where they live, never the street (their address
-// was never kept). Only the districts of the people this email goes to.
-function districtWords(to) {
-  const ds = to.map(t => t.leg).filter(Boolean).sort((a, b) => a.chamber === 'S' ? -1 : b.chamber === 'S' ? 1 : 0).map(l => `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`);
-  return andList([...new Set(ds)]);
-}
+// andList and districtWords ("House District 22", where they live, never the street) come from hello.js, imported above.
 const verbFor = stance => stance === 'oppose' ? 'hold' : stance === 'support' ? 'pass' : 'consider';
 // The committee's next deadline for a bill waiting for a hearing ("Mar 6"), when it has one.
 const hearingBy = b => { const dl = stopOf(b).deadline; return dl && !dl.missed ? dateLong(dl.date + 'T12:00:00-10:00') : ''; };
@@ -221,7 +217,7 @@ function mailAsk(x, n, stance) {
 function mailSubject(x) {
   const { mode, b, h } = x, stance = x.stance || (b ? hiphiStance(b) : 'comments');
   // R-172: a question, so the office has a reason to open it and to answer.
-  if (mode === 'intro') return `A question from your constituent in ${districtWords(x.to) || 'your district'}`;
+  if (mode === 'intro') return helloSubject(x.to, !x.noLive);
   if (x.remind) { const dl = hearingBy(b), n = spaced(b.bill_number), st = x.stance || hiphiStance(b), d = dl.replace(/^[A-Za-z]+, /, '');
     return st === 'oppose' ? `${n}: please let it rest` : st === 'support' ? `${n}: please hear it${d ? ` by ${d}` : ''}` : `${n}: my comments${d ? ` before ${d}` : ''}`; }
   const n = spaced(b.bill_number), m = x.moment || {};
@@ -244,17 +240,6 @@ function reminderLetter(x) {
     `${before} I am writing once more because ${dl ? `its deadline is ${dl}` : 'its deadline is near'}.`, sentence(x.why), ask,
     [closingOf(x.closing), name].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
-// A bill in the introduction: "HB 1523 (Disposable e-cigarette ban)".
-const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
-// What the introduction lists (R-080 C): the issues they follow, the bills they took a stand on, and, as "following",
-// up to five more live bills on those issues (a long list of numbers is noise to a legislator's office).
-export function introFacts() {
-  const all = [...new Map([...S.bills, ...Object.values(S.extra || {})].map(b => [b.id, b])).values()];
-  const st = id => (S.stances || {})[id];
-  const support = all.filter(b => st(b.id) === 'support'), oppose = all.filter(b => st(b.id) === 'oppose');
-  const following = all.filter(b => S.watch.has(b.id) && !st(b.id) && alive(b) && posInfo(b));
-  return { issues: followedIssues().map(i => i.name), support, oppose, following: following.slice(0, 5), moreFollowing: Math.max(0, following.length - 5) };
-}
 function mailLetter(x) {
   const { b, to } = x, name = String(x.name).trim(), why = x.noWhy && !(b && own2For(b, x.stance || hiphiStance(b))) ? '' : sentence(x.why), close = [closingOf(x.closing), name].filter(Boolean).join('\n');
   const dear = `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`, where = districtWords(to), two = twoFor(x);
@@ -262,25 +247,11 @@ function mailLetter(x) {
   // happens to be their own senator or representative; anyone else does not.
   const d = myDistricts(), isMine = l => !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
   const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
-  // R-172 (Nate 10/5: "too stiff. It serves no serious benefit. Rethink that language"): a short, warm note from a
-  // constituent with one purpose an office acts on. It names the one issue the person cares about most (the issue of a bill
-  // they took a stand on, else the first they follow), their reason in their own words, at most one bill, and one plain
-  // question that invites a reply. Lists of bill numbers read as a form letter and were dropped; the other issues they
-  // follow get one short line.
-  if (x.mode === 'intro') {
-    const f = introFacts(), off = sessionInfo().phase !== 'in';
-    const stood = f.support[0] || f.oppose[0] || null, issueOfStood = stood ? issuesOf(stood).find(i => f.issues.includes(i.name)) || issuesOf(stood)[0] : null;
-    const top = issueOfStood ? issueOfStood.name : f.issues[0] || '';
-    const others = f.issues.filter(n => n !== top).slice(0, 2);
-    const billLine = stood ? (f.support.includes(stood) ? `${billWords(stood)} would help, and I support it.` : `I oppose ${billWords(stood)}.`) : '';
-    return [dear.replace(/^Dear /, 'Aloha '),
-      `I’m ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''},` : ','} and I live in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}.`,
-      top ? `The health issue that matters most to me: ${top}. ${billLine}`.trim() : 'I care about the health of our community, and I follow the health bills that come before you.',
-      why,
-      top ? `Where do you stand on it? I’d be grateful to hear back${off ? ' before the session opens in January' : ''}.` : `What health issues are you working on${off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`,
-      others.length ? `I also follow ${andList(others)}.` : '',
-      close].filter(Boolean).join('\n\n');
-  }
+  // R-172 (Nate 10/5: "too stiff. It serves no serious benefit. Rethink that language"; Nate 10/10: one issue, and a thank-you
+  // when there is no reason): the letter is written by hello.js, the same function the legislators page uses. It names the
+  // one issue the person picked (x.topic; the first they follow by default), their reason if they gave one, and one plain
+  // question that invites a reply. The other issues they follow get one short line.
+  if (x.mode === 'intro') return helloLetter({ to, name, titles: two, own: !x.noLive, where, reason: x.noWhy ? '' : x.why, closing: x.closing, facts: helloFacts(x.topic) });
   const n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), ours = sameAsHiphi(b, stance);
   const mine = x.mode === 'legislators' || own, ownWhere = x.mode === 'legislators' ? where : districtWords(ownTo);
   const me = mine ? `My name is ${name}, and I live in your district${ownWhere ? ` (${ownWhere})` : ''}.` : `My name is ${name}.`;
@@ -390,7 +361,7 @@ function openMail(o = {}) {
   // is offered, never filled in (R-156 B3).
   const me = loadMe(), mineWhy = (b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : ''), saved = mineWhy ? null : storyFor(catsOf(mode === 'intro' ? null : b));
   const x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '',
-    why: mineWhy || saved?.text || '', points: [], pointsText: '',
+    why: mineWhy || saved?.text || '', topic: mode === 'intro' ? me.introIssue || '' : '', points: [], pointsText: '',
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: false,
     whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
     letter: '', subject: '', edited: false, basis: '', errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
@@ -408,6 +379,7 @@ function openMail(o = {}) {
   if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
     // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
     x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!(d.edited && d.letter); x.noLive = !!d.noLive; x.noWhy = !!d.noWhy;
+    if (mode === 'intro' && d.topic) x.topic = d.topic;
     x.letter = x.edited ? d.letter : letterOf(x); x.basis = x.edited ? d.basis || '' : basisOf(x);
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
   }
@@ -633,7 +605,8 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (x.screen === 2 || x.screen === 'mail') mail[k] = { screen: x.screen, stance: x.stance, letter: x.edited ? x.letter : '', edited: x.edited, basis: x.basis, why: x.why,
-      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString() };
+      points: x.points, pointsText: x.pointsText, subject: x.subject, opened: x.opened || '', again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, at: new Date().toISOString(),
+      ...(x.mode === 'intro' ? { topic: x.topic || '' } : {}) };
     else if (mail[k]) mail[k] = { ...mail[k], points: x.points, pointsText: x.pointsText, stance: x.stance, at: new Date().toISOString() };
     saveMe({ mail });
     return;
@@ -952,23 +925,43 @@ function aboutScreen() {
       <div class="hp-tp" id="hp-tp-host">${titlesStep(x)}</div>
       <div id="hp-tp-after">${titlesAfter(x)}</div>
       ${email}
-      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : `${x.mode === 'intro' ? 'Why these issues matter to you' : 'Why it matters to you'} <span class="hp-opt">(optional)</span>`}</label>
-        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : esc(storyAsk(!!x.b))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
+      ${x.mode === 'intro' ? topicPick() : ''}
+      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : 'Why it matters to you'} <span class="hp-opt">(optional)</span></label>
+        <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : x.mode === 'intro' ? 'For example: my mom’s prescriptions cost more every year.' : esc(storyAsk(!!x.b))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${whyHelp(x)}</span>
         ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about “${topicName(x.offer.topic)}”`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
         ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
           <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''}</span>` : ''}</div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
-        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Mahalo" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="${x.mode === 'intro' ? esc(THANKS) : 'Mahalo'}" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
-        <span class="help" id="hp-closing-help">Your name goes under it.</span></div>
+        <span class="help" id="hp-closing-help">${x.mode === 'intro' ? `Left empty, the letter says “${esc(THANKS)}”` : 'Your name goes under it.'}</span></div>
     </form>`;
 }
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
 function whyHelp(x) {
   const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
   if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, from your profile. Change it to fit this bill.`;
+  if (x.mode === 'intro') return 'One or two sentences in your own words. Leave it empty if you like.';
   return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.';
+}
+// The one issue the hello names (R-172, Nate 10/10: "someone picked many issues"): picked from the issues they follow, the
+// letter's default already chosen, one tap to change it. Following one issue leaves nothing to pick, so no step. A whole
+// topic can follow fifteen issues, so the first few show with the one picked, and "Show all" opens the rest.
+const TOPIC_SHOWN = 4;
+function topicPick() {
+  const x = S.helper, f = helloFacts(x.topic);
+  if (f.issues.length < 2) return '';
+  const many = f.issues.length > TOPIC_SHOWN && !x.topicAll;
+  let shown = f.issues;
+  if (many) { shown = f.issues.slice(0, TOPIC_SHOWN); if (f.top && !shown.some(i => i.id === f.top.id)) shown = [...shown.slice(0, TOPIC_SHOWN - 1), f.top]; }
+  const chips = shown.map(i => `<button type="button" class="chip hp-sug" data-hp="topic" data-v="${esc(i.id)}" aria-pressed="${f.top?.id === i.id}">${esc(i.name)}</button>`).join('');
+  const toggle = f.issues.length > TOPIC_SHOWN ? btn(x.topicAll ? 'Show fewer' : `Show all ${f.issues.length} issues`, { kind: 'text', sm: true, icon: x.topicAll ? 'chevron-up' : 'chevron-down',
+    cls: 'hp-inl', attrs: { 'data-hp': 'topicall', id: 'hp-topic-all', 'aria-expanded': String(!!x.topicAll) } }) : '';
+  return `<div class="field hp-topic" role="group" aria-labelledby="hp-topic-l" aria-describedby="hp-topic-help">
+    <p class="hp-knh" id="hp-topic-l">The issue that matters most to you</p>
+    <div class="hp-sugs">${chips}</div>${toggle ? `<div class="hp-more">${toggle}</div>` : ''}
+    <span class="help" id="hp-topic-help">Your letter names this one, and lists up to two others in one line.</span></div>`;
 }
 // Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it. Short and plain, the
 // same for testimony and emails (Nate 10/5, R-157: "much simpler. mahalo, thank you, sincerely, etc.").
@@ -1658,6 +1651,13 @@ function onClick(e) {
     if (el) { el.value = x.closing; el.focus({ preventScroll: true }); }
     dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === x.closing)));
   }
+  else if (a === 'topic') {
+    // The one issue the hello names (R-172): remembered on this device, like the reason, and said out loud for screen readers.
+    const x = S.helper; x.topic = t.dataset.v; saveMe({ introIssue: x.topic }); saveDraft();
+    dlg.querySelectorAll('[data-hp="topic"]').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === x.topic)));
+    announce(`Your letter will name ${helloFacts(x.topic).top?.name || 'this issue'}.`);
+  }
+  else if (a === 'topicall') { const x = S.helper; x.topicAll = !x.topicAll; paint({ focus: 'hp-topic-all' }); }
   else if (a === 'acct-yes' || a === 'acct-done') { saveMe({ capitolAcct: true }); goNext(); }
   else if (a === 'acct-no') { S.helper.acctNew = true; saveDraft(); paint({ focus: 'hp-sh' }); }
   else if (a === 'acct-help') { S.helper.acctHelp = true; paint(); }
