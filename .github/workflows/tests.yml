@@ -22,7 +22,7 @@ concurrency:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30   # 20 stopped the run in its last step on 10/11 once the step tests and the density check joined (R-240)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -96,9 +96,9 @@ jobs:
         run: node tools/words_extract.mjs --check
       - name: "The tracker in other languages: the machinery, with a made-up language (R-166 step 3)"
         run: python3 tests/i18n.py
-      - name: Staff v2, R-180 wave 3: new hearings, the rallying path, saves that say what they did (X10-3, X10-5, X10-6)
+      - name: "Staff v2, R-180 wave 3: new hearings, the rallying path, saves that say what they did (X10-3, X10-5, X10-6)"
         run: python3 tests/staff_x10.py
-      - name: The step tests: thirteen journeys within budget and working (X10-7)
+      - name: "The step tests: thirteen journeys within budget and working (X10-7)"
         run: python3 tests/journeys.py
       - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
         run: python3 tests/setup_expected.py
