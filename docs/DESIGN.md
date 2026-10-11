@@ -631,7 +631,11 @@ The end of the first visit is
 the peak: the recap of everything the person did, with the petals and the flowers. Orange is the
 celebration colour and is used for these and almost nowhere else. Never a streak counter, a badge, a
 score, or a progress bar that implies homework. (Rewritten 9/21 for R-023, Nate's decision 4: "add
-more celebration animations at different stages".)
+more celebration animations at different stages".) **The daily game is the one exception (R-231, Nate 10/11: "Yes
+exception to streak"):** inside the game only, a streak, a score out of three, the result marks and team ranks are allowed,
+because they are the game. Any finished kuleana card keeps the streak, streak freezes cover a missed day, and none of it
+appears anywhere else in the tracker. The text a player copies to share may use emoji (Nate 10/11); the page itself still
+follows A-11.
 
 *Reason.* Nate's words are "joyous" and "more celebration at different stages"; celebration works
 because the rest of the app is calm, so each one is sized to what was done, and the biggest comes
