@@ -16,7 +16,7 @@ import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead, askReach } from './model.js';
 import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
-import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance } from './issues.js';
+import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance, issueLinkHref } from './issues.js';
 import { billRoute } from './model.js';
 import { askConflict } from './conflict.js';
 
@@ -91,7 +91,7 @@ function issuesSection(b) {
   return `<section class="bw-sec" aria-labelledby="bw-iss-h">
     <h2 id="bw-iss-h">Issues</h2>
     <p class="small muted">${esc(say + also)}</p>
-    ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><a class="bw-issname" href="#/issue/${encodeURIComponent(i.id)}">${esc(i.name)}</a>
+    ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><a class="bw-issname" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a>
       ${stanceChip(i, { 'data-isstance': i.id })}${iconBtn('x', `Take it off ${i.name}`, { 'data-issoff': i.id })}</li>`).join('')}</ul>` : ''}
     <div class="chips bw-issues">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div>
   </section>`;

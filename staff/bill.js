@@ -23,13 +23,15 @@ import { sittingOf, goersOf, agendaOf } from './hearing.js';
 import { billRoute, billByNum, MEMO_SAYS } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
+import { issuesOfBill, issueLinkHref } from './issues.js';
+import { dayOf } from './standing.js';
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
 export const nameOrYou = a => a ? (a.id === S.me?.id ? 'You' : firstName(a)) : 'No one';
 export const andList = arr => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
-// "Wed 3/18": the weekday rides along so nobody has to work it out.
-export const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
+// "Wed 3/18" (standing.js, shared with the issue and coalition pages): re-exported for public.js.
+export { dayOf };
 // "RELATING TO YOUTH MENTAL HEALTH." -> "Youth mental health": the subject is the bill's name to staff.
 export function plainTitle(b) {
   let t = String(b.title || '').trim().replace(/\.$/, '').replace(/^RELATING TO\s+(THE\s+)?/i, '');
@@ -266,8 +268,11 @@ const followers = b => {
 const followText = b => andList(followers(b).map(a => a.id === S.me?.id ? 'You' : firstName(a)));
 // Muted is the one flag left beside the pickers: "Following" is said by the Following line, with everyone else (A-14).
 const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
-// Phones: a row of chips under the status sentence.
-const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}</div>`;
+// The issues a bill is on (R-226, Nate 10/10): a quiet chip each, to the issue's page. The link says which bill it came
+// from, so the issue's Back link returns here. The Overview's Details names them again in words (issuesRow).
+const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>Issue: ${esc(i.name)}</span></a>`).join('');
+// Phones: a row of chips under the status sentence, the pickers first and then the issues.
+const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.
 const teamCard = b => { const f = followText(b);
@@ -745,6 +750,9 @@ function whereLines(b) {
 }
 const capitolLink = b => `<a class="bw-inline" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page${icon('external-link')}</a>`;
 const copyLinkBtn = '<button type="button" class="linkbtn bw-inline" data-copylink="1">Copy link</button>';
+// The issues in Details (R-226): the header's chips again, in words, so a reader of the Overview sees them too.
+const issuesRow = b => { const iss = issuesOfBill(b.id);
+  return `<div class="bw-dt"><dt>${iss.length > 1 ? 'Issues' : 'Issue'}</dt><dd>${iss.length ? iss.map(i => `<a class="bw-inline" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a>`).join(', ') : '<span class="muted">None yet</span>'}</dd></div>`; };
 // Details: every fact about the bill in one place, on a phone and on a desktop alike. The side panel used to keep a
 // second copy of some of them ("Key facts"), which made the panel taller than the window; one place per fact instead.
 function detailsSection(b) {
@@ -763,6 +771,7 @@ function detailsSection(b) {
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">
       ${w.cm}
+      ${issuesRow(b)}
       <div class="bw-dt"><dt>Referrals</dt><dd>${referralsHTML(b)}${stops}</dd></div>
       ${dl ? `<div class="bw-dt"><dt>Next deadline</dt><dd>${esc(gateName({ phase: dl.key, label: dl.label }))}, ${esc(dayOf(dl.date + 'T12:00:00-10:00'))} ${dl.missed ? '<span class="bw-late">' + icon('circle-alert') + 'missed</span>' : daysLeft(dl) + `<span class="bw-gloss">It must ${esc(gateNeed(dl.label))}.</span>`}</dd></div>` : ''}
       ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
@@ -954,8 +963,11 @@ function stageSet(b) {
 }
 function headHTML(b, { chips }) {
   const nick = String(b.nickname || '').trim(), sum = summaryOf(b);
+  const num = `<h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>`;
+  // On a desktop the issues sit on the number's line (R-226), not in a row of their own: the sticky header stays the height it was.
+  const iss = chips ? '' : issueChips(b);
   return `<header class="bw-head">
-    <h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>
+    ${iss ? `<div class="bw-numrow">${num}<div class="bw-chips bw-ichips">${iss}</div></div>` : num}
     <p class="bw-title${nick || !sum ? '' : ' bw-long'}">${esc(billName(b))}</p>
     ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
     <div class="bw-ribwrap${b.stage_override ? ' bw-ribset' : ''}">${stageRibbon(b)}${stageSet(b)}</div>

@@ -5,19 +5,21 @@
 // is where the list is kept: rename, describe, move, recommend, merge two that are really one, archive, and put bills
 // on issues (also from a bill's Public tab, and from the queue below).
 // The index leads with what would otherwise go unnoticed: position bills this session that no issue carries, which
-// nobody following issues would ever hear of. #/issue/:id is one issue: its bills, its followers and its ⋯ menu, laid
+// nobody following issues would ever hear of. #/issue/:id is one issue (a person comes here to see where it stands and
+// what each of its bills needs, R-226, B-1): where it stands, its bills, its followers and its ⋯ menu, laid
 // out like a list's page. Its "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first
 // visit only. Its "Related issues" (095, R-094) are the issues whose bills a follower of this one is shown first. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
 // Getting the issues ready for 2027 (091, R-088) is prep.js: ?view=mine is My issues, ?view=prep the admins' board, and
 // the prep card on an issue's page. A new issue is a draft the public never sees until an admin publishes it.
-import { S, DB, SESSION_YEAR, hooks, esc, advocate, fmtDate } from './data.js';
-import { billById, billNum, plain, PUBLIC_APP } from './model.js';
-import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip } from './ui.js';
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
+import { billById, billNum, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead } from './model.js';
+import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf } from './ui.js';
 import { plural, pageHead, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
 import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, indexLinks, isDraft } from './prep.js';
-import { billRoute } from './model.js';
+import { testimonyOf, dueOf } from './hearing.js';
+import { isPos, dayOf, dueWhen, waitingOfBills, GROUPS, groupKey } from './standing.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -27,6 +29,10 @@ const byName = (a, b) => a.name.localeCompare(b.name);
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
 export const alsoIn = i => (S.issueCats || []).filter(x => x.issue_id === i.id && x.category !== i.category).map(x => x.category);
 export const issuesOfBill = billId => { const on = new Set((S.billIssues || []).filter(x => x.bill_id === billId).map(x => x.issue_id)); return live().filter(i => on.has(i.id)).sort(byName); };
+// A link from a bill to one of its issues names the bill (R-226): the issue's Back link then returns to that bill, and
+// billFrom reads the name back from the address. Without it (the catalogue, a shared link) Back goes to Issues.
+export const issueLinkHref = (i, b) => `#/issue/${encodeURIComponent(i.id)}?from=${encodeURIComponent(billRef(b))}`;
+export const billFrom = route => { const ref = route?.q?.from; return ref ? billByRef(ref) || null : null; };
 const billsOn = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => billById(x.bill_id)).filter(Boolean);
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 // Whether a bill reaches the people who follow its issues: the database's own test (follow_set, 063).
@@ -293,14 +299,65 @@ function hitsHTML(i, q) {
   if (!rows.length) return `<p class="le-none">No tracked bill matches “${esc(q.trim())}”.</p>`;
   return `<div class="rows le-hits" role="listbox" id="is-hitlist" aria-label="Tracked bills that match">${rows.map((b, k) => `<div class="row le-hit" role="option" id="is-hit-${k}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body">${billName(b, 90)}</span></div>`).join('')}</div>`;
 }
+// The deadline's words, as the coalition and Today say them: "14 days left", "last day today"; and its day, "Mon 3/30".
+const leftWord = dl => dl.days <= 0 ? 'last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
+const dayAt = d => dayOf(d + 'T12:00:00-10:00');
+// A bill's line on this issue's page (R-226): where it stands in one line, in the words the bill page uses (its stage, the
+// committee, the next hearing or the deadline with the days left, the testimony for that hearing, and the owner). Built
+// from the same helpers as the bill page, Today and the coalition page, so the line cannot disagree with them.
+export function standLine(b) {
+  if (diedish(b)) return 'Did not advance';
+  const st = stopOf(b), h = hearingAhead(b), parts = [STAGE_LABEL[effStage(b)] || ''];
+  if (h) {
+    parts.push(`Hearing ${fmtDT(h.scheduled_at)}${h.committee ? ` · ${h.committee}` : ''}`);
+    // Testimony for that hearing, in the hearing page's words: due (not started), drafted or filed.
+    if (isPos(b)) { const t = testimonyOf(h, b); parts.push(t.filed ? 'Testimony filed' : t.word === 'not started' ? `Testimony due ${dueWhen(dueOf(h))}` : 'Testimony drafted'); }
+  } else if (st.deadline?.missed) parts.push(`Missed the ${st.deadline.label} deadline`);
+  else if (st.phase === 'committee' && st.deadline) {
+    const lead = riskOf(b) ? 'At risk: needs' : 'Needs';
+    parts.push(`${lead} a hearing${st.committee ? ` in ${st.committee}` : ''} by ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
+  } else if (st.deadline) parts.push(`${st.deadline.label} ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
+  else if (st.committee) parts.push(`In ${st.committee}`);
+  const who = ownerOf(b);
+  parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
+  return parts.filter(Boolean).join(' · ');
+}
 function billLine(i, b) {
   const why = whyNot(b);
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
+      ${thisSession(b) ? `<span class="is-bstat">${esc(standLine(b))}</span>` : ''}
       <span class="is-bmeta">${posChip(b.position || '')}${thisSession(b) ? '' : `<span class="meta">${esc(b.session_year)}</span>`}</span>
       ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a>
     ${iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id })}
   </li>`;
+}
+// Where the issue stands (R-226, Nate 10/10): the next hearing on any of its bills, the bills at risk before their deadline,
+// and how many are at each stage. The same helpers as the coalition page and the Bills page (standing.js). Between
+// sessions it is one line, as Today says it, rather than counts of nothing.
+function standHTML(i, now) {
+  if (SESSION_OVER) return `<section class="le-sec is-stand" aria-labelledby="is-sth"><div class="le-sechead"><h2 id="is-sth">Where it stands</h2></div>
+    <p class="small muted is-sone">Between sessions: hearings and deadlines come back when the next session opens.</p></section>`;
+  if (!now.length) return '';
+  const live = now.filter(b => b.tracked !== false);
+  const soonest = live.filter(isPos).map(b => ({ b, h: hearingAhead(b) })).filter(x => x.h).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at))[0];
+  // The next sitting, then the bills of this issue that are on it (the same sitting, not just the same day).
+  const hear = soonest ? (() => { const h = soonest.h, sitting = live.filter(b => { const x = isPos(b) && hearingAhead(b); return x && x.committee === h.committee && x.scheduled_at === h.scheduled_at; });
+    return `<a href="#/hearing/${encodeURIComponent(h.id)}">${esc(fmtDT(h.scheduled_at))}${h.committee ? ` · ${esc(h.committee)}` : ''}</a>${sitting.length ? ` · ${sitting.map(b => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a>`).join(', ')}` : ''}`; })() : 'None scheduled on its bills';
+  const w = waitingOfBills(live);
+  const risk = w.risk.length ? w.risk.slice(0, 3).map(({ b, st }) => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a> needs a hearing by ${esc(dayAt(st.deadline.date))}, ${esc(leftWord(st.deadline))}`).join(' · ')
+    + (w.risk.length > 3 ? ` and ${w.risk.length - 3} more` : '')
+    : w.next ? `None. The next deadline is ${esc(dayAt(w.next))}.` : 'None';
+  // Counted once per stage: "at risk" is a waiting bill, and its own line above names it.
+  const count = new Map(); for (const b of live) { const k = groupKey(b) === 'risk' ? 'wait' : groupKey(b); count.set(k, (count.get(k) || 0) + 1); }
+  const stages = GROUPS.filter(([k]) => k !== 'risk' && count.has(k)).map(([k, t]) => `${count.get(k)} ${t.charAt(0).toLowerCase()}${t.slice(1)}`).join(' · ');
+  return `<section class="le-sec is-stand" aria-labelledby="is-sth">
+    <div class="le-sechead"><h2 id="is-sth">Where it stands</h2></div>
+    <dl class="is-sdl">
+      <div class="is-sr"><dt>Next hearing</dt><dd>${hear}</dd></div>
+      <div class="is-sr"><dt>At risk</dt><dd>${risk}</dd></div>
+      <div class="is-sr"><dt>By stage</dt><dd>${esc(stages)}</dd></div>
+    </dl></section>`;
 }
 function pageRender(route) {
   const i = issueById(route.id);
@@ -311,8 +368,10 @@ function pageRender(route) {
   const fol = !f ? '<span class="meta">Counting followers…</span>'
     : `<span class="le-fol">${icon('users')}<span>${f.own ? plural(f.own, 'person follows', 'people follow') + ' it' : 'Nobody follows it on its own yet'}${f.via ? `; ${plural(f.via, 'more person gets', 'more people get')} it with a whole category` : ''}</span></span>`;
   const reachN = now.filter(b => !whyNot(b)).length;
+  // Opened from a bill, Back returns to that bill and says so (R-226); from the catalogue it goes to Issues.
+  const from = billFrom(route);
   return `<div class="le-page le-list is-page">
-    <a class="le-deskback" href="#/outreach/issues" data-back>${icon('chevron-left')}<span>Issues</span></a>
+    <a class="le-deskback" href="${from ? billRoute(from) : '#/outreach/issues'}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : 'Issues'}</span></a>
     <header class="le-lhead">
       <span class="le-licon">${icon(c?.icon || 'tag')}</span>
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
@@ -324,10 +383,7 @@ function pageRender(route) {
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
     ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}
-    ${prepCardHTML(i)}
-    ${isDraft(i) ? '' : `<section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
-      ${i.archived_at ? '' : switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')}
-      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>`}
+    ${standHTML(i, now)}
     <section class="le-sec" aria-labelledby="is-bh">
       <div class="le-sechead"><h2 id="is-bh">Bills</h2><span class="meta">${now.length ? `${plural(now.length, 'bill')} in ${SESSION_YEAR}${reachN < now.length ? ` · ${reachN} reach followers` : ''}` : ''}</span></div>
       <div class="le-add">
@@ -340,6 +396,10 @@ function pageRender(route) {
         : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
       ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
     </section>
+    ${prepCardHTML(i)}
+    ${isDraft(i) ? '' : `<section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
+      ${i.archived_at ? '' : switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')}
+      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>`}
     ${i.archived_at ? '' : relatedHTML(i)}
     ${convSectionHTML(convOpts(i))}
   </div>`;
@@ -457,7 +517,7 @@ async function archive(i, on) {
 export const issuePage = {
   tab: 'outreach',
   title: route => issueById(route.id)?.name || 'Issue',
-  back: () => ({ href: '#/outreach/issues', label: 'Issues' }),
+  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}` } : { href: '#/outreach/issues', label: 'Issues' }; },
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;

@@ -12,16 +12,10 @@ import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, t
 import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { billRoute, billRef } from './model.js';
+import { GROUPS, groupKey } from './standing.js';
 
-// ---- groups, in stage order ----
-const GROUPS = [['hear', 'Hearing scheduled'], ['risk', 'At risk: no hearing yet'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
-  ['done', 'At the governor or law'], ['mon', 'Monitoring'], ['dead', 'Did not advance']];
+// ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
-// The stand comes from factsOf, the same fact the filter counts use, so a group and its filter always agree.
-const groupKey = b => { const f = factsOf(b);
-  if (f.stand === 'dead') return 'dead';
-  if (b.position === 'monitor') return 'mon';
-  return f.stand === 'b' ? 'hear' : f.stand === 'a' ? (f.risk ? 'risk' : 'wait') : f.stand === 'done' ? 'done' : 'thru'; };
 const ST = new Map();   // stopOf per render: it filters every hearing, so each bill is worked out once
 const stOf = b => { let s = ST.get(b.id); if (!s) ST.set(b.id, s = stopOf(b)); return s; };
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
