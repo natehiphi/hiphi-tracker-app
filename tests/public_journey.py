@@ -81,7 +81,7 @@ with sync_playwright() as pw:
     ok(len(ids) == len(set(ids)), 'no issue is shown twice')
     ok(p.locator('[data-stmore]').count() == 0 and p.locator('.st-pcard[hidden]').count() == 0, 'no "Show more", nothing hidden')
     ticked_below = p.evaluate("[...document.querySelectorAll('[data-stsec] [data-stpick][aria-pressed=true]')].length")
-    ok(1 <= p.locator('[data-stpick][aria-pressed=true]').count() <= 4, 'a few of the most important start ticked, never all (B-12)')
+    ok(1 <= p.locator('[data-stpick][aria-pressed=true]').count() <= 4, 'one or two of each topic start ticked, four in all, never all (B-12, R-245; tests/ticks_per_topic.py)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     # Then the alerts, right after the issues and before the "Mahalo!" (R-146, Nate 10/4): a mobile number first, email as
     # a link under it. Here the email: the walk below greets them by the name asked after it.

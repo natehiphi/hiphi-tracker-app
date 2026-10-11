@@ -48,22 +48,24 @@ function model2() {
   // R-139 (Nate 10/5: "Do 1, 2, and 3 ... a total of 10 issues regardless of how many categories are picked"): no separate block of
   // top issues. Each topic's issues sit together under it, about ten in all, shared out one rank at a time across the topics so every
   // picked topic shows its best before any shows its second (the most important topic first). The rest of a topic is behind "Follow
-  // all", and every issue is on My issues later. The four most important of those shown are what starts ticked (B-12).
+  // all", and every issue is on My issues later. What starts ticked is below (R-245).
   per.forEach(p => { p.rows = []; p.open = S.stOpen[p.c.topicKey] ?? true; });
   for (let rank = 0, n = 0; n < ISSUE_TOTAL && per.some(p => p.full[rank]); rank++) for (const p of per) if (n < ISSUE_TOTAL && p.full[rank]) { p.rows.push(p.full[rank]); n++; }
-  const all = per.flatMap(p => p.rows), top = [...all].sort(byScore).slice(0, TOP_PICKS);
+  const all = per.flatMap(p => p.rows);
   // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
   let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
   if (!picks) {
-    // Ticked for you only where the person can see it, and only at the top (B-12): the staff-recommended and strongly
-    // supported among the four most important, else the first of them.
-    const pro = top.filter(x => x.promoted);
-    picks = { issues: (pro.length ? pro : top.slice(0, 1)).map(x => x.i.id), cats: [] };
+    // R-245 (Nate 10/11: "a max of 4 issues, or at minimum 1 per category and max of 2 per category"): each picked topic's
+    // best issue, then the second best of the topics, most important first, until four are ticked. Five or six topics
+    // picked tick one each (the one per topic wins over the four). Only issues on screen start ticked (B-12).
+    const firsts = per.map(p => p.rows[0]).filter(Boolean);
+    const seconds = per.map(p => p.rows[1]).filter(Boolean).sort(byScore).slice(0, Math.max(0, TOP_PICKS - firsts.length));
+    picks = { issues: [...firsts, ...seconds].map(x => x.i.id), cats: [] };
   }
   const catOn = new Set(picks.cats), issueOn = new Set(picks.issues);
   const ticked = x => issueOn.has(x.i.id) || x.i.categories.some(c => catOn.has(c));
   const count = new Set(all.filter(ticked).map(x => x.i.id)).size;
-  return { off, sig, sel, per, top, all, picks, catOn, issueOn, ticked, count, R };
+  return { off, sig, sel, per, all, picks, catOn, issueOn, ticked, count, R };
 }
 // One issue to follow. The whole card is the toggle (a real button). Where its description is cut, a small "What it
 // does" button opens it in place, on the card's bottom edge beside the toggle rather than inside it.
