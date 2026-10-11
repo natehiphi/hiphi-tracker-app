@@ -186,11 +186,15 @@ a.st-cu-go:hover { background: var(--p50); }
 .st-cu-meta { font-size: var(--t14); color: var(--n700); }
 .st-cu-dates { margin: var(--s4) 0 0; display: grid; gap: 4px; }
 .st-cu-dates > div { display: grid; gap: 0; }
-.st-cu-dates dt { font-size: var(--t14); font-weight: 700; color: var(--p800); }
+/* The labels are neutral, not blue: inside a card that is a link, blue bold text reads as a second link (A-5, A-12). */
+.st-cu-dates dt { font-size: var(--t14); font-weight: 700; color: var(--n700); }
 .st-cu-dates dd { margin: 0; font-size: var(--t16); color: var(--n900); }
 .st-cu-chev { position: absolute; top: var(--s16); right: var(--s12); width: 22px; height: 22px; color: var(--p700); }
 .st-cu-act { padding: 0 var(--s16) var(--s16); }
 .st-cu-act .btn { width: 100%; }
+/* A card that opens nothing (between sessions, the session's own date) has no blue edge or shadow of a tappable card (A-12). */
+.st-cu.st-cu-plain { border: 1px solid var(--n200); box-shadow: none; }
+.st-cu.st-cu-plain .st-cu-go { padding: var(--s16); }
 /* The one honest line where nothing is coming up: the place of the list, not an empty block. */
 .st-nothing { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16); border-radius: var(--r12); background: var(--p50); border: 1px solid var(--p200); }
 .st-nothing p { margin: 0; font-size: var(--t16); color: var(--n900); }

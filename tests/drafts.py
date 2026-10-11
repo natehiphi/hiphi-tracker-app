@@ -16,7 +16,11 @@ with sync_playwright() as p:
         # SB 2175 in the sandbox is at SD2 (16 March): SD2 leads, SD1 is below it, April's House and conference drafts never show
         pg.goto(BASE + '/track.html?demo=1#/bill/SB2175'); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(2500)
         sec = pg.locator('details.bl-drafts'); closed = sec.inner_text() if sec.count() else ''
-        ok(sec.count() == 1 and 'Draft history' in closed and 'How committees changed this bill’s text' in closed, f'{tag}: "Draft history" is one row with a one-line hint')
+        ok(sec.count() == 1 and 'Draft history' in closed and 'What each draft changed, newest first.' in closed and 'How committees' not in closed and 'Each note says' not in closed,
+           f'{tag}: "Draft history" is one card with one line of explanation (R-060, 10/10)')
+        ok(pg.evaluate("() => { const d = document.querySelector('details.bl-drafts'), m = document.querySelector('details.bl-more'); if (!d || !m) return false; const a = getComputedStyle(d), b = getComputedStyle(m); return a.borderTopColor === b.borderTopColor && a.borderRadius === b.borderRadius && a.boxShadow === b.boxShadow && a.paddingLeft === b.paddingLeft && a.marginTop === b.marginTop; }"),
+           f'{tag}: the same card as More details (border, corners, shadow, gutter, space above)')
+        ok(pg.evaluate("() => getComputedStyle(document.querySelector('details.bl-drafts > summary > .bl-drsum > span')).fontSize === '16px'"), f'{tag}: its heading is 16px, like its entries')
         ok(pg.locator('details.bl-drafts[open]').count() == 0 and 'Moved the ban' not in closed and 'Only wording' not in closed, f'{tag}: closed by default, no draft wording showing')
         ok(pg.evaluate("() => { const d = document.querySelector('details.bl-drafts'); return !!d && d.parentElement.lastElementChild === d && [...d.parentElement.children].slice(0, -1).every(k => k.getBoundingClientRect().bottom <= d.getBoundingClientRect().top + 1); }"),
            f'{tag}: it is the last thing on the page, below More details and the action area')

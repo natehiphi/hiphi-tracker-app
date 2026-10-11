@@ -412,16 +412,20 @@ function briefCmte(code) {
 function upcoming() {
   const off = isOff(), R = ranker(), out = [];
   if (off) {
-    const si = sessionInfo(), yr = si.recapYear, next = si.nextOpen;
+    const next = sessionInfo().nextOpen;
     // The day the session opens comes first: it is the one thing coming up between sessions (R-098, 10/5).
     if (next) out.push({ kind: 'soon', title: `The ${+next.slice(0, 4)} session`, label: 'Opens',
       value: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' }),
       line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.` });
+    // The session's date is said once, on its card above (R-098, 10/10): an issue's outlook can end "Watch for it when the
+    // 2027 session opens January 20.", which would repeat it on every card.
+    const dateSaid = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
+    const sayOnce = t => dateSaid ? t.replace(`opens ${dateSaid}`, 'opens') : t;
     // What happened on each issue they follow (R-067: the screen promised "What happened in 2026" and showed only laws):
-    // laws first, then the staff-edited outlook, three at most.
+    // laws first, then the staff-edited outlook, three at most. Labelled as what it is, not by year (the year is in the words).
     const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
-    for (const { i, x } of fol.slice(0, 3)) out.push({ kind: x.law ? 'ok' : 'soon', title: i.name, label: `In ${yr}`,
-      value: i.outlook || (x.law ? 'Became law' : 'Did not advance'), to: `#/issue/${i.slug}` });
+    for (const { i, x } of fol.slice(0, 3)) out.push({ kind: x.law ? 'ok' : 'soon', title: i.name, label: 'What happened',
+      value: i.outlook ? sayOnce(i.outlook) : (x.law ? 'Became law' : 'Did not advance'), to: `#/issue/${i.slug}` });
     return out;
   }
   // One row per followed issue: its soonest hearing in the next 7 days (the card names the bill, the committee and both dates).
@@ -460,7 +464,8 @@ function cuCard(it, k, now) {
     <dl class="st-cu-dates">${dates.map(([t, v]) => `<div><dt>${esc(t)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${it.line ? `<span class="st-cu-meta">${esc(it.line)}</span>` : ''}`;
   const card = it.to ? `<a class="st-cu-go" href="${esc(it.to)}">${inner}${icon('chevron-right', { cls: 'st-cu-chev' })}</a>` : `<div class="st-cu-go">${inner}</div>`;
   const act = hear && it === now ? `<div class="st-cu-act">${btn('Write testimony', { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${name}, due soon` } })}</div>` : '';
-  return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
+  // An item that opens nothing (the session's own date between sessions) is a plain note, not a link (A-12).
+  return `<li class="st-cu${it.to ? '' : ' st-cu-plain'}" style="--k:${k}">${card}${act}</li>`;
 }
 // The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
 const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
